@@ -70,6 +70,9 @@ type TestOptions struct {
 	// Additional service registries to use. A ServiceEntry and memory registry will always be created.
 	ServiceRegistries []serviceregistry.Instance
 
+	// Base ConfigController to use. If not set, a in-memory store will be used
+	ConfigController model.ConfigStoreController
+
 	// Additional ConfigStoreController to use
 	ConfigStoreCaches []model.ConfigStoreController
 
@@ -111,14 +114,16 @@ type ConfigGenTest struct {
 	Registry             model.Controller
 	initialConfigs       []config.Config
 	stop                 chan struct{}
+	MemServiceRegistry   serviceregistry.Simple
 }
 
 func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	t.Helper()
 	configs := getConfigs(t, opts)
-	configStore := memory.MakeSkipValidation(collections.PilotGatewayAPI)
-
-	cc := memory.NewSyncController(configStore)
+	cc := opts.ConfigController
+	if cc == nil {
+		cc = memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI))
+	}
 	controllers := []model.ConfigStoreController{cc}
 	if opts.CreateConfigStore != nil {
 		controllers = append(controllers, opts.CreateConfigStore(cc))
@@ -143,12 +148,13 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 	msd.AddGateways(opts.Gateways...)
 	msd.ClusterID = cluster2.ID(provider.Mock)
-	serviceDiscovery.AddRegistry(serviceregistry.Simple{
+	memserviceRegistry := serviceregistry.Simple{
 		ClusterID:        cluster2.ID(provider.Mock),
 		ProviderID:       provider.Mock,
 		ServiceDiscovery: msd,
 		Controller:       msd.Controller,
-	})
+	}
+	serviceDiscovery.AddRegistry(memserviceRegistry)
 	for _, reg := range opts.ServiceRegistries {
 		serviceDiscovery.AddRegistry(reg)
 	}
@@ -171,6 +177,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		stop:                 test.NewStop(t),
 		ConfigGen:            NewConfigGenerator(&model.DisabledCache{}),
 		MemRegistry:          msd,
+		MemServiceRegistry:   memserviceRegistry,
 		Registry:             serviceDiscovery,
 		ServiceEntryRegistry: se,
 		pushContextLock:      opts.PushContextLock,
@@ -216,7 +223,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.17.0"
+		p.Metadata.IstioVersion = "1.18.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)

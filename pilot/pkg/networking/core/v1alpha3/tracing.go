@@ -154,8 +154,13 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
-		tracing, err = buildHCMTracing(pushCtx, envoyZipkin, provider.Zipkin.GetService(),
-			provider.Zipkin.GetPort(), provider.Zipkin.GetMaxTagLength(), zipkinConfigGen, serviceCluster)
+		tracing, err = buildHCMTracingConfig(envoyZipkin, provider.Zipkin.GetMaxTagLength(), func() (*anypb.Any, error) {
+			hostname, cluster, err := clusterLookupFn(pushCtx, provider.Zipkin.GetService(), int(provider.Zipkin.GetPort()))
+			if err != nil {
+				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
+			}
+			return zipkinConfigGen(hostname, cluster, !provider.Zipkin.GetEnable_64BitTraceId())
+		})
 	case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 		tracing, err = buildHCMTracing(pushCtx, envoyDatadog, provider.Datadog.GetService(),
 			provider.Datadog.GetPort(), provider.Datadog.GetMaxTagLength(), datadogConfigGen, serviceCluster)
@@ -166,6 +171,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		// for lightstep for everything before 1.16, but OTel-based configuration for all other cases
 		useOTel := util.IsIstioVersionGE116(model.ParseIstioVersion(proxy.Metadata.IstioVersion))
 		if useOTel {
+			//nolint: staticcheck  // Lightstep deprecated
 			tracing, err = buildHCMTracing(pushCtx, envoyOpenTelemetry, provider.Lightstep.GetService(),
 				provider.Lightstep.GetPort(), provider.Lightstep.GetMaxTagLength(),
 				func(_, hostname, clusterName string) (*anypb.Any, error) {
@@ -188,6 +194,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 					return anypb.New(dc)
 				}, serviceCluster)
 		} else {
+			//nolint: staticcheck  // Lightstep deprecated
 			tracing, err = buildHCMTracing(pushCtx, envoyLightstep, provider.Lightstep.GetService(), provider.Lightstep.GetPort(), provider.Lightstep.GetMaxTagLength(),
 				func(_, hostname, clusterName string) (*anypb.Any, error) {
 					lc := &tracingcfg.LightstepConfig{
@@ -199,7 +206,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		}
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-		tracing, err = buildHCMTracingOpenCensus(envoyOpenCensus, provider.Opencensus.GetMaxTagLength(), func() (*anypb.Any, error) {
+		tracing, err = buildHCMTracingConfig(envoyOpenCensus, provider.Opencensus.GetMaxTagLength(), func() (*anypb.Any, error) {
 			oc := &tracingcfg.OpenCensusConfig{
 				OcagentAddress:         fmt.Sprintf("%s:%d", provider.Opencensus.GetService(), provider.Opencensus.GetPort()),
 				OcagentExporterEnabled: true,
@@ -234,7 +241,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		}
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-		tracing, err = buildHCMTracingOpenCensus(envoyOpenCensus, provider.Stackdriver.GetMaxTagLength(), func() (*anypb.Any, error) {
+		tracing, err = buildHCMTracingConfig(envoyOpenCensus, provider.Stackdriver.GetMaxTagLength(), func() (*anypb.Any, error) {
 			proj, ok := meta.PlatformMetadata[platform.GCPProject]
 			if !ok {
 				proj, ok = meta.PlatformMetadata[platform.GCPProjectNumber]
@@ -262,17 +269,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 				if err != nil || stsPort < 1 {
 					return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
 				}
-				// prior to Istio 1.14, token path was absolute. this was changed
-				// in Istio 1.14 to the relative path used here. to prevent issues
-				// with OpenCensus configuration across version upgrades, we must
-				// preserve behavior for older version even in the face of control
-				// plane upgrades.
 				tokenPath := constants.TrustworthyJWTPath
-				if !util.IsIstioVersionGE114(model.ParseIstioVersion(meta.IstioVersion)) {
-					// use legacy path
-					tokenPath = "/var/run/secrets/tokens/istio-token"
-				}
-
 				sd.StackdriverGrpcService = &core.GrpcService{
 					InitialMetadata: []*core.HeaderValue{
 						{
@@ -338,13 +335,13 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 
 type typedConfigGenFromClusterFn func(serviceName, hostname, clusterName string) (*anypb.Any, error)
 
-func zipkinConfigGen(_, hostname, cluster string) (*anypb.Any, error) {
+func zipkinConfigGen(hostname, cluster string, enable128BitTraceID bool) (*anypb.Any, error) {
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         cluster,
 		CollectorEndpoint:        "/api/v2/spans",                   // envoy deprecated v1 support
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
 		CollectorHostname:        hostname,                          // http host header
-		TraceId_128Bit:           true,
+		TraceId_128Bit:           enable128BitTraceID,               // istio default enable 128 bit trace id
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
 	return protoconv.MessageToAnyWithError(zc)
@@ -403,7 +400,7 @@ func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, max
 	return config, nil
 }
 
-func buildHCMTracingOpenCensus(provider string, maxTagLen uint32, anyFn typedConfigGenFn) (*hcm.HttpConnectionManager_Tracing, error) {
+func buildHCMTracingConfig(provider string, maxTagLen uint32, anyFn typedConfigGenFn) (*hcm.HttpConnectionManager_Tracing, error) {
 	config := &hcm.HttpConnectionManager_Tracing{}
 	cfg, err := anyFn()
 	if err != nil {

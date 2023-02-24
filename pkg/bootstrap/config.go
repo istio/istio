@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"path"
 	"strconv"
@@ -118,16 +119,42 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if network.AllIPv6(cfg.Metadata.InstanceIPs) {
+	if network.AllIPv4(cfg.Metadata.InstanceIPs) {
+		// IPv4 only
+		opts = append(opts,
+			option.Localhost(option.LocalhostIPv4),
+			option.Wildcard(option.WildcardIPv4),
+			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+	} else if network.AllIPv6(cfg.Metadata.InstanceIPs) {
+		// IPv6 only
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
 	} else {
-		opts = append(opts,
-			option.Localhost(option.LocalhostIPv4),
-			option.Wildcard(option.WildcardIPv4),
-			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+		// Dual Stack
+		if features.EnableDualStack {
+			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
+			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
+			netIP, _ := netip.ParseAddr(cfg.Metadata.InstanceIPs[0])
+			if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
+				opts = append(opts,
+					option.Localhost(option.LocalhostIPv6),
+					option.Wildcard(option.WildcardIPv6),
+					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
+			} else {
+				opts = append(opts,
+					option.Localhost(option.LocalhostIPv4),
+					option.Wildcard(option.WildcardIPv4),
+					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
+			}
+		} else {
+			// keep the original logic if Dual Stack is disable
+			opts = append(opts,
+				option.Localhost(option.LocalhostIPv4),
+				option.Wildcard(option.WildcardIPv4),
+				option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+		}
 	}
 
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
@@ -375,17 +402,13 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 			opts = append(opts, option.ZipkinAddress(tracer.Zipkin.Address))
 		case *meshAPI.Tracing_Lightstep_:
 			isH2 = true
-			// Create the token file.
+			// Write the token file.
 			lightstepAccessTokenPath := lightstepAccessTokenFile(config.ConfigPath)
-			lsConfigOut, err := os.Create(lightstepAccessTokenPath)
+			//nolint: staticcheck  // Lightstep deprecated
+			err := os.WriteFile(lightstepAccessTokenPath, []byte(tracer.Lightstep.AccessToken), 0o666)
 			if err != nil {
 				return nil, err
 			}
-			_, err = lsConfigOut.WriteString(tracer.Lightstep.AccessToken)
-			if err != nil {
-				return nil, err
-			}
-
 			opts = append(opts, option.LightstepAddress(tracer.Lightstep.Address),
 				option.LightstepToken(lightstepAccessTokenPath))
 		case *meshAPI.Tracing_Datadog_:

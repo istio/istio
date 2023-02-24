@@ -37,13 +37,16 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
-	"istio.io/istio/pilot/pkg/config/kube/ingress"
+	ingress "istio.io/istio/pilot/pkg/config/kube/ingress"
+	"istio.io/istio/pilot/pkg/config/memory"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
@@ -86,7 +89,7 @@ type FakeOptions struct {
 	NetworksWatcher mesh.NetworksWatcher
 
 	// Callback to modify the server before it is started
-	DiscoveryServerModifier func(s *DiscoveryServer)
+	DiscoveryServerModifier func(s *DiscoveryServer, m *memregistry.ServiceDiscovery)
 	// Callback to modify the kube client before it is started
 	KubeClientModifier func(c kubelib.Client)
 
@@ -114,6 +117,7 @@ type FakeDiscoveryServer struct {
 	kubeClient   kubelib.Client
 	KubeRegistry *kube.FakeController
 	XdsUpdater   model.XDSUpdater
+	MemRegistry  *memregistry.ServiceDiscovery
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -132,10 +136,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		s.pushQueue.ShutDown()
 	})
 
-	serviceHandler := func(svc *model.Service, _ model.Event) {
+	serviceHandler := func(_, curr *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
 			Full:           true,
-			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace}),
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
 			Reason:         []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.ConfigUpdate(pushReq)
@@ -167,38 +171,46 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
+
+	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI))
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
 			opts.KubeClientModifier(client)
 		}
+		k8sConfig := configController
+		if k8sCluster != opts.DefaultClusterName {
+			k8sConfig = nil
+		}
 		k8s, _ := kube.NewFakeControllerWithOptions(t, kube.FakeControllerOptions{
-			ServiceHandler:  serviceHandler,
-			Client:          client,
-			ClusterID:       k8sCluster,
-			DomainSuffix:    "cluster.local",
-			XDSUpdater:      xdsUpdater,
-			NetworksWatcher: opts.NetworksWatcher,
-			Mode:            opts.KubernetesEndpointMode,
-			Stop:            stop,
-			SkipRun:         true,
+			ServiceHandler:   serviceHandler,
+			Client:           client,
+			ClusterID:        k8sCluster,
+			DomainSuffix:     "cluster.local",
+			XDSUpdater:       xdsUpdater,
+			NetworksWatcher:  opts.NetworksWatcher,
+			Mode:             opts.KubernetesEndpointMode,
+			Stop:             stop,
+			SkipRun:          true,
+			ConfigController: k8sConfig,
+			MeshWatcher:      mesh.NewFixedWatcher(m),
 		})
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
 			defaultKubeClient = client
+			if opts.DisableSecretAuthorization {
+				disableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
+			}
 			defaultKubeController = k8s
 		} else {
 			client.RunAndWait(stop)
 		}
 		registries = append(registries, k8s)
-		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, nil); err != nil {
+		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if opts.DisableSecretAuthorization {
-		disableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
-	}
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	})
@@ -209,7 +221,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Configs:             opts.Configs,
 		ConfigString:        opts.ConfigString,
 		ConfigTemplateInput: opts.ConfigTemplateInput,
-		MeshConfig:          opts.MeshConfig,
+		ConfigController:    configController,
+		MeshConfig:          m,
 		NetworksWatcher:     opts.NetworksWatcher,
 		ServiceRegistries:   registries,
 		PushContextLock:     &s.updateMutex,
@@ -224,7 +237,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			return gwc
 		},
 		SkipRun:   true,
-		ClusterID: defaultKubeController.Cluster(),
+		ClusterID: opts.DefaultClusterName,
 		Services:  opts.Services,
 		Gateways:  opts.Gateways,
 	})
@@ -235,10 +248,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if err := s.Env.InitNetworksManager(s); err != nil {
 		t.Fatal(err)
 	}
+	s.Generators["api"] = apigen.NewGenerator(s.Env.ConfigStore)
 	// Disable debounce to reduce test times
 	s.debounceOptions.debounceAfter = opts.DebounceTime
-	s.MemRegistry = cg.MemRegistry
-	s.MemRegistry.XdsUpdater = s
+	memRegistry := cg.MemRegistry
+	memRegistry.XdsUpdater = s
 	s.updateMutex.Unlock()
 
 	// Setup config handlers
@@ -280,7 +294,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.WorkloadEntryController = autoregistration.NewController(cg.Store(), "test", keepalive.Infinity)
 
 	if opts.DiscoveryServerModifier != nil {
-		opts.DiscoveryServerModifier(s)
+		opts.DiscoveryServerModifier(s, memRegistry)
 	}
 
 	var listener net.Listener
@@ -341,6 +355,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		kubeClient:    defaultKubeClient,
 		KubeRegistry:  defaultKubeController,
 		XdsUpdater:    xdsUpdater,
+		MemRegistry:   memRegistry,
 	}
 
 	return fake
@@ -384,53 +399,63 @@ func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
 	return NewDeltaAdsTest(f.t, conn)
 }
 
-// Connect starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
-// watch can be configured to determine the resources to watch initially, and wait can be configured to determine what
-// resources we should initially wait for.
-func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []string) *adsc.ADSC {
+func APIWatches() []string {
+	watches := []string{collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String()}
+	for _, sch := range collections.Pilot.All() {
+		watches = append(watches, sch.Resource().GroupVersionKind().String())
+	}
+	return watches
+}
+
+func (f *FakeDiscoveryServer) ConnectUnstarted(p *model.Proxy, watch []string) *adsc.ADSC {
 	f.t.Helper()
 	p = f.SetupProxy(p)
 	initialWatch := []*discovery.DiscoveryRequest{}
-	if watch == nil {
-		initialWatch = []*discovery.DiscoveryRequest{{TypeUrl: v3.ClusterType}}
-	} else {
-		for _, typeURL := range watch {
-			initialWatch = append(initialWatch, &discovery.DiscoveryRequest{TypeUrl: typeURL})
-		}
+	for _, typeURL := range watch {
+		initialWatch = append(initialWatch, &discovery.DiscoveryRequest{TypeUrl: typeURL})
 	}
-	if wait == nil {
-		initialWatch = []*discovery.DiscoveryRequest{{TypeUrl: v3.ClusterType}}
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	if f.BufListener != nil {
+		opts = append(opts, grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return f.BufListener.Dial()
+		}))
 	}
-	adscConn, err := adsc.New("buffcon", &adsc.Config{
+	adscConn, err := adsc.New(f.Listener.Addr().String(), &adsc.Config{
 		IP:                       p.IPAddresses[0],
 		NodeType:                 string(p.Type),
 		Meta:                     p.Metadata.ToStruct(),
 		Locality:                 p.Locality,
 		Namespace:                p.ConfigNamespace,
 		InitialDiscoveryRequests: initialWatch,
-		GrpcOpts: []grpc.DialOption{
-			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-				return f.BufListener.Dial()
-			}),
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		},
+		GrpcOpts:                 opts,
 	})
 	if err != nil {
 		f.t.Fatalf("Error connecting: %v", err)
 	}
+	f.t.Cleanup(func() {
+		adscConn.Close()
+	})
+	return adscConn
+}
+
+// Connect starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
+// watch can be configured to determine the resources to watch initially, and wait can be configured to determine what
+// resources we should initially wait for.
+func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []string) *adsc.ADSC {
+	f.t.Helper()
+	if watch == nil {
+		watch = []string{v3.ClusterType}
+	}
+	adscConn := f.ConnectUnstarted(p, watch)
 	if err := adscConn.Run(); err != nil {
 		f.t.Fatalf("ADSC: failed running: %v", err)
 	}
-
 	if len(wait) > 0 {
-		_, err = adscConn.Wait(10*time.Second, wait...)
+		_, err := adscConn.Wait(10*time.Second, wait...)
 		if err != nil {
 			f.t.Fatalf("Error getting initial for %v config: %v", wait, err)
 		}
 	}
-	f.t.Cleanup(func() {
-		adscConn.Close()
-	})
 	return adscConn
 }
 

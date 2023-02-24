@@ -16,6 +16,7 @@ package serviceentry
 
 import (
 	"fmt"
+	"hash/fnv"
 	"reflect"
 	"strconv"
 	"sync"
@@ -42,12 +43,18 @@ import (
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 	istiolog "istio.io/pkg/log"
 )
 
 var (
 	_   serviceregistry.Instance = &Controller{}
 	log                          = istiolog.RegisterScope("serviceentry", "ServiceEntry registry", 0)
+)
+
+var (
+	prime  = 65011     // Used for secondary hash function.
+	maxIPs = 255 * 255 // Maximum possible IPs for address allocation.
 )
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
@@ -112,6 +119,22 @@ type Controller struct {
 	workloadEntryController bool
 
 	model.NetworkGatewaysHandler
+}
+
+func (s *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
+	return nil, nil
+}
+
+func (s *Controller) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	return nil
+}
+
+func (s *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
+	return nil
+}
+
+func (s *Controller) AmbientSnapshot() *model.AmbientSnapshot {
+	return nil
 }
 
 type Option func(*Controller)
@@ -348,7 +371,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := sets.New[model.ConfigKey]()
-	key := types.NamespacedName{Namespace: curr.Namespace, Name: curr.Name}
+	key := config.NamespacedName(curr)
 
 	s.mutex.Lock()
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
@@ -510,7 +533,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			// Not a match, skip this one
 			continue
 		}
-		seNamespacedName := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
+		seNamespacedName := config.NamespacedName(cfg)
 		services := s.services.getServices(seNamespacedName)
 		instance := convertWorkloadInstanceToServiceInstance(wi, services, se)
 		instances = append(instances, instance...)
@@ -578,7 +601,7 @@ func (s *Controller) Cluster() cluster.ID {
 }
 
 // AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
-func (s *Controller) AppendServiceHandler(_ func(*model.Service, model.Event)) {}
+func (s *Controller) AppendServiceHandler(_ model.ServiceHandler) {}
 
 // AppendWorkloadHandler adds instance event handler. Service Entries does not use these handlers.
 func (s *Controller) AppendWorkloadHandler(h func(*model.WorkloadInstance, model.Event)) {
@@ -634,14 +657,13 @@ func (s *Controller) GetService(hostname host.Name) *model.Service {
 
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
-func (s *Controller) InstancesByPort(svc *model.Service, port int, labels labels.Instance) []*model.ServiceInstance {
+func (s *Controller) InstancesByPort(svc *model.Service, port int) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	s.mutex.RLock()
 	instanceLists := s.serviceInstances.getByKey(instancesKey{svc.Hostname, svc.Attributes.Namespace})
 	s.mutex.RUnlock()
 	for _, instance := range instanceLists {
-		if labels.SubsetOf(instance.Endpoint.Labels) &&
-			portMatchSingle(instance, port) {
+		if portMatchSingle(instance, port) {
 			out = append(out, instance)
 		}
 	}
@@ -865,30 +887,18 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 // allocated IP addresses do not take effect.
 //
 // The current algorithm to allocate IPs is deterministic across all istiods.
-// At stable state, given two istiods with exact same set of services, there should
-// be no change in XDS as the algorithm is just a dumb iterative one that allocates sequentially.
-//
-// TODO: Rather than sequentially allocate IPs, switch to a hash based allocation mechanism so that
-// deletion of the oldest service entry does not cause change of IPs for all other service entries.
-// Currently, the sequential allocation will result in unnecessary XDS reloads (lds/rds) when a
-// service entry with auto allocated IP is deleted. We are trading off a perf problem (xds reload)
-// for a usability problem (e.g., multiple cloud SQL or AWS RDS tcp services with no VIPs end up having
-// the same port, causing traffic to go to the wrong place). Once we move to a deterministic hash-based
-// allocation with deterministic collision resolution, the perf problem will go away. If the collision guarantee
-// cannot be made within the IP address space we have (which is about 64K services), then we may need to
-// have the sequential allocation algorithm as a fallback when too many collisions take place.
 func autoAllocateIPs(services []*model.Service) []*model.Service {
-	// i is everything from 240.240.0.(j) to 240.240.255.(j)
-	// j is everything from 240.240.(i).1 to 240.240.(i).254
-	// we can capture this in one integer variable.
-	// given X, we can compute i by X/255, and j is X%255
-	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
-	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
-	// So we bump X to 511, so that the resulting IP is 240.240.2.1
-	maxIPs := 255 * 255 // are we going to exceed this limit by processing 64K services?
-	x := 0
-	hnMap := make(map[string]octetPair)
-
+	hashedServices := make([]*model.Service, maxIPs)
+	hash := fnv.New32a()
+	// First iterate through the range of services and determine its position by hash
+	// so that we can deterministically allocate an IP.
+	// We use "Double Hashning" for collision detection.
+	// The hash algorithm is
+	// - h1(k) = Sum32 hash of the host name.
+	// - Check if we have an empty slot for h1(x) % MAXIPS. Use it if available.
+	// - If there is a collision, apply second hash i.e. h2(x) = PRIME - (Key % PRIME)
+	//   where PRIME is the max prime number below MAXIPS.
+	// - Calculate new hash iteratively till we find an empty slot with (h1(k) + i*h2(k)) % MAXIPS
 	for _, svc := range services {
 		// we can allocate IPs only if
 		// 1. the service has resolution set to static/dns. We cannot allocate
@@ -897,27 +907,66 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
-			n := svc.Hostname.String()
-			if v, ok := hnMap[n]; ok {
-				log.Debugf("Reuse IP for domain %s", n)
-
-				setAutoAllocatedIPs(svc, v)
+			hash.Write([]byte(svc.Attributes.Namespace + "/" + svc.Hostname.String()))
+			// First hash is calculated by
+			s := hash.Sum32()
+			firstHash := s % uint32(maxIPs)
+			// Check if there is no service with this hash first. If there is no service
+			// at this location - then we can safely assign this position for this service.
+			if hashedServices[firstHash] == nil {
+				hashedServices[firstHash] = svc
 			} else {
-				x++
-				if x%255 == 0 {
-					x++
+				// This means we have a collision. Resolve collision by "DoubleHashing".
+				i := uint32(1)
+				for {
+					secondHash := uint32(prime) - (s % uint32(prime))
+					nh := (s + i*secondHash) % uint32(maxIPs)
+					if hashedServices[nh] == nil {
+						hashedServices[nh] = svc
+						break
+					}
+					i++
 				}
-				if x >= maxIPs {
-					log.Errorf("out of IPs to allocate for service entries")
-					return services
-				}
-
-				pair := octetPair{x / 255, x % 255}
-
-				setAutoAllocatedIPs(svc, pair)
-
-				hnMap[n] = pair
 			}
+			hash.Reset()
+		}
+	}
+	// i is everything from 240.240.0.(j) to 240.240.255.(j)
+	// j is everything from 240.240.(i).1 to 240.240.(i).254
+	// we can capture this in one integer variable.
+	// given X, we can compute i by X/255, and j is X%255
+	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
+	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
+	// So we bump X to 511, so that the resulting IP is 240.240.2.1
+	x := 0
+	hnMap := make(map[string]octetPair)
+	allocated := 0
+	for _, svc := range hashedServices {
+		if svc == nil {
+			// There is no service in the slot. Just increment x and move forward.
+			x++
+			if x%255 == 0 {
+				x++
+			}
+			continue
+		}
+		n := svc.Hostname.String()
+		if v, ok := hnMap[n]; ok {
+			log.Debugf("Reuse IP for domain %s", n)
+			setAutoAllocatedIPs(svc, v)
+		} else {
+			x++
+			if x%255 == 0 {
+				x++
+			}
+			if allocated >= maxIPs {
+				log.Errorf("out of IPs to allocate for service entries. x:= %d, maxips:= %d", x, maxIPs)
+				return services
+			}
+			allocated++
+			pair := octetPair{x / 255, x % 255}
+			setAutoAllocatedIPs(svc, pair)
+			hnMap[n] = pair
 		}
 	}
 	return services
@@ -926,9 +975,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 func setAutoAllocatedIPs(svc *model.Service, octets octetPair) {
 	a := octets.thirdOctet
 	b := octets.fourthOctet
-
 	svc.AutoAllocatedIPv4Address = fmt.Sprintf("240.240.%d.%d", a, b)
-
 	if a == 0 {
 		svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x", b)
 	} else {

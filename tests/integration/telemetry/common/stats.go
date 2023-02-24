@@ -19,8 +19,10 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -29,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	cdeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
@@ -44,6 +47,10 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
+)
+
+const (
+	DefaultBucketCount = 20
 )
 
 var (
@@ -95,7 +102,7 @@ func GetTarget() echo.Target {
 
 // TestStatsFilter includes common test logic for stats and metadataexchange filters running
 // with nullvm and wasm runtime.
-func TestStatsFilter(t *testing.T, feature features.Feature) {
+func TestStatsFilter(t *testing.T, feature features.Feature, expectedBuckets int) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(t framework.TestContext) {
@@ -135,6 +142,10 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 						// This query will continue to increase due to readiness probe; don't wait for it to converge
 						if _, err := prom.QuerySum(c, appQuery); err != nil {
 							util.PromDiff(t, prom, c, appQuery)
+							return err
+						}
+
+						if err := ValidateBucket(c, prom, cltInstance.Config().Service, expectedBuckets); err != nil {
 							return err
 						}
 
@@ -254,7 +265,7 @@ spec:
 						if _, err := cltInstance.Call(echo.CallOptions{
 							Address: "fake.external.com",
 							Scheme:  scheme.HTTPS,
-							Port:    echo.Port{ServicePort: ports.All().MustForName(ports.HTTPS).ServicePort},
+							Port:    ports.HTTPS,
 							Count:   1,
 							Retry:   echo.Retry{NoRetry: true}, // we do retry in outer loop
 							Check:   check.OK(),
@@ -523,4 +534,22 @@ func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery promethe
 		Metric: "istio_tcp_connections_opened_total",
 		Labels: labels,
 	}
+}
+
+func ValidateBucket(cluster cluster.Cluster, prom prometheus.Instance, sourceApp string, expectedBuckets int) error {
+	return retry.UntilSuccess(func() error {
+		promQL := fmt.Sprintf(`count(sum by(le) (rate(istio_request_duration_milliseconds_bucket{source_app="%s",response_code="200"}[24h])))`, sourceApp)
+		v, err := prom.RawQuery(cluster, promQL)
+		if err != nil {
+			return err
+		}
+		totalBuckets, err := prometheus.Sum(v)
+		if err != nil {
+			return err
+		}
+		if int(totalBuckets) != expectedBuckets {
+			return fmt.Errorf("expected %d buckets, got %v", expectedBuckets, totalBuckets)
+		}
+		return nil
+	}, retry.Delay(time.Second), retry.Timeout(time.Second*20))
 }

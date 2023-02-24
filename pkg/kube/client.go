@@ -165,13 +165,13 @@ type CLIClient interface {
 	// Revision of the Istio control plane.
 	Revision() string
 
-	// EnvoyDo makes an http request to the Envoy in the specified pod.
+	// EnvoyDo makes a http request to the Envoy in the specified pod.
 	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
 
-	// EnvoyDoWithPort makes an http request to the Envoy in the specified pod and port.
+	// EnvoyDoWithPort makes a http request to the Envoy in the specified pod and port.
 	EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error)
 
-	// AllDiscoveryDo makes an http request to each Istio discovery instance.
+	// AllDiscoveryDo makes a http request to each Istio discovery instance.
 	AllDiscoveryDo(ctx context.Context, namespace, path string) (map[string][]byte, error)
 
 	// GetIstioVersions gets the version for each Istio control plane component.
@@ -221,7 +221,7 @@ type CLIClient interface {
 	// SetPortManager overrides the default port manager to provision local ports
 	SetPortManager(PortManager)
 
-	// InvalidateDiscovery() invalidates the discovery client, useful after manually changing CRD's
+	// InvalidateDiscovery invalidates the discovery client, useful after manually changing CRD's
 	InvalidateDiscovery()
 
 	// Shutdown closes all informers and waits for them to terminate
@@ -300,7 +300,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
 	}
 
-	// discoveryv1/EndpontSlices readable from discoveryv1beta1/EndpointSlices
+	// discoveryv1/EndpointSlices readable from discoveryv1beta1/EndpointSlices
 	c.mirrorQueue = queue.NewQueue(1 * time.Second)
 	mirrorResource(
 		c.mirrorQueue,
@@ -352,7 +352,7 @@ type client struct {
 	gatewayapiInformer gatewayapiinformer.SharedInformerFactory
 
 	started atomic.Bool
-	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
+	// If enabled, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
 
@@ -368,6 +368,9 @@ type client struct {
 	version lazy.Lazy[*kubeVersion.Info]
 
 	portManager PortManager
+
+	// http is a client for HTTP requests
+	http *http.Client
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -439,6 +442,9 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 
 	c.portManager = defaultAvailablePort
 
+	c.http = &http.Client{
+		Timeout: time.Second * 15,
+	}
 	var clientWithTimeout kubernetes.Interface
 	clientWithTimeout = c.kube
 	restConfig := c.RESTConfig()
@@ -829,7 +835,7 @@ func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, 
 	if err != nil {
 		return nil, formatError(err)
 	}
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	resp, err := c.http.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, formatError(err)
 	}
@@ -878,13 +884,20 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 	if err != nil {
 		return nil, err
 	}
-	if len(pods) == 0 {
-		return nil, fmt.Errorf("no running Istio pods in %q", namespace)
+	// Pod maybe running but not ready, so we need to check the container status
+	readyPods := make([]v1.Pod, 0)
+	for _, pod := range pods {
+		if CheckPodReady(&pod) == nil {
+			readyPods = append(readyPods, pod)
+		}
+	}
+	if len(readyPods) == 0 {
+		return nil, fmt.Errorf("no ready Istio pods in %q", namespace)
 	}
 
 	var errs error
 	res := version.MeshInfo{}
-	for _, pod := range pods {
+	for _, pod := range readyPods {
 		component := pod.Labels["istio"]
 		server := version.ServerInfo{Component: component}
 

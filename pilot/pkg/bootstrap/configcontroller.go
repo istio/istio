@@ -18,13 +18,15 @@ import (
 	"fmt"
 	"net/url"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
-	"istio.io/istio/pilot/pkg/config/kube/ingress"
-	ingressv1 "istio.io/istio/pilot/pkg/config/kube/ingressv1"
+	ingress "istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/features"
@@ -56,7 +58,7 @@ const (
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	s.initStatusController(args, features.EnableStatus)
+	s.initStatusController(args, features.EnableStatus && features.EnableDistributionTracking)
 	meshConfig := s.environment.Mesh()
 	if len(meshConfig.ConfigSources) > 0 {
 		// Using MCP for config.
@@ -88,40 +90,22 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		// Since supporting both in a monolith controller is painful due to lack of usable conversion logic between
 		// the two versions.
 		// As a compromise, we instead just fork the controller. Once 1.18 support is no longer needed, we can drop the old controller
-		ingressV1 := ingress.V1Available(s.kubeClient)
-		if ingressV1 {
-			s.ConfigStores = append(s.ConfigStores,
-				ingressv1.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
-		} else {
-			s.ConfigStores = append(s.ConfigStores,
-				ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
-		}
+		s.ConfigStores = append(s.ConfigStores,
+			ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
 
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					if ingressV1 {
-						ingressSyncer := ingressv1.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
-						// Start informers again. This fixes the case where informers for namespace do not start,
-						// as we create them only after acquiring the leader lock
-						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-						// basically lazy loading the informer, if we stop it when we lose the lock we will never
-						// recreate it again.
-						s.kubeClient.RunAndWait(stop)
-						log.Infof("Starting ingress controller")
-						ingressSyncer.Run(leaderStop)
-					} else {
-						ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
-						// Start informers again. This fixes the case where informers for namespace do not start,
-						// as we create them only after acquiring the leader lock
-						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-						// basically lazy loading the informer, if we stop it when we lose the lock we will never
-						// recreate it again.
-						s.kubeClient.RunAndWait(stop)
-						log.Infof("Starting ingress controller")
-						ingressSyncer.Run(leaderStop)
-					}
+					ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
+					// Start informers again. This fixes the case where informers for namespace do not start,
+					// as we create them only after acquiring the leader lock
+					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+					// basically lazy loading the informer, if we stop it when we lose the lock we will never
+					// recreate it again.
+					s.kubeClient.RunAndWait(stop)
+					log.Infof("Starting ingress controller")
+					ingressSyncer.Run(leaderStop)
 				}).
 				Run(stop)
 			return nil
@@ -190,7 +174,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
 						if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
-							controller := gateway.NewDeploymentController(s.kubeClient)
+							controller := gateway.NewDeploymentController(s.kubeClient, s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
 							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -251,6 +235,14 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 					IstioRevision: args.Revision,
 				}.ToStruct(),
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
+				GrpcOpts: []grpc.DialOption{
+					args.KeepaliveOptions.ConvertToClientOption(),
+					// Because we use the custom grpc options for adsc, here we should
+					// explicitly set transport credentials.
+					// TODO: maybe we should use the tls settings within ConfigSource
+					// to secure the connection between istiod and remote xds server.
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
+				},
 			})
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)

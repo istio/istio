@@ -28,6 +28,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/duration"
+	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -119,27 +121,31 @@ type ClusterBuilder struct {
 	req                   *model.PushRequest
 	cache                 model.XdsCache
 	credentialSocketExist bool
+
+	// TODO: this is not safe since its not in cache
+	unsafeWaypointOnlyProxy *model.Proxy
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
 func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
 	cb := &ClusterBuilder{
-		serviceInstances:   proxy.ServiceInstances,
-		proxyID:            proxy.ID,
-		proxyType:          proxy.Type,
-		proxyVersion:       proxy.Metadata.IstioVersion,
-		sidecarScope:       proxy.SidecarScope,
-		passThroughBindIPs: getPassthroughBindIPs(proxy.GetIPMode()),
-		supportsIPv4:       proxy.SupportsIPv4(),
-		supportsIPv6:       proxy.SupportsIPv6(),
-		hbone:              proxy.EnableHBONE(),
-		locality:           proxy.Locality,
-		proxyLabels:        proxy.Labels,
-		proxyView:          proxy.GetView(),
-		proxyIPAddresses:   proxy.IPAddresses,
-		configNamespace:    proxy.ConfigNamespace,
-		req:                req,
-		cache:              cache,
+		serviceInstances:        proxy.ServiceInstances,
+		proxyID:                 proxy.ID,
+		proxyType:               proxy.Type,
+		proxyVersion:            proxy.Metadata.IstioVersion,
+		sidecarScope:            proxy.SidecarScope,
+		passThroughBindIPs:      getPassthroughBindIPs(proxy.GetIPMode()),
+		supportsIPv4:            proxy.SupportsIPv4(),
+		supportsIPv6:            proxy.SupportsIPv6(),
+		hbone:                   proxy.EnableHBONE() || proxy.IsWaypointProxy(),
+		locality:                proxy.Locality,
+		proxyLabels:             proxy.Labels,
+		proxyView:               proxy.GetView(),
+		proxyIPAddresses:        proxy.IPAddresses,
+		configNamespace:         proxy.ConfigNamespace,
+		req:                     req,
+		cache:                   cache,
+		unsafeWaypointOnlyProxy: proxy,
 	}
 	if proxy.Metadata != nil {
 		if proxy.Metadata.TLSClientCertChain != "" {
@@ -366,10 +372,22 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	ec := NewMutableCluster(c)
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
-		if cb.supportsIPv4 {
+		if networkutil.AllIPv4(cb.proxyIPAddresses) {
+			// IPv4 only
 			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
-		} else {
+		} else if networkutil.AllIPv6(cb.proxyIPAddresses) {
+			// IPv6 only
 			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
+		} else {
+			// Dual Stack
+			if features.EnableDualStack {
+				// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
+				// using Cluster_ALL to enable Happy Eyeballsfor upstream connections
+				c.DnsLookupFamily = cluster.Cluster_ALL
+			} else {
+				// keep the original logic if Dual Stack is disable
+				c.DnsLookupFamily = cluster.Cluster_V4_ONLY
+			}
 		}
 		dnsRate := cb.req.Push.Mesh.DnsRefreshRate
 		c.DnsRefreshRate = dnsRate
@@ -411,7 +429,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 
 	cb.setUpstreamProtocol(ec, port, direction)
 	addTelemetryMetadata(opts, service, direction, allInstances)
-	addNetworkingMetadata(opts, service, direction)
 	return ec
 }
 
@@ -482,9 +499,9 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		// to support the Dual Stack via Envoy bindconfig, and belows are related issue and PR in Envoy:
 		// https://github.com/envoyproxy/envoy/issues/9811
 		// https://github.com/envoyproxy/envoy/pull/22639
-		instExtraSvcAddr := instance.Service.GetExtraAddressesForProxy(proxy)
-		// the extra source address for UpstreamBindConfig shoulde be added when the service is a dual stack k8s service
-		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 && len(instExtraSvcAddr) > 0 {
+		// the extra source address for UpstreamBindConfig shoulde be added if dual stack is enabled and there are
+		// more than 1 IP for proxy
+		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 {
 			// add extra source addresses to cluster builder
 			var extraSrcAddrs []*core.ExtraSourceAddress
 			for _, extraBdIP := range cb.passThroughBindIPs[1:] {
@@ -546,6 +563,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 			LoadBalancingWeight: &wrappers.UInt32Value{
 				Value: instance.Endpoint.GetLoadBalancingWeight(),
 			},
+			Metadata: &core.Metadata{},
 		}
 
 		labels := instance.Endpoint.Labels
@@ -564,8 +582,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 			}
 		}
 
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
-			ns, instance.Endpoint.Locality.ClusterID, labels)
+		util.AppendLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
+			ns, instance.Endpoint.Locality.ClusterID, labels, ep.Metadata)
 
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
@@ -652,7 +670,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
+		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
 	return c
@@ -664,7 +682,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
+		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
@@ -849,7 +867,7 @@ func (cb *ClusterBuilder) buildIstioMutualTLS(san []string, sni string) *network
 }
 
 func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
-	cluster.ConnectTimeout = cb.req.Push.Mesh.ConnectTimeout
+	cluster.ConnectTimeout = proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -995,7 +1013,24 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 				defaultTransportSocketMatch(),
 			}
 		} else {
-			c.TransportSocketMatches = HboneOrPlaintextSocket
+			if c.TransportSocket == nil {
+				c.TransportSocketMatches = HboneOrPlaintextSocket
+			} else {
+				ts := c.TransportSocket
+				c.TransportSocket = nil
+
+				c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
+					{
+						Name:            "hbone",
+						Match:           hboneTransportSocketMatch,
+						TransportSocket: InternalUpstreamSocket,
+					},
+					{
+						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+						TransportSocket: ts,
+					},
+				}
+			}
 		}
 	}
 }
@@ -1262,14 +1297,14 @@ func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([
 	}
 	destinationRule := CastDestinationRule(clusterKey.destinationRule.GetRule())
 	res := make([]*discovery.Resource, 0, 1+len(destinationRule.GetSubsets()))
-	cachedCluster, f := cb.cache.Get(&clusterKey)
-	allFound := f
+	cachedCluster := cb.cache.Get(&clusterKey)
+	allFound := cachedCluster != nil
 	res = append(res, cachedCluster)
 	dir, _, host, port := model.ParseSubsetKey(clusterKey.clusterName)
 	for _, ss := range destinationRule.GetSubsets() {
 		clusterKey.clusterName = model.BuildSubsetKey(dir, ss.Name, host, port)
-		cachedCluster, f := cb.cache.Get(&clusterKey)
-		if !f {
+		cachedCluster := cb.cache.Get(&clusterKey)
+		if cachedCluster == nil {
 			allFound = false
 		}
 		res = append(res, cachedCluster)
@@ -1374,7 +1409,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 	c := &cluster.Cluster{
 		Name:                 security.SDSExternalClusterName,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
+		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
 			ClusterName: security.SDSExternalClusterName,
 			Endpoints: []*endpoint.LocalityLbEndpoints{

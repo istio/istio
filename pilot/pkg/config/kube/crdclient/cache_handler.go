@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/pkg/log"
 )
@@ -43,20 +44,8 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 		return err
 	}
 
-	currItem, ok := curr.(runtime.Object)
-	if !ok && event == model.EventDelete {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			scope.Warnf("Couldn't get object from tombstone %v, type %T", curr, curr)
-			return nil
-		}
-		currItem, ok = tombstone.Obj.(runtime.Object)
-		if !ok {
-			scope.Warnf("Tombstone's Object is not runtime Object %v, type %T", tombstone.Obj, tombstone.Obj)
-			return nil
-		}
-	} else if !ok {
-		scope.Warnf("Object can not be converted to runtime Object %v, is type %T", curr, curr)
+	currItem := controllers.ExtractObject(curr)
+	if currItem == nil {
 		return nil
 	}
 

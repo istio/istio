@@ -24,7 +24,6 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -96,7 +95,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Key:   util.AltSvcHeader,
 					Value: `h3=":8080"; ma=86400`,
 				},
-				Append: &wrappers.BoolValue{Value: true},
+				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 		}))
 	})
@@ -172,72 +171,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].Name).To(gomega.Equal("route 1.catch-all for 8080"))
-	})
-
-	t.Run("for internally generated virtual service with ingress semantics (istio version<1.14)", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-
-		vs := virtualServiceWithCatchAllRoute
-		if vs.Annotations == nil {
-			vs.Annotations = make(map[string]string)
-		}
-		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsIngress
-
-		proxy := node(cg)
-		proxy.IstioVersion = &model.IstioVersion{
-			Major: 1,
-			Minor: 13,
-		}
-		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, vs,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
-		xdstest.ValidateRoutes(t, routes)
-
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_SafeRegex{
-			SafeRegex: &matcher.RegexMatcher{
-				EngineType: util.RegexEngine,
-				Regex:      `/route/v1((\/).*)?`,
-			},
-		}))
-		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
-			Prefix: "/",
-		}))
-	})
-
-	t.Run("for internally generated virtual service with gateway semantics (istio version<1.14)", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-
-		vs := virtualServiceWithCatchAllRoute
-		if vs.Annotations == nil {
-			vs.Annotations = make(map[string]string)
-		}
-		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
-
-		proxy := node(cg)
-		proxy.IstioVersion = &model.IstioVersion{
-			Major: 1,
-			Minor: 13,
-		}
-		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, vs,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
-		xdstest.ValidateRoutes(t, routes)
-
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(routes[0].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_SafeRegex{
-			SafeRegex: &matcher.RegexMatcher{
-				EngineType: util.RegexEngine,
-				Regex:      `/route/v1((\/).*)?`,
-			},
-		}))
-		g.Expect(routes[0].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
-			To(gomega.Equal(envoyroute.RouteAction_SERVICE_UNAVAILABLE))
-		g.Expect(routes[1].Match.PathSpecifier).To(gomega.Equal(&envoyroute.RouteMatch_Prefix{
-			Prefix: "/",
-		}))
-		g.Expect(routes[1].Action.(*envoyroute.Route_Route).Route.ClusterNotFoundResponseCode).
-			To(gomega.Equal(envoyroute.RouteAction_SERVICE_UNAVAILABLE))
 	})
 
 	t.Run("for internally generated virtual service with ingress semantics", func(t *testing.T) {
@@ -746,28 +679,28 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Key:   "x-req-set",
 					Value: "v1",
 				},
-				Append: &wrappers.BoolValue{Value: false},
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-req-add",
 					Value: "v2",
 				},
-				Append: &wrappers.BoolValue{Value: true},
+				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-route-req-set",
 					Value: "v1",
 				},
-				Append: &wrappers.BoolValue{Value: false},
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-route-req-add",
 					Value: "v2",
 				},
-				Append: &wrappers.BoolValue{Value: true},
+				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 		}))
 		g.Expect(r.RequestHeadersToRemove).To(gomega.Equal([]string{"x-req-remove", "x-route-req-remove"}))
@@ -778,28 +711,28 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Key:   "x-resp-set",
 					Value: "v1",
 				},
-				Append: &wrappers.BoolValue{Value: false},
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-resp-add",
 					Value: "v2",
 				},
-				Append: &wrappers.BoolValue{Value: true},
+				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-route-resp-set",
 					Value: "v1",
 				},
-				Append: &wrappers.BoolValue{Value: false},
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 			},
 			{
 				Header: &core.HeaderValue{
 					Key:   "x-route-resp-add",
 					Value: "v2",
 				},
-				Append: &wrappers.BoolValue{Value: true},
+				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 		}))
 		g.Expect(r.ResponseHeadersToRemove).To(gomega.Equal([]string{"x-resp-remove", "x-route-resp-remove"}))
@@ -841,14 +774,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 							Key:   "x-route-req-set-blue",
 							Value: "v1",
 						},
-						Append: &wrappers.BoolValue{Value: false},
+						AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 					},
 					{
 						Header: &core.HeaderValue{
 							Key:   "x-route-req-add-blue",
 							Value: "v2",
 						},
-						Append: &wrappers.BoolValue{Value: true},
+						AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 					},
 				},
 				reqRemove: []string{"x-route-req-remove-blue"},
@@ -858,14 +791,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 							Key:   "x-route-resp-set-blue",
 							Value: "v1",
 						},
-						Append: &wrappers.BoolValue{Value: false},
+						AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 					},
 					{
 						Header: &core.HeaderValue{
 							Key:   "x-route-resp-add-blue",
 							Value: "v2",
 						},
-						Append: &wrappers.BoolValue{Value: true},
+						AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 					},
 				},
 				respRemove: []string{"x-route-resp-remove-blue"},
@@ -878,14 +811,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 							Key:   "x-route-req-set-green",
 							Value: "v1",
 						},
-						Append: &wrappers.BoolValue{Value: false},
+						AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 					},
 					{
 						Header: &core.HeaderValue{
 							Key:   "x-route-req-add-green",
 							Value: "v2",
 						},
-						Append: &wrappers.BoolValue{Value: true},
+						AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 					},
 				},
 				reqRemove: []string{"x-route-req-remove-green"},
@@ -895,14 +828,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 							Key:   "x-route-resp-set-green",
 							Value: "v1",
 						},
-						Append: &wrappers.BoolValue{Value: false},
+						AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 					},
 					{
 						Header: &core.HeaderValue{
 							Key:   "x-route-resp-add-green",
 							Value: "v2",
 						},
-						Append: &wrappers.BoolValue{Value: true},
+						AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 					},
 				},
 				respRemove: []string{"x-route-resp-remove-green"},
@@ -950,7 +883,81 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}))
 	})
 
-	t.Run("for redirect uri prefix '*prefix*' that is without gateway semantics", func(t *testing.T) {
+	t.Run("for host rewrite", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewriteHost, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		routeAction, ok := routes[0].Action.(*envoyroute.Route_Route)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(routeAction.Route.HostRewriteSpecifier).To(gomega.Equal(&envoyroute.RouteAction_HostRewriteLiteral{
+			HostRewriteLiteral: "bar.example.org",
+		}))
+	})
+
+	t.Run("for full path rewrite", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewriteFullPath, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		routeAction, ok := routes[0].Action.(*envoyroute.Route_Route)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+
+		g.Expect(routeAction.Route.RegexRewrite).To(gomega.Equal(&matcher.RegexMatchAndSubstitute{
+			Pattern: &matcher.RegexMatcher{
+				Regex: "/.+",
+			},
+			Substitution: "/replace-full",
+		}))
+	})
+
+	t.Run("for prefix path rewrite", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewritePrefixPath, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		routeAction, ok := routes[0].Action.(*envoyroute.Route_Route)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(routeAction.Route.PrefixRewrite).To(gomega.Equal("/replace-prefix"))
+	})
+
+	t.Run("for path and host rewrite", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg),
+			virtualServiceWithRewriteFullPathAndHost,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		routeAction, ok := routes[0].Action.(*envoyroute.Route_Route)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(routeAction.Route.HostRewriteSpecifier).To(gomega.Equal(&envoyroute.RouteAction_HostRewriteLiteral{
+			HostRewriteLiteral: "bar.example.org",
+		}))
+		g.Expect(routeAction.Route.RegexRewrite).To(gomega.Equal(&matcher.RegexMatchAndSubstitute{
+			Pattern: &matcher.RegexMatcher{
+				Regex: "/.+",
+			},
+			Substitution: "/replace-full",
+		}))
+	})
+
+	t.Run("for redirect uri prefix '%PREFIX()%' that is without gateway semantics", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
@@ -964,7 +971,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
 		g.Expect(ok).NotTo(gomega.BeFalse())
 		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(gomega.Equal(&envoyroute.RedirectAction_PathRedirect{
-			PathRedirect: "*prefix*/replace-full",
+			PathRedirect: "%PREFIX()%/replace-full",
 		}))
 	})
 
@@ -997,7 +1004,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(ok).NotTo(gomega.BeFalse())
 		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
 		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
-		g.Expect(routes[0].ResponseHeadersToAdd[0].AppendAction).To(gomega.Equal(core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD))
+		g.Expect(routes[0].ResponseHeadersToAdd[0].AppendAction).To(gomega.Equal(core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
 	})
@@ -1032,7 +1039,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(directResponseAction.DirectResponse.Status).To(gomega.Equal(uint32(200)))
 		g.Expect(directResponseAction.DirectResponse.Body.Specifier.(*core.DataSource_InlineString).InlineString).To(gomega.Equal("hello"))
 		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
-		g.Expect(routes[0].ResponseHeadersToAdd[0].AppendAction).To(gomega.Equal(core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD))
+		g.Expect(routes[0].ResponseHeadersToAdd[0].AppendAction).To(gomega.Equal(core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
 		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
 	})
@@ -1580,7 +1587,7 @@ var virtualServiceWithRedirectPathPrefix = config.Config{
 		Http: []*networking.HTTPRoute{
 			{
 				Redirect: &networking.HTTPRedirect{
-					Uri:          "*prefix*/replace-prefix",
+					Uri:          "%PREFIX()%/replace-prefix",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
 				},
@@ -1600,7 +1607,7 @@ var virtualServiceWithRedirectPathPrefixNoGatewaySematics = config.Config{
 		Http: []*networking.HTTPRoute{
 			{
 				Redirect: &networking.HTTPRedirect{
-					Uri:          "*prefix*/replace-full",
+					Uri:          "%PREFIX()%/replace-full",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
 				},
@@ -1623,6 +1630,143 @@ var virtualServiceWithRedirectFullPath = config.Config{
 					Uri:          "/replace-full-path",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRewriteHost = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+		Annotations: map[string]string{
+			"internal.istio.io/route-semantics": "gateway",
+		},
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "host-rewrite",
+					},
+				},
+				Rewrite: &networking.HTTPRewrite{
+					Authority: "bar.example.org",
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRewritePrefixPath = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+		Annotations: map[string]string{
+			"internal.istio.io/route-semantics": "gateway",
+		},
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "prefix-path-rewrite",
+					},
+				},
+				Rewrite: &networking.HTTPRewrite{
+					Uri: "/replace-prefix",
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRewriteFullPath = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+		Annotations: map[string]string{
+			"internal.istio.io/route-semantics": "gateway",
+		},
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "full-path-rewrite",
+					},
+				},
+				Rewrite: &networking.HTTPRewrite{
+					Uri: "%FULLREPLACE()%/replace-full",
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRewriteFullPathAndHost = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+		Annotations: map[string]string{
+			"internal.istio.io/route-semantics": "gateway",
+		},
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "full-path-and-host-rewrite",
+					},
+				},
+				Rewrite: &networking.HTTPRewrite{
+					Uri:       "%FULLREPLACE()%/replace-full",
+					Authority: "bar.example.org",
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+						},
+						Weight: 100,
+					},
 				},
 			},
 		},
@@ -2152,15 +2296,13 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 }
 
 func TestSortVHostRoutes(t *testing.T) {
-	regexEngine := &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 	first := []*envoyroute.Route{
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Path{Path: "/path1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 			SafeRegex: &matcher.RegexMatcher{
-				EngineType: regexEngine,
-				Regex:      ".*?regex1",
+				Regex: ".*?regex1",
 			},
 		}}},
 	}
@@ -2169,8 +2311,7 @@ func TestSortVHostRoutes(t *testing.T) {
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix1"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 			SafeRegex: &matcher.RegexMatcher{
-				EngineType: regexEngine,
-				Regex:      ".*?regex1",
+				Regex: ".*?regex1",
 			},
 		}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/"}}},
@@ -2180,15 +2321,13 @@ func TestSortVHostRoutes(t *testing.T) {
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 			SafeRegex: &matcher.RegexMatcher{
-				EngineType: regexEngine,
-				Regex:      ".*?regex12",
+				Regex: ".*?regex12",
 			},
 		}}},
 		{Match: &envoyroute.RouteMatch{
 			PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					EngineType: regexEngine,
-					Regex:      "*",
+					Regex: "*",
 				},
 			},
 			Headers: []*envoyroute.HeaderMatcher{
@@ -2208,15 +2347,13 @@ func TestSortVHostRoutes(t *testing.T) {
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_Prefix{Prefix: "/prefix12"}}},
 		{Match: &envoyroute.RouteMatch{PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 			SafeRegex: &matcher.RegexMatcher{
-				EngineType: regexEngine,
-				Regex:      ".*?regex12",
+				Regex: ".*?regex12",
 			},
 		}}},
 		{Match: &envoyroute.RouteMatch{
 			PathSpecifier: &envoyroute.RouteMatch_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					EngineType: regexEngine,
-					Regex:      "*",
+					Regex: "*",
 				},
 			},
 			Headers: []*envoyroute.HeaderMatcher{

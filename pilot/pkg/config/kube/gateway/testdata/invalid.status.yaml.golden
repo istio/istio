@@ -31,8 +31,13 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
+    message: Gateway has been programmed into Istio configuration
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  - lastTransitionTime: fake
     message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
-    reason: ListenersValid
+    reason: Ready
     status: "True"
     type: Ready
   - lastTransitionTime: fake
@@ -92,6 +97,12 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
+      not found'
+    reason: Invalid
+    status: "False"
+    type: Programmed
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
       not found'
@@ -160,6 +171,14 @@ status:
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
       port should be specified, not the workload port. Did you mean one of these ports:
       [80]?)'
+    reason: Invalid
+    status: "False"
+    type: Programmed
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: port 8080 not found for
+      hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
+      port should be specified, not the workload port. Did you mean one of these ports:
+      [80]?)'
     reason: AddressNotAssigned
     status: "False"
     type: Ready
@@ -223,6 +242,12 @@ status:
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: Only Hostname is supported,
       ignoring [1.2.3.4]'
+    reason: Invalid
+    status: "False"
+    type: Programmed
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: Only Hostname is supported,
+      ignoring [1.2.3.4]'
     reason: AddressNotAssigned
     status: "False"
     type: Ready
@@ -283,6 +308,11 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: 'Invalid listeners: [default]'
+    reason: Invalid
+    status: "False"
+    type: Programmed
   - lastTransitionTime: fake
     message: 'Invalid listeners: [default]'
     reason: ListenersNotValid
@@ -349,6 +379,11 @@ status:
     type: Accepted
   - lastTransitionTime: fake
     message: 'Invalid listeners: [default]'
+    reason: Invalid
+    status: "False"
+    type: Programmed
+  - lastTransitionTime: fake
+    message: 'Invalid listeners: [default]'
     reason: ListenersNotValid
     status: "False"
     type: Ready
@@ -411,6 +446,11 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  - lastTransitionTime: fake
+    message: 'Invalid listeners: [default]'
+    reason: Invalid
+    status: "False"
+    type: Programmed
   - lastTransitionTime: fake
     message: 'Invalid listeners: [default]'
     reason: ListenersNotValid
@@ -560,6 +600,58 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: invalid-parentRef-port
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: port 1234 not found
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      port: 1234
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: invalid-sectionname-port
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: sectionName "fake" not found
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: fake
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute

@@ -66,7 +66,12 @@ images:
   - ${TARGET_OUT_LINUX}/install-cni
   - ${TARGET_OUT_LINUX}/istio-cni-taint
 
-# Test images
+- name: ztunnel
+  dockerfile: pilot/docker/Dockerfile.ztunnel
+  files:
+  - ${TARGET_OUT_LINUX}/ztunnel # TODO "${RELEASE_MODE}" to allow separate debug builds
+
+  # Test images
 - name: app
   dockerfile: pkg/test/echo/docker/Dockerfile.app
   files:

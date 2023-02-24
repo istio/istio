@@ -41,8 +41,14 @@ spec:
 {{ toYaml .Values.cni.podAnnotations | indent 8 }}
         {{- end }}
     spec:
+      {{if .Values.cni.ambient.enabled }}hostNetwork: true{{ end }}
       nodeSelector:
         kubernetes.io/os: linux
+      # Can be configured to allow for excluding instio-cni from being scheduled on specified nodes
+      {{- with .Values.cni.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       tolerations:
         # Make sure istio-cni-node gets scheduled on all nodes.
         - effect: NoSchedule
@@ -87,6 +93,9 @@ spec:
             {{- if .Values.global.logging.level }}
             - --log_output_level={{ .Values.global.logging.level }}
             {{- end}}
+            {{- if .Values.global.logAsJson }}
+            - --log_as_json
+            {{- end}}
           env:
 {{- if .Values.cni.cniConfFileName }}
             # Name of the CNI config file to create.
@@ -125,6 +134,15 @@ spec:
               value: "{{.Values.cni.repair.brokenPodLabelKey}}"
             - name: REPAIR_BROKEN_POD_LABEL_VALUE
               value: "{{.Values.cni.repair.brokenPodLabelValue}}"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            {{- if .Values.cni.ambient.enabled }}
+            - name: AMBIENT_ENABLED
+              value: "true"
+            {{- end }}
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
@@ -132,12 +150,54 @@ spec:
               name: cni-net-dir
             - mountPath: /var/run/istio-cni
               name: cni-log-dir
+            {{- if .Values.cni.ambient.enabled }}
+            - mountPath: /etc/ambient-config
+              name: cni-ambientconfig
+            {{ end }}
           resources:
 {{- if .Values.cni.resources }}
 {{ toYaml .Values.cni.resources | trim | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
+          {{- if .Values.cni.ambient.enabled }}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - sh
+                - -c
+                - |-
+                  iptables -t nat -F ztunnel-PREROUTING
+                  iptables -t nat -F ztunnel-POSTROUTING
+                  iptables -t mangle -F ztunnel-PREROUTING
+                  iptables -t mangle -F ztunnel-FOWARD
+                  iptables -t mangle -F ztunnel-INPUT
+                  iptables -t nat -D PREROUTING -j ztunnel-PREROUTING
+                  iptables -t nat -X ztunnel-PREROUTING
+                  iptables -t nat -D POSTROUTING -j ztunnel-POSTROUTING
+                  iptables -t nat -X ztunnel-POSTROUTING
+                  iptables -t mangle -D PREROUTING -j ztunnel-PREROUTING
+                  iptables -t mangle -X ztunnel-PREROUTING
+                  iptables -t mangle -D FORWARD -j ztunnel-FORWARD
+                  iptables -t mangle -X ztunnel-FORWARD
+                  iptables -t mangle -D INPUT -j ztunnel-INPUT
+                  iptables -t mangle -X ztunnel-INPUT
+
+                  ip route flush table 100
+                  ip route flush table 101
+                  ip route flush table 102
+
+                  ip rule del priority 100
+                  ip rule del priority 101
+                  ip rule del priority 102
+                  ip rule del priority 103
+
+                  ip link del name istioin
+                  ip link del name istioout
+
+                  ipset destroy ztunnel-pods-ips
+        {{ end }}
 {{- if .Values.cni.taint.enabled }}
         - name: taint-controller
 {{- if contains "/" .Values.cni.image }}
@@ -170,6 +230,11 @@ spec:
         - name: cni-bin-dir
           hostPath:
             path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
+        {{- if .Values.cni.ambient.enabled }}
+        - name: cni-ambientconfig
+          hostPath:
+            path: /etc/ambient-config
+        {{- end }}
         - name: cni-net-dir
           hostPath:
             path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}

@@ -103,12 +103,22 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	switch node.Type {
 	case model.SidecarProxy:
 		builder = configgen.buildSidecarListeners(builder)
+	case model.Waypoint:
+		builder = configgen.buildSidecarListeners(builder)
 	case model.Router:
 		builder = configgen.buildGatewayListeners(builder)
 	}
 
 	builder.patchListeners()
-	return builder.getListeners()
+	l := builder.getListeners()
+	if builder.node.EnableHBONE() {
+		if builder.node.IsAmbient() {
+			l = append(l, outboundTunnelListener(builder.push, builder.node))
+		} else {
+			l = append(l, sidecarOutboundTunnelListener(builder.push, builder.node))
+		}
+	}
+	return l
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
@@ -1074,6 +1084,9 @@ type httpListenerOpts struct {
 	class istionetworking.ListenerClass
 	port  int
 	hbone bool
+
+	// Waypoint-specific modifications in HCM
+	isWaypoint bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1640,8 +1653,8 @@ func listenerKey(bind string, port int) string {
 
 const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
 
-// outboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
-func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+// sidecarOutboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
+func sidecarOutboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
 	name := util.OutboundTunnel
 	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
 	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
@@ -1649,7 +1662,7 @@ func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listen
 		StatPrefix:       name,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
+			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
 			HeadersToAdd: []*core.HeaderValueOption{
 				{Header: &core.HeaderValue{
 					Key: "baggage",

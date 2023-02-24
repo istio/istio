@@ -12,7 +12,7 @@ import (
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
-	k8sioapiextensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -502,6 +502,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SCoreV1Serviceaccounts describes the collection
+	// k8s/core/v1/serviceaccounts
+	K8SCoreV1Serviceaccounts = collection.Builder{
+		Name:         "k8s/core/v1/serviceaccounts",
+		VariableName: "K8SCoreV1Serviceaccounts",
+		Resource: resource.Builder{
+			Group:         "",
+			Kind:          "ServiceAccount",
+			Plural:        "serviceaccounts",
+			Version:       "v1",
+			Proto:         "k8s.io.api.core.v1.ServiceAccount",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceAccount{}).Elem(),
+			ProtoPackage:  "k8s.io/api/core/v1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// K8SCoreV1Services describes the collection k8s/core/v1/services
 	K8SCoreV1Services = collection.Builder{
 		Name:         "k8s/core/v1/services",
@@ -514,24 +532,6 @@ var (
 			Proto:         "k8s.io.api.core.v1.ServiceSpec",
 			ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SExtensionsV1Beta1Ingresses describes the collection
-	// k8s/extensions/v1beta1/ingresses
-	K8SExtensionsV1Beta1Ingresses = collection.Builder{
-		Name:         "k8s/extensions/v1beta1/ingresses",
-		VariableName: "K8SExtensionsV1Beta1Ingresses",
-		Resource: resource.Builder{
-			Group:   "extensions",
-			Kind:    "Ingress",
-			Plural:  "ingresses",
-			Version: "v1beta1",
-			Proto:   "k8s.io.api.extensions.v1beta1.IngressSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.IngressStatus",
-			ReflectType: reflect.TypeOf(&k8sioapiextensionsv1beta1.IngressSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapiextensionsv1beta1.IngressStatus{}).Elem(),
-			ProtoPackage: "k8s.io/api/extensions/v1beta1", StatusPackage: "k8s.io/api/extensions/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -654,6 +654,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SNetworkingV1Ingresses describes the collection
+	// k8s/networking/v1/ingresses
+	K8SNetworkingV1Ingresses = collection.Builder{
+		Name:         "k8s/networking/v1/ingresses",
+		VariableName: "K8SNetworkingV1Ingresses",
+		Resource: resource.Builder{
+			Group:   "networking.k8s.io",
+			Kind:    "Ingress",
+			Plural:  "ingresses",
+			Version: "v1",
+			Proto:   "k8s.io.api.networking.v1.IngressSpec", StatusProto: "k8s.io.api.networking.v1.IngressStatus",
+			ReflectType: reflect.TypeOf(&k8sioapinetworkingv1.IngressSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapinetworkingv1.IngressStatus{}).Elem(),
+			ProtoPackage: "k8s.io/api/networking/v1", StatusPackage: "k8s.io/api/networking/v1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
@@ -681,14 +699,15 @@ var (
 		MustAdd(K8SCoreV1Nodes).
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Secrets).
+		MustAdd(K8SCoreV1Serviceaccounts).
 		MustAdd(K8SCoreV1Services).
-		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		MustAdd(K8SGatewayApiV1Alpha2Referencegrants).
 		MustAdd(K8SGatewayApiV1Alpha2Tcproutes).
 		MustAdd(K8SGatewayApiV1Alpha2Tlsroutes).
 		MustAdd(K8SGatewayApiV1Beta1Gatewayclasses).
 		MustAdd(K8SGatewayApiV1Beta1Gateways).
 		MustAdd(K8SGatewayApiV1Beta1Httproutes).
+		MustAdd(K8SNetworkingV1Ingresses).
 		Build()
 
 	// Istio contains only Istio collections.
@@ -722,14 +741,15 @@ var (
 		MustAdd(K8SCoreV1Nodes).
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Secrets).
+		MustAdd(K8SCoreV1Serviceaccounts).
 		MustAdd(K8SCoreV1Services).
-		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		MustAdd(K8SGatewayApiV1Alpha2Referencegrants).
 		MustAdd(K8SGatewayApiV1Alpha2Tcproutes).
 		MustAdd(K8SGatewayApiV1Alpha2Tlsroutes).
 		MustAdd(K8SGatewayApiV1Beta1Gatewayclasses).
 		MustAdd(K8SGatewayApiV1Beta1Gateways).
 		MustAdd(K8SGatewayApiV1Beta1Httproutes).
+		MustAdd(K8SNetworkingV1Ingresses).
 		Build()
 
 	// Builtin contains only native Kubernetes collections. This differs from Kube, which has
@@ -744,8 +764,9 @@ var (
 		MustAdd(K8SCoreV1Nodes).
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Secrets).
+		MustAdd(K8SCoreV1Serviceaccounts).
 		MustAdd(K8SCoreV1Services).
-		MustAdd(K8SExtensionsV1Beta1Ingresses).
+		MustAdd(K8SNetworkingV1Ingresses).
 		Build()
 
 	// Pilot contains only collections used by Pilot.

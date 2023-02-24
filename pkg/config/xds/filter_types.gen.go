@@ -22,6 +22,7 @@ package xds
 import (
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/config/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/dynamo/v3"
+	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/golang/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/language/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/squash/v3"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/sxg/v3alpha"
@@ -198,6 +199,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cdn_loop/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/composite/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/compressor/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/connect_grpc_bridge/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/csrf/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/custom_response/v3"
@@ -281,6 +283,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/internal_redirect/previous_routes/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/internal_redirect/safe_cross_scheme/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/key_value/file_based/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/client_side_weighted_round_robin/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/common/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/least_request/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/maglev/v3"
@@ -374,6 +377,8 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/watchdog/v3"
+	_ "github.com/envoyproxy/go-control-plane/ratelimit/config/ratelimit/v3"
+	_ "github.com/envoyproxy/go-control-plane/ratelimit/service/ratelimit/v3"
 
 	// Istio-specific Envoy filters
 	_ "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"

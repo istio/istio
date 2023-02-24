@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -54,7 +55,7 @@ func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			DeployGatewayAPICRD(t)
+			crd.DeployGatewayAPIOrSkip(t)
 
 			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
 				false, t.Clusters().Configs()...)
@@ -196,6 +197,7 @@ spec:
 									Path:    path,
 									Headers: headers.New().WithHost("my.domain.example").Build(),
 								},
+								Check: check.OK(),
 							})
 						}
 					})
@@ -209,6 +211,7 @@ spec:
 								Path:    "/",
 								Headers: headers.New().WithHost("my.domain.example").Build(),
 							},
+							Check: check.OK(),
 						})
 					})
 					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
@@ -271,7 +274,7 @@ spec:
 					HTTP: echo.HTTP{
 						Headers: headers.New().WithHost("bar.example.com").Build(),
 					},
-					Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
+					Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
 					Check:   check.OK(),
 					Retry: echo.Retry{
 						Options: []retry.Option{retry.Timeout(time.Minute)},
@@ -312,7 +315,7 @@ spec:
   controller: istio.io/ingress-controller`, apiVersion)
 
 			ingressConfigTemplate := `
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: %s

@@ -253,7 +253,7 @@ func TestGCPMetadata(t *testing.T) {
 					GCPMetadata = ""
 				}
 			}
-			gcpEnvOnce, parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, sync.Once{}, "", "", "", ""
+			parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
 		})
 	}
 }
@@ -285,7 +285,6 @@ func TestGCPQuotaProject(t *testing.T) {
 			if got, want := val, v.wantProject; got != want {
 				tt.Errorf("Incorrect value for GCPQuotaProject; got = %q, want = %q", got, want)
 			}
-			gcpEnvOnce = sync.Once{}
 		})
 	}
 }
@@ -356,7 +355,136 @@ func TestMetadataCache(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
 			}
-			gcpEnvOnce, parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, sync.Once{}, "", "", "", ""
+			parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
+		})
+	}
+}
+
+func TestDefaultPort(t *testing.T) {
+	tests := []struct {
+		host string
+		want string
+	}{
+		{
+			host: "foo",
+			want: "foo:80",
+		},
+		{
+			host: "foo:80",
+			want: "foo:80",
+		},
+		{
+			host: "foo:8080",
+			want: "foo:8080",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.host, func(t *testing.T) {
+			if got := defaultPort(tt.host, "80"); got != tt.want {
+				t.Errorf("defaultPort() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLocality(t *testing.T) {
+	tests := []struct {
+		name                string
+		shouldFill          shouldFillFn
+		projectIDFn         metadataFn
+		numericProjectIDFn  metadataFn
+		locationFn          metadataFn
+		clusterNameFn       metadataFn
+		instanceNameFn      metadataFn
+		instanceIDFn        metadataFn
+		instanceTemplateFn  metadataFn
+		instanceCreatedByFn metadataFn
+		env                 map[string]string
+		want                map[string]string
+	}{
+		{
+			"fill by env variable",
+			func() bool { return true },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
+			map[string]string{"GCP_METADATA": "env_pid|env_pn|env_cluster|us-west1-ir"},
+			map[string]string{"Zone": "us-west1-ir", "Region": "us-west1"},
+		},
+		{
+			"no env variable",
+			func() bool { return true },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "us-west1-ir", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
+			map[string]string{},
+			map[string]string{"Zone": "us-west1-ir", "Region": "us-west1"},
+		},
+		{
+			"empty result",
+			func() bool { return false },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "us-west1-ir", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
+			map[string]string{},
+			map[string]string{},
+		},
+		{
+			"unable to reach compute metadata",
+			func() bool { return true },
+			func() (string, error) { return "", errors.New("error") },
+			func() (string, error) { return "", errors.New("error") },
+			func() (string, error) { return "", errors.New("error") },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
+			map[string]string{},
+			map[string]string{},
+		},
+	}
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			for e, v := range tt.env {
+				t.Setenv(e, v)
+				if e == "GCP_METADATA" {
+					GCPMetadata = v
+				}
+			}
+			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn,
+				instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn = tt.shouldFill, tt.projectIDFn,
+				tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn, tt.instanceTemplateFn, tt.instanceCreatedByFn
+
+			e := NewGCP()
+			got := e.Locality()
+			if tt.want["Zone"] != got.Zone {
+				t.Errorf("locality.Zone => '%v'; want '%v'", got.Zone, tt.want["Zone"])
+			}
+			if tt.want["Region"] != got.Region {
+				t.Errorf("locality.Region => '%v'; want '%v'", got.Region, tt.want["Zone"])
+			}
+			for e := range tt.env {
+				if e == "GCP_METADATA" {
+					GCPMetadata = ""
+				}
+			}
+			parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
 		})
 	}
 }

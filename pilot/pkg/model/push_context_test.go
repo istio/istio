@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -2699,6 +2700,22 @@ type localServiceDiscovery struct {
 	NetworkGatewaysHandler
 }
 
+func (l *localServiceDiscovery) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
+	return nil, nil
+}
+
+func (l *localServiceDiscovery) AmbientSnapshot() *AmbientSnapshot {
+	return nil
+}
+
+func (l *localServiceDiscovery) AdditionalPodSubscriptions(_ *Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	return nil
+}
+
+func (l *localServiceDiscovery) Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization {
+	return nil
+}
+
 var _ ServiceDiscovery = &localServiceDiscovery{}
 
 func (l *localServiceDiscovery) Services() []*Service {
@@ -2709,7 +2726,7 @@ func (l *localServiceDiscovery) GetService(host.Name) *Service {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) InstancesByPort(*Service, int, labels.Instance) []*ServiceInstance {
+func (l *localServiceDiscovery) InstancesByPort(*Service, int) []*ServiceInstance {
 	return l.serviceInstances
 }
 

@@ -150,4 +150,26 @@ const (
 	// CertProviderNone does not create any certificates for the control plane. It is assumed that some external
 	// load balancer, such as an Istio Gateway, is terminating the TLS.
 	CertProviderNone = "none"
+
+	WaypointServiceAccount = "istio.io/for-service-account"
+
+	ManagedGatewayLabel               = "gateway.istio.io/managed"
+	ManagedGatewayController          = "istio.io-gateway-controller"
+	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
+	ManagedGatewayMeshController      = "istio.io/mesh-controller"
+
+	WaypointGatewayClassName = "istio-waypoint"
+	GatewayNameLabel         = "istio.io/gateway-name"
+
+	// DataplaneMode namespace label for determining ambient mesh behavior
+	DataplaneMode        = "istio.io/dataplane-mode"
+	DataplaneModeAmbient = "ambient"
+
+	// AmbientRedirection specifies whether a pod has ambient redirection (to ztunnel) configured.
+	AmbientRedirection = "ambient.istio.io/redirection"
+	// AmbientRedirectionEnabled indicates redirection is configured. This is set by the CNI when it
+	// actually sets up redirection, rather than by the user.
+	AmbientRedirectionEnabled = "enabled"
+	// AmbientRedirectionDisabled is an opt-out, configured by user.
+	AmbientRedirectionDisabled = "disabled"
 )

@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -26,11 +28,12 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 // ServiceController is a mock service controller
 type ServiceController struct {
-	svcHandlers []func(*model.Service, model.Event)
+	svcHandlers []model.ServiceHandler
 
 	sync.RWMutex
 }
@@ -41,7 +44,7 @@ var _ model.Controller = &ServiceController{}
 func (c *ServiceController) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
 
 // AppendServiceHandler appends a service handler to the controller
-func (c *ServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) {
+func (c *ServiceController) AppendServiceHandler(f model.ServiceHandler) {
 	c.Lock()
 	c.svcHandlers = append(c.svcHandlers, f)
 	c.Unlock()
@@ -80,6 +83,22 @@ type ServiceDiscovery struct {
 
 	// Single mutex for now - it's for debug only.
 	mutex sync.Mutex
+}
+
+func (sd *ServiceDiscovery) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
+	return nil, nil
+}
+
+func (sd *ServiceDiscovery) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	return nil
+}
+
+func (sd *ServiceDiscovery) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
+	return nil
+}
+
+func (sd *ServiceDiscovery) AmbientSnapshot() *model.AmbientSnapshot {
+	return nil
 }
 
 var _ model.ServiceDiscovery = &ServiceDiscovery{}
@@ -302,7 +321,7 @@ func (sd *ServiceDiscovery) GetService(hostname host.Name) *model.Service {
 
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
-func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int, labels labels.Instance) []*model.ServiceInstance {
+func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int) []*model.ServiceInstance {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.InstancesError != nil {

@@ -28,6 +28,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/ptr"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -172,10 +173,10 @@ func createBuildxBuilderIfNeeded(a Args) error {
 		if err != nil {
 			return fmt.Errorf("command failed: %v", err)
 		}
-		matches := regexp.MustCompile(`Driver: (.*)`).FindStringSubmatch(out.String())
+		matches := regexp.MustCompile(`Driver:\s+(.*)`).FindStringSubmatch(out.String())
 		if len(matches) == 0 || matches[1] != "docker-container" {
 			return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
-				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.10.3" +
+				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0" +
 				" --name istio-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
 		}
 		return nil
@@ -183,7 +184,7 @@ func createBuildxBuilderIfNeeded(a Args) error {
 	return exec.Command("sh", "-c", `
 export DOCKER_CLI_EXPERIMENTAL=enabled
 if ! docker buildx ls | grep -q container-builder; then
-  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.10.3 --name container-builder --buildkitd-flags="--debug"
+  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name container-builder --buildkitd-flags="--debug"
   # Pre-warm the builder. If it fails, fetch logs, but continue
   docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
 fi
@@ -229,8 +230,8 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			}
 			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))
 			t := Target{
-				Context:    sp(p),
-				Dockerfile: sp(filepath.Base(bp.Dockerfile)),
+				Context:    ptr.Of(p),
+				Dockerfile: ptr.Of(filepath.Base(bp.Dockerfile)),
 				Args:       createArgs(a, target, variant, ""),
 				Platforms:  a.Architectures,
 			}

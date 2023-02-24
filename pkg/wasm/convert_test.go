@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
-	"time"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -31,6 +30,7 @@ import (
 	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -44,10 +44,7 @@ type mockCache struct {
 	wantPolicy extensions.PullPolicy
 }
 
-func (c *mockCache) Get(
-	downloadURL, checksum, resourceName, resourceVersion string,
-	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
-) (string, error) {
+func (c *mockCache) Get(downloadURL string, opts GetOptions) (string, error) {
 	url, _ := url.Parse(downloadURL)
 	query := url.Query()
 
@@ -57,24 +54,157 @@ func (c *mockCache) Get(
 	if errMsg != "" {
 		err = errors.New(errMsg)
 	}
-	if c.wantSecret != nil && !reflect.DeepEqual(c.wantSecret, pullSecret) {
-		return "", fmt.Errorf("wrong secret for %v, got %q want %q", downloadURL, string(pullSecret), c.wantSecret)
+	if c.wantSecret != nil && !reflect.DeepEqual(c.wantSecret, opts.PullSecret) {
+		return "", fmt.Errorf("wrong secret for %v, got %q want %q", downloadURL, string(opts.PullSecret), c.wantSecret)
 	}
-	if c.wantPolicy != pullPolicy {
-		return "", fmt.Errorf("wrong pull policy for %v, got %v want %v", downloadURL, pullPolicy, c.wantPolicy)
+	if c.wantPolicy != opts.PullPolicy {
+		return "", fmt.Errorf("wrong pull policy for %v, got %v want %v", downloadURL, opts.PullPolicy, c.wantPolicy)
 	}
 
 	return module, err
 }
 func (c *mockCache) Cleanup() {}
 
+func messageToStruct(t *testing.T, m proto.Message) *structpb.Struct {
+	st, err := conversion.MessageToStruct(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
+}
+
+func newStruct(t *testing.T, m map[string]any) *structpb.Struct {
+	st, err := structpb.NewStruct(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
+}
+
+func messageToAnyWithTypeURL(t *testing.T, msg proto.Message, typeURL string) *anypb.Any {
+	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &anypb.Any{
+		// nolint: staticcheck
+		TypeUrl: typeURL,
+		Value:   b,
+	}
+}
+
+func TestWasmConvertWithWrongMessages(t *testing.T) {
+	cases := []struct {
+		name     string
+		input    []*anypb.Any
+		wantNack bool
+	}{
+		{
+			name:     "wrong typed config",
+			input:    []*anypb.Any{protoconv.MessageToAny(&emptypb.Empty{})},
+			wantNack: true,
+		},
+		{
+			name: "wrong value in typed struct",
+			input: []*anypb.Any{protoconv.MessageToAny(&core.TypedExtensionConfig{
+				Name: "wrong-input",
+				TypedConfig: protoconv.MessageToAny(
+					&udpa.TypedStruct{
+						TypeUrl: xds.WasmHTTPFilterType,
+						Value:   newStruct(t, map[string]any{"wrong": "value"}),
+					},
+				),
+			})},
+			wantNack: true,
+		},
+		{
+			name: "empty wasm in typed struct",
+			input: []*anypb.Any{protoconv.MessageToAny(&core.TypedExtensionConfig{
+				Name: "wrong-input",
+				TypedConfig: protoconv.MessageToAny(
+					&udpa.TypedStruct{
+						TypeUrl: xds.WasmHTTPFilterType,
+						Value:   messageToStruct(t, &wasm.Wasm{}),
+					},
+				),
+			})},
+			wantNack: true,
+		},
+		{
+			name: "no remote and local code in wasm",
+			input: []*anypb.Any{protoconv.MessageToAny(&core.TypedExtensionConfig{
+				Name: "wrong-input",
+				TypedConfig: protoconv.MessageToAny(
+					&udpa.TypedStruct{
+						TypeUrl: xds.WasmHTTPFilterType,
+						Value: messageToStruct(t, &wasm.Wasm{
+							Config: &v3.PluginConfig{
+								Vm: &v3.PluginConfig_VmConfig{
+									VmConfig: &v3.VmConfig{
+										Code: &core.AsyncDataSource{},
+									},
+								},
+							},
+						}),
+					},
+				),
+			})},
+			wantNack: true,
+		},
+		{
+			name: "empty wasm in typed extension config",
+			input: []*anypb.Any{protoconv.MessageToAny(&core.TypedExtensionConfig{
+				Name:        "wrong-input",
+				TypedConfig: protoconv.MessageToAny(&wasm.Wasm{}),
+			})},
+			wantNack: true,
+		},
+		{
+			name: "wrong wasm filter value",
+			input: []*anypb.Any{protoconv.MessageToAny(&core.TypedExtensionConfig{
+				Name:        "wrong-input",
+				TypedConfig: messageToAnyWithTypeURL(t, &v3.VmConfig{Runtime: "test", VmId: "test"}, xds.WasmHTTPFilterType),
+			})},
+			wantNack: true,
+		},
+		{
+			name: "wrong typed struct value",
+			input: []*anypb.Any{protoconv.MessageToAny(&core.TypedExtensionConfig{
+				Name:        "wrong-input",
+				TypedConfig: messageToAnyWithTypeURL(t, &v3.VmConfig{Runtime: "test", VmId: "test"}, xds.TypedStructType),
+			})},
+			wantNack: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mc := &mockCache{}
+			gotErr := MaybeConvertWasmExtensionConfig(tc.input, mc)
+			if gotErr == nil {
+				t.Errorf("wasm config conversion should return error, but did not")
+			}
+		})
+	}
+}
+
 func TestWasmConvert(t *testing.T) {
 	cases := []struct {
 		name       string
 		input      []*core.TypedExtensionConfig
 		wantOutput []*core.TypedExtensionConfig
-		wantNack   bool
+		wantErr    bool
 	}{
+		{
+			name: "nil typed config ",
+			input: []*core.TypedExtensionConfig{
+				extensionConfigMap["nil-typed-config"],
+			},
+			wantOutput: []*core.TypedExtensionConfig{
+				extensionConfigMap["nil-typed-config"],
+			},
+			wantErr: true,
+		},
 		{
 			name: "remote load success",
 			input: []*core.TypedExtensionConfig{
@@ -83,7 +213,17 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-success-local-file"],
 			},
-			wantNack: false,
+			wantErr: false,
+		},
+		{
+			name: "remote load success without typed struct",
+			input: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-success-without-typed-struct"],
+			},
+			wantOutput: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-success-local-file"],
+			},
+			wantErr: false,
 		},
 		{
 			name: "remote load fail",
@@ -93,7 +233,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-fail"],
 			},
-			wantNack: true,
+			wantErr: true,
 		},
 		{
 			name: "mix",
@@ -105,7 +245,7 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["remote-load-fail"],
 				extensionConfigMap["remote-load-success-local-file"],
 			},
-			wantNack: true,
+			wantErr: true,
 		},
 		{
 			name: "remote load fail open",
@@ -115,7 +255,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-allow"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 		{
 			name: "no typed struct",
@@ -125,7 +265,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["empty"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 		{
 			name: "no wasm",
@@ -135,7 +275,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["no-wasm"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 		{
 			name: "no remote load",
@@ -145,7 +285,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["no-remote-load"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 		{
 			name: "no uri",
@@ -155,7 +295,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["no-http-uri"],
 			},
-			wantNack: true,
+			wantErr: true,
 		},
 		{
 			name: "secret",
@@ -165,7 +305,7 @@ func TestWasmConvert(t *testing.T) {
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-success-local-file"],
 			},
-			wantNack: false,
+			wantErr: false,
 		},
 	}
 
@@ -176,7 +316,7 @@ func TestWasmConvert(t *testing.T) {
 				resources = append(resources, protoconv.MessageToAny(i))
 			}
 			mc := &mockCache{}
-			gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
+			gotErr := MaybeConvertWasmExtensionConfig(resources, mc)
 			if len(resources) != len(c.wantOutput) {
 				t.Fatalf("wasm config conversion number of configuration got %v want %v", len(resources), len(c.wantOutput))
 			}
@@ -190,8 +330,10 @@ func TestWasmConvert(t *testing.T) {
 					t.Errorf("wasm config conversion output index %d got %v want %v", i, ec, c.wantOutput[i])
 				}
 			}
-			if gotNack != c.wantNack {
-				t.Errorf("wasm config conversion send nack got %v want %v", gotNack, c.wantNack)
+			if c.wantErr && gotErr == nil {
+				t.Error("wasm config conversion fails to raise an error")
+			} else if !c.wantErr && gotErr != nil {
+				t.Errorf("wasm config conversion got unexpected error: %v", gotErr)
 			}
 		})
 	}
@@ -218,6 +360,10 @@ func buildAnyExtensionConfig(name string, msg proto.Message) *core.TypedExtensio
 }
 
 var extensionConfigMap = map[string]*core.TypedExtensionConfig{
+	"nil-typed-config": {
+		Name:        "nil-typed-config",
+		TypedConfig: nil,
+	},
 	"empty": {
 		Name: "empty",
 		TypedConfig: protoconv.MessageToAny(
@@ -280,6 +426,21 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 						Local: &core.DataSource{
 							Specifier: &core.DataSource_Filename{
 								Filename: "test.wasm",
+							},
+						},
+					}},
+				},
+			},
+		},
+	}),
+	"remote-load-success-without-typed-struct": buildAnyExtensionConfig("remote-load-success", &wasm.Wasm{
+		Config: &v3.PluginConfig{
+			Vm: &v3.PluginConfig_VmConfig{
+				VmConfig: &v3.VmConfig{
+					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Remote{
+						Remote: &core.RemoteDataSource{
+							HttpUri: &core.HttpUri{
+								Uri: "http://test?module=test.wasm",
 							},
 						},
 					}},

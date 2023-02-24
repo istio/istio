@@ -55,11 +55,6 @@ func (sr SecretResource) Key() string {
 	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
 }
 
-// DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
-func (sr SecretResource) DependentTypes() []kind.Kind {
-	return nil
-}
-
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {
 	configs := []model.ConfigHash{}
 	for _, config := range relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}) {
@@ -150,8 +145,8 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 			}
 		}
 
-		cachedItem, f := s.cache.Get(sr)
-		if f && !features.EnableUnsafeAssertions {
+		cachedItem := s.cache.Get(sr)
+		if cachedItem != nil && !features.EnableUnsafeAssertions {
 			// If it is in the Cache, add it and continue
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			results = append(results, cachedItem)
@@ -199,7 +194,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return res
 	}
 
-	key, cert, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
+	key, cert, staple, err := secretController.GetKeyCertAndStaple(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
 		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
@@ -211,7 +206,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 	}
-	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert, proxy, s.meshConfig)
+	res := toEnvoyKeyCertStapleSecret(sr.ResourceName, key, cert, staple, proxy, s.meshConfig)
 	return res
 }
 
@@ -330,7 +325,7 @@ func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 	}
 }
 
-func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
+func toEnvoyKeyCertStapleSecret(name string, key, cert, staple []byte, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
 	var res *anypb.Any
 	pkpConf := proxy.Metadata.ProxyConfigOrDefault(meshConfig.GetDefaultConfig()).GetPrivateKeyProvider()
 	switch pkpConf.GetProvider().(type) {
@@ -403,6 +398,11 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 					PrivateKey: &core.DataSource{
 						Specifier: &core.DataSource_InlineBytes{
 							InlineBytes: key,
+						},
+					},
+					OcspStaple: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: staple,
 						},
 					},
 				},

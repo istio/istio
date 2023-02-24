@@ -365,15 +365,20 @@ func (cfg *IptablesConfigurator) Run() {
 			// Instead, we just have:
 			// app => istio-agent => dns server
 			cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
-				"-o", "lo", "!", "-d", constants.IPVersionSpecific,
-				"-p", "tcp", "!", "--dport", "53",
+				"-o", "lo",
+				"!", "-d", constants.IPVersionSpecific,
+				"-p", "tcp",
+				"-m", "multiport",
+				"!", "--dports", "53,"+cfg.cfg.InboundTunnelPort,
 				"-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
 		} else {
 			cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
-				"-o", "lo", "!", "-d", constants.IPVersionSpecific,
+				"-o", "lo",
+				"!", "-d", constants.IPVersionSpecific,
+				"-p", "tcp",
+				"!", "--dport", cfg.cfg.InboundTunnelPort,
 				"-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
 		}
-
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
 		// If loopback explicitly set via OutboundIPRangesInclude, then don't return.
@@ -403,7 +408,10 @@ func (cfg *IptablesConfigurator) Run() {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
 		cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
-			"-o", "lo", "!", "-d", constants.IPVersionSpecific,
+			"-o", "lo",
+			"!", "-d", constants.IPVersionSpecific,
+			"-p", "tcp",
+			"!", "--dport", cfg.cfg.InboundTunnelPort,
 			"-m", "owner", "--gid-owner", gid, "-j", constants.ISTIOINREDIRECT)
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address

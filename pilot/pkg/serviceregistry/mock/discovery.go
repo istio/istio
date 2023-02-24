@@ -135,7 +135,10 @@ func MakeIP(service *model.Service, version int) string {
 	if service.External() {
 		return ""
 	}
-	ipa, _ := netip.ParseAddr(service.DefaultAddress)
+	ipa, ise := netip.ParseAddr(service.DefaultAddress)
+	if ise != nil {
+		return ""
+	}
 	ip := ipa.As4()
 	ip[2] = byte(1)
 	ip[3] = byte(version)
@@ -146,7 +149,7 @@ type Controller struct {
 	serviceHandler model.ControllerHandlers
 }
 
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
+func (c *Controller) AppendServiceHandler(f model.ServiceHandler) {
 	c.serviceHandler.AppendServiceHandler(f)
 }
 
@@ -156,8 +159,8 @@ func (c *Controller) Run(<-chan struct{}) {}
 
 func (c *Controller) HasSynced() bool { return true }
 
-func (c *Controller) OnServiceEvent(s *model.Service, e model.Event) {
+func (c *Controller) OnServiceEvent(prev, curr *model.Service, e model.Event) {
 	for _, h := range c.serviceHandler.GetServiceHandlers() {
-		h(s, e)
+		h(prev, curr, e)
 	}
 }

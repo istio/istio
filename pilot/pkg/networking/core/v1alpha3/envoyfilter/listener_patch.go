@@ -43,7 +43,7 @@ func ApplyListenerPatches(
 ) (out []*listener.Listener) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		IncrementEnvoyFilterErrorMetric(Listener)
-		log.Errorf("listeners patch caused panic, so the patches did not take effect")
+		log.Errorf("listeners patch %s/%s caused panic, so the patches did not take effect", efw.Namespace, efw.Name)
 	})
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
 	out = lis
@@ -230,8 +230,8 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, applied)
 	}
-	if len(removedFilters) > 0 {
-		tempArray := make([]*listener.ListenerFilter, 0, len(lis.ListenerFilters)-len(removedFilters))
+	if removedFilters.Len() > 0 {
+		tempArray := make([]*listener.ListenerFilter, 0, len(lis.ListenerFilters)-removedFilters.Len())
 		for _, filter := range lis.ListenerFilters {
 			if removedFilters.Contains(filter.Name) {
 				continue

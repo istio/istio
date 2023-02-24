@@ -22,8 +22,11 @@ import (
 	"strings"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	anypb "github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -58,7 +61,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	efw := req.Push.EnvoyFilters(node)
 	hit, miss := 0, 0
 	switch node.Type {
-	case model.SidecarProxy:
+	case model.SidecarProxy, model.Waypoint:
 		vHostCache := make(map[int][]*route.VirtualHost)
 		// dependent envoyfilters' key, calculate in front once to prevent calc for each route.
 		envoyfilterKeys := efw.KeysApplyingTo(
@@ -205,8 +208,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
+		// Control plane validates 1mb max size. Set this on data plane too to increase from default of 4k
+		MaxDirectResponseBodySizeBytes: wrappers.UInt32(1024 * 1024),
 	}
-	if SidecarIgnorePort(node) {
+	if features.SidecarIgnorePort {
 		out.IgnorePortInHostMatching = true
 	}
 
@@ -338,6 +343,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 				Attributes: model.ServiceAttributes{
 					Namespace:       svc.Attributes.Namespace,
 					ServiceRegistry: svc.Attributes.ServiceRegistry,
+					Labels:          svc.Attributes.Labels,
 				},
 			}
 		}
@@ -382,8 +388,8 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push, servicesByName, virtualServices, listenerPort)
 
 	if features.EnableRDSCaching {
-		resource, exist := xdsCache.Get(routeCache)
-		if exist && !features.EnableUnsafeAssertions {
+		resource := xdsCache.Get(routeCache)
+		if resource != nil && !features.EnableUnsafeAssertions {
 			return nil, resource, routeCache
 		}
 	}
@@ -430,11 +436,21 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			push.AddMetric(model.DuplicatedDomains, name, node.ID, msg)
 		}
 		if len(domains) > 0 {
+			perRouteFilters := map[string]*anypb.Any{}
+			if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(svc); statefulConfig != nil {
+				perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
+					Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
+						StatefulSession: statefulConfig,
+					},
+				}
+				perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
+			}
 			return &route.VirtualHost{
 				Name:                       name,
 				Domains:                    domains,
 				Routes:                     vhwrapper.Routes,
 				IncludeRequestAttemptCount: true,
+				TypedPerFilterConfig:       perRouteFilters,
 			}
 		}
 
@@ -528,15 +544,8 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 	return virtualHosts
 }
 
-// GatewayIgnorePort determines if we can exclude ports from domain matches
-func GatewayIgnorePort(node *model.Proxy) bool {
-	return util.IsIstioVersionGE115(node.IstioVersion) && !node.IsProxylessGrpc()
-}
-
-// SidecarIgnorePort determines if we can exclude ports from domain matches for sidecars specifically.
-// This differs from GatewayIgnorePort as it is flag protected to avoid breaking change risks
 func SidecarIgnorePort(node *model.Proxy) bool {
-	return util.IsIstioVersionGE115(node.IstioVersion) && !node.IsProxylessGrpc() && features.SidecarIgnorePort
+	return !node.IsProxylessGrpc() && features.SidecarIgnorePort
 }
 
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from

@@ -30,8 +30,8 @@ TMP=$(mktemp -d)
 {
 helm3 template kiali-server \
   --namespace istio-system \
-  --version 1.60.0 \
-  --set deployment.image_version=v1.60 \
+  --version 1.63.1 \
+  --set deployment.image_version=v1.63 \
   --include-crds \
   --set nameOverride=kiali \
   --set fullnameOverride=kiali \
@@ -43,7 +43,7 @@ helm3 template kiali-server \
 # Set up prometheus
 helm3 template prometheus prometheus \
   --namespace istio-system \
-  --version 15.9.0 \
+  --version 19.6.1 \
   --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"

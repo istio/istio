@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	AuthorizationPolicy Kind = iota
+	Address Kind = iota
+	AuthorizationPolicy
 	ConfigMap
 	CustomResourceDefinition
 	Deployment
@@ -32,6 +33,7 @@ const (
 	RequestAuthentication
 	Secret
 	Service
+	ServiceAccount
 	ServiceEntry
 	Sidecar
 	TCPRoute
@@ -45,6 +47,8 @@ const (
 
 func (k Kind) String() string {
 	switch k {
+	case Address:
+		return "Address"
 	case AuthorizationPolicy:
 		return "AuthorizationPolicy"
 	case ConfigMap:
@@ -93,6 +97,8 @@ func (k Kind) String() string {
 		return "Secret"
 	case Service:
 		return "Service"
+	case ServiceAccount:
+		return "ServiceAccount"
 	case ServiceEntry:
 		return "ServiceEntry"
 	case Sidecar:
@@ -117,6 +123,9 @@ func (k Kind) String() string {
 }
 
 func FromGvk(gvk config.GroupVersionKind) Kind {
+	if gvk.Kind == "Address" && gvk.Group == "internal" && gvk.Version == "internal" {
+		return Address
+	}
 	if gvk.Kind == "AuthorizationPolicy" && gvk.Group == "security.istio.io" && gvk.Version == "v1beta1" {
 		return AuthorizationPolicy
 	}
@@ -147,7 +156,7 @@ func FromGvk(gvk config.GroupVersionKind) Kind {
 	if gvk.Kind == "HTTPRoute" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1beta1" {
 		return HTTPRoute
 	}
-	if gvk.Kind == "Ingress" && gvk.Group == "extensions" && gvk.Version == "v1beta1" {
+	if gvk.Kind == "Ingress" && gvk.Group == "networking.k8s.io" && gvk.Version == "v1" {
 		return Ingress
 	}
 	if gvk.Kind == "Gateway" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1beta1" {
@@ -188,6 +197,9 @@ func FromGvk(gvk config.GroupVersionKind) Kind {
 	}
 	if gvk.Kind == "Service" && gvk.Group == "" && gvk.Version == "v1" {
 		return Service
+	}
+	if gvk.Kind == "ServiceAccount" && gvk.Group == "" && gvk.Version == "v1" {
+		return ServiceAccount
 	}
 	if gvk.Kind == "ServiceEntry" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
 		return ServiceEntry

@@ -87,6 +87,48 @@ spec:
       args: ['http://grafana:{{ .Values.grafana.service.externalPort }}']
   restartPolicy: Never
 ---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: annotation-set-by-default
+  labels:
+    app: annotation-set-by-default
+  annotations:
+    # annotations are set by default by istio-cni, will be ignored to avoid validation errors
+    sidecar.istio.io/interceptionMode: REDIRECT
+    traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+    traffic.sidecar.istio.io/includeInboundPorts: '*'
+    traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+spec:
+  containers:
+    - name: "grafana-test"
+      command: ['curl']
+      args: ['http://grafana:{{ .Values.grafana.service.externalPort }}']
+      restartPolicy: Never
+  initContainers:
+    - name: istio-validation
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: anno-not-set-by-default
+  labels:
+    app: anno-not-set-by-default
+  annotations:
+    # annotations are not set by default, will not ignore
+    sidecar.istio.io/interceptionMode: REDIRECT
+    traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+    traffic.sidecar.istio.io/includeInboundPorts: '*'
+    traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+spec:
+  containers:
+    - name: "grafana-test"
+      command: ['curl']
+      args: ['http://grafana:{{ .Values.grafana.service.externalPort }}']
+  restartPolicy: Never
+  initContainers:
+    - name: istio-init
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

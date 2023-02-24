@@ -18,7 +18,7 @@ var (
 	Gateway                      = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Gateway"}
 	GatewayClass                 = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "GatewayClass"}
 	HTTPRoute                    = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "HTTPRoute"}
-	Ingress                      = config.GroupVersionKind{Group: "extensions", Version: "v1beta1", Kind: "Ingress"}
+	Ingress                      = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "Ingress"}
 	KubernetesGateway            = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "Gateway"}
 	MeshConfig                   = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshConfig"}
 	MeshNetworks                 = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshNetworks"}
@@ -32,6 +32,7 @@ var (
 	RequestAuthentication        = config.GroupVersionKind{Group: "security.istio.io", Version: "v1beta1", Kind: "RequestAuthentication"}
 	Secret                       = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}
 	Service                      = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}
+	ServiceAccount               = config.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
 	ServiceEntry                 = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "ServiceEntry"}
 	Sidecar                      = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Sidecar"}
 	TCPRoute                     = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TCPRoute"}

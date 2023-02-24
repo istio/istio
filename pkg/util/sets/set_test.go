@@ -97,21 +97,92 @@ func TestIntersection(t *testing.T) {
 }
 
 func TestSupersetOf(t *testing.T) {
-	elements := []string{"a", "b", "c", "d"}
-	s1 := New(elements...)
-
-	elements2 := []string{"a", "b"}
-	s2 := New(elements2...)
-
-	if !s1.SupersetOf(s2) {
-		t.Errorf("%v should be superset of %v", SortedList(s1), SortedList(s2))
+	testCases := []struct {
+		name   string
+		first  Set[string]
+		second Set[string]
+		want   bool
+	}{
+		{
+			name:   "both nil",
+			first:  nil,
+			second: nil,
+			want:   true,
+		},
+		{
+			name:   "first nil",
+			first:  nil,
+			second: New("a"),
+			want:   false,
+		},
+		{
+			name:   "second nil",
+			first:  New("a"),
+			second: nil,
+			want:   true,
+		},
+		{
+			name:   "both empty",
+			first:  New[string](),
+			second: New[string](),
+			want:   true,
+		},
+		{
+			name:   "first empty",
+			first:  New[string](),
+			second: New("a"),
+			want:   false,
+		},
+		{
+			name:   "second empty",
+			first:  New("a"),
+			second: New[string](),
+			want:   true,
+		},
+		{
+			name:   "equal",
+			first:  New("a", "b"),
+			second: New("a", "b"),
+			want:   true,
+		},
+		{
+			name:   "first contains all second",
+			first:  New("a", "b", "c"),
+			second: New("a", "b"),
+			want:   true,
+		},
+		{
+			name:   "second contains all first",
+			first:  New("a", "b"),
+			second: New("a", "b", "c"),
+			want:   false,
+		},
 	}
-
-	s3 := New[string]()
-	if !New[string]().SupersetOf(s3) {
-		fmt.Printf("%q\n", SortedList(s3)[0])
-		t.Errorf("%v should be superset of empty set", SortedList(s1))
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.first.SupersetOf(tt.second); got != tt.want {
+				t.Errorf("want %v, but got %v", tt.want, got)
+			}
+		})
 	}
+}
+
+func BenchmarkSupersetOf(b *testing.B) {
+	set1 := New[string]()
+	for i := 0; i < 1000; i++ {
+		set1.Insert(fmt.Sprint(i))
+	}
+	set2 := New[string]()
+	for i := 0; i < 50; i++ {
+		set2.Insert(fmt.Sprint(i))
+	}
+	b.ResetTimer()
+
+	b.Run("SupersetOf", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			set1.SupersetOf(set2)
+		}
+	})
 }
 
 func TestEquals(t *testing.T) {
@@ -252,4 +323,18 @@ func BenchmarkSet(b *testing.B) {
 			SortedList(s)
 		}
 	})
+}
+
+func TestMapOfSet(t *testing.T) {
+	m := map[int]String{}
+	InsertOrNew(m, 1, "a")
+	InsertOrNew(m, 1, "b")
+	InsertOrNew(m, 2, "c")
+	assert.Equal(t, m, map[int]String{1: New("a", "b"), 2: New("c")})
+
+	DeleteCleanupLast(m, 1, "a")
+	assert.Equal(t, m, map[int]String{1: New("b"), 2: New("c")})
+	DeleteCleanupLast(m, 1, "b")
+	DeleteCleanupLast(m, 1, "not found")
+	assert.Equal(t, m, map[int]String{2: New("c")})
 }

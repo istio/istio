@@ -29,6 +29,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -65,8 +66,7 @@ func DefaultProxyConfig() *meshconfig.ProxyConfig {
 // DefaultMeshNetworks returns a default meshnetworks configuration.
 // By default, it is empty.
 func DefaultMeshNetworks() *meshconfig.MeshNetworks {
-	mn := EmptyMeshNetworks()
-	return &mn
+	return ptr.Of(EmptyMeshNetworks())
 }
 
 // DefaultMeshConfig returns the default mesh config.
@@ -88,10 +88,10 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		IngressClass:                "istio",
 		TrustDomain:                 constants.DefaultClusterLocalDomain,
 		TrustDomainAliases:          []string{},
-		EnableAutoMtls:              &wrappers.BoolValue{Value: true},
+		EnableAutoMtls:              wrappers.Bool(true),
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
 		LocalityLbSetting: &v1alpha3.LocalityLoadBalancerSetting{
-			Enabled: &wrappers.BoolValue{Value: true},
+			Enabled: wrappers.Bool(true),
 		},
 		Certificates:  []*meshconfig.Certificate{},
 		DefaultConfig: proxyConfig,
@@ -110,7 +110,8 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		DnsRefreshRate:  durationpb.New(60 * time.Second),
 		ServiceSettings: make([]*meshconfig.MeshConfig_ServiceSettings, 0),
 
-		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{},
+		EnablePrometheusMerge: wrappers.Bool(true),
+		DefaultProviders:      &meshconfig.MeshConfig_DefaultProviders{},
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
 				Name: "prometheus",

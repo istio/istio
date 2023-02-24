@@ -38,7 +38,7 @@ import (
 	netutil "istio.io/istio/pkg/util/net"
 )
 
-func convertPort(port *networking.Port) *model.Port {
+func convertPort(port *networking.ServicePort) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Number),
@@ -113,7 +113,7 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 
 	// Port is mapped from ServicePort
 	for _, p := range svc.Ports {
-		se.Ports = append(se.Ports, &networking.Port{
+		se.Ports = append(se.Ports, &networking.ServicePort{
 			Number: uint32(p.Port),
 			Name:   p.Name,
 			// Protocol is converted to protocol.Instance - reverse conversion will use the name.
@@ -250,7 +250,7 @@ func ensureCanonicalServiceLabels(name string, srcLabels map[string]string) map[
 	return srcLabels
 }
 
-func (s *Controller) convertEndpoint(service *model.Service, servicePort *networking.Port,
+func (s *Controller) convertEndpoint(service *model.Service, servicePort *networking.ServicePort,
 	wle *networking.WorkloadEntry, configKey *configKey, clusterID cluster.ID,
 ) *model.ServiceInstance {
 	var instancePort uint32
@@ -274,7 +274,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, wle.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(wle)
-	labels := labelutil.AugmentLabels(wle.Labels, clusterID, wle.Locality, networkID)
+	labels := labelutil.AugmentLabels(wle.Labels, nil, clusterID, wle.Locality, "", networkID)
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         addr,
@@ -423,7 +423,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(we)
-	labels := labelutil.AugmentLabels(we.Labels, clusterID, we.Locality, networkID)
+	labels := labelutil.AugmentLabels(we.Labels, nil, clusterID, we.Locality, "", networkID)
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,

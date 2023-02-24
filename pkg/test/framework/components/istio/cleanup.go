@@ -57,6 +57,9 @@ func (i *istioImpl) Close() error {
 		}
 		return errG.Wait().ErrorOrNil()
 	}
+	for _, f := range i.istiod {
+		f.Close()
+	}
 	return nil
 }
 

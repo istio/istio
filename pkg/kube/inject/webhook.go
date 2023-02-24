@@ -89,6 +89,12 @@ const (
 	Containers = "containers"
 )
 
+type WebhookConfig struct {
+	Templates  Templates
+	Values     ValuesConfig
+	MeshConfig *meshconfig.MeshConfig
+}
+
 // Webhook implements a mutating webhook for automatic proxy injection.
 type Webhook struct {
 	mu           sync.RWMutex
@@ -96,10 +102,22 @@ type Webhook struct {
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig ValuesConfig
 
-	watcher Watcher
+	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
+	watcher   Watcher
+	MultiCast *WatcherMulticast
 
 	env      *model.Environment
 	revision string
+}
+
+func (wh *Webhook) GetConfig() WebhookConfig {
+	wh.mu.Lock()
+	defer wh.mu.Unlock()
+	return WebhookConfig{
+		Templates:  wh.Config.Templates,
+		Values:     wh.valuesConfig,
+		MeshConfig: wh.meshConfig,
+	}
 }
 
 // ParsedContainers holds the unmarshalled containers and initContainers
@@ -173,7 +191,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		revision:   p.Revision,
 	}
 
-	p.Watcher.SetHandler(wh.updateConfig)
+	mc := NewMulticast(p.Watcher, wh.GetConfig)
+	mc.AddHandler(wh.updateConfig)
+	wh.MultiCast = mc
 	sidecarConfig, valuesConfig, err := p.Watcher.Get()
 	if err != nil {
 		return nil, err
@@ -284,6 +304,14 @@ type ValuesConfig struct {
 	raw      string
 	asStruct *opconfig.Values
 	asMap    map[string]any
+}
+
+func (v ValuesConfig) Struct() *opconfig.Values {
+	return v.asStruct
+}
+
+func (v ValuesConfig) Map() map[string]any {
+	return v.asMap
 }
 
 func NewValuesConfig(v string) (ValuesConfig, error) {

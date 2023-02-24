@@ -15,15 +15,14 @@
 package controller
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -91,6 +90,10 @@ func isPodPhaseTerminal(phase v1.PodPhase) bool {
 	return phase == v1.PodFailed || phase == v1.PodSucceeded
 }
 
+func IsPodRunning(pod *v1.Pod) bool {
+	return pod.Status.Phase == v1.PodRunning
+}
+
 // IsPodReady is copied from kubernetes/pkg/api/v1/pod/utils.go
 func IsPodReady(pod *v1.Pod) bool {
 	return IsPodReadyConditionTrue(pod.Status)
@@ -142,18 +145,10 @@ func (pc *PodCache) labelFilter(old, cur interface{}) bool {
 }
 
 // onEvent updates the IP-based index (pc.podsByIP).
-func (pc *PodCache) onEvent(curr any, ev model.Event) error {
-	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
-	pod, ok := curr.(*v1.Pod)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %+v", curr)
-		}
-		pod, ok = tombstone.Obj.(*v1.Pod)
-		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a pod %#v", curr)
-		}
+func (pc *PodCache) onEvent(_, curr any, ev model.Event) error {
+	pod := controllers.Extract[*v1.Pod](curr)
+	if pod == nil {
+		return nil
 	}
 
 	ip := pod.Status.PodIP
@@ -271,11 +266,7 @@ func (pc *PodCache) update(ip, key string) {
 func (pc *PodCache) queueEndpointEventOnPodArrival(key, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
-	if _, f := pc.needResync[ip]; !f {
-		pc.needResync[ip] = sets.New(key)
-	} else {
-		pc.needResync[ip].Insert(key)
-	}
+	sets.InsertOrNew(pc.needResync, ip, key)
 	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
@@ -283,10 +274,7 @@ func (pc *PodCache) queueEndpointEventOnPodArrival(key, ip string) {
 func (pc *PodCache) endpointDeleted(key string, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
-	delete(pc.needResync[ip], key)
-	if len(pc.needResync[ip]) == 0 {
-		delete(pc.needResync, ip)
-	}
+	sets.DeleteCleanupLast(pc.needResync, ip, key)
 	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 

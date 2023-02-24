@@ -99,9 +99,12 @@ fi
 openssl req -new -key "$FINAL_DIR/workload-$sa-key.pem" -subj "/" -out "$FINAL_DIR"/workload.csr -config "$FINAL_DIR"/workload.cfg
 
 openssl x509 -req -in "$FINAL_DIR"/workload.csr -CA "$cacert" -CAkey "$cakey" -CAcreateserial \
--out "$FINAL_DIR/workload-$sa-cert.pem" -days 3650 -extensions v3_req -extfile "$FINAL_DIR"/workload.cfg
+-out "$FINAL_DIR/leaf-workload-$sa-cert.pem" -days 3650 -extensions v3_req -extfile "$FINAL_DIR"/workload.cfg
 
+cp "$FINAL_DIR/leaf-workload-$sa-cert.pem" "$FINAL_DIR/workload-$sa-cert.pem"
 cat "$certchain" >> "$FINAL_DIR/workload-$sa-cert.pem"
+cp "$certchain" "$FINAL_DIR/workload-$sa-root-certs.pem"
+cat "$rootcert" >> "$FINAL_DIR/workload-$sa-root-certs.pem"
 
 echo "Generated workload-$sa-[cert|key].pem with URI SAN $san"
 openssl verify -CAfile <(cat "$certchain" "$rootcert") "$FINAL_DIR/workload-$sa-cert.pem"

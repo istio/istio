@@ -154,8 +154,15 @@ func TestOptions(t *testing.T) {
 			testName: "dns lookup family v6",
 			key:      "dns_lookup_family",
 			option:   option.DNSLookupFamily(option.DNSLookupFamilyIPv6),
-			expected: option.DNSLookupFamilyValue("AUTO"),
+			expected: option.DNSLookupFamilyValue("V6_ONLY"),
 		},
+		{
+			testName: "dns lookup family dual stack",
+			key:      "dns_lookup_family",
+			option:   option.DNSLookupFamily(option.DNSLookupFamilyIPS),
+			expected: option.DNSLookupFamilyValue("ALL"),
+		},
+
 		{
 			testName: "lightstep address empty",
 			key:      "lightstep",

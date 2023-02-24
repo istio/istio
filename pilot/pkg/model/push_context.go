@@ -17,12 +17,14 @@ package model
 import (
 	"encoding/json"
 	"math"
+	"net/netip"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"go.uber.org/atomic"
+	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -100,6 +102,9 @@ type virtualServiceIndex struct {
 	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
 	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
 	destinationsByGateway map[string]sets.String
+
+	// Map of VS hostname -> referenced hostnames
+	referencedDestinations map[string]sets.String
 }
 
 func newVirtualServiceIndex() virtualServiceIndex {
@@ -108,6 +113,7 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
 		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
 		delegates:                    map[ConfigKey][]ConfigKey{},
+		referencedDestinations:       map[string]sets.String{},
 	}
 	if features.FilterGatewayClusterConfig {
 		out.destinationsByGateway = make(map[string]sets.String)
@@ -255,6 +261,8 @@ type PushContext struct {
 	// GatewayAPIController holds a reference to the gateway API controller.
 	GatewayAPIController GatewayController
 
+	AmbientSnapshot *AmbientSnapshot
+
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkMgr *NetworkManager
@@ -393,6 +401,8 @@ const (
 	ProxyUpdate TriggerReason = "proxy"
 	// GlobalUpdate describes a push triggered by a change to global config, such as mesh config
 	GlobalUpdate TriggerReason = "global"
+	// AmbientUpdate describes a push triggered by a change to ambient mesh config
+	AmbientUpdate TriggerReason = "ambient"
 	// UnknownTrigger describes a push triggered by an unknown reason
 	UnknownTrigger TriggerReason = "unknown"
 	// DebugTrigger describes a push triggered for debugging
@@ -728,16 +738,13 @@ func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Se
 	out := make(map[string]sets.Set[int])
 
 	addDestination := func(host string, port *networking.PortSelector) {
-		if _, ok := out[host]; !ok {
-			out[host] = sets.New[int]()
-		}
+		// Use the value 0 as a sentinel indicating that one of the destinations
+		// in the Virtual Service does not specify a port for this host.
+		pn := 0
 		if port != nil {
-			out[host].Insert(int(port.Number))
-		} else {
-			// Use the value 0 as a sentinel indicating that one of the destinations
-			// in the Virtual Service does not specify a port for this host.
-			out[host].Insert(0)
+			pn = int(port.Number)
 		}
+		sets.InsertOrNew(out, host, pn)
 	}
 
 	for _, h := range v.Http {
@@ -800,14 +807,22 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	return gwSvcs
 }
 
+func (ps *PushContext) ServicesAttachedToMesh() map[string]sets.String {
+	return ps.virtualServiceIndex.referencedDestinations
+}
+
 func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
+	gw := proxy.MergedGateway
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
-	if proxy.MergedGateway == nil {
+	if gw == nil {
 		return false
 	}
-	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		if hosts := ps.virtualServiceIndex.destinationsByGateway[gw]; hosts != nil {
+	if gw.ContainsAutoPassthroughGateways {
+		return true
+	}
+	for _, g := range gw.GatewayNameForServer {
+		if hosts := ps.virtualServiceIndex.destinationsByGateway[g]; hosts != nil {
 			if hosts.Contains(hostname) {
 				return true
 			}
@@ -827,6 +842,7 @@ func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
 			hosts.Insert(p.EnvoyExtAuthzGrpc.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
 			hosts.Insert(p.Zipkin.Service)
+		//nolint: staticcheck  // Lightstep deprecated
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
 			hosts.Insert(p.Lightstep.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
@@ -958,7 +974,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 	// Currently we assume that there will be only one sidecar config for a namespace.
 	sidecars, hasSidecar := ps.sidecarIndex.sidecarsByNamespace[proxy.ConfigNamespace]
 	switch proxy.Type {
-	case Router:
+	case Router, Waypoint:
 		ps.sidecarIndex.derivedSidecarMutex.Lock()
 		defer ps.sidecarIndex.derivedSidecarMutex.Unlock()
 
@@ -1228,6 +1244,8 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	ps.initAmbient(env)
+
 	// Must be initialized in the end
 	if err := ps.initSidecarScopes(env); err != nil {
 		return err
@@ -1242,7 +1260,7 @@ func (ps *PushContext) updateContext(
 ) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged, proxyConfigsChanged bool
+		wasmPluginsChanged, proxyConfigsChanged, addressesChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1274,6 +1292,8 @@ func (ps *PushContext) updateContext(
 			telemetryChanged = true
 		case kind.ProxyConfig:
 			proxyConfigsChanged = true
+		case kind.Address:
+			addressesChanged = true
 		}
 	}
 
@@ -1368,6 +1388,12 @@ func (ps *PushContext) updateContext(
 		ps.gatewayIndex = oldPushContext.gatewayIndex
 	}
 
+	if addressesChanged {
+		ps.initAmbient(env)
+	} else {
+		ps.AmbientSnapshot = oldPushContext.AmbientSnapshot
+	}
+
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
 	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
@@ -1397,7 +1423,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
 			}
 			instances := make([]*ServiceInstance, 0)
-			instances = append(instances, env.InstancesByPort(s, port.Port, nil)...)
+			instances = append(instances, env.InstancesByPort(s, port.Port)...)
 			ps.ServiceIndex.instancesByPort[svcKey][port.Port] = instances
 		}
 
@@ -1502,6 +1528,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[types.NamespacedName][]config.Config{}
 	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[types.NamespacedName][]config.Config{}
 	ps.virtualServiceIndex.publicByGateway = map[string][]config.Config{}
+	ps.virtualServiceIndex.referencedDestinations = map[string]sets.String{}
 
 	if features.FilterGatewayClusterConfig {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
@@ -1596,13 +1623,22 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				if gw == constants.IstioMeshGateway {
 					continue
 				}
-				if _, f := ps.virtualServiceIndex.destinationsByGateway[gw]; !f {
-					ps.virtualServiceIndex.destinationsByGateway[gw] = sets.New[string]()
-				}
 				for host := range virtualServiceDestinations(rule) {
-					ps.virtualServiceIndex.destinationsByGateway[gw].Insert(host)
+					sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
 				}
 				addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
+			}
+		}
+
+		// For mesh virtual services, build a map of host -> referenced destinations
+		if features.EnableAmbientControllers && (len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway)) {
+			for host := range virtualServiceDestinations(rule) {
+				for _, rhost := range rule.Hosts {
+					if _, f := ps.virtualServiceIndex.referencedDestinations[rhost]; !f {
+						ps.virtualServiceIndex.referencedDestinations[rhost] = sets.New[string]()
+					}
+					ps.virtualServiceIndex.referencedDestinations[rhost].Insert(host)
+				}
 			}
 		}
 	}
@@ -2058,6 +2094,10 @@ func (ps *PushContext) initGateways(env *Environment) error {
 	return nil
 }
 
+func (ps *PushContext) initAmbient(env *Environment) {
+	ps.AmbientSnapshot = env.AmbientSnapshot()
+}
+
 // InternalGatewayServiceAnnotation represents the hostname of the service a gateway will use. This is
 // only used internally to transfer information from the Kubernetes Gateway API to the Istio Gateway API
 // which does not have a field to represent this.
@@ -2227,4 +2267,13 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 		namespace: namespace,
 		port:      port,
 	}]
+}
+
+func (ps *PushContext) WaypointsFor(scope WaypointScope) sets.Set[netip.Addr] {
+	return ps.AmbientSnapshot.Waypoint(scope)
+}
+
+// WorkloadsForWaypoint returns all workloads associated with a given WaypointScope
+func (ps *PushContext) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
+	return ps.AmbientSnapshot.WorkloadsForWaypoint(scope)
 }

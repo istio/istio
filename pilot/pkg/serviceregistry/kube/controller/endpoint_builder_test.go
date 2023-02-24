@@ -86,6 +86,18 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 			},
 		},
 		{
+			name: "network priority",
+			ctl: testController{
+				network: "ns-network",
+			},
+			podLabels: labels.Instance{
+				label.TopologyNetwork.Name: "pod-network",
+			},
+			expected: labels.Instance{
+				label.TopologyNetwork.Name: "pod-network",
+			},
+		},
+		{
 			name: "all values",
 			ctl: testController{
 				locality: "myregion/myzone/mysubzone",
@@ -246,6 +258,9 @@ func (c testController) getPodLocality(*v1.Pod) string {
 }
 
 func (c testController) Network(ip string, instance labels.Instance) network.ID {
+	if n := instance[label.TopologyNetwork.Name]; n != "" {
+		return network.ID(n)
+	}
 	return c.network
 }
 

@@ -128,7 +128,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	}
 
 	sidecarNamespaceScopeTypes := []kind.Kind{
-		kind.EnvoyFilter, kind.AuthorizationPolicy, kind.RequestAuthentication,
+		kind.EnvoyFilter, kind.AuthorizationPolicy, kind.RequestAuthentication, kind.WasmPlugin,
 	}
 	for _, k := range sidecarNamespaceScopeTypes {
 		cases = append(cases,
@@ -144,12 +144,18 @@ func TestProxyNeedsPush(t *testing.T) {
 				configs: sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: "invalid-namespace"}),
 				want:    false,
 			},
+			Case{
+				name:    fmt.Sprintf("%s config in the root namespace", k.String()),
+				proxy:   sidecar,
+				configs: sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: nsRoot}),
+				want:    true,
+			},
 		)
 	}
 
 	// tests for kind-affect-proxy.
 	for k, types := range configKindAffectedProxyTypes {
-		for _, nodeType := range model.NodeTypes {
+		for _, nodeType := range []model.NodeType{model.Router, model.SidecarProxy} {
 			affected := false
 			for _, affectedType := range types {
 				if nodeType == affectedType {
@@ -264,10 +270,15 @@ func TestProxyNeedsPush(t *testing.T) {
 	// test for gateway proxy dependencies with PILOT_FILTER_GATEWAY_CLUSTER_CONFIG enabled.
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 
+	const (
+		fooSvc       = "foo"
+		extensionSvc = "extension"
+	)
+
 	cg = v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 		Services: []*model.Service{
 			{
-				Hostname: "foo",
+				Hostname: fooSvc,
 				Attributes: model.ServiceAttributes{
 					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
 					Namespace: nsName,
@@ -281,7 +292,7 @@ func TestProxyNeedsPush(t *testing.T) {
 				},
 			},
 			{
-				Hostname: "extension",
+				Hostname: extensionSvc,
 				Attributes: model.ServiceAttributes{
 					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
 					Namespace: nsName,
@@ -317,7 +328,7 @@ func TestProxyNeedsPush(t *testing.T) {
 				{
 					Provider: &mesh.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
 						EnvoyExtAuthzHttp: &mesh.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
-							Service: "extension",
+							Service: extensionSvc,
 						},
 					},
 				},
@@ -336,7 +347,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		{
 			name:    "service without vs attached to gateway",
 			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo", Namespace: nsName}),
+			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: fooSvc, Namespace: nsName}),
 			want:    false,
 		},
 		{
@@ -348,7 +359,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		{
 			name:    "mesh config extensions",
 			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "extension", Namespace: nsName}),
+			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: extensionSvc, Namespace: nsName}),
 			want:    true,
 		},
 	}
@@ -358,6 +369,16 @@ func TestProxyNeedsPush(t *testing.T) {
 			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
+			}
+		})
+	}
+
+	gateway.MergedGateway.ContainsAutoPassthroughGateways = true
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			push := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
+			if !push {
+				t.Fatalf("Got needs push = %v, expected %v", push, true)
 			}
 		})
 	}

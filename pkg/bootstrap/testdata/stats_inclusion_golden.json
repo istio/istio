@@ -23,7 +23,10 @@
       "name": "envoy.bootstrap.internal_listener",
       "typed_config": {
         "@type":"type.googleapis.com/udpa.type.v1.TypedStruct",
-        "type_url": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener"
+        "type_url": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener",
+        "value": {
+          "buffer_size_kb": 64
+        }
       }
     }
   ],
@@ -335,10 +338,10 @@
           "suffix": "shadow_denied"
           },
           {
-          "safe_regex": {"google_re2":{}, "regex":"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"}
+          "safe_regex": {"regex":"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"}
           },
           {
-          "safe_regex": {"google_re2":{}, "regex":"vhost\\.*\\.route\\.*"}
+          "safe_regex": {"regex":"vhost\\.*\\.route\\.*"}
           },
           {
           "prefix": "component"

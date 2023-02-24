@@ -15,6 +15,7 @@
 package validation
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -4423,7 +4424,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4438,7 +4439,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS Round Robin", in: &networking.ServiceEntry{
 				Hosts: []string{"*.istio.io"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4452,7 +4453,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, label tlsMode: istio", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4470,7 +4471,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			in: &networking.ServiceEntry{
 				Hosts:     []string{"httpbin.org"},
 				Addresses: []string{"10.10.10.10"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 					{Number: 443, Protocol: "https", Name: "https"},
@@ -4486,7 +4487,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			in: &networking.ServiceEntry{
 				Hosts:     []string{"httpbin.org", "wikipedia.org"},
 				Addresses: []string{"10.10.10.10"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 					{Number: 443, Protocol: "https", Name: "https"},
@@ -4502,7 +4503,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			in: &networking.ServiceEntry{
 				Hosts:     []string{"*.google.com"},
 				Addresses: []string{"10.10.10.10"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4519,7 +4520,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, IP in endpoints", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4534,7 +4535,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{
 			name: "empty hosts", in: &networking.ServiceEntry{
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4547,7 +4548,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "bad hosts", in: &networking.ServiceEntry{
 				Hosts: []string{"-"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4560,7 +4561,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "full wildcard host", in: &networking.ServiceEntry{
 				Hosts: []string{"foo.com", "*"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4573,7 +4574,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "short name host", in: &networking.ServiceEntry{
 				Hosts: []string{"foo", "bar.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4586,7 +4587,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "undefined endpoint port", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 80, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4602,7 +4603,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, non-FQDN endpoint", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4618,7 +4619,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, non-FQDN host", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4631,7 +4632,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, no endpoints", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4644,7 +4645,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, unix endpoint", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4658,7 +4659,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type none", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4670,7 +4671,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type none, endpoints provided", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4686,7 +4687,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type none, cidr addresses", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16/16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4699,7 +4700,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type static, cidr addresses with endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16/16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4716,7 +4717,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type static", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4733,7 +4734,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type static, FQDN in endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4750,7 +4751,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type static, missing endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4763,7 +4764,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type static, bad endpoint port name", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4779,7 +4780,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type none, conflicting port names", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-conflict"},
 					{Number: 8080, Protocol: "http", Name: "http-conflict"},
 				},
@@ -4791,7 +4792,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type none, conflicting port numbers", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-conflict1"},
 					{Number: 80, Protocol: "http", Name: "http-conflict2"},
 				},
@@ -4803,7 +4804,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "unix socket", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 				},
 				Resolution: networking.ServiceEntry_STATIC,
@@ -4817,7 +4818,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "unix socket, relative path", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 				},
 				Resolution: networking.ServiceEntry_STATIC,
@@ -4831,7 +4832,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "unix socket, endpoint ports", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 				},
 				Resolution: networking.ServiceEntry_STATIC,
@@ -4844,7 +4845,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "unix socket, multiple service ports", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 					{Number: 80, Protocol: "http", Name: "http-service2"},
 				},
@@ -4859,7 +4860,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "empty protocol", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16/16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Name: "http-valid2"},
 				},
@@ -4871,7 +4872,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "selector", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 			},
@@ -4881,7 +4882,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "workload selector without labels",
 			in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4894,7 +4895,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "selector and endpoints", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4907,7 +4908,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "bad selector key", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 			},
@@ -4917,7 +4918,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "repeat target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 80},
 					{Number: 81, Protocol: "http", Name: "http-valid2", TargetPort: 80},
 				},
@@ -4928,7 +4929,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "valid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
 				},
 			},
@@ -4938,7 +4939,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "invalid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 65536},
 				},
 			},
@@ -4947,7 +4948,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "valid endpoint port", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
 				},
 				Resolution: networking.ServiceEntry_STATIC,
@@ -4965,7 +4966,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "invalid endpoint port", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
 				},
 				Resolution: networking.ServiceEntry_STATIC,
@@ -4984,7 +4985,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "protocol unset for addresses empty", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Name: "http-valid2"},
 				},
@@ -4997,7 +4998,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "protocol is TCP for addresses empty", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 81, Protocol: "TCP", Name: "tcp-valid1"},
 				},
@@ -5010,7 +5011,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "dns round robin with more than one endpoint", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 8081, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -5036,7 +5037,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "dns round robin with 0 endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 8081, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints:  []*networking.WorkloadEntry{},
@@ -8006,7 +8007,7 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 			},
-			"must be set set when operation is UPSERT", "",
+			"must be set when operation is UPSERT", "",
 		},
 		{
 			"good metrics operation",
@@ -8287,4 +8288,54 @@ func TestRecurseMissingTypedConfig(t *testing.T) {
 	assert.Equal(t, recurseMissingTypedConfig(good.ProtoReflect()), []string{}, "typed config set")
 	assert.Equal(t, recurseMissingTypedConfig(ecds.ProtoReflect()), []string{}, "config discovery set")
 	assert.Equal(t, recurseMissingTypedConfig(bad.ProtoReflect()), []string{wellknown.TCPProxy}, "typed config not set")
+}
+
+func TestValidateHTTPHeaderValue(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected error
+	}{
+		{
+			input:    "foo",
+			expected: nil,
+		},
+		{
+			input:    "%HOSTNAME%",
+			expected: nil,
+		},
+		{
+			input:    "100%%",
+			expected: nil,
+		},
+		{
+			input:    "prefix %HOSTNAME% suffix",
+			expected: nil,
+		},
+		{
+			input:    "%DOWNSTREAM_PEER_CERT_V_END(%b %d %H:%M:%S %Y %Z)%",
+			expected: nil,
+		},
+		{
+			input: "%DYNAMIC_METADATA(com.test.my_filter)%",
+		},
+		{
+			input:    "%START_TIME%%",
+			expected: errors.New("header value configuration %START_TIME%% is invalid"),
+		},
+		{
+			input:    "abc%123",
+			expected: errors.New("header value configuration abc%123 is invalid"),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			got := ValidateHTTPHeaderValue(tc.input)
+			if tc.expected == nil {
+				assert.NoError(t, got)
+			} else {
+				assert.Error(t, got)
+			}
+		})
+	}
 }

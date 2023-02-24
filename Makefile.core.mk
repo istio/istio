@@ -35,10 +35,10 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.17-dev
+export VERSION ?= 1.18-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2022-12-05T19-01-23
+BASE_VERSION ?= master-2023-02-08T19-00-55
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -148,7 +148,7 @@ default: init build test
 
 .PHONY: init
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-init: $(TARGET_OUT)/istio_is_init
+init: $(TARGET_OUT)/istio_is_init init-ztunnel-rs
 	@mkdir -p ${TARGET_OUT}/logs
 	@mkdir -p ${TARGET_OUT}/release
 
@@ -160,6 +160,10 @@ $(TARGET_OUT)/istio_is_init: bin/init.sh istio.deps | $(TARGET_OUT)
 	@# Like `curl: (56) OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 104`
 	TARGET_OUT=$(TARGET_OUT) ISTIO_BIN=$(ISTIO_BIN) GOOS_LOCAL=$(GOOS_LOCAL) bin/retry.sh SSL_ERROR_SYSCALL bin/init.sh
 	touch $(TARGET_OUT)/istio_is_init
+
+.PHONY: init-ztunnel-rs
+init-ztunnel-rs:
+	TARGET_OUT=$(TARGET_OUT) bin/build_ztunnel.sh
 
 # Pull dependencies such as envoy
 depend: init | $(TARGET_OUT)

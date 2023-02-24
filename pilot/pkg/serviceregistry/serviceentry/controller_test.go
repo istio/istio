@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -35,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -278,8 +277,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 
 	// httpStaticOverlayUpdatedNop is the same as httpStaticOverlayUpdated but with a NOP change
 	httpStaticOverlayUpdatedNop := func() *config.Config {
-		c := httpStaticOverlayUpdated.DeepCopy()
-		return &c
+		return ptr.Of(httpStaticOverlayUpdated.DeepCopy())
 	}()
 
 	// httpStaticOverlayUpdatedNs is the same as httpStaticOverlay but with an extra endpoint and different namespace added to test updates
@@ -1177,7 +1175,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 
 		key := instancesKey{namespace: selector.Namespace, hostname: "selector.com"}
-		namespacedName := types.NamespacedName{Namespace: selector.Namespace, Name: selector.Name}
+		namespacedName := config.NamespacedName(selector)
 		if len(sd.serviceInstances.ip2instance) != 1 {
 			t.Fatalf("service instances store `ip2instance` memory leak, expect 1, got %d", len(sd.serviceInstances.ip2instance))
 		}
@@ -1292,7 +1290,7 @@ func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, po
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
 		for i, svc := range svcs {
-			instances := sd.InstancesByPort(svc, port, nil)
+			instances := sd.InstancesByPort(svc, port)
 			sortServiceInstances(instances)
 			sortServiceInstances(expected[i])
 			if err := compare(t, instances, expected[i]); err != nil {
@@ -1386,7 +1384,7 @@ func TestServicesDiff(t *testing.T) {
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"*.google.com", "*.mail.com"},
-			Ports: []*networking.Port{
+			Ports: []*networking.ServicePort{
 				{Number: 80, Name: "http-port", Protocol: "http"},
 				{Number: 8080, Name: "http-alt-port", Protocol: "http"},
 			},
@@ -1414,9 +1412,9 @@ func TestServicesDiff(t *testing.T) {
 	updatedHTTPDNSPort := func() *config.Config {
 		c := updatedHTTPDNS.DeepCopy()
 		se := c.Spec.(*networking.ServiceEntry)
-		var ports []*networking.Port
+		var ports []*networking.ServicePort
 		ports = append(ports, se.Ports...)
-		ports = append(ports, &networking.Port{Number: 9090, Name: "http-new-port", Protocol: "http"})
+		ports = append(ports, &networking.ServicePort{Number: 9090, Name: "http-new-port", Protocol: "http"})
 		se.Ports = ports
 		return &c
 	}()
@@ -1664,8 +1662,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.ClientSideLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.0.1",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
+					AutoAllocatedIPv4Address: "240.240.62.90",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:3e5a",
 				},
 			},
 		},
@@ -1683,8 +1681,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.0.1",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
+					AutoAllocatedIPv4Address: "240.240.62.90",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:3e5a",
 				},
 			},
 		},
@@ -1705,8 +1703,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 }
 
 func Test_autoAllocateIP_values(t *testing.T) {
-	inServices := make([]*model.Service, 512)
-	for i := 0; i < 512; i++ {
+	inServices := make([]*model.Service, 255*255)
+	for i := 0; i < 255*255; i++ {
 		temp := model.Service{
 			Hostname:       host.Name(fmt.Sprintf("foo%d.com", i)),
 			Resolution:     model.ClientSideLB,
@@ -1716,14 +1714,16 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	}
 	gotServices := autoAllocateIPs(inServices)
 
-	// out of the 512 IPs, we dont expect the following IPs
+	// We dont expect the following pattern of IPs.
 	// 240.240.0.0
 	// 240.240.0.255
 	// 240.240.1.0
 	// 240.240.1.255
 	// 240.240.2.0
 	// 240.240.2.255
-	// The last IP should be 240.240.2.4
+	// 240.240.3.0
+	// 240.240.3.255
+	// The last IP should be 240.240.202.167
 	doNotWant := map[string]bool{
 		"240.240.0.0":   true,
 		"240.240.0.255": true,
@@ -1732,7 +1732,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		"240.240.2.0":   true,
 		"240.240.2.255": true,
 	}
-	expectedLastIP := "240.240.2.4"
+	expectedLastIP := "240.240.202.167"
 	if gotServices[len(gotServices)-1].AutoAllocatedIPv4Address != expectedLastIP {
 		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
@@ -1747,6 +1747,83 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		}
 		gotIPMap[svc.AutoAllocatedIPv4Address] = svc.Hostname.String()
 	}
+}
+
+// Validate that ipaddress allocation is deterministic based on hash.
+func Test_autoAllocateIP_deterministic(t *testing.T) {
+	inServices := make([]*model.Service, 0)
+	originalServices := map[string]string{
+		"a.com": "240.240.81.186",
+		"c.com": "240.240.79.99",
+		"e.com": "240.240.175.33",
+		"g.com": "240.240.106.30",
+		"i.com": "240.240.124.21",
+		"k.com": "240.240.234.190",
+		"l.com": "240.240.142.221",
+		"n.com": "240.240.41.17",
+		"o.com": "240.240.31.228",
+	}
+
+	allocateAndValidate := func() {
+		gotServices := autoAllocateIPs(model.SortServicesByCreationTime(inServices))
+		gotIPMap := make(map[string]string)
+		for _, svc := range gotServices {
+			if v, ok := gotIPMap[svc.AutoAllocatedIPv4Address]; ok && v != svc.Hostname.String() {
+				t.Errorf("multiple allocations of same IP address to different services with different hostname: %s", svc.AutoAllocatedIPv4Address)
+			}
+			gotIPMap[svc.AutoAllocatedIPv4Address] = svc.Hostname.String()
+		}
+		for k, v := range originalServices {
+			if gotIPMap[v] != k {
+				t.Errorf("ipaddress changed for service %s. expected: %s, got: %s", k, v, gotIPMap[v])
+			}
+		}
+	}
+
+	// Validate that IP addresses are allocated for original list of services.
+	for k := range originalServices {
+		inServices = append(inServices, &model.Service{
+			Hostname:       host.Name(k),
+			Resolution:     model.ClientSideLB,
+			DefaultAddress: constants.UnspecifiedIP,
+		})
+	}
+	allocateAndValidate()
+
+	// Now add few services in between and validate that IPs are retained for original services.
+	addServices := map[string]bool{
+		"b.com": true,
+		"d.com": true,
+		"f.com": true,
+		"h.com": true,
+		"j.com": true,
+		"m.com": true,
+		"p.com": true,
+		"q.com": true,
+		"r.com": true,
+	}
+
+	for k := range addServices {
+		inServices = append(inServices, &model.Service{
+			Hostname:       host.Name(k),
+			Resolution:     model.ClientSideLB,
+			DefaultAddress: constants.UnspecifiedIP,
+		})
+	}
+	allocateAndValidate()
+
+	// Now delete few services and validate that IPs are retained for original services.
+	deleteServices := []*model.Service{}
+	for i, svc := range inServices {
+		if _, exists := originalServices[svc.Hostname.String()]; !exists {
+			if i%2 == 0 {
+				continue
+			}
+		}
+		deleteServices = append(deleteServices, svc)
+	}
+	inServices = deleteServices
+	allocateAndValidate()
 }
 
 func TestWorkloadEntryOnlyMode(t *testing.T) {

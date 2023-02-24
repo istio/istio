@@ -165,7 +165,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
 	// Adds client cert auth and kube (sds enabled)
-	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators)
+	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators, s.kubeClient)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
@@ -178,7 +178,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		// Add a custom authenticator using standard JWT validation, if not running in K8S
 		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
 		jwtRule := v1beta1.JWTRule{Issuer: iss, Audiences: []string{aud}}
-		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule, opts.TrustDomain)
+		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule)
 		if err == nil {
 			caServer.Authenticators = append(caServer.Authenticators, oidcAuth)
 			log.Info("Using out-of-cluster JWT authentication")

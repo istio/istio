@@ -1,0 +1,110 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.workload;
+option go_package="pkg/workloadapi";
+
+message Workload {
+  // Name represents the name for the workload.
+  // For Kubernetes, this is the pod name.
+  // This is just for debugging and may be elided as an optimization.
+  string name = 1;
+  // Namespace represents the namespace for the workload.
+  // This is just for debugging and may be elided as an optimization.
+  string namespace = 2;
+
+  // Address represents the IPv4/IPv6 address for the workload.
+  // This should be globally unique.
+  // This should not have a port number.
+  // TODO: Add network as discriminator
+  bytes address = 3;
+  // Network represents the network this workload is on. This may be elided for the default network.
+  // A (network,address) pair makeup a unique key for a workload *at a point in time*.
+  string network = 4;
+
+  // Protocol that should be used to connect to this workload.
+  Protocol protocol = 5;
+
+  // The SPIFFE identity of the workload. The identity is joined to form spiffe://<trust_domain>/ns/<namespace>/sa/<service_account>.
+  // TrustDomain of the workload. May be elided if this is the mesh wide default (typically cluster.local)
+  string trust_domain = 6;
+  // ServiceAccount of the workload. May be elided if this is "default"
+  string service_account = 7;
+
+  // If present, the waypoint proxy for this workload.
+  repeated bytes waypoint_addresses = 8;
+
+  // Name of the node the workload runs on
+  string node = 9;
+
+  // CanonicalName for the workload. Used for telemetry.
+  string canonical_name = 10;
+  // CanonicalRevision for the workload. Used for telemetry.
+  string canonical_revision = 11;
+  // WorkloadType represents the type of the workload. Used for telemetry.
+  WorkloadType workload_type = 12;
+  // WorkloadName represents the name for the workload (of type WorkloadType). Used for telemetry.
+  string workload_name = 13;
+
+  // If set, indicates this workload directly speaks HBONE, and we should forward HBONE requests as-is.
+  bool native_hbone = 14;
+
+  // Virtual IPs defines a set of virtual IP addresses the workload can be reached at.
+  // Typically these represent Service ClusterIPs.
+  // The key is an IP address.
+  map<string, PortList> virtual_ips = 15;
+
+  // A list of authorization policies applicable to this workload.
+  // NOTE: this *only* includes Selector based policies. Namespace and global polices
+  // are returned out of band.
+  repeated string authorization_policies = 16;
+
+  WorkloadStatus status = 17;
+}
+
+enum WorkloadStatus {
+  // Workload is healthy and ready to serve traffic.
+  HEALTHY = 0;
+  // Workload is unhealthy and NOT ready to serve traffic.
+  UNHEALTHY = 1;
+}
+
+enum WorkloadType {
+  DEPLOYMENT = 0;
+  CRONJOB = 1;
+  POD = 2;
+  JOB = 3;
+}
+
+// PorList represents the ports for a service
+message PortList {
+  repeated Port ports = 1;
+}
+
+message Port {
+  // Port the service is reached at (frontend).
+  uint32 service_port = 1;
+  // Port the service forwards to (backend).
+  uint32 target_port = 2;
+}
+
+enum Protocol {
+  // DIRECT means requests should be forwarded as-is.
+  DIRECT = 0;
+  // HTTP means requests should be tunneled over HTTP.
+  // This does not dictate HTTP/1.1 vs HTTP/2; ALPN should be used for that purpose.
+  HTTP = 1;
+}

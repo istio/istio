@@ -34,6 +34,11 @@ func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 	if len(req.ConfigsUpdated) == 0 {
 		return true
 	}
+	if proxy.IsWaypointProxy() || proxy.IsZTunnel() {
+		// Optimizations do not apply since scoping uses different mechanism
+		// TODO: implement ambient aware scoping
+		return true
+	}
 
 	for config := range req.ConfigsUpdated {
 		affected := true
@@ -68,11 +73,11 @@ func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey, push *mo
 		}
 	case model.Router:
 		if config.Kind == kind.ServiceEntry {
+			// If config is ServiceEntry, name of the config is service's FQDN
 			if features.FilterGatewayClusterConfig && !push.ServiceAttachedToGateway(config.Name, proxy) {
 				return false
 			}
 
-			// If config is ServiceEntry, name of the config is service's FQDN
 			hostname := host.Name(config.Name)
 			// gateways have default sidecar scopes
 			if proxy.SidecarScope.GetService(hostname) == nil &&

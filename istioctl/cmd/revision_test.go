@@ -21,73 +21,82 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/operator/v1alpha1"
+	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestGetEnabledComponentsFromIOPSpec(t *testing.T) {
+func TestGetEnabledComponentsFromIOP(t *testing.T) {
 	enabledPbVal := &wrappers.BoolValue{Value: true}
 	disabledPbVal := &wrappers.BoolValue{Value: false}
 
 	for _, test := range []struct {
 		name     string
-		iops     *v1alpha1.IstioOperatorSpec
+		iops     *v1alpha12.IstioOperator
 		expected []string
 	}{
 		{
 			name:     "iop spec is nil",
 			iops:     nil,
-			expected: []string{},
+			expected: nil,
 		},
 		{
 			name: "all components enabled",
-			iops: &v1alpha1.IstioOperatorSpec{
-				Components: &v1alpha1.IstioComponentSetSpec{
-					Base:  &v1alpha1.BaseComponentSpec{Enabled: enabledPbVal},
-					Pilot: &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
-					Cni:   &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
-					IngressGateways: []*v1alpha1.GatewaySpec{
-						{Name: "ingressgateway", Enabled: enabledPbVal},
-						{Name: "eastwestgateway", Enabled: enabledPbVal},
-					},
-					EgressGateways: []*v1alpha1.GatewaySpec{
-						{Name: "egressgateway", Enabled: enabledPbVal},
+			iops: &v1alpha12.IstioOperator{
+				Spec: &v1alpha1.IstioOperatorSpec{
+					Components: &v1alpha1.IstioComponentSetSpec{
+						Base:  &v1alpha1.BaseComponentSpec{Enabled: enabledPbVal},
+						Pilot: &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
+						Cni:   &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
+						IngressGateways: []*v1alpha1.GatewaySpec{
+							{Name: "ingressgateway", Enabled: enabledPbVal},
+							{Name: "eastwestgateway", Enabled: enabledPbVal},
+						},
+						EgressGateways: []*v1alpha1.GatewaySpec{
+							{Name: "egressgateway", Enabled: enabledPbVal},
+						},
 					},
 				},
 			},
+
 			expected: []string{
-				"base", "istiod", "cni",
-				"ingress:ingressgateway", "ingress:eastwestgateway",
-				"egress:egressgateway",
+				"Istio core", "Istiod", "CNI",
+				"Ingress gateways:ingressgateway", "Ingress gateways:eastwestgateway",
+				"Egress gateways:egressgateway",
 			},
 		},
 		{
 			name: "cni and gateways are disabled",
-			iops: &v1alpha1.IstioOperatorSpec{
-				Components: &v1alpha1.IstioComponentSetSpec{
-					Base:  &v1alpha1.BaseComponentSpec{Enabled: enabledPbVal},
-					Pilot: &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
-					Cni:   &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
-					IngressGateways: []*v1alpha1.GatewaySpec{
-						{Name: "ingressgateway", Enabled: disabledPbVal},
-					},
-					EgressGateways: []*v1alpha1.GatewaySpec{
-						{Name: "egressgateway", Enabled: disabledPbVal},
+			iops: &v1alpha12.IstioOperator{
+				Spec: &v1alpha1.IstioOperatorSpec{
+					Components: &v1alpha1.IstioComponentSetSpec{
+						Base:  &v1alpha1.BaseComponentSpec{Enabled: enabledPbVal},
+						Pilot: &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
+						Cni:   &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
+						IngressGateways: []*v1alpha1.GatewaySpec{
+							{Name: "ingressgateway", Enabled: disabledPbVal},
+						},
+						EgressGateways: []*v1alpha1.GatewaySpec{
+							{Name: "egressgateway", Enabled: disabledPbVal},
+						},
 					},
 				},
 			},
-			expected: []string{"base", "istiod"},
+			expected: []string{"Istio core", "Istiod"},
 		},
 		{
 			name: "all components are disabled",
-			iops: &v1alpha1.IstioOperatorSpec{
-				Components: &v1alpha1.IstioComponentSetSpec{
-					Base:  &v1alpha1.BaseComponentSpec{Enabled: disabledPbVal},
-					Pilot: &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
-					Cni:   &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
-					IngressGateways: []*v1alpha1.GatewaySpec{
-						{Name: "ingressgateway", Enabled: disabledPbVal},
-					},
-					EgressGateways: []*v1alpha1.GatewaySpec{
-						{Name: "egressgateway", Enabled: disabledPbVal},
+			iops: &v1alpha12.IstioOperator{
+				Spec: &v1alpha1.IstioOperatorSpec{
+					Components: &v1alpha1.IstioComponentSetSpec{
+						Base:  &v1alpha1.BaseComponentSpec{Enabled: disabledPbVal},
+						Pilot: &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
+						Cni:   &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
+						IngressGateways: []*v1alpha1.GatewaySpec{
+							{Name: "ingressgateway", Enabled: disabledPbVal},
+						},
+						EgressGateways: []*v1alpha1.GatewaySpec{
+							{Name: "egressgateway", Enabled: disabledPbVal},
+						},
 					},
 				},
 			},
@@ -95,17 +104,20 @@ func TestGetEnabledComponentsFromIOPSpec(t *testing.T) {
 		},
 		{
 			name: "component-spec has nil",
-			iops: &v1alpha1.IstioOperatorSpec{
-				Components: &v1alpha1.IstioComponentSetSpec{
-					Base:  &v1alpha1.BaseComponentSpec{Enabled: enabledPbVal},
-					Pilot: &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
+			iops: &v1alpha12.IstioOperator{
+				Spec: &v1alpha1.IstioOperatorSpec{
+					Components: &v1alpha1.IstioComponentSetSpec{
+						Base:  &v1alpha1.BaseComponentSpec{Enabled: enabledPbVal},
+						Pilot: &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
+					},
 				},
 			},
-			expected: []string{"base", "istiod"},
+			expected: []string{"Istio core", "Istiod"},
 		},
 	} {
 		t.Run(test.name, func(st *testing.T) {
-			actual := getEnabledComponents(test.iops)
+			actual, err := getEnabledComponents(test.iops)
+			assert.NoError(t, err)
 			sort.Strings(actual)
 			sort.Strings(test.expected)
 			if len(actual) != len(test.expected) {

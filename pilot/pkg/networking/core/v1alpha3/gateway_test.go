@@ -1425,10 +1425,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			server: &networking.Server{
 				Name: "server1",
 				Port: &networking.Port{
-					Name:       "https-app",
-					Number:     443,
-					TargetPort: 8443,
-					Protocol:   "HTTPS",
+					Name:     "https-app",
+					Number:   443,
+					Protocol: "HTTPS",
 				},
 				Hosts: []string{"example.org"},
 				Tls: &networking.ServerTLSSettings{
@@ -1730,7 +1729,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		virtualServices                   []config.Config
 		gateways                          []config.Config
 		routeName                         string
-		expectedVirtualHostsLegacy        map[string][]string
 		expectedVirtualHosts              map[string][]string
 		expectedVirtualHostsHostPortStrip map[string][]string
 		expectedHTTPRoutes                map[string]int
@@ -1741,11 +1739,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{},
 			gateways:        []config.Config{httpGateway},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"blackhole:80": {
-					"*",
-				},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"blackhole:80": {
 					"*",
@@ -1763,11 +1756,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualService},
 			gateways:        []config.Config{httpRedirectGatewayWithoutVS},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:80": {
-					"example.org", "example.org:*",
-				},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {
 					"example.org",
@@ -1785,11 +1773,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualService},
 			gateways:        []config.Config{httpRedirectGateway},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:80": {
-					"example.org", "example.org:*",
-				},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {
 					"example.org",
@@ -1806,11 +1789,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualService, virtualServiceCopy},
 			gateways:        []config.Config{httpRedirectGateway, httpGateway},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:80": {
-					"example.org", "example.org:*",
-				},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {
 					"example.org",
@@ -1827,11 +1805,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualService, virtualServiceCopy},
 			gateways:        []config.Config{httpGateway, httpRedirectGateway},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:80": {
-					"example.org", "example.org:*",
-				},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {
 					"example.org",
@@ -1848,11 +1821,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualService, virtualServiceCopy},
 			gateways:        []config.Config{httpGateway, httpRedirectGatewayWithoutVS},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:80": {
-					"example.org", "example.org:*",
-				},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {
 					"example.org",
@@ -1869,11 +1837,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualService, virtualServiceCopy},
 			gateways:        []config.Config{httpRedirectGatewayWithoutVS, httpGateway},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:80": {
-					"example.org", "example.org:*",
-				},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {
 					"example.org",
@@ -1890,11 +1853,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualService},
 			gateways:        []config.Config{httpGateway},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:80": {
-					"example.org", "example.org:*",
-				},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {
 					"example.org",
@@ -1910,11 +1868,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualService, virtualServiceCopy},
 			gateways:        []config.Config{httpGateway},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:80": {
-					"example.org", "example.org:*",
-				},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {
 					"example.org",
@@ -1930,11 +1883,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualService, virtualServiceWildcard},
 			gateways:        []config.Config{httpGateway},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:80": {
-					"example.org", "example.org:*",
-				},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {
 					"example.org",
@@ -1950,9 +1898,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualServiceWildcard},
 			gateways:        []config.Config{httpGatewayWildcard},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"*.org:80": {"*.org", "*.org:80"},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"*.org:80": {"*.org"},
 			},
@@ -1966,9 +1911,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualServiceHTTPS},
 			gateways:        []config.Config{httpsGateway},
 			routeName:       "https.443.https.gateway-https.default",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:443": {"example.org", "example.org:*"},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:443": {"example.org"},
 			},
@@ -1982,9 +1924,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualServiceHTTPS},
 			gateways:        []config.Config{httpsGateway},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:80": {"example.org", "example.org:*"},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
@@ -2000,9 +1939,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualServiceHTTPS},
 			gateways:        []config.Config{httpsGatewayRedirect},
 			routeName:       "https.443.https.gateway-https.default",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:443": {"example.org", "example.org:*"},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:443": {"example.org"},
 			},
@@ -2017,9 +1953,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			virtualServices: []config.Config{virtualServiceHTTPS},
 			gateways:        []config.Config{httpsGatewayRedirect},
 			routeName:       "http.80",
-			expectedVirtualHostsLegacy: map[string][]string{
-				"example.org:80": {"example.org", "example.org:*"},
-			},
 			expectedVirtualHosts: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
@@ -2063,11 +1996,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 
 					if features.StripHostPort {
 						if !reflect.DeepEqual(tt.expectedVirtualHostsHostPortStrip, vh) {
-							t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHostsHostPortStrip, vh)
-						}
-					} else if version == "1.14.0" {
-						if !reflect.DeepEqual(tt.expectedVirtualHostsLegacy, vh) {
-							t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
+							t.Errorf("got unexpected virtual hosts with strip port. Expected: %v, Got: %v", tt.expectedVirtualHostsHostPortStrip, vh)
 						}
 					} else {
 						if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
@@ -2542,7 +2471,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 
 func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 	virtualServiceSpec := &networking.VirtualService{
-		Hosts: []string{"*.example.org"},
+		Hosts: []string{"*"},
 		Http: []*networking.HTTPRoute{
 			{
 				Route: []*networking.HTTPRouteDestination{
@@ -2849,6 +2778,174 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				}},
 			})
+		})
+	}
+}
+
+func TestGatewayFilterChainSNIOverlap(t *testing.T) {
+	cases := []struct {
+		name            string
+		gateways        []config.Config
+		virtualServices []config.Config
+	}{
+		{
+			name: "no sni overlap",
+			gateways: []config.Config{
+				{
+					Meta: config.Meta{Name: "gw", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "example", Number: 443, Protocol: "TLS"},
+								Hosts: []string{"example.com"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+						},
+					},
+				},
+			},
+			virtualServices: []config.Config{
+				{
+					Meta: config.Meta{Name: "example", Namespace: "testns", GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gw"},
+						Hosts:    []string{"example.com"},
+						Tls: []*networking.TLSRoute{
+							{
+								Match: []*networking.TLSMatchAttributes{
+									{
+										SniHosts: []string{"example.com"},
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "example",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "sni overlap in one gateway",
+			gateways: []config.Config{
+				{
+					Meta: config.Meta{Name: "gw", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "example", Number: 443, Protocol: "TLS"},
+								Hosts: []string{"example.com"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+							{
+								Port:  &networking.Port{Name: "wildcard-tls", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"*"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+						},
+					},
+				},
+			},
+			virtualServices: []config.Config{
+				{
+					Meta: config.Meta{Name: "example", Namespace: "testns", GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gw"},
+						Hosts:    []string{"example.com"},
+						Tls: []*networking.TLSRoute{
+							{
+								Match: []*networking.TLSMatchAttributes{
+									{
+										SniHosts: []string{"example.com"},
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "example",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "sni overlap in two gateways",
+			gateways: []config.Config{
+				{
+					Meta: config.Meta{Name: "gw1", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "example", Number: 443, Protocol: "TLS"},
+								Hosts: []string{"example.com"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "gw2", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "wildcard-tls", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"*"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+						},
+					},
+				},
+			},
+			virtualServices: []config.Config{
+				{
+					Meta: config.Meta{Name: "example", Namespace: "testns", GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gw2"},
+						Hosts:    []string{"example.com"},
+						Tls: []*networking.TLSRoute{
+							{
+								Match: []*networking.TLSMatchAttributes{
+									{
+										SniHosts: []string{"example.com"},
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "example",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			configs := make([]config.Config, 0)
+			configs = append(configs, tt.gateways...)
+			configs = append(configs, tt.virtualServices...)
+			cg := NewConfigGenTest(t, TestOptions{
+				Configs: configs,
+			})
+			proxy := cg.SetupProxy(&proxyGateway)
+			proxy.Metadata = &proxyGatewayMetadata
+
+			builder := cg.ConfigGen.buildGatewayListeners(NewListenerBuilder(proxy, cg.PushContext()))
+			xdstest.ValidateListeners(t, builder.gatewayListeners)
 		})
 	}
 }

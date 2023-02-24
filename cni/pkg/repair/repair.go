@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"strings"
 
-	"go.uber.org/multierr"
-	v1 "k8s.io/api/core/v1"
+	"github.com/hashicorp/go-multierror"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	client "k8s.io/client-go/kubernetes"
 
@@ -45,15 +45,16 @@ func newBrokenPodReconciler(client client.Interface, cfg *config.RepairConfig) b
 	}
 }
 
-func (bpr brokenPodReconciler) ReconcilePod(pod v1.Pod) (err error) {
+func (bpr brokenPodReconciler) ReconcilePod(pod corev1.Pod) (err error) {
 	repairLog.Debugf("Reconciling pod %s", pod.Name)
 
+	var multierr *multierror.Error
 	if bpr.cfg.DeletePods {
-		err = multierr.Append(err, bpr.deleteBrokenPod(pod))
+		multierr = multierror.Append(err, bpr.deleteBrokenPod(pod))
 	} else if bpr.cfg.LabelPods {
-		err = multierr.Append(err, bpr.labelBrokenPod(pod))
+		multierr = multierror.Append(err, bpr.labelBrokenPod(pod))
 	}
-	return err
+	return multierr.ErrorOrNil()
 }
 
 // Label all pods detected as broken by ListPods with a customizable label
@@ -64,13 +65,14 @@ func (bpr brokenPodReconciler) LabelBrokenPods() (err error) {
 		return err
 	}
 
+	var multierr *multierror.Error
 	for _, pod := range podList.Items {
-		err = multierr.Append(err, bpr.labelBrokenPod(pod))
+		multierr = multierror.Append(err, bpr.labelBrokenPod(pod))
 	}
-	return err
+	return multierr.ErrorOrNil()
 }
 
-func (bpr brokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
+func (bpr brokenPodReconciler) labelBrokenPod(pod corev1.Pod) (err error) {
 	// Added for safety, to make sure no healthy pods get labeled.
 	m := podsRepaired.With(typeLabel.Value(labelType))
 	if !bpr.detectPod(pod) {
@@ -128,7 +130,7 @@ func (bpr brokenPodReconciler) DeleteBrokenPods() error {
 	return nil
 }
 
-func (bpr brokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
+func (bpr brokenPodReconciler) deleteBrokenPod(pod corev1.Pod) error {
 	m := podsRepaired.With(typeLabel.Value(deleteType))
 	// Added for safety, to make sure no healthy pods get labeled.
 	if !bpr.detectPod(pod) {
@@ -146,8 +148,8 @@ func (bpr brokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
 }
 
 // Lists all pods identified as broken by our Filter criteria
-func (bpr brokenPodReconciler) ListBrokenPods() (list v1.PodList, err error) {
-	var rawList *v1.PodList
+func (bpr brokenPodReconciler) ListBrokenPods() (list corev1.PodList, err error) {
+	var rawList *corev1.PodList
 	rawList, err = bpr.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 		LabelSelector: bpr.cfg.LabelSelectors,
 		FieldSelector: bpr.cfg.FieldSelectors,
@@ -156,7 +158,7 @@ func (bpr brokenPodReconciler) ListBrokenPods() (list v1.PodList, err error) {
 		return
 	}
 
-	list.Items = []v1.Pod{}
+	list.Items = []corev1.Pod{}
 	for _, pod := range rawList.Items {
 		if bpr.detectPod(pod) {
 			list.Items = append(list.Items, pod)
@@ -167,15 +169,15 @@ func (bpr brokenPodReconciler) ListBrokenPods() (list v1.PodList, err error) {
 }
 
 // Given a pod, returns 'true' if the pod is a match to the brokenPodReconciler filter criteria.
-func (bpr brokenPodReconciler) detectPod(pod v1.Pod) bool {
+func (bpr brokenPodReconciler) detectPod(pod corev1.Pod) bool {
 	// Helper function; checks that a container's termination message matches filter
-	matchTerminationMessage := func(state *v1.ContainerStateTerminated) bool {
+	matchTerminationMessage := func(state *corev1.ContainerStateTerminated) bool {
 		// If we are filtering on init container termination message and the termination message of 'state' does not match, exit
 		trimmedTerminationMessage := strings.TrimSpace(bpr.cfg.InitTerminationMsg)
 		return trimmedTerminationMessage == "" || trimmedTerminationMessage == strings.TrimSpace(state.Message)
 	}
 	// Helper function; checks that container exit code matches filter
-	matchExitCode := func(state *v1.ContainerStateTerminated) bool {
+	matchExitCode := func(state *corev1.ContainerStateTerminated) bool {
 		// If we are filtering on init container exit code and the termination message does not match, exit
 		if ec := bpr.cfg.InitExitCode; ec == 0 || ec == int(state.ExitCode) {
 			return true
@@ -244,14 +246,14 @@ func StartRepair(ctx context.Context, cfg *config.RepairConfig) {
 		}
 		rc.Run(ctx.Done())
 	} else {
-		err = nil
+		var multierr *multierror.Error
 		if podFixer.cfg.LabelPods {
-			err = multierr.Append(err, podFixer.LabelBrokenPods())
+			multierr = multierror.Append(err, podFixer.LabelBrokenPods())
 		}
 		if podFixer.cfg.DeletePods {
-			err = multierr.Append(err, podFixer.DeleteBrokenPods())
+			multierr = multierror.Append(err, podFixer.DeleteBrokenPods())
 		}
-		if err != nil {
+		if multierr.ErrorOrNil() != nil {
 			repairLog.Fatalf(err.Error())
 		}
 	}

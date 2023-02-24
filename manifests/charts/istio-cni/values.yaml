@@ -25,6 +25,9 @@ cni:
     - istio-system
     - kube-system
 
+  # Allows user to set custom affinity for the DaemonSet
+  affinity: {}
+
   # Custom annotations on pod level, if you need them
   podAnnotations: {}
 
@@ -40,6 +43,12 @@ cni:
 
   # Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift)
   privileged: false
+
+  # Configure ambient settings
+  ambient:
+    # If enabled, ambient redirection will be enabled
+    enabled: false
+    # Eventually this will have switch for iptables vs eBPF
 
   repair:
     enabled: true
@@ -96,6 +105,8 @@ global:
   # change cni scope level to control logging out of istio-cni-node DaemonSet
   logging:
     level: default:info,cni:info
+
+  logAsJson: false
 
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.

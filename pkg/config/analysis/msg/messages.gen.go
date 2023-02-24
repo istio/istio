@@ -107,7 +107,7 @@ var (
 
 	// NoServerCertificateVerificationDestinationLevel defines a diag.MessageType for message "NoServerCertificateVerificationDestinationLevel".
 	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate.
-	NoServerCertificateVerificationDestinationLevel = diag.NewMessageType(diag.Error, "IST0128", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s")
+	NoServerCertificateVerificationDestinationLevel = diag.NewMessageType(diag.Warning, "IST0128", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s")
 
 	// NoServerCertificateVerificationPortLevel defines a diag.MessageType for message "NoServerCertificateVerificationPortLevel".
 	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port.
@@ -224,6 +224,10 @@ var (
 	// InvalidTelemetryProvider defines a diag.MessageType for message "InvalidTelemetryProvider".
 	// Description: The Telemetry with empty providers will be ignored
 	InvalidTelemetryProvider = diag.NewMessageType(diag.Warning, "IST0157", "The Telemetry %v in namespace %q with empty providers will be ignored.")
+
+	// PodsIstioProxyImageMismatchInNamespace defines a diag.MessageType for message "PodsIstioProxyImageMismatchInNamespace".
+	// Description: The Istio proxy image of the pods running in the namespace do not match the image defined in the injection configuration.
+	PodsIstioProxyImageMismatchInNamespace = diag.NewMessageType(diag.Warning, "IST0158", "The Istio proxy images of the pods running in the namespace do not match the image defined in the injection configuration (pod names: %v). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pods.")
 )
 
 // All returns a list of all known message types.
@@ -283,6 +287,7 @@ func All() []*diag.MessageType {
 		EnvoyFilterUsesRelativeOperationWithProxyVersion,
 		UnsupportedGatewayAPIVersion,
 		InvalidTelemetryProvider,
+		PodsIstioProxyImageMismatchInNamespace,
 	}
 }
 
@@ -813,5 +818,14 @@ func NewInvalidTelemetryProvider(r *resource.Instance, name string, namespace st
 		r,
 		name,
 		namespace,
+	)
+}
+
+// NewPodsIstioProxyImageMismatchInNamespace returns a new diag.Message based on PodsIstioProxyImageMismatchInNamespace.
+func NewPodsIstioProxyImageMismatchInNamespace(r *resource.Instance, podNames []string) diag.Message {
+	return diag.NewMessage(
+		PodsIstioProxyImageMismatchInNamespace,
+		r,
+		podNames,
 	)
 }

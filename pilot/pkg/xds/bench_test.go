@@ -368,7 +368,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.17.0",
+			IstioVersion: "1.18.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
@@ -525,7 +525,7 @@ func createEndpoints(numEndpoints, numServices, numNetworks int) []config.Config
 			},
 			Spec: &networking.ServiceEntry{
 				Hosts: []string{fmt.Sprintf("foo-%d.com", s)},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Name: "http-port", Protocol: "http"},
 				},
 				Endpoints:  endpoints,
@@ -635,6 +635,23 @@ func BenchmarkCache(b *testing.B) {
 		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(1))}
 		c.Add(key, req, res)
 		for n := 0; n < b.N; n++ {
+			c.Get(key)
+		}
+	})
+
+	b.Run("insert and get", func(b *testing.B) {
+		c := model.NewXdsCache()
+		// First occupy cache capacity
+		for i := 0; i < features.XDSCacheMaxSize; i++ {
+			key := makeCacheKey(i)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(i))}
+			c.Add(key, req, res)
+		}
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			key := makeCacheKey(n)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(features.XDSCacheMaxSize + n))}
+			c.Add(key, req, res)
 			c.Get(key)
 		}
 	})

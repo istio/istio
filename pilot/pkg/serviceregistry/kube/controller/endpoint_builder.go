@@ -44,15 +44,18 @@ type EndpointBuilder struct {
 	hostname string
 	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
 	subDomain string
+	// If in k8s, the node where the pod resides
+	nodeName string
 }
 
 func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
-	locality, sa, namespace, hostname, subdomain, ip := "", "", "", "", "", ""
-	var podLabels labels.Instance
+	var locality, sa, namespace, hostname, subdomain, ip, node string
+	var podLabels, podAnnotations labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod)
 		podLabels = pod.Labels
+		podAnnotations = pod.Annotations
 		namespace = pod.Namespace
 		subdomain = pod.Spec.Subdomain
 		if subdomain != "" {
@@ -62,6 +65,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 			}
 		}
 		ip = pod.Status.PodIP
+		node = pod.Spec.NodeName
 	}
 	dm, _ := kubeUtil.GetDeployMetaFromPod(pod)
 	out := &EndpointBuilder{
@@ -76,9 +80,11 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		namespace:    namespace,
 		hostname:     hostname,
 		subDomain:    subdomain,
+		labels:       podLabels,
+		nodeName:     node,
 	}
 	networkID := out.endpointNetwork(ip)
-	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, networkID)
+	out.labels = labelutil.AugmentLabels(podLabels, podAnnotations, c.Cluster(), locality, node, networkID)
 	return out
 }
 
@@ -92,13 +98,14 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 			Label:     locality,
 			ClusterID: c.Cluster(),
 		},
-		tlsMode: model.GetTLSModeFromEndpointLabels(proxy.Labels),
+		tlsMode:  model.GetTLSModeFromEndpointLabels(proxy.Labels),
+		nodeName: proxy.GetNodeName(),
 	}
 	var networkID network.ID
 	if len(proxy.IPAddresses) > 0 {
 		networkID = out.endpointNetwork(proxy.IPAddresses[0])
 	}
-	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, networkID)
+	out.labels = labelutil.AugmentLabels(proxy.Labels, nil, c.Cluster(), locality, out.nodeName, networkID)
 	return out
 }
 
@@ -133,6 +140,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		HostName:              b.hostname,
 		SubDomain:             b.subDomain,
 		DiscoverabilityPolicy: discoverabilityPolicy,
+		NodeName:              b.nodeName,
 	}
 }
 

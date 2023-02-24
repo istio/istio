@@ -104,7 +104,9 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy, class)
 
 	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
+	if !node.IsAmbient() {
+		filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
+	}
 	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
 	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	return filters
@@ -157,7 +159,9 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy, class)
 
 	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
+	if !node.IsAmbient() {
+		filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
+	}
 	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
 	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	return filters

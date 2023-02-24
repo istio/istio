@@ -134,6 +134,10 @@ spec:
       value: "{{ $containers | join "," }}"
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+    - name: ISTIO_META_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
     {{- if .Values.global.network }}
     - name: ISTIO_META_NETWORK
       value: "{{ .Values.global.network }}"

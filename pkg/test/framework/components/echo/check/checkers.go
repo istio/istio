@@ -237,6 +237,16 @@ func Host(expected string) echo.Checker {
 	})
 }
 
+// Hostname checks the hostname the request landed on. This differs from Host which is the request we called.
+func Hostname(expected string) echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if r.Hostname != expected {
+			return fmt.Errorf("expected hostname %s, received %s", expected, r.Hostname)
+		}
+		return nil
+	})
+}
+
 func Protocol(expected string) echo.Checker {
 	return Each(func(r echoClient.Response) error {
 		if r.Protocol != expected {

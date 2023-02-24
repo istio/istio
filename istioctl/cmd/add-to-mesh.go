@@ -543,9 +543,9 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 	if o == nil {
 		return fmt.Errorf("empty vm service options")
 	}
-	ports := make([]*v1alpha3.Port, 0, len(o.PortList))
+	ports := make([]*v1alpha3.ServicePort, 0, len(o.PortList))
 	for _, p := range o.PortList {
-		ports = append(ports, &v1alpha3.Port{
+		ports = append(ports, &v1alpha3.ServicePort{
 			Number:   uint32(p.Port),
 			Protocol: string(p.Protocol),
 			Name:     p.Name,

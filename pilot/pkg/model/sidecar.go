@@ -50,6 +50,7 @@ var (
 		kind.EnvoyFilter:           {},
 		kind.AuthorizationPolicy:   {},
 		kind.RequestAuthentication: {},
+		kind.WasmPlugin:            {},
 	}
 )
 
@@ -525,7 +526,7 @@ func (ilw *IstioEgressListenerWrapper) VirtualServices() []config.Config {
 }
 
 // DependsOnConfig determines if the proxy depends on the given config.
-// Returns whether depends on this config or this kind of config is not scoped(unknown to be depended) here.
+// Returns whether depends on this config or this kind of config is not scopeZd(unknown to be depended) here.
 func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 	if sc == nil {
 		return true

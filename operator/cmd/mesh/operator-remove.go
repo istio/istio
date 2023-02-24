@@ -103,7 +103,7 @@ func operatorRemove(cmd *cobra.Command, args *RootArgs, orArgs *operatorRemoveAr
 	if orArgs.revision != "" {
 		message = "Istio operator revision " + orArgs.revision + " will be removed from cluster, Proceed? (y/N)"
 	}
-	if !orArgs.skipConfirmation && !confirm(message, cmd.OutOrStdout()) {
+	if !orArgs.skipConfirmation && !args.DryRun && !confirm(message, cmd.OutOrStdout()) {
 		cmd.Print("Cancelled.\n")
 		os.Exit(1)
 	}
