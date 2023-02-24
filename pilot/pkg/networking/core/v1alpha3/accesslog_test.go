@@ -276,6 +276,32 @@ func newTestEnviroment() *model.Environment {
 			},
 		},
 	})
+	configStore.Create(config.Config{
+		Meta: config.Meta{
+			Name:             "test-with-server-accesslog-filter",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Telemetry,
+		},
+		Spec: &tpb.Telemetry{
+			Selector: &v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"app": "test-with-server-accesslog-filter",
+				},
+			},
+			AccessLogging: []*tpb.AccessLogging{
+				{
+					Match: &tpb.AccessLogging_LogSelector{
+						Mode: tpb.WorkloadMode_SERVER,
+					},
+					Providers: []*tpb.ProviderRef{
+						{
+							Name: "envoy-json",
+						},
+					},
+				},
+			},
+		},
+	})
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
@@ -350,6 +376,25 @@ func TestSetTCPAccessLog(t *testing.T) {
 			},
 		},
 		{
+			name: "log-selector-unmatched-telemetry",
+			push: env.PushContext,
+			proxy: &model.Proxy{
+				ConfigNamespace: "default",
+				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
+				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-with-server-accesslog-filter"}},
+			},
+			tcp:   &tcp.TcpProxy{},
+			class: networking.ListenerClassSidecarOutbound,
+			expected: &tcp.TcpProxy{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultOut)},
+					},
+				},
+			},
+		},
+		{
 			name: "without-telemetry",
 			push: env.PushContext,
 			proxy: &model.Proxy{
@@ -406,6 +451,25 @@ func TestSetHttpAccessLog(t *testing.T) {
 					{
 						Name:       wellknown.FileAccessLog,
 						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+					},
+				},
+			},
+		},
+		{
+			name: "log-selector-unmatched-telemetry",
+			push: env.PushContext,
+			proxy: &model.Proxy{
+				ConfigNamespace: "default",
+				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
+				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-with-server-accesslog-filter"}},
+			},
+			hcm:   &hcm.HttpConnectionManager{},
+			class: networking.ListenerClassSidecarOutbound,
+			expected: &hcm.HttpConnectionManager{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultOut)},
 					},
 				},
 			},
@@ -472,6 +536,30 @@ func TestSetListenerAccessLog(t *testing.T) {
 							},
 						},
 						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+					},
+				},
+			},
+		},
+		{
+			name: "log-selector-unmatched-telemetry",
+			push: env.PushContext,
+			proxy: &model.Proxy{
+				ConfigNamespace: "default",
+				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
+				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-with-server-accesslog-filter"}},
+			},
+			listener: &listener.Listener{},
+			class:    networking.ListenerClassSidecarOutbound,
+			expected: &listener.Listener{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name: wellknown.FileAccessLog,
+						Filter: &accesslog.AccessLogFilter{
+							FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
+								ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"NR"}},
+							},
+						},
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultOut)},
 					},
 				},
 			},
