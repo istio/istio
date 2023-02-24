@@ -387,6 +387,22 @@ func (l *lruCache) Snapshot() map[string]*discovery.Resource {
 	return res
 }
 
+func (l *lruCache) indexLength() int {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return len(l.configIndex)
+}
+
+func (l *lruCache) configIndexSnapshot() map[ConfigHash]sets.String {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	res := make(map[ConfigHash]sets.String, len(l.configIndex))
+	for k, v := range l.configIndex {
+		res[k] = v
+	}
+	return res
+}
+
 // DisabledCache is a cache that is always empty
 type DisabledCache struct{}
 
