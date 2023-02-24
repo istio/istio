@@ -6,4 +6,4 @@ spec:
   spiffeIDTemplate: "spiffe://{{ .TrustDomain }}/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}"
   podSelector:
     matchLabels:
-      spiffe.io/spiffe-id: "true"
+      spiffe.io/spire-managed-identity: "true"

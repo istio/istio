@@ -569,7 +569,7 @@ spec:
                   type: string
                 type: array
               namespaceSelector:
-                description: NamespaceSelector selects the namespaces that are targetted
+                description: NamespaceSelector selects the namespaces that are targeted
                   by this CRD.
                 properties:
                   matchExpressions:
@@ -614,7 +614,7 @@ spec:
                     type: object
                 type: object
               podSelector:
-                description: PodSelector selects the pods that are targetted by this
+                description: PodSelector selects the pods that are targeted by this
                   CRD.
                 properties:
                   matchExpressions:

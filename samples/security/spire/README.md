@@ -27,19 +27,19 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
   $ istioctl install -f istio-spire-config.yaml
   ```
 
-1. Create a ClusterSPIFFEID to create a registration entry for all workloads with the `spiffe.io/spiffe-id: true` label:
+1. Create a ClusterSPIFFEID to create a registration entry for all workloads with the `spiffe.io/spire-managed-identity: true` label:
 
   ```bash
   $ kubectl apply -f clusterspiffeid.yaml
   ```
 
-1. Add the `spiffe.io/spiffe-id: true` label to the Ingress-gateway Deployment:
+1. Add the `spiffe.io/spire-managed-identity: true` label to the Ingress-gateway Deployment:
 
   ```bash
-  $ kubectl patch deployment istio-ingressgateway -n istio-system -p '{"spec":{"template":{"metadata":{"labels":{"spiffe.io/spiffe-id": "true"}}}}}'
+  $ kubectl patch deployment istio-ingressgateway -n istio-system -p '{"spec":{"template":{"metadata":{"labels":{"spiffe.io/spire-managed-identity": "true"}}}}}'
   ```
 
-1. Deploy the `sleep-spire.yaml` version of the [sleep](/samples/sleep/README.md) service, which injects the custom istio-agent template defined in `istio-spire-config.yaml` and has the `spiffe.io/spiffe-id: true` label.
+1. Deploy the `sleep-spire.yaml` version of the [sleep](/samples/sleep/README.md) service, which injects the custom istio-agent template defined in `istio-spire-config.yaml` and has the `spiffe.io/spire-managed-identity: true` label.
 
   If you have [automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection) enabled:
 
