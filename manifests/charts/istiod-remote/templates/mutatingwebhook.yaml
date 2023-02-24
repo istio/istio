@@ -4,7 +4,7 @@
  "revision" .Values.revision
   "injectionPath" .Values.istiodRemote.injectionPath
   "injectionURL" .Values.istiodRemote.injectionURL
-  "namespace" .Release.Namespace }}
+  "namespace" (.Values.global.istioNamespace | default .Release.Namespace) }}
 {{- define "core" }}
 {{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
 a unique prefix to each. */}}
@@ -33,10 +33,10 @@ a unique prefix to each. */}}
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-{{- if eq .Release.Namespace "istio-system"}}
+{{- if eq (.Values.global.istioNamespace | default .Release.Namespace) "istio-system"}}
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- else }}
-  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+  name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace | default .Release.Namespace }}
 {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" }}

@@ -33,7 +33,7 @@ a unique prefix to each. */}}
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-{{- if eq $.Values.global.istioNamespace | default .Release.Namespace "istio-system"}}
+{{- if eq ($.Values.global.istioNamespace | default $.Release.Namespace) "istio-system"}}
   name: istio-revision-tag-{{ $tagName }}
 {{- else }}
   name: istio-revision-tag-{{ $tagName }}-{{ $.Values.global.istioNamespace | default .Release.Namespace }}

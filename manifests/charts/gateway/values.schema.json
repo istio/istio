@@ -54,6 +54,9 @@
     "name": {
       "type": "string"
     },
+    "namespace": {
+      "type": "string"
+    },
     "nodeSelector": {
       "type": "object"
     },

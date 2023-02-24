@@ -52,6 +52,8 @@ message CNIConfig {
 
   string variant = 29;
 
+  string namespace = 30;
+
   string image = 4;
 
   string pullPolicy = 5;
@@ -91,6 +93,8 @@ message CNIConfig {
   google.protobuf.Struct seccompProfile = 19;
 
   CNIAmbientConfig ambient = 21;
+
+  // Next available 31.
 }
 
 message CNIAmbientConfig {
@@ -198,6 +202,8 @@ message EgressGatewayConfig {
 
   string name = 25;
 
+  string namespace = 29;
+
   // K8s node selector.
   //
   // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
@@ -276,7 +282,7 @@ message EgressGatewayConfig {
 
   ServiceAccount serviceAccount = 28;
 
-  // Next available 29.
+  // Next available 30.
 }
 
 // Configuration for gateways.
@@ -516,6 +522,7 @@ message IngressGatewayConfig {
   repeated string loadBalancerSourceRanges = 17;
 
   string name = 44;
+  string namespace = 48;
 
   // K8s node selector.
   //
@@ -581,7 +588,7 @@ message IngressGatewayConfig {
 
   ServiceAccount serviceAccount = 47;
 
-  // Next available 48.
+  // Next available 49.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.

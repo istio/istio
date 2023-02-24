@@ -193,7 +193,7 @@ spec:
           - name: ISTIO_META_WORKLOAD_NAME
             value: {{ $gateway.name }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ ($gateway.namespace | default .Release.Namespace) }}/deployments/{{ $gateway.name }}
+            value: kubernetes://apis/apps/v1/namespaces/{{ $gateway.namespace | default .Release.Namespace }}/deployments/{{ $gateway.name }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"

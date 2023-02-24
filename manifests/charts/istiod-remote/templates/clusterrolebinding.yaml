@@ -2,14 +2,14 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+  name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace | default .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+  name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace | default .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
@@ -19,14 +19,14 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-gateway-controller{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+  name: istiod-gateway-controller{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace | default .Release.Namespace }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-gateway-controller{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+  name: istiod-gateway-controller{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace | default .Release.Namespace }}
 subjects:
 - kind: ServiceAccount
   name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
