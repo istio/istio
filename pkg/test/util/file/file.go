@@ -123,6 +123,7 @@ func ReadTarFile(filePath string) (string, error) {
 		return "", err
 	}
 	tr := tar.NewReader(bytes.NewBuffer(b))
+	baseName := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -131,7 +132,7 @@ func ReadTarFile(filePath string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if hdr.Name != strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath)) {
+		if hdr.Name != baseName {
 			continue
 		}
 		contents, err := io.ReadAll(tr)
