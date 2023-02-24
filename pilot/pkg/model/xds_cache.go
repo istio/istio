@@ -121,17 +121,6 @@ func NewXdsCache() XdsCache {
 	return cache
 }
 
-// NewLenientXdsCache returns an instance of a cache that does not validate token based get/set and enable assertions.
-func NewLenientXdsCache() XdsCache {
-	cache := &lruCache{
-		enableAssertions: false,
-		configIndex:      map[ConfigHash]sets.String{},
-		evictQueue:       make([]evictKeyConfigs, 0, 1000), // TODO: make if configurable
-	}
-	cache.store = newLru(cache.onEvict)
-	return cache
-}
-
 type evictKeyConfigs struct {
 	key              string
 	dependentConfigs []ConfigHash
@@ -168,10 +157,11 @@ func newLru(evictCallback simplelru.EvictCallback[string, cacheValue]) simplelru
 
 func (l *lruCache) Run(stop <-chan struct{}) {
 	go func() {
-		ticker := time.Tick(5 * time.Second) // todo: make it configurable
+		ticker := time.NewTicker(features.XDSCacheIndexClearInterval)
+		defer ticker.Stop()
 		for {
 			select {
-			case <-ticker:
+			case <-ticker.C:
 				l.mu.Lock()
 				for _, keyConfigs := range l.evictQueue {
 					l.clearConfigIndex(keyConfigs.key, keyConfigs.dependentConfigs)
@@ -371,6 +361,7 @@ func (l *lruCache) ClearAll() {
 	// create a new store.
 	l.store = newLru(l.onEvict)
 	l.configIndex = map[ConfigHash]sets.String{}
+	l.evictQueue = l.evictQueue[:0:1000]
 	size(l.store.Len())
 }
 
