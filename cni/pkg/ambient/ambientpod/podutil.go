@@ -32,7 +32,7 @@ func isRunning(pod *corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodRunning
 }
 
-func ShouldPodBeInIpset(namespace *corev1.Namespace, pod *corev1.Pod, ignoreNotRunning bool) bool {
+func ShouldPodBeInMesh(namespace *corev1.Namespace, pod *corev1.Pod, ignoreNotRunning bool) bool {
 	// Pod must:
 	// - Be running
 	// - Have an IP address

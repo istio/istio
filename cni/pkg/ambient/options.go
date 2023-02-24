@@ -38,8 +38,26 @@ var ambientSelectors = klabels.SelectorFromValidatedSet(map[string]string{
 	constants.DataplaneMode: constants.DataplaneModeAmbient,
 })
 
+type RedirectMode int
+
+const (
+	IptablesMode RedirectMode = iota
+	EbpfMode
+)
+
+func (v RedirectMode) String() string {
+	switch v {
+	case IptablesMode:
+		return "iptables"
+	case EbpfMode:
+		return "ebpf"
+	}
+	return ""
+}
+
 type AmbientArgs struct {
 	SystemNamespace string
 	Revision        string
 	KubeConfig      string
+	RedirectMode    RedirectMode
 }

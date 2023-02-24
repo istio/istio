@@ -30,8 +30,32 @@ func IsPodInIpset(pod *corev1.Pod) bool {
 	return false
 }
 
+func getLinkWithDestinationOf(ip string) (netlink.Link, error) {
+	return nil, ErrNotImplemented
+}
+
+func getVethWithDestinationOf(ip string) (*netlink.Veth, error) {
+	return nil, ErrNotImplemented
+}
+
 func getDeviceWithDestinationOf(ip string) (string, error) {
 	return "", ErrNotImplemented
+}
+
+func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
+	return 0, nil, ErrNotImplemented
+}
+
+func getMacFromNsIdx(ns string, ifIndex int) (net.HardwareAddr, error) {
+	return nil, ErrNotImplemented
+}
+
+func getNsNameFromNsID(nsid int) (string, error) {
+	return "", ErrNotImplemented
+}
+
+func getPeerIndex(veth *netlink.Veth) (int, error) {
+	return 0, ErrNotImplemented
 }
 
 // CreateRulesOnNode initializes the routing, firewall and ipset rules on the node.

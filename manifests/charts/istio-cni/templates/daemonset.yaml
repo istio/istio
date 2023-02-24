@@ -142,6 +142,10 @@ spec:
             {{- if .Values.cni.ambient.enabled }}
             - name: AMBIENT_ENABLED
               value: "true"
+            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
+            - name: EBPF_ENABLED
+              value: "true"
+            {{- end }}
             {{- end }}
           volumeMounts:
             - mountPath: /host/opt/cni/bin
@@ -153,6 +157,12 @@ spec:
             {{- if .Values.cni.ambient.enabled }}
             - mountPath: /etc/ambient-config
               name: cni-ambientconfig
+            - mountPath: /var/run/netns
+              mountPropagation: HostToContainer
+              name: cni-netns-dir
+            - mountPath: /sys/fs/bpf
+              mountPropagation: Bidirectional
+              name: cni-bpffs-dir
             {{ end }}
           resources:
 {{- if .Values.cni.resources }}
@@ -242,3 +252,9 @@ spec:
         - name: cni-log-dir
           hostPath:
             path: /var/run/istio-cni
+        - name: cni-netns-dir
+          hostPath:
+            path: /var/run/netns
+        - name: cni-bpffs-dir
+          hostPath:
+            path: /sys/fs/bpf
