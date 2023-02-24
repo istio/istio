@@ -170,44 +170,6 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
-          {{- if .Values.cni.ambient.enabled }}
-          lifecycle:
-            preStop:
-              exec:
-                command:
-                - sh
-                - -c
-                - |-
-                  iptables -t nat -F ztunnel-PREROUTING
-                  iptables -t nat -F ztunnel-POSTROUTING
-                  iptables -t mangle -F ztunnel-PREROUTING
-                  iptables -t mangle -F ztunnel-FOWARD
-                  iptables -t mangle -F ztunnel-INPUT
-                  iptables -t nat -D PREROUTING -j ztunnel-PREROUTING
-                  iptables -t nat -X ztunnel-PREROUTING
-                  iptables -t nat -D POSTROUTING -j ztunnel-POSTROUTING
-                  iptables -t nat -X ztunnel-POSTROUTING
-                  iptables -t mangle -D PREROUTING -j ztunnel-PREROUTING
-                  iptables -t mangle -X ztunnel-PREROUTING
-                  iptables -t mangle -D FORWARD -j ztunnel-FORWARD
-                  iptables -t mangle -X ztunnel-FORWARD
-                  iptables -t mangle -D INPUT -j ztunnel-INPUT
-                  iptables -t mangle -X ztunnel-INPUT
-
-                  ip route flush table 100
-                  ip route flush table 101
-                  ip route flush table 102
-
-                  ip rule del priority 100
-                  ip rule del priority 101
-                  ip rule del priority 102
-                  ip rule del priority 103
-
-                  ip link del name istioin
-                  ip link del name istioout
-
-                  ipset destroy ztunnel-pods-ips
-        {{ end }}
 {{- if .Values.cni.taint.enabled }}
         - name: taint-controller
 {{- if contains "/" .Values.cni.image }}
