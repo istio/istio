@@ -126,7 +126,7 @@ func NewLenientXdsCache() XdsCache {
 	cache := &lruCache{
 		enableAssertions: false,
 		configIndex:      map[ConfigHash]sets.String{},
-		evictQueue:       make([]evictKeyConfigs, 0, 1000),
+		evictQueue:       make([]evictKeyConfigs, 0, 1000), // TODO: make if configurable
 	}
 	cache.store = newLru(cache.onEvict)
 	return cache
@@ -168,15 +168,15 @@ func newLru(evictCallback simplelru.EvictCallback[string, cacheValue]) simplelru
 
 func (l *lruCache) Run(stop <-chan struct{}) {
 	go func() {
-		ticker := time.Tick(5 * time.Second)
+		ticker := time.Tick(5 * time.Second) // todo: make it configurable
 		for {
 			select {
 			case <-ticker:
 				l.mu.Lock()
 				for _, keyConfigs := range l.evictQueue {
-					l.clearIndexes(keyConfigs.key, keyConfigs.dependentConfigs)
+					l.clearConfigIndex(keyConfigs.key, keyConfigs.dependentConfigs)
 				}
-				l.evictQueue = make([]evictKeyConfigs, 0, 100)
+				l.evictQueue = l.evictQueue[:0:1000]
 				l.recordDependentConfigSize()
 				l.mu.Unlock()
 			case <-stop:
@@ -219,16 +219,16 @@ func (l *lruCache) clearConfigIndex(k string, dependentConfigs []ConfigHash) {
 	c, exists := l.store.Get(k)
 	if exists {
 		newDependents := c.dependentConfigs
+		// we only need to clear configs {old difference new}
 		dependents := sets.New[ConfigHash](dependentConfigs...).Difference(sets.New[ConfigHash](newDependents...))
-		dependentConfigs = dependents.UnsortedList()
+		for cfg := range dependents {
+			sets.DeleteCleanupLast(l.configIndex, cfg, k)
+		}
+		return
 	}
 	for _, cfg := range dependentConfigs {
 		sets.DeleteCleanupLast(l.configIndex, cfg, k)
 	}
-}
-
-func (l *lruCache) clearIndexes(key string, dependentConfigs []ConfigHash) {
-	l.clearConfigIndex(key, dependentConfigs)
 }
 
 // assertUnchanged checks that a cache entry is not changed. This helps catch bad cache invalidation
