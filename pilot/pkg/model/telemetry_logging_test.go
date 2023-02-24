@@ -756,6 +756,36 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 			},
 		},
 	}
+	serverAndClientDifferent := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_CLIENT,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 500",
+				},
+			},
+			{
+				Match: &tpb.AccessLogging_LogSelector{
+					Mode: tpb.WorkloadMode_SERVER,
+				},
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 400",
+				},
+			},
+		},
+	}
 
 	tests := []struct {
 		name             string
@@ -830,6 +860,24 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
 					},
 					Provider: jsonTextProvider,
+				},
+			},
+		},
+		{
+			"server-and-client-different",
+			[]config.Config{newTelemetry("default", serverAndClientDifferent)},
+			sidecar,
+			[]string{"envoy"},
+			[]LoggingConfig{
+				{
+					AccessLog: &accesslog.AccessLog{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+					},
+					Provider: jsonTextProvider,
+					Filter: &tpb.AccessLogging_Filter{
+						Expression: "response.code >= 500",
+					},
 				},
 			},
 		},

@@ -550,6 +550,9 @@ func mergeLogs(logs []*computedAccessLogging, mesh *meshconfig.MeshConfig, mode 
 	for _, m := range logs {
 		names := sets.New[string]()
 		for _, p := range m.Logging {
+			if !matchWorkloadMode(p.Match, mode) {
+				continue
+			}
 			subProviders := getProviderNames(p.Providers)
 			names.InsertAll(subProviders...)
 
