@@ -93,7 +93,12 @@ func TestAddTwoEntries(t *testing.T) {
 	c.Add(&secondEntry, req, res)
 
 	assert.Equal(t, cache.store.Len(), 2)
-	assert.Equal(t, len(cache.configIndexSnapshot()), 3)
+	err := wait.Poll(2*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
+		cache.mu.RLock()
+		defer cache.mu.RUnlock()
+		return len(cache.configIndex) == 3, nil
+	})
+	assert.Equal(t, err, nil)
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key, secondEntry.key),
 		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.key),
