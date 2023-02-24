@@ -156,8 +156,9 @@ func newLru(evictCallback simplelru.EvictCallback[string, cacheValue]) simplelru
 }
 
 func (l *lruCache) Run(stop <-chan struct{}) {
+	interval := features.XDSCacheIndexClearInterval
 	go func() {
-		ticker := time.NewTicker(features.XDSCacheIndexClearInterval)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
 			select {
