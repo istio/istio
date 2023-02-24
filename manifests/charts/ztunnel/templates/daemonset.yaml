@@ -263,11 +263,15 @@ spec:
           value: "{{ $val }}"
         {{- end }}
         {{- end }}
+        - name: ISTIO_META_CLUSTER_ID
+          value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        - mountPath: /etc/istio/config
+          name: istio-ztunnel-config
       volumes:
       - name: istio-token
         projected:
@@ -279,3 +283,6 @@ spec:
       - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
+      - name: istio-ztunnel-config
+        configMap:
+          name: istio-ztunnel-config
