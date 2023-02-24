@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
   - |
-    **Fixed** an issue where is impossible to disable tracing via ProxyConfig
+    **Fixed** an issue where you could not disable tracing in `ProxyConfig`
