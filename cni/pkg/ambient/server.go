@@ -84,16 +84,6 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		s.redirectMode = EbpfMode
 		s.ebpfServer = ebpf.NewRedirectServer()
 		s.ebpfServer.Start(ctx.Done())
-		h, err := GetHostIPByRoute(s.kubeClient.Kube())
-		if err != nil || h == "" {
-			log.Warnf("failed to getting host IP: %v", err)
-		} else if HostIP != h {
-			log.Infof("HostIP changed: (%v) -> (%v)", HostIP, h)
-			HostIP = h
-			if err := s.ebpfServer.UpdateHostIP([]string{HostIP}); err != nil {
-				log.Errorf("failed to update host IP: %v", err)
-			}
-		}
 	}
 
 	s.setupHandlers()
@@ -209,7 +199,7 @@ func (s *Server) ReconcileZtunnel() error {
 			return fmt.Errorf("failed to configure node for ztunnel: %v", err)
 		}
 	case EbpfMode:
-		h, err := GetHostIPByRoute(s.kubeClient.Kube())
+		h, err := GetHostIPByRoute(s.podLister)
 		if err != nil || h == "" {
 			log.Warnf("failed to getting host IP: %v", err)
 		} else if HostIP != h {
