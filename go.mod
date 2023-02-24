@@ -19,6 +19,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/census-instrumentation/opencensus-proto v0.4.1
 	github.com/cheggaaa/pb/v3 v3.1.0
+	github.com/cilium/ebpf v0.8.1
 	github.com/cncf/xds/go v0.0.0-20230112175826-46e39c7b9b43
 	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.2.0
@@ -30,6 +31,7 @@ require (
 	github.com/fatih/color v1.14.1
 	github.com/felixge/fgprof v0.9.3
 	github.com/florianl/go-nflog/v2 v2.0.1
+	github.com/florianl/go-tc v0.4.2
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
@@ -177,7 +179,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jonboulle/clockwork v0.3.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/josharian/native v1.1.0 // indirect
+	github.com/josharian/native v1.1.0
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.15.14 // indirect
 	github.com/kr/text v0.2.0 // indirect

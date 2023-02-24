@@ -35,6 +35,7 @@ const (
 	MonitoringPort       = "monitoring-port"
 	LogUDSAddress        = "log-uds-address"
 	AmbientEnabled       = "ambient-enabled"
+	EbpfEnabled          = "ebpf-enabled"
 
 	// Repair
 	RepairEnabled            = "repair-enabled"

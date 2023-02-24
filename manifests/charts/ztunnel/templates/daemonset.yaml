@@ -51,11 +51,67 @@ spec:
             add:
             - NET_ADMIN
         command:
+{{- if eq .Values.redirectMode "ebpf"}}
           - sh
           - -c
           - |
             set -ex
+            # tproxy mark, it's only used here.
+            MARK=0x400/0xfff
+            ORG_SRC_RET_MARK=0x4d3/0xfff
+            POD_OUTBOUND=15001
+            POD_INBOUND=15008
+            POD_INBOUND_PLAINTEXT=15006
 
+            EBPF_MARK_INBOUND=5678
+            EBPF_MARK_OUTBOUND=8765
+
+            set +e # Only for delete, we don't care if this fails
+            ip route flush table 100
+            set -e
+
+            ip rule add priority 20000 fwmark $MARK lookup 100
+            ip rule add priority 20003 fwmark $ORG_SRC_RET_MARK lookup 100
+            ip route add local 0.0.0.0/0 dev lo table 100
+
+            set +e
+            num_legacy_lines=$( (iptables-legacy-save || true; ip6tables-legacy-save || true) 2>/dev/null | grep '^-' | wc -l)
+            if [ "${num_legacy_lines}" -ge 10 ]; then
+              mode=legacy
+            else
+              num_nft_lines=$( (timeout 5 sh -c "iptables-nft-save; ip6tables-nft-save" || true) 2>/dev/null | grep '^-' | wc -l)
+              if [ "${num_legacy_lines}" -ge "${num_nft_lines}" ]; then
+                mode=legacy
+              else
+                mode=nft
+              fi
+            fi
+            IPTABLES=iptables-legacy
+            if [ "${mode}" = "nft" ]; then
+              IPTABLES=iptables-nft
+            fi
+            set -e
+
+            $IPTABLES -t mangle -F PREROUTING
+
+            $IPTABLES -t mangle -A PREROUTING -p tcp -m mark --mark $EBPF_MARK_INBOUND -m tcp --dport=$POD_INBOUND -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND         --on-ip 127.0.0.1
+
+            $IPTABLES -t mangle -A PREROUTING -p tcp -m mark --mark $EBPF_MARK_OUTBOUND -j TPROXY --tproxy-mark $MARK --on-port $POD_OUTBOUND --on-ip 127.0.0.1
+
+            $IPTABLES -t mangle -A PREROUTING -p tcp -m mark --mark $EBPF_MARK_INBOUND -j TPROXY --tproxy-mark $MARK --on-port $POD_INBOUND_PLAINTEXT --on-ip 127.0.0.1
+
+            $IPTABLES -t mangle -A PREROUTING -p tcp -i eth0 ! --dst $INSTANCE_IP -j MARK --set-mark $ORG_SRC_RET_MARK
+
+            # With normal linux routing we need to disable the rp_filter
+            # as we get packets from a tunnel that doesn't have default routes.
+            echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
+            echo 0 > /proc/sys/net/ipv4/conf/default/rp_filter
+            echo 0 > /proc/sys/net/ipv4/conf/eth0/rp_filter
+  {{- else }}
+          - sh
+          - -c
+          - |
+            set -ex
             PROXY_ORG_SRC_MARK=0x4d2/0xfff
             # tproxy mark, it's only used here.
             MARK=0x400/0xfff
@@ -174,6 +230,7 @@ spec:
             echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
             echo 0 > /proc/sys/net/ipv4/conf/default/rp_filter
             echo 0 > /proc/sys/net/ipv4/conf/eth0/rp_filter
+{{- end }}
         env:
         - name: INSTANCE_IP
           valueFrom:
