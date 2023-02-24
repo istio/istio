@@ -809,29 +809,34 @@ type AmbientIndexes interface {
 	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
 }
 
-type UnimplementedAmbientIndexes struct{}
+// NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
+type NoopAmbientIndexes struct{}
 
-func (u UnimplementedAmbientIndexes) PodInformation(sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
+func (u NoopAmbientIndexes) PodInformation(sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
 	return nil, nil
 }
 
-func (u UnimplementedAmbientIndexes) AdditionalPodSubscriptions(*Proxy, sets.Set[types.NamespacedName], sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+func (u NoopAmbientIndexes) AdditionalPodSubscriptions(
+	*Proxy,
+	sets.Set[types.NamespacedName],
+	sets.Set[types.NamespacedName],
+) sets.Set[types.NamespacedName] {
 	return nil
 }
 
-func (u UnimplementedAmbientIndexes) Policies(sets.Set[ConfigKey]) []*workloadapi.Authorization {
+func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*workloadapi.Authorization {
 	return nil
 }
 
-func (u UnimplementedAmbientIndexes) Waypoint(WaypointScope) sets.Set[netip.Addr] {
+func (u NoopAmbientIndexes) Waypoint(WaypointScope) sets.Set[netip.Addr] {
 	return nil
 }
 
-func (u UnimplementedAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
+func (u NoopAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
 	return nil
 }
 
-var _ AmbientIndexes = UnimplementedAmbientIndexes{}
+var _ AmbientIndexes = NoopAmbientIndexes{}
 
 type WorkloadInfo struct {
 	*workloadapi.Workload

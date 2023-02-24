@@ -2696,7 +2696,7 @@ type localServiceDiscovery struct {
 	services         []*Service
 	serviceInstances []*ServiceInstance
 
-	UnimplementedAmbientIndexes
+	NoopAmbientIndexes
 	NetworkGatewaysHandler
 }
 

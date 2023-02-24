@@ -55,7 +55,7 @@ func (c *ServiceController) HasSynced() bool { return true }
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
-	model.UnimplementedAmbientIndexes
+	model.NoopAmbientIndexes
 	services map[host.Name]*model.Service
 
 	networkGateways []model.NetworkGateway
