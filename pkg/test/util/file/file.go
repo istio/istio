@@ -101,16 +101,23 @@ func NormalizePath(originalPath string) (string, error) {
 		return "", nil
 	}
 	// trim leading/trailing spaces from the path and if it uses the homedir ~, expand it.
-	var err error
 	out := strings.TrimSpace(originalPath)
-	out, err = homedir.Expand(out)
+	out, err := homedir.Expand(out)
 	if err != nil {
 		return "", err
 	}
 
 	// Verify that the file exists.
-	if _, err := os.Stat(out); os.IsNotExist(err) {
-		return "", fmt.Errorf("failed normalizing file %s: %v", originalPath, err)
+	fileInfo, err := os.Stat(out)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("file %s does not exist", originalPath)
+		}
+		return "", fmt.Errorf("failed to get file info for %s: %v", originalPath, err)
+	}
+
+	if fileInfo.IsDir() {
+		return "", fmt.Errorf("file %s is a directory, not a regular file", originalPath)
 	}
 
 	return out, nil
