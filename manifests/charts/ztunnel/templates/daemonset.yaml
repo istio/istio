@@ -86,8 +86,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        {{- if .Values.meshConfig.defaultConfig.proxyMetadata }}
-        {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata}}
+        {{- if .Values.proxyConfig.proxyMetadata }}
+        {{- range $key, $value := .Values.proxyConfig.proxyMetadata}}
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}

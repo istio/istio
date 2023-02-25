@@ -1,11 +1,3 @@
-{{- define "mesh" }}
-  defaultConfig:
-    proxyMetadata: {}
-{{- end }}
-
-{{- $originalMesh := include "mesh" . | fromYaml }}
-{{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -16,9 +8,6 @@ metadata:
   annotations:
     {{- .Values.annotations | toYaml | nindent 4}}
 data:
-  mesh: |-
-{{- if .Values.meshConfig }}
-{{ $mesh | toYaml | indent 4 }}
-{{- else }}
-{{- include "mesh" . }}
-{{- end }}
+  mesh: |
+    defaultConfig:
+      {{- .Values.proxyConfig | toYaml | nindent 6}}

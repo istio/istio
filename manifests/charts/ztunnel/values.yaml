@@ -1,7 +1,7 @@
 # Hub to pull from. Image will be `Hub/Image:Tag-Variant`
-hub: gcr.io/istio-testing
+hub: "gcr.io/istio-testing"
 # Tag to pull from. Image will be `Hub/Image:Tag-Variant`
-tag: latest
+tag: "latest"
 # Variant to pull. Options are "debug" or "distroless". Unset will use the default for the given version.
 variant: ""
 
@@ -43,13 +43,7 @@ multiCluster:
   # with Istiod configuration.
   clusterName: ""
 
-# meshConfig defines runtime configuration of components.
-# For ztunnel, only defaultConfig is used, but this is nested under `meshConfig` for consistency with other
-# components.
-# TODO: https://github.com/istio/istio/issues/43248
-meshConfig:
-  defaultConfig:
-    proxyMetadata: {}
-
-# Ambient redirection mode: "iptables" or "ebpf"
-redirectMode: "iptables"
+# For ztunnel, only defaultConfig in meshConfig is used. To avoid confusion from using the full meshConfig, we define a
+# proxyConfig here to replace the meshConfig.defaultConfig
+proxyConfig:
+  proxyMetadata: {}
