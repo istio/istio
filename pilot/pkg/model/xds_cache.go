@@ -263,12 +263,15 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	k := entry.Key()
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if token < l.token {
+		// entry may be stale, we need to drop it. This can happen when the cache is invalidated
+		// after we call Get.
+		return
+	}
 	cur, f := l.store.Get(k)
 	if f {
-		// This is the stale resource
-		if token <= cur.token || token < l.token {
-			// entry may be stale, we need to drop it. This can happen when the cache is invalidated
-			// after we call Get.
+		// This is the stale or same resource
+		if token <= cur.token {
 			return
 		}
 		if l.enableAssertions {
@@ -279,10 +282,6 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 			}
 			l.assertUnchanged(k, cur.value, value)
 		}
-	}
-
-	if token < l.token {
-		return
 	}
 
 	dependentConfigs := entry.DependentConfigs()
