@@ -223,6 +223,7 @@ func TestBookinfo(t *testing.T) {
 					return getGracePeriod(3)
 				})
 			})
+			deleteWaypoints(t, nsConfig)
 		})
 }
 
@@ -246,6 +247,31 @@ func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
 		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")
 		if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
 			return fmt.Errorf("gateway is not ready: %v", err)
+		}
+		return nil
+	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
+	if waypointError != nil {
+		t.Fatal(waypointError)
+	}
+}
+
+func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
+	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+		"x",
+		"waypoint",
+		"delete",
+		"--namespace",
+		nsConfig.Name(),
+		"--service-account",
+		"bookinfo-reviews",
+	})
+	waypointError := retry.UntilSuccess(func() error {
+		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")
+		pods, err := kubetest.CheckPodsAreReady(fetch)
+		if err != nil {
+			return fmt.Errorf("cannot fetch pod: %v", err)
+		} else if len(pods) != 0 {
+			return fmt.Errorf("waypoint pod is not deleted")
 		}
 		return nil
 	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
