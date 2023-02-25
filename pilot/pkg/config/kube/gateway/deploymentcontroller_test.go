@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
@@ -175,6 +176,7 @@ global:
 					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}},
 					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}},
 				),
+				clusterID:    cluster.ID(features.ClusterName),
 				injectConfig: injConfig,
 				patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 					b, err := yaml.JSONToYAML(data)

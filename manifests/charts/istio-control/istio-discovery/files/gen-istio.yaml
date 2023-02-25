@@ -119,7 +119,6 @@ data:
           "excludeIPRanges": "",
           "excludeInboundPorts": "",
           "excludeOutboundPorts": "",
-          "holdApplicationUntilProxyStarts": false,
           "image": "proxyv2",
           "includeIPRanges": "*",
           "includeInboundPorts": "*",
@@ -155,25 +154,6 @@ data:
           "servicePort": 0
         },
         "tag": "latest",
-        "tracer": {
-          "datadog": {
-            "address": "$(HOST_IP):8126"
-          },
-          "lightstep": {
-            "accessToken": "",
-            "address": ""
-          },
-          "stackdriver": {
-            "debug": false,
-            "maxNumberOfAnnotations": 200,
-            "maxNumberOfAttributes": 200,
-            "maxNumberOfMessageEvents": 200
-          },
-          "zipkin": {
-            "address": ""
-          }
-        },
-        "useMCP": false,
         "variant": ""
       },
       "revision": "",
@@ -1699,7 +1679,7 @@ data:
                 - name: ISTIO_META_APP_CONTAINERS
                   value: ""
                 - name: ISTIO_META_CLUSTER_ID
-                  value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+                  value: "{{ valueOrDefault .Values.global.multiCluster.clusterName .ClusterID }}"
                 - name: ISTIO_META_NODE_NAME
                   valueFrom:
                     fieldRef:

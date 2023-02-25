@@ -16,7 +16,6 @@ package ambient
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -28,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/cni/pkg/ambient/constants"
 	pconstants "istio.io/istio/pkg/config/constants"
 	istiolog "istio.io/pkg/log"
 )
@@ -50,6 +48,14 @@ func RouteExists(rte []string) bool {
 }
 
 func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) {
+	addPodToMeshWithIptables(pod, ip)
+
+	if err := AnnotateEnrolledPod(client, pod); err != nil {
+		log.Errorf("failed to annotate pod enrollment: %v", err)
+	}
+}
+
+func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
 	if ip == "" {
 		ip = pod.Status.PodIP
 	}
@@ -93,13 +99,10 @@ func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) {
 		log.Warnf("Failed to get device for destination %s", ip)
 		return
 	}
-	err = SetProc("/proc/sys/net/ipv4/conf/"+dev+"/rp_filter", "0")
-	if err != nil {
-		log.Warnf("Failed to set rp_filter to 0 for device %s", dev)
-	}
 
-	if err := annotateEnrolledPod(client, pod); err != nil {
-		log.Errorf("failed to annotate pod enrollment: %v", err)
+	err = disableRPFiltersForLink(dev)
+	if err != nil {
+		log.Warnf("failed to disable procfs rp_filter for device %s: %v", dev, err)
 	}
 }
 
@@ -114,7 +117,7 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 	pconstants.AmbientRedirection,
 ))
 
-func annotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
+func AnnotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
 	_, err := client.CoreV1().
 		Pods(pod.Namespace).
 		Patch(
@@ -127,7 +130,7 @@ func annotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
 	return err
 }
 
-func annotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
+func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
 	if pod.Annotations[pconstants.AmbientRedirection] != pconstants.AmbientRedirectionEnabled {
 		return nil
 	}
@@ -170,31 +173,45 @@ func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
 		}
 	}
 
-	if err := annotateUnenrollPod(client, pod); err != nil {
+	if err := AnnotateUnenrollPod(client, pod); err != nil {
 		log.Errorf("failed to annotate pod unenrollment: %v", err)
 	}
 }
 
-func buildRouteFromPod(pod *corev1.Pod, ip string) ([]string, error) {
-	if ip == "" {
-		ip = pod.Status.PodIP
+// GetHostIPByRoute get the automatically chosen host ip to the Pod's CIDR
+func GetHostIPByRoute(kubeClient kubernetes.Interface) (string, error) {
+	// We assume per node POD's CIDR is the same block, so the route to the POD
+	// from host should be "same". Otherwise, there may multiple host IPs will be
+	// used as source to dial to PODs.
+	pods, err := kubeClient.CoreV1().Pods(metav1.NamespaceAll).List(
+		context.TODO(),
+		metav1.ListOptions{
+			LabelSelector: "app=ztunnel",
+			FieldSelector: "spec.nodeName=" + NodeName,
+		})
+	if err != nil {
+		return "", fmt.Errorf("error getting ztunnel node: %v", err)
 	}
-
-	if ip == "" {
-		return nil, errors.New("no ip found")
+	for _, pod := range pods.Items {
+		targetIP := pod.Status.PodIP
+		if hostIP := getOutboundIP(targetIP); hostIP != nil {
+			return hostIP.String(), nil
+		}
 	}
+	return "", fmt.Errorf("failed to get outbound IP to Pods")
+}
 
-	return []string{
-		"table",
-		fmt.Sprintf("%d", constants.RouteTableInbound),
-		fmt.Sprintf("%s/32", ip),
-		"via",
-		constants.ZTunnelInboundTunIP,
-		"dev",
-		constants.InboundTun,
-		"src",
-		HostIP,
-	}, nil
+// Get preferred outbound ip of this machine
+func getOutboundIP(ip string) net.IP {
+	conn, err := net.Dial("udp", ip+":80")
+	if err != nil {
+		return nil
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP
 }
 
 func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
@@ -243,8 +260,45 @@ func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
 			}
 		}
 	}
-
+	// fall back to use Node Internal IP
+	for _, address := range node.Status.Addresses {
+		if address.Type == corev1.NodeInternalIP {
+			return address.Address, nil
+		}
+	}
 	return "", nil
+}
+
+func (s *Server) AddPodToMesh(pod *corev1.Pod) {
+	switch s.redirectMode {
+	case IptablesMode:
+		AddPodToMesh(s.kubeClient.Kube(), pod, "")
+	case EbpfMode:
+		if err := s.updatePodEbpfOnNode(pod); err != nil {
+			log.Errorf("failed to update POD ebpf: %v", err)
+		}
+		if err := AnnotateEnrolledPod(s.kubeClient.Kube(), pod); err != nil {
+			log.Errorf("failed to annotate pod enrollment: %v", err)
+		}
+	}
+}
+
+func (s *Server) DelPodFromMesh(pod *corev1.Pod) {
+	switch s.redirectMode {
+	case IptablesMode:
+		DelPodFromMesh(s.kubeClient.Kube(), pod)
+	case EbpfMode:
+		if pod.Spec.HostNetwork {
+			log.Debugf("pod(%s/%s) is using host network, skip it", pod.Namespace, pod.Name)
+			return
+		}
+		if err := s.delPodEbpfOnNode(pod.Status.PodIP); err != nil {
+			log.Errorf("failed to del POD ebpf: %v", err)
+		}
+		if err := AnnotateUnenrollPod(s.kubeClient.Kube(), pod); err != nil {
+			log.Errorf("failed to annotate pod unenrollment: %v", err)
+		}
+	}
 }
 
 func SetProc(path string, value string) error {

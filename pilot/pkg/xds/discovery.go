@@ -239,6 +239,7 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
+	go s.Cache.Run(stopCh)
 }
 
 // Push metrics are updated periodically (10s default)

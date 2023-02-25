@@ -153,9 +153,6 @@ func (resolution Resolution) String() string {
 }
 
 const (
-	// IstioDefaultConfigNamespace constant for default namespace
-	IstioDefaultConfigNamespace = "default"
-
 	// LocalityLabel indicates the region/zone/subzone of an instance. It is used to override the native
 	// registry's value.
 	//
@@ -519,6 +516,39 @@ func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 		return true
 	}
 	return ep.DiscoverabilityPolicy.IsDiscoverableFromProxy(ep, p)
+}
+
+// Metadata returns the endpoint metadata used for telemetry purposes.
+func (ep *IstioEndpoint) Metadata() *EndpointMetadata {
+	return &EndpointMetadata{
+		Network:      ep.Network,
+		TLSMode:      ep.TLSMode,
+		WorkloadName: ep.WorkloadName,
+		Namespace:    ep.Namespace,
+		Labels:       ep.Labels,
+		ClusterID:    ep.Locality.ClusterID,
+	}
+}
+
+// EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.
+type EndpointMetadata struct {
+	// Network holds the network where this endpoint is present
+	Network network.ID
+
+	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
+	TLSMode string
+
+	// Name of the workload that this endpoint belongs to. This is for telemetry purpose.
+	WorkloadName string
+
+	// Namespace that this endpoint belongs to. This is for telemetry purpose.
+	Namespace string
+
+	// Labels points to the workload or deployment labels.
+	Labels labels.Instance
+
+	// ClusterID where the endpoint is located
+	ClusterID cluster.ID
 }
 
 // EndpointDiscoverabilityPolicy determines the discoverability of an endpoint throughout the mesh.
