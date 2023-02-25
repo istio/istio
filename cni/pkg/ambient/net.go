@@ -24,8 +24,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	pconstants "istio.io/istio/pkg/config/constants"
 	istiolog "istio.io/pkg/log"
@@ -179,20 +181,15 @@ func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
 }
 
 // GetHostIPByRoute get the automatically chosen host ip to the Pod's CIDR
-func GetHostIPByRoute(kubeClient kubernetes.Interface) (string, error) {
+func GetHostIPByRoute(podLister listerv1.PodLister) (string, error) {
 	// We assume per node POD's CIDR is the same block, so the route to the POD
 	// from host should be "same". Otherwise, there may multiple host IPs will be
 	// used as source to dial to PODs.
-	pods, err := kubeClient.CoreV1().Pods(metav1.NamespaceAll).List(
-		context.TODO(),
-		metav1.ListOptions{
-			LabelSelector: "app=ztunnel",
-			FieldSelector: "spec.nodeName=" + NodeName,
-		})
+	pods, err := podLister.List(labels.Set{"app": "ztunnel"}.AsSelector())
 	if err != nil {
-		return "", fmt.Errorf("error getting ztunnel node: %v", err)
+		return "", fmt.Errorf("error getting ztunnel pod: %v", err)
 	}
-	for _, pod := range pods.Items {
+	for _, pod := range pods {
 		targetIP := pod.Status.PodIP
 		if hostIP := getOutboundIP(targetIP); hostIP != nil {
 			return hostIP.String(), nil
