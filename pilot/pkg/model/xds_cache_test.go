@@ -77,9 +77,9 @@ func TestAddTwoEntries(t *testing.T) {
 
 	assert.Equal(t, cache.store.Len(), 1)
 	assert.Equal(t, cache.indexLength(), 2)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](firstEntry.Key()),
 	})
 
 	// second entry has different key and dependencies
@@ -97,10 +97,10 @@ func TestAddTwoEntries(t *testing.T) {
 
 	assert.Equal(t, cache.store.Len(), 2)
 	assert.Equal(t, cache.indexLength(), 3)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key, secondEntry.key),
-		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key(), secondEntry.Key()),
+		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New[KeyHash](secondEntry.Key()),
 	})
 }
 
@@ -129,8 +129,8 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 
 	assert.Equal(t, cache.store.Len(), 1)
 	assert.Equal(t, cache.indexLength(), 1)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](firstEntry.Key()),
 	})
 
 	// second entry has the same key but different dependencies
@@ -150,8 +150,8 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 		return len(cache.configIndex) == 1, nil
 	})
 	assert.Equal(t, err, nil)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](secondEntry.Key()),
 	})
 }
 
@@ -184,9 +184,9 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 
 	assert.Equal(t, cache.store.Len(), 1)
 	assert.Equal(t, cache.indexLength(), 2)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](firstEntry.Key()),
 	})
 
 	// second entry has different key and dependencies
@@ -209,9 +209,9 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 		return len(cache.configIndex) == 2, nil
 	})
 	assert.Equal(t, err, nil)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.key),
-		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():     sets.New[KeyHash](secondEntry.Key()),
+		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](secondEntry.Key()),
 	})
 }
 
@@ -255,12 +255,12 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	// indexes populated
 	assert.Equal(t, cache.store.Len(), 2)
 	assert.Equal(t, cache.indexLength(), 5)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key, secondEntry.key),
-		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.key),
-		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key(), secondEntry.Key()),
+		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New[KeyHash](secondEntry.Key()),
+		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New[KeyHash](secondEntry.Key()),
 	})
 
 	cache.Clear(sets.Set[ConfigKey]{})
@@ -268,12 +268,12 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	// no change on empty clear
 	assert.Equal(t, cache.store.Len(), 2)
 	assert.Equal(t, cache.indexLength(), 5)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key, secondEntry.key),
-		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.key),
-		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key(), secondEntry.Key()),
+		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New[KeyHash](secondEntry.Key()),
+		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New[KeyHash](secondEntry.Key()),
 	})
 
 	// clear only DestinationRule dependencies, should clear all firstEntry references
@@ -286,10 +286,10 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		return len(cache.configIndex) == 3, nil
 	})
 	assert.Equal(t, err, nil)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.key),
-		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.key),
-		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():  sets.New(secondEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():     sets.New[KeyHash](secondEntry.Key()),
+		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](secondEntry.Key()),
+		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():  sets.New[KeyHash](secondEntry.Key()),
 	})
 
 	// add firstEntry again
@@ -302,12 +302,12 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		return len(cache.configIndex) == 5, nil
 	})
 	assert.Equal(t, err, nil)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key, secondEntry.key),
-		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.key),
-		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key(), secondEntry.Key()),
+		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New[KeyHash](secondEntry.Key()),
+		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New[KeyHash](secondEntry.Key()),
 	})
 
 	// clear only EnvoyFilter dependencies, should clear all secondEntry references
@@ -320,10 +320,10 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		return len(cache.configIndex) == 3, nil
 	})
 	assert.Equal(t, err, nil)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key()),
 	})
 
 	// add secondEntry again
@@ -337,12 +337,12 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		return len(cache.configIndex) == 5, nil
 	})
 	assert.Equal(t, err, nil)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key, secondEntry.key),
-		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.key),
-		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key(), secondEntry.Key()),
+		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New[KeyHash](secondEntry.Key()),
+		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New[KeyHash](secondEntry.Key()),
 	})
 
 	// clear only Service dependencies, should clear both firstEntry and secondEntry references
@@ -395,12 +395,12 @@ func TestCacheClearAll(t *testing.T) {
 
 	// indexes populated
 	assert.Equal(t, cache.indexLength(), 5)
-	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.String{
-		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key, secondEntry.key),
-		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.key),
-		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.key),
-		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.key),
+	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[KeyHash]{
+		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key(), secondEntry.Key()),
+		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New[KeyHash](firstEntry.Key()),
+		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New[KeyHash](secondEntry.Key()),
+		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New[KeyHash](secondEntry.Key()),
 	})
 
 	cache.ClearAll()
