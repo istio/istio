@@ -23,9 +23,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/miekg/dns"
 	"golang.org/x/exp/slices"
 
-	"github.com/miekg/dns"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
