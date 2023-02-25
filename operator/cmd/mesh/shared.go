@@ -92,8 +92,8 @@ func kubeBuilderInstalled() bool {
 	return ev == "true" || ev == "1"
 }
 
-// confirm waits for a user to confirm with the supplied message.
-func confirm(msg string, writer io.Writer) bool {
+// Confirm waits for a user to confirm with the supplied message.
+func Confirm(msg string, writer io.Writer) bool {
 	for {
 		_, _ = fmt.Fprintf(writer, "%s ", msg)
 		var response string
