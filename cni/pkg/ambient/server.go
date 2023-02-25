@@ -210,7 +210,7 @@ func (s *Server) ReconcileZtunnel() error {
 		if err != nil {
 			return fmt.Errorf("failed to get ns name: %v", err)
 		}
-		hostIP, err := GetHostIPByRoute(s.kubeClient.Kube())
+		hostIP, err := GetHostIPByRoute(s.podLister)
 		if err != nil || hostIP == "" {
 			log.Warnf("failed to getting host IP: %v", err)
 		}
