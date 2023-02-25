@@ -19,13 +19,14 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"golang.org/x/exp/slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -199,7 +200,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj any, event model.E
 
 func (ic *serviceImportCacheImpl) updateIPs(mcsService *model.Service, ips []string) (updated bool) {
 	prevIPs := mcsService.ClusterVIPs.GetAddressesFor(ic.Cluster())
-	if !util.StringSliceEqual(prevIPs, ips) {
+	if !slices.Equal(prevIPs, ips) {
 		// Update the VIPs
 		mcsService.ClusterVIPs.SetAddressesFor(ic.Cluster(), ips)
 		updated = true

@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/exp/slices"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -1475,7 +1477,7 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 	if first.TransportProtocol != second.TransportProtocol {
 		return false
 	}
-	if !util.StringSliceEqual(first.ApplicationProtocols, second.ApplicationProtocols) {
+	if !slices.Equal(first.ApplicationProtocols, second.ApplicationProtocols) {
 		return false
 	}
 	if first.DestinationPort.GetValue() != second.DestinationPort.GetValue() {
@@ -1499,10 +1501,10 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 	if first.SourceType != second.SourceType {
 		return false
 	}
-	if !util.UInt32SliceEqual(first.SourcePorts, second.SourcePorts) {
+	if !slices.Equal(first.SourcePorts, second.SourcePorts) {
 		return false
 	}
-	if !util.StringSliceEqual(first.ServerNames, second.ServerNames) {
+	if !slices.Equal(first.ServerNames, second.ServerNames) {
 		return false
 	}
 	return true
