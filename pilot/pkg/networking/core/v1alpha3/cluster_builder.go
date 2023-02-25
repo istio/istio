@@ -119,7 +119,7 @@ type ClusterBuilder struct {
 	configNamespace    string                   // Proxy config namespace.
 	// PushRequest to look for updates.
 	req                   *model.PushRequest
-	cache                 model.XdsCache
+	cache                 model.GenericXdsCache
 	credentialSocketExist bool
 
 	// TODO: this is not safe since its not in cache
@@ -127,7 +127,7 @@ type ClusterBuilder struct {
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
-func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
+func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.GenericXdsCache) *ClusterBuilder {
 	cb := &ClusterBuilder{
 		serviceInstances:        proxy.ServiceInstances,
 		proxyID:                 proxy.ID,

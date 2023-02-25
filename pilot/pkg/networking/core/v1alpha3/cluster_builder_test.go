@@ -1764,7 +1764,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 	push := model.NewPushContext()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: push}, model.DisabledCache{})
+			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: push}, model.disabledCache{})
 			opts := &buildClusterOpts{
 				mutable: NewMutableCluster(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
@@ -2747,7 +2747,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			} else {
 				proxy = newSidecarProxy()
 			}
-			cb := NewClusterBuilder(proxy, nil, model.DisabledCache{})
+			cb := NewClusterBuilder(proxy, nil, model.disabledCache{})
 			if tc.h2 {
 				cb.setH2Options(tc.opts.mutable)
 			}
@@ -2776,7 +2776,7 @@ func newTestCluster() *MutableCluster {
 }
 
 func newH2TestCluster() *MutableCluster {
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
+	cb := NewClusterBuilder(newSidecarProxy(), nil, model.disabledCache{})
 	mc := NewMutableCluster(&cluster.Cluster{
 		Name: "test-cluster",
 	})
@@ -2785,7 +2785,7 @@ func newH2TestCluster() *MutableCluster {
 }
 
 func newDownstreamTestCluster() *MutableCluster {
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
+	cb := NewClusterBuilder(newSidecarProxy(), nil, model.disabledCache{})
 	mc := NewMutableCluster(&cluster.Cluster{
 		Name: "test-cluster",
 	})
@@ -2919,7 +2919,7 @@ func TestShouldH2Upgrade(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
+	cb := NewClusterBuilder(newSidecarProxy(), nil, model.disabledCache{})
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -2956,7 +2956,7 @@ func TestIsHttp2Cluster(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
+	cb := NewClusterBuilder(newSidecarProxy(), nil, model.disabledCache{})
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

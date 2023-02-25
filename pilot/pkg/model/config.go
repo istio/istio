@@ -85,6 +85,16 @@ func ConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.Set[ConfigK
 	return ret
 }
 
+// HasConfigsOfKind returns true if configs has changes of type kind
+func HasConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) bool {
+	for c := range configs {
+		if c.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
 // ConfigNamesOfKind extracts config names of the specified kind.
 func ConfigNamesOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.String {
 	ret := sets.New[string]()

@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/hash"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -51,8 +52,14 @@ type SecretResource struct {
 
 var _ model.XdsCacheEntry = SecretResource{}
 
-func (sr SecretResource) Key() string {
-	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
+func (sr SecretResource) Type() string {
+	return model.SDSType
+}
+
+func (sr SecretResource) Key() any {
+	h := hash.New()
+	h.Write([]byte(sr.SecretResource.Key() + "/" + sr.pkpConfHash))
+	return h.Sum()
 }
 
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {
@@ -169,7 +176,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy) *discovery.Resource {
 	// Fetch the appropriate cluster's secret, based on the credential type
 	var secretController credscontroller.Controller
-	switch sr.Type {
+	switch sr.ResourceType {
 	case credentials.KubernetesGatewaySecretType:
 		secretController = configClusterSecrets
 	default:
@@ -253,7 +260,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 	for _, r := range resources {
 		sameNamespace := r.Namespace == proxy.VerifiedIdentity.Namespace
 		verified := proxy.MergedGateway != nil && proxy.MergedGateway.VerifiedCertificateReferences.Contains(r.ResourceName)
-		switch r.Type {
+		switch r.ResourceType {
 		case credentials.KubernetesGatewaySecretType:
 			// For KubernetesGateway, we only allow VerifiedCertificateReferences.
 			// This means a Secret in the same namespace as the Gateway (which also must be in the same namespace
@@ -446,14 +453,14 @@ func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 type SecretGen struct {
 	secrets credscontroller.MulticlusterController
 	// Cache for XDS resources
-	cache         model.XdsCache
+	cache         model.GenericXdsCache
 	configCluster cluster.ID
 	meshConfig    *mesh.MeshConfig
 }
 
 var _ model.XdsResourceGenerator = &SecretGen{}
 
-func NewSecretGen(sc credscontroller.MulticlusterController, cache model.XdsCache, configCluster cluster.ID,
+func NewSecretGen(sc credscontroller.MulticlusterController, cache model.GenericXdsCache, configCluster cluster.ID,
 	meshConfig *mesh.MeshConfig,
 ) *SecretGen {
 	// TODO: Currently we only have a single credentials controller (Kubernetes). In the future, we will need a mapping

@@ -55,6 +55,6 @@ type ConfigGenerator interface {
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator
-func NewConfigGenerator(cache model.XdsCache) ConfigGenerator {
+func NewConfigGenerator(cache model.GenericXdsCache) ConfigGenerator {
 	return v1alpha3.NewConfigGenerator(cache)
 }
