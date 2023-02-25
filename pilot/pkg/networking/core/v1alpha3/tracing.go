@@ -135,8 +135,6 @@ func configureTracingFromSpec(
 	return routerFilterCtx, reqIDExtension
 }
 
-// TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
-
 func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider,
 ) (*hcm.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
