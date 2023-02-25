@@ -1053,17 +1053,16 @@ the configuration objects that affect that service.`,
 
 			writer := cmd.OutOrStdout()
 
-			labels := ""
+			labels := make([]string, 0)
 			for k, v := range svc.Spec.Selector {
-				labels += fmt.Sprintf("%s=%s,", k, v)
+				labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 			}
-			labels = strings.TrimSuffix(labels, ",")
 
 			matchingPods := make([]corev1.Pod, 0)
 			var selectedPodCount int
 			if len(labels) > 0 {
 				pods, err := client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{
-					LabelSelector: labels,
+					LabelSelector: strings.Join(labels, ","),
 				})
 				if err != nil {
 					return err
