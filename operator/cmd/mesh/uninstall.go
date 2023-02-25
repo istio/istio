@@ -245,7 +245,7 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 		return
 	}
 	message += "Proceed? (y/N)"
-	if needConfirmation && !confirm(message, cmd.OutOrStdout()) {
+	if needConfirmation && !Confirm(message, cmd.OutOrStdout()) {
 		cmd.Print("Cancelled.\n")
 		os.Exit(1)
 	}
