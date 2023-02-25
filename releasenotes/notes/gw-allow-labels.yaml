@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 41057
+  - 43585
+releaseNotes:
+  - |
+    **Added** support for allowing adding labels to gateway charts via `.Values.podLabels`.
