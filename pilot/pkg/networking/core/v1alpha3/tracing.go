@@ -169,6 +169,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 			return datadogConfig(serviceCluster, hostname, cluster)
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
+		//nolint: staticcheck  // Lightstep deprecated
 		maxTagLength = provider.Lightstep.GetMaxTagLength()
 		providerName = envoyLightstep
 		//nolint: staticcheck  // Lightstep deprecated
