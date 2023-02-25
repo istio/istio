@@ -118,7 +118,7 @@ func (b *EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 }
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
-func (b *EndpointBuilder) Key() string {
+func (b *EndpointBuilder) Key() model.KeyHash {
 	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
@@ -171,7 +171,7 @@ func (b *EndpointBuilder) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.Sum()
+	return model.KeyHash(h.Sum64())
 }
 
 func (b *EndpointBuilder) Cacheable() bool {

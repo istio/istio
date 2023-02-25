@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/hash"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -34,8 +35,10 @@ type entry struct {
 	dependentConfigs []ConfigHash
 }
 
-func (e *entry) Key() string {
-	return e.key
+func (e *entry) Key() KeyHash {
+	h := hash.New()
+	h.Write([]byte(e.key))
+	return KeyHash(h.Sum64())
 }
 
 func (e *entry) DependentConfigs() []ConfigHash {

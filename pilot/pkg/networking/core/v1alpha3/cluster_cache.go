@@ -57,7 +57,7 @@ type clusterCache struct {
 	serviceAccounts []string // contains all the service accounts associated with the service
 }
 
-func (t *clusterCache) Key() string {
+func (t *clusterCache) Key() model.KeyHash {
 	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
@@ -117,7 +117,7 @@ func (t *clusterCache) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.Sum()
+	return model.KeyHash(h.Sum64())
 }
 
 func (t clusterCache) DependentConfigs() []model.ConfigHash {

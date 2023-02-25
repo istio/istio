@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/hash"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -51,8 +52,10 @@ type SecretResource struct {
 
 var _ model.XdsCacheEntry = SecretResource{}
 
-func (sr SecretResource) Key() string {
-	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
+func (sr SecretResource) Key() model.KeyHash {
+	h := hash.New()
+	h.Write([]byte(sr.SecretResource.Key() + "/" + sr.pkpConfHash))
+	return model.KeyHash(h.Sum64())
 }
 
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {

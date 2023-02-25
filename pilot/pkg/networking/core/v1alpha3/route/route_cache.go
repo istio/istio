@@ -15,7 +15,6 @@
 package route
 
 import (
-	"math/big"
 	"strconv"
 	"strings"
 
@@ -115,7 +114,7 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 	return configs
 }
 
-func (r *Cache) Key() string {
+func (r *Cache) Key() model.KeyHash {
 	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
@@ -177,11 +176,19 @@ func (r *Cache) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.Sum()
+	return model.KeyHash(h.Sum64())
 }
 
 func hashToBytes(number model.ConfigHash) []byte {
-	big := new(big.Int)
-	big.SetUint64(uint64(number))
-	return big.Bytes()
+	v := uint64(number)
+	return []byte{
+		byte(0xff & v),
+		byte(0xff & (v >> 8)),
+		byte(0xff & (v >> 16)),
+		byte(0xff & (v >> 24)),
+		byte(0xff & (v >> 32)),
+		byte(0xff & (v >> 40)),
+		byte(0xff & (v >> 48)),
+		byte(0xff & (v >> 56)),
+	}
 }
