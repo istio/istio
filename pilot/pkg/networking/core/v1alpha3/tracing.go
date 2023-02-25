@@ -77,10 +77,10 @@ func configureTracingFromTelemetry(
 	h *hcm.HttpConnectionManager,
 	class networking.ListenerClass,
 ) (*xdsfilters.RouterFilterContext, *requestidextension.UUIDRequestIDExtensionContext) {
+	proxyCfg := proxy.Metadata.ProxyConfigOrDefault(push.Mesh.DefaultConfig)
 	// If there is no telemetry config defined, fallback to legacy mesh config.
 	if tracing == nil {
 		meshCfg := push.Mesh
-		proxyCfg := proxy.Metadata.ProxyConfigOrDefault(push.Mesh.DefaultConfig)
 		if !meshCfg.EnableTracing {
 			log.Debug("No valid tracing configuration found")
 			return nil, nil
@@ -95,7 +95,6 @@ func configureTracingFromTelemetry(
 		return nil, nil
 	}
 	spec := tracing.ServerSpec
-	proxyCfg := proxy.Metadata.ProxyConfigOrDefault(push.Mesh.DefaultConfig)
 	if class == networking.ListenerClassSidecarOutbound || class == networking.ListenerClassGateway {
 		spec = tracing.ClientSpec
 	}
@@ -140,7 +139,6 @@ func configureTracingFromTelemetry(
 func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider,
 ) (*hcm.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
-	tracing := &hcm.HttpConnectionManager_Tracing{}
 	var rfCtx *xdsfilters.RouterFilterContext
 	var serviceCluster string
 	var maxTagLength uint32
@@ -173,6 +171,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
 		maxTagLength = provider.Lightstep.GetMaxTagLength()
 		providerName = envoyLightstep
+		//nolint: staticcheck  // Lightstep deprecated
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Lightstep.GetService(), int(provider.Lightstep.GetPort()))
 			if err != nil {
@@ -181,12 +180,10 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 			// TODO: read raw metadata and retrieve lightstep extensions (instead of relying on version)
 			// Envoy dropped support for Lightstep in v1.24+ (~istio 1.16+). So, we generate old-style configuration
 			// for lightstep for everything before 1.16, but OTel-based configuration for all other cases
-			useOTel := util.IsIstioVersionGE116(model.ParseIstioVersion(proxy.Metadata.IstioVersion))
-			if useOTel {
+			if util.IsIstioVersionGE116(model.ParseIstioVersion(proxy.Metadata.IstioVersion)) {
 				return otelLightStepConfig(clusterName, hostname, provider.Lightstep.GetAccessToken())
-			} else {
-				return legacyLightStepConfig(clusterName, provider.Lightstep.GetAccessToken())
 			}
+			return legacyLightStepConfig(clusterName, provider.Lightstep.GetAccessToken())
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
 		maxTagLength = provider.Opencensus.GetMaxTagLength()
