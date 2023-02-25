@@ -630,6 +630,20 @@ func BenchmarkCache(b *testing.B) {
 			c.Add(key, req, res)
 		}
 	})
+	b.Run("insert staled value", func(b *testing.B) {
+		c := model.NewXdsCache()
+		stop := make(chan struct{})
+		defer close(stop)
+		c.Run(stop)
+		key := makeCacheKey(100)
+		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(100))}
+		c.Add(key, req, res)
+		for n := 0; n < b.N; n++ {
+			key := makeCacheKey(n)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(99))}
+			c.Add(key, req, res)
+		}
+	})
 	// to trigger clear index on old dependents
 	b.Run("insert same key", func(b *testing.B) {
 		c := model.NewXdsCache()
