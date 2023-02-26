@@ -246,6 +246,9 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 
 // CheckSSAEnabled is a helper function to check whether ServerSideApply should be used when applying manifests.
 func (h *HelmReconciler) CheckSSAEnabled() bool {
+	if TestMode {
+		return false // our unit test setup doesn't work with SSA
+	}
 	if h.kubeClient != nil {
 		// SSA went GA in k8s 1.22
 		if kube.IsAtLeastVersion(h.kubeClient, 22) {
