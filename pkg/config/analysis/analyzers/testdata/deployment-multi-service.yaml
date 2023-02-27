@@ -4,7 +4,7 @@ metadata:
   name: bookinfo
   labels:
     istio-injection: "enabled"
-spec: {}
+spec: { }
 ---
 # Deployment should generate a warning: two services using that deployment
 # using the same port but different protocol.
@@ -176,9 +176,9 @@ metadata:
     service: reviews
 spec:
   ports:
-  - port: 9080
-    name: http
-    protocol: HTTP
+    - port: 9080
+      name: http
+      protocol: HTTP
   selector:
     app: reviews
 ---
@@ -321,7 +321,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: injection-disabled-ns
-spec: {}
+spec: { }
 ---
 # Deployment has multiple service attached but using same port but different protocol.
 # Sidecar is enabled although the namespaced doesn't have automatic injection.
@@ -355,3 +355,29 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9080
+---
+# Deployment has no services attached, has the istio-proxy image, but is waypoint deployment.
+# It shouldn't generate a warning since it's controlled by Istio.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-waypoint
+  namespace: bookinfo
+  labels:
+    gateway.istio.io/managed: istio.io-mesh-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      istio.io/gateway-name: productpage
+  template:
+    metadata:
+      labels:
+        sidecar.istio.io/inject: "false"
+        istio.io/gateway-name: productpage
+    spec:
+      serviceAccountName: productpage-istio-waypoint
+      containers:
+        - name: istio-proxy
+          image: docker.io/istio/proxyv2:1.18.0-dev1
+          imagePullPolicy: IfNotPresent

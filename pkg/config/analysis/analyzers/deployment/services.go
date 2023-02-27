@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -60,12 +61,16 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 
 func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
-		if util.DeploymentInMesh(r, c) {
+		if util.DeploymentInMesh(r, c) && !isWaypointDeployment(r) {
 			s.analyzeDeploymentPortProtocol(r, c)
 			s.analyzeDeploymentTargetPorts(r, c)
 		}
 		return true
 	})
+}
+
+func isWaypointDeployment(r *resource.Instance) bool {
+	return r.Metadata.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel
 }
 
 // analyzeDeploymentPortProtocol analyzes the specific service mesh deployment
