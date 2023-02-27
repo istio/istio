@@ -55,7 +55,7 @@ var _ model.XdsCacheEntry = SecretResource{}
 func (sr SecretResource) Key() model.KeyHash {
 	h := hash.New()
 	h.Write([]byte(sr.SecretResource.Key() + "/" + sr.pkpConfHash))
-	return model.KeyHash(h.Sum64())
+	return h.Sum()
 }
 
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {

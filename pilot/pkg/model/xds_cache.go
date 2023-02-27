@@ -71,7 +71,7 @@ func size(cs int) {
 	xdsCacheSize.Record(float64(cs))
 }
 
-type KeyHash uint64
+type KeyHash any
 
 // XdsCacheEntry interface defines functions that should be implemented by
 // resources that can be cached.
