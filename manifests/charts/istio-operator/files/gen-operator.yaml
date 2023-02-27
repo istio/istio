@@ -161,6 +161,10 @@ kind: Deployment
 metadata:
   namespace: istio-operator
   name: istio-operator
+  labels:
+    istio.io/rev: default
+    operator.istio.io/component: "IstioOperator"
+    release: operator
 spec:
   replicas: 1
   revisionHistoryLimit: 10

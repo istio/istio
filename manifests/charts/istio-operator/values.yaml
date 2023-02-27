@@ -46,6 +46,9 @@ tolerations: []
 # Affinity for pod assignment
 affinity: {}
 
+# Additional labels to apply on the deployment level
+Labels: {}
+
 # Additional labels and annotations to apply on the pod level for monitoring and logging configuration.
 podLabels: {}
 podAnnotations: {}
