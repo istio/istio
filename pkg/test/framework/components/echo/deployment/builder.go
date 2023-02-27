@@ -66,6 +66,9 @@ type Builder interface {
 	// WithClusters will cause subsequent With or WithConfig calls to be applied to the given clusters.
 	WithClusters(...cluster.Cluster) Builder
 
+	// WithTemplates will set the templates for this builder
+	WithTemplates(templates map[string]sets.String) Builder
+
 	// Build and initialize all Echo Instances. Upon returning, the Instance pointers
 	// are assigned and all Instances are ready to communicate with each other.
 	Build() (echo.Instances, error)
@@ -120,6 +123,11 @@ type builder struct {
 
 func (b builder) WithConfig(cfg echo.Config) Builder {
 	return b.With(nil, cfg).(builder)
+}
+
+func (b builder) WithTemplates(templates map[string]sets.String) Builder {
+	b.templates = templates
+	return b
 }
 
 // With adds a new Echo configuration to the Builder. When a cluster is provided in the Config, it will only be applied

@@ -103,6 +103,47 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	}
 }
 
+// InstallIstioCustomReleaseNamespace installs Istio using Helm charts with the provided
+// override values file and fails the tests on any failures. The Helm release is installed in
+// the provided releaseNamespace, and the namespaces for the actual Istio resources are configured
+// via the override values file.
+func InstallIstioCustomReleaseNamespace(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, releaseNamespace, version string,
+	installGateway bool, overrideValuesFileMap map[string]string, provisionNamespaces func(),
+) {
+	provisionNamespaces()
+
+	versionArgs := ""
+	baseChartPath := RepoBaseChartPath
+	discoveryChartPath := RepoDiscoveryChartPath
+	gatewayChartPath := RepoGatewayChartPath
+
+	if version != "" {
+		versionArgs = fmt.Sprintf("--repo %s --version %s", t.Settings().HelmRepo, version)
+	} else {
+		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
+		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
+		gatewayChartPath = filepath.Join(ManifestsChartPath, version, GatewayChartsDir)
+	}
+	// Install base chart
+	err := h.InstallChart(BaseReleaseName, baseChartPath, releaseNamespace, overrideValuesFileMap[RepoBaseChartPath], Timeout, versionArgs)
+	if err != nil {
+		t.Fatalf("failed to install istio %s chart: %v", BaseChart, err)
+	}
+
+	// Install discovery chart
+	err = h.InstallChart(IstiodReleaseName, discoveryChartPath, releaseNamespace, overrideValuesFileMap[RepoDiscoveryChartPath], Timeout, versionArgs)
+	if err != nil {
+		t.Fatalf("failed to install istio %s chart: %v", DiscoveryChartsDir, err)
+	}
+
+	if installGateway {
+		err = h.InstallChart(IngressReleaseName, gatewayChartPath, releaseNamespace, overrideValuesFileMap[RepoGatewayChartPath], Timeout, versionArgs)
+		if err != nil {
+			t.Fatalf("failed to install istio %s chart: %v", GatewayChartsDir, err)
+		}
+	}
+}
+
 // InstallIstioWithRevision install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
 func InstallIstioWithRevision(t framework.TestContext, cs cluster.Cluster,

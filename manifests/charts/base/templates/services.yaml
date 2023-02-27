@@ -9,7 +9,7 @@ metadata:
   # when local istiod isn't enabled, we can use istiod service name to reach the remote control plane
   name: istiod
   {{- end }}
-  namespace: {{ .Values.istioNamespace | default .Release.Namespace }}
+  namespace: {{ .Values.global.istioNamespace | default .Release.Namespace }}
 spec:
   ports:
   - port: 15012
