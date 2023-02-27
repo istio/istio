@@ -621,16 +621,36 @@ func BenchmarkCache(b *testing.B) {
 	})
 	b.Run("insert", func(b *testing.B) {
 		c := model.NewXdsCache()
-
+		stop := make(chan struct{})
+		defer close(stop)
+		c.Run(stop)
 		for n := 0; n < b.N; n++ {
 			key := makeCacheKey(n)
 			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(n))}
 			c.Add(key, req, res)
 		}
 	})
+	// to trigger clear index on old dependents
+	b.Run("insert same key", func(b *testing.B) {
+		c := model.NewXdsCache()
+		stop := make(chan struct{})
+		defer close(stop)
+		c.Run(stop)
+		// First occupy cache capacity
+		for i := 0; i < features.XDSCacheMaxSize; i++ {
+			key := makeCacheKey(i)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(i))}
+			c.Add(key, req, res)
+		}
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			key := makeCacheKey(1)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(features.XDSCacheMaxSize + n))}
+			c.Add(key, req, res)
+		}
+	})
 	b.Run("get", func(b *testing.B) {
 		c := model.NewXdsCache()
-
 		key := makeCacheKey(1)
 		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(1))}
 		c.Add(key, req, res)
@@ -641,6 +661,9 @@ func BenchmarkCache(b *testing.B) {
 
 	b.Run("insert and get", func(b *testing.B) {
 		c := model.NewXdsCache()
+		stop := make(chan struct{})
+		defer close(stop)
+		c.Run(stop)
 		// First occupy cache capacity
 		for i := 0; i < features.XDSCacheMaxSize; i++ {
 			key := makeCacheKey(i)

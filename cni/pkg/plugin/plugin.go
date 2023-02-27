@@ -227,7 +227,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 					return err
 				}
 				log.Infof("istio-cni cmdAdd podName: %s podIPs: %+v", podName, podIPs)
-				added, err = checkAmbient(*conf, *ambientConf, podName, podNamespace, args.IfName, podIPs)
+				added, err = checkAmbient(*conf, *ambientConf, podName, podNamespace, args.IfName, args.Netns, podIPs)
 				if err != nil {
 					log.Errorf("istio-cni cmdAdd failed to check ambient: %s", err)
 				}

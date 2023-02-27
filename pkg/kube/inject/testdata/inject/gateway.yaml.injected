@@ -20,7 +20,6 @@ spec:
       creationTimestamp: null
       labels:
         istio: ingressgateway
-        istio.io/rev: default
         service.istio.io/canonical-name: istio-ingressgateway
         service.istio.io/canonical-revision: latest
     spec:

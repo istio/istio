@@ -48,7 +48,8 @@ cni:
   ambient:
     # If enabled, ambient redirection will be enabled
     enabled: false
-    # Eventually this will have switch for iptables vs eBPF
+    # Set ambient redirection mode: "iptables" or "ebpf"
+    redirectMode: "iptables"
 
   repair:
     enabled: true

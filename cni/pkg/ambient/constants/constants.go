@@ -16,16 +16,24 @@ package constants
 
 const (
 	// In the below, we add the fwmask to ensure only that mark can match
-	OutboundMask = "0x100"
-	OutboundMark = OutboundMask + "/" + OutboundMask
-	SkipMask     = "0x200"
-	SkipMark     = SkipMask + "/" + SkipMask
-	ConnSkipMask = "0x220"
-	ConnSkipMark = ConnSkipMask + "/" + ConnSkipMask
-	ProxyMask    = "0x210"
-	ProxyMark    = ProxyMask + "/" + ProxyMask
-	ProxyRetMask = "0x040"
-	ProxyRetMark = ProxyRetMask + "/" + ProxyRetMask
+	OutboundMask       = "0x100"
+	OutboundMark       = OutboundMask + "/" + OutboundMask
+	SkipMask           = "0x200"
+	SkipMark           = SkipMask + "/" + SkipMask
+	ConnSkipMask       = "0x220"
+	ConnSkipMark       = ConnSkipMask + "/" + ConnSkipMask
+	ProxyMask          = "0x210"
+	ProxyMark          = ProxyMask + "/" + ProxyMask
+	ProxyRetMask       = "0x040"
+	ProxyRetMark       = ProxyRetMask + "/" + ProxyRetMask
+	TProxyMark         = 0x400
+	TProxyMask         = 0xfff
+	TProxyMarkPriority = 20000
+	OrgSrcRetMark      = 0x4d3
+	OrgSrcRetMask      = 0xfff
+	OrgSrcPriority     = 20003
+	EBPFInboundMark    = "5678"
+	EBPFOutboundMark   = "8765"
 
 	InboundTun  = "istioin"
 	OutboundTun = "istioout"
@@ -51,7 +59,10 @@ const (
 	TableMangle = "mangle"
 	TableNat    = "nat"
 
-	DNSCapturePort = 15053
+	DNSCapturePort              = 15053
+	ZtunnelInboundPort          = 15008
+	ZtunnelOutboundPort         = 15001
+	ZtunnelInboundPlaintextPort = 15006
 )
 
 const (

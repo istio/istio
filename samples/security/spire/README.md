@@ -3,7 +3,7 @@
 This sample deploys a setup of [SPIRE](https://github.com/spiffe/spire) (the SPIFFE Runtime Environment) as an example of integrating with [Envoy's SDS](https://www.envoyproxy.io/docs/envoy/latest/configuration/security/secret) API. For more information
 on the SPIFFE specs, refer to the [SPIFFE Overview](https://spiffe.io/docs/latest/spiffe-about/overview/).
 
-Once SPIRE is deployed and integrated with Istio, this sample deploys a modified version of the [sleep](/samples/sleep/README.md) service and validates that its [identity](https://spiffe.io/docs/latest/spiffe-about/spiffe-concepts/#spiffe-verifiable-identity-document-svid) was issued by SPIRE. Workload registration is automatically handled by the [k8s-workload-registrar](https://github.com/spiffe/spire/blob/main/support/k8s/k8s-workload-registrar/README.md).
+Once SPIRE is deployed and integrated with Istio, this sample deploys a modified version of the [sleep](/samples/sleep/README.md) service and validates that its [identity](https://spiffe.io/docs/latest/spiffe-about/spiffe-concepts/#spiffe-verifiable-identity-document-svid) was issued by SPIRE. Workload registration is handled by the [SPIRE Controller Manager](https://github.com/spiffe/spire-controller-manager).
 
 See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrations/spire) for further details about this integration.
 
@@ -27,7 +27,19 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
   $ istioctl install -f istio-spire-config.yaml
   ```
 
-1. Deploy the `sleep-spire.yaml` version of the [sleep](/samples/sleep/README.md) service, which injects the custom istio-agent template defined in `istio-spire-config.yaml`.
+1. Create a ClusterSPIFFEID to create a registration entry for all workloads with the `spiffe.io/spire-managed-identity: true` label:
+
+  ```bash
+  $ kubectl apply -f clusterspiffeid.yaml
+  ```
+
+1. Add the `spiffe.io/spire-managed-identity: true` label to the Ingress-gateway Deployment:
+
+  ```bash
+  $ kubectl patch deployment istio-ingressgateway -n istio-system -p '{"spec":{"template":{"metadata":{"labels":{"spiffe.io/spire-managed-identity": "true"}}}}}'
+  ```
+
+1. Deploy the `sleep-spire.yaml` version of the [sleep](/samples/sleep/README.md) service, which injects the custom istio-agent template defined in `istio-spire-config.yaml` and has the `spiffe.io/spire-managed-identity: true` label.
 
   If you have [automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection) enabled:
 
@@ -64,9 +76,15 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
   $ kubectl delete namespace spire
   ```
 
-1.  Delete the ClusterRole and ClusterRoleBinding:
+1.  Delete the ClusterRole, ClusterRoleBinding, Role, RoleBindings, ValidatingWebhookConfiguration, CSIDriver, and CustomResourceDefinition:
 
   ```bash
-  $ kubectl delete clusterrole spire-server-trust-role spire-agent-cluster-role
-  $ kubectl delete clusterrolebinding spire-server-trust-role-binding spire-agent-cluster-role-binding
+  $ kubectl delete clusterrole spire-server-cluster-role spire-agent-cluster-role manager-role
+  $ kubectl delete clusterrolebinding spire-server-cluster-role-binding spire-agent-cluster-role-binding manager-role-binding
+  $ kubectl delete role spire-server-role leader-election-role
+  $ kubectl delete rolebinding spire-server-role-binding leader-election-role-binding
+  $ kubectl delete ValidatingWebhookConfiguration spire-controller-manager-webhook
+  $ kubectl delete csidriver csi.spiffe.io
+  $ kubectl delete CustomResourceDefinition clusterspiffeids.spire.spiffe.io
+  $ kubectl delete CustomResourceDefinition clusterfederatedtrustdomains.spire.spiffe.io
   ```

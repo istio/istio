@@ -18,6 +18,8 @@ import (
 	"sort"
 	"strings"
 
+	"golang.org/x/exp/slices"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
@@ -289,7 +291,7 @@ TcpLoop:
 				// and will reject the config.
 				sort.Strings(virtualServiceDestinationSubnets)
 				sort.Strings(destinationCIDRs)
-				if util.StringSliceEqual(virtualServiceDestinationSubnets, destinationCIDRs) {
+				if slices.Equal(virtualServiceDestinationSubnets, destinationCIDRs) {
 					log.Warnf("Existing filter chain with same matching CIDR: %v.", destinationCIDRs)
 					defaultRouteAdded = true
 				}

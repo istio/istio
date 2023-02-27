@@ -47,7 +47,7 @@ func (wf *WorkloadFilter) Verify(workload *ztunnelDump.ZtunnelWorkload) bool {
 	return true
 }
 
-// PrintListenerSummary prints a summary of the relevant listeners in the config dump to the ConfigWriter stdout
+// PrintWorkloadSummary prints a summary of the relevant listeners in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 	w, zDump, err := c.setupWorkloadConfigWriter()
 	if err != nil {

@@ -108,7 +108,7 @@ func (w *sdsWriter) PrintDiffs(statuses []SecretItemDiff) error {
 	return err
 }
 
-// printsDiffsTabular prints the secret in table format
+// printDiffsTabular prints the secret in table format
 func (w *sdsWriter) printDiffsTabular(statuses []SecretItemDiff) error {
 	if len(statuses) == 0 {
 		fmt.Fprintln(w.w, "No secrets found to diff.")

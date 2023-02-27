@@ -25,17 +25,17 @@ spec:
     - action: replace
       regex: (\d+);(([A-Fa-f0-9]{1,4}::?){1,7}[A-Fa-f0-9]{1,4})
       replacement: '[$2]:$1'
-      source_labels:
+      sourceLabels:
       - __meta_kubernetes_pod_annotation_prometheus_io_port
       - __meta_kubernetes_pod_ip
-      target_label: __address__
+      targetLabel: __address__
     - action: replace
       regex: (\d+);((([0-9]+?)(\.|$)){4})
       replacement: $2:$1
-      source_labels:
+      sourceLabels:
       - __meta_kubernetes_pod_annotation_prometheus_io_port
       - __meta_kubernetes_pod_ip
-      target_label: __address__
+      targetLabel: __address__
     - action: labeldrop
       regex: "__meta_kubernetes_pod_label_(.+)"
     - sourceLabels: [__meta_kubernetes_namespace]

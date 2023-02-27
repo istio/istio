@@ -32,6 +32,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -716,7 +717,7 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 	}
 
 	for k, v1 := range s.ClusterExternalAddresses.Addresses {
-		if v2, ok := other.ClusterExternalAddresses.Addresses[k]; !ok || !stringSliceEqual(v1, v2) {
+		if v2, ok := other.ClusterExternalAddresses.Addresses[k]; !ok || !slices.Equal(v1, v2) {
 			return false
 		}
 	}
@@ -1153,7 +1154,7 @@ func (s *Service) Equals(other *Service) bool {
 	if !s.Ports.Equals(other.Ports) {
 		return false
 	}
-	if !stringSliceEqual(s.ServiceAccounts, other.ServiceAccounts) {
+	if !slices.Equal(s.ServiceAccounts, other.ServiceAccounts) {
 		return false
 	}
 
@@ -1161,7 +1162,7 @@ func (s *Service) Equals(other *Service) bool {
 		return false
 	}
 	for k, v1 := range s.ClusterVIPs.Addresses {
-		if v2, ok := other.ClusterVIPs.Addresses[k]; !ok || !stringSliceEqual(v1, v2) {
+		if v2, ok := other.ClusterVIPs.Addresses[k]; !ok || !slices.Equal(v1, v2) {
 			return false
 		}
 	}

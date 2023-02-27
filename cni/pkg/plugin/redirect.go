@@ -178,7 +178,7 @@ func validatePortListWithWildcard(ports string) error {
 	return nil
 }
 
-// ValidateIncludeIPRanges validates the includeIPRanges parameter
+// validateCIDRListWithWildcard validates the includeIPRanges parameter
 func validateCIDRListWithWildcard(ipRanges string) error {
 	if ipRanges != "*" {
 		if e := validateCIDRList(ipRanges); e != nil {
