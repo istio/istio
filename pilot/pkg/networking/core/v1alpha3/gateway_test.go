@@ -1504,7 +1504,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cgi := NewConfigGenerator(&pilot_model.disabledCache{})
+			cgi := NewConfigGenerator(&pilot_model.DisabledCache{})
 			tc.node.MergedGateway = &pilot_model.MergedGateway{TLSServerInfo: map[*networking.Server]*pilot_model.TLSServerInfo{
 				tc.server: {SNIHosts: pilot_model.GetSNIHostsForServer(tc.server)},
 			}}
