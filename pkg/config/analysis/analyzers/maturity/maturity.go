@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
@@ -78,7 +79,7 @@ func (fa *AlphaAnalyzer) Analyze(ctx analysis.Context) {
 	})
 }
 
-func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, collectionType collection.Name) {
+func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, collectionType config.GroupVersionKind) {
 	if len(r.Metadata.Annotations) == 0 {
 		return
 	}

@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -46,11 +47,11 @@ func (a *analyzer) Analyze(Context) {
 
 type context struct{}
 
-func (ctx *context) Report(collection.Name, diag.Message)                       {}
-func (ctx *context) Find(collection.Name, resource.FullName) *resource.Instance { return nil }
-func (ctx *context) Exists(collection.Name, resource.FullName) bool             { return false }
-func (ctx *context) ForEach(collection.Name, IteratorFn)                        {}
-func (ctx *context) Canceled() bool                                             { return false }
+func (ctx *context) Report(config.GroupVersionKind, diag.Message)                       {}
+func (ctx *context) Find(config.GroupVersionKind, resource.FullName) *resource.Instance { return nil }
+func (ctx *context) Exists(config.GroupVersionKind, resource.FullName) bool             { return false }
+func (ctx *context) ForEach(config.GroupVersionKind, IteratorFn)                        {}
+func (ctx *context) Canceled() bool                                                     { return false }
 
 func TestCombinedAnalyzer(t *testing.T) {
 	g := NewWithT(t)

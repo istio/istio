@@ -40,7 +40,7 @@ func NewContext(store model.ConfigStore, cancelCh <-chan struct{}, collectionRep
 		messages:           diag.Messages{},
 		collectionReporter: collectionReporter,
 		found:              map[key]*resource.Instance{},
-		foundCollections:   map[collection.Name]map[resource.FullName]*resource.Instance{},
+		foundCollections:   map[config.GroupVersionKind]map[resource.FullName]*resource.Instance{},
 	}
 }
 
@@ -50,19 +50,19 @@ type istiodContext struct {
 	messages           diag.Messages
 	collectionReporter CollectionReporterFn
 	found              map[key]*resource.Instance
-	foundCollections   map[collection.Name]map[resource.FullName]*resource.Instance
+	foundCollections   map[config.GroupVersionKind]map[resource.FullName]*resource.Instance
 }
 
 type key struct {
-	collectionName collection.Name
+	collectionName config.GroupVersionKind
 	name           resource.FullName
 }
 
-func (i *istiodContext) Report(c collection.Name, m diag.Message) {
+func (i *istiodContext) Report(c config.GroupVersionKind, m diag.Message) {
 	i.messages.Add(m)
 }
 
-func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resource.Instance {
+func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName) *resource.Instance {
 	i.collectionReporter(col)
 	if result, ok := i.found[key{col, name}]; ok {
 		return result
@@ -92,12 +92,12 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 	return result
 }
 
-func (i *istiodContext) Exists(col collection.Name, name resource.FullName) bool {
+func (i *istiodContext) Exists(col config.GroupVersionKind, name resource.FullName) bool {
 	i.collectionReporter(col)
 	return i.Find(col, name) != nil
 }
 
-func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
+func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.IteratorFn) {
 	i.collectionReporter(col)
 	if cached, ok := i.foundCollections[col]; ok {
 		for _, res := range cached {
@@ -162,7 +162,7 @@ func (i *istiodContext) Canceled() bool {
 	}
 }
 
-func cfgToInstance(cfg config.Config, col collection.Name, colschema collection.Schema) (*resource.Instance, error) {
+func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema collection.Schema) (*resource.Instance, error) {
 	res := resource.PilotConfigToInstance(&cfg, colschema.Resource())
 	fmstring := cfg.Meta.Annotations[file.FieldMapKey]
 	var out map[string]int

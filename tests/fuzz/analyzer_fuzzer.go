@@ -21,11 +21,11 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/scope"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/pkg/log"
 )
 
@@ -99,11 +99,11 @@ func FuzzAnalyzer(data []byte) int {
 	}
 	analyzer := availableAnalyzers[analyzerIndex%len(availableAnalyzers)]
 
-	requestedInputsByAnalyzer := make(map[string]map[collection.Name]struct{})
+	requestedInputsByAnalyzer := make(map[string]map[config.GroupVersionKind]struct{})
 	analyzerName := analyzer.Metadata().Name
-	cr := func(col collection.Name) {
+	cr := func(col config.GroupVersionKind) {
 		if _, ok := requestedInputsByAnalyzer[analyzerName]; !ok {
-			requestedInputsByAnalyzer[analyzerName] = make(map[collection.Name]struct{})
+			requestedInputsByAnalyzer[analyzerName] = make(map[config.GroupVersionKind]struct{})
 		}
 		requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 	}

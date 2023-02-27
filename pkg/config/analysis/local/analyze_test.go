@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
@@ -42,7 +43,7 @@ type testAnalyzer struct {
 
 var blankTestAnalyzer = &testAnalyzer{
 	fn:     func(_ analysis.Context) {},
-	inputs: []collection.Name{},
+	inputs: []config.GroupVersionKind{},
 }
 
 var (
@@ -97,8 +98,8 @@ func TestAnalyzersRun(t *testing.T) {
 		},
 	}
 
-	var collectionAccessed collection.Name
-	cr := func(col collection.Name) {
+	var collectionAccessed config.GroupVersionKind
+	cr := func(col config.GroupVersionKind) {
 		collectionAccessed = col
 	}
 

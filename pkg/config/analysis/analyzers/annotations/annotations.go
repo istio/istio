@@ -19,6 +19,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
@@ -71,7 +72,7 @@ var deprecationExtraMessages = map[string]string{
 	annotation.SidecarInject.Name: ` in favor of the "sidecar.istio.io/inject" label`,
 }
 
-func (*K8sAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, kind string, collectionType collection.Name) {
+func (*K8sAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, kind string, collectionType config.GroupVersionKind) {
 	if len(r.Metadata.Annotations) == 0 {
 		return
 	}

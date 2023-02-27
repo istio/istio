@@ -21,14 +21,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // Origin is a K8s specific implementation of resource.Origin
 type Origin struct {
-	Collection collection.Name
+	Collection config.GroupVersionKind
 	Kind       string
 	FullName   resource.FullName
 	Version    resource.Version
