@@ -1567,8 +1567,6 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 	return result, gwMap, namespaceLabelReferences
 }
 
-const GatewayNameLabel = "istio.io/gateway-name"
-
 // IsManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
 // This is based on the address field of the spec. If address is set with a Hostname type, it should point to an existing
 // Service that handles the gateway traffic. If it is not set, or refers to only a single IP, we will consider it managed and provision the Service.
