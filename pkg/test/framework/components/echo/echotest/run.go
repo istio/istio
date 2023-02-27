@@ -17,7 +17,8 @@ package echotest
 import (
 	"strings"
 
-	"istio.io/istio/pilot/pkg/networking/util"
+	"golang.org/x/exp/slices"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -243,7 +244,7 @@ func (t *T) toNDeployments(ctx framework.TestContext, n int, from echo.Instances
 		targetNames := filteredForSource.Services().FQDNs()
 		if len(commonTargets) == 0 {
 			commonTargets = targetNames
-		} else if !util.StringSliceEqual(targetNames, commonTargets) {
+		} else if !slices.Equal(targetNames, commonTargets) {
 			ctx.Fatalf("%s in each cluster each cluster would not target the same set of deploments", fromInstance.Config().Service)
 		}
 	}
