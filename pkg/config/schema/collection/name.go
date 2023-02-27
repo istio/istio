@@ -14,27 +14,9 @@
 
 package collection
 
-import "regexp"
+import (
+	"istio.io/istio/pkg/config"
+)
 
 // Name of a collection.
-type Name string
-
-var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_][a-zA-Z0-9_\.]*(/[a-zA-Z0-9_][a-zA-Z0-9_\.]*)*$`)
-
-// NewName returns a strongly typed collection. Panics if the name is not valid.
-func NewName(n string) Name {
-	if !IsValidName(n) {
-		panic("collection.NewName: invalid collection name: " + n)
-	}
-	return Name(n)
-}
-
-// String interface method implementation.
-func (n Name) String() string {
-	return string(n)
-}
-
-// IsValidName returns true if the given collection is a valid name.
-func IsValidName(name string) bool {
-	return validNameRegex.MatchString(name)
-}
+type Name = config.GroupVersionKind

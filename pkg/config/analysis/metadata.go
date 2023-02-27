@@ -24,5 +24,5 @@ type Metadata struct {
 	// Description is a short explanation of what the analyzer checks. This
 	// field is displayed to users when --list-analyzers is called.
 	Description string
-	Inputs      collection.Names
+	Inputs      collection.Inputs
 }

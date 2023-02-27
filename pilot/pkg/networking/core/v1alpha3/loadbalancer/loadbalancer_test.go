@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -601,7 +602,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
 			},
 			Spec: &networking.DestinationRule{
@@ -657,7 +658,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
 			},
 			Spec: &networking.DestinationRule{
@@ -708,7 +709,7 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
 			},
 			Spec: &networking.DestinationRule{

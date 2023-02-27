@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // Origin is a K8s specific implementation of resource.Origin
@@ -59,7 +59,7 @@ func (o *Origin) Comparator() string {
 // Namespace implements resource.Origin
 func (o *Origin) Namespace() resource.Namespace {
 	// Special case: the namespace of a namespace resource is its own name
-	if o.Collection == collections.K8SCoreV1Namespaces.Name() {
+	if o.Collection == gvk.Namespace {
 		return resource.Namespace(o.FullName.Name)
 	}
 

@@ -182,7 +182,7 @@ func checkGatewayAPIs(cli kube.CLIClient) (diag.Messages, error) {
 		}
 		if !versions.Contains(gvk.KubernetesGateway.Version) {
 			origin := kube3.Origin{
-				Collection: collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
+				Collection: gvk.CustomResourceDefinition,
 				Kind:       gvk.CustomResourceDefinition.Kind,
 				FullName: resource.FullName{
 					Namespace: resource.Namespace(r.Namespace),
@@ -442,7 +442,7 @@ func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error)
 			}
 
 			origin := &kube3.Origin{
-				Collection: collections.K8SCoreV1Pods.Name(),
+				Collection: gvk.Pod,
 				Kind:       collections.K8SCoreV1Pods.Resource().Kind(),
 				FullName: resource.FullName{
 					Namespace: resource.Namespace(pod.Namespace),

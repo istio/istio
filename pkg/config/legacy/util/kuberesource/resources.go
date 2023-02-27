@@ -22,10 +22,10 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
-func SkipExcludedCollections(requiredCols collection.Names, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
+func SkipExcludedCollections(requiredCols collection.Inputs, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
 	resultBuilder := collection.NewSchemasBuilder()
-	for _, name := range requiredCols {
-		s, f := collections.All.Find(name.String())
+	for _, gv := range requiredCols {
+		s, f := collections.All.FindByGroupVersionKind(gv)
 		if !f {
 			continue
 		}

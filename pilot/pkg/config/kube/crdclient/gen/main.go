@@ -73,10 +73,10 @@ func MakeConfigData(schema collection.Schema) ConfigData {
 		StatusKind:      schema.Resource().StatusKind(),
 	}
 	out.ClientType = out.Kind
-	if _, f := GatewayAPITypes.Find(schema.Name().String()); f {
+	if _, f := GatewayAPITypes.FindByGroupVersionKind(schema.Resource().GroupVersionKind()); f {
 		out.Client = "sc"
 		out.ClientType += "Spec"
-	} else if _, f := NonIstioTypes.Find(schema.Name().String()); f {
+	} else if _, f := NonIstioTypes.FindByGroupVersionKind(schema.Resource().GroupVersionKind()); f {
 		out.ClientType += "Spec"
 		out.Readonly = true
 	}

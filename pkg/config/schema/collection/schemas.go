@@ -17,7 +17,6 @@ package collection
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
@@ -28,7 +27,7 @@ import (
 
 // Schemas contains metadata about configuration resources.
 type Schemas struct {
-	byCollection map[Name]Schema
+	byCollection map[config.GroupVersionKind]Schema
 	byAddOrder   []Schema
 }
 
@@ -59,11 +58,11 @@ func NewSchemasBuilder() *SchemasBuilder {
 
 // Add a new collection to the schemas.
 func (b *SchemasBuilder) Add(s Schema) error {
-	if _, found := b.schemas.byCollection[s.Name()]; found {
-		return fmt.Errorf("collection already exists: %v", s.Name())
+	if _, found := b.schemas.byCollection[s.Resource().GroupVersionKind()]; found {
+		return fmt.Errorf("collection already exists: %v", s.Resource().GroupVersionKind())
 	}
 
-	b.schemas.byCollection[s.Name()] = s
+	b.schemas.byCollection[s.Resource().GroupVersionKind()] = s
 	b.schemas.byAddOrder = append(b.schemas.byAddOrder, s)
 	return nil
 }
@@ -117,21 +116,6 @@ func (s Schemas) Union(otherSchemas Schemas) Schemas {
 		_ = resultBuilder.Add(myschema)
 	}
 	return resultBuilder.Build()
-}
-
-// Find looks up a Schema by its collection name.
-func (s Schemas) Find(collection string) (Schema, bool) {
-	i, ok := s.byCollection[Name(collection)]
-	return i, ok
-}
-
-// MustFind calls Find and panics if not found.
-func (s Schemas) MustFind(collection string) Schema {
-	i, ok := s.Find(collection)
-	if !ok {
-		panic(fmt.Sprintf("schemas.MustFind: matching entry not found for collection: %q", collection))
-	}
-	return i
 }
 
 // FindByGroupVersionKind searches and returns the first schema with the given GVK
@@ -196,6 +180,15 @@ func (s Schemas) All() []Schema {
 	return append(make([]Schema, 0, len(s.byAddOrder)), s.byAddOrder...)
 }
 
+// GroupVersionKinds returns all known GroupVersionKinds
+func (s Schemas) GroupVersionKinds() []config.GroupVersionKind {
+	res := []config.GroupVersionKind{}
+	for _, r := range s.All() {
+		res = append(res, r.Resource().GroupVersionKind())
+	}
+	return res
+}
+
 // Add creates a copy of this Schemas with the given schemas added.
 func (s Schemas) Add(toAdd ...Schema) Schemas {
 	b := NewSchemasBuilder()
@@ -218,7 +211,7 @@ func (s Schemas) Remove(toRemove ...Schema) Schemas {
 	for _, s := range s.byAddOrder {
 		shouldAdd := true
 		for _, r := range toRemove {
-			if r.Name() == s.Name() {
+			if r.Equal(s) {
 				shouldAdd = false
 				break
 			}
@@ -229,21 +222,6 @@ func (s Schemas) Remove(toRemove ...Schema) Schemas {
 	}
 
 	return b.Build()
-}
-
-// CollectionNames returns all known collections.
-func (s Schemas) CollectionNames() Names {
-	result := make(Names, 0, len(s.byAddOrder))
-
-	for _, info := range s.byAddOrder {
-		result = append(result, info.Name())
-	}
-
-	sort.Slice(result, func(i, j int) bool {
-		return strings.Compare(result[i].String(), result[j].String()) < 0
-	})
-
-	return result
 }
 
 // Kinds returns all known resource kinds.

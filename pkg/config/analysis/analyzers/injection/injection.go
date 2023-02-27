@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // Analyzer checks conditions related to Istio sidecar injection.
@@ -49,10 +49,10 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "injection.Analyzer",
 		Description: "Checks conditions related to Istio sidecar injection",
-		Inputs: collection.Names{
-			collections.K8SCoreV1Namespaces.Name(),
-			collections.K8SCoreV1Pods.Name(),
-			collections.K8SCoreV1Configmaps.Name(),
+		Inputs: collection.Inputs{
+			gvk.Namespace,
+			gvk.Pod,
+			gvk.ConfigMap,
 		},
 	}
 }
@@ -62,7 +62,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	enableNamespacesByDefault := false
 	injectedNamespaces := make(map[string]bool)
 
-	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Namespace, func(r *resource.Instance) bool {
 		if r.Metadata.FullName.String() == constants.IstioSystemNamespace {
 			return true
 		}
@@ -81,7 +81,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		// verify the enableNamespacesByDefault flag in injection configmaps
-		c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
+		c.ForEach(gvk.ConfigMap, func(r *resource.Instance) bool {
 			injectionCMName := util.GetInjectorConfigMapName(nsRevision)
 			if r.Metadata.FullName.Name.String() == injectionCMName {
 				cm := r.Message.(*v1.ConfigMap)
@@ -96,7 +96,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
 			if enableNamespacesByDefault {
 				m := msg.NewNamespaceInjectionEnabledByDefault(r)
-				c.Report(collections.K8SCoreV1Namespaces.Name(), m)
+				c.Report(gvk.Namespace, m)
 				return true
 			}
 
@@ -106,7 +106,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 				m.Line = line
 			}
 
-			c.Report(collections.K8SCoreV1Namespaces.Name(), m)
+			c.Report(gvk.Namespace, m)
 			return true
 		}
 
@@ -119,7 +119,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 					m.Line = line
 				}
 
-				c.Report(collections.K8SCoreV1Namespaces.Name(), m)
+				c.Report(gvk.Namespace, m)
 				return true
 			}
 		} else if injectionLabel != util.InjectionLabelEnableValue {
@@ -132,7 +132,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Pod, func(r *resource.Instance) bool {
 		pod := r.Message.(*v1.PodSpec)
 
 		if !injectedNamespaces[r.Metadata.FullName.Namespace.String()] {
@@ -161,7 +161,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		if proxyImage == "" {
-			c.Report(collections.K8SCoreV1Pods.Name(), msg.NewPodMissingProxy(r, r.Metadata.FullName.String()))
+			c.Report(gvk.Pod, msg.NewPodMissingProxy(r, r.Metadata.FullName.String()))
 		}
 
 		return true

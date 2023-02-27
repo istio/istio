@@ -31,8 +31,8 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
         Description: "Checks that VirtualService resources reference Gateways that exist",
         // Each analyzer should register the collections that it needs to use as input.
         Inputs: collection.Names{
-            collections.IstioNetworkingV1Alpha3Gateways.Name(),
-            collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+            gvk.Gateway,
+            gvk.VirtualService,
         },
     }
 }
@@ -43,7 +43,7 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
     // in the current snapshot. The available collections, and how they map to k8s resources,
     // are defined in galley/pkg/config/schema/metadata.yaml
     // Available resources are listed under the "localAnalysis" snapshot in that file.
-    c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+    c.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
         s.analyzeVirtualService(r, c)
         return true
     })
@@ -80,7 +80,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
             }
 
             // Messages are reported via the passed-in context object.
-            c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), msg)
+            c.Report(gvk.VirtualService, msg)
         }
     }
 }

@@ -47,7 +47,6 @@ func getByMessageName(schemas collection.Schemas, name string) (collection.Schem
 
 func schemaFor(kind, proto string) collection.Schema {
 	return collection.Builder{
-		Name: kind,
 		Resource: resource.Builder{
 			Kind:   kind,
 			Plural: kind + "s",

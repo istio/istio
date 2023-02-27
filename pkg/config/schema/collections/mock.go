@@ -27,7 +27,6 @@ import (
 var (
 	// Mock is used purely for testing
 	Mock = collection.Builder{
-		Name:         "mock",
 		VariableName: "Mock",
 		Resource: resource.Builder{
 			ClusterScoped: false,

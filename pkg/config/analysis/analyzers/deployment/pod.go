@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type ApplicationUIDAnalyzer struct{}
@@ -38,19 +38,19 @@ func (appUID *ApplicationUIDAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "applicationUID.Analyzer",
 		Description: "Checks invalid application UID",
-		Inputs: collection.Names{
-			collections.K8SCoreV1Pods.Name(),
-			collections.K8SAppsV1Deployments.Name(),
+		Inputs: collection.Inputs{
+			gvk.Pod,
+			gvk.Deployment,
 		},
 	}
 }
 
 func (appUID *ApplicationUIDAnalyzer) Analyze(context analysis.Context) {
-	context.ForEach(collections.K8SCoreV1Pods.Name(), func(resource *resource.Instance) bool {
+	context.ForEach(gvk.Pod, func(resource *resource.Instance) bool {
 		appUID.analyzeAppUIDForPod(resource, context)
 		return true
 	})
-	context.ForEach(collections.K8SAppsV1Deployments.Name(), func(resource *resource.Instance) bool {
+	context.ForEach(gvk.Deployment, func(resource *resource.Instance) bool {
 		appUID.analyzeAppUIDForDeployment(resource, context)
 		return true
 	})
@@ -66,14 +66,14 @@ func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForPod(resource *resource.Ins
 
 	if p.SecurityContext != nil && p.SecurityContext.RunAsUser != nil {
 		if *p.SecurityContext.RunAsUser == UserID {
-			context.Report(collections.K8SCoreV1Pods.Name(), message)
+			context.Report(gvk.Pod, message)
 		}
 	}
 	for _, container := range p.Containers {
 		if container.Name != util.IstioProxyName && container.Name != util.IstioOperator {
 			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
 				if *container.SecurityContext.RunAsUser == UserID {
-					context.Report(collections.K8SCoreV1Pods.Name(), message)
+					context.Report(gvk.Pod, message)
 				}
 			}
 		}
@@ -91,14 +91,14 @@ func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForDeployment(resource *resou
 
 	if spec.SecurityContext != nil && spec.SecurityContext.RunAsUser != nil {
 		if *spec.SecurityContext.RunAsUser == UserID {
-			context.Report(collections.K8SAppsV1Deployments.Name(), message)
+			context.Report(gvk.Deployment, message)
 		}
 	}
 	for _, container := range spec.Containers {
 		if container.Name != util.IstioProxyName && container.Name != util.IstioOperator {
 			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
 				if *container.SecurityContext.RunAsUser == UserID {
-					context.Report(collections.K8SAppsV1Deployments.Name(), message)
+					context.Report(gvk.Deployment, message)
 				}
 			}
 		}

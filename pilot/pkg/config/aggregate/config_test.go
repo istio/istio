@@ -255,7 +255,6 @@ func TestAggregateStoreCache(t *testing.T) {
 
 func schemaFor(kind, proto string) collection.Schema {
 	return collection.Builder{
-		Name: strings.ToLower(kind),
 		Resource: resource.Builder{
 			Kind:   kind,
 			Plural: strings.ToLower(kind) + "s",

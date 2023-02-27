@@ -361,7 +361,7 @@ func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra
 	}
 
 	flags := c.PersistentFlags()
-	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Names of files to validate")
+	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Inputs of files to validate")
 	flags.BoolVarP(&referential, "referential", "x", true, "Enable structural validation for policy and telemetry")
 
 	return c

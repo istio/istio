@@ -31,7 +31,6 @@ import (
 
 // K8SCollection1 describes the collection k8s/collection1
 var K8SCollection1 = collection.Builder{
-	Name:         "k8s/collection1",
 	VariableName: "K8SCollection1",
 	Resource: r2.Builder{
 		Group:         "testdata.istio.io",

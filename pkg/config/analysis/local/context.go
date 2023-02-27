@@ -72,7 +72,7 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 			return result
 		}
 	}
-	colschema, ok := collections.All.Find(col.String())
+	colschema, ok := collections.All.FindByGroupVersionKind(col)
 	if !ok {
 		log.Warnf("collection %s could not be found", col.String())
 		return nil
@@ -107,7 +107,7 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 		}
 		return
 	}
-	colschema, ok := collections.All.Find(col.String())
+	colschema, ok := collections.All.FindByGroupVersionKind(col)
 	if !ok {
 		// TODO: demote this log before merging
 		log.Errorf("collection %s could not be found", col.String())

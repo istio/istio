@@ -21,29 +21,18 @@ import (
 
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestSchema_NewSchema(t *testing.T) {
 	g := NewWithT(t)
 
 	s, err := collection.Builder{
-		Name:     "foo",
 		Resource: emptyResource,
 	}.Build()
 	g.Expect(err).To(BeNil())
-	g.Expect(s.Name()).To(Equal(collection.NewName("foo")))
 	g.Expect(s.Resource().ProtoPackage()).To(Equal("google.golang.org/protobuf/types/known/emptypb"))
 	g.Expect(s.Resource().Proto()).To(Equal("google.protobuf.Empty"))
-}
-
-func TestSchema_NewSchema_Error(t *testing.T) {
-	g := NewWithT(t)
-
-	_, err := collection.Builder{
-		Name:     "$",
-		Resource: emptyResource,
-	}.Build()
-	g.Expect(err).NotTo(BeNil())
 }
 
 func TestSchema_MustNewSchema(t *testing.T) {
@@ -54,10 +43,8 @@ func TestSchema_MustNewSchema(t *testing.T) {
 	}()
 
 	s := collection.Builder{
-		Name:     "foo",
 		Resource: emptyResource,
 	}.MustBuild()
-	g.Expect(s.Name()).To(Equal(collection.NewName("foo")))
 	g.Expect(s.Resource().ProtoPackage()).To(Equal("google.golang.org/protobuf/types/known/emptypb"))
 	g.Expect(s.Resource().Proto()).To(Equal("google.protobuf.Empty"))
 }
@@ -70,7 +57,6 @@ func TestSchema_MustNewSchema_Error(t *testing.T) {
 	}()
 
 	collection.Builder{
-		Name: "$",
 		Resource: resource.Builder{
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			Proto:        "google.protobuf.Empty",
@@ -79,10 +65,7 @@ func TestSchema_MustNewSchema_Error(t *testing.T) {
 }
 
 func TestSchema_String(t *testing.T) {
-	g := NewWithT(t)
-
 	s := collection.Builder{
-		Name: "foo",
 		Resource: resource.Builder{
 			Kind:         "Empty",
 			Plural:       "empties",
@@ -91,5 +74,5 @@ func TestSchema_String(t *testing.T) {
 		}.MustBuild(),
 	}.MustBuild()
 
-	g.Expect(s.String()).To(Equal(`[Schema](foo, "github.com/gogo/protobuf/types", google.protobuf.Empty)`))
+	assert.Equal(t, s.String(), `[Schema](core//, "github.com/gogo/protobuf/types", google.protobuf.Empty)`)
 }

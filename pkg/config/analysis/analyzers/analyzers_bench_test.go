@@ -79,7 +79,7 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 	store := memory.MakeSkipValidation(collections.All)
 	collections.All.ForEach(func(s collection.Schema) bool {
 		for i := 0; i < count; i++ {
-			name := resource.NewFullName("default", resource.LocalName(fmt.Sprintf("%s-%d", s.Name(), i)))
+			name := resource.NewFullName("default", resource.LocalName(fmt.Sprintf("%s-%d", s.VariableName(), i)))
 			_, _ = store.Create(config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: s.Resource().GroupVersionKind(),

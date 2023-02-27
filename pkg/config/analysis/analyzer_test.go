@@ -27,7 +27,7 @@ import (
 
 type analyzer struct {
 	name   string
-	inputs collection.Names
+	inputs collection.Inputs
 	ran    bool
 }
 
@@ -60,22 +60,18 @@ func TestCombinedAnalyzer(t *testing.T) {
 	col3 := newSchema("col3")
 	col4 := newSchema("col4")
 
-	a1 := &analyzer{name: "a1", inputs: collection.Names{col1.Name()}}
-	a2 := &analyzer{name: "a2", inputs: collection.Names{col2.Name()}}
-	a3 := &analyzer{name: "a3", inputs: collection.Names{col3.Name()}}
-	a4 := &analyzer{name: "a4", inputs: collection.Names{col4.Name()}}
+	a1 := &analyzer{name: "a1", inputs: collection.Inputs{col1.Resource().GroupVersionKind()}}
+	a2 := &analyzer{name: "a2", inputs: collection.Inputs{col2.Resource().GroupVersionKind()}}
+	a3 := &analyzer{name: "a3", inputs: collection.Inputs{col3.Resource().GroupVersionKind()}}
+	a4 := &analyzer{name: "a4", inputs: collection.Inputs{col4.Resource().GroupVersionKind()}}
 
 	a := Combine("combined", a1, a2, a3, a4)
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Name(), col2.Name(), col3.Name(), col4.Name()))
+	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Resource().GroupVersionKind(), col2.Resource().GroupVersionKind(), col3.Resource().GroupVersionKind(), col4.Resource().GroupVersionKind()))
 
-	avalableSchemas := collection.NewSchemasBuilder()
-	avalableSchemas.Add(&testSchemaImpl{col1.Name()})
-	avalableSchemas.Add(&testSchemaImpl{col2.Name()})
-
-	removed := a.RemoveSkipped(avalableSchemas.Build())
+	removed := a.RemoveSkipped(collection.NewSchemasBuilder().MustAdd(col1).MustAdd(col2).Build())
 
 	g.Expect(removed).To(ConsistOf(a3.Metadata().Name, a4.Metadata().Name))
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Name(), col2.Name()))
+	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Resource().GroupVersionKind(), col2.Resource().GroupVersionKind()))
 
 	a.Analyze(&context{})
 
@@ -87,7 +83,6 @@ func TestCombinedAnalyzer(t *testing.T) {
 
 func newSchema(name string) collection.Schema {
 	return collection.Builder{
-		Name: name,
 		Resource: resource2.Builder{
 			Kind:         name,
 			Plural:       name + "s",
@@ -95,37 +90,4 @@ func newSchema(name string) collection.Schema {
 			Proto:        "google.protobuf.Empty",
 		}.MustBuild(),
 	}.MustBuild()
-}
-
-type testSchemaImpl struct {
-	name collection.Name
-}
-
-// String interface method implementation.
-func (s *testSchemaImpl) String() string {
-	return string(s.Name())
-}
-
-func (s *testSchemaImpl) Name() collection.Name {
-	return s.name
-}
-
-func (s *testSchemaImpl) VariableName() string {
-	panic("implement me")
-}
-
-func (s *testSchemaImpl) Resource() resource2.Schema {
-	panic("implement me")
-}
-
-func (s *testSchemaImpl) IsDisabled() bool {
-	panic("implement me")
-}
-
-func (s *testSchemaImpl) Disable() collection.Schema {
-	panic("implement me")
-}
-
-func (s *testSchemaImpl) Equal(o collection.Schema) bool {
-	panic("implement me")
 }

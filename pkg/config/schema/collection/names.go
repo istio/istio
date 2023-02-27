@@ -14,24 +14,7 @@
 
 package collection
 
-import (
-	"sort"
-	"strings"
-)
+import "istio.io/istio/pkg/config"
 
-// Names is a collection of names
-type Names []Name
-
-// Clone names
-func (n Names) Clone() Names {
-	r := make([]Name, len(n))
-	copy(r, n)
-	return r
-}
-
-// Sort the names in ascending order.
-func (n Names) Sort() {
-	sort.SliceStable(n, func(i, j int) bool {
-		return strings.Compare((n)[i].String(), (n)[j].String()) < 0
-	})
-}
+// Inputs is a collection of names
+type Inputs []config.GroupVersionKind

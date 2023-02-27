@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 )
@@ -53,12 +54,12 @@ func TestCorrectArgs(t *testing.T) {
 			},
 		},
 	}
-	a := ValidationAnalyzer{s: testSchema}
+	a := ValidationAnalyzer{s: testSchema.Resource()}
 	a.Analyze(ctx)
 }
 
 func TestSchemaValidationWrapper(t *testing.T) {
-	testCol := collections.IstioNetworkingV1Alpha3Virtualservices.Name()
+	testCol := gvk.VirtualService
 
 	m1 := &v1alpha3.VirtualService{}
 	m2 := &v1alpha3.VirtualService{}
@@ -77,7 +78,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 		return nil, nil
 	})
 
-	a := ValidationAnalyzer{s: testSchema}
+	a := ValidationAnalyzer{s: testSchema.Resource()}
 
 	t.Run("CheckMetadataInputs", func(t *testing.T) {
 		g := NewWithT(t)
@@ -133,7 +134,6 @@ func TestSchemaValidationWrapper(t *testing.T) {
 func schemaWithValidateFn(validateFn func(cfg config.Config) (validation.Warning, error)) collection.Schema {
 	original := collections.IstioNetworkingV1Alpha3Virtualservices
 	return collection.Builder{
-		Name: original.Name().String(),
 		Resource: resource2.Builder{
 			ClusterScoped: original.Resource().IsClusterScoped(),
 			Kind:          original.Resource().Kind(),

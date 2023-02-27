@@ -34,7 +34,6 @@ var (
 	// IstioExtensionsV1Alpha1Wasmplugins describes the collection
 	// istio/extensions/v1alpha1/wasmplugins
 	IstioExtensionsV1Alpha1Wasmplugins = collection.Builder{
-		Name:         "istio/extensions/v1alpha1/wasmplugins",
 		VariableName: "IstioExtensionsV1Alpha1Wasmplugins",
 		Resource: resource.Builder{
 			Group:   "extensions.istio.io",
@@ -52,7 +51,6 @@ var (
 	// IstioMeshV1Alpha1MeshConfig describes the collection
 	// istio/mesh/v1alpha1/MeshConfig
 	IstioMeshV1Alpha1MeshConfig = collection.Builder{
-		Name:         "istio/mesh/v1alpha1/MeshConfig",
 		VariableName: "IstioMeshV1Alpha1MeshConfig",
 		Resource: resource.Builder{
 			Group:         "",
@@ -70,7 +68,6 @@ var (
 	// IstioMeshV1Alpha1MeshNetworks describes the collection
 	// istio/mesh/v1alpha1/MeshNetworks
 	IstioMeshV1Alpha1MeshNetworks = collection.Builder{
-		Name:         "istio/mesh/v1alpha1/MeshNetworks",
 		VariableName: "IstioMeshV1Alpha1MeshNetworks",
 		Resource: resource.Builder{
 			Group:         "",
@@ -88,7 +85,6 @@ var (
 	// IstioNetworkingV1Alpha3Destinationrules describes the collection
 	// istio/networking/v1alpha3/destinationrules
 	IstioNetworkingV1Alpha3Destinationrules = collection.Builder{
-		Name:         "istio/networking/v1alpha3/destinationrules",
 		VariableName: "IstioNetworkingV1Alpha3Destinationrules",
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
@@ -109,7 +105,6 @@ var (
 	// IstioNetworkingV1Alpha3Envoyfilters describes the collection
 	// istio/networking/v1alpha3/envoyfilters
 	IstioNetworkingV1Alpha3Envoyfilters = collection.Builder{
-		Name:         "istio/networking/v1alpha3/envoyfilters",
 		VariableName: "IstioNetworkingV1Alpha3Envoyfilters",
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
@@ -127,7 +122,6 @@ var (
 	// IstioNetworkingV1Alpha3Gateways describes the collection
 	// istio/networking/v1alpha3/gateways
 	IstioNetworkingV1Alpha3Gateways = collection.Builder{
-		Name:         "istio/networking/v1alpha3/gateways",
 		VariableName: "IstioNetworkingV1Alpha3Gateways",
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
@@ -148,7 +142,6 @@ var (
 	// IstioNetworkingV1Alpha3Serviceentries describes the collection
 	// istio/networking/v1alpha3/serviceentries
 	IstioNetworkingV1Alpha3Serviceentries = collection.Builder{
-		Name:         "istio/networking/v1alpha3/serviceentries",
 		VariableName: "IstioNetworkingV1Alpha3Serviceentries",
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
@@ -169,7 +162,6 @@ var (
 	// IstioNetworkingV1Alpha3Sidecars describes the collection
 	// istio/networking/v1alpha3/sidecars
 	IstioNetworkingV1Alpha3Sidecars = collection.Builder{
-		Name:         "istio/networking/v1alpha3/sidecars",
 		VariableName: "IstioNetworkingV1Alpha3Sidecars",
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
@@ -190,7 +182,6 @@ var (
 	// IstioNetworkingV1Alpha3Virtualservices describes the collection
 	// istio/networking/v1alpha3/virtualservices
 	IstioNetworkingV1Alpha3Virtualservices = collection.Builder{
-		Name:         "istio/networking/v1alpha3/virtualservices",
 		VariableName: "IstioNetworkingV1Alpha3Virtualservices",
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
@@ -211,7 +202,6 @@ var (
 	// IstioNetworkingV1Alpha3Workloadentries describes the collection
 	// istio/networking/v1alpha3/workloadentries
 	IstioNetworkingV1Alpha3Workloadentries = collection.Builder{
-		Name:         "istio/networking/v1alpha3/workloadentries",
 		VariableName: "IstioNetworkingV1Alpha3Workloadentries",
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
@@ -232,7 +222,6 @@ var (
 	// IstioNetworkingV1Alpha3Workloadgroups describes the collection
 	// istio/networking/v1alpha3/workloadgroups
 	IstioNetworkingV1Alpha3Workloadgroups = collection.Builder{
-		Name:         "istio/networking/v1alpha3/workloadgroups",
 		VariableName: "IstioNetworkingV1Alpha3Workloadgroups",
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
@@ -253,7 +242,6 @@ var (
 	// IstioNetworkingV1Beta1Proxyconfigs describes the collection
 	// istio/networking/v1beta1/proxyconfigs
 	IstioNetworkingV1Beta1Proxyconfigs = collection.Builder{
-		Name:         "istio/networking/v1beta1/proxyconfigs",
 		VariableName: "IstioNetworkingV1Beta1Proxyconfigs",
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
@@ -271,7 +259,6 @@ var (
 	// IstioSecurityV1Beta1Authorizationpolicies describes the collection
 	// istio/security/v1beta1/authorizationpolicies
 	IstioSecurityV1Beta1Authorizationpolicies = collection.Builder{
-		Name:         "istio/security/v1beta1/authorizationpolicies",
 		VariableName: "IstioSecurityV1Beta1Authorizationpolicies",
 		Resource: resource.Builder{
 			Group:   "security.istio.io",
@@ -292,7 +279,6 @@ var (
 	// IstioSecurityV1Beta1Peerauthentications describes the collection
 	// istio/security/v1beta1/peerauthentications
 	IstioSecurityV1Beta1Peerauthentications = collection.Builder{
-		Name:         "istio/security/v1beta1/peerauthentications",
 		VariableName: "IstioSecurityV1Beta1Peerauthentications",
 		Resource: resource.Builder{
 			Group:   "security.istio.io",
@@ -310,7 +296,6 @@ var (
 	// IstioSecurityV1Beta1Requestauthentications describes the collection
 	// istio/security/v1beta1/requestauthentications
 	IstioSecurityV1Beta1Requestauthentications = collection.Builder{
-		Name:         "istio/security/v1beta1/requestauthentications",
 		VariableName: "IstioSecurityV1Beta1Requestauthentications",
 		Resource: resource.Builder{
 			Group:   "security.istio.io",
@@ -331,7 +316,6 @@ var (
 	// IstioTelemetryV1Alpha1Telemetries describes the collection
 	// istio/telemetry/v1alpha1/telemetries
 	IstioTelemetryV1Alpha1Telemetries = collection.Builder{
-		Name:         "istio/telemetry/v1alpha1/telemetries",
 		VariableName: "IstioTelemetryV1Alpha1Telemetries",
 		Resource: resource.Builder{
 			Group:   "telemetry.istio.io",
@@ -350,7 +334,6 @@ var (
 	// the collection
 	// k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations
 	K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations = collection.Builder{
-		Name:         "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations",
 		VariableName: "K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations",
 		Resource: resource.Builder{
 			Group:         "admissionregistration.k8s.io",
@@ -368,7 +351,6 @@ var (
 	// K8SApiextensionsK8SIoV1Customresourcedefinitions describes the
 	// collection k8s/apiextensions.k8s.io/v1/customresourcedefinitions
 	K8SApiextensionsK8SIoV1Customresourcedefinitions = collection.Builder{
-		Name:         "k8s/apiextensions.k8s.io/v1/customresourcedefinitions",
 		VariableName: "K8SApiextensionsK8SIoV1Customresourcedefinitions",
 		Resource: resource.Builder{
 			Group:         "apiextensions.k8s.io",
@@ -385,7 +367,6 @@ var (
 
 	// K8SAppsV1Deployments describes the collection k8s/apps/v1/deployments
 	K8SAppsV1Deployments = collection.Builder{
-		Name:         "k8s/apps/v1/deployments",
 		VariableName: "K8SAppsV1Deployments",
 		Resource: resource.Builder{
 			Group:         "apps",
@@ -402,7 +383,6 @@ var (
 
 	// K8SCoreV1Configmaps describes the collection k8s/core/v1/configmaps
 	K8SCoreV1Configmaps = collection.Builder{
-		Name:         "k8s/core/v1/configmaps",
 		VariableName: "K8SCoreV1Configmaps",
 		Resource: resource.Builder{
 			Group:         "",
@@ -419,7 +399,6 @@ var (
 
 	// K8SCoreV1Endpoints describes the collection k8s/core/v1/endpoints
 	K8SCoreV1Endpoints = collection.Builder{
-		Name:         "k8s/core/v1/endpoints",
 		VariableName: "K8SCoreV1Endpoints",
 		Resource: resource.Builder{
 			Group:         "",
@@ -436,7 +415,6 @@ var (
 
 	// K8SCoreV1Namespaces describes the collection k8s/core/v1/namespaces
 	K8SCoreV1Namespaces = collection.Builder{
-		Name:         "k8s/core/v1/namespaces",
 		VariableName: "K8SCoreV1Namespaces",
 		Resource: resource.Builder{
 			Group:         "",
@@ -453,7 +431,6 @@ var (
 
 	// K8SCoreV1Nodes describes the collection k8s/core/v1/nodes
 	K8SCoreV1Nodes = collection.Builder{
-		Name:         "k8s/core/v1/nodes",
 		VariableName: "K8SCoreV1Nodes",
 		Resource: resource.Builder{
 			Group:         "",
@@ -470,7 +447,6 @@ var (
 
 	// K8SCoreV1Pods describes the collection k8s/core/v1/pods
 	K8SCoreV1Pods = collection.Builder{
-		Name:         "k8s/core/v1/pods",
 		VariableName: "K8SCoreV1Pods",
 		Resource: resource.Builder{
 			Group:         "",
@@ -487,7 +463,6 @@ var (
 
 	// K8SCoreV1Secrets describes the collection k8s/core/v1/secrets
 	K8SCoreV1Secrets = collection.Builder{
-		Name:         "k8s/core/v1/secrets",
 		VariableName: "K8SCoreV1Secrets",
 		Resource: resource.Builder{
 			Group:         "",
@@ -505,7 +480,6 @@ var (
 	// K8SCoreV1Serviceaccounts describes the collection
 	// k8s/core/v1/serviceaccounts
 	K8SCoreV1Serviceaccounts = collection.Builder{
-		Name:         "k8s/core/v1/serviceaccounts",
 		VariableName: "K8SCoreV1Serviceaccounts",
 		Resource: resource.Builder{
 			Group:         "",
@@ -522,7 +496,6 @@ var (
 
 	// K8SCoreV1Services describes the collection k8s/core/v1/services
 	K8SCoreV1Services = collection.Builder{
-		Name:         "k8s/core/v1/services",
 		VariableName: "K8SCoreV1Services",
 		Resource: resource.Builder{
 			Group:         "",
@@ -540,7 +513,6 @@ var (
 	// K8SGatewayApiV1Alpha2Referencegrants describes the collection
 	// k8s/gateway_api/v1alpha2/referencegrants
 	K8SGatewayApiV1Alpha2Referencegrants = collection.Builder{
-		Name:         "k8s/gateway_api/v1alpha2/referencegrants",
 		VariableName: "K8SGatewayApiV1Alpha2Referencegrants",
 		Resource: resource.Builder{
 			Group:         "gateway.networking.k8s.io",
@@ -558,7 +530,6 @@ var (
 	// K8SGatewayApiV1Alpha2Tcproutes describes the collection
 	// k8s/gateway_api/v1alpha2/tcproutes
 	K8SGatewayApiV1Alpha2Tcproutes = collection.Builder{
-		Name:         "k8s/gateway_api/v1alpha2/tcproutes",
 		VariableName: "K8SGatewayApiV1Alpha2Tcproutes",
 		Resource: resource.Builder{
 			Group:   "gateway.networking.k8s.io",
@@ -576,7 +547,6 @@ var (
 	// K8SGatewayApiV1Alpha2Tlsroutes describes the collection
 	// k8s/gateway_api/v1alpha2/tlsroutes
 	K8SGatewayApiV1Alpha2Tlsroutes = collection.Builder{
-		Name:         "k8s/gateway_api/v1alpha2/tlsroutes",
 		VariableName: "K8SGatewayApiV1Alpha2Tlsroutes",
 		Resource: resource.Builder{
 			Group:   "gateway.networking.k8s.io",
@@ -594,7 +564,6 @@ var (
 	// K8SGatewayApiV1Beta1Gatewayclasses describes the collection
 	// k8s/gateway_api/v1beta1/gatewayclasses
 	K8SGatewayApiV1Beta1Gatewayclasses = collection.Builder{
-		Name:         "k8s/gateway_api/v1beta1/gatewayclasses",
 		VariableName: "K8SGatewayApiV1Beta1Gatewayclasses",
 		Resource: resource.Builder{
 			Group:   "gateway.networking.k8s.io",
@@ -615,7 +584,6 @@ var (
 	// K8SGatewayApiV1Beta1Gateways describes the collection
 	// k8s/gateway_api/v1beta1/gateways
 	K8SGatewayApiV1Beta1Gateways = collection.Builder{
-		Name:         "k8s/gateway_api/v1beta1/gateways",
 		VariableName: "K8SGatewayApiV1Beta1Gateways",
 		Resource: resource.Builder{
 			Group:   "gateway.networking.k8s.io",
@@ -636,7 +604,6 @@ var (
 	// K8SGatewayApiV1Beta1Httproutes describes the collection
 	// k8s/gateway_api/v1beta1/httproutes
 	K8SGatewayApiV1Beta1Httproutes = collection.Builder{
-		Name:         "k8s/gateway_api/v1beta1/httproutes",
 		VariableName: "K8SGatewayApiV1Beta1Httproutes",
 		Resource: resource.Builder{
 			Group:   "gateway.networking.k8s.io",
@@ -657,7 +624,6 @@ var (
 	// K8SNetworkingV1Ingresses describes the collection
 	// k8s/networking/v1/ingresses
 	K8SNetworkingV1Ingresses = collection.Builder{
-		Name:         "k8s/networking/v1/ingresses",
 		VariableName: "K8SNetworkingV1Ingresses",
 		Resource: resource.Builder{
 			Group:   "networking.k8s.io",

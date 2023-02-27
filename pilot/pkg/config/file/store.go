@@ -225,7 +225,7 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		if !found || oldSha != r.sha {
 			s.versionCtr++
 			r.config.ResourceVersion = fmt.Sprintf("v%d", s.versionCtr)
-			scope.Debug("KubeSource.ApplyContent: Set: ", r.schema.Name(), r.fullName())
+			scope.Debugf("KubeSource.ApplyContent: Set: %v/%v", r.schema.Resource().GroupVersionKind(), r.fullName())
 			// apply is idempotent, but configstore is not, thus the odd logic here
 			_, err := s.inner.Update(*r.config)
 			if err != nil {
@@ -239,7 +239,7 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		}
 		newKeys[key] = r.schema.Resource().GroupVersionKind()
 		if oldKeys != nil {
-			scope.Debug("KubeSource.ApplyContent: Delete: ", r.schema.Name(), key)
+			scope.Debugf("KubeSource.ApplyContent: Delete: %v/%v", r.schema.Resource().GroupVersionKind(), key)
 			delete(oldKeys, key)
 		}
 	}

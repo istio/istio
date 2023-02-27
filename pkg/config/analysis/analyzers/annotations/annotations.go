@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/inject"
 )
 
@@ -38,31 +38,31 @@ func (*K8sAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "annotations.K8sAnalyzer",
 		Description: "Checks for misplaced and invalid Istio annotations in Kubernetes resources",
-		Inputs: collection.Names{
-			collections.K8SCoreV1Namespaces.Name(),
-			collections.K8SCoreV1Services.Name(),
-			collections.K8SCoreV1Pods.Name(),
-			collections.K8SAppsV1Deployments.Name(),
+		Inputs: collection.Inputs{
+			gvk.Namespace,
+			gvk.Service,
+			gvk.Pod,
+			gvk.Deployment,
 		},
 	}
 }
 
 // Analyze implements analysis.Analyzer
 func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Namespace", collections.K8SCoreV1Namespaces.Name())
+	ctx.ForEach(gvk.Namespace, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Namespace", gvk.Namespace)
 		return true
 	})
-	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Service", collections.K8SCoreV1Services.Name())
+	ctx.ForEach(gvk.Service, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Service", gvk.Service)
 		return true
 	})
-	ctx.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Pod", collections.K8SCoreV1Pods.Name())
+	ctx.ForEach(gvk.Pod, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Pod", gvk.Pod)
 		return true
 	})
-	ctx.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, "Deployment", collections.K8SAppsV1Deployments.Name())
+	ctx.ForEach(gvk.Deployment, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, "Deployment", gvk.Deployment)
 		return true
 	})
 }

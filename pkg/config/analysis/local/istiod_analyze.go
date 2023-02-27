@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/ryanuber/go-glob"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -167,7 +168,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		Meta: config.Meta{
 			Name:             mesh_const.MeshConfigResourceName.Name.String(),
 			Namespace:        mesh_const.MeshConfigResourceName.Namespace.String(),
-			GroupVersionKind: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.MeshConfig,
 		},
 		Spec: sa.meshCfg,
 	})
@@ -179,7 +180,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		Meta: config.Meta{
 			Name:             mesh_const.MeshNetworksResourceName.Name.String(),
 			Namespace:        mesh_const.MeshNetworksResourceName.Namespace.String(),
-			GroupVersionKind: collections.IstioMeshV1Alpha1MeshNetworks.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.MeshNetworks,
 		},
 		Spec: sa.meshNetworks,
 	})

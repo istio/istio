@@ -25,7 +25,6 @@ import (
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -246,11 +245,7 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		if err != nil {
 			return err
 		}
-		collectionParts := strings.Split(targetSchema.Name().String(), "/")
-		group := targetSchema.Resource().Group()
-		version := targetSchema.Resource().Version()
-		resource := collectionParts[3]
-		r := dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource}).Namespace(namespace)
+		r := dclient.Resource(targetSchema.Resource().GroupVersionResource()).Namespace(namespace)
 		watch, err := r.Watch(context.TODO(), metav1.ListOptions{FieldSelector: "metadata.name=" + nf})
 		if err != nil {
 			return err

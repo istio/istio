@@ -37,7 +37,7 @@ import (
 
 type testAnalyzer struct {
 	fn     func(analysis.Context)
-	inputs collection.Names
+	inputs collection.Inputs
 }
 
 var blankTestAnalyzer = &testAnalyzer{
@@ -92,8 +92,8 @@ func TestAnalyzersRun(t *testing.T) {
 	m := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Exists(K8SCollection1.Name(), resource.NewFullName("", ""))
-			ctx.Report(K8SCollection1.Name(), m)
+			ctx.Exists(K8SCollection1.Resource().GroupVersionKind(), resource.NewFullName("", ""))
+			ctx.Report(K8SCollection1.Resource().GroupVersionKind(), m)
 		},
 	}
 
@@ -109,7 +109,7 @@ func TestAnalyzersRun(t *testing.T) {
 	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
 	g.Expect(result.Messages).To(ConsistOf(m))
-	g.Expect(collectionAccessed).To(Equal(K8SCollection1.Name()))
+	g.Expect(collectionAccessed).To(Equal(K8SCollection1.Resource().GroupVersionKind()))
 	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
 }
 
@@ -124,8 +124,8 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	msg2 := msg.NewInternalError(r2, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Report(K8SCollection1.Name(), msg1)
-			ctx.Report(K8SCollection1.Name(), msg2)
+			ctx.Report(K8SCollection1.Resource().GroupVersionKind(), msg1)
+			ctx.Report(K8SCollection1.Resource().GroupVersionKind(), msg2)
 		},
 	}
 

@@ -103,7 +103,6 @@ var (
 {{ range .Entries }}
 	{{ commentBlock (wordWrap (printf "%s %s" .Collection.VariableName .Collection.Description) 70) 1 }}
 	{{ .Collection.VariableName }} = collection.Builder {
-		Name: "{{ .Collection.Name }}",
 		VariableName: "{{ .Collection.VariableName }}",
 		Resource: resource.Builder {
 			Group: "{{ .Resource.Group }}",
