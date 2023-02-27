@@ -75,6 +75,11 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		injectionLabel := r.Metadata.Labels[util.InjectionLabelName]
 		nsRevision, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
 
+		if r.Metadata.Labels[constants.DataplaneMode] == constants.DataplaneModeAmbient {
+			// TODO (GregHanson): warn if namespace is labeled for injection and ambient?
+			return true
+		}
+
 		// verify the enableNamespacesByDefault flag in injection configmaps
 		c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
 			injectionCMName := util.GetInjectorConfigMapName(nsRevision)
