@@ -30,6 +30,8 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
+const missingResourceMessageFragment = `the server could not find the requested resource`
+
 func waypointCmd() *cobra.Command {
 	var waypointServiceAccount string
 	makeGateway := func(forApply bool) *gateway.Gateway {
@@ -112,6 +114,9 @@ func waypointCmd() *cobra.Command {
 				FieldManager: "istioctl",
 			})
 			if err != nil {
+				if strings.Contains(err.Error(), missingResourceMessageFragment) {
+					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint")
+				}
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v applied\n", gw.Namespace, gw.Name)
