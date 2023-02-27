@@ -790,6 +790,13 @@ func statsConfigCmd() *cobra.Command {
 	return statsConfigCmd
 }
 
+type proxyType int
+
+const (
+	Envoy proxyType = iota
+	Ztunnel
+)
+
 func logCmd() *cobra.Command {
 	var podNamespace string
 	var podNames []string
@@ -824,29 +831,29 @@ func logCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var err error
-			var loggerNames []string
+			loggerNames := map[string]proxyType{}
 			if labelSelector != "" {
 				if podNames, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
-					return err
-				}
-				for _, pod := range podNames {
-					name, err = setupEnvoyLogConfig("", pod, podNamespace)
-					loggerNames = append(loggerNames, name)
-				}
-				if err != nil {
 					return err
 				}
 			} else {
 				if podNames, podNamespace, err = getPodNames(args[0]); err != nil {
 					return err
 				}
-				for _, podName := range podNames {
-					name, err := setupEnvoyLogConfig("", podName, podNamespace)
-					loggerNames = append(loggerNames, name)
-					if err != nil {
-						return err
-					}
+			}
+			for _, pod := range podNames {
+				name, err = setupEnvoyLogConfig("", pod, podNamespace)
+				if err != nil {
+					return err
 				}
+				if isZtunnelPod(pod) {
+					loggerNames[name] = Ztunnel
+				} else {
+					loggerNames[name] = Envoy
+				}
+			}
+			if err != nil {
+				return err
 			}
 
 			destLoggerLevels := map[string]Level{}
@@ -875,7 +882,11 @@ func logCmd() *cobra.Command {
 						}
 					} else {
 						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
-						for _, logName := range loggerNames {
+						for logName, typ := range loggerNames {
+							if typ == Ztunnel {
+								// TODO validate ztunnel logger name when available
+								continue
+							}
 							if !strings.Contains(logName, loggerLevel[0]) {
 								return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
 							}
@@ -892,7 +903,7 @@ func logCmd() *cobra.Command {
 			var resp string
 			var errs *multierror.Error
 			for _, podName := range podNames {
-				if strings.HasPrefix(podName, "ztunnel") {
+				if isZtunnelPod(podName) {
 					q := "level=" + ztunnelLogLevel(loggerLevelString)
 					if reset {
 						q += "&reset"
@@ -951,6 +962,10 @@ func logCmd() *cobra.Command {
 			s, levelListString))
 
 	return logCmd
+}
+
+func isZtunnelPod(podName string) bool {
+	return strings.HasPrefix(podName, "ztunnel")
 }
 
 func routeConfigCmd() *cobra.Command {
