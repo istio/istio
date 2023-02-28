@@ -1349,7 +1349,7 @@ func TestNonServiceConfig(t *testing.T) {
 	// Create a non-service configuration element. This should not affect the service registry at all.
 	cfg := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Destinationrules.GroupVersionKind(),
+			GroupVersionKind:  gvk.DestinationRule,
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
 			Domain:            "cluster.local",

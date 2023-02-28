@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -97,7 +97,7 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 func newTelemetry(ns string, spec config.Spec) config.Config {
 	return config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioTelemetryV1Alpha1Telemetries.GroupVersionKind(),
+			GroupVersionKind: gvk.Telemetry,
 			Name:             "default",
 			Namespace:        ns,
 		},

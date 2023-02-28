@@ -55,6 +55,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
@@ -519,7 +520,7 @@ func (a *ADSC) handleRecv() {
 			a.cfg.ResponseHandler.HandleResponse(a, msg)
 		}
 
-		if msg.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.GroupVersionKind().String() &&
+		if msg.TypeUrl == gvk.MeshConfig.String() &&
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
@@ -1114,7 +1115,7 @@ func (a *ADSC) Watch() {
 func ConfigInitialRequests() []*discovery.DiscoveryRequest {
 	out := make([]*discovery.DiscoveryRequest, 0, len(collections.Pilot.All())+1)
 	out = append(out, &discovery.DiscoveryRequest{
-		TypeUrl: collections.IstioMeshV1Alpha1MeshConfig.GroupVersionKind().String(),
+		TypeUrl: gvk.MeshConfig.String(),
 	})
 	for _, sch := range collections.Pilot.All() {
 		out = append(out, &discovery.DiscoveryRequest{
