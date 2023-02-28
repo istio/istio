@@ -91,7 +91,7 @@ func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	listeners := []*listener.Listener{}
 	// We create 3 listeners:
-	// 1. Decapsulation CONNECT listener, `inbound TERMINATE`.
+	// 1. Decapsulation CONNECT listener.
 	// 2. IP dispatch listener, handling both VIPs and direct pod IPs.
 	// 3. Encapsulation CONNECT listener, originating the tunnel
 	wls, svcs := FindAssociatedResources(lb.node, lb.push)
@@ -104,35 +104,19 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	return listeners
 }
 
-func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.Listener {
-	name := "connect_terminate"
-	vhost := &route.VirtualHost{
-		Name:    "default",
-		Domains: []string{"*"},
-		Routes: []*route.Route{{
-			Match: &route.RouteMatch{
-				PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
-			},
-			Action: &route.Route_Route{Route: &route.RouteAction{
-				UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-					UpgradeType:   "CONNECT",
-					ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-				}},
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "internal"},
-			}},
-			TypedPerFilterConfig: map[string]*any.Any{
-				xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
-			},
-		}},
-	}
+const ConnectTerminate = "connect_terminate"
 
-	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
+func (lb *ListenerBuilder) buildHCMTerminateConnectChain(routes []*route.Route) []*listener.Filter {
 	h := &hcm.HttpConnectionManager{
-		StatPrefix: name,
+		StatPrefix: ConnectTerminate,
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 			RouteConfig: &route.RouteConfiguration{
-				Name:         "default",
-				VirtualHosts: []*route.VirtualHost{vhost},
+				Name: "default",
+				VirtualHosts: []*route.VirtualHost{{
+					Name:    "default",
+					Domains: []string{"*"},
+					Routes:  routes,
+				}},
 			},
 		},
 		// Append and forward client cert to backend.
@@ -154,6 +138,9 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 	}}
 	h.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		AllowConnect: true,
+		// TODO(https://github.com/istio/istio/issues/43443)
+		// All streams are bound to the same worker. Therefore, we need to limit for better fairness.
+		MaxConcurrentStreams: &wrappers.UInt32Value{Value: 100},
 	}
 
 	// Filters needed to propagate the tunnel metadata to the inner streams.
@@ -162,9 +149,34 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 		xdsfilters.ConnectAuthorityFilter,
 		xdsfilters.Router,
 	}
+	return []*listener.Filter{
+		xdsfilters.IstioNetworkAuthenticationFilterShared,
+		{
+			Name:       wellknown.HTTPConnectionManager,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
+		},
+	}
+}
 
+func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.Listener {
+	routes := []*route.Route{{
+		Match: &route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
+		},
+		Action: &route.Route_Route{Route: &route.RouteAction{
+			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+				UpgradeType:   "CONNECT",
+				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+			}},
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "internal"},
+		}},
+		TypedPerFilterConfig: map[string]*any.Any{
+			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
+		},
+	}}
+	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	l := &listener.Listener{
-		Name:    name,
+		Name:    ConnectTerminate,
 		Address: util.BuildAddress(actualWildcard, model.HBoneInboundListenPort),
 		FilterChains: []*listener.FilterChain{
 			{
@@ -175,13 +187,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 						CommonTlsContext: buildCommonTLSContext(lb.node, lb.push),
 					})},
 				},
-				Filters: []*listener.Filter{
-					xdsfilters.IstioNetworkAuthenticationFilterShared,
-					{
-						Name:       wellknown.HTTPConnectionManager,
-						ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
-					},
-				},
+				Filters: lb.buildHCMTerminateConnectChain(routes),
 			},
 		},
 	}

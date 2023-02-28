@@ -156,16 +156,13 @@ type ServiceInstancePort struct {
 }
 
 func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
-	vhost := &route.VirtualHost{
-		Name:    "inbound-hbone-connect",
-		Domains: []string{"*"},
-	}
 	inboundChainConfigs := lb.buildInboundChainConfigs()
+	routes := []*route.Route{}
 	for _, cc := range inboundChainConfigs {
 		// TODO passthrough
 		p := strconv.Itoa(int(cc.port.TargetPort))
 		destination := "inbound-hbone" + "|" + p
-		vhost.Routes = append(vhost.Routes, &route.Route{
+		routes = append(routes, &route.Route{
 			Match: &route.RouteMatch{
 				PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
 				Headers: []*route.HeaderMatcher{
@@ -191,10 +188,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		FilterChains: []*listener.FilterChain{
 			{
 				TransportSocket: buildDownstreamTLSTransportSocket(lb.authnBuilder.ForHBONE().TCP),
-				Filters: []*listener.Filter{
-					xdsfilters.IstioNetworkAuthenticationFilterShared,
-					buildHBONEConnectionManager(vhost),
-				},
+				Filters:         lb.buildHCMTerminateConnectChain(routes),
 			},
 		},
 	}
@@ -233,31 +227,6 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		listeners = append(listeners, l)
 	}
 	return listeners
-}
-
-func buildHBONEConnectionManager(vhost *route.VirtualHost) *listener.Filter {
-	connMgr := &hcm.HttpConnectionManager{}
-	connMgr.StatPrefix = "inbound-hbone"
-
-	connMgr.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{
-		RouteConfig: &route.RouteConfiguration{
-			Name:             "local_route",
-			VirtualHosts:     []*route.VirtualHost{vhost},
-			ValidateClusters: proto.BoolFalse,
-		},
-	}
-	connMgr.HttpFilters = []*hcm.HttpFilter{xdsfilters.ConnectAuthorityFilter, xdsfilters.Router}
-	connMgr.Http2ProtocolOptions = &core.Http2ProtocolOptions{
-		AllowConnect: true,
-	}
-	// TODO: I doubt this is needed
-	connMgr.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
-		UpgradeType: "CONNECT",
-	}}
-	return &listener.Filter{
-		Name:       wellknown.HTTPConnectionManager,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(connMgr)},
-	}
 }
 
 // buildInboundListeners creates inbound listeners.
