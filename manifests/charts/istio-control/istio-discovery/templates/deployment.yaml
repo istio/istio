@@ -38,6 +38,7 @@ spec:
         istio.io/rev: {{ .Values.revision | default "default" }}
         install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         sidecar.istio.io/inject: "false"
+        ambient.istio.io/redirection: disabled
         operator.istio.io/component: "Pilot"
         {{- if ne .Values.revision "" }}
         istio: istiod

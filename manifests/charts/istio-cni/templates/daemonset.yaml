@@ -32,6 +32,7 @@ spec:
         sidecar.istio.io/inject: "false"
       annotations:
         sidecar.istio.io/inject: "false"
+        ambient.istio.io/redirection: disabled
         # Add Prometheus Scrape annotations
         prometheus.io/scrape: 'true'
         prometheus.io/port: "15014"
