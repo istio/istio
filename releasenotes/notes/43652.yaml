@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** analyzing not caught some messages when there's services with no selector exist in the analyzed namespace.
