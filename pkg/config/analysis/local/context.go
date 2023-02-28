@@ -182,12 +182,11 @@ func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema sre
 		}
 	}
 	res.Origin = &kube.Origin{
-		Collection: col,
-		Kind:       colschema.Kind(),
-		FullName:   res.Metadata.FullName,
-		Version:    resource.Version(cfg.ResourceVersion),
-		Ref:        outref,
-		FieldsMap:  out,
+		Type:            col,
+		FullName:        res.Metadata.FullName,
+		ResourceVersion: resource.Version(cfg.ResourceVersion),
+		Ref:             outref,
+		FieldsMap:       out,
 	}
 	// MCP is not aware of generation, add that here.
 	res.Metadata.Generation = cfg.Generation
