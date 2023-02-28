@@ -268,7 +268,7 @@ func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
 	waypointError := retry.UntilSuccess(func() error {
 		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")
 		pods, err := kubetest.CheckPodsAreReady(fetch)
-		if err != nil {
+		if err != nil && err != kubetest.ErrNoPodsFetched {
 			return fmt.Errorf("cannot fetch pod: %v", err)
 		} else if len(pods) != 0 {
 			return fmt.Errorf("waypoint pod is not deleted")
