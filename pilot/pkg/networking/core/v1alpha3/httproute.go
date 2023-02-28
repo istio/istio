@@ -298,7 +298,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	routeName string,
 	listenerPort int,
 	efKeys []string,
-	xdsCache model.GenericXdsCache,
+	xdsCache model.XdsCache,
 ) ([]*route.VirtualHost, *discovery.Resource, *istio_route.Cache) {
 	var virtualServices []config.Config
 	var services []*model.Service

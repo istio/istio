@@ -138,7 +138,7 @@ type DiscoveryServer struct {
 	clusterID cluster.ID
 
 	// Cache for XDS resources
-	Cache model.GenericXdsCache
+	Cache model.XdsCache
 
 	// JwtKeyResolver holds a reference to the JWT key resolver instance.
 	JwtKeyResolver *model.JwksResolver
@@ -183,7 +183,7 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 	out.initJwksResolver()
 
 	if features.EnableXDSCaching {
-		out.Cache = model.NewGenericXdsCache()
+		out.Cache = model.NewXdsCache()
 		// clear the cache as endpoint shards are modified to avoid cache write race
 		out.Env.EndpointIndex.SetCache(out.Cache)
 	}

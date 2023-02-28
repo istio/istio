@@ -15,6 +15,7 @@
 package route
 
 import (
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -184,15 +185,7 @@ func (r *Cache) Key() any {
 }
 
 func hashToBytes(number model.ConfigHash) []byte {
-	v := uint64(number)
-	return []byte{
-		byte(0xff & v),
-		byte(0xff & (v >> 8)),
-		byte(0xff & (v >> 16)),
-		byte(0xff & (v >> 24)),
-		byte(0xff & (v >> 32)),
-		byte(0xff & (v >> 40)),
-		byte(0xff & (v >> 48)),
-		byte(0xff & (v >> 56)),
-	}
+	big := new(big.Int)
+	big.SetUint64(uint64(number))
+	return big.Bytes()
 }

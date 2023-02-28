@@ -41,7 +41,7 @@ var (
 // nolint: gosec
 // Test only code
 func TestXdsCacheToken(t *testing.T) {
-	c := model.NewGenericXdsCache()
+	c := model.NewXdsCache()
 	n := atomic.NewInt32(0)
 	mkv := func(n int32) *discovery.Resource {
 		return &discovery.Resource{Resource: &anypb.Any{TypeUrl: fmt.Sprint(n)}}
@@ -94,7 +94,7 @@ func TestXdsCache(t *testing.T) {
 		},
 	}
 	t.Run("simple", func(t *testing.T) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any1)
 		if !reflect.DeepEqual(c.Keys(model.EDSType), []any{ep1.Key()}) {
 			t.Fatalf("unexpected keys: %v, want %v", c.Keys(model.EDSType), ep1.Key())
@@ -114,7 +114,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("multiple hostnames", func(t *testing.T) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 		start := time.Now()
 		c.Add(ep1, &model.PushRequest{Start: start}, any1)
 		c.Add(ep2, &model.PushRequest{Start: start}, any2)
@@ -135,7 +135,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("multiple destinationRules", func(t *testing.T) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 
 		ep1 := ep1
 		ep1.destinationRule = model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}})
@@ -167,7 +167,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("clear all", func(t *testing.T) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 		start := time.Now()
 		c.Add(ep1, &model.PushRequest{Start: start}, any1)
 		c.Add(ep2, &model.PushRequest{Start: start}, any2)
@@ -185,7 +185,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("write without token does nothing", func(t *testing.T) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 		c.Add(ep1, &model.PushRequest{}, any1)
 		if got := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result: %v, want none", got)
@@ -193,7 +193,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("write with evicted token", func(t *testing.T) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 		t1 := time.Now()
 		t2 := t1.Add(1 * time.Nanosecond)
 		c.Add(ep1, &model.PushRequest{Start: t2}, any1)
@@ -207,7 +207,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("write with expired token", func(t *testing.T) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 		t1 := time.Now()
 		t2 := t1.Add(-1 * time.Nanosecond)
 
@@ -221,7 +221,7 @@ func TestXdsCache(t *testing.T) {
 	})
 
 	t.Run("disallow write with stale token after clear", func(t *testing.T) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 		t1 := time.Now()
 
 		c.Add(ep1, &model.PushRequest{Start: t1}, any1)

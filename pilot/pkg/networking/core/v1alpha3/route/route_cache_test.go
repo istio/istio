@@ -30,7 +30,7 @@ import (
 )
 
 func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
-	xdsCache := model.NewGenericXdsCache()
+	xdsCache := model.NewXdsCache()
 	// root virtual service
 	root := config.Config{
 		Meta: config.Meta{Name: "root", Namespace: "default"},

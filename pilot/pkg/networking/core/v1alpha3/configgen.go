@@ -20,10 +20,10 @@ import (
 )
 
 type ConfigGeneratorImpl struct {
-	Cache model.GenericXdsCache
+	Cache model.XdsCache
 }
 
-func NewConfigGenerator(cache model.GenericXdsCache) *ConfigGeneratorImpl {
+func NewConfigGenerator(cache model.XdsCache) *ConfigGeneratorImpl {
 	return &ConfigGeneratorImpl{
 		Cache: cache,
 	}

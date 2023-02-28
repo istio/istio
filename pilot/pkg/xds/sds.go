@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/util/hash"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -57,9 +56,7 @@ func (sr SecretResource) Type() string {
 }
 
 func (sr SecretResource) Key() any {
-	h := hash.New()
-	h.Write([]byte(sr.SecretResource.Key() + "/" + sr.pkpConfHash))
-	return h.Sum()
+	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
 }
 
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {
@@ -453,14 +450,14 @@ func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 type SecretGen struct {
 	secrets credscontroller.MulticlusterController
 	// Cache for XDS resources
-	cache         model.GenericXdsCache
+	cache         model.XdsCache
 	configCluster cluster.ID
 	meshConfig    *mesh.MeshConfig
 }
 
 var _ model.XdsResourceGenerator = &SecretGen{}
 
-func NewSecretGen(sc credscontroller.MulticlusterController, cache model.GenericXdsCache, configCluster cluster.ID,
+func NewSecretGen(sc credscontroller.MulticlusterController, cache model.XdsCache, configCluster cluster.ID,
 	meshConfig *mesh.MeshConfig,
 ) *SecretGen {
 	// TODO: Currently we only have a single credentials controller (Kubernetes). In the future, we will need a mapping

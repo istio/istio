@@ -620,7 +620,7 @@ func BenchmarkCache(b *testing.B) {
 		}
 	})
 	b.Run("insert", func(b *testing.B) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 		stop := make(chan struct{})
 		defer close(stop)
 		c.Run(stop)
@@ -632,7 +632,7 @@ func BenchmarkCache(b *testing.B) {
 	})
 	// to trigger clear index on old dependents
 	b.Run("insert same key", func(b *testing.B) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 		stop := make(chan struct{})
 		defer close(stop)
 		c.Run(stop)
@@ -650,7 +650,7 @@ func BenchmarkCache(b *testing.B) {
 		}
 	})
 	b.Run("get", func(b *testing.B) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 		key := makeCacheKey(1)
 		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(1))}
 		c.Add(key, req, res)
@@ -660,7 +660,7 @@ func BenchmarkCache(b *testing.B) {
 	})
 
 	b.Run("insert and get", func(b *testing.B) {
-		c := model.NewGenericXdsCache()
+		c := model.NewXdsCache()
 		stop := make(chan struct{})
 		defer close(stop)
 		c.Run(stop)

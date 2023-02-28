@@ -59,7 +59,7 @@ func TestAddTwoEntries(t *testing.T) {
 		},
 	}
 
-	c := newXdsCache[uint64]()
+	c := newTypedXdsCache[uint64]()
 	stop := make(chan struct{})
 	defer close(stop)
 	c.Run(stop)
@@ -111,7 +111,7 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 		dependentConfigs: []ConfigHash{ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode()},
 	}
 
-	c := newXdsCache[uint64]()
+	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
 	stop := make(chan struct{})
 	defer close(stop)
@@ -166,7 +166,7 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 		},
 	}
 
-	c := newXdsCache[uint64]()
+	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
 	stop := make(chan struct{})
 	defer close(stop)
@@ -239,7 +239,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		},
 	}
 
-	c := newXdsCache[uint64]()
+	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
 	stop := make(chan struct{})
 	defer close(stop)
@@ -380,7 +380,7 @@ func TestCacheClearAll(t *testing.T) {
 		},
 	}
 
-	c := newXdsCache[uint64]()
+	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
 	stop := make(chan struct{})
 	defer close(stop)

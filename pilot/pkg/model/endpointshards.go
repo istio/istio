@@ -97,7 +97,7 @@ type EndpointIndex struct {
 	// keyed by svc then ns
 	shardsBySvc map[string]map[string]*EndpointShards
 	// We'll need to clear the cache in-sync with endpoint shards modifications.
-	cache GenericXdsCache
+	cache XdsCache
 }
 
 func NewEndpointIndex() *EndpointIndex {
@@ -106,7 +106,7 @@ func NewEndpointIndex() *EndpointIndex {
 	}
 }
 
-func (e *EndpointIndex) SetCache(cache GenericXdsCache) {
+func (e *EndpointIndex) SetCache(cache XdsCache) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.cache = cache
