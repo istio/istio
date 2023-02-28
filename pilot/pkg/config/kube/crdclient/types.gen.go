@@ -25,7 +25,6 @@ import (
 	"context"
 	"fmt"
 
-	"istio.io/istio/pkg/config/schema/gvk"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -56,102 +55,102 @@ import (
 
 func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch cfg.GroupVersionKind {
-	case collections.IstioExtensionsV1Alpha1Wasmplugins.GroupVersionKind():
+	case collections.WasmPlugin.Resource().GroupVersionKind():
 		return ic.ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).Create(context.TODO(), &clientextensionsv1alpha1.WasmPlugin{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*extensionsv1alpha1.WasmPlugin)),
 		}, metav1.CreateOptions{})
-	case collections.IstioNetworkingV1Alpha3Destinationrules.GroupVersionKind():
+	case collections.DestinationRule.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().DestinationRules(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.DestinationRule{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.DestinationRule)),
 		}, metav1.CreateOptions{})
-	case collections.IstioNetworkingV1Alpha3Envoyfilters.GroupVersionKind():
+	case collections.EnvoyFilter.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.EnvoyFilter{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.EnvoyFilter)),
 		}, metav1.CreateOptions{})
-	case collections.IstioNetworkingV1Alpha3Gateways.GroupVersionKind():
+	case collections.Gateway.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().Gateways(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.Gateway{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.Gateway)),
 		}, metav1.CreateOptions{})
-	case gvk.ServiceEntry:
+	case collections.ServiceEntry.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().ServiceEntries(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.ServiceEntry{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.ServiceEntry)),
 		}, metav1.CreateOptions{})
-	case collections.IstioNetworkingV1Alpha3Sidecars.GroupVersionKind():
+	case collections.Sidecar.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().Sidecars(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.Sidecar{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.Sidecar)),
 		}, metav1.CreateOptions{})
-	case gvk.VirtualService:
+	case collections.VirtualService.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().VirtualServices(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.VirtualService{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.VirtualService)),
 		}, metav1.CreateOptions{})
-	case gvk.WorkloadEntry:
+	case collections.WorkloadEntry.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadEntries(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.WorkloadEntry{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.WorkloadEntry)),
 		}, metav1.CreateOptions{})
-	case collections.IstioNetworkingV1Alpha3Workloadgroups.GroupVersionKind():
+	case collections.WorkloadGroup.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadGroups(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.WorkloadGroup)),
 		}, metav1.CreateOptions{})
-	case collections.IstioNetworkingV1Beta1Proxyconfigs.GroupVersionKind():
+	case collections.ProxyConfig.Resource().GroupVersionKind():
 		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1beta1.ProxyConfig)),
 		}, metav1.CreateOptions{})
-	case collections.IstioSecurityV1Beta1Authorizationpolicies.GroupVersionKind():
+	case collections.AuthorizationPolicy.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).Create(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.AuthorizationPolicy)),
 		}, metav1.CreateOptions{})
-	case collections.IstioSecurityV1Beta1Peerauthentications.GroupVersionKind():
+	case collections.PeerAuthentication.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().PeerAuthentications(cfg.Namespace).Create(context.TODO(), &clientsecurityv1beta1.PeerAuthentication{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.PeerAuthentication)),
 		}, metav1.CreateOptions{})
-	case collections.IstioSecurityV1Beta1Requestauthentications.GroupVersionKind():
+	case collections.RequestAuthentication.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).Create(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.RequestAuthentication)),
 		}, metav1.CreateOptions{})
-	case collections.IstioTelemetryV1Alpha1Telemetries.GroupVersionKind():
+	case collections.Telemetry.Resource().GroupVersionKind():
 		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).Create(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*telemetryv1alpha1.Telemetry)),
 		}, metav1.CreateOptions{})
-	case collections.K8SGatewayApiV1Alpha2Referencegrants.GroupVersionKind():
+	case collections.ReferenceGrant.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().ReferenceGrants(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.ReferenceGrant{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
 		}, metav1.CreateOptions{})
-	case collections.K8SGatewayApiV1Alpha2Tcproutes.GroupVersionKind():
+	case collections.TCPRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.TCPRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TCPRouteSpec)),
 		}, metav1.CreateOptions{})
-	case collections.K8SGatewayApiV1Alpha2Tlsroutes.GroupVersionKind():
+	case collections.TLSRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TLSRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.TLSRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TLSRouteSpec)),
 		}, metav1.CreateOptions{})
-	case collections.K8SGatewayApiV1Beta1Gatewayclasses.GroupVersionKind():
+	case collections.GatewayClass.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().GatewayClasses().Create(context.TODO(), &gatewayv1beta1.GatewayClass{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewayClassSpec)),
 		}, metav1.CreateOptions{})
-	case collections.K8SGatewayApiV1Beta1Gateways.GroupVersionKind():
+	case collections.KubernetesGateway.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().Gateways(cfg.Namespace).Create(context.TODO(), &gatewayv1beta1.Gateway{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewaySpec)),
 		}, metav1.CreateOptions{})
-	case collections.K8SGatewayApiV1Beta1Httproutes.GroupVersionKind():
+	case collections.HTTPRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().HTTPRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1beta1.HTTPRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1beta1.HTTPRouteSpec)),
@@ -163,102 +162,102 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 
 func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch cfg.GroupVersionKind {
-	case collections.IstioExtensionsV1Alpha1Wasmplugins.GroupVersionKind():
+	case collections.WasmPlugin.Resource().GroupVersionKind():
 		return ic.ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).Update(context.TODO(), &clientextensionsv1alpha1.WasmPlugin{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*extensionsv1alpha1.WasmPlugin)),
 		}, metav1.UpdateOptions{})
-	case collections.IstioNetworkingV1Alpha3Destinationrules.GroupVersionKind():
+	case collections.DestinationRule.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().DestinationRules(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.DestinationRule{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.DestinationRule)),
 		}, metav1.UpdateOptions{})
-	case collections.IstioNetworkingV1Alpha3Envoyfilters.GroupVersionKind():
+	case collections.EnvoyFilter.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.EnvoyFilter{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.EnvoyFilter)),
 		}, metav1.UpdateOptions{})
-	case collections.IstioNetworkingV1Alpha3Gateways.GroupVersionKind():
+	case collections.Gateway.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().Gateways(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.Gateway{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.Gateway)),
 		}, metav1.UpdateOptions{})
-	case gvk.ServiceEntry:
+	case collections.ServiceEntry.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().ServiceEntries(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.ServiceEntry{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.ServiceEntry)),
 		}, metav1.UpdateOptions{})
-	case collections.IstioNetworkingV1Alpha3Sidecars.GroupVersionKind():
+	case collections.Sidecar.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().Sidecars(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.Sidecar{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.Sidecar)),
 		}, metav1.UpdateOptions{})
-	case gvk.VirtualService:
+	case collections.VirtualService.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().VirtualServices(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.VirtualService{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.VirtualService)),
 		}, metav1.UpdateOptions{})
-	case gvk.WorkloadEntry:
+	case collections.WorkloadEntry.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadEntries(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.WorkloadEntry{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.WorkloadEntry)),
 		}, metav1.UpdateOptions{})
-	case collections.IstioNetworkingV1Alpha3Workloadgroups.GroupVersionKind():
+	case collections.WorkloadGroup.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadGroups(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.WorkloadGroup)),
 		}, metav1.UpdateOptions{})
-	case collections.IstioNetworkingV1Beta1Proxyconfigs.GroupVersionKind():
+	case collections.ProxyConfig.Resource().GroupVersionKind():
 		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1beta1.ProxyConfig)),
 		}, metav1.UpdateOptions{})
-	case collections.IstioSecurityV1Beta1Authorizationpolicies.GroupVersionKind():
+	case collections.AuthorizationPolicy.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.AuthorizationPolicy)),
 		}, metav1.UpdateOptions{})
-	case collections.IstioSecurityV1Beta1Peerauthentications.GroupVersionKind():
+	case collections.PeerAuthentication.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().PeerAuthentications(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.PeerAuthentication{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.PeerAuthentication)),
 		}, metav1.UpdateOptions{})
-	case collections.IstioSecurityV1Beta1Requestauthentications.GroupVersionKind():
+	case collections.RequestAuthentication.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*securityv1beta1.RequestAuthentication)),
 		}, metav1.UpdateOptions{})
-	case collections.IstioTelemetryV1Alpha1Telemetries.GroupVersionKind():
+	case collections.Telemetry.Resource().GroupVersionKind():
 		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).Update(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*telemetryv1alpha1.Telemetry)),
 		}, metav1.UpdateOptions{})
-	case collections.K8SGatewayApiV1Alpha2Referencegrants.GroupVersionKind():
+	case collections.ReferenceGrant.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().ReferenceGrants(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.ReferenceGrant{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
 		}, metav1.UpdateOptions{})
-	case collections.K8SGatewayApiV1Alpha2Tcproutes.GroupVersionKind():
+	case collections.TCPRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.TCPRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TCPRouteSpec)),
 		}, metav1.UpdateOptions{})
-	case collections.K8SGatewayApiV1Alpha2Tlsroutes.GroupVersionKind():
+	case collections.TLSRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TLSRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.TLSRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TLSRouteSpec)),
 		}, metav1.UpdateOptions{})
-	case collections.K8SGatewayApiV1Beta1Gatewayclasses.GroupVersionKind():
+	case collections.GatewayClass.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().GatewayClasses().Update(context.TODO(), &gatewayv1beta1.GatewayClass{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewayClassSpec)),
 		}, metav1.UpdateOptions{})
-	case collections.K8SGatewayApiV1Beta1Gateways.GroupVersionKind():
+	case collections.KubernetesGateway.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().Gateways(cfg.Namespace).Update(context.TODO(), &gatewayv1beta1.Gateway{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewaySpec)),
 		}, metav1.UpdateOptions{})
-	case collections.K8SGatewayApiV1Beta1Httproutes.GroupVersionKind():
+	case collections.HTTPRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().HTTPRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1beta1.HTTPRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*gatewayv1beta1.HTTPRouteSpec)),
@@ -271,115 +270,115 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 func updateStatus(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch cfg.GroupVersionKind {
 
-	case collections.IstioExtensionsV1Alpha1Wasmplugins.GroupVersionKind():
+	case collections.WasmPlugin.Resource().GroupVersionKind():
 		return ic.ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).UpdateStatus(context.TODO(), &clientextensionsv1alpha1.WasmPlugin{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.IstioNetworkingV1Alpha3Destinationrules.GroupVersionKind():
+	case collections.DestinationRule.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().DestinationRules(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.DestinationRule{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.IstioNetworkingV1Alpha3Envoyfilters.GroupVersionKind():
+	case collections.EnvoyFilter.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.EnvoyFilter{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.IstioNetworkingV1Alpha3Gateways.GroupVersionKind():
+	case collections.Gateway.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.Gateway{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case gvk.ServiceEntry:
+	case collections.ServiceEntry.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().ServiceEntries(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.ServiceEntry{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.IstioNetworkingV1Alpha3Sidecars.GroupVersionKind():
+	case collections.Sidecar.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().Sidecars(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.Sidecar{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case gvk.VirtualService:
+	case collections.VirtualService.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().VirtualServices(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.VirtualService{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case gvk.WorkloadEntry:
+	case collections.WorkloadEntry.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadEntries(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.WorkloadEntry{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.IstioNetworkingV1Alpha3Workloadgroups.GroupVersionKind():
+	case collections.WorkloadGroup.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadGroups(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.IstioNetworkingV1Beta1Proxyconfigs.GroupVersionKind():
+	case collections.ProxyConfig.Resource().GroupVersionKind():
 		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.IstioSecurityV1Beta1Authorizationpolicies.GroupVersionKind():
+	case collections.AuthorizationPolicy.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.IstioSecurityV1Beta1Peerauthentications.GroupVersionKind():
+	case collections.PeerAuthentication.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().PeerAuthentications(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.PeerAuthentication{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.IstioSecurityV1Beta1Requestauthentications.GroupVersionKind():
+	case collections.RequestAuthentication.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.IstioTelemetryV1Alpha1Telemetries.GroupVersionKind():
+	case collections.Telemetry.Resource().GroupVersionKind():
 		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).UpdateStatus(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.K8SGatewayApiV1Alpha2Tcproutes.GroupVersionKind():
+	case collections.TCPRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1alpha2.TCPRoute{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*gatewayv1alpha2.TCPRouteStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.K8SGatewayApiV1Alpha2Tlsroutes.GroupVersionKind():
+	case collections.TLSRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TLSRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1alpha2.TLSRoute{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*gatewayv1alpha2.TLSRouteStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.K8SGatewayApiV1Beta1Gatewayclasses.GroupVersionKind():
+	case collections.GatewayClass.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().GatewayClasses().UpdateStatus(context.TODO(), &gatewayv1beta1.GatewayClass{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*gatewayv1beta1.GatewayClassStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.K8SGatewayApiV1Beta1Gateways.GroupVersionKind():
+	case collections.KubernetesGateway.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1beta1.Gateway{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*gatewayv1beta1.GatewayStatus)),
 		}, metav1.UpdateOptions{})
 
-	case collections.K8SGatewayApiV1Beta1Httproutes.GroupVersionKind():
+	case collections.HTTPRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().HTTPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1beta1.HTTPRoute{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*gatewayv1beta1.HTTPRouteStatus)),
@@ -395,7 +394,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 	}
 	// TODO support setting field manager
 	switch orig.GroupVersionKind {
-	case collections.IstioExtensionsV1Alpha1Wasmplugins.GroupVersionKind():
+	case collections.WasmPlugin.Resource().GroupVersionKind():
 		oldRes := &clientextensionsv1alpha1.WasmPlugin{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*extensionsv1alpha1.WasmPlugin)),
@@ -410,7 +409,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.ExtensionsV1alpha1().WasmPlugins(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.IstioNetworkingV1Alpha3Destinationrules.GroupVersionKind():
+	case collections.DestinationRule.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.DestinationRule{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*networkingv1alpha3.DestinationRule)),
@@ -425,7 +424,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().DestinationRules(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.IstioNetworkingV1Alpha3Envoyfilters.GroupVersionKind():
+	case collections.EnvoyFilter.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.EnvoyFilter{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*networkingv1alpha3.EnvoyFilter)),
@@ -440,7 +439,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().EnvoyFilters(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.IstioNetworkingV1Alpha3Gateways.GroupVersionKind():
+	case collections.Gateway.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.Gateway{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*networkingv1alpha3.Gateway)),
@@ -455,7 +454,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().Gateways(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.ServiceEntry:
+	case collections.ServiceEntry.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.ServiceEntry{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*networkingv1alpha3.ServiceEntry)),
@@ -470,7 +469,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().ServiceEntries(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.IstioNetworkingV1Alpha3Sidecars.GroupVersionKind():
+	case collections.Sidecar.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.Sidecar{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*networkingv1alpha3.Sidecar)),
@@ -485,7 +484,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().Sidecars(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.VirtualService:
+	case collections.VirtualService.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.VirtualService{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*networkingv1alpha3.VirtualService)),
@@ -500,7 +499,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().VirtualServices(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.WorkloadEntry:
+	case collections.WorkloadEntry.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.WorkloadEntry{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*networkingv1alpha3.WorkloadEntry)),
@@ -515,7 +514,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().WorkloadEntries(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.IstioNetworkingV1Alpha3Workloadgroups.GroupVersionKind():
+	case collections.WorkloadGroup.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1alpha3.WorkloadGroup{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*networkingv1alpha3.WorkloadGroup)),
@@ -530,7 +529,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().WorkloadGroups(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.IstioNetworkingV1Beta1Proxyconfigs.GroupVersionKind():
+	case collections.ProxyConfig.Resource().GroupVersionKind():
 		oldRes := &clientnetworkingv1beta1.ProxyConfig{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*networkingv1beta1.ProxyConfig)),
@@ -545,7 +544,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1beta1().ProxyConfigs(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.IstioSecurityV1Beta1Authorizationpolicies.GroupVersionKind():
+	case collections.AuthorizationPolicy.Resource().GroupVersionKind():
 		oldRes := &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*securityv1beta1.AuthorizationPolicy)),
@@ -560,7 +559,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.SecurityV1beta1().AuthorizationPolicies(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.IstioSecurityV1Beta1Peerauthentications.GroupVersionKind():
+	case collections.PeerAuthentication.Resource().GroupVersionKind():
 		oldRes := &clientsecurityv1beta1.PeerAuthentication{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*securityv1beta1.PeerAuthentication)),
@@ -575,7 +574,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.SecurityV1beta1().PeerAuthentications(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.IstioSecurityV1Beta1Requestauthentications.GroupVersionKind():
+	case collections.RequestAuthentication.Resource().GroupVersionKind():
 		oldRes := &clientsecurityv1beta1.RequestAuthentication{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*securityv1beta1.RequestAuthentication)),
@@ -590,7 +589,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.SecurityV1beta1().RequestAuthentications(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.IstioTelemetryV1Alpha1Telemetries.GroupVersionKind():
+	case collections.Telemetry.Resource().GroupVersionKind():
 		oldRes := &clienttelemetryv1alpha1.Telemetry{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*telemetryv1alpha1.Telemetry)),
@@ -605,7 +604,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.TelemetryV1alpha1().Telemetries(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.K8SGatewayApiV1Alpha2Referencegrants.GroupVersionKind():
+	case collections.ReferenceGrant.Resource().GroupVersionKind():
 		oldRes := &gatewayv1alpha2.ReferenceGrant{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
@@ -620,7 +619,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return sc.GatewayV1alpha2().ReferenceGrants(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.K8SGatewayApiV1Alpha2Tcproutes.GroupVersionKind():
+	case collections.TCPRoute.Resource().GroupVersionKind():
 		oldRes := &gatewayv1alpha2.TCPRoute{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*gatewayv1alpha2.TCPRouteSpec)),
@@ -635,7 +634,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return sc.GatewayV1alpha2().TCPRoutes(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.K8SGatewayApiV1Alpha2Tlsroutes.GroupVersionKind():
+	case collections.TLSRoute.Resource().GroupVersionKind():
 		oldRes := &gatewayv1alpha2.TLSRoute{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*gatewayv1alpha2.TLSRouteSpec)),
@@ -650,7 +649,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return sc.GatewayV1alpha2().TLSRoutes(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.K8SGatewayApiV1Beta1Gatewayclasses.GroupVersionKind():
+	case collections.GatewayClass.Resource().GroupVersionKind():
 		oldRes := &gatewayv1beta1.GatewayClass{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*gatewayv1beta1.GatewayClassSpec)),
@@ -665,7 +664,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return sc.GatewayV1beta1().GatewayClasses().
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.K8SGatewayApiV1Beta1Gateways.GroupVersionKind():
+	case collections.KubernetesGateway.Resource().GroupVersionKind():
 		oldRes := &gatewayv1beta1.Gateway{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*gatewayv1beta1.GatewaySpec)),
@@ -680,7 +679,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return sc.GatewayV1beta1().Gateways(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case collections.K8SGatewayApiV1Beta1Httproutes.GroupVersionKind():
+	case collections.HTTPRoute.Resource().GroupVersionKind():
 		oldRes := &gatewayv1beta1.HTTPRoute{
 			ObjectMeta: origMeta,
 			Spec:       *(orig.Spec.(*gatewayv1beta1.HTTPRouteSpec)),
@@ -706,45 +705,45 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 		deleteOptions.Preconditions = &metav1.Preconditions{ResourceVersion: resourceVersion}
 	}
 	switch typ {
-	case collections.IstioExtensionsV1Alpha1Wasmplugins.GroupVersionKind():
+	case collections.WasmPlugin.Resource().GroupVersionKind():
 		return ic.ExtensionsV1alpha1().WasmPlugins(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.IstioNetworkingV1Alpha3Destinationrules.GroupVersionKind():
+	case collections.DestinationRule.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().DestinationRules(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.IstioNetworkingV1Alpha3Envoyfilters.GroupVersionKind():
+	case collections.EnvoyFilter.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().EnvoyFilters(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.IstioNetworkingV1Alpha3Gateways.GroupVersionKind():
+	case collections.Gateway.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().Gateways(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.ServiceEntry:
+	case collections.ServiceEntry.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().ServiceEntries(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.IstioNetworkingV1Alpha3Sidecars.GroupVersionKind():
+	case collections.Sidecar.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().Sidecars(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.VirtualService:
+	case collections.VirtualService.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().VirtualServices(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.WorkloadEntry:
+	case collections.WorkloadEntry.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadEntries(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.IstioNetworkingV1Alpha3Workloadgroups.GroupVersionKind():
+	case collections.WorkloadGroup.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadGroups(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.IstioNetworkingV1Beta1Proxyconfigs.GroupVersionKind():
+	case collections.ProxyConfig.Resource().GroupVersionKind():
 		return ic.NetworkingV1beta1().ProxyConfigs(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.IstioSecurityV1Beta1Authorizationpolicies.GroupVersionKind():
+	case collections.AuthorizationPolicy.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.IstioSecurityV1Beta1Peerauthentications.GroupVersionKind():
+	case collections.PeerAuthentication.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().PeerAuthentications(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.IstioSecurityV1Beta1Requestauthentications.GroupVersionKind():
+	case collections.RequestAuthentication.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().RequestAuthentications(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.IstioTelemetryV1Alpha1Telemetries.GroupVersionKind():
+	case collections.Telemetry.Resource().GroupVersionKind():
 		return ic.TelemetryV1alpha1().Telemetries(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.K8SGatewayApiV1Alpha2Referencegrants.GroupVersionKind():
+	case collections.ReferenceGrant.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().ReferenceGrants(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.K8SGatewayApiV1Alpha2Tcproutes.GroupVersionKind():
+	case collections.TCPRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TCPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.K8SGatewayApiV1Alpha2Tlsroutes.GroupVersionKind():
+	case collections.TLSRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1alpha2().TLSRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.K8SGatewayApiV1Beta1Gatewayclasses.GroupVersionKind():
+	case collections.GatewayClass.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().GatewayClasses().Delete(context.TODO(), name, deleteOptions)
-	case collections.K8SGatewayApiV1Beta1Gateways.GroupVersionKind():
+	case collections.KubernetesGateway.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().Gateways(namespace).Delete(context.TODO(), name, deleteOptions)
-	case collections.K8SGatewayApiV1Beta1Httproutes.GroupVersionKind():
+	case collections.HTTPRoute.Resource().GroupVersionKind():
 		return sc.GatewayV1beta1().HTTPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	default:
 		return fmt.Errorf("unsupported type: %v", typ)
@@ -752,11 +751,11 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 }
 
 var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.Config{
-	collections.IstioExtensionsV1Alpha1Wasmplugins.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.WasmPlugin.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientextensionsv1alpha1.WasmPlugin)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioExtensionsV1Alpha1Wasmplugins.GroupVersionKind(),
+				GroupVersionKind:  collections.WasmPlugin.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -771,11 +770,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.IstioNetworkingV1Alpha3Destinationrules.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.DestinationRule.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.DestinationRule)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Destinationrules.GroupVersionKind(),
+				GroupVersionKind:  collections.DestinationRule.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -790,11 +789,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.IstioNetworkingV1Alpha3Envoyfilters.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.EnvoyFilter.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.EnvoyFilter)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Envoyfilters.GroupVersionKind(),
+				GroupVersionKind:  collections.EnvoyFilter.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -809,11 +808,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.IstioNetworkingV1Alpha3Gateways.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.Gateway.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.Gateway)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Gateways.GroupVersionKind(),
+				GroupVersionKind:  collections.Gateway.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -828,11 +827,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	gvk.ServiceEntry: func(r runtime.Object) config.Config {
+	collections.ServiceEntry.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.ServiceEntry)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.ServiceEntry,
+				GroupVersionKind:  collections.ServiceEntry.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -847,11 +846,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.IstioNetworkingV1Alpha3Sidecars.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.Sidecar.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.Sidecar)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Sidecars.GroupVersionKind(),
+				GroupVersionKind:  collections.Sidecar.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -866,11 +865,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	gvk.VirtualService: func(r runtime.Object) config.Config {
+	collections.VirtualService.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.VirtualService)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.VirtualService,
+				GroupVersionKind:  collections.VirtualService.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -885,11 +884,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	gvk.WorkloadEntry: func(r runtime.Object) config.Config {
+	collections.WorkloadEntry.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.WorkloadEntry)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.WorkloadEntry,
+				GroupVersionKind:  collections.WorkloadEntry.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -904,11 +903,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.IstioNetworkingV1Alpha3Workloadgroups.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.WorkloadGroup.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.WorkloadGroup)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Workloadgroups.GroupVersionKind(),
+				GroupVersionKind:  collections.WorkloadGroup.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -923,11 +922,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.IstioNetworkingV1Beta1Proxyconfigs.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.ProxyConfig.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1beta1.ProxyConfig)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioNetworkingV1Beta1Proxyconfigs.GroupVersionKind(),
+				GroupVersionKind:  collections.ProxyConfig.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -942,11 +941,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.IstioSecurityV1Beta1Authorizationpolicies.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.AuthorizationPolicy.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientsecurityv1beta1.AuthorizationPolicy)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioSecurityV1Beta1Authorizationpolicies.GroupVersionKind(),
+				GroupVersionKind:  collections.AuthorizationPolicy.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -961,11 +960,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.IstioSecurityV1Beta1Peerauthentications.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.PeerAuthentication.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientsecurityv1beta1.PeerAuthentication)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioSecurityV1Beta1Peerauthentications.GroupVersionKind(),
+				GroupVersionKind:  collections.PeerAuthentication.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -980,11 +979,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.IstioSecurityV1Beta1Requestauthentications.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.RequestAuthentication.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientsecurityv1beta1.RequestAuthentication)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioSecurityV1Beta1Requestauthentications.GroupVersionKind(),
+				GroupVersionKind:  collections.RequestAuthentication.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -999,11 +998,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.IstioTelemetryV1Alpha1Telemetries.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.Telemetry.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clienttelemetryv1alpha1.Telemetry)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioTelemetryV1Alpha1Telemetries.GroupVersionKind(),
+				GroupVersionKind:  collections.Telemetry.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1018,11 +1017,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.K8SGatewayApiV1Alpha2Referencegrants.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.ReferenceGrant.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*gatewayv1alpha2.ReferenceGrant)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SGatewayApiV1Alpha2Referencegrants.GroupVersionKind(),
+				GroupVersionKind:  collections.ReferenceGrant.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1036,11 +1035,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: &obj.Spec,
 		}
 	},
-	collections.K8SGatewayApiV1Alpha2Tcproutes.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.TCPRoute.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*gatewayv1alpha2.TCPRoute)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SGatewayApiV1Alpha2Tcproutes.GroupVersionKind(),
+				GroupVersionKind:  collections.TCPRoute.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1055,11 +1054,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.K8SGatewayApiV1Alpha2Tlsroutes.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.TLSRoute.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*gatewayv1alpha2.TLSRoute)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SGatewayApiV1Alpha2Tlsroutes.GroupVersionKind(),
+				GroupVersionKind:  collections.TLSRoute.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1074,11 +1073,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.K8SGatewayApiV1Beta1Gatewayclasses.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.GatewayClass.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*gatewayv1beta1.GatewayClass)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SGatewayApiV1Beta1Gatewayclasses.GroupVersionKind(),
+				GroupVersionKind:  collections.GatewayClass.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1093,11 +1092,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.K8SGatewayApiV1Beta1Gateways.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.KubernetesGateway.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*gatewayv1beta1.Gateway)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SGatewayApiV1Beta1Gateways.GroupVersionKind(),
+				GroupVersionKind:  collections.KubernetesGateway.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1112,11 +1111,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.K8SGatewayApiV1Beta1Httproutes.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.HTTPRoute.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*gatewayv1beta1.HTTPRoute)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SGatewayApiV1Beta1Httproutes.GroupVersionKind(),
+				GroupVersionKind:  collections.HTTPRoute.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1131,11 +1130,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	collections.K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.MutatingWebhookConfiguration.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*admissionregistrationv1.MutatingWebhookConfiguration)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations.GroupVersionKind(),
+				GroupVersionKind:  collections.MutatingWebhookConfiguration.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1149,11 +1148,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: obj,
 		}
 	},
-	collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.CustomResourceDefinition.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*apiextensionsv1.CustomResourceDefinition)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.GroupVersionKind(),
+				GroupVersionKind:  collections.CustomResourceDefinition.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1167,11 +1166,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: &obj.Spec,
 		}
 	},
-	collections.K8SAppsV1Deployments.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.Deployment.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*appsv1.Deployment)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SAppsV1Deployments.GroupVersionKind(),
+				GroupVersionKind:  collections.Deployment.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1185,11 +1184,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: &obj.Spec,
 		}
 	},
-	collections.K8SCoreV1Configmaps.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.ConfigMap.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*corev1.ConfigMap)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SCoreV1Configmaps.GroupVersionKind(),
+				GroupVersionKind:  collections.ConfigMap.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1203,11 +1202,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: obj,
 		}
 	},
-	collections.K8SCoreV1Endpoints.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.Endpoints.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*corev1.Endpoints)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SCoreV1Endpoints.GroupVersionKind(),
+				GroupVersionKind:  collections.Endpoints.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1221,11 +1220,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: obj,
 		}
 	},
-	collections.K8SCoreV1Namespaces.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.Namespace.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*corev1.Namespace)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SCoreV1Namespaces.GroupVersionKind(),
+				GroupVersionKind:  collections.Namespace.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1239,11 +1238,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: &obj.Spec,
 		}
 	},
-	collections.K8SCoreV1Nodes.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.Node.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*corev1.Node)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SCoreV1Nodes.GroupVersionKind(),
+				GroupVersionKind:  collections.Node.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1257,11 +1256,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: &obj.Spec,
 		}
 	},
-	collections.K8SCoreV1Pods.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.Pod.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*corev1.Pod)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SCoreV1Pods.GroupVersionKind(),
+				GroupVersionKind:  collections.Pod.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1275,11 +1274,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: &obj.Spec,
 		}
 	},
-	collections.K8SCoreV1Secrets.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.Secret.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*corev1.Secret)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SCoreV1Secrets.GroupVersionKind(),
+				GroupVersionKind:  collections.Secret.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1293,11 +1292,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: obj,
 		}
 	},
-	collections.K8SCoreV1Serviceaccounts.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.ServiceAccount.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*corev1.ServiceAccount)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SCoreV1Serviceaccounts.GroupVersionKind(),
+				GroupVersionKind:  collections.ServiceAccount.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1311,11 +1310,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: obj,
 		}
 	},
-	collections.K8SCoreV1Services.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.Service.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*corev1.Service)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SCoreV1Services.GroupVersionKind(),
+				GroupVersionKind:  collections.Service.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1329,11 +1328,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: &obj.Spec,
 		}
 	},
-	collections.K8SNetworkingV1Ingresses.GroupVersionKind(): func(r runtime.Object) config.Config {
+	collections.Ingress.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*networkingv1.Ingress)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.K8SNetworkingV1Ingresses.GroupVersionKind(),
+				GroupVersionKind:  collections.Ingress.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

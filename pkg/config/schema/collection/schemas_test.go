@@ -265,6 +265,6 @@ func TestSchemas_Add(t *testing.T) {
 	g := NewWithT(t)
 
 	schemas := collection.SchemasFor(emptyResource)
-	g.Expect(schemas.Add(structResource)).To(Equal(collection.SchemasFor(emptyResource)))
+	g.Expect(schemas.Add(structResource)).To(Equal(collection.SchemasFor(emptyResource, structResource)))
 	g.Expect(schemas).To(Equal(collection.SchemasFor(emptyResource)))
 }
