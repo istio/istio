@@ -2507,7 +2507,7 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 	for i := 0; i < vsNum; i++ {
 		cfgs = append(cfgs, config.Config{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "vs-name-" + strconv.Itoa(i),
 				Namespace:        "default",
 			},

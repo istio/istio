@@ -44,7 +44,6 @@ import (
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
-	schemaresource "istio.io/istio/pkg/config/schema/resource"
 	sresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/sets"
@@ -366,7 +365,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		return resources, fmt.Errorf("unable to parse resource with no group, version and kind")
 	}
 
-	schema, found := r.FindByGroupVersionAliasesKind(schemaresource.FromKubernetesGVK(groupVersionKind))
+	schema, found := r.FindByGroupVersionAliasesKind(sresource.FromKubernetesGVK(groupVersionKind))
 
 	if !found {
 		return resources, &unknownSchemaError{
