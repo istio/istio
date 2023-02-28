@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -28,7 +26,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/workloadapi"
 )
 
 // ServiceController is a mock service controller
@@ -58,6 +55,7 @@ func (c *ServiceController) HasSynced() bool { return true }
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
+	model.NoopAmbientIndexes
 	services map[host.Name]*model.Service
 
 	networkGateways []model.NetworkGateway
@@ -83,22 +81,6 @@ type ServiceDiscovery struct {
 
 	// Single mutex for now - it's for debug only.
 	mutex sync.Mutex
-}
-
-func (sd *ServiceDiscovery) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
-	return nil, nil
-}
-
-func (sd *ServiceDiscovery) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
-	return nil
-}
-
-func (sd *ServiceDiscovery) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
-	return nil
-}
-
-func (sd *ServiceDiscovery) AmbientSnapshot() *model.AmbientSnapshot {
-	return nil
 }
 
 var _ model.ServiceDiscovery = &ServiceDiscovery{}

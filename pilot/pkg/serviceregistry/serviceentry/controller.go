@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/workloadapi"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -118,23 +117,8 @@ type Controller struct {
 	// Indicates whether this controller is for workload entries.
 	workloadEntryController bool
 
+	model.NoopAmbientIndexes
 	model.NetworkGatewaysHandler
-}
-
-func (s *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
-	return nil, nil
-}
-
-func (s *Controller) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
-	return nil
-}
-
-func (s *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
-	return nil
-}
-
-func (s *Controller) AmbientSnapshot() *model.AmbientSnapshot {
-	return nil
 }
 
 type Option func(*Controller)
