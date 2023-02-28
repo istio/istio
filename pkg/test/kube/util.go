@@ -35,6 +35,8 @@ import (
 var (
 	defaultRetryTimeout = retry.Timeout(time.Minute * 10)
 	defaultRetryDelay   = retry.BackoffDelay(time.Millisecond * 200)
+
+	ErrNoPodsFetched = fmt.Errorf("no pods fetched")
 )
 
 // PodFetchFunc fetches pods from a k8s Client.
@@ -85,8 +87,6 @@ func NewPodMustFetch(a istioKube.CLIClient, namespace string, selectors ...strin
 		return pods.Items, nil
 	}
 }
-
-var ErrNoPodsFetched = fmt.Errorf("no pods fetched")
 
 // CheckPodsAreReady checks whether the pods that are selected by the given function is in ready state or not.
 func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]corev1.Pod, error) {
