@@ -2904,6 +2904,77 @@ func VMTestCases(vms echo.Instances) func(t TrafficContext) {
 	}
 }
 
+func TestExternalService(t TrafficContext) {
+	// Let us enable outboundTrafficPolicy REGISTRY_ONLY
+	// on one of the workloads, to verify selective external connectivity
+	SidecarScope := fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: restrict-external-service
+  namespace: %s
+spec:
+  workloadSelector:
+    labels:
+      app: a
+  outboundTrafficPolicy:
+    mode: "REGISTRY_ONLY"
+`, t.Apps.EchoNamespace.Namespace.Name())
+
+	testCases := []struct {
+		name       string
+		statusCode int
+		from       echo.Instances
+		to         string
+		protocol   protocol.Instance
+		port       int
+	}{
+		// Test connectivity to external service from outboundTrafficPolicy restricted pod.
+		// The external service is exposed through a ServiceEntry, so the traffic should go through
+		{
+			name:       "traffic from outboundTrafficPolicy REGISTRY_ONLY to allowed host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.A,
+			to:         "fake.external.com",
+			protocol:   protocol.HTTPS,
+			port:       443,
+		},
+		// Test connectivity to external service from outboundTrafficPolicy restricted pod.
+		// Since there is no ServiceEntry created for example.com the traffic should fail.
+		{
+			name:       "traffic from outboundTrafficPolicy REGISTRY_ONLY to not allowed host",
+			statusCode: http.StatusBadGateway,
+			from:       t.Apps.A,
+			to:         "example.com",
+			protocol:   protocol.HTTP,
+			port:       80,
+		},
+		// Test connectivity to external service from outboundTrafficPolicy=PASS_THROUGH pod.
+		// Traffic should go through without the need for any explicit ServiceEntry
+		{
+			name:       "traffic from outboundTrafficPolicy PASS_THROUGH to any host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.B,
+			to:         "fake.external.com",
+			protocol:   protocol.HTTP,
+			port:       80,
+		},
+	}
+	for _, tc := range testCases {
+		t.RunTraffic(TrafficTestCase{
+			name:   fmt.Sprintf("%v to host %v", tc.from[0].NamespacedName(), tc.to),
+			config: SidecarScope,
+			opts: echo.CallOptions{
+				Address: tc.to,
+				Port:    echo.Port{Protocol: tc.protocol, ServicePort: tc.port},
+				Check: check.And(
+					check.Status(tc.statusCode),
+				),
+			},
+			call: tc.from[0].CallOrFail,
+		})
+	}
+}
+
 func destinationRule(app, mode string) string {
 	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
