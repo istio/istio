@@ -7,6 +7,7 @@ spec:
       proxyMetadata:
         ISTIO_META_ENABLE_HBONE: "true"
         ISTIO_DELTA_XDS: "true"
+        ISTIO_METADATA_DISCOVERY: "true"
     # Telemetry API is used with ambient instead of EnvoyFilters
     defaultProviders:
       metrics:
