@@ -20,10 +20,8 @@ import (
 	"strconv"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch/v5"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/kubectl/pkg/scheme"
 
 	"istio.io/istio/operator/pkg/name"
@@ -114,33 +112,6 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 	for k := range InstallTree[componentName].(ComponentTree) {
 		buildInstallTreeString(k, prefix+"  ", sb)
 	}
-}
-
-// applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
-func applyOverlay(current, overlay *unstructured.Unstructured) error {
-	cj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, current)
-	if err != nil {
-		return err
-	}
-
-	overlayUpdated := overlay.DeepCopy()
-	if strings.EqualFold(current.GetKind(), "service") {
-		if err := saveClusterIP(current, overlayUpdated); err != nil {
-			return err
-		}
-
-		saveNodePorts(current, overlayUpdated)
-	}
-
-	uj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, overlayUpdated)
-	if err != nil {
-		return err
-	}
-	merged, err := jsonpatch.MergePatch(cj, uj)
-	if err != nil {
-		return err
-	}
-	return runtime.DecodeInto(unstructured.UnstructuredJSONScheme, merged, current)
 }
 
 // createPortMap returns a map, mapping the value of the port and value of the nodePort

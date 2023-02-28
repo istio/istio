@@ -206,7 +206,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 			// When we no longer support < 1.16 use the code described in the linked issue.
 			// https://github.com/kubernetes-sigs/controller-runtime/issues/347
 			obj.SetResourceVersion(receiver.GetResourceVersion())
-			if err := h.client.Update(context.TODO(), receiver); err != nil {
+			if err := h.client.Update(context.TODO(), obj); err != nil {
 				return err
 			}
 			metrics.ResourceUpdateTotal.
