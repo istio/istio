@@ -1183,7 +1183,7 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 }
 
 func (s *Server) cleanupNode() {
-	log.Infof("server terminated, cleaning up")
+	log.Infof("Node-level network rule cleanup started")
 	if s.redirectMode == EbpfMode {
 		if err := s.delZtunnelEbpfOnNode(); err != nil {
 			log.Error(err)
@@ -1198,7 +1198,10 @@ func (s *Server) cleanupNode() {
 
 	deleteTunnelLinks(constants.InboundTun, constants.OutboundTun, true)
 
-	_ = Ipset.DestroySet()
+	err := Ipset.DestroySet()
+	if err != nil {
+		log.Warnf("unable to delete IPSet: %v", err)
+	}
 }
 
 func addTProxyMarks() error {
@@ -1306,6 +1309,9 @@ func routeFlushTable(table int) error {
 
 // This can be called on the node, as part of termination/cleanup,
 // or it can be called from within a pod netns, as a "clean slate" prep.
+//
+// TODO `netlink.RuleDel` SHOULD work here - but it does not. Unsure why.
+// So, for time being, rely on `ip`
 func deleteIPRules(prioritiesToDelete []string, warnOnFail bool) {
 	var exec []*ExecList
 	for _, pri := range prioritiesToDelete {
@@ -1323,21 +1329,28 @@ func deleteIPRules(prioritiesToDelete []string, warnOnFail bool) {
 // or it can be called from within a pod netns, as a "clean slate" prep.
 func deleteTunnelLinks(inboundName, outboundName string, warnOnFail bool) {
 	// Delete geneve tunnel links
-	err := netlink.LinkDel(&netlink.Geneve{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: inboundName,
-		},
-	})
+
+	// Re-fetch the container link to get its creation-time parameters, e.g. index and mac
+	// Deleting by name doesn't work.
+	inboundTun, err := netlink.LinkByName(inboundName)
 	if err != nil && warnOnFail {
-		log.Warnf("error deleting inbound tunnel: %v", err)
+		log.Warnf("did not find existing inbound tunnel %s to delete: %v", inboundName, err)
+	} else if inboundTun != nil {
+		err = netlink.LinkDel(inboundTun)
+		if err != nil && warnOnFail {
+			log.Warnf("error deleting inbound tunnel: %v", err)
+		}
 	}
-	err = netlink.LinkDel(&netlink.Geneve{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: outboundName,
-		},
-	})
+	outboundTun, err := netlink.LinkByName(outboundName)
 	if err != nil && warnOnFail {
-		log.Warnf("error deleting outbound tunnel: %v", err)
+		log.Warnf("did not find existing outbound tunnel %s to delete: %v", outboundName, err)
+		// Bail, if we can't find it don't try to delete it
+		return
+	} else if outboundTun != nil {
+		err = netlink.LinkDel(outboundTun)
+		if err != nil && warnOnFail {
+			log.Warnf("error deleting outbound tunnel: %v", err)
+		}
 	}
 }
 

@@ -95,6 +95,7 @@ var rootCmd = &cobra.Command{
 				return fmt.Errorf("failed to create ambient informer service: %v", err)
 			}
 			server.Start()
+			defer server.Stop()
 		}
 
 		isReady := install.StartServer()

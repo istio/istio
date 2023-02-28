@@ -119,11 +119,16 @@ func buildKubeClient(kubeConfig string) (kube.Client, error) {
 }
 
 func (s *Server) Start() {
+	log.Debug("CNI ambient server starting")
 	s.kubeClient.RunAndWait(s.ctx.Done())
 	go func() {
 		s.queue.Run(s.ctx.Done())
-		s.cleanupNode()
 	}()
+}
+
+func (s *Server) Stop() {
+	log.Info("CNI ambient server terminating, cleaning up node net rules")
+	s.cleanupNode()
 }
 
 func (s *Server) UpdateConfig() {
