@@ -4,7 +4,7 @@ metadata:
   name: bookinfo
   labels:
     istio-injection: "enabled"
-spec: { }
+spec: {}
 ---
 # Deployment should generate a warning: two services using that deployment
 # using the same port but different protocol.
@@ -176,9 +176,9 @@ metadata:
     service: reviews
 spec:
   ports:
-    - port: 9080
-      name: http
-      protocol: HTTP
+  - port: 9080
+    name: http
+    protocol: HTTP
   selector:
     app: reviews
 ---
@@ -321,7 +321,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: injection-disabled-ns
-spec: { }
+spec: {}
 ---
 # Deployment has multiple service attached but using same port but different protocol.
 # Sidecar is enabled although the namespaced doesn't have automatic injection.
