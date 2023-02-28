@@ -152,7 +152,7 @@ func (s *ServiceAssociationAnalyzer) findMatchingServices(r *resource.Instance, 
 
 		sSelector := k8s_labels.SelectorFromSet(s.Selector)
 		pLabels := k8s_labels.Set(d.Template.Labels)
-		if sSelector.Matches(pLabels) && r.Metadata.FullName.Namespace.String() == deploymentNS {
+		if !sSelector.Empty() && sSelector.Matches(pLabels) && r.Metadata.FullName.Namespace.String() == deploymentNS {
 			matchingSvcs = append(matchingSvcs, ServiceSpecWithName{r.Metadata.FullName.String(), s})
 		}
 
