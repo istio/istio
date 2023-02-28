@@ -174,7 +174,7 @@ func TestConfigureTracing(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hcm := &hcm.HttpConnectionManager{}
-			gotRfCtx, gotReqIDExtCtx := configureTracingFromSpec(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0)
+			gotRfCtx, gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0)
 			if diff := cmp.Diff(tc.want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 			}
