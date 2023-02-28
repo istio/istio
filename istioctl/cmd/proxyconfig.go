@@ -852,9 +852,6 @@ func logCmd() *cobra.Command {
 					loggerNames[name] = Envoy
 				}
 			}
-			if err != nil {
-				return err
-			}
 
 			destLoggerLevels := map[string]Level{}
 			if reset {
