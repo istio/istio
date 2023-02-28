@@ -205,9 +205,7 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 			// The correct way to do this is with a server-side apply. However, this requires users to be running Kube 1.16.
 			// When we no longer support < 1.16 use the code described in the linked issue.
 			// https://github.com/kubernetes-sigs/controller-runtime/issues/347
-			if err := applyOverlay(receiver, obj); err != nil {
-				return err
-			}
+			obj.SetResourceVersion(receiver.GetResourceVersion())
 			if err := h.client.Update(context.TODO(), receiver); err != nil {
 				return err
 			}

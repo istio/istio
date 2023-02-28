@@ -118,13 +118,6 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 
 // applyOverlay applies an overlay using JSON patch strategy over the current Object in place.
 func applyOverlay(current, overlay *unstructured.Unstructured) error {
-	overlaySpec, _, err := unstructured.NestedFieldNoCopy(overlay.Object, "spec")
-	if err != nil {
-		return err
-	}
-	if err := unstructured.SetNestedField(current.Object, overlaySpec, "spec"); err != nil {
-		return err
-	}
 	cj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, current)
 	if err != nil {
 		return err
