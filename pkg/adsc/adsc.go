@@ -512,7 +512,7 @@ func (a *ADSC) handleRecv() {
 		}
 
 		// Group-value-kind - used for high level api generator.
-		gvk, isMCP := convertTypeURLToMCPGVK(msg.TypeUrl)
+		resourceGvk, isMCP := convertTypeURLToMCPGVK(msg.TypeUrl)
 
 		adscLog.Info("Received ", a.url, " type ", msg.TypeUrl,
 			" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
@@ -583,7 +583,7 @@ func (a *ADSC) handleRecv() {
 			a.handleRDS(routes)
 		default:
 			if isMCP {
-				a.handleMCP(gvk, msg.Resources)
+				a.handleMCP(resourceGvk, msg.Resources)
 			}
 		}
 
@@ -594,8 +594,8 @@ func (a *ADSC) handleRecv() {
 
 		a.mutex.Lock()
 		if isMCP {
-			if _, exist := a.sync[gvk.String()]; !exist {
-				a.sync[gvk.String()] = time.Now()
+			if _, exist := a.sync[resourceGvk.String()]; !exist {
+				a.sync[resourceGvk.String()] = time.Now()
 			}
 		}
 		a.Received[msg.TypeUrl] = msg
