@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -29,8 +30,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
-
-const missingResourceMessageFragment = `the server could not find the requested resource`
 
 func waypointCmd() *cobra.Command {
 	var waypointServiceAccount string
@@ -114,7 +113,7 @@ func waypointCmd() *cobra.Command {
 				FieldManager: "istioctl",
 			})
 			if err != nil {
-				if strings.Contains(err.Error(), missingResourceMessageFragment) {
+				if errors.IsNotFound(err) {
 					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint")
 				}
 				return err
