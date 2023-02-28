@@ -76,7 +76,7 @@ const (
 
 // NewXdsCache returns an instance of a cache.
 func NewXdsCache() XdsCache {
-	var cache = XdsCacheImpl{
+	cache := XdsCacheImpl{
 		eds: newTypedXdsCache[uint64](),
 	}
 	if features.EnableCDSCaching {
@@ -189,7 +189,7 @@ func (x XdsCacheImpl) Keys(t string) []any {
 }
 
 func convertToAnySlices[K comparable](in []K) []any {
-	var out = make([]any, len(in))
+	out := make([]any, len(in))
 	for i, k := range in {
 		out[i] = k
 	}
