@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/analysis/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
@@ -54,7 +53,7 @@ func TestCorrectArgs(t *testing.T) {
 			},
 		},
 	}
-	a := ValidationAnalyzer{s: testSchema.Resource()}
+	a := ValidationAnalyzer{s: testSchema}
 	a.Analyze(ctx)
 }
 
@@ -78,7 +77,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 		return nil, nil
 	})
 
-	a := ValidationAnalyzer{s: testSchema.Resource()}
+	a := ValidationAnalyzer{s: testSchema}
 
 	t.Run("CheckMetadataInputs", func(t *testing.T) {
 		g := NewWithT(t)
@@ -131,19 +130,17 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	})
 }
 
-func schemaWithValidateFn(validateFn func(cfg config.Config) (validation.Warning, error)) collection.Schema {
+func schemaWithValidateFn(validateFn func(cfg config.Config) (validation.Warning, error)) resource2.Schema {
 	original := collections.IstioNetworkingV1Alpha3Virtualservices
-	return collection.Builder{
-		Resource: resource2.Builder{
-			ClusterScoped: original.Resource().IsClusterScoped(),
-			Kind:          original.Resource().Kind(),
-			Plural:        original.Resource().Plural(),
-			Group:         original.Resource().Group(),
-			Version:       original.Resource().Version(),
-			Proto:         original.Resource().Proto(),
-			ProtoPackage:  original.Resource().ProtoPackage(),
-			ValidateProto: validateFn,
-		}.MustBuild(),
+	return resource2.Builder{
+		ClusterScoped: original.IsClusterScoped(),
+		Kind:          original.Kind(),
+		Plural:        original.Plural(),
+		Group:         original.Group(),
+		Version:       original.Version(),
+		Proto:         original.Proto(),
+		ProtoPackage:  original.ProtoPackage(),
+		ValidateProto: validateFn,
 	}.MustBuild()
 }
 

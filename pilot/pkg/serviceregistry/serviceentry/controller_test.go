@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/spiffe"
@@ -1348,7 +1349,7 @@ func TestNonServiceConfig(t *testing.T) {
 	// Create a non-service configuration element. This should not affect the service registry at all.
 	cfg := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Destinationrules.GroupVersionKind(),
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
 			Domain:            "cluster.local",
@@ -1376,7 +1377,7 @@ func TestNonServiceConfig(t *testing.T) {
 func TestServicesDiff(t *testing.T) {
 	updatedHTTPDNS := &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
+			GroupVersionKind:  gvk.ServiceEntry,
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",
 			CreationTimestamp: GlobalTime,

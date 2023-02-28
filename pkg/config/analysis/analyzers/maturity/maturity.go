@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -43,7 +42,7 @@ func (*AlphaAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "annotations.AlphaAnalyzer",
 		Description: "Checks for alpha Istio annotations in Kubernetes resources",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.Namespace,
 			gvk.Service,
 			gvk.Pod,

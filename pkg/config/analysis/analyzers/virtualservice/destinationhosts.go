@@ -18,11 +18,11 @@ import (
 	"fmt"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -41,7 +41,7 @@ func (a *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.DestinationHostAnalyzer",
 		Description: "Checks the destination hosts associated with each virtual service",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.ServiceEntry,
 			gvk.VirtualService,
 			gvk.Service,

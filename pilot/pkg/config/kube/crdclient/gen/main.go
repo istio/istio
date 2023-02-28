@@ -27,8 +27,8 @@ import (
 	"path"
 	"text/template"
 
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -59,31 +59,31 @@ var (
 )
 
 // MakeConfigData prepare data for code generation for the given schema.
-func MakeConfigData(schema collection.Schema) ConfigData {
+func MakeConfigData(schema resource.Schema) ConfigData {
 	out := ConfigData{
-		Namespaced:      !schema.Resource().IsClusterScoped(),
-		VariableName:    schema.VariableName(),
-		APIImport:       apiImport[schema.Resource().ProtoPackage()],
-		ClientImport:    clientGoImport[schema.Resource().ProtoPackage()],
-		ClientGroupPath: clientGoAccessPath[schema.Resource().ProtoPackage()],
-		ClientTypePath:  clientGoTypePath[schema.Resource().Plural()],
-		Kind:            schema.Resource().Kind(),
+		Namespaced:      !schema.IsClusterScoped(),
+		VariableName:    schema.Identifier(),
+		APIImport:       apiImport[schema.ProtoPackage()],
+		ClientImport:    clientGoImport[schema.ProtoPackage()],
+		ClientGroupPath: clientGoAccessPath[schema.ProtoPackage()],
+		ClientTypePath:  clientGoTypePath[schema.Plural()],
+		Kind:            schema.Kind(),
 		Client:          "ic",
-		StatusAPIImport: apiImport[schema.Resource().StatusPackage()],
-		StatusKind:      schema.Resource().StatusKind(),
+		StatusAPIImport: apiImport[schema.StatusPackage()],
+		StatusKind:      schema.StatusKind(),
 	}
 	out.ClientType = out.Kind
-	if _, f := GatewayAPITypes.FindByGroupVersionKind(schema.Resource().GroupVersionKind()); f {
+	if _, f := GatewayAPITypes.FindByGroupVersionKind(schema.GroupVersionKind()); f {
 		out.Client = "sc"
 		out.ClientType += "Spec"
-	} else if _, f := NonIstioTypes.FindByGroupVersionKind(schema.Resource().GroupVersionKind()); f {
+	} else if _, f := NonIstioTypes.FindByGroupVersionKind(schema.GroupVersionKind()); f {
 		out.ClientType += "Spec"
 		out.Readonly = true
 	}
 	if o, f := clientGoTypeOverrides[out.Kind]; f {
 		out.ClientType = o
 	}
-	if _, f := noSpec[schema.Resource().Plural()]; f {
+	if _, f := noSpec[schema.Plural()]; f {
 		out.NoSpec = true
 	}
 	log.Printf("Generating Istio type %s for %s/%s CRD\n", out.VariableName, out.APIImport, out.Kind)

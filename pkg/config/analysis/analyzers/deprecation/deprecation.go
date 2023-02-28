@@ -20,10 +20,10 @@ import (
 	k8sext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -57,7 +57,7 @@ var deprecatedCRDs = []k8sext.CustomResourceDefinitionSpec{
 
 // Metadata implements analyzer.Analyzer
 func (*FieldAnalyzer) Metadata() analysis.Metadata {
-	deprecationInputs := collection.Inputs{
+	deprecationInputs := []config.GroupVersionKind{
 		gvk.VirtualService,
 		gvk.Sidecar,
 		gvk.CustomResourceDefinition,

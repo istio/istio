@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informer"
 	"istio.io/pkg/log"
@@ -36,7 +36,7 @@ type cacheHandler struct {
 	client   *Client
 	informer informer.FilteredSharedIndexInformer
 	lister   func(namespace string) cache.GenericNamespaceLister
-	schema   collection.Schema
+	schema   resource.Schema
 }
 
 func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
@@ -49,7 +49,7 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 		return nil
 	}
 
-	currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+	currConfig := TranslateObject(currItem, h.schema.GroupVersionKind(), h.client.domainSuffix)
 
 	var oldConfig config.Config
 	if old != nil {
@@ -58,7 +58,7 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 			log.Warnf("Old Object can not be converted to runtime Object %v, is type %T", old, old)
 			return nil
 		}
-		oldConfig = TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+		oldConfig = TranslateObject(oldItem, h.schema.GroupVersionKind(), h.client.domainSuffix)
 	}
 
 	if h.client.objectInRevision(&currConfig) {
@@ -82,13 +82,13 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 
 func (h *cacheHandler) callHandlers(old config.Config, curr config.Config, event model.Event) {
 	// TODO we may consider passing a pointer to handlers instead of the value. While spec is a pointer, the meta will be copied
-	for _, f := range h.client.handlers[h.schema.Resource().GroupVersionKind()] {
+	for _, f := range h.client.handlers[h.schema.GroupVersionKind()] {
 		f(old, curr, event)
 	}
 }
 
-func createCacheHandler(cl *Client, schema collection.Schema, i informers.GenericInformer) *cacheHandler {
-	scope.Debugf("registered CRD %v", schema.Resource().GroupVersionKind())
+func createCacheHandler(cl *Client, schema resource.Schema, i informers.GenericInformer) *cacheHandler {
+	scope.Debugf("registered CRD %v", schema.GroupVersionKind())
 	h := &cacheHandler{
 		client:   cl,
 		schema:   schema,
@@ -96,14 +96,14 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 	}
 
 	h.lister = func(namespace string) cache.GenericNamespaceLister {
-		gr := schema.Resource().GroupVersionResource().GroupResource()
-		if schema.Resource().IsClusterScoped() || namespace == metav1.NamespaceAll {
+		gr := schema.GroupVersionResource().GroupResource()
+		if schema.IsClusterScoped() || namespace == metav1.NamespaceAll {
 			return cache.NewGenericLister(h.informer.GetIndexer(), gr)
 		}
 		return cache.NewGenericLister(h.informer.GetIndexer(), gr).ByNamespace(namespace)
 	}
 
-	kind := schema.Resource().Kind()
+	kind := schema.Kind()
 	h.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			incrementEvent(kind, "add")

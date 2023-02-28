@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
@@ -443,7 +442,7 @@ func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error)
 
 			origin := &kube3.Origin{
 				Collection: gvk.Pod,
-				Kind:       collections.K8SCoreV1Pods.Resource().Kind(),
+				Kind:       gvk.Pod.Kind,
 				FullName: resource.FullName{
 					Namespace: resource.Namespace(pod.Namespace),
 					Name:      resource.LocalName(pod.Name),

@@ -42,6 +42,9 @@ type Schema interface {
 	// IsClusterScoped indicates that this resource is scoped to a particular namespace within a cluster.
 	IsClusterScoped() bool
 
+	// Identifier returns a unique identifier for the resource
+	Identifier() string
+
 	// Kind for this resource.
 	Kind() string
 
@@ -96,6 +99,9 @@ type Schema interface {
 type Builder struct {
 	// ClusterScoped is true for resource in cluster-level.
 	ClusterScoped bool
+
+	// Identifier is the unique identifier for the resource
+	Identifier string
 
 	// Kind is the config proto type.
 	Kind string
@@ -172,6 +178,7 @@ func (b Builder) BuildNoValidate() Schema {
 		versionAliases: b.VersionAliases,
 		proto:          b.Proto,
 		goPackage:      b.ProtoPackage,
+		identifier:     b.Identifier,
 		reflectType:    b.ReflectType,
 		validateConfig: b.ValidateProto,
 		statusType:     b.StatusType,
@@ -191,6 +198,7 @@ type schemaImpl struct {
 	reflectType    reflect.Type
 	statusType     reflect.Type
 	statusPackage  string
+	identifier     string
 }
 
 func (s *schemaImpl) GroupVersionKind() config.GroupVersionKind {
@@ -207,6 +215,10 @@ func (s *schemaImpl) GroupVersionResource() schema.GroupVersionResource {
 
 func (s *schemaImpl) IsClusterScoped() bool {
 	return s.clusterScoped
+}
+
+func (s *schemaImpl) Identifier() string {
+	return s.identifier
 }
 
 func (s *schemaImpl) Kind() string {

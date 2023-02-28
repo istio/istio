@@ -17,11 +17,11 @@ package gateway
 import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -33,7 +33,7 @@ func (*CertificateAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "gateway.CertificateAnalyzer",
 		Description: "Checks a gateway certificate",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.Gateway,
 		},
 	}

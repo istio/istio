@@ -31,8 +31,8 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -43,7 +43,7 @@ var (
 	timeout      time.Duration
 	generation   string
 	verbose      bool
-	targetSchema collection.Schema
+	targetSchema resource.Schema
 	clientGetter func(string, string) (dynamic.Interface, error)
 )
 
@@ -91,7 +91,7 @@ func waitCmd() *cobra.Command {
 			}
 			generations := []string{firstVersion}
 			targetResource := config.Key(
-				targetSchema.Resource().Group(), targetSchema.Resource().Version(), targetSchema.Resource().Kind(),
+				targetSchema.Group(), targetSchema.Version(), targetSchema.Kind(),
 				nameflag, namespace)
 			for {
 				// run the check here as soon as we start
@@ -159,7 +159,7 @@ func validateType(kind string) error {
 	kind = strings.ReplaceAll(kind, "-", "")
 
 	for _, s := range collections.Pilot.All() {
-		if strings.EqualFold(kind, s.Resource().Kind()) {
+		if strings.EqualFold(kind, s.Kind()) {
 			targetSchema = s
 			return nil
 		}
@@ -245,7 +245,7 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		if err != nil {
 			return err
 		}
-		r := dclient.Resource(targetSchema.Resource().GroupVersionResource()).Namespace(namespace)
+		r := dclient.Resource(targetSchema.GroupVersionResource()).Namespace(namespace)
 		watch, err := r.Watch(context.TODO(), metav1.ListOptions{FieldSelector: "metadata.name=" + nf})
 		if err != nil {
 			return err

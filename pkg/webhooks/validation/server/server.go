@@ -224,7 +224,7 @@ func (wh *Webhook) validate(request *kube.AdmissionRequest) *kube.AdmissionRespo
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
-	warnings, err := s.Resource().ValidateConfig(*out)
+	warnings, err := s.ValidateConfig(*out)
 	if err != nil {
 		scope.Infof("configuration is invalid: %v", err)
 		reportValidationFailed(request, reasonInvalidConfig)

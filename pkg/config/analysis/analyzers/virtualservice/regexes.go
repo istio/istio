@@ -19,11 +19,11 @@ import (
 	"regexp"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -37,7 +37,7 @@ func (a *RegexAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.RegexAnalyzer",
 		Description: "Checks regex syntax",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.VirtualService,
 		},
 	}

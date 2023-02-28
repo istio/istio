@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
@@ -355,7 +355,7 @@ func createFakeAuthorizationPolicies(configs []config.Config, t *testing.T) *Aut
 func newConfig(name, ns string, spec config.Spec) config.Config {
 	return config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.AuthorizationPolicy,
 			Name:             name,
 			Namespace:        ns,
 		},

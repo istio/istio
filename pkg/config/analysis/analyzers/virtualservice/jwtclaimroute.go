@@ -22,12 +22,12 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/util/constant"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -40,7 +40,7 @@ func (s *JWTClaimRouteAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.JWTClaimRouteAnalyzer",
 		Description: "Checks the VirtualService using JWT claim based routing has corresponding RequestAuthentication",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.VirtualService,
 			gvk.RequestAuthentication,
 			gvk.Gateway,

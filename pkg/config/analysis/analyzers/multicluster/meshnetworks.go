@@ -21,11 +21,11 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/multicluster"
 )
@@ -47,7 +47,7 @@ func (s *MeshNetworksAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "meshnetworks.MeshNetworksAnalyzer",
 		Description: "Check the validity of MeshNetworks in the cluster",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.MeshNetworks,
 			gvk.Secret,
 		},

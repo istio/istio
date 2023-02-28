@@ -27,8 +27,8 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	sresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/pkg/log"
 )
 
@@ -77,9 +77,9 @@ func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName
 		log.Warnf("collection %s could not be found", col.String())
 		return nil
 	}
-	cfg := i.store.Get(colschema.Resource().GroupVersionKind(), name.Name.String(), name.Namespace.String())
+	cfg := i.store.Get(colschema.GroupVersionKind(), name.Name.String(), name.Namespace.String())
 	if cfg == nil {
-		log.Debugf(" %s resource [%s/%s] could not be found", colschema.Resource().GroupVersionKind(), name.Namespace.String(), name.Name.String())
+		log.Debugf(" %s resource [%s/%s] could not be found", colschema.GroupVersionKind(), name.Namespace.String(), name.Name.String())
 		return nil
 	}
 	result, err := cfgToInstance(*cfg, col, colschema)
@@ -114,7 +114,7 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 		return
 	}
 	// TODO: this needs to include file source as well
-	cfgs, err := i.store.List(colschema.Resource().GroupVersionKind(), "")
+	cfgs, err := i.store.List(colschema.GroupVersionKind(), "")
 	if err != nil {
 		// TODO: demote this log before merging
 		log.Errorf("collection %s could not be listed: %s", col.String(), err)
@@ -162,8 +162,8 @@ func (i *istiodContext) Canceled() bool {
 	}
 }
 
-func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema collection.Schema) (*resource.Instance, error) {
-	res := resource.PilotConfigToInstance(&cfg, colschema.Resource())
+func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema sresource.Schema) (*resource.Instance, error) {
+	res := resource.PilotConfigToInstance(&cfg, colschema)
 	fmstring := cfg.Meta.Annotations[file.FieldMapKey]
 	var out map[string]int
 	if fmstring != "" {
@@ -183,7 +183,7 @@ func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema col
 	}
 	res.Origin = &kube.Origin{
 		Collection: col,
-		Kind:       colschema.Resource().Kind(),
+		Kind:       colschema.Kind(),
 		FullName:   res.Metadata.FullName,
 		Version:    resource.Version(cfg.ResourceVersion),
 		Ref:        outref,

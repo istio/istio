@@ -25,8 +25,8 @@ import (
 	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -69,7 +69,7 @@ func TestObjectsFromOtherRevisionsSkipped(t *testing.T) {
 				// Register a handler that records all received events in a slice
 				var events []model.Event
 				cl.RegisterEventHandler(
-					schema.Resource().GroupVersionKind(),
+					schema.GroupVersionKind(),
 					func(old config.Config, cur config.Config, e model.Event) {
 						events = append(events, e)
 					},
@@ -131,7 +131,7 @@ func TestUpdateInOtherRevision(t *testing.T) {
 			// Register a handler that records all received events in a slice
 			var events []model.Event
 			cl.RegisterEventHandler(
-				schema.Resource().GroupVersionKind(),
+				schema.GroupVersionKind(),
 				func(old config.Config, cur config.Config, e model.Event) {
 					events = append(events, e)
 				},
@@ -149,7 +149,7 @@ func TestUpdateInOtherRevision(t *testing.T) {
 	}
 }
 
-func buildClientAndCacheHandler(t test.Failer, schema collection.Schema) (*Client, *cacheHandler) {
+func buildClientAndCacheHandler(t test.Failer, schema resource.Schema) (*Client, *cacheHandler) {
 	cl, err := New(kube.NewFakeClient(), Option{})
 	assert.NoError(t, err)
 

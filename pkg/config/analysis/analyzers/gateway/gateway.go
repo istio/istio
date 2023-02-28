@@ -21,11 +21,11 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -40,7 +40,7 @@ func (*IngressGatewayPortAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "gateway.IngressGatewayPortAnalyzer",
 		Description: "Checks a gateway's ports against the gateway's Kubernetes service ports",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.Gateway,
 			gvk.Pod,
 			gvk.Service,

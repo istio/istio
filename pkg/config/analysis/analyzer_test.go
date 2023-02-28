@@ -28,7 +28,7 @@ import (
 
 type analyzer struct {
 	name   string
-	inputs collection.Inputs
+	inputs []config.GroupVersionKind
 	ran    bool
 }
 
@@ -61,18 +61,18 @@ func TestCombinedAnalyzer(t *testing.T) {
 	col3 := newSchema("col3")
 	col4 := newSchema("col4")
 
-	a1 := &analyzer{name: "a1", inputs: collection.Inputs{col1.Resource().GroupVersionKind()}}
-	a2 := &analyzer{name: "a2", inputs: collection.Inputs{col2.Resource().GroupVersionKind()}}
-	a3 := &analyzer{name: "a3", inputs: collection.Inputs{col3.Resource().GroupVersionKind()}}
-	a4 := &analyzer{name: "a4", inputs: collection.Inputs{col4.Resource().GroupVersionKind()}}
+	a1 := &analyzer{name: "a1", inputs: []config.GroupVersionKind{col1.GroupVersionKind()}}
+	a2 := &analyzer{name: "a2", inputs: []config.GroupVersionKind{col2.GroupVersionKind()}}
+	a3 := &analyzer{name: "a3", inputs: []config.GroupVersionKind{col3.GroupVersionKind()}}
+	a4 := &analyzer{name: "a4", inputs: []config.GroupVersionKind{col4.GroupVersionKind()}}
 
 	a := Combine("combined", a1, a2, a3, a4)
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Resource().GroupVersionKind(), col2.Resource().GroupVersionKind(), col3.Resource().GroupVersionKind(), col4.Resource().GroupVersionKind()))
+	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.GroupVersionKind(), col2.GroupVersionKind(), col3.GroupVersionKind(), col4.GroupVersionKind()))
 
 	removed := a.RemoveSkipped(collection.NewSchemasBuilder().MustAdd(col1).MustAdd(col2).Build())
 
 	g.Expect(removed).To(ConsistOf(a3.Metadata().Name, a4.Metadata().Name))
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Resource().GroupVersionKind(), col2.Resource().GroupVersionKind()))
+	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.GroupVersionKind(), col2.GroupVersionKind()))
 
 	a.Analyze(&context{})
 
@@ -82,13 +82,11 @@ func TestCombinedAnalyzer(t *testing.T) {
 	g.Expect(a4.ran).To(BeFalse())
 }
 
-func newSchema(name string) collection.Schema {
-	return collection.Builder{
-		Resource: resource2.Builder{
-			Kind:         name,
-			Plural:       name + "s",
-			ProtoPackage: "github.com/gogo/protobuf/types",
-			Proto:        "google.protobuf.Empty",
-		}.MustBuild(),
+func newSchema(name string) resource2.Schema {
+	return resource2.Builder{
+		Kind:         name,
+		Plural:       name + "s",
+		ProtoPackage: "github.com/gogo/protobuf/types",
+		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 }

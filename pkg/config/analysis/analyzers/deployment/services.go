@@ -21,11 +21,11 @@ import (
 	core_v1 "k8s.io/api/core/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -50,7 +50,7 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "deployment.MultiServiceAnalyzer",
 		Description: "Checks association between services and pods",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.Service,
 			gvk.Deployment,
 			gvk.Namespace,

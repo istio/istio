@@ -45,7 +45,7 @@ import (
 func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreController, kube.CLIClient) {
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
-		createCRD(t, fake, s.Resource())
+		createCRD(t, fake, s)
 	}
 	stop := test.NewStop(t)
 	config, err := New(fake, Option{})
@@ -63,7 +63,7 @@ func TestClientNoCRDs(t *testing.T) {
 	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
 	store, _ := makeClient(t, schema)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
-	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
+	r := collections.IstioNetworkingV1Alpha3Virtualservices
 	configMeta := config.Meta{
 		Name:             "name",
 		Namespace:        "ns",
@@ -102,7 +102,7 @@ func TestClientDelayedCRDs(t *testing.T) {
 	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
 	store, fake := makeClient(t, schema)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
-	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
+	r := collections.IstioNetworkingV1Alpha3Virtualservices
 
 	// Create a virtual service
 	configMeta := config.Meta{
@@ -156,10 +156,9 @@ func TestClient(t *testing.T) {
 	configName := "test"
 	configNamespace := "test-ns"
 	timeout := retry.Timeout(time.Millisecond * 200)
-	for _, c := range collections.PilotGatewayAPI.All() {
-		name := c.Resource().Kind()
+	for _, r := range collections.PilotGatewayAPI.All() {
+		name := r.Kind()
 		t.Run(name, func(t *testing.T) {
-			r := c.Resource()
 			configMeta := config.Meta{
 				GroupVersionKind: r.GroupVersionKind(),
 				Name:             configName,
@@ -271,8 +270,7 @@ func TestClient(t *testing.T) {
 	}
 
 	t.Run("update status", func(t *testing.T) {
-		c := collections.IstioNetworkingV1Alpha3Workloadgroups
-		r := c.Resource()
+		r := collections.IstioNetworkingV1Alpha3Workloadgroups
 		name := "name1"
 		namespace := "bar"
 		cfgMeta := config.Meta{
@@ -336,7 +334,7 @@ func TestClient(t *testing.T) {
 func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 	fake := kube.NewFakeClient()
 	for _, s := range collections.Istio.All() {
-		createCRD(t, fake, s.Resource())
+		createCRD(t, fake, s)
 	}
 
 	// Populate the client with some ServiceEntrys such that 1/3 are in the default revision and
@@ -415,7 +413,7 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 	if !ok {
 		return
 	}
-	fmg := fmc.Resource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().GroupVersionResource())
+	fmg := fmc.Resource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.GroupVersionResource())
 	fmd, ok := fmg.(metadatafake.MetadataClient)
 	if !ok {
 		return

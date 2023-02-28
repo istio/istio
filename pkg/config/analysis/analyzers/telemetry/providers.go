@@ -17,11 +17,11 @@ package telemetry
 import (
 	"istio.io/api/mesh/v1alpha1"
 	telemetryapi "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -34,7 +34,7 @@ func (a *ProdiverAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "telemetry.ProviderAnalyzer",
 		Description: "Validates that providers in telemery resource is valid",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.Telemetry,
 			gvk.MeshConfig,
 		},

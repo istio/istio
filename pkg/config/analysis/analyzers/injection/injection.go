@@ -23,12 +23,12 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -49,7 +49,7 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "injection.Analyzer",
 		Description: "Checks conditions related to Istio sidecar injection",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.Namespace,
 			gvk.Pod,
 			gvk.ConfigMap,

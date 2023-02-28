@@ -71,7 +71,7 @@ func (c *CombinedAnalyzer) Analyze(ctx Context) {
 func (c *CombinedAnalyzer) RemoveSkipped(schemas collection.Schemas) []string {
 	s := sets.New[config.GroupVersionKind]()
 	for _, sc := range schemas.All() {
-		s.Insert(sc.Resource().GroupVersionKind())
+		s.Insert(sc.GroupVersionKind())
 	}
 
 	var enabled []Analyzer
@@ -102,7 +102,7 @@ func (c *CombinedAnalyzer) AnalyzerNames() []string {
 	return result
 }
 
-func combineInputs(analyzers []Analyzer) collection.Inputs {
+func combineInputs(analyzers []Analyzer) []config.GroupVersionKind {
 	result := make([]config.GroupVersionKind, 0)
 	for _, a := range analyzers {
 		result = append(result, a.Metadata().Inputs...)

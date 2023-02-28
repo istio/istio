@@ -519,7 +519,7 @@ func (a *ADSC) handleRecv() {
 			a.cfg.ResponseHandler.HandleResponse(a, msg)
 		}
 
-		if msg.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() &&
+		if msg.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.GroupVersionKind().String() &&
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
@@ -1114,11 +1114,11 @@ func (a *ADSC) Watch() {
 func ConfigInitialRequests() []*discovery.DiscoveryRequest {
 	out := make([]*discovery.DiscoveryRequest, 0, len(collections.Pilot.All())+1)
 	out = append(out, &discovery.DiscoveryRequest{
-		TypeUrl: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
+		TypeUrl: collections.IstioMeshV1Alpha1MeshConfig.GroupVersionKind().String(),
 	})
 	for _, sch := range collections.Pilot.All() {
 		out = append(out, &discovery.DiscoveryRequest{
-			TypeUrl: sch.Resource().GroupVersionKind().String(),
+			TypeUrl: sch.GroupVersionKind().String(),
 		})
 	}
 

@@ -97,7 +97,7 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 func newTelemetry(ns string, spec config.Spec) config.Config {
 	return config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(),
+			GroupVersionKind: collections.IstioTelemetryV1Alpha1Telemetries.GroupVersionKind(),
 			Name:             "default",
 			Namespace:        ns,
 		},

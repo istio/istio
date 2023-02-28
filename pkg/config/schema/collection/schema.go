@@ -17,6 +17,7 @@ package collection
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -65,17 +66,13 @@ func (b Builder) MustBuild() Schema {
 
 type schemaImpl struct {
 	resource     resource.Schema
-	name         Name
+	name         config.GroupVersionKind
 	variableName string
 }
 
 // String interface method implementation.
 func (s *schemaImpl) String() string {
 	return fmt.Sprintf("[Schema](%s, %q, %s)", s.name, s.resource.ProtoPackage(), s.resource.Proto())
-}
-
-func (s *schemaImpl) Name() Name {
-	return s.name
 }
 
 func (s *schemaImpl) VariableName() string {

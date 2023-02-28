@@ -43,7 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
@@ -461,8 +461,8 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	if s.Env == nil || s.Env.ConfigStore == nil {
 		return
 	}
-	s.Env.ConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
-		cfg, _ := s.Env.ConfigStore.List(schema.Resource().GroupVersionKind(), "")
+	s.Env.ConfigStore.Schemas().ForEach(func(schema resource.Schema) bool {
+		cfg, _ := s.Env.ConfigStore.List(schema.GroupVersionKind(), "")
 		for _, c := range cfg {
 			configs = append(configs, kubernetesConfig{c})
 		}
@@ -486,8 +486,8 @@ func (s *DiscoveryServer) resourcez(w http.ResponseWriter, req *http.Request) {
 	schemas := make([]config.GroupVersionKind, 0)
 
 	if s.Env != nil && s.Env.ConfigStore != nil {
-		s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
-			schemas = append(schemas, schema.Resource().GroupVersionKind())
+		s.Env.Schemas().ForEach(func(schema resource.Schema) bool {
+			schemas = append(schemas, schema.GroupVersionKind())
 			return false
 		})
 	}

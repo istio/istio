@@ -19,12 +19,12 @@ import (
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -41,7 +41,7 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.ConflictingMeshGatewayHostsAnalyzer",
 		Description: "Checks if multiple virtual services associated with the mesh gateway have conflicting hosts",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.VirtualService,
 		},
 	}

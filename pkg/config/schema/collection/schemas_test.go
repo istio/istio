@@ -45,13 +45,9 @@ var (
 func TestSchemas_Basic(t *testing.T) {
 	g := NewWithT(t)
 
-	s := collection.Builder{
-		Resource: emptyResource,
-	}.MustBuild()
-
-	schemas := collection.SchemasFor(s)
+	schemas := collection.SchemasFor(emptyResource)
 	g.Expect(schemas.All()).To(HaveLen(1))
-	g.Expect(schemas.All()[0]).To(Equal(s))
+	g.Expect(schemas.All()[0]).To(Equal(emptyResource))
 }
 
 func TestSchemas_MustAdd(t *testing.T) {
@@ -62,10 +58,7 @@ func TestSchemas_MustAdd(t *testing.T) {
 	}()
 	b := collection.NewSchemasBuilder()
 
-	s := collection.Builder{
-		Resource: emptyResource,
-	}.MustBuild()
-	b.MustAdd(s)
+	b.MustAdd(emptyResource)
 }
 
 func TestSchemas_MustRegister_Panic(t *testing.T) {
@@ -76,25 +69,20 @@ func TestSchemas_MustRegister_Panic(t *testing.T) {
 	}()
 	b := collection.NewSchemasBuilder()
 
-	s := collection.Builder{
-		Resource: emptyResource,
-	}.MustBuild()
-	b.MustAdd(s)
-	b.MustAdd(s)
+	b.MustAdd(emptyResource)
+	b.MustAdd(emptyResource)
 }
 
 func TestSchema_FindByGroupVersionKind(t *testing.T) {
 	g := NewWithT(t)
 
-	s := collection.Builder{
-		Resource: resource.Builder{
-			ProtoPackage: "github.com/gogo/protobuf/types",
-			Proto:        "google.protobuf.Empty",
-			Group:        "mygroup",
-			Kind:         "Empty",
-			Plural:       "empties",
-			Version:      "v1",
-		}.MustBuild(),
+	s := resource.Builder{
+		ProtoPackage: "github.com/gogo/protobuf/types",
+		Proto:        "google.protobuf.Empty",
+		Group:        "mygroup",
+		Kind:         "Empty",
+		Plural:       "empties",
+		Version:      "v1",
 	}.MustBuild()
 
 	schemas := collection.SchemasFor(s)
@@ -119,15 +107,13 @@ func TestSchema_MustFindByGroupVersionKind(t *testing.T) {
 	g := NewWithT(t)
 	b := collection.NewSchemasBuilder()
 
-	s := collection.Builder{
-		Resource: resource.Builder{
-			ProtoPackage: "github.com/gogo/protobuf/types",
-			Proto:        "google.protobuf.Empty",
-			Group:        "mygroup",
-			Kind:         "Empty",
-			Plural:       "empties",
-			Version:      "v1",
-		}.MustBuild(),
+	s := resource.Builder{
+		ProtoPackage: "github.com/gogo/protobuf/types",
+		Proto:        "google.protobuf.Empty",
+		Group:        "mygroup",
+		Kind:         "Empty",
+		Plural:       "empties",
+		Version:      "v1",
 	}.MustBuild()
 
 	b.MustAdd(s)
@@ -160,13 +146,7 @@ func TestSchema_MustFindByGroupVersionKind_Panic(t *testing.T) {
 func TestSchemas_Kinds(t *testing.T) {
 	g := NewWithT(t)
 
-	s := collection.SchemasFor(
-		collection.Builder{
-			Resource: emptyResource,
-		}.MustBuild(),
-		collection.Builder{
-			Resource: structResource,
-		}.MustBuild())
+	s := collection.SchemasFor(emptyResource, structResource)
 
 	actual := s.Kinds()
 	expected := []string{emptyResource.Kind(), structResource.Kind()}
@@ -176,25 +156,21 @@ func TestSchemas_Kinds(t *testing.T) {
 func TestSchemas_Validate(t *testing.T) {
 	cases := []struct {
 		name        string
-		schemas     []collection.Schema
+		schemas     []resource.Schema
 		expectError bool
 	}{
 		{
 			name: "valid",
-			schemas: []collection.Schema{
-				collection.Builder{
-					Resource: resource.Builder{
-						Kind:   "Empty1",
-						Plural: "Empty1s",
-						Proto:  "google.protobuf.Empty",
-					}.MustBuild(),
+			schemas: []resource.Schema{
+				resource.Builder{
+					Kind:   "Empty1",
+					Plural: "Empty1s",
+					Proto:  "google.protobuf.Empty",
 				}.MustBuild(),
-				collection.Builder{
-					Resource: resource.Builder{
-						Kind:   "Empty2",
-						Plural: "Empty2s",
-						Proto:  "google.protobuf.Empty",
-					}.MustBuild(),
+				resource.Builder{
+					Kind:   "Empty2",
+					Plural: "Empty2s",
+					Proto:  "google.protobuf.Empty",
 				}.MustBuild(),
 			},
 			expectError: false,
@@ -222,13 +198,11 @@ func TestSchemas_Validate_Error(t *testing.T) {
 	g := NewWithT(t)
 	b := collection.NewSchemasBuilder()
 
-	s1 := collection.Builder{
-		Resource: resource.Builder{
-			Kind:         "Zoo",
-			ProtoPackage: "github.com/gogo/protobuf/types",
-			Proto:        "zoo",
-		}.BuildNoValidate(),
-	}.MustBuild()
+	s1 := resource.Builder{
+		Kind:         "Zoo",
+		ProtoPackage: "github.com/gogo/protobuf/types",
+		Proto:        "zoo",
+	}.BuildNoValidate()
 	b.MustAdd(s1)
 
 	err := b.Build().Validate()
@@ -236,16 +210,7 @@ func TestSchemas_Validate_Error(t *testing.T) {
 }
 
 func TestSchemas_ForEach(t *testing.T) {
-	schemas := collection.SchemasFor(
-		collection.Builder{
-			VariableName: "foo",
-			Resource:     emptyResource,
-		}.MustBuild(),
-		collection.Builder{
-			VariableName: "bar",
-			Resource:     structResource,
-		}.MustBuild(),
-	)
+	schemas := collection.SchemasFor(emptyResource, structResource)
 
 	cases := []struct {
 		name     string
@@ -254,11 +219,11 @@ func TestSchemas_ForEach(t *testing.T) {
 	}{
 		{
 			name:     "all",
-			expected: []string{"foo", "bar"},
+			expected: []string{"Empty", "Struct"},
 			actual: func() []string {
 				a := make([]string, 0)
-				schemas.ForEach(func(s collection.Schema) bool {
-					a = append(a, s.VariableName())
+				schemas.ForEach(func(s resource.Schema) bool {
+					a = append(a, s.Kind())
 					return false
 				})
 				return a
@@ -266,11 +231,11 @@ func TestSchemas_ForEach(t *testing.T) {
 		},
 		{
 			name:     "exit early",
-			expected: []string{"foo"},
+			expected: []string{"Empty"},
 			actual: func() []string {
 				a := make([]string, 0)
-				schemas.ForEach(func(s collection.Schema) bool {
-					a = append(a, s.VariableName())
+				schemas.ForEach(func(s resource.Schema) bool {
+					a = append(a, s.Kind())
 					return true
 				})
 				return a
@@ -290,30 +255,16 @@ func TestSchemas_ForEach(t *testing.T) {
 func TestSchemas_Remove(t *testing.T) {
 	g := NewWithT(t)
 
-	foo := collection.Builder{
-		Resource: emptyResource,
-	}.MustBuild()
-	bar := collection.Builder{
-		Resource: structResource,
-	}.MustBuild()
-
-	schemas := collection.SchemasFor(foo, bar)
-	g.Expect(schemas.Remove(bar)).To(Equal(collection.SchemasFor(foo)))
-	g.Expect(schemas.Remove(foo, bar)).To(Equal(collection.SchemasFor()))
-	g.Expect(schemas).To(Equal(collection.SchemasFor(foo, bar)))
+	schemas := collection.SchemasFor(emptyResource, structResource)
+	g.Expect(schemas.Remove(structResource)).To(Equal(collection.SchemasFor(emptyResource)))
+	g.Expect(schemas.Remove(emptyResource, structResource)).To(Equal(collection.SchemasFor()))
+	g.Expect(schemas).To(Equal(collection.SchemasFor(emptyResource, structResource)))
 }
 
 func TestSchemas_Add(t *testing.T) {
 	g := NewWithT(t)
 
-	foo := collection.Builder{
-		Resource: emptyResource,
-	}.MustBuild()
-	bar := collection.Builder{
-		Resource: structResource,
-	}.MustBuild()
-
-	schemas := collection.SchemasFor(foo)
-	g.Expect(schemas.Add(bar)).To(Equal(collection.SchemasFor(foo, bar)))
-	g.Expect(schemas).To(Equal(collection.SchemasFor(foo)))
+	schemas := collection.SchemasFor(emptyResource)
+	g.Expect(schemas.Add(structResource)).To(Equal(collection.SchemasFor(emptyResource)))
+	g.Expect(schemas).To(Equal(collection.SchemasFor(emptyResource)))
 }

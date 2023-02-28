@@ -23,10 +23,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -45,7 +45,7 @@ func (a *ImageAutoAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "injection.ImageAutoAnalyzer",
 		Description: "Makes sure that Pods and Deployments with `image: auto` are going to be injected",
-		Inputs: collection.Inputs{
+		Inputs: []config.GroupVersionKind{
 			gvk.Namespace,
 			gvk.Pod,
 			gvk.Deployment,

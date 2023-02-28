@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	sresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
@@ -44,8 +43,8 @@ func CollectionValidationAnalyzer(s sresource.Schema) analysis.Analyzer {
 // This automation comes with an assumption: that the collection names used by the schema match the metadata used by Galley components
 func AllValidationAnalyzers() []analysis.Analyzer {
 	result := make([]analysis.Analyzer, 0)
-	collections.Istio.ForEach(func(s collection.Schema) (done bool) {
-		result = append(result, &ValidationAnalyzer{s: s.Resource()})
+	collections.Istio.ForEach(func(s sresource.Schema) (done bool) {
+		result = append(result, &ValidationAnalyzer{s: s})
 		return
 	})
 	return result
@@ -56,7 +55,7 @@ func (a *ValidationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        fmt.Sprintf("schema.ValidationAnalyzer.%s", a.s.Kind()),
 		Description: fmt.Sprintf("Runs schema validation as an analyzer on '%s' resources", a.s.Kind()),
-		Inputs:      collection.Inputs{a.s.GroupVersionKind()},
+		Inputs:      []config.GroupVersionKind{a.s.GroupVersionKind()},
 	}
 }
 

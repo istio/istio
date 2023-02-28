@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	resource2 "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/pkg/log"
 )
 
@@ -77,16 +77,16 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 
 	// Generate blank test data
 	store := memory.MakeSkipValidation(collections.All)
-	collections.All.ForEach(func(s collection.Schema) bool {
+	collections.All.ForEach(func(s resource2.Schema) bool {
 		for i := 0; i < count; i++ {
-			name := resource.NewFullName("default", resource.LocalName(fmt.Sprintf("%s-%d", s.VariableName(), i)))
+			name := resource.NewFullName("default", resource.LocalName(fmt.Sprintf("%s-%d", s.Kind(), i)))
 			_, _ = store.Create(config.Config{
 				Meta: config.Meta{
-					GroupVersionKind: s.Resource().GroupVersionKind(),
+					GroupVersionKind: s.GroupVersionKind(),
 					Name:             name.Name.String(),
 					Namespace:        name.Namespace.String(),
 				},
-				Spec: s.Resource().MustNewInstance(),
+				Spec: s.MustNewInstance(),
 			})
 		}
 
