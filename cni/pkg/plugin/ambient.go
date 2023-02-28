@@ -51,7 +51,7 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 		return false, err
 	}
 
-	if ambientpod.HasLegacyLabel(pod.Labels) || ambientpod.HasLegacyLabel(ns.Labels) {
+	if ambientpod.HasLegacyLabel(ns.Labels) {
 		return false, fmt.Errorf("ambient: pod %s/%s or namespace has legacy labels", podNamespace, podName)
 	}
 

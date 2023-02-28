@@ -19,8 +19,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
 )
 
@@ -39,8 +41,7 @@ func ShouldPodBeInMesh(namespace *corev1.Namespace, pod *corev1.Pod, ignoreNotRu
 	// - Cannot have a legacy label (istio.io/rev or istio-injection=enabled)
 	// - If mesh is in namespace mode, must be in active namespace
 	if (ignoreNotRunning || (isRunning(pod) && hasPodIP(pod))) &&
-		!HasLegacyLabel(pod.GetLabels()) &&
-		!PodHasOptOut(pod) &&
+		!PodHasSidecar(pod) &&
 		IsNamespaceActive(namespace) {
 		return true
 	}
@@ -48,9 +49,14 @@ func ShouldPodBeInMesh(namespace *corev1.Namespace, pod *corev1.Pod, ignoreNotRu
 	return false
 }
 
-func PodHasOptOut(pod *corev1.Pod) bool {
-	if val, ok := pod.Annotations[constants.AmbientRedirection]; ok {
-		return val == constants.AmbientRedirectionDisabled
+func PodHasSidecar(pod *corev1.Pod) bool {
+	if _, f := pod.Annotations[annotation.SidecarStatus.Name]; f {
+		return true
+	}
+	for _, c := range pod.Spec.Containers {
+		if c.Name == inject.ProxyContainerName {
+			return true
+		}
 	}
 	return false
 }
@@ -64,15 +70,6 @@ func IsNamespaceActive(namespace *corev1.Namespace) bool {
 		return true
 	}
 
-	return false
-}
-
-func HasSelectors(lbls map[string]string, selectors []labels.Selector) bool {
-	for _, sel := range selectors {
-		if sel.Matches(labels.Set(lbls)) {
-			return true
-		}
-	}
 	return false
 }
 

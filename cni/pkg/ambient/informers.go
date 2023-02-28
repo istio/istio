@@ -116,7 +116,7 @@ func (s *Server) Reconcile(input any) error {
 		// For update, we just need to handle opt outs
 		newPod := event.New.(*corev1.Pod)
 		oldPod := event.Old.(*corev1.Pod)
-		if ambientpod.PodHasOptOut(newPod) && !ambientpod.PodHasOptOut(oldPod) {
+		if ambientpod.PodHasSidecar(newPod) && !ambientpod.PodHasSidecar(oldPod) {
 			log.Debugf("Pod %s matches opt out, but was not before, removing from mesh", newPod.Name)
 			s.DelPodFromMesh(newPod)
 			return nil
@@ -124,7 +124,7 @@ func (s *Server) Reconcile(input any) error {
 
 		if event.New == event.Old {
 			// This is a bit of a hack, but in this case we are queued from namespace handler
-			if ambientpod.PodHasOptOut(pod) {
+			if ambientpod.PodHasSidecar(pod) {
 				log.Debugf("Pod %s matches opt out, skipping", pod.Name)
 				return nil
 			}
@@ -140,7 +140,7 @@ func (s *Server) Reconcile(input any) error {
 		}
 		return nil
 	}
-	if ambientpod.PodHasOptOut(pod) {
+	if ambientpod.PodHasSidecar(pod) {
 		log.Debugf("Pod %s matches opt out, skipping", pod.Name)
 		return nil
 	}
