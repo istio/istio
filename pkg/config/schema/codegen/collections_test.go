@@ -91,10 +91,8 @@ import (
 var (
 
 	// Bar describes a really cool bar thing
-	Bar = collection.Builder {
-		Name: "bar",
-		VariableName: "Bar",
-		Resource: resource.Builder {
+	Bar = resource.Builder {
+			Identifier: "",
 			Group: "bar.group",
 			Kind: "barkind",
 			Plural: "barkinds",
@@ -104,14 +102,11 @@ var (
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
+		}.MustBuild()
 
 	// Foo describes a really cool foo thing
-	Foo = collection.Builder {
-		Name: "foo",
-		VariableName: "Foo",
-		Resource: resource.Builder {
+	Foo = resource.Builder {
+			Identifier: "",
 			Group: "foo.group",
 			Kind: "fookind",
 			Plural: "fookinds",
@@ -121,8 +116,7 @@ var (
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: true,
 			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
+		}.MustBuild()
 
 
 	// All contains all collections in the system.
