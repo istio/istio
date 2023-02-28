@@ -34,6 +34,18 @@
       ]
   },
   "bootstrap_extensions": [
+    {{- if .metadata_discovery }}
+    {
+      "name": "metadata_discovery",
+      "typed_config": {
+        "@type": "type.googleapis.com/udpa.type.v1.TypedStruct",
+        "type_url": "type.googleapis.com/istio.workload.BootstrapExtension",
+        "value": {
+          "config_source": { "ads": {} }
+        }
+      }
+    },
+    {{- end }}
     {
       "name": "envoy.bootstrap.internal_listener",
       "typed_config": {
@@ -125,6 +137,11 @@
           {
           "prefix": "reporter="
           },
+          {{- if .metadata_discovery }}
+          {
+          "prefix": "workload_discovery"
+          },
+          {{- end }}
           {{- range $a, $s := .inclusionPrefix }}
           {
           "prefix": "{{$s}}"
