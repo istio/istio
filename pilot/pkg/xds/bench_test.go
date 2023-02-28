@@ -65,7 +65,7 @@ type ConfigInput struct {
 	Services int
 	// Number of instances to make
 	Instances int
-	// Type of proxy to generate configs for
+	// ResourceType of proxy to generate configs for
 	ProxyType model.NodeType
 }
 
