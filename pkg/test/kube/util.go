@@ -86,7 +86,7 @@ func NewPodMustFetch(a istioKube.CLIClient, namespace string, selectors ...strin
 	}
 }
 
-var NoPodsFetchedError = fmt.Errorf("no pods fetched")
+var ErrNoPodsFetched = fmt.Errorf("no pods fetched")
 
 // CheckPodsAreReady checks whether the pods that are selected by the given function is in ready state or not.
 func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]corev1.Pod, error) {
@@ -100,7 +100,7 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]corev1.Pod, error) {
 
 	if len(fetched) == 0 {
 		scopes.Framework.Infof("No pods found...")
-		return nil, NoPodsFetchedError
+		return nil, ErrNoPodsFetched
 	}
 
 	for i, p := range fetched {
