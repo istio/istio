@@ -371,14 +371,6 @@ var testGrid = []testCase{
 		expected:   []message{},
 	},
 	{
-		name:       "serviceWithNoSelector",
-		inputFiles: []string{"testdata/deployment-service-no-selector.yaml"},
-		analyzer:   &deployment.ServiceAssociationAnalyzer{},
-		expected: []message{
-			{msg.DeploymentRequiresServiceAssociated, "Deployment default/helloworld-v2"},
-		},
-	},
-	{
 		name: "regexes",
 		inputFiles: []string{
 			"testdata/virtualservice_regexes.yaml",
