@@ -35,34 +35,21 @@ func TestStaticCollections(t *testing.T) {
 		{
 			packageName: "pkg",
 			m: &ast.Metadata{
-				Collections: []*ast.Collection{
-					{
-						Name:         "foo",
-						VariableName: "Foo",
-						Description:  "describes a really cool foo thing",
-						Group:        "foo.group",
-						Kind:         "fookind",
-					},
-					{
-						Name:         "bar",
-						VariableName: "Bar",
-						Description:  "describes a really cool bar thing",
-						Group:        "bar.group",
-						Kind:         "barkind",
-					},
-				},
 				Resources: []*ast.Resource{
 					{
+						Identifier:    "Foo",
 						Group:         "foo.group",
 						Version:       "v1",
 						Kind:          "fookind",
 						Plural:        "fookinds",
 						ClusterScoped: true,
+						Builtin:       true,
 						Proto:         "google.protobuf.Struct",
 						ProtoPackage:  "github.com/gogo/protobuf/types",
 						Validate:      "EmptyValidate",
 					},
 					{
+						Identifier:    "Bar",
 						Group:         "bar.group",
 						Version:       "v1",
 						Kind:          "barkind",
@@ -90,9 +77,8 @@ import (
 
 var (
 
-	// Bar describes a really cool bar thing
 	Bar = resource.Builder {
-			Identifier: "",
+			Identifier: "Bar",
 			Group: "bar.group",
 			Kind: "barkind",
 			Plural: "barkinds",
@@ -101,12 +87,12 @@ var (
 			ReflectType: reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
+			Builtin: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild()
 
-	// Foo describes a really cool foo thing
 	Foo = resource.Builder {
-			Identifier: "",
+			Identifier: "Foo",
 			Group: "foo.group",
 			Kind: "fookind",
 			Plural: "fookinds",
@@ -115,6 +101,7 @@ var (
 			ReflectType: reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: true,
+			Builtin: true,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild()
 
@@ -125,17 +112,9 @@ var (
 		MustAdd(Foo).
 		Build()
 
-	// Istio contains only Istio collections.
-	Istio = collection.NewSchemasBuilder().
-		Build()
-
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
-		Build()
-
-	// Builtin contains only native Kubernetes collections. This differs from Kube, which has
-  // Kubernetes controlled CRDs
-	Builtin = collection.NewSchemasBuilder().
+		MustAdd(Foo).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -144,10 +123,6 @@ var (
 
 	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
 	PilotGatewayAPI = collection.NewSchemasBuilder().
-		Build()
-
-	// Deprecated contains only collections used by that will soon be used by nothing.
-	Deprecated = collection.NewSchemasBuilder().
 		Build()
 )
 `,

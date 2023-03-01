@@ -191,11 +191,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Plural(), s.Group())
-		crd := true
-		if _, f := collections.Builtin.FindByGroupVersionKind(s.GroupVersionKind()); f {
-			crd = false
-		}
-		if !crd {
+		if s.IsBuiltin() {
 			handleCRDAdd(out, name)
 		} else {
 			if _, f := known[name]; f {

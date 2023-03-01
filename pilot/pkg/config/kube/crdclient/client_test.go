@@ -60,10 +60,10 @@ func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCont
 
 // Ensure that the client can run without CRDs present
 func TestClientNoCRDs(t *testing.T) {
-	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
+	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
 	store, _ := makeClient(t, schema)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
-	r := collections.IstioNetworkingV1Alpha3Virtualservices
+	r := collections.VirtualService
 	configMeta := config.Meta{
 		Name:             "name",
 		Namespace:        "ns",
@@ -99,10 +99,10 @@ func TestClientNoCRDs(t *testing.T) {
 
 // Ensure that the client can run without CRDs present, but then added later
 func TestClientDelayedCRDs(t *testing.T) {
-	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
+	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
 	store, fake := makeClient(t, schema)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
-	r := collections.IstioNetworkingV1Alpha3Virtualservices
+	r := collections.VirtualService
 
 	// Create a virtual service
 	configMeta := config.Meta{
@@ -270,7 +270,7 @@ func TestClient(t *testing.T) {
 	}
 
 	t.Run("update status", func(t *testing.T) {
-		r := collections.IstioNetworkingV1Alpha3Workloadgroups
+		r := collections.WorkloadGroup
 		name := "name1"
 		namespace := "bar"
 		cfgMeta := config.Meta{
@@ -413,7 +413,7 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 	if !ok {
 		return
 	}
-	fmg := fmc.Resource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.GroupVersionResource())
+	fmg := fmc.Resource(collections.CustomResourceDefinition.GroupVersionResource())
 	fmd, ok := fmg.(metadatafake.MetadataClient)
 	if !ok {
 		return

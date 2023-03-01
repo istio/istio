@@ -519,7 +519,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	if err == nil {
 		return fmt.Errorf("service %q already exists, skip", opts.Name)
 	}
-	serviceEntryGVR := collections.IstioNetworkingV1Alpha3Serviceentries.GroupVersionResource()
+	serviceEntryGVR := collections.ServiceEntry.GroupVersionResource()
 	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(context.TODO(), resourceName(opts.Name), metav1.GetOptions{})
 	if err == nil {
 		return fmt.Errorf("service entry %q already exists, skip", resourceName(opts.Name))
@@ -668,7 +668,7 @@ func createServiceEntry(dynamicClient dynamic.Interface, ns string,
 	if u == nil {
 		return fmt.Errorf("failed to create vm service")
 	}
-	serviceEntryGVR := collections.IstioNetworkingV1Alpha3Serviceentries.GroupVersionResource()
+	serviceEntryGVR := collections.ServiceEntry.GroupVersionResource()
 	_, err := dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Create(context.TODO(), u, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create service entry %v", err)

@@ -39,7 +39,7 @@ func NewController(client kube.Client, callbacks ...func(name string)) *Controll
 		callbacks: callbacks,
 	}
 
-	crdMetadataInformer := client.MetadataInformer().ForResource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.GroupVersionResource()).Informer()
+	crdMetadataInformer := client.MetadataInformer().ForResource(collections.CustomResourceDefinition.GroupVersionResource()).Informer()
 	_ = crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 	_, _ = crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {

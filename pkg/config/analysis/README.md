@@ -61,7 +61,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
     // The resource name includes the namespace, if one exists. It should generally be safe to
     // assume that the namespace is not blank, except for cluster-scoped resources.
     for i, gwName := range vs.Gateways {
-        if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways, resource.NewName(r.Metadata.FullName.Namespace, gwName)) {
+        if !c.Exists(collections.Gateway, resource.NewName(r.Metadata.FullName.Namespace, gwName)) {
             // Messages are defined in galley/pkg/config/analysis/msg/messages.yaml
             // From there, code is generated for each message type, including a constructor function
             // that you can use to create a new validation message of each type.

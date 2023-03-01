@@ -29,6 +29,7 @@ func applyTemplate(tmpl string, i any) (string, error) {
 		"wordWrap":     wordWrap,
 		"commentBlock": commentBlock,
 		"hasPrefix":    strings.HasPrefix,
+		"contains":     strings.Contains,
 	})
 
 	t2 := template.Must(t.Parse(tmpl))

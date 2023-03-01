@@ -60,7 +60,7 @@ func TestObjectsFromOtherRevisionsSkipped(t *testing.T) {
 		for _, event := range []model.Event{model.EventAdd, model.EventUpdate, model.EventDelete} {
 			testName := event.String() + " " + tc.name
 			t.Run(testName, func(t *testing.T) {
-				schema := collections.IstioNetworkingV1Alpha3Serviceentries
+				schema := collections.ServiceEntry
 				cfg := testServiceEntry.DeepCopy()
 				cfg.Labels = tc.labels
 
@@ -121,7 +121,7 @@ func TestUpdateInOtherRevision(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			schema := collections.IstioNetworkingV1Alpha3Serviceentries
+			schema := collections.ServiceEntry
 			cfg := testServiceEntry.DeepCopy()
 			// Set a revision label that is not our current revision
 			cfg.Labels = map[string]string{"istio.io/rev": "canary"}

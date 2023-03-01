@@ -299,7 +299,7 @@ func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernete
 	if err != nil {
 		return fmt.Errorf("service %q does not exist, skip", svcName)
 	}
-	serviceEntryGVR := collections.IstioNetworkingV1Alpha3Serviceentries.GroupVersionResource()
+	serviceEntryGVR := collections.ServiceEntry.GroupVersionResource()
 	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(context.TODO(), resourceName(svcName), metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("service entry %q does not exist, skip", resourceName(svcName))

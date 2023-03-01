@@ -16,6 +16,7 @@ const (
 	DestinationRule
 	Endpoints
 	EnvoyFilter
+	GRPCRoute
 	Gateway
 	GatewayClass
 	HTTPRoute
@@ -39,6 +40,7 @@ const (
 	TCPRoute
 	TLSRoute
 	Telemetry
+	UDPRoute
 	VirtualService
 	WasmPlugin
 	WorkloadEntry
@@ -63,6 +65,8 @@ func (k Kind) String() string {
 		return "Endpoints"
 	case EnvoyFilter:
 		return "EnvoyFilter"
+	case GRPCRoute:
+		return "GRPCRoute"
 	case Gateway:
 		return "Gateway"
 	case GatewayClass:
@@ -109,6 +113,8 @@ func (k Kind) String() string {
 		return "TLSRoute"
 	case Telemetry:
 		return "Telemetry"
+	case UDPRoute:
+		return "UDPRoute"
 	case VirtualService:
 		return "VirtualService"
 	case WasmPlugin:
@@ -146,6 +152,9 @@ func FromGvk(gvk config.GroupVersionKind) Kind {
 	}
 	if gvk.Kind == "EnvoyFilter" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
 		return EnvoyFilter
+	}
+	if gvk.Kind == "GRPCRoute" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
+		return GRPCRoute
 	}
 	if gvk.Kind == "Gateway" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
 		return Gateway
@@ -215,6 +224,9 @@ func FromGvk(gvk config.GroupVersionKind) Kind {
 	}
 	if gvk.Kind == "Telemetry" && gvk.Group == "telemetry.istio.io" && gvk.Version == "v1alpha1" {
 		return Telemetry
+	}
+	if gvk.Kind == "UDPRoute" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
+		return UDPRoute
 	}
 	if gvk.Kind == "VirtualService" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
 		return VirtualService

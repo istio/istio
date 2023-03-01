@@ -101,8 +101,7 @@ import (
 
 var (
 {{ range .Entries }}
-	{{ commentBlock (wordWrap (printf "%s %s" .Collection.VariableName .Collection.Description) 70) 1 }}
-	{{ .Collection.VariableName }} = resource.Builder {
+	{{ .Resource.Identifier }} = resource.Builder {
 			Identifier: "{{ .Resource.Identifier }}",
 			Group: "{{ .Resource.Group }}",
 			Kind: "{{ .Resource.Kind }}",
@@ -122,6 +121,7 @@ var (
 			ProtoPackage: "{{ .Resource.ProtoPackage }}",
 			{{- if ne "" .Resource.StatusProtoPackage}}StatusPackage: "{{ .Resource.StatusProtoPackage }}", {{end}}
 			ClusterScoped: {{ .Resource.ClusterScoped }},
+			Builtin: {{ .Resource.Builtin }},
 			ValidateProto: validation.{{ .Resource.Validate }},
 		}.MustBuild()
 {{ end }}
@@ -129,34 +129,15 @@ var (
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 	{{- range .Entries }}
-		MustAdd({{ .Collection.VariableName }}).
-	{{- end }}
-		Build()
-
-	// Istio contains only Istio collections.
-	Istio = collection.NewSchemasBuilder().
-	{{- range .Entries }}
-		{{- if (hasPrefix .Collection.Name "istio/") }}
-		MustAdd({{ .Collection.VariableName }}).
-		{{- end}}
+		MustAdd({{ .Resource.Identifier }}).
 	{{- end }}
 		Build()
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
 	{{- range .Entries }}
-		{{- if (hasPrefix .Collection.Name "k8s/") }}
-		MustAdd({{ .Collection.VariableName }}).
-		{{- end }}
-	{{- end }}
-		Build()
-
-	// Builtin contains only native Kubernetes collections. This differs from Kube, which has
-  // Kubernetes controlled CRDs
-	Builtin = collection.NewSchemasBuilder().
-	{{- range .Entries }}
-		{{- if .Collection.Builtin }}
-		MustAdd({{ .Collection.VariableName }}).
+		{{- if or (contains .Resource.Group "k8s.io") .Resource.Builtin  }}
+		MustAdd({{ .Resource.Identifier }}).
 		{{- end }}
 	{{- end }}
 		Build()
@@ -164,8 +145,8 @@ var (
 	// Pilot contains only collections used by Pilot.
 	Pilot = collection.NewSchemasBuilder().
 	{{- range .Entries }}
-		{{- if .Collection.Pilot }}
-		MustAdd({{ .Collection.VariableName }}).
+		{{- if (contains .Resource.Group "istio.io") }}
+		MustAdd({{ .Resource.Identifier }}).
 		{{- end}}
 	{{- end }}
 		Build()
@@ -173,17 +154,8 @@ var (
 	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
 	PilotGatewayAPI = collection.NewSchemasBuilder().
 	{{- range .Entries }}
-		{{- if or (.Collection.Pilot) (hasPrefix .Collection.Name "k8s/gateway_api") }}
-		MustAdd({{ .Collection.VariableName }}).
-		{{- end}}
-	{{- end }}
-		Build()
-
-	// Deprecated contains only collections used by that will soon be used by nothing.
-	Deprecated = collection.NewSchemasBuilder().
-	{{- range .Entries }}
-		{{- if .Collection.Deprecated }}
-		MustAdd({{ .Collection.VariableName }}).
+		{{- if or (contains .Resource.Group "istio.io") (contains .Resource.Group "gateway.networking.k8s.io") }}
+		MustAdd({{ .Resource.Identifier }}).
 		{{- end}}
 	{{- end }}
 		Build()
@@ -191,20 +163,14 @@ var (
 `
 
 type colEntry struct {
-	Collection *ast.Collection
 	Resource   *ast.Resource
 	Type       string
 	StatusType string
 }
 
 func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
-	entries := make([]colEntry, 0, len(m.Collections))
-	for _, c := range m.Collections {
-		r := m.FindResourceForGroupKind(c.Group, c.Kind)
-		if r == nil {
-			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
-		}
-
+	entries := make([]colEntry, 0, len(m.Resources))
+	for _, r := range m.Resources {
 		entries = append(entries, colEntry{
 			Type:     r.Identifier,
 			Resource: r,
@@ -228,13 +194,8 @@ func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
 }
 
 func WriteKind(packageName string, m *ast.Metadata) (string, error) {
-	entries := make([]colEntry, 0, len(m.Collections))
-	for _, c := range m.Collections {
-		r := m.FindResourceForGroupKind(c.Group, c.Kind)
-		if r == nil {
-			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
-		}
-
+	entries := make([]colEntry, 0, len(m.Resources))
+	for _, r := range m.Resources {
 		entries = append(entries, colEntry{
 			Type:     r.Identifier,
 			Resource: r,
@@ -269,14 +230,10 @@ type packageImport struct {
 
 // StaticCollections generates a Go file for static-importing Proto packages, so that they get registered statically.
 func StaticCollections(packageName string, m *ast.Metadata, filter func(name string) bool, prefix string) (string, error) {
-	entries := make([]colEntry, 0, len(m.Collections))
-	for _, c := range m.Collections {
-		if !filter(c.Name) {
+	entries := make([]colEntry, 0, len(m.Resources))
+	for _, r := range m.Resources {
+		if !filter(r.Group) {
 			continue
-		}
-		r := m.FindResourceForGroupKind(c.Group, c.Kind)
-		if r == nil {
-			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
 		}
 
 		spl := strings.Split(r.Proto, ".")
@@ -284,9 +241,8 @@ func StaticCollections(packageName string, m *ast.Metadata, filter func(name str
 		stat := strings.Split(r.StatusProto, ".")
 		statName := stat[len(stat)-1]
 		e := colEntry{
-			Collection: c,
-			Resource:   r,
-			Type:       fmt.Sprintf("reflect.TypeOf(&%s.%s{}).Elem()", toImport(r.ProtoPackage), tname),
+			Resource: r,
+			Type:     fmt.Sprintf("reflect.TypeOf(&%s.%s{}).Elem()", toImport(r.ProtoPackage), tname),
 		}
 		if r.StatusProtoPackage != "" {
 			e.StatusType = fmt.Sprintf("reflect.TypeOf(&%s.%s{}).Elem()", toImport(r.StatusProtoPackage), statName)
@@ -314,7 +270,7 @@ func StaticCollections(packageName string, m *ast.Metadata, filter func(name str
 	})
 
 	sort.Slice(entries, func(i, j int) bool {
-		return strings.Compare(entries[i].Collection.Name, entries[j].Collection.Name) < 0
+		return strings.Compare(entries[i].Resource.Identifier, entries[j].Resource.Identifier) < 0
 	})
 
 	context := struct {
