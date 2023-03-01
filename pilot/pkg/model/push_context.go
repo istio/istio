@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 	"istio.io/pkg/monitoring"
 )
 
@@ -2260,6 +2261,16 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 		namespace: namespace,
 		port:      port,
 	}]
+}
+
+func (ps *PushContext) SupportsTunnel(ip string) bool {
+	infos, _ := ps.ambientIndex.PodInformation(sets.New(types.NamespacedName{Name: ip}))
+	for _, p := range infos {
+		if p.Protocol == workloadapi.Protocol_HTTP {
+			return true
+		}
+	}
+	return false
 }
 
 func (ps *PushContext) WaypointsFor(scope WaypointScope) sets.Set[netip.Addr] {

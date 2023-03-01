@@ -84,7 +84,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		nodeName:     node,
 	}
 	networkID := out.endpointNetwork(ip)
-	out.labels = labelutil.AugmentLabels(podLabels, podAnnotations, c.Cluster(), locality, node, networkID)
+	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, node, networkID)
 	return out
 }
 
@@ -105,7 +105,7 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 	if len(proxy.IPAddresses) > 0 {
 		networkID = out.endpointNetwork(proxy.IPAddresses[0])
 	}
-	out.labels = labelutil.AugmentLabels(proxy.Labels, nil, c.Cluster(), locality, out.nodeName, networkID)
+	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, out.nodeName, networkID)
 	return out
 }
 
