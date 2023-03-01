@@ -15,6 +15,7 @@
 package ambient
 
 import (
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/cni/pkg/ambient/ambientpod"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 )
@@ -75,15 +77,10 @@ func (s *Server) ReconcileNamespaces() {
 
 // EnqueueNamespace takes a Namespace and enqueues all Pod objects that make need an update
 func (s *Server) EnqueueNamespace(o controllers.Object) {
-	nsLabels := o.GetLabels()
 	namespace := o.GetName()
-	matchAmbient := s.matchesAmbientSelectors(nsLabels)
+	matchAmbient := o.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient
 	pods, _ := s.podLister.Pods(namespace).List(klabels.Everything())
 	if matchAmbient {
-		if ambientpod.HasLegacyLabel(nsLabels) {
-			log.Errorf(ErrLegacyLabel, namespace)
-			return
-		}
 		log.Infof("Namespace %s is enabled in ambient mesh", namespace)
 		for _, pod := range pods {
 			s.queue.Add(controllers.Event{
@@ -116,18 +113,19 @@ func (s *Server) Reconcile(input any) error {
 		// For update, we just need to handle opt outs
 		newPod := event.New.(*corev1.Pod)
 		oldPod := event.Old.(*corev1.Pod)
-		if ambientpod.PodHasSidecar(newPod) && !ambientpod.PodHasSidecar(oldPod) {
-			log.Debugf("Pod %s matches opt out, but was not before, removing from mesh", newPod.Name)
+		ns, _ := s.nsLister.Get(newPod.Name)
+		if ns == nil {
+			return fmt.Errorf("failed to find namespace %v", ns)
+		}
+		wasEnabled := oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
+		nowEnabled := ambientpod.PodZtunnelEnabled(ns, newPod)
+		if wasEnabled && !nowEnabled {
+			log.Debugf("Pod %s no longer matches, removing from mesh", newPod.Name)
 			s.DelPodFromMesh(newPod)
-			return nil
 		}
 
-		if event.New == event.Old {
-			// This is a bit of a hack, but in this case we are queued from namespace handler
-			if ambientpod.PodHasSidecar(pod) {
-				log.Debugf("Pod %s matches opt out, skipping", pod.Name)
-				return nil
-			}
+		if !wasEnabled && nowEnabled {
+			log.Debugf("Pod %s now matches, adding to mesh", newPod.Name)
 			s.AddPodToMesh(pod)
 		}
 	case controllers.EventDelete:
@@ -138,10 +136,6 @@ func (s *Server) Reconcile(input any) error {
 			log.Debugf("Pod %s/%s is now stopped or opt out... cleaning up.", pod.Namespace, pod.Name)
 			s.DelPodFromMesh(pod)
 		}
-		return nil
-	}
-	if ambientpod.PodHasSidecar(pod) {
-		log.Debugf("Pod %s matches opt out, skipping", pod.Name)
 		return nil
 	}
 	return nil
