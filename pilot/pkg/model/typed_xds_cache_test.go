@@ -19,7 +19,6 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -60,9 +59,7 @@ func TestAddTwoEntries(t *testing.T) {
 	}
 
 	c := newTypedXdsCache[uint64]()
-	stop := make(chan struct{})
-	defer close(stop)
-	c.Run(stop)
+
 	cache := c.(*lruCache[uint64])
 
 	assert.Equal(t, cache.store.Len(), 0)
@@ -113,9 +110,6 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 
 	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
-	stop := make(chan struct{})
-	defer close(stop)
-	c.Run(stop)
 
 	assert.Equal(t, cache.store.Len(), 0)
 	assert.Equal(t, cache.indexLength(), 0)
@@ -140,12 +134,11 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 	c.Add(secondEntry.Key(), secondEntry, req, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
-	err := wait.Poll(2*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
-		cache.mu.RLock()
-		defer cache.mu.RUnlock()
-		return len(cache.configIndex) == 1, nil
-	})
-	assert.Equal(t, err, nil)
+
+	// Flush the cache and validate the index is cleaned.
+	cache.flush()
+	assert.Equal(t, cache.indexLen(), 1)
+
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
 	})
@@ -168,9 +161,6 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 
 	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
-	stop := make(chan struct{})
-	defer close(stop)
-	cache.Run(stop)
 
 	assert.Equal(t, cache.store.Len(), 0)
 	assert.Equal(t, cache.indexLength(), 0)
@@ -199,12 +189,11 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 	c.Add(secondEntry.Key(), secondEntry, req, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
-	err := wait.Poll(2*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
-		cache.mu.RLock()
-		defer cache.mu.RUnlock()
-		return len(cache.configIndex) == 2, nil
-	})
-	assert.Equal(t, err, nil)
+
+	// Flush the cache and validate the index is cleaned.
+	cache.flush()
+	assert.Equal(t, cache.indexLen(), 2)
+
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
 		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
@@ -241,9 +230,6 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
-	stop := make(chan struct{})
-	defer close(stop)
-	c.Run(stop)
 
 	c.Add(firstEntry.Key(), firstEntry, req1, res)
 	c.Add(secondEntry.Key(), secondEntry, req2, res)
@@ -276,12 +262,11 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	cache.Clear(sets.Set[ConfigKey]{{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}: {}})
 
 	assert.Equal(t, cache.store.Len(), 1)
-	err := wait.Poll(2*time.Millisecond, 100*time.Millisecond, func() (done bool, err error) {
-		cache.mu.RLock()
-		defer cache.mu.RUnlock()
-		return len(cache.configIndex) == 3, nil
-	})
-	assert.Equal(t, err, nil)
+
+	// Flush the cache and validate the index is cleaned.
+	cache.flush()
+	assert.Equal(t, cache.indexLen(), 3)
+
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
 		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
@@ -292,12 +277,11 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	c.Add(firstEntry.Key(), firstEntry, &PushRequest{Start: zeroTime.Add(time.Duration(3))}, res)
 
 	assert.Equal(t, cache.store.Len(), 2)
-	err = wait.Poll(2*time.Millisecond, 100*time.Millisecond, func() (done bool, err error) {
-		cache.mu.RLock()
-		defer cache.mu.RUnlock()
-		return len(cache.configIndex) == 5, nil
-	})
-	assert.Equal(t, err, nil)
+
+	// Flush the cache and validate the index is cleaned.
+	cache.flush()
+	assert.Equal(t, cache.indexLen(), 5)
+
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key(), secondEntry.Key()),
 		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.Key()),
@@ -310,12 +294,11 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	cache.Clear(sets.Set[ConfigKey]{{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}: {}})
 
 	assert.Equal(t, cache.store.Len(), 1)
-	err = wait.Poll(2*time.Millisecond, 100*time.Millisecond, func() (done bool, err error) {
-		cache.mu.RLock()
-		defer cache.mu.RUnlock()
-		return len(cache.configIndex) == 3, nil
-	})
-	assert.Equal(t, err, nil)
+
+	// Flush the cache and validate the index is cleaned.
+	cache.flush()
+	assert.Equal(t, cache.indexLen(), 3)
+
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key()),
 		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.Key()),
@@ -327,12 +310,10 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	assert.Equal(t, cache.store.Len(), 2)
 
-	err = wait.Poll(2*time.Millisecond, 100*time.Millisecond, func() (done bool, err error) {
-		cache.mu.RLock()
-		defer cache.mu.RUnlock()
-		return len(cache.configIndex) == 5, nil
-	})
-	assert.Equal(t, err, nil)
+	// Flush the cache and validate the index is cleaned.
+	cache.flush()
+	assert.Equal(t, cache.indexLen(), 5)
+
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key(), secondEntry.Key()),
 		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(firstEntry.Key()),
@@ -344,12 +325,10 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	// clear only Service dependencies, should clear both firstEntry and secondEntry references
 	cache.Clear(sets.Set[ConfigKey]{{Kind: kind.Service, Name: "name", Namespace: "namespace"}: {}})
 
-	err = wait.Poll(2*time.Millisecond, 100*time.Millisecond, func() (done bool, err error) {
-		cache.mu.RLock()
-		defer cache.mu.RUnlock()
-		return len(cache.configIndex) == 0, nil
-	})
-	assert.Equal(t, err, nil)
+	// Flush the cache and validate the index is cleaned.
+	cache.flush()
+	assert.Equal(t, cache.indexLen(), 0)
+
 	assert.Equal(t, cache.store.Len(), 0)
 }
 
@@ -382,9 +361,6 @@ func TestCacheClearAll(t *testing.T) {
 
 	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
-	stop := make(chan struct{})
-	defer close(stop)
-	c.Run(stop)
 
 	c.Add(firstEntry.Key(), firstEntry, req1, res)
 	c.Add(secondEntry.Key(), secondEntry, req2, res)

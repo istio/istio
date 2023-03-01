@@ -80,8 +80,8 @@ type dependents interface {
 // typedXdsCache interface defines a store for caching XDS responses.
 // All operations are thread safe.
 type typedXdsCache[K comparable] interface {
-	// Run starts a background thread periodically flush evicted indexes
-	Run(stop <-chan struct{})
+	// flush clears the evicted indexes.
+	flush()
 	// Add adds the given key with the value and its dependents for the given pushContext to the cache.
 	// If the cache has been updated to a newer push context, the write will be dropped silently.
 	// This ensures stale data does not overwrite fresh data when dealing with concurrent
@@ -144,26 +144,20 @@ func newLru[K comparable](evictCallback simplelru.EvictCallback[K, cacheValue]) 
 	return l
 }
 
-func (l *lruCache[K]) Run(stop <-chan struct{}) {
-	interval := features.XDSCacheIndexClearInterval
-	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				l.mu.Lock()
-				for _, keyConfigs := range l.evictQueue {
-					l.clearConfigIndex(keyConfigs.key, keyConfigs.dependentConfigs)
-				}
-				l.evictQueue = l.evictQueue[:0:1000]
-				l.recordDependentConfigSize()
-				l.mu.Unlock()
-			case <-stop:
-				return
-			}
-		}
-	}()
+func (l *lruCache[K]) flush() {
+	l.mu.Lock()
+	for _, keyConfigs := range l.evictQueue {
+		l.clearConfigIndex(keyConfigs.key, keyConfigs.dependentConfigs)
+	}
+	l.evictQueue = l.evictQueue[:0:1000]
+	l.recordDependentConfigSize()
+	l.mu.Unlock()
+}
+
+func (l *lruCache[K]) indexLen() int {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return len(l.configIndex)
 }
 
 func (l *lruCache[K]) recordDependentConfigSize() {
@@ -376,7 +370,7 @@ type disabledCache[K comparable] struct{}
 
 var _ typedXdsCache[uint64] = &disabledCache[uint64]{}
 
-func (d disabledCache[K]) Run(stop <-chan struct{}) {
+func (d disabledCache[K]) flush() {
 }
 
 func (d disabledCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *discovery.Resource) {

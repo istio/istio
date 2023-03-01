@@ -15,6 +15,8 @@
 package model
 
 import (
+	"time"
+
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -32,7 +34,7 @@ type XdsCacheImpl struct {
 // XdsCache interface defines a store for caching XDS responses.
 // All operations are thread safe.
 type XdsCache interface {
-	// Run starts a background thread periodically flush evicted indexes
+	// Run starts a background thread to flush evicted indexes periodically.
 	Run(stop <-chan struct{})
 	// Add adds the given XdsCacheEntry with the value for the given pushContext to the cache.
 	// If the cache has been updated to a newer push context, the write will be dropped silently.
@@ -54,6 +56,7 @@ type XdsCache interface {
 // XdsCacheEntry interface defines functions that should be implemented by
 // resources that can be cached.
 type XdsCacheEntry interface {
+	// Type indicates the type of Xds resource being cached like CDS.
 	Type() string
 	// Key is the key to be used in cache.
 	Key() any
@@ -94,10 +97,22 @@ func NewXdsCache() XdsCache {
 }
 
 func (x XdsCacheImpl) Run(stop <-chan struct{}) {
-	x.cds.Run(stop)
-	x.eds.Run(stop)
-	x.rds.Run(stop)
-	x.sds.Run(stop)
+	interval := features.XDSCacheIndexClearInterval
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				go x.cds.flush()
+				go x.eds.flush()
+				go x.rds.flush()
+				go x.sds.flush()
+			case <-stop:
+				return
+			}
+		}
+	}()
 }
 
 func (x XdsCacheImpl) Add(entry XdsCacheEntry, pushRequest *PushRequest, value *discovery.Resource) {
