@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -60,12 +61,16 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 
 func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(gvk.Deployment, func(r *resource.Instance) bool {
-		if util.DeploymentInMesh(r, c) {
+		if !isWaypointDeployment(r) && util.DeploymentInMesh(r, c) {
 			s.analyzeDeploymentPortProtocol(r, c)
 			s.analyzeDeploymentTargetPorts(r, c)
 		}
 		return true
 	})
+}
+
+func isWaypointDeployment(r *resource.Instance) bool {
+	return r.Metadata.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel
 }
 
 // analyzeDeploymentPortProtocol analyzes the specific service mesh deployment
