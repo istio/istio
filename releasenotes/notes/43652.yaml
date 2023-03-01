@@ -3,4 +3,4 @@ kind: bug-fix
 area: istioctl
 releaseNotes:
   - |
-    **Fixed** analyzing not caught some messages when there's services with no selector exist in the analyzed namespace.
+    **Fixed** a bug in `istioctl analyze` where some messages are missed when there are services with no selector in the analyzed namespace.
