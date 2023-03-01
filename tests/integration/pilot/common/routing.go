@@ -2948,7 +2948,7 @@ spec:
 		},
 	}
 
-	testDestinationAddress := t.apps.External.All[0].Address()
+	testDestinationAddress := t.Apps.External.All[0].Address()
 	parsedIP := net.ParseIP(testDestinationAddress)
 	if parsedIP != nil {
 		if parsedIP.To4() == nil && parsedIP.To16() != nil {
