@@ -2169,12 +2169,12 @@ spec:
         istio.io/rev: default
         install.operator.istio.io/owning-resource: unknown
         sidecar.istio.io/inject: "false"
-        ambient.istio.io/redirection: disabled
         operator.istio.io/component: "Pilot"
         istio: pilot
       annotations:
         prometheus.io/port: "15014"
         prometheus.io/scrape: "true"
+        ambient.istio.io/redirection: disabled
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istiod

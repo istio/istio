@@ -42,10 +42,18 @@ func ShouldPodBeInMesh(namespace *corev1.Namespace, pod *corev1.Pod, ignoreNotRu
 	// - If mesh is in namespace mode, must be in active namespace
 	if (ignoreNotRunning || (isRunning(pod) && hasPodIP(pod))) &&
 		!PodHasSidecar(pod) &&
+		!PodHasOptOut(pod) &&
 		IsNamespaceActive(namespace) {
 		return true
 	}
 
+	return false
+}
+
+func PodHasOptOut(pod *corev1.Pod) bool {
+	if val, ok := pod.Annotations[constants.AmbientRedirection]; ok {
+		return val == constants.AmbientRedirectionDisabled
+	}
 	return false
 }
 

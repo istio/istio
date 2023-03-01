@@ -35,6 +35,11 @@ spec:
       privileged: true
       ambient:
         enabled: true
+
+      # Default excludes istio-system; its actually fine to redirect there since we opt-out istiod, ztunnel, and istio-cni
+      excludeNamespaces:
+      - kube-system
+
       # TODO: https://github.com/istio/istio/issues/43243
       # variant: distroless
     telemetry:
