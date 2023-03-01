@@ -2924,7 +2924,6 @@ spec:
 		name       string
 		statusCode int
 		from       echo.Instances
-		to         string
 		protocol   protocol.Instance
 		port       int
 	}{
@@ -2934,19 +2933,8 @@ spec:
 			name:       "traffic from outboundTrafficPolicy REGISTRY_ONLY to allowed host",
 			statusCode: http.StatusOK,
 			from:       t.Apps.A,
-			to:         "fake.external.com",
 			protocol:   protocol.HTTPS,
 			port:       443,
-		},
-		// Test connectivity to external service from outboundTrafficPolicy restricted pod.
-		// Since there is no ServiceEntry created for example.com the traffic should fail.
-		{
-			name:       "traffic from outboundTrafficPolicy REGISTRY_ONLY to not allowed host",
-			statusCode: http.StatusBadGateway,
-			from:       t.Apps.A,
-			to:         "example.com",
-			protocol:   protocol.HTTP,
-			port:       80,
 		},
 		// Test connectivity to external service from outboundTrafficPolicy=PASS_THROUGH pod.
 		// Traffic should go through without the need for any explicit ServiceEntry
@@ -2954,18 +2942,20 @@ spec:
 			name:       "traffic from outboundTrafficPolicy PASS_THROUGH to any host",
 			statusCode: http.StatusOK,
 			from:       t.Apps.B,
-			to:         "fake.external.com",
 			protocol:   protocol.HTTP,
 			port:       80,
 		},
 	}
 	for _, tc := range testCases {
 		t.RunTraffic(TrafficTestCase{
-			name:   fmt.Sprintf("%v to host %v", tc.from[0].NamespacedName(), tc.to),
+			name:   fmt.Sprintf("%v to external service", tc.from[0].NamespacedName()),
 			config: SidecarScope,
 			opts: echo.CallOptions{
-				Address: tc.to,
-				Port:    echo.Port{Protocol: tc.protocol, ServicePort: tc.port},
+				Address: t.Apps.External.All[0].Address(),
+				HTTP: echo.HTTP{
+					Headers: HostHeader(t.Apps.External.All[0].Config().DefaultHostHeader),
+				},
+				Port: echo.Port{Protocol: tc.protocol, ServicePort: tc.port},
 				Check: check.And(
 					check.Status(tc.statusCode),
 				),

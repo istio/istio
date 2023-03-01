@@ -127,7 +127,7 @@ func NotOK() echo.Checker {
 	return ErrorOrNotStatus(http.StatusOK)
 }
 
-// NoErrorAndStatus is checks that no error occurred and htat the returned status code matches the expected
+// NoErrorAndStatus is checks that no error occurred and that the returned status code matches the expected
 // value.
 func NoErrorAndStatus(expected int) echo.Checker {
 	return And(NoError(), Status(expected))
