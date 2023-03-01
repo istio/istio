@@ -55,6 +55,14 @@ import (
 	"istio.io/pkg/log"
 )
 
+const (
+	// ConnectTerminate is the name for the resources associated with the termination of HTTP CONNECT.
+	ConnectTerminate = "connect_terminate"
+
+	// InternalName is the name for the resources associated with the main (non-tunnel) internal listener.
+	InternalName = "internal"
+)
+
 type WorkloadAndServices struct {
 	WorkloadInfo *model.WorkloadInfo
 	Services     []*model.Service
@@ -103,8 +111,6 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 
 	return listeners
 }
-
-const ConnectTerminate = "connect_terminate"
 
 func (lb *ListenerBuilder) buildHCMTerminateConnectChain(routes []*route.Route) []*listener.Filter {
 	h := &hcm.HttpConnectionManager{
@@ -189,7 +195,7 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 				UpgradeType:   "CONNECT",
 				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 			}},
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "internal"},
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: InternalName},
 		}},
 		TypedPerFilterConfig: map[string]*any.Any{
 			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
@@ -311,7 +317,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		}
 	}
 	l := &listener.Listener{
-		Name:              "internal",
+		Name:              InternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
 			util.InternalListenerSetAddressFilter(),

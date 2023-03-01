@@ -45,8 +45,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuild
 	}
 	// This TCP cluster routes to "internal" listener.
 	clusterType := cluster.Cluster_STATIC
-	llb := util.BuildInternalEndpoint("internal", nil)
-	localCluster := cb.buildDefaultCluster("internal", clusterType, llb,
+	llb := util.BuildInternalEndpoint(InternalName, nil)
+	localCluster := cb.buildDefaultCluster(InternalName, clusterType, llb,
 		model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
 	localCluster.cluster.TransportSocketMatches = nil
 	localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()
@@ -60,7 +60,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	svcs map[host.Name]*model.Service,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	// Creates "internal" cluster to route to the main "internal" listener.
+	// Creates "internal" cluster to route to the main listener.
 	// Creates "encap" listener to route to the encap listener.
 	clusters = append(clusters, cb.buildWaypointInboundInternal()...)
 	// Creates per-VIP load balancing upstreams.
@@ -123,8 +123,8 @@ func (cb *ClusterBuilder) buildWaypointInboundInternal() []*cluster.Cluster {
 	{
 		// This TCP cluster routes to "internal" listener.
 		clusterType := cluster.Cluster_STATIC
-		llb := util.BuildInternalEndpoint("internal", nil)
-		localCluster := cb.buildDefaultCluster("internal", clusterType, llb,
+		llb := util.BuildInternalEndpoint(InternalName, nil)
+		localCluster := cb.buildDefaultCluster(InternalName, clusterType, llb,
 			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
 		localCluster.cluster.TransportSocketMatches = nil
 		localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()

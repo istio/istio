@@ -165,9 +165,10 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 			}},
 
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "internal"},
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: InternalName},
 		}},
 		TypedPerFilterConfig: map[string]*anypb.Any{
+			// Note the difference with the waypoint below.
 			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabledSidecar,
 		},
 	}}
@@ -175,10 +176,11 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	// Now we have top level listener... but we must have an internal listener for each standard filter chain
 	// 1 listener per port; that listener will do protocol detection.
 	l := &listener.Listener{
-		Name:              "internal",
+		Name:              InternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		TrafficDirection:  core.TrafficDirection_INBOUND,
 	}
+
 	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
 		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
@@ -190,7 +192,6 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 			fcm := c.GetFilterChainMatch()
 			if fcm != nil {
 				// Clear out settings that do not matter anymore
-				fcm.DestinationPort = nil
 				fcm.TransportProtocol = ""
 			}
 		}
