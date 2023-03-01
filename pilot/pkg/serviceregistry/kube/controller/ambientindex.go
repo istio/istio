@@ -108,7 +108,6 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, i
 				continue
 			}
 
-			wl := wl.Clone()
 			addrs := make([][]byte, 0, len(wl.WaypointAddresses))
 			filtered := false
 			for _, a := range wl.WaypointAddresses {
@@ -635,10 +634,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			ip := p.Status.PodIP
 			if isDelete || !IsPodReady(p) {
 				if idx.waypoints[scope].Contains(ip) {
-					idx.waypoints[scope].Delete(ip)
-					if len(idx.waypoints[scope]) == 0 {
-						delete(idx.waypoints, scope)
-					}
+					sets.DeleteCleanupLast(idx.waypoints, scope, ip)
 					updates.Merge(idx.updateWaypoint(scope, ip, true, c))
 				}
 			} else {
