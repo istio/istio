@@ -866,6 +866,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	istiotest.SetForTest(t, &features.EnableHBONE, true)
+	istiotest.SetForTest(t, &features.EnableAmbientControllers, true)
 	for _, ambient := range []bool{false, true} {
 		name := "disabled"
 		if ambient {
