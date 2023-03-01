@@ -60,7 +60,7 @@ func UnstructuredToGVR(u unstructured.Unstructured) (schema.GroupVersionResource
 	return schema.GroupVersionResource{
 		Group:    gk.Group,
 		Version:  gk.Version,
-		Resource: found.Resource().Plural(),
+		Resource: found.Plural(),
 	}, nil
 }
 
@@ -81,7 +81,7 @@ func ObjectToGVR(u Object) (schema.GroupVersionResource, error) {
 	return schema.GroupVersionResource{
 		Group:    gk.Group,
 		Version:  gk.Version,
-		Resource: found.Resource().Plural(),
+		Resource: found.Plural(),
 	}, nil
 }
 

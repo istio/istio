@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
@@ -518,7 +517,7 @@ func createEndpoints(numEndpoints, numServices, numNetworks int) []config.Config
 		}
 		result = append(result, config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
+				GroupVersionKind:  gvk.ServiceEntry,
 				Name:              fmt.Sprintf("foo-%d", s),
 				Namespace:         "default",
 				CreationTimestamp: time.Now(),

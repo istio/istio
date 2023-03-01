@@ -36,12 +36,12 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 	storeTypes := make(map[config.GroupVersionKind][]model.ConfigStore)
 	for _, store := range stores {
 		for _, s := range store.Schemas().All() {
-			if len(storeTypes[s.Resource().GroupVersionKind()]) == 0 {
+			if len(storeTypes[s.GroupVersionKind()]) == 0 {
 				if err := union.Add(s); err != nil {
 					return nil, err
 				}
 			}
-			storeTypes[s.Resource().GroupVersionKind()] = append(storeTypes[s.Resource().GroupVersionKind()], store)
+			storeTypes[s.GroupVersionKind()] = append(storeTypes[s.GroupVersionKind()], store)
 		}
 	}
 

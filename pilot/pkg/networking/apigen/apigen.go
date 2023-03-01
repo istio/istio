@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/log"
 )
@@ -83,7 +82,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 		Version: kind[1],
 		Kind:    kind[2],
 	}
-	if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
+	if w.TypeUrl == gvk.MeshConfig.String() {
 		resp = append(resp, &discovery.Resource{
 			Resource: protoconv.MessageToAny(req.Push.Mesh),
 		})

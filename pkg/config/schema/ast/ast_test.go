@@ -55,6 +55,7 @@ resources:
 				},
 				Resources: []*Resource{
 					{
+						Identifier:   "VirtualService",
 						Kind:         "VirtualService",
 						Group:        "networking.istio.io",
 						Version:      "v1alpha3",

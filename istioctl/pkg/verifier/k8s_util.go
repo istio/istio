@@ -73,5 +73,5 @@ func findResourceInSpec(gvk apimachinery_schema.GroupVersionKind) string {
 	if !f {
 		return ""
 	}
-	return s.Resource().Plural()
+	return s.Plural()
 }

@@ -42,7 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/labels"
@@ -132,8 +132,8 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 		RunE: func(cmd *cobra.Command, args []string) error {
 			u := &unstructured.Unstructured{
 				Object: map[string]any{
-					"apiVersion": collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().APIVersion(),
-					"kind":       collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().Kind(),
+					"apiVersion": gvk.WorkloadGroup.GroupVersion(),
+					"kind":       gvk.WorkloadGroup.Kind,
 					"metadata": map[string]any{
 						"name":      name,
 						"namespace": namespace,

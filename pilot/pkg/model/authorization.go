@@ -17,7 +17,7 @@ package model
 import (
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -46,7 +46,7 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 		RootNamespace:       env.Mesh().GetRootNamespace(),
 	}
 
-	policies, err := env.List(collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(), NamespaceAll)
+	policies, err := env.List(gvk.AuthorizationPolicy, NamespaceAll)
 	if err != nil {
 		return nil, err
 	}

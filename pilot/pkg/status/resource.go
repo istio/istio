@@ -68,7 +68,7 @@ func (r *Resource) ToModelKey() string {
 	// we have a resource here, but model keys use kind.  Use the schema to find the correct kind.
 	found, _ := collections.All.FindByPlural(r.Group, r.Version, r.Resource)
 	return config.Key(
-		found.Resource().Group(), found.Resource().Version(), found.Resource().Kind(),
+		found.Group(), found.Version(), found.Kind(),
 		r.Name, r.Namespace)
 }
 
@@ -131,7 +131,7 @@ func GVKtoGVR(in config.GroupVersionKind) *schema.GroupVersionResource {
 	return &schema.GroupVersionResource{
 		Group:    in.Group,
 		Version:  in.Version,
-		Resource: found.Resource().Plural(),
+		Resource: found.Plural(),
 	}
 }
 
@@ -140,7 +140,7 @@ func GVRtoGVK(in schema.GroupVersionResource) config.GroupVersionKind {
 	if !ok {
 		return config.GroupVersionKind{}
 	}
-	return found.Resource().GroupVersionKind()
+	return found.GroupVersionKind()
 }
 
 func NewIstioContext(stop <-chan struct{}) context.Context {

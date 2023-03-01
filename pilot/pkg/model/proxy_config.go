@@ -22,7 +22,7 @@ import (
 	"istio.io/api/networking/v1beta1"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
@@ -78,7 +78,7 @@ func GetProxyConfigs(store ConfigStore, mc *meshconfig.MeshConfig) (*ProxyConfig
 		namespaceToProxyConfigs: map[string][]*v1beta1.ProxyConfig{},
 		rootNamespace:           mc.GetRootNamespace(),
 	}
-	resources, err := store.List(collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind(), NamespaceAll)
+	resources, err := store.List(gvk.ProxyConfig, NamespaceAll)
 	if err != nil {
 		return nil, err
 	}

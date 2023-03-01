@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestBuildRedisFilter(t *testing.T) {
@@ -362,7 +362,7 @@ func TestBuildOutboundNetworkFiltersTunnelingConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			destinationRuleConfig := config.Config{
 				Meta: config.Meta{
-					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+					GroupVersionKind: gvk.DestinationRule,
 					Name:             "tunnel-config",
 					Namespace:        ns,
 				},
@@ -529,7 +529,7 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 
 	simpleDestinationRule := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.DestinationRule,
 			Name:             "acme-v3-0",
 			Namespace:        "not-default",
 		},
@@ -551,7 +551,7 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 
 	destinationRule := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.DestinationRule,
 			Name:             "acme-v3-1",
 			Namespace:        "not-default",
 		},
@@ -574,7 +574,7 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 
 	subsetdestinationRule := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.DestinationRule,
 			Name:             "acme-v3-2",
 			Namespace:        "not-default",
 		},
@@ -607,7 +607,7 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 
 	subsetDifferentdestinationRule := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.DestinationRule,
 			Name:             "acme-v3-3",
 			Namespace:        "not-default",
 		},

@@ -39,7 +39,7 @@ func FuzzConfigValidation(data []byte) int {
 	}
 
 	r := collections.Pilot.All()[configIndex%len(collections.Pilot.All())]
-	gvk := r.Resource().GroupVersionKind()
+	gvk := r.GroupVersionKind()
 	kgvk := schema.GroupVersionKind{
 		Group:   gvk.Group,
 		Version: gvk.Version,
@@ -60,7 +60,7 @@ func FuzzConfigValidation(data []byte) int {
 	}
 
 	iobj := crdclient.TranslateObject(object, gvk, "cluster.local")
-	_, _ = r.Resource().ValidateConfig(iobj)
+	_, _ = r.ValidateConfig(iobj)
 	return 1
 }
 
@@ -77,7 +77,7 @@ func FuzzConfigValidation2(data []byte) int {
 	}
 	r := collections.Pilot.All()[configIndex%len(collections.Pilot.All())]
 
-	spec, err := r.Resource().NewInstance()
+	spec, err := r.NewInstance()
 	if err != nil {
 		return 0
 	}
@@ -96,10 +96,10 @@ func FuzzConfigValidation2(data []byte) int {
 		return 0
 	}
 
-	gvk := r.Resource().GroupVersionKind()
+	gvk := r.GroupVersionKind()
 	m.GroupVersionKind = gvk
 
-	_, _ = r.Resource().ValidateConfig(config.Config{
+	_, _ = r.ValidateConfig(config.Config{
 		Meta: m,
 		Spec: spec,
 	})
