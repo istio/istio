@@ -1039,17 +1039,6 @@ func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
 	return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
 }
 
-func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, listenerName string) *MutableCluster {
-	clusterType := cluster.Cluster_STATIC
-	port := &model.Port{}
-	localCluster := cb.buildDefaultCluster(clusterName, clusterType, util.BuildInternalEndpoint(listenerName, nil),
-		model.TrafficDirectionInbound, port, nil, nil)
-	// no TLS
-	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = InternalUpstreamSocket
-	return localCluster
-}
-
 var HboneOrPlaintextSocket = []*cluster.Cluster_TransportSocketMatch{
 	{
 		Name:            "hbone",
