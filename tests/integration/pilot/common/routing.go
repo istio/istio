@@ -19,6 +19,7 @@ package common
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -2946,12 +2947,24 @@ spec:
 			port:       80,
 		},
 	}
+
+	testDestinationAddress := t.apps.External.All[0].Address()
+	parsedIP := net.ParseIP(testDestinationAddress)
+	if parsedIP != nil {
+		if parsedIP.To4() == nil && parsedIP.To16() != nil {
+			// CI has some issues with IPV6 DNS resolution, due to which
+			// we are not able to directly use the host name in the IPV6 external service connectivity test.
+			// Hence using a bogus IPV6 address with -HHost option as a workaround.
+			testDestinationAddress = "2002::1"
+		}
+	}
+
 	for _, tc := range testCases {
 		t.RunTraffic(TrafficTestCase{
 			name:   fmt.Sprintf("%v to external service", tc.from[0].NamespacedName()),
 			config: SidecarScope,
 			opts: echo.CallOptions{
-				Address: t.Apps.External.All[0].Address(),
+				Address: testDestinationAddress,
 				HTTP: echo.HTTP{
 					Headers: HostHeader(t.Apps.External.All[0].Config().DefaultHostHeader),
 				},
