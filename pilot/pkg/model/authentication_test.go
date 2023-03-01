@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -712,7 +711,7 @@ func getTestAuthenticationPolicies(configs []*config.Config, t *testing.T) *Auth
 func createTestRequestAuthenticationResource(name string, namespace string, selector *selectorpb.WorkloadSelector) *config.Config {
 	return &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.RequestAuthentication,
 			Name:             name,
 			Namespace:        namespace,
 		},
@@ -727,7 +726,7 @@ func createTestPeerAuthenticationResource(name string, namespace string, timesta
 ) *config.Config {
 	return &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(),
+			GroupVersionKind:  gvk.PeerAuthentication,
 			Name:              name,
 			Namespace:         namespace,
 			CreationTimestamp: timestamp,

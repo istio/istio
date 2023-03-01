@@ -38,7 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
 )
 
@@ -387,7 +387,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -428,7 +428,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			nil,
 			&core.Metadata{
@@ -451,7 +451,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{},
@@ -476,7 +476,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -516,7 +516,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{

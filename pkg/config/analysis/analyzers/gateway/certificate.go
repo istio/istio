@@ -17,12 +17,12 @@ package gateway
 import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type CertificateAnalyzer struct{}
@@ -33,15 +33,15 @@ func (*CertificateAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "gateway.CertificateAnalyzer",
 		Description: "Checks a gateway certificate",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Gateways.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Gateway,
 		},
 	}
 }
 
 // Analyze implements analysis.Analyzer
 func (gateway *CertificateAnalyzer) Analyze(context analysis.Context) {
-	context.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(resource *resource.Instance) bool {
+	context.ForEach(gvk.Gateway, func(resource *resource.Instance) bool {
 		gateway.analyzeDuplicateCertificate(resource, context, features.ScopeGatewayToNamespace)
 		return true
 	})
@@ -58,7 +58,7 @@ func (gateway *CertificateAnalyzer) analyzeDuplicateCertificate(currentResource 
 			continue
 		}
 
-		gatewayInstance := context.Find(collections.IstioNetworkingV1Alpha3Gateways.Name(), gatewayFullName)
+		gatewayInstance := context.Find(gvk.Gateway, gatewayFullName)
 		gateway := gatewayInstance.Message.(*v1alpha3.Gateway)
 		for _, currentServer := range currentGateway.Servers {
 			for _, server := range gateway.Servers {
@@ -75,7 +75,7 @@ func (gateway *CertificateAnalyzer) analyzeDuplicateCertificate(currentResource 
 						message.Line = line
 					}
 
-					context.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), message)
+					context.Report(gvk.Gateway, message)
 				}
 			}
 		}
@@ -105,7 +105,7 @@ func haveSameCertificate(currentGatewayTLS, gatewayTLS *v1alpha3.ServerTLSSettin
 func getGatewaysWithSelector(c analysis.Context, gwScope bool, currentGWName resource.FullName, currentGWSelector map[string]string) []resource.FullName {
 	var gateways []resource.FullName
 
-	c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(resource *resource.Instance) bool {
+	c.ForEach(gvk.Gateway, func(resource *resource.Instance) bool {
 		// if scopeToNamespace true, ignore adding gateways from other namespace
 		if gwScope {
 			if currentGWName.Namespace != resource.Metadata.FullName.Namespace {

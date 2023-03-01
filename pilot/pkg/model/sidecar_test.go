@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -30,7 +31,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test/util/assert"
@@ -1031,7 +1032,7 @@ var (
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -1050,7 +1051,7 @@ var (
 	virtualServices2 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -1069,7 +1070,7 @@ var (
 	virtualServices3 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -1094,7 +1095,7 @@ var (
 	virtualServices4 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -1118,7 +1119,7 @@ var (
 	virtualServices5 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -2466,5 +2467,76 @@ outboundTrafficPolicy:
 					test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy)
 			}
 		})
+	}
+}
+
+func BenchmarkConvertIstioListenerToWrapper(b *testing.B) {
+	b.Run("small-exact", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 10, 3, "", false)
+	})
+	b.Run("small-wildcard", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 10, 3, "*.", false)
+	})
+	b.Run("small-match-all", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 10, 3, "", true)
+	})
+
+	b.Run("middle-exact", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 100, 10, "", false)
+	})
+	b.Run("middle-wildcard", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 100, 10, "*.", false)
+	})
+	b.Run("middle-match-all", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 100, 10, "", true)
+	})
+
+	b.Run("big-exact", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 300, 15, "", false)
+	})
+	b.Run("big-wildcard", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 300, 15, "*.", false)
+	})
+	b.Run("big-match-all", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 300, 15, "", true)
+	})
+}
+
+func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int, wildcard string, matchAll bool) {
+	cfgs := make([]config.Config, 0)
+	for i := 0; i < vsNum; i++ {
+		cfgs = append(cfgs, config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "vs-name-" + strconv.Itoa(i),
+				Namespace:        "default",
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"host-" + strconv.Itoa(i) + ".com"},
+			},
+		})
+	}
+	ps := NewPushContext()
+	ps.virtualServiceIndex.publicByGateway["default"] = cfgs
+
+	hosts := make([]string, 0)
+	if matchAll {
+		// default/*
+		hosts = append(hosts, "default/*")
+	} else {
+		// default/xx or default/*.xx
+		for i := 0; i < hostNum; i++ {
+			h := "default/" + wildcard + "host-" + strconv.Itoa(i) + ".com"
+			hosts = append(hosts, h)
+		}
+	}
+
+	istioListener := &networking.IstioEgressListener{
+		Hosts: hosts,
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		convertIstioListenerToWrapper(ps, "this-test-not-use-ns", istioListener)
 	}
 }

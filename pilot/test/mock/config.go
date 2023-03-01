@@ -28,8 +28,8 @@ import (
 	api "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	config2 "istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/test/config"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
@@ -91,7 +91,7 @@ var (
 		},
 	}
 
-	mockGvk = collections.Mock.Resource().GroupVersionKind()
+	mockGvk = collections.Mock.GroupVersionKind()
 )
 
 // Make creates a mock config indexed by a number
@@ -292,7 +292,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 	cases := []struct {
 		name       string
 		configName string
-		schema     collection.Schema
+		schema     resource.Schema
 		spec       config2.Spec
 	}{
 		{"VirtualService", configName, collections.IstioNetworkingV1Alpha3Virtualservices, ExampleVirtualService},
@@ -305,10 +305,10 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			configMeta := config2.Meta{
-				GroupVersionKind: c.schema.Resource().GroupVersionKind(),
+				GroupVersionKind: c.schema.GroupVersionKind(),
 				Name:             c.configName,
 			}
-			if !c.schema.Resource().IsClusterScoped() {
+			if !c.schema.IsClusterScoped() {
 				configMeta.Namespace = namespace
 			}
 

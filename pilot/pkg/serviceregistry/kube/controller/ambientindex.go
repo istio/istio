@@ -57,16 +57,9 @@ type AmbientIndex struct {
 	byPod map[string]*model.WorkloadInfo
 
 	// Map of ServiceAccount -> IP
-	// TODO: this is broken, should be set of IP addresses
 	waypoints map[model.WaypointScope]sets.String
 
 	handlePods func(pods []*v1.Pod)
-}
-
-func (a *AmbientIndex) ToSnapshot() *model.AmbientSnapshot {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	return model.NewAmbientSnapshot(maps.Values(a.byPod), maps.Clone(a.waypoints))
 }
 
 // Lookup finds a given IP address.
@@ -176,8 +169,51 @@ func (a *AmbientIndex) All() []*model.WorkloadInfo {
 	return res
 }
 
-func (c *Controller) AmbientSnapshot() *model.AmbientSnapshot {
-	return c.ambientIndex.ToSnapshot()
+func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.WorkloadInfo {
+	a := c.ambientIndex
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	var res []*model.WorkloadInfo
+	// TODO: try to precompute
+	for _, w := range a.byPod {
+		if a.matchesScope(scope, w) {
+			res = append(res, w)
+		}
+	}
+	return res
+}
+
+func (c *Controller) Waypoint(scope model.WaypointScope) sets.Set[netip.Addr] {
+	a := c.ambientIndex
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	res := sets.New[netip.Addr]()
+	for ip := range a.waypoints[scope] {
+		res.Insert(netip.MustParseAddr(ip))
+	}
+
+	return res
+}
+
+func (a *AmbientIndex) matchesScope(scope model.WaypointScope, w *model.WorkloadInfo) bool {
+	if len(scope.ServiceAccount) == 0 {
+		// We are a namespace wide waypoint. SA scope take precedence.
+		// Check if there is one for this workloads service account
+		if _, f := a.waypoints[model.WaypointScope{Namespace: scope.Namespace, ServiceAccount: w.ServiceAccount}]; f {
+			return false
+		}
+	}
+	if scope.ServiceAccount != "" && (w.ServiceAccount != scope.ServiceAccount) {
+		return false
+	}
+	if w.Namespace != scope.Namespace {
+		return false
+	}
+	// Filter out waypoints.
+	if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+		return false
+	}
+	return true
 }
 
 func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
@@ -293,7 +329,6 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:           addressChangeFullPush,
 			ConfigsUpdated: updates,
 			Reason:         []model.TriggerReason{model.AmbientUpdate},
 		})
@@ -581,8 +616,6 @@ func (c *Controller) updateEndpointsOnWaypointChange(name, namespace string) {
 	}
 }
 
-const addressChangeFullPush = true // TODO: // TODO(https://github.com/istio/istio/issues/42318)
-
 func (c *Controller) setupIndex() *AmbientIndex {
 	idx := AmbientIndex{
 		byService: map[string][]*model.WorkloadInfo{},
@@ -664,7 +697,6 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		}
 		if len(updates) > 0 {
 			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Full:           addressChangeFullPush,
 				ConfigsUpdated: updates,
 				Reason:         []model.TriggerReason{model.AmbientUpdate},
 			})
@@ -678,7 +710,6 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handlePod(nil, obj, false)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -690,7 +721,6 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handlePod(oldObj, newObj, false)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -702,7 +732,6 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handlePod(nil, obj, true)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -759,7 +788,6 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handleService(obj, false)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -780,7 +808,6 @@ func (c *Controller) setupIndex() *AmbientIndex {
 
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})
@@ -792,7 +819,6 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			updates := handleService(obj, true)
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           addressChangeFullPush,
 					ConfigsUpdated: updates,
 					Reason:         []model.TriggerReason{model.AmbientUpdate},
 				})

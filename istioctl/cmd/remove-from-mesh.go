@@ -26,7 +26,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
@@ -300,11 +299,7 @@ func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernete
 	if err != nil {
 		return fmt.Errorf("service %q does not exist, skip", svcName)
 	}
-	serviceEntryGVR := schema.GroupVersionResource{
-		Group:    "networking.istio.io",
-		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
-		Resource: "serviceentries",
-	}
+	serviceEntryGVR := collections.IstioNetworkingV1Alpha3Serviceentries.GroupVersionResource()
 	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(context.TODO(), resourceName(svcName), metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("service entry %q does not exist, skip", resourceName(svcName))

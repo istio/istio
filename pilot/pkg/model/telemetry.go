@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -117,7 +117,7 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 		computedLoggingConfig:  map[loggingKey][]LoggingConfig{},
 	}
 
-	fromEnv, err := env.List(collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(), NamespaceAll)
+	fromEnv, err := env.List(gvk.Telemetry, NamespaceAll)
 	if err != nil {
 		return nil, err
 	}

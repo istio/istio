@@ -28,6 +28,7 @@ import (
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"golang.org/x/exp/slices"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -1475,7 +1476,7 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 	if first.TransportProtocol != second.TransportProtocol {
 		return false
 	}
-	if !util.StringSliceEqual(first.ApplicationProtocols, second.ApplicationProtocols) {
+	if !slices.Equal(first.ApplicationProtocols, second.ApplicationProtocols) {
 		return false
 	}
 	if first.DestinationPort.GetValue() != second.DestinationPort.GetValue() {
@@ -1499,10 +1500,10 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 	if first.SourceType != second.SourceType {
 		return false
 	}
-	if !util.UInt32SliceEqual(first.SourcePorts, second.SourcePorts) {
+	if !slices.Equal(first.SourcePorts, second.SourcePorts) {
 		return false
 	}
-	if !util.StringSliceEqual(first.ServerNames, second.ServerNames) {
+	if !slices.Equal(first.ServerNames, second.ServerNames) {
 		return false
 	}
 	return true

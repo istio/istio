@@ -636,34 +636,6 @@ func ConvertToEnvoyMatch(in *networking.StringMatch) *matcher.StringMatcher {
 	return nil
 }
 
-func StringSliceEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-
-	return true
-}
-
-func UInt32SliceEqual(a, b []uint32) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-
-	return true
-}
-
 func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
 	if len(a) != len(b) {
 		return false

@@ -19,13 +19,13 @@ import (
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -41,8 +41,8 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.ConflictingMeshGatewayHostsAnalyzer",
 		Description: "Checks if multiple virtual services associated with the mesh gateway have conflicting hosts",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.VirtualService,
 		},
 	}
 }
@@ -70,7 +70,7 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 					m.Line = line
 				}
 
-				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+				ctx.Report(gvk.VirtualService, m)
 			}
 		}
 
@@ -102,7 +102,7 @@ func combineResourceEntryNames(rList []*resource.Instance) string {
 
 func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.Instance {
 	hostsVirtualServices := map[util.ScopedFqdn][]*resource.Instance{}
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
 		vs := r.Message.(*v1alpha3.VirtualService)
 		vsNamespace := r.Metadata.FullName.Namespace
 		vsAttachedToMeshGateway := false

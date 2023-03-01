@@ -87,6 +87,13 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		xdsType = "DELTA_GRPC"
 	}
 
+	// Waypoint overrides
+	metadataDiscovery := false
+	if strings.HasPrefix(cfg.ID, "waypoint~") {
+		xdsType = "DELTA_GRPC"
+		metadataDiscovery = true
+	}
+
 	opts = append(opts,
 		option.NodeID(cfg.ID),
 		option.NodeType(cfg.ID),
@@ -94,7 +101,8 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
-		option.XdsType(xdsType))
+		option.XdsType(xdsType),
+		option.MetadataDiscovery(metadataDiscovery))
 
 	// Add GCPProjectNumber to access in bootstrap template.
 	md := cfg.Metadata.PlatformMetadata

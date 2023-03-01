@@ -55,7 +55,7 @@ func NewManager(store model.ConfigStore) *Manager {
 			return nil
 		}
 
-		current := store.Get(schema.Resource().GroupVersionKind(), resource.Name, resource.Namespace)
+		current := store.Get(schema.GroupVersionKind(), resource.Name, resource.Namespace)
 		return current
 	}
 	return &Manager{

@@ -17,12 +17,12 @@ package telemetry
 import (
 	"istio.io/api/mesh/v1alpha1"
 	telemetryapi "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type ProdiverAnalyzer struct{}
@@ -34,9 +34,9 @@ func (a *ProdiverAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "telemetry.ProviderAnalyzer",
 		Description: "Validates that providers in telemery resource is valid",
-		Inputs: collection.Names{
-			collections.IstioTelemetryV1Alpha1Telemetries.Name(),
-			collections.IstioMeshV1Alpha1MeshConfig.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Telemetry,
+			gvk.MeshConfig,
 		},
 	}
 }
@@ -46,12 +46,12 @@ func (a *ProdiverAnalyzer) Analyze(c analysis.Context) {
 	meshConfig := fetchMeshConfig(c)
 	if meshConfig.DefaultProviders == nil ||
 		len(meshConfig.DefaultProviders.AccessLogging) == 0 {
-		c.ForEach(collections.IstioTelemetryV1Alpha1Telemetries.Name(), func(r *resource.Instance) bool {
+		c.ForEach(gvk.Telemetry, func(r *resource.Instance) bool {
 			telemetry := r.Message.(*telemetryapi.Telemetry)
 
 			for _, l := range telemetry.AccessLogging {
 				if len(l.Providers) == 0 {
-					c.Report(collections.IstioTelemetryV1Alpha1Telemetries.Name(),
+					c.Report(gvk.Telemetry,
 						msg.NewInvalidTelemetryProvider(r, string(r.Metadata.FullName.Name), string(r.Metadata.FullName.Namespace)))
 				}
 			}
@@ -63,7 +63,7 @@ func (a *ProdiverAnalyzer) Analyze(c analysis.Context) {
 
 func fetchMeshConfig(c analysis.Context) *v1alpha1.MeshConfig {
 	var meshConfig *v1alpha1.MeshConfig
-	c.ForEach(collections.IstioMeshV1Alpha1MeshConfig.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
 		meshConfig = r.Message.(*v1alpha1.MeshConfig)
 		return r.Metadata.FullName.Name != util.MeshConfigName
 	})

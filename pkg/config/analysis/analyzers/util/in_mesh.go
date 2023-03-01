@@ -21,7 +21,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // DeploymentinMesh returns true if deployment is in the service mesh (has sidecar)
@@ -77,7 +77,7 @@ func getPodSidecarInjectionStatus(metadata map[string]string) (enabled bool, ok 
 func getNamesSidecarInjectionStatus(ns resource.Namespace, c analysis.Context) (enabled bool, ok bool) {
 	enabled, ok = false, false
 
-	namespace := c.Find(collections.K8SCoreV1Namespaces.Name(), resource.NewFullName("", resource.LocalName(ns)))
+	namespace := c.Find(gvk.Namespace, resource.NewFullName("", resource.LocalName(ns)))
 	if namespace != nil {
 		enabled, ok = namespace.Metadata.Labels[InjectionLabelName] == InjectionLabelEnableValue, true
 	}

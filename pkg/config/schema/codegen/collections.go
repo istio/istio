@@ -102,10 +102,8 @@ import (
 var (
 {{ range .Entries }}
 	{{ commentBlock (wordWrap (printf "%s %s" .Collection.VariableName .Collection.Description) 70) 1 }}
-	{{ .Collection.VariableName }} = collection.Builder {
-		Name: "{{ .Collection.Name }}",
-		VariableName: "{{ .Collection.VariableName }}",
-		Resource: resource.Builder {
+	{{ .Collection.VariableName }} = resource.Builder {
+			Identifier: "{{ .Resource.Identifier }}",
 			Group: "{{ .Resource.Group }}",
 			Kind: "{{ .Resource.Kind }}",
 			Plural: "{{ .Resource.Plural }}",
@@ -125,8 +123,7 @@ var (
 			{{- if ne "" .Resource.StatusProtoPackage}}StatusPackage: "{{ .Resource.StatusProtoPackage }}", {{end}}
 			ClusterScoped: {{ .Resource.ClusterScoped }},
 			ValidateProto: validation.{{ .Resource.Validate }},
-		}.MustBuild(),
-	}.MustBuild()
+		}.MustBuild()
 {{ end }}
 
 	// All contains all collections in the system.
@@ -202,21 +199,14 @@ type colEntry struct {
 
 func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
 	entries := make([]colEntry, 0, len(m.Collections))
-	customNames := map[string]string{
-		"k8s/gateway_api/v1beta1/gateways": "KubernetesGateway",
-	}
 	for _, c := range m.Collections {
 		r := m.FindResourceForGroupKind(c.Group, c.Kind)
 		if r == nil {
 			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
 		}
 
-		name := r.Kind
-		if cn, f := customNames[c.Name]; f {
-			name = cn
-		}
 		entries = append(entries, colEntry{
-			Type:     name,
+			Type:     r.Identifier,
 			Resource: r,
 		})
 	}
@@ -239,21 +229,14 @@ func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
 
 func WriteKind(packageName string, m *ast.Metadata) (string, error) {
 	entries := make([]colEntry, 0, len(m.Collections))
-	customNames := map[string]string{
-		"k8s/gateway_api/v1beta1/gateways": "KubernetesGateway",
-	}
 	for _, c := range m.Collections {
 		r := m.FindResourceForGroupKind(c.Group, c.Kind)
 		if r == nil {
 			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
 		}
 
-		name := r.Kind
-		if cn, f := customNames[c.Name]; f {
-			name = cn
-		}
 		entries = append(entries, colEntry{
-			Type:     name,
+			Type:     r.Identifier,
 			Resource: r,
 		})
 	}

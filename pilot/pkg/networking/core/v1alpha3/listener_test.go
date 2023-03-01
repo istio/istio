@@ -50,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -403,7 +402,7 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 
 			virtualService := config.Config{
 				Meta: config.Meta{
-					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+					GroupVersionKind: gvk.VirtualService,
 					Name:             "test_vs",
 					Namespace:        "default",
 				},
@@ -468,7 +467,7 @@ func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
 
 			virtualService := config.Config{
 				Meta: config.Meta{
-					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+					GroupVersionKind: gvk.VirtualService,
 					Name:             "test_vs",
 					Namespace:        "default",
 				},

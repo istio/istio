@@ -24,6 +24,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/pkg/config/analysis/analyzers/authz"
@@ -45,7 +46,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -763,7 +763,7 @@ var ignoreAnalyzers = []string{
 
 // TestAnalyzers allows for table-based testing of Analyzers.
 func TestAnalyzers(t *testing.T) {
-	requestedInputsByAnalyzer := make(map[string]map[collection.Name]struct{})
+	requestedInputsByAnalyzer := make(map[string]map[config.GroupVersionKind]struct{})
 
 	// For each test case, verify we get the expected messages as output
 	for _, tc := range testGrid {
@@ -773,9 +773,9 @@ func TestAnalyzers(t *testing.T) {
 
 			// Set up a hook to record which collections are accessed by each analyzer
 			analyzerName := tc.analyzer.Metadata().Name
-			cr := func(col collection.Name) {
+			cr := func(col config.GroupVersionKind) {
 				if _, ok := requestedInputsByAnalyzer[analyzerName]; !ok {
-					requestedInputsByAnalyzer[analyzerName] = make(map[collection.Name]struct{})
+					requestedInputsByAnalyzer[analyzerName] = make(map[config.GroupVersionKind]struct{})
 				}
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
@@ -815,7 +815,7 @@ func TestAnalyzers(t *testing.T) {
 				}
 			}
 
-			requestedInputs := make([]collection.Name, 0)
+			requestedInputs := make([]config.GroupVersionKind, 0)
 			for col := range requestedInputsByAnalyzer[analyzerName] {
 				requestedInputs = append(requestedInputs, col)
 			}

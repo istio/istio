@@ -317,11 +317,21 @@ func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTP
 
 			match = true
 			if dest.Weight > 0 {
-				facts = append(facts, fmt.Sprintf("Weight %d%%", dest.Weight))
+				fact := fmt.Sprintf("Route to host \"%s\"", dest.Destination.Host)
+				if dest.Destination.Subset != "" {
+					fact = fmt.Sprintf("%s subset \"%s\"", fact, dest.Destination.Subset)
+				}
+				fact = fmt.Sprintf("%s with weight %d%%", fact, dest.Weight)
+				facts = append(facts, fact)
 			}
 			// Consider adding RemoveResponseHeaders, AppendResponseHeaders, RemoveRequestHeaders, AppendRequestHeaders
 		} else {
-			mismatchNotes = append(mismatchNotes, fmt.Sprintf("Route to %s", dest.Destination.Host))
+			if dest.Destination.Subset == "" {
+				differentHostFact := fmt.Sprintf("Route to host \"%s\" with weight %d%%", dest.Destination.Host, dest.Weight)
+				facts = append(facts, differentHostFact)
+			} else {
+				facts = append(facts, fmt.Sprintf("Route to %s with invalid config", dest.Destination.Host))
+			}
 		}
 	}
 
@@ -397,7 +407,7 @@ func renderMatches(trafficMatches []*v1alpha3.HTTPMatchRequest) string {
 }
 
 func renderMatch(match *v1alpha3.HTTPMatchRequest) string {
-	retval := ""
+	retval := "Match: "
 	// TODO Are users interested in seeing Scheme, Method, Authority?
 	if match.Uri != nil {
 		retval += renderStringMatch(match.Uri)
@@ -1011,6 +1021,8 @@ func getIngressIP(service corev1.Service, pod corev1.Pod) string {
 	return "unknown"
 }
 
+var newCLIClient = newKubeClientWithRevision
+
 func svcDescribeCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
@@ -1041,36 +1053,37 @@ the configuration objects that affect that service.`,
 
 			writer := cmd.OutOrStdout()
 
-			pods, err := client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{})
-			if err != nil {
-				return err
+			labels := make([]string, 0)
+			for k, v := range svc.Spec.Selector {
+				labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 			}
 
-			matchingPods := []corev1.Pod{}
-			selectedPodCount := 0
-			if len(svc.Spec.Selector) > 0 {
-				svcSelector := klabels.SelectorFromSet(svc.Spec.Selector)
+			matchingPods := make([]corev1.Pod, 0)
+			var selectedPodCount int
+			if len(labels) > 0 {
+				pods, err := client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{
+					LabelSelector: strings.Join(labels, ","),
+				})
+				if err != nil {
+					return err
+				}
+				selectedPodCount = len(pods.Items)
 				for _, pod := range pods.Items {
-					if svcSelector.Matches(klabels.Set(pod.ObjectMeta.Labels)) {
-						selectedPodCount++
-
-						if pod.Status.Phase != corev1.PodRunning {
-							fmt.Printf("   Pod is not %s (%s)\n", corev1.PodRunning, pod.Status.Phase)
-							continue
-						}
-
-						ready, err := containerReady(&pod, proxyContainerName)
-						if err != nil {
-							fmt.Fprintf(writer, "Pod %s: %s\n", kname(pod.ObjectMeta), err)
-							continue
-						}
-						if !ready {
-							fmt.Fprintf(writer, "WARNING: Pod %s Container %s NOT READY\n", kname(pod.ObjectMeta), proxyContainerName)
-							continue
-						}
-
-						matchingPods = append(matchingPods, pod)
+					if pod.Status.Phase != corev1.PodRunning {
+						fmt.Printf("   Pod is not %s (%s)\n", corev1.PodRunning, pod.Status.Phase)
+						continue
 					}
+
+					ready, err := containerReady(&pod, proxyContainerName)
+					if err != nil {
+						fmt.Fprintf(writer, "Pod %s: %s\n", kname(pod.ObjectMeta), err)
+						continue
+					}
+					if !ready {
+						fmt.Fprintf(writer, "WARNING: Pod %s Container %s NOT READY\n", kname(pod.ObjectMeta), proxyContainerName)
+						continue
+					}
+					matchingPods = append(matchingPods, pod)
 				}
 			}
 
@@ -1084,7 +1097,7 @@ the configuration objects that affect that service.`,
 				return nil
 			}
 
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := newCLIClient(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return err
 			}

@@ -642,6 +642,10 @@ var (
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
 
+	MetadataDiscovery = env.Register("ISTIO_METADATA_DISCOVERY",
+		false,
+		"Enables proxy discovery of the workload metadata to back-fill the telemetry reports.").Get()
+
 	PartialFullPushes = env.Register("PILOT_PARTIAL_FULL_PUSHES", true,
 		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
 			"This occurs for EDS in many cases regardless of this setting.").Get()

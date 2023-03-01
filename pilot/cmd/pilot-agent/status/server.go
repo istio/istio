@@ -780,10 +780,9 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // credentials are currently not supported
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			d := net.Dialer{
-				LocalAddr: s.upstreamLocalAddress,
-				Timeout:   timeout,
-			}
+			d := ProbeDialer()
+			d.LocalAddr = s.upstreamLocalAddress
+			d.Timeout = timeout
 			return d.DialContext(ctx, "tcp", addr)
 		}),
 	}

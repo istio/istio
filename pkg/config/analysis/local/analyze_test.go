@@ -26,23 +26,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
 type testAnalyzer struct {
 	fn     func(analysis.Context)
-	inputs collection.Names
+	inputs []config.GroupVersionKind
 }
 
 var blankTestAnalyzer = &testAnalyzer{
 	fn:     func(_ analysis.Context) {},
-	inputs: []collection.Name{},
+	inputs: []config.GroupVersionKind{},
 }
 
 var (
@@ -92,13 +92,13 @@ func TestAnalyzersRun(t *testing.T) {
 	m := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Exists(K8SCollection1.Name(), resource.NewFullName("", ""))
-			ctx.Report(K8SCollection1.Name(), m)
+			ctx.Exists(K8SCollection1.GroupVersionKind(), resource.NewFullName("", ""))
+			ctx.Report(K8SCollection1.GroupVersionKind(), m)
 		},
 	}
 
-	var collectionAccessed collection.Name
-	cr := func(col collection.Name) {
+	var collectionAccessed config.GroupVersionKind
+	cr := func(col config.GroupVersionKind) {
 		collectionAccessed = col
 	}
 
@@ -109,7 +109,7 @@ func TestAnalyzersRun(t *testing.T) {
 	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
 	g.Expect(result.Messages).To(ConsistOf(m))
-	g.Expect(collectionAccessed).To(Equal(K8SCollection1.Name()))
+	g.Expect(collectionAccessed).To(Equal(K8SCollection1.GroupVersionKind()))
 	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
 }
 
@@ -124,8 +124,8 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	msg2 := msg.NewInternalError(r2, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Report(K8SCollection1.Name(), msg1)
-			ctx.Report(K8SCollection1.Name(), msg2)
+			ctx.Report(K8SCollection1.GroupVersionKind(), msg1)
+			ctx.Report(K8SCollection1.GroupVersionKind(), msg2)
 		},
 	}
 

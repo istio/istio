@@ -23,11 +23,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // ImageAutoAnalyzer reports an error if Pods and Deployments with `image: auto` are not going to be injected.
@@ -45,11 +45,11 @@ func (a *ImageAutoAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "injection.ImageAutoAnalyzer",
 		Description: "Makes sure that Pods and Deployments with `image: auto` are going to be injected",
-		Inputs: collection.Names{
-			collections.K8SCoreV1Namespaces.Name(),
-			collections.K8SCoreV1Pods.Name(),
-			collections.K8SAppsV1Deployments.Name(),
-			collections.K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Namespace,
+			gvk.Pod,
+			gvk.Deployment,
+			gvk.MutatingWebhookConfiguration,
 		},
 	}
 }
@@ -57,7 +57,7 @@ func (a *ImageAutoAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer.
 func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 	var istioWebhooks []admitv1.MutatingWebhook
-	c.ForEach(collections.K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations.Name(), func(resource *resource.Instance) bool {
+	c.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
 		mwhc := resource.Message.(*admitv1.MutatingWebhookConfiguration)
 		for _, wh := range mwhc.Webhooks {
 			if strings.HasSuffix(wh.Name, "istio.io") {
@@ -66,17 +66,17 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 		}
 		return true
 	})
-	c.ForEach(collections.K8SCoreV1Pods.Name(), func(resource *resource.Instance) bool {
+	c.ForEach(gvk.Pod, func(resource *resource.Instance) bool {
 		p := resource.Message.(*v1.PodSpec)
 		// If a pod has `image: auto` it is broken whether the webhooks match or not
 		if !hasAutoImage(p) {
 			return true
 		}
 		m := msg.NewImageAutoWithoutInjectionError(resource, "Pod", resource.Metadata.FullName.Name.String())
-		c.Report(collections.K8SCoreV1Pods.Name(), m)
+		c.Report(gvk.Pod, m)
 		return true
 	})
-	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(resource *resource.Instance) bool {
+	c.ForEach(gvk.Deployment, func(resource *resource.Instance) bool {
 		d := resource.Message.(*appsv1.DeploymentSpec)
 		if !hasAutoImage(&d.Template.Spec) {
 			return true
@@ -84,7 +84,7 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 		nsLabels := getNamespaceLabels(c, resource.Metadata.FullName.Namespace.String())
 		if !matchesWebhooks(nsLabels, d.Template.Labels, istioWebhooks) {
 			m := msg.NewImageAutoWithoutInjectionWarning(resource, "Deployment", resource.Metadata.FullName.Name.String())
-			c.Report(collections.K8SAppsV1Deployments.Name(), m)
+			c.Report(gvk.Deployment, m)
 		}
 		return true
 	})
@@ -103,7 +103,7 @@ func getNamespaceLabels(c analysis.Context, nsName string) map[string]string {
 	if nsName == "" {
 		nsName = "default"
 	}
-	ns := c.Find(collections.K8SCoreV1Namespaces.Name(), resource.NewFullName("", resource.LocalName(nsName)))
+	ns := c.Find(gvk.Namespace, resource.NewFullName("", resource.LocalName(nsName)))
 	if ns == nil {
 		return nil
 	}

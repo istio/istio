@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -112,6 +113,9 @@ func waypointCmd() *cobra.Command {
 				FieldManager: "istioctl",
 			})
 			if err != nil {
+				if errors.IsNotFound(err) {
+					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint")
+				}
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v applied\n", gw.Namespace, gw.Name)

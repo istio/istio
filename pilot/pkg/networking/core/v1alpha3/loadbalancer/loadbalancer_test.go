@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
@@ -601,7 +602,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
 			},
 			Spec: &networking.DestinationRule{
@@ -657,7 +658,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
 			},
 			Spec: &networking.DestinationRule{
@@ -708,7 +709,7 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
 			},
 			Spec: &networking.DestinationRule{

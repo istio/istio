@@ -16,7 +16,9 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -25,10 +27,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
 	apiannotation "istio.io/api/annotation"
+	v1alpha32 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/util/assert"
@@ -36,8 +42,10 @@ import (
 
 // execAndK8sConfigTestCase lets a test case hold some Envoy, Istio, and Kubernetes configuration
 type execAndK8sConfigTestCase struct {
-	k8sConfigs []runtime.Object // Canned K8s configuration
-	namespace  string
+	k8sConfigs   []runtime.Object // Canned K8s configuration
+	istioConfigs []runtime.Object // Canned Istio configuration
+	configDumps  map[string][]byte
+	namespace    string
 
 	args []string
 
@@ -51,6 +59,11 @@ type execAndK8sConfigTestCase struct {
 
 // Tests Pilot /debug
 func TestDescribe(t *testing.T) {
+	productPageConfigPath := "testdata/describe/http_config.json"
+	config, err := os.ReadFile(productPageConfigPath)
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", productPageConfigPath, err)
+	}
 	cases := []execAndK8sConfigTestCase{
 		{ // case 0
 			args:           strings.Split("experimental describe", " "),
@@ -74,6 +87,187 @@ func TestDescribe(t *testing.T) {
 			args:           strings.Split("experimental describe service not-a-service", " "),
 			expectedString: "services \"not-a-service\" not found",
 			wantException:  true, // "istioctl experimental describe service not-a-service" should fail
+		},
+		{
+			k8sConfigs: []runtime.Object{
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "productpage",
+						Namespace: "default",
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"app": "productpage",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Name:       "http",
+								Port:       9080,
+								TargetPort: intstr.FromInt(9080),
+							},
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ingress",
+						Namespace: "default",
+						Labels: map[string]string{
+							"istio": "ingressgateway",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"istio": "ingressgateway",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Name:       "http",
+								Port:       80,
+								TargetPort: intstr.FromInt(80),
+							},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "productpage-v1-1234567890",
+						Namespace: "default",
+						Labels: map[string]string{
+							"app": "productpage",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "productpage",
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "http",
+										ContainerPort: 9080,
+									},
+								},
+							},
+							{
+								Name: "istio-proxy",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "istio-proxy",
+								Ready: true,
+							},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ingress",
+						Namespace: "default",
+						Labels: map[string]string{
+							"istio": "ingressgateway",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "istio-proxy",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name:  "istio-proxy",
+								Ready: true,
+							},
+						},
+					},
+				},
+			},
+			istioConfigs: []runtime.Object{
+				&v1alpha3.VirtualService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bookinfo",
+						Namespace: "default",
+					},
+					Spec: v1alpha32.VirtualService{
+						Hosts:    []string{"productpage"},
+						Gateways: []string{"fake-gw"},
+						Http: []*v1alpha32.HTTPRoute{
+							{
+								Match: []*v1alpha32.HTTPMatchRequest{
+									{
+										Uri: &v1alpha32.StringMatch{
+											MatchType: &v1alpha32.StringMatch_Prefix{
+												Prefix: "/prefix",
+											},
+										},
+									},
+								},
+								Route: []*v1alpha32.HTTPRouteDestination{
+									{
+										Destination: &v1alpha32.Destination{
+											Host: "productpage",
+										},
+										Weight: 30,
+									},
+									{
+										Destination: &v1alpha32.Destination{
+											Host: "productpage2",
+										},
+										Weight: 20,
+									},
+									{
+										Destination: &v1alpha32.Destination{
+											Host: "productpage3",
+										},
+										Weight: 50,
+									},
+								},
+							},
+						},
+					},
+				},
+				&v1alpha3.DestinationRule{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "productpage",
+						Namespace: "default",
+					},
+					Spec: v1alpha32.DestinationRule{
+						Host: "productpage",
+						Subsets: []*v1alpha32.Subset{
+							{
+								Name:   "v1",
+								Labels: map[string]string{"version": "v1"},
+							},
+						},
+					},
+				},
+			},
+			configDumps: map[string][]byte{
+				"productpage-v1-1234567890": config,
+				"ingress":                   []byte("{}"),
+			},
+			namespace: "default",
+			// case 9, vs route to multiple hosts
+			args: strings.Split("experimental describe service productpage -i default", " "),
+			expectedOutput: `Service: productpage
+DestinationRule: productpage for "productpage"
+  WARNING POD DOES NOT MATCH ANY SUBSETS.  (Non matching subsets v1)
+   Matching subsets: 
+      (Non-matching subsets v1)
+   No Traffic Policy
+VirtualService: bookinfo
+   Route to host "productpage" with weight 30%
+   Route to host "productpage2" with weight 20%
+   Route to host "productpage3" with weight 50%
+   Match: /prefix*
+`,
 		},
 	}
 
@@ -188,7 +382,23 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	t.Helper()
 
 	// Override the Istio config factory
-	configStoreFactory = mockClientFactoryGenerator()
+	configStoreFactory = mockClientFactoryGenerator(func(cli istioclient.Interface) {
+		for i := range c.istioConfigs {
+			switch t := c.istioConfigs[i].(type) {
+			case *v1alpha3.DestinationRule:
+				cli.NetworkingV1alpha3().DestinationRules(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			case *v1alpha3.Gateway:
+				cli.NetworkingV1alpha3().Gateways(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			case *v1alpha3.VirtualService:
+				cli.NetworkingV1alpha3().VirtualServices(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+			}
+		}
+	})
+
+	if c.configDumps == nil {
+		c.configDumps = map[string][]byte{}
+	}
+	newCLIClient = mockClientExecFactoryGenerator(c.configDumps)
 
 	// Override the K8s config factory
 	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
