@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test"
@@ -818,7 +817,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService1 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme2-v1",
 			Namespace:        "not-default",
 		},
@@ -826,7 +825,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService2 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v2",
 			Namespace:        "not-default",
 		},
@@ -834,7 +833,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService3 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
 			Namespace:        "not-default",
 		},
@@ -842,7 +841,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService4 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v4",
 			Namespace:        "not-default",
 		},
@@ -850,7 +849,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService5 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
 			Namespace:        "not-default",
 		},
@@ -858,7 +857,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService6 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
 			Namespace:        "not-default",
 		},
@@ -1449,7 +1448,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService1 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme2-v1",
 			Namespace:        "not-default",
 		},
@@ -1457,7 +1456,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService2 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v2",
 			Namespace:        "not-default",
 		},
@@ -1465,7 +1464,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService3 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
 			Namespace:        "not-default",
 		},
@@ -1473,7 +1472,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService4 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v4",
 			Namespace:        "not-default",
 		},
@@ -1481,7 +1480,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService5 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
 			Namespace:        "not-default",
 		},
@@ -1489,7 +1488,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService6 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
 			Namespace:        "not-default",
 		},

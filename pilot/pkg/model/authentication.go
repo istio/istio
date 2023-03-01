@@ -23,7 +23,6 @@ import (
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -252,9 +251,9 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 				}
 				var selector labels.Instance
 				switch cfg.GroupVersionKind {
-				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+				case gvk.RequestAuthentication:
 					selector = cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
-				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+				case gvk.PeerAuthentication:
 					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
 				default:
 					log.Warnf("Not support authentication type %q", cfg.GroupVersionKind)

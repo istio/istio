@@ -15,10 +15,10 @@
 package fixtures
 
 import (
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // Context is a test fixture of analysis.Context
@@ -30,18 +30,18 @@ type Context struct {
 var _ analysis.Context = &Context{}
 
 // Report implements analysis.Context
-func (ctx *Context) Report(_ collection.Name, t diag.Message) {
+func (ctx *Context) Report(_ config.GroupVersionKind, t diag.Message) {
 	ctx.Reports = append(ctx.Reports, t)
 }
 
 // Find implements analysis.Context
-func (ctx *Context) Find(collection.Name, resource.FullName) *resource.Instance { return nil }
+func (ctx *Context) Find(config.GroupVersionKind, resource.FullName) *resource.Instance { return nil }
 
 // Exists implements analysis.Context
-func (ctx *Context) Exists(collection.Name, resource.FullName) bool { return false }
+func (ctx *Context) Exists(config.GroupVersionKind, resource.FullName) bool { return false }
 
 // ForEach implements analysis.Context
-func (ctx *Context) ForEach(_ collection.Name, fn analysis.IteratorFn) {
+func (ctx *Context) ForEach(_ config.GroupVersionKind, fn analysis.IteratorFn) {
 	for _, r := range ctx.Resources {
 		fn(r)
 	}

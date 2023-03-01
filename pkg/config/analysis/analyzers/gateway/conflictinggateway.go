@@ -22,13 +22,13 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // ConflictingGatewayAnalyzer checks a gateway's selector, port number and hosts.
@@ -42,8 +42,8 @@ func (*ConflictingGatewayAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "gateway.ConflictingGatewayAnalyzer",
 		Description: "Checks a gateway's selector, port number and hosts",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Gateways.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Gateway,
 		},
 	}
 }
@@ -51,7 +51,7 @@ func (*ConflictingGatewayAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements analysis.Analyzer
 func (s *ConflictingGatewayAnalyzer) Analyze(c analysis.Context) {
 	gwConflictingMap := initGatewaysMap(c)
-	c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Gateway, func(r *resource.Instance) bool {
 		s.analyzeGateway(r, c, gwConflictingMap)
 		return true
 	})
@@ -80,7 +80,7 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
 			m.Line = line
 		}
-		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
+		c.Report(gvk.Gateway, m)
 		return
 	}
 
@@ -104,7 +104,7 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 			reportMsg := strings.Join(rmsg, ",")
 			hostsMsg := strings.Join(server.Hosts, ",")
 			m := msg.NewConflictingGateways(r, reportMsg, sGWSelector, sPortNumber, hostsMsg)
-			c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
+			c.Report(gvk.Gateway, m)
 		}
 	}
 }
@@ -124,7 +124,7 @@ func isGWsHostMatched(gwInstance string, gwHostList []string) bool {
 // initGatewaysMap implements initilization for gateways Map
 func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
 	gwConflictingMap := make(map[string]map[string][]string)
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.Gateway, func(r *resource.Instance) bool {
 		gw := r.Message.(*v1alpha3.Gateway)
 		gwName := r.Metadata.FullName.String()
 

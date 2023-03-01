@@ -16,10 +16,12 @@ package ast
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/util/strcase"
 )
 
@@ -45,6 +47,7 @@ type Collection struct {
 
 // Resource metadata for resources contained within a collection.
 type Resource struct {
+	Identifier         string   `json:"identifier"`
 	Group              string   `json:"group"`
 	Version            string   `json:"version"`
 	VersionAliases     []string `json:"versionAliases"`
@@ -82,7 +85,7 @@ func (m *Metadata) UnmarshalJSON(data []byte) error {
 
 	m.Collections = in.Collections
 	m.Resources = in.Resources
-
+	seen := sets.New[string]()
 	// Process resources.
 	for i, r := range m.Resources {
 		if r.Validate == "" {
@@ -91,6 +94,12 @@ func (m *Metadata) UnmarshalJSON(data []byte) error {
 				validateFn = "EmptyValidate"
 			}
 			m.Resources[i].Validate = validateFn
+		}
+		if r.Identifier == "" {
+			r.Identifier = r.Kind
+		}
+		if seen.InsertContains(r.Identifier) {
+			return fmt.Errorf("identifier %q already registered, set a unique identifier", r.Identifier)
 		}
 	}
 

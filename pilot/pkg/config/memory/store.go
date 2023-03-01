@@ -54,7 +54,7 @@ func newStore(schemas collection.Schemas, skipValidation bool) model.ConfigStore
 		skipValidation: skipValidation,
 	}
 	for _, s := range schemas.All() {
-		out.data[s.Resource().GroupVersionKind()] = make(map[string]map[string]any)
+		out.data[s.GroupVersionKind()] = make(map[string]map[string]any)
 	}
 	return &out
 }
@@ -148,7 +148,7 @@ func (cr *store) Create(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("unknown type %v", kind)
 	}
 	if !cr.skipValidation {
-		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
+		if _, err := s.ValidateConfig(cfg); err != nil {
 			return "", err
 		}
 	}
@@ -185,7 +185,7 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("unknown type %v", kind)
 	}
 	if !cr.skipValidation {
-		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
+		if _, err := s.ValidateConfig(cfg); err != nil {
 			return "", err
 		}
 	}
@@ -229,7 +229,7 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 
 	cfg, _ := patchFn(orig)
 	if !cr.skipValidation {
-		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
+		if _, err := s.ValidateConfig(cfg); err != nil {
 			return "", err
 		}
 	}

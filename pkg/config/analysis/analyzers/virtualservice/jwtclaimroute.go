@@ -22,13 +22,13 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/util/constant"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type JWTClaimRouteAnalyzer struct{}
@@ -40,11 +40,11 @@ func (s *JWTClaimRouteAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.JWTClaimRouteAnalyzer",
 		Description: "Checks the VirtualService using JWT claim based routing has corresponding RequestAuthentication",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			collections.IstioSecurityV1Beta1Requestauthentications.Name(),
-			collections.IstioNetworkingV1Alpha3Gateways.Name(),
-			collections.K8SCoreV1Pods.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.VirtualService,
+			gvk.RequestAuthentication,
+			gvk.Gateway,
+			gvk.Pod,
 		},
 	}
 }
@@ -52,7 +52,7 @@ func (s *JWTClaimRouteAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (s *JWTClaimRouteAnalyzer) Analyze(c analysis.Context) {
 	requestAuthNByNamespace := map[string][]klabels.Selector{}
-	c.ForEach(collections.IstioSecurityV1Beta1Requestauthentications.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.RequestAuthentication, func(r *resource.Instance) bool {
 		ns := r.Metadata.FullName.Namespace.String()
 		if _, found := requestAuthNByNamespace[ns]; !found {
 			requestAuthNByNamespace[ns] = []klabels.Selector{}
@@ -63,7 +63,7 @@ func (s *JWTClaimRouteAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
 		s.analyze(r, c, requestAuthNByNamespace)
 		return true
 	})
@@ -85,7 +85,7 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 		}
 
 		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
-		gwRes := c.Find(collections.IstioNetworkingV1Alpha3Gateways.Name(), gwFullName)
+		gwRes := c.Find(gvk.Gateway, gwFullName)
 		if gwRes == nil {
 			// The gateway does not exist, this should already be covered by the gateway analyzer.
 			continue
@@ -95,7 +95,7 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 		gwSelector := klabels.SelectorFromSet(gw.Selector)
 
 		// Check each pod selected by the gateway.
-		c.ForEach(collections.K8SCoreV1Pods.Name(), func(rPod *resource.Instance) bool {
+		c.ForEach(gvk.Pod, func(rPod *resource.Instance) bool {
 			podLabels := klabels.Set(rPod.Metadata.Labels)
 			if !gwSelector.Matches(podLabels) {
 				return true
@@ -114,7 +114,7 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 			}
 			if !hasRequestAuthNForPod {
 				m := msg.NewJwtClaimBasedRoutingWithoutRequestAuthN(r, vsRouteKey, gwFullName.String(), rPod.Metadata.FullName.Name.String())
-				c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+				c.Report(gvk.VirtualService, m)
 			}
 			return true
 		})

@@ -908,20 +908,17 @@ func (s *Server) initRegistryEventHandlers() {
 		}
 		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
-			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
-				Resource().GroupVersionKind() {
+			if schema.GroupVersionKind() == gvk.ServiceEntry {
 				continue
 			}
-			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadentries.
-				Resource().GroupVersionKind() {
+			if schema.GroupVersionKind() == gvk.WorkloadEntry {
 				continue
 			}
-			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadgroups.
-				Resource().GroupVersionKind() {
+			if schema.GroupVersionKind() == gvk.WorkloadGroup {
 				continue
 			}
 
-			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
+			s.configController.RegisterEventHandler(schema.GroupVersionKind(), configHandler)
 		}
 		if s.environment.GatewayAPIController != nil {
 			s.environment.GatewayAPIController.RegisterEventHandler(gvk.Namespace, func(config.Config, config.Config, model.Event) {

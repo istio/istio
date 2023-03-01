@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
@@ -1104,7 +1103,7 @@ func TestSidecarScope(t *testing.T) {
 	}
 	configWithWorkloadSelector := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.Sidecar,
 			Name:             "foo",
 			Namespace:        "default",
 		},
@@ -1112,7 +1111,7 @@ func TestSidecarScope(t *testing.T) {
 	}
 	rootConfig := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.Sidecar,
 			Name:             "global",
 			Namespace:        constants.IstioSystemNamespace,
 		},
@@ -1244,7 +1243,7 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 	}
 	rootConfig := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.Sidecar,
 			Name:             "global",
 			Namespace:        constants.IstioSystemNamespace,
 		},
@@ -2382,7 +2381,7 @@ func TestInitVirtualService(t *testing.T) {
 
 	vs1 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "vs1",
 			Namespace:        "ns1",
 		},
@@ -2413,7 +2412,7 @@ func TestInitVirtualService(t *testing.T) {
 	}
 	vs2 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "vs2",
 			Namespace:        "ns2",
 		},
@@ -2575,7 +2574,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 
 	vs1 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "vs1",
 			Namespace:        "ns1",
 		},
@@ -2606,7 +2605,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	}
 	vs2 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "vs2",
 			Namespace:        "ns2",
 		},

@@ -23,17 +23,12 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
-)
-
-var (
-	webhookCol = collections.K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations.Name()
-	serviceCol = collections.K8SCoreV1Services.Name()
 )
 
 type Analyzer struct {
@@ -46,9 +41,9 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "webhook.Analyzer",
 		Description: "Checks the validity of Istio webhooks",
-		Inputs: collection.Names{
-			webhookCol,
-			serviceCol,
+		Inputs: []config.GroupVersionKind{
+			gvk.MutatingWebhookConfiguration,
+			gvk.Service,
 		},
 	}
 }
@@ -74,7 +69,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	webhooks := map[string][]v1.MutatingWebhook{}
 	resources := map[string]*resource.Instance{}
 	revisions := sets.New[string]()
-	context.ForEach(webhookCol, func(resource *resource.Instance) bool {
+	context.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
 		wh := resource.Message.(*v1.MutatingWebhookConfiguration)
 		revs := extractRevisions(wh)
 		if len(revs) == 0 && !isIstioWebhook(wh) {
@@ -118,7 +113,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 			if len(matches) > 1 {
 				for match := range matches {
 					others := matches.Difference(sets.New(match))
-					context.Report(webhookCol, msg.NewInvalidWebhook(resources[match],
+					context.Report(gvk.MutatingWebhookConfiguration, msg.NewInvalidWebhook(resources[match],
 						fmt.Sprintf("Webhook overlaps with others: %v. This may cause injection to occur twice.", others.UnsortedList())))
 				}
 			}
@@ -138,8 +133,8 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 			fname := resource.NewFullName(
 				resource.Namespace(wh.ClientConfig.Service.Namespace),
 				resource.LocalName(wh.ClientConfig.Service.Name))
-			if !context.Exists(serviceCol, fname) {
-				context.Report(webhookCol, msg.NewInvalidWebhook(resources[fmt.Sprintf("%v/%v", name, wh.Name)],
+			if !context.Exists(gvk.Service, fname) {
+				context.Report(gvk.MutatingWebhookConfiguration, msg.NewInvalidWebhook(resources[fmt.Sprintf("%v/%v", name, wh.Name)],
 					fmt.Sprintf("Injector refers to a control plane service that does not exist: %v.", fname)))
 			}
 		}

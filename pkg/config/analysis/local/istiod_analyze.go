@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -98,7 +99,7 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 ) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
-		cr = func(collection.Name) {}
+		cr = func(config.GroupVersionKind) {}
 	}
 
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
@@ -167,7 +168,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		Meta: config.Meta{
 			Name:             mesh_const.MeshConfigResourceName.Name.String(),
 			Namespace:        mesh_const.MeshConfigResourceName.Namespace.String(),
-			GroupVersionKind: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.MeshConfig,
 		},
 		Spec: sa.meshCfg,
 	})
@@ -179,7 +180,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		Meta: config.Meta{
 			Name:             mesh_const.MeshNetworksResourceName.Name.String(),
 			Namespace:        mesh_const.MeshNetworksResourceName.Namespace.String(),
-			GroupVersionKind: collections.IstioMeshV1Alpha1MeshNetworks.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.MeshNetworks,
 		},
 		Spec: sa.meshNetworks,
 	})
@@ -402,7 +403,7 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 }
 
 // CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context
-type CollectionReporterFn func(collection.Name)
+type CollectionReporterFn func(config.GroupVersionKind)
 
 // copied from processing/snapshotter/analyzingdistributor.go
 func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {

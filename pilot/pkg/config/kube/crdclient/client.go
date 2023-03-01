@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/watcher/crdwatcher"
 	"istio.io/istio/pkg/queue"
@@ -92,7 +93,7 @@ type Client struct {
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial processing of all objects.
 	initialSync      *atomic.Bool
-	schemasByCRDName map[string]collection.Schema
+	schemasByCRDName map[string]resource.Schema
 	client           kube.Client
 	crdWatcher       *crdwatcher.Controller
 	logger           *log.Scope
@@ -152,10 +153,10 @@ func (cl *Client) WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bo
 }
 
 func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) (*Client, error) {
-	schemasByCRDName := map[string]collection.Schema{}
+	schemasByCRDName := map[string]resource.Schema{}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
-		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
+		name := fmt.Sprintf("%s.%s", s.Plural(), s.Group())
 		schemasByCRDName[name] = s
 	}
 	out := &Client{
@@ -189,9 +190,9 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 	}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
-		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
+		name := fmt.Sprintf("%s.%s", s.Plural(), s.Group())
 		crd := true
-		if _, f := collections.Builtin.Find(s.Name().String()); f {
+		if _, f := collections.Builtin.FindByGroupVersionKind(s.GroupVersionKind()); f {
 			crd = false
 		}
 		if !crd {
@@ -200,7 +201,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 			if _, f := known[name]; f {
 				handleCRDAdd(out, name)
 			} else {
-				out.logger.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+				out.logger.Warnf("Skipping CRD %v as it is not present", s.GroupVersionKind())
 			}
 		}
 	}
@@ -255,7 +256,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 func (cl *Client) informerSynced() bool {
 	for _, ctl := range cl.allKinds() {
 		if !ctl.informer.HasSynced() {
-			cl.logger.Infof("controller %q is syncing...", ctl.schema.Resource().GroupVersionKind())
+			cl.logger.Infof("controller %q is syncing...", ctl.schema.GroupVersionKind())
 			return false
 		}
 	}
@@ -275,7 +276,7 @@ func (cl *Client) SyncAll() {
 	cl.beginSync.Store(true)
 	wg := sync.WaitGroup{}
 	for _, h := range cl.allKinds() {
-		handlers := cl.handlers[h.schema.Resource().GroupVersionKind()]
+		handlers := cl.handlers[h.schema.GroupVersionKind()]
 		if len(handlers) == 0 {
 			continue
 		}
@@ -290,7 +291,7 @@ func (cl *Client) SyncAll() {
 					cl.logger.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
 					continue
 				}
-				currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+				currConfig := TranslateObject(currItem, h.schema.GroupVersionKind(), h.client.domainSuffix)
 				if cl.objectInRevision(&currConfig) {
 					for _, f := range handlers {
 						f(config.Config{}, currConfig, model.EventAdd)
@@ -499,8 +500,8 @@ func handleCRDAdd(cl *Client, name string) {
 		cl.logger.Debugf("added resource that we are not watching: %v", name)
 		return
 	}
-	resourceGVK := s.Resource().GroupVersionKind()
-	gvr := s.Resource().GroupVersionResource()
+	resourceGVK := s.GroupVersionKind()
+	gvr := s.GroupVersionResource()
 
 	cl.kindsMu.Lock()
 	defer cl.kindsMu.Unlock()
@@ -511,7 +512,7 @@ func handleCRDAdd(cl *Client, name string) {
 	var i informers.GenericInformer
 	var ifactory starter
 	var err error
-	switch s.Resource().Group() {
+	switch s.Group() {
 	case gvk.KubernetesGateway.Group:
 		ifactory = cl.client.GatewayAPIInformer()
 		i, err = cl.client.GatewayAPIInformer().ForResource(gvr)

@@ -20,12 +20,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // SecretAnalyzer checks a gateway's referenced secrets for correctness
@@ -38,17 +38,17 @@ func (a *SecretAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "gateway.SecretAnalyzer",
 		Description: "Checks a gateway's referenced secrets for correctness",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Gateways.Name(),
-			collections.K8SCoreV1Pods.Name(),
-			collections.K8SCoreV1Secrets.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Gateway,
+			gvk.Pod,
+			gvk.Secret,
 		},
 	}
 }
 
 // Analyze implements analysis.Analyzer
 func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.Gateway, func(r *resource.Instance) bool {
 		gw := r.Message.(*v1alpha3.Gateway)
 
 		gwNs := getGatewayNamespace(ctx, gw)
@@ -64,7 +64,7 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 				m.Line = line
 			}
 
-			ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
+			ctx.Report(gvk.Gateway, m)
 			return true
 		}
 
@@ -79,14 +79,14 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 				continue
 			}
 
-			if !ctx.Exists(collections.K8SCoreV1Secrets.Name(), resource.NewShortOrFullName(gwNs, cn)) {
+			if !ctx.Exists(gvk.Secret, resource.NewShortOrFullName(gwNs, cn)) {
 				m := msg.NewReferencedResourceNotFound(r, "credentialName", cn)
 
 				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.CredentialName, i)); ok {
 					m.Line = line
 				}
 
-				ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
+				ctx.Report(gvk.Gateway, m)
 			}
 		}
 		return true
@@ -99,7 +99,7 @@ func getGatewayNamespace(ctx analysis.Context, gw *v1alpha3.Gateway) resource.Na
 	var ns resource.Namespace
 
 	gwSelector := labels.SelectorFromSet(gw.Selector)
-	ctx.ForEach(collections.K8SCoreV1Pods.Name(), func(rPod *resource.Instance) bool {
+	ctx.ForEach(gvk.Pod, func(rPod *resource.Instance) bool {
 		if gwSelector.Matches(labels.Set(rPod.Metadata.Labels)) {
 			ns = rPod.Metadata.FullName.Namespace
 			return false

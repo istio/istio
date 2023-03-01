@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test/util/assert"
@@ -1032,7 +1032,7 @@ var (
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -1051,7 +1051,7 @@ var (
 	virtualServices2 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -1070,7 +1070,7 @@ var (
 	virtualServices3 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -1095,7 +1095,7 @@ var (
 	virtualServices4 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -1119,7 +1119,7 @@ var (
 	virtualServices5 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -2507,7 +2507,7 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 	for i := 0; i < vsNum; i++ {
 		cfgs = append(cfgs, config.Config{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "vs-name-" + strconv.Itoa(i),
 				Namespace:        "default",
 			},

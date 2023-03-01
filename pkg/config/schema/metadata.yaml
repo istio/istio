@@ -283,6 +283,7 @@ resources:
     statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
 
   - kind: "Gateway"
+    identifier: KubernetesGateway
     plural: "gateways"
     group: "gateway.networking.k8s.io"
     version: "v1beta1"

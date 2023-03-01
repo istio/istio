@@ -19,12 +19,12 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type ProtocolAddressesAnalyzer struct{}
@@ -35,16 +35,16 @@ func (serviceEntry *ProtocolAddressesAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "serviceentry.Analyzer",
 		Description: "Checks the validity of ServiceEntry",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Serviceentries.Name(),
-			collections.IstioMeshV1Alpha1MeshConfig.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.ServiceEntry,
+			gvk.MeshConfig,
 		},
 	}
 }
 
 func (serviceEntry *ProtocolAddressesAnalyzer) Analyze(context analysis.Context) {
 	autoAllocated := false
-	context.ForEach(collections.IstioMeshV1Alpha1MeshConfig.Name(), func(r *resource.Instance) bool {
+	context.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
 		mc := r.Message.(*meshconfig.MeshConfig)
 		if v, ok := mc.DefaultConfig.ProxyMetadata["ISTIO_META_DNS_CAPTURE"]; !ok || v != "true" {
 			return true
@@ -55,7 +55,7 @@ func (serviceEntry *ProtocolAddressesAnalyzer) Analyze(context analysis.Context)
 		return true
 	})
 
-	context.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), func(resource *resource.Instance) bool {
+	context.ForEach(gvk.ServiceEntry, func(resource *resource.Instance) bool {
 		serviceEntry.analyzeProtocolAddresses(resource, context, autoAllocated)
 		return true
 	})
@@ -72,7 +72,7 @@ func (serviceEntry *ProtocolAddressesAnalyzer) analyzeProtocolAddresses(r *resou
 					message.Line = line
 				}
 
-				ctx.Report(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), message)
+				ctx.Report(gvk.ServiceEntry, message)
 			}
 		}
 	}
