@@ -579,7 +579,7 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	} else {
 		// First check for a waypoint for our SA explicit
 		// TODO: this is not robust against temporary waypoint downtime. We also need the users intent (Gateway).
-		waypoints := c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace, ServiceAccount: p.Spec.ServiceAccountName}]
+		waypoints = c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace, ServiceAccount: p.Spec.ServiceAccountName}]
 		if len(waypoints) == 0 {
 			// if there are none, check namespace wide waypoints
 			waypoints = c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace}]
