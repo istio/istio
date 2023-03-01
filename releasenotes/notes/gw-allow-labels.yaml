@@ -6,4 +6,4 @@ issue:
   - 43585
 releaseNotes:
   - |
-    **Added** support for allowing adding labels to gateway charts via `.Values.podLabels`.
+    **Added** support for allowing adding labels to gateway charts via `.Values.labels`.
