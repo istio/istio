@@ -431,24 +431,6 @@ var (
 		MustAdd(WorkloadGroup).
 		Build()
 
-	// Istio contains only Istio collections.
-	Istio = collection.NewSchemasBuilder().
-		MustAdd(AuthorizationPolicy).
-		MustAdd(DestinationRule).
-		MustAdd(EnvoyFilter).
-		MustAdd(Gateway).
-		MustAdd(PeerAuthentication).
-		MustAdd(ProxyConfig).
-		MustAdd(RequestAuthentication).
-		MustAdd(ServiceEntry).
-		MustAdd(Sidecar).
-		MustAdd(Telemetry).
-		MustAdd(VirtualService).
-		MustAdd(WasmPlugin).
-		MustAdd(WorkloadEntry).
-		MustAdd(WorkloadGroup).
-		Build()
-
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
 		MustAdd(ConfigMap).
