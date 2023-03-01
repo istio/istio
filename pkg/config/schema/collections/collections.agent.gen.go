@@ -9,9 +9,6 @@ package collections
 import (
 	"reflect"
 
-	k8sioapiappsv1 "k8s.io/api/apps/v1"
-	k8sioapicorev1 "k8s.io/api/core/v1"
-
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
 	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
@@ -42,34 +39,6 @@ var (
 		ValidateProto: validation.ValidateAuthorizationPolicy,
 	}.MustBuild()
 
-	ConfigMap = resource.Builder{
-		Identifier:    "ConfigMap",
-		Group:         "",
-		Kind:          "ConfigMap",
-		Plural:        "configmaps",
-		Version:       "v1",
-		Proto:         "k8s.io.api.core.v1.ConfigMap",
-		ReflectType:   reflect.TypeOf(&k8sioapicorev1.ConfigMap{}).Elem(),
-		ProtoPackage:  "k8s.io/api/core/v1",
-		ClusterScoped: false,
-		Builtin:       true,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild()
-
-	Deployment = resource.Builder{
-		Identifier:    "Deployment",
-		Group:         "apps",
-		Kind:          "Deployment",
-		Plural:        "deployments",
-		Version:       "v1",
-		Proto:         "k8s.io.api.apps.v1.DeploymentSpec",
-		ReflectType:   reflect.TypeOf(&k8sioapiappsv1.DeploymentSpec{}).Elem(),
-		ProtoPackage:  "k8s.io/api/apps/v1",
-		ClusterScoped: false,
-		Builtin:       true,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild()
-
 	DestinationRule = resource.Builder{
 		Identifier: "DestinationRule",
 		Group:      "networking.istio.io",
@@ -85,20 +54,6 @@ var (
 		ClusterScoped: false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateDestinationRule,
-	}.MustBuild()
-
-	Endpoints = resource.Builder{
-		Identifier:    "Endpoints",
-		Group:         "",
-		Kind:          "Endpoints",
-		Plural:        "endpoints",
-		Version:       "v1",
-		Proto:         "k8s.io.api.core.v1.Endpoints",
-		ReflectType:   reflect.TypeOf(&k8sioapicorev1.Endpoints{}).Elem(),
-		ProtoPackage:  "k8s.io/api/core/v1",
-		ClusterScoped: false,
-		Builtin:       true,
-		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	EnvoyFilter = resource.Builder{
@@ -160,34 +115,6 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
-	Namespace = resource.Builder{
-		Identifier:    "Namespace",
-		Group:         "",
-		Kind:          "Namespace",
-		Plural:        "namespaces",
-		Version:       "v1",
-		Proto:         "k8s.io.api.core.v1.NamespaceSpec",
-		ReflectType:   reflect.TypeOf(&k8sioapicorev1.NamespaceSpec{}).Elem(),
-		ProtoPackage:  "k8s.io/api/core/v1",
-		ClusterScoped: true,
-		Builtin:       true,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild()
-
-	Node = resource.Builder{
-		Identifier:    "Node",
-		Group:         "",
-		Kind:          "Node",
-		Plural:        "nodes",
-		Version:       "v1",
-		Proto:         "k8s.io.api.core.v1.NodeSpec",
-		ReflectType:   reflect.TypeOf(&k8sioapicorev1.NodeSpec{}).Elem(),
-		ProtoPackage:  "k8s.io/api/core/v1",
-		ClusterScoped: true,
-		Builtin:       true,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild()
-
 	PeerAuthentication = resource.Builder{
 		Identifier: "PeerAuthentication",
 		Group:      "security.istio.io",
@@ -200,20 +127,6 @@ var (
 		ClusterScoped: false,
 		Builtin:       false,
 		ValidateProto: validation.ValidatePeerAuthentication,
-	}.MustBuild()
-
-	Pod = resource.Builder{
-		Identifier:    "Pod",
-		Group:         "",
-		Kind:          "Pod",
-		Plural:        "pods",
-		Version:       "v1",
-		Proto:         "k8s.io.api.core.v1.PodSpec",
-		ReflectType:   reflect.TypeOf(&k8sioapicorev1.PodSpec{}).Elem(),
-		ProtoPackage:  "k8s.io/api/core/v1",
-		ClusterScoped: false,
-		Builtin:       true,
-		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	ProxyConfig = resource.Builder{
@@ -245,48 +158,6 @@ var (
 		ClusterScoped: false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateRequestAuthentication,
-	}.MustBuild()
-
-	Secret = resource.Builder{
-		Identifier:    "Secret",
-		Group:         "",
-		Kind:          "Secret",
-		Plural:        "secrets",
-		Version:       "v1",
-		Proto:         "k8s.io.api.core.v1.Secret",
-		ReflectType:   reflect.TypeOf(&k8sioapicorev1.Secret{}).Elem(),
-		ProtoPackage:  "k8s.io/api/core/v1",
-		ClusterScoped: false,
-		Builtin:       true,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild()
-
-	Service = resource.Builder{
-		Identifier:    "Service",
-		Group:         "",
-		Kind:          "Service",
-		Plural:        "services",
-		Version:       "v1",
-		Proto:         "k8s.io.api.core.v1.ServiceSpec",
-		ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceSpec{}).Elem(),
-		ProtoPackage:  "k8s.io/api/core/v1",
-		ClusterScoped: false,
-		Builtin:       true,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild()
-
-	ServiceAccount = resource.Builder{
-		Identifier:    "ServiceAccount",
-		Group:         "",
-		Kind:          "ServiceAccount",
-		Plural:        "serviceaccounts",
-		Version:       "v1",
-		Proto:         "k8s.io.api.core.v1.ServiceAccount",
-		ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceAccount{}).Elem(),
-		ProtoPackage:  "k8s.io/api/core/v1",
-		ClusterScoped: false,
-		Builtin:       true,
-		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	ServiceEntry = resource.Builder{
@@ -405,23 +276,14 @@ var (
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
-		MustAdd(ConfigMap).
-		MustAdd(Deployment).
 		MustAdd(DestinationRule).
-		MustAdd(Endpoints).
 		MustAdd(EnvoyFilter).
 		MustAdd(Gateway).
 		MustAdd(MeshConfig).
 		MustAdd(MeshNetworks).
-		MustAdd(Namespace).
-		MustAdd(Node).
 		MustAdd(PeerAuthentication).
-		MustAdd(Pod).
 		MustAdd(ProxyConfig).
 		MustAdd(RequestAuthentication).
-		MustAdd(Secret).
-		MustAdd(Service).
-		MustAdd(ServiceAccount).
 		MustAdd(ServiceEntry).
 		MustAdd(Sidecar).
 		MustAdd(Telemetry).
@@ -433,15 +295,6 @@ var (
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
-		MustAdd(ConfigMap).
-		MustAdd(Deployment).
-		MustAdd(Endpoints).
-		MustAdd(Namespace).
-		MustAdd(Node).
-		MustAdd(Pod).
-		MustAdd(Secret).
-		MustAdd(Service).
-		MustAdd(ServiceAccount).
 		Build()
 
 	// Pilot contains only collections used by Pilot.

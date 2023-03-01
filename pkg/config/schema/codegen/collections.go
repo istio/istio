@@ -16,14 +16,17 @@ package codegen
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"istio.io/istio/pkg/config/schema/ast"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
 )
 
-const staticResourceTemplate = `
+const gvkTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
 
@@ -35,12 +38,12 @@ import (
 
 var (
 {{- range .Entries }}
-	{{.Type}} = config.GroupVersionKind{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Kind: "{{.Resource.Kind}}"}
+	{{.Resource.Identifier}} = config.GroupVersionKind{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Kind: "{{.Resource.Kind}}"}
 {{- end }}
 )
 `
 
-const staticKindTemplate = `
+const kindTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
 
@@ -53,9 +56,9 @@ import (
 const (
 {{- range $index, $element := .Entries }}
 	{{- if (eq $index 0) }}
-	{{.Type}} Kind = iota
+	{{.Resource.Identifier}} Kind = iota
 	{{- else }}
-	{{.Type}}
+	{{.Resource.Identifier}}
 	{{- end }}
 {{- end }}
 )
@@ -63,7 +66,7 @@ const (
 func (k Kind) String() string {
 	switch k {
 {{- range .Entries }}
-	case {{.Type}}:
+	case {{.Resource.Identifier}}:
 		return "{{.Resource.Kind}}"
 {{- end }}
 	default:
@@ -74,7 +77,7 @@ func (k Kind) String() string {
 func FromGvk(gvk config.GroupVersionKind) Kind {
 {{- range .Entries }}
 	if gvk.Kind == "{{.Resource.Kind}}" && gvk.Group == "{{.Resource.Group}}" && gvk.Version == "{{.Resource.Version}}" {
-		return {{.Type}}
+		return {{.Resource.Identifier}}
 	}
 {{- end }}
 
@@ -82,7 +85,7 @@ func FromGvk(gvk config.GroupVersionKind) Kind {
 }
 `
 
-const staticCollectionsTemplate = `
+const collectionsTemplate = `
 {{- .FilePrefix}}
 // GENERATED FILE -- DO NOT EDIT
 //
@@ -93,7 +96,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
-    "reflect"
+  "reflect"
 {{- range .Packages}}
 	{{.ImportName}} "{{.PackageName}}"
 {{- end}}
@@ -168,74 +171,26 @@ type colEntry struct {
 	StatusType string
 }
 
-func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
-	entries := make([]colEntry, 0, len(m.Resources))
-	for _, r := range m.Resources {
-		entries = append(entries, colEntry{
-			Type:     r.Identifier,
-			Resource: r,
-		})
-	}
-
-	sort.Slice(entries, func(i, j int) bool {
-		return strings.Compare(entries[i].Type, entries[j].Type) < 0
-	})
-
-	context := struct {
-		Entries     []colEntry
-		PackageName string
-	}{
-		Entries:     entries,
-		PackageName: packageName,
-	}
-
-	// Calculate the Go packages that needs to be imported for the proto types to be registered.
-	return applyTemplate(staticResourceTemplate, context)
+type inputs struct {
+	Entries  []colEntry
+	Packages []packageImport
 }
 
-func WriteKind(packageName string, m *ast.Metadata) (string, error) {
-	entries := make([]colEntry, 0, len(m.Resources))
-	for _, r := range m.Resources {
-		entries = append(entries, colEntry{
-			Type:     r.Identifier,
-			Resource: r,
-		})
-	}
-	// Insert synthetic types used for XDS events
-	entries = append(entries, colEntry{
-		Resource: &ast.Resource{Kind: "Address", Version: "internal", Group: "internal"},
-		Type:     "Address",
-	})
-
-	sort.Slice(entries, func(i, j int) bool {
-		return strings.Compare(entries[i].Type, entries[j].Type) < 0
-	})
-
-	context := struct {
-		Entries     []colEntry
-		PackageName string
-	}{
-		Entries:     entries,
-		PackageName: packageName,
+func buildInputs() (inputs, error) {
+	b, err := os.ReadFile(filepath.Join(env.IstioSrc, "pkg/config/schema/metadata.yaml"))
+	if err != nil {
+		fmt.Printf("unable to read input file: %v", err)
+		return inputs{}, err
 	}
 
-	// Calculate the Go packages that needs to be imported for the proto types to be registered.
-	return applyTemplate(staticKindTemplate, context)
-}
-
-type packageImport struct {
-	PackageName string
-	ImportName  string
-}
-
-// StaticCollections generates a Go file for static-importing Proto packages, so that they get registered statically.
-func StaticCollections(packageName string, m *ast.Metadata, filter func(name string) bool, prefix string) (string, error) {
+	// Parse the file.
+	m, err := ast.Parse(string(b))
+	if err != nil {
+		fmt.Printf("failed parsing input file: %v", err)
+		return inputs{}, err
+	}
 	entries := make([]colEntry, 0, len(m.Resources))
 	for _, r := range m.Resources {
-		if !filter(r.Group) {
-			continue
-		}
-
 		spl := strings.Split(r.Proto, ".")
 		tname := spl[len(spl)-1]
 		stat := strings.Split(r.StatusProto, ".")
@@ -249,6 +204,11 @@ func StaticCollections(packageName string, m *ast.Metadata, filter func(name str
 		}
 		entries = append(entries, e)
 	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return strings.Compare(entries[i].Resource.Identifier, entries[j].Resource.Identifier) < 0
+	})
+
 	// Single instance and sort names
 	names := sets.New[string]()
 
@@ -269,24 +229,15 @@ func StaticCollections(packageName string, m *ast.Metadata, filter func(name str
 		return strings.Compare(packages[i].PackageName, packages[j].PackageName) < 0
 	})
 
-	sort.Slice(entries, func(i, j int) bool {
-		return strings.Compare(entries[i].Resource.Identifier, entries[j].Resource.Identifier) < 0
-	})
+	return inputs{
+		Entries:  entries,
+		Packages: packages,
+	}, nil
+}
 
-	context := struct {
-		Entries     []colEntry
-		PackageName string
-		FilePrefix  string
-		Packages    []packageImport
-	}{
-		Entries:     entries,
-		PackageName: packageName,
-		Packages:    packages,
-		FilePrefix:  prefix,
-	}
-
-	// Calculate the Go packages that needs to be imported for the proto types to be registered.
-	return applyTemplate(staticCollectionsTemplate, context)
+type packageImport struct {
+	PackageName string
+	ImportName  string
 }
 
 func toImport(p string) string {
