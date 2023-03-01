@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"fmt"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -40,17 +39,18 @@ import (
 	"istio.io/pkg/log"
 )
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, proxy *model.Proxy) []*cluster.Cluster {
 	if !proxy.EnableHBONE() {
 		return nil
 	}
-	clusters := make([]*cluster.Cluster, 0)
-	for _, i := range instances {
-		p := i.Endpoint.EndpointPort
-		name := fmt.Sprintf("inbound-hbone|%d", p)
-		clusters = append(clusters, cb.buildInternalListenerCluster(name, name).build())
-	}
-	return clusters
+	// This TCP cluster routes to "internal" listener.
+	clusterType := cluster.Cluster_STATIC
+	llb := util.BuildInternalEndpoint("internal", nil)
+	localCluster := cb.buildDefaultCluster("internal", clusterType, llb,
+		model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
+	localCluster.cluster.TransportSocketMatches = nil
+	localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()
+	return []*cluster.Cluster{localCluster.build()}
 }
 
 func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(

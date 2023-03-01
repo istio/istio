@@ -158,22 +158,7 @@ func (lb *ListenerBuilder) buildHCMTerminateConnectChain(routes []*route.Route) 
 	}
 }
 
-func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.Listener {
-	routes := []*route.Route{{
-		Match: &route.RouteMatch{
-			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
-		},
-		Action: &route.Route_Route{Route: &route.RouteAction{
-			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-				UpgradeType:   "CONNECT",
-				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-			}},
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "internal"},
-		}},
-		TypedPerFilterConfig: map[string]*any.Any{
-			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
-		},
-	}}
+func (lb *ListenerBuilder) buildTerminateConnectListener(routes []*route.Route) *listener.Listener {
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	l := &listener.Listener{
 		Name:    ConnectTerminate,
@@ -192,6 +177,25 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 		},
 	}
 	return l
+}
+
+func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.Listener {
+	routes := []*route.Route{{
+		Match: &route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
+		},
+		Action: &route.Route_Route{Route: &route.RouteAction{
+			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+				UpgradeType:   "CONNECT",
+				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+			}},
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "internal"},
+		}},
+		TypedPerFilterConfig: map[string]*any.Any{
+			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
+		},
+	}}
+	return lb.buildTerminateConnectListener(routes)
 }
 
 func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs map[host.Name]*model.Service) *listener.Listener {
