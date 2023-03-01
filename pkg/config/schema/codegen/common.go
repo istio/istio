@@ -77,7 +77,7 @@ func writeTemplate(path, tmpl string, i any) error {
 	}
 	dst := filepath.Join(env.IstioSrc, path)
 	if err = os.WriteFile(dst, []byte(t), os.ModePerm); err != nil {
-		return fmt.Errorf("write template %v: %v", err)
+		return fmt.Errorf("write template %v: %v", path, err)
 	}
 	c := exec.Command("goimports", "-w", "-local", "istio.io", dst)
 	c.Stdout = os.Stdout

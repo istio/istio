@@ -138,10 +138,6 @@ func ignoredMessage(field string) string {
 	return fmt.Sprintf("%s ignored", field)
 }
 
-func crDeprecatedMessage(typename string) string {
-	return fmt.Sprintf("Custom resource type %q is deprecated", typename)
-}
-
 func crRemovedMessage(group, kind string) string {
 	return fmt.Sprintf("Custom resource type %s %s is removed", group, kind)
 }
