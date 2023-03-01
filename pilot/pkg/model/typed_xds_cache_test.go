@@ -66,7 +66,7 @@ func TestAddTwoEntries(t *testing.T) {
 	assert.Equal(t, cache.indexLength(), 0)
 
 	// adding the entry populates the indexes
-	c.Add(firstEntry.Key(), firstEntry, req, res)
+	c.add(firstEntry.Key(), firstEntry, req, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
 	assert.Equal(t, cache.indexLength(), 2)
@@ -86,7 +86,7 @@ func TestAddTwoEntries(t *testing.T) {
 	}
 
 	// after adding an index with a different key, indexes are populated with both dependencies
-	c.Add(secondEntry.Key(), secondEntry, req, res)
+	c.add(secondEntry.Key(), secondEntry, req, res)
 
 	assert.Equal(t, cache.store.Len(), 2)
 	assert.Equal(t, cache.indexLength(), 3)
@@ -115,7 +115,7 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 	assert.Equal(t, cache.indexLength(), 0)
 
 	// adding the entry populates the indexes
-	c.Add(firstEntry.Key(), firstEntry, req, res)
+	c.add(firstEntry.Key(), firstEntry, req, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
 	assert.Equal(t, cache.indexLength(), 1)
@@ -131,7 +131,7 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 	}
 	req = &PushRequest{Start: zeroTime.Add(time.Duration(2))}
 	// after adding an entry with the same key, previous indexes are correctly cleaned
-	c.Add(secondEntry.Key(), secondEntry, req, res)
+	c.add(secondEntry.Key(), secondEntry, req, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
 
@@ -166,7 +166,7 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 	assert.Equal(t, cache.indexLength(), 0)
 
 	// adding the entry populates the indexes
-	c.Add(firstEntry.Key(), firstEntry, req, res)
+	c.add(firstEntry.Key(), firstEntry, req, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
 	assert.Equal(t, cache.indexLength(), 2)
@@ -186,7 +186,7 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 	}
 
 	// after adding an index with a different key, first key is evicted, idexes should contain only secondEntry
-	c.Add(secondEntry.Key(), secondEntry, req, res)
+	c.add(secondEntry.Key(), secondEntry, req, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
 
@@ -231,8 +231,8 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
 
-	c.Add(firstEntry.Key(), firstEntry, req1, res)
-	c.Add(secondEntry.Key(), secondEntry, req2, res)
+	c.add(firstEntry.Key(), firstEntry, req1, res)
+	c.add(secondEntry.Key(), secondEntry, req2, res)
 
 	// indexes populated
 	assert.Equal(t, cache.store.Len(), 2)
@@ -245,7 +245,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.Key()),
 	})
 
-	cache.Clear(sets.Set[ConfigKey]{})
+	cache.clear(sets.Set[ConfigKey]{})
 
 	// no change on empty clear
 	assert.Equal(t, cache.store.Len(), 2)
@@ -259,7 +259,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	})
 
 	// clear only DestinationRule dependencies, should clear all firstEntry references
-	cache.Clear(sets.Set[ConfigKey]{{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}: {}})
+	cache.clear(sets.Set[ConfigKey]{{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}: {}})
 
 	assert.Equal(t, cache.store.Len(), 1)
 
@@ -274,7 +274,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	})
 
 	// add firstEntry again
-	c.Add(firstEntry.Key(), firstEntry, &PushRequest{Start: zeroTime.Add(time.Duration(3))}, res)
+	c.add(firstEntry.Key(), firstEntry, &PushRequest{Start: zeroTime.Add(time.Duration(3))}, res)
 
 	assert.Equal(t, cache.store.Len(), 2)
 
@@ -291,7 +291,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	})
 
 	// clear only EnvoyFilter dependencies, should clear all secondEntry references
-	cache.Clear(sets.Set[ConfigKey]{{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}: {}})
+	cache.clear(sets.Set[ConfigKey]{{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}: {}})
 
 	assert.Equal(t, cache.store.Len(), 1)
 
@@ -306,7 +306,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	})
 
 	// add secondEntry again
-	c.Add(secondEntry.Key(), secondEntry, &PushRequest{Start: zeroTime.Add(time.Duration(4))}, res)
+	c.add(secondEntry.Key(), secondEntry, &PushRequest{Start: zeroTime.Add(time.Duration(4))}, res)
 
 	assert.Equal(t, cache.store.Len(), 2)
 
@@ -323,7 +323,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	})
 
 	// clear only Service dependencies, should clear both firstEntry and secondEntry references
-	cache.Clear(sets.Set[ConfigKey]{{Kind: kind.Service, Name: "name", Namespace: "namespace"}: {}})
+	cache.clear(sets.Set[ConfigKey]{{Kind: kind.Service, Name: "name", Namespace: "namespace"}: {}})
 
 	// Flush the cache and validate the index is cleaned.
 	cache.flush()
@@ -362,8 +362,8 @@ func TestCacheClearAll(t *testing.T) {
 	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
 
-	c.Add(firstEntry.Key(), firstEntry, req1, res)
-	c.Add(secondEntry.Key(), secondEntry, req2, res)
+	c.add(firstEntry.Key(), firstEntry, req1, res)
+	c.add(secondEntry.Key(), secondEntry, req2, res)
 
 	// indexes populated
 	assert.Equal(t, cache.indexLength(), 5)
@@ -375,7 +375,7 @@ func TestCacheClearAll(t *testing.T) {
 		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.Key()),
 	})
 
-	cache.ClearAll()
+	cache.clearAll()
 
 	// no change on empty clear
 	assert.Equal(t, cache.indexLength(), 0)
