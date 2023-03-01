@@ -831,9 +831,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		},
 	}
 	c.serviceInformer.AddEventHandler(serviceHandler)
-	idx.serviceVipIndex = controllers.CreateIndex[*v1.Service, string](c.client.KubeInformer().Core().V1().Services().Informer(), func(o *v1.Service) []string {
-		return getVIPs(o)
-	})
+	idx.serviceVipIndex = controllers.CreateIndex[*v1.Service, string](c.client.KubeInformer().Core().V1().Services().Informer(), getVIPs)
 	return &idx
 }
 
