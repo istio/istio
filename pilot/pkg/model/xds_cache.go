@@ -123,16 +123,16 @@ func (x XdsCacheImpl) Add(entry XdsCacheEntry, pushRequest *PushRequest, value *
 	switch entry.Type() {
 	case CDSType:
 		key := k.(uint64)
-		x.cds.add(key, entry, pushRequest, value)
+		x.cds.Add(key, entry, pushRequest, value)
 	case EDSType:
 		key := k.(uint64)
-		x.eds.add(key, entry, pushRequest, value)
+		x.eds.Add(key, entry, pushRequest, value)
 	case SDSType:
 		key := k.(string)
-		x.sds.add(key, entry, pushRequest, value)
+		x.sds.Add(key, entry, pushRequest, value)
 	case RDSType:
 		key := k.(uint64)
-		x.rds.add(key, entry, pushRequest, value)
+		x.rds.Add(key, entry, pushRequest, value)
 	default:
 		log.Errorf("unknown type %s", entry.Type())
 	}
@@ -147,16 +147,16 @@ func (x XdsCacheImpl) Get(entry XdsCacheEntry) *discovery.Resource {
 	switch entry.Type() {
 	case CDSType:
 		key := k.(uint64)
-		return x.cds.get(key)
+		return x.cds.Get(key)
 	case EDSType:
 		key := k.(uint64)
-		return x.eds.get(key)
+		return x.eds.Get(key)
 	case SDSType:
 		key := k.(string)
-		return x.sds.get(key)
+		return x.sds.Get(key)
 	case RDSType:
 		key := k.(uint64)
-		return x.rds.get(key)
+		return x.rds.Get(key)
 	default:
 		log.Errorf("unknown type %s", entry.Type())
 		return nil
@@ -164,37 +164,37 @@ func (x XdsCacheImpl) Get(entry XdsCacheEntry) *discovery.Resource {
 }
 
 func (x XdsCacheImpl) Clear(s sets.Set[ConfigKey]) {
-	x.cds.clear(s)
+	x.cds.Clear(s)
 	// clear all EDS cache for PA change
 	if HasConfigsOfKind(s, kind.PeerAuthentication) {
-		x.eds.clearAll()
+		x.eds.ClearAll()
 	} else {
-		x.eds.clear(s)
+		x.eds.Clear(s)
 	}
-	x.rds.clear(s)
-	x.sds.clear(s)
+	x.rds.Clear(s)
+	x.sds.Clear(s)
 }
 
 func (x XdsCacheImpl) ClearAll() {
-	x.cds.clearAll()
-	x.eds.clearAll()
-	x.rds.clearAll()
-	x.sds.clearAll()
+	x.cds.ClearAll()
+	x.eds.ClearAll()
+	x.rds.ClearAll()
+	x.sds.ClearAll()
 }
 
 func (x XdsCacheImpl) Keys(t string) []any {
 	switch t {
 	case CDSType:
-		keys := x.cds.keys()
+		keys := x.cds.Keys()
 		return convertToAnySlices(keys)
 	case EDSType:
-		keys := x.eds.keys()
+		keys := x.eds.Keys()
 		return convertToAnySlices(keys)
 	case SDSType:
-		keys := x.sds.keys()
+		keys := x.sds.Keys()
 		return convertToAnySlices(keys)
 	case RDSType:
-		keys := x.rds.keys()
+		keys := x.rds.Keys()
 		return convertToAnySlices(keys)
 	default:
 		return nil
@@ -211,10 +211,10 @@ func convertToAnySlices[K comparable](in []K) []any {
 
 func (x XdsCacheImpl) Snapshot() []*discovery.Resource {
 	var out []*discovery.Resource
-	out = append(out, x.cds.snapshot()...)
-	out = append(out, x.eds.snapshot()...)
-	out = append(out, x.rds.snapshot()...)
-	out = append(out, x.sds.snapshot()...)
+	out = append(out, x.cds.Snapshot()...)
+	out = append(out, x.eds.Snapshot()...)
+	out = append(out, x.rds.Snapshot()...)
+	out = append(out, x.sds.Snapshot()...)
 	return out
 }
 

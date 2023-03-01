@@ -82,21 +82,21 @@ type dependents interface {
 type typedXdsCache[K comparable] interface {
 	// flush clears the evicted indexes.
 	flush()
-	// add adds the given key with the value and its dependents for the given pushContext to the cache.
+	// Add adds the given key with the value and its dependents for the given pushContext to the cache.
 	// If the cache has been updated to a newer push context, the write will be dropped silently.
 	// This ensures stale data does not overwrite fresh data when dealing with concurrent
 	// writers.
-	add(key K, entry dependents, pushRequest *PushRequest, value *discovery.Resource)
-	// get retrieves the cached value if it exists.
-	get(key K) *discovery.Resource
-	// clear removes the cache entries that are dependent on the configs passed.
-	clear(sets.Set[ConfigKey])
-	// clearAll clears the entire cache.
-	clearAll()
-	// keys returns all currently configured keys. This is for testing/debug only
-	keys() []K
-	// snapshot returns a snapshot of all keys and values. This is for testing/debug only
-	snapshot() []*discovery.Resource
+	Add(key K, entry dependents, pushRequest *PushRequest, value *discovery.Resource)
+	// Get retrieves the cached value if it exists.
+	Get(key K) *discovery.Resource
+	// Clear removes the cache entries that are dependent on the configs passed.
+	Clear(sets.Set[ConfigKey])
+	// ClearAll clears the entire cache.
+	ClearAll()
+	// Keys returns all currently configured keys. This is for testing/debug only
+	Keys() []K
+	// Snapshot returns a snapshot of all keys and values. This is for testing/debug only
+	Snapshot() []*discovery.Resource
 }
 
 // newTypedXdsCache returns an instance of a cache.
@@ -231,7 +231,7 @@ func (l *lruCache[K]) assertUnchanged(key K, existing *discovery.Resource, repla
 	}
 }
 
-func (l *lruCache[K]) add(k K, entry dependents, pushReq *PushRequest, value *discovery.Resource) {
+func (l *lruCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *discovery.Resource) {
 	if pushReq == nil || pushReq.Start.Equal(time.Time{}) {
 		return
 	}
@@ -275,12 +275,12 @@ type cacheValue struct {
 	dependentConfigs []ConfigHash
 }
 
-func (l *lruCache[K]) get(key K) *discovery.Resource {
-	return l.getWithToken(key, 0)
+func (l *lruCache[K]) Get(key K) *discovery.Resource {
+	return l.get(key, 0)
 }
 
 // get return the cached value if it exists.
-func (l *lruCache[K]) getWithToken(key K, token CacheToken) *discovery.Resource {
+func (l *lruCache[K]) get(key K, token CacheToken) *discovery.Resource {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	cv, ok := l.store.Get(key)
@@ -296,7 +296,7 @@ func (l *lruCache[K]) getWithToken(key K, token CacheToken) *discovery.Resource 
 	return nil
 }
 
-func (l *lruCache[K]) clear(configs sets.Set[ConfigKey]) {
+func (l *lruCache[K]) Clear(configs sets.Set[ConfigKey]) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
@@ -314,7 +314,7 @@ func (l *lruCache[K]) clear(configs sets.Set[ConfigKey]) {
 	size(l.store.Len())
 }
 
-func (l *lruCache[K]) clearAll() {
+func (l *lruCache[K]) ClearAll() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
@@ -327,13 +327,13 @@ func (l *lruCache[K]) clearAll() {
 	size(l.store.Len())
 }
 
-func (l *lruCache[K]) keys() []K {
+func (l *lruCache[K]) Keys() []K {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	return slices.Clone(l.store.Keys())
 }
 
-func (l *lruCache[K]) snapshot() []*discovery.Resource {
+func (l *lruCache[K]) Snapshot() []*discovery.Resource {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	iKeys := l.store.Keys()
@@ -373,17 +373,17 @@ var _ typedXdsCache[uint64] = &disabledCache[uint64]{}
 func (d disabledCache[K]) flush() {
 }
 
-func (d disabledCache[K]) add(k K, entry dependents, pushReq *PushRequest, value *discovery.Resource) {
+func (d disabledCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *discovery.Resource) {
 }
 
-func (d disabledCache[K]) get(k K) *discovery.Resource {
+func (d disabledCache[K]) Get(k K) *discovery.Resource {
 	return nil
 }
 
-func (d disabledCache[K]) clear(configsUpdated sets.Set[ConfigKey]) {}
+func (d disabledCache[K]) Clear(configsUpdated sets.Set[ConfigKey]) {}
 
-func (d disabledCache[K]) clearAll() {}
+func (d disabledCache[K]) ClearAll() {}
 
-func (d disabledCache[K]) keys() []K { return nil }
+func (d disabledCache[K]) Keys() []K { return nil }
 
-func (d disabledCache[K]) snapshot() []*discovery.Resource { return nil }
+func (d disabledCache[K]) Snapshot() []*discovery.Resource { return nil }
