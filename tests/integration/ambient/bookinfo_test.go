@@ -118,8 +118,11 @@ func TestBookinfo(t *testing.T) {
 					if resp.StatusCode != http.StatusOK {
 						return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
 					}
-					deleteWaypoints(t, nsConfig, "bookinfo-productpage")
-					resp, err = ingressClient.Get(ingressURL + "/productpage")
+					return nil
+				}, retry.Converge(5))
+				deleteWaypoints(t, nsConfig, "bookinfo-productpage")
+				retry.UntilSuccessOrFail(t, func() error {
+					resp, err := ingressClient.Get(ingressURL + "/productpage")
 					if err != nil {
 						return fmt.Errorf("error fetching /productpage: %v", err)
 					}
@@ -128,7 +131,7 @@ func TestBookinfo(t *testing.T) {
 						return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
 					}
 					return nil
-				})
+				}, retry.Converge(5))
 			})
 
 			t.NewSubTest("waypoint routing").Run(func(t framework.TestContext) {
