@@ -7,8 +7,8 @@ issue:
 
 releaseNotes:
 - |
-  **Added** `istioctl analyzer` will display a error when encountering the following two situations  
-  - For any namespace,if there are multiple Telemetry CRs without selector 
-  - For any namespace,if there are multiple Telemetry CRs with selector which selected for the same workload
+  **Added** `istioctl analyzer` will display a error when encountering the following two situations:
+  - For any namespace, if there are multiple Telemetry CRs without selector,
+  - For any namespace, if there are multiple telemetry CRs with selector that select the same workload.
   
   
