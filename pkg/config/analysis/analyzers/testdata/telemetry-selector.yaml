@@ -40,9 +40,13 @@ spec:
   selector:
     matchLabels:
       app: productpage # Maps to an existing workload without conflicts in the same ns, no error
-  egress:
-    - hosts:
-        - "./*"
+  metrics:
+    - providers:
+        - name: prometheus
+      overrides:
+        - match:
+            metric: ALL_METRICS
+          disabled: false
 ---
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
@@ -53,9 +57,13 @@ spec:
   selector:
     matchLabels:
       app: bogus # This doesn't exist, and should generate an error
-  egress:
-    - hosts:
-        - "./*"
+  metrics:
+    - providers:
+        - name: prometheus
+      overrides:
+        - match:
+            metric: ALL_METRICS
+          disabled: false
 ---
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
@@ -66,9 +74,13 @@ spec:
   selector:
     matchLabels:
       app: reviews # This doesn't exist in the current namespace, and should generate an error
-  egress:
-    - hosts:
-        - "./*"
+  metrics:
+    - providers:
+        - name: prometheus
+      overrides:
+        - match:
+            metric: ALL_METRICS
+          disabled: false
 ---
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
@@ -79,9 +91,13 @@ spec:
   selector:
     matchLabels:
       app: reviews # Multiple sidecars have the same selector, should generate errors for both
-  egress:
-    - hosts:
-        - "./*"
+  metrics:
+    - providers:
+        - name: prometheus
+      overrides:
+        - match:
+            metric: ALL_METRICS
+          disabled: false
 ---
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
@@ -92,9 +108,13 @@ spec:
   selector:
     matchLabels:
       app: reviews # Multiple sidecars have the same selector, should generate errors for both
-  egress:
-    - hosts:
-        - "./*"
+  metrics:
+    - providers:
+        - name: prometheus
+      overrides:
+        - match:
+            metric: ALL_METRICS
+          disabled: false
 ---
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
@@ -105,9 +125,13 @@ spec:
   selector:
     matchLabels:
       app: ratings-app # Multiple sidecars select overlapping workloads, should generate errors for both
-  egress:
-    - hosts:
-        - "./*"
+  metrics:
+    - providers:
+        - name: prometheus
+      overrides:
+        - match:
+            metric: ALL_METRICS
+          disabled: false
 ---
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
@@ -118,6 +142,10 @@ spec:
   selector:
     matchLabels:
       myapp: ratings-myapp # Multiple sidecars select overlapping workloads, should generate errors for both
-  egress:
-    - hosts:
-        - "./*"
+  metrics:
+    - providers:
+        - name: prometheus
+      overrides:
+        - match:
+            metric: ALL_METRICS
+          disabled: false
