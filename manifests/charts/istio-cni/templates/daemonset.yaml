@@ -30,6 +30,7 @@ spec:
       labels:
         k8s-app: istio-cni-node
         sidecar.istio.io/inject: "false"
+        istio.io/rev: {{ .Values.revision | default "default" }}
       annotations:
         sidecar.istio.io/inject: "false"
         # Add Prometheus Scrape annotations
