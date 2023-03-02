@@ -107,8 +107,35 @@ func TestBookinfo(t *testing.T) {
 				})
 			})
 
+			t.NewSubTest("ingress receives waypoint updates").Run(func(t framework.TestContext) {
+				setupWaypoints(t, nsConfig, "bookinfo-productpage")
+				retry.UntilSuccessOrFail(t, func() error {
+					resp, err := ingressClient.Get(ingressURL + "/productpage")
+					if err != nil {
+						return fmt.Errorf("error fetching /productpage: %v", err)
+					}
+					defer resp.Body.Close()
+					if resp.StatusCode != http.StatusOK {
+						return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+					}
+					return nil
+				}, retry.Converge(5))
+				deleteWaypoints(t, nsConfig, "bookinfo-productpage")
+				retry.UntilSuccessOrFail(t, func() error {
+					resp, err := ingressClient.Get(ingressURL + "/productpage")
+					if err != nil {
+						return fmt.Errorf("error fetching /productpage: %v", err)
+					}
+					defer resp.Body.Close()
+					if resp.StatusCode != http.StatusOK {
+						return fmt.Errorf("expect status code %v, got %v", http.StatusFound, resp.StatusCode)
+					}
+					return nil
+				}, retry.Converge(5))
+			})
+
 			t.NewSubTest("waypoint routing").Run(func(t framework.TestContext) {
-				setupWaypoints(t, nsConfig)
+				setupWaypoints(t, nsConfig, "bookinfo-reviews")
 
 				t.NewSubTest("productpage reachable").Run(func(t framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {
@@ -223,7 +250,7 @@ func TestBookinfo(t *testing.T) {
 					return getGracePeriod(3)
 				})
 			})
-			deleteWaypoints(t, nsConfig)
+			deleteWaypoints(t, nsConfig, "bookinfo-reviews")
 		})
 }
 
@@ -233,7 +260,7 @@ func applyDefaultRouting(t framework.TestContext, nsConfig namespace.Instance) {
 	applyFileOrFail(t, nsConfig.Name(), routingV1)
 }
 
-func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
+func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa string) {
 	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 		"x",
 		"waypoint",
@@ -241,10 +268,10 @@ func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
 		"--namespace",
 		nsConfig.Name(),
 		"--service-account",
-		"bookinfo-reviews",
+		sa,
 	})
 	waypointError := retry.UntilSuccess(func() error {
-		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")
+		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+sa)
 		if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
 			return fmt.Errorf("gateway is not ready: %v", err)
 		}
@@ -255,7 +282,7 @@ func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
 	}
 }
 
-func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
+func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa string) {
 	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 		"x",
 		"waypoint",
@@ -263,10 +290,10 @@ func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance) {
 		"--namespace",
 		nsConfig.Name(),
 		"--service-account",
-		"bookinfo-reviews",
+		sa,
 	})
 	waypointError := retry.UntilSuccess(func() error {
-		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"=bookinfo-reviews")
+		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+sa)
 		pods, err := kubetest.CheckPodsAreReady(fetch)
 		if err != nil && err != kubetest.ErrNoPodsFetched {
 			return fmt.Errorf("cannot fetch pod: %v", err)
