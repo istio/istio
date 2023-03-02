@@ -29,9 +29,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
-	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
@@ -61,7 +59,7 @@ var (
 	EncapCluster        = buildInternalUpstreamCluster("encap", ConnectOriginate)
 )
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, proxy *model.Proxy) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(proxy *model.Proxy) []*cluster.Cluster {
 	if !proxy.EnableHBONE() {
 		return nil
 	}
@@ -168,34 +166,13 @@ func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push
 }
 
 func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.PushContext, uriSanMatcher *matcher.StringMatcher) *cluster.Cluster {
-	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, nil, true)
-
+	ctx := buildCommonConnectTLSContext(proxy, push)
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
-
-	// NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used.
 	if uriSanMatcher != nil {
 		validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
 			SanType: tls.SubjectAltNameMatcher_URI,
 			Matcher: uriSanMatcher,
 		})
-	}
-	aliases := authn.TrustDomainsForValidation(push.Mesh)
-	if len(aliases) > 0 {
-		matchers := util.StringToPrefixMatch(security.AppendURIPrefixToTrustDomain(aliases))
-		for _, matcher := range matchers {
-			validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
-				SanType: tls.SubjectAltNameMatcher_URI,
-				Matcher: matcher,
-			})
-		}
-	}
-
-	ctx.AlpnProtocols = []string{"h2"}
-	ctx.TlsParams = &tls.TlsParameters{
-		// Ensure TLS 1.3 is used everywhere
-		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
-		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
 	return &cluster.Cluster{
 		Name:                          ConnectOriginate,
