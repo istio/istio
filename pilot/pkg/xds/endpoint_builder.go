@@ -418,8 +418,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
 		supportsTunnel = true
 	}
+
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	if al := e.Labels[constants.AmbientRedirection]; al == constants.AmbientRedirectionEnabled {
+	if b.push.SupportsTunnel(e.Address) {
 		supportsTunnel = true
 	}
 	// Otherwise supports tunnel

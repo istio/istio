@@ -22,18 +22,17 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hashicorp/go-multierror"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -60,6 +59,9 @@ type AmbientIndex struct {
 	waypoints map[model.WaypointScope]sets.String
 
 	handlePods func(pods []*v1.Pod)
+
+	// serviceVipIndex maintains an index of VIP -> Service
+	serviceVipIndex *controllers.Index[*v1.Service, string]
 }
 
 // Lookup finds a given IP address.
@@ -96,7 +98,7 @@ func (a *AmbientIndex) insertWorkloadToService(svcAddress string, workload *mode
 
 func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
 	addr := netip.MustParseAddr(ipStr).AsSlice()
-	updates := map[model.ConfigKey]struct{}{}
+	updates := sets.New[model.ConfigKey]()
 	if isDelete {
 		for _, wl := range a.byPod {
 			if !(wl.Namespace == sa.Namespace && (sa.ServiceAccount == "" || wl.ServiceAccount == sa.ServiceAccount)) {
@@ -118,13 +120,13 @@ func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDe
 			wl.WaypointAddresses = addrs
 			if filtered {
 				// If there was a change, also update the VIPs and record for a push
-				updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()}] = struct{}{}
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 				a.byPod[wl.ResourceName()] = wl
 				for vip := range wl.VirtualIps {
 					a.insertWorkloadToService(vip, wl)
 				}
 			}
-			c.updateEndpointsOnWaypointChange(wl.CanonicalName, wl.Namespace)
+			updates.Merge(c.updateEndpointsOnWaypointChange(wl))
 		}
 	} else {
 		for _, wl := range a.byPod {
@@ -145,13 +147,13 @@ func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDe
 				wl := wl.Clone()
 				wl.WaypointAddresses = append(wl.WaypointAddresses, addr)
 				// If there was a change, also update the VIPs and record for a push
-				updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()}] = struct{}{}
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 				a.byPod[wl.ResourceName()] = wl
 				for vip := range wl.VirtualIps {
 					a.insertWorkloadToService(vip, wl)
 				}
 			}
-			c.updateEndpointsOnWaypointChange(wl.CanonicalName, wl.Namespace)
+			updates.Merge(c.updateEndpointsOnWaypointChange(wl))
 		}
 	}
 	return updates
@@ -183,11 +185,21 @@ func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.Wo
 	return res
 }
 
+// Waypoint finds all waypoint IP addresses for a given scope
 func (c *Controller) Waypoint(scope model.WaypointScope) sets.Set[netip.Addr] {
 	a := c.ambientIndex
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	res := sets.New[netip.Addr]()
+	for ip := range a.waypoints[scope] {
+		res.Insert(netip.MustParseAddr(ip))
+	}
+	if len(res) > 0 {
+		// Explicit has precedence
+		return res
+	}
+	// Now look for namespace-wide
+	scope.ServiceAccount = ""
 	for ip := range a.waypoints[scope] {
 		res.Insert(netip.MustParseAddr(ip))
 	}
@@ -590,30 +602,23 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	}
 }
 
-func (c *Controller) updateEndpointsOnWaypointChange(name, namespace string) {
-	var errs *multierror.Error
-	esLabelSelector := endpointSliceSelectorForService(name)
-	switch endpointController := c.endpoints.(type) {
-	case *endpointsController:
-		endpoints, err := listerv1.NewEndpointsLister(c.endpoints.getInformer().GetIndexer()).Endpoints(namespace).List(esLabelSelector)
-		if err != nil {
-			log.Errorf("error listing endpoints associated with waypoint (%v): %v", name, err)
-		}
-		for _, ep := range endpoints {
-			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
-		}
-	case *endpointSliceController:
-		endpointSlices, err := endpointController.listSlices(namespace, esLabelSelector)
-		if err != nil {
-			log.Errorf("error listing endpoints associated with waypoint (%v): %v", name, err)
-		}
-		for _, ep := range endpointSlices {
-			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
+// updateEndpointsOnWaypointChange ensures that endpoints are synced for Envoy clients. Envoy clients
+// maintain information about waypoints for each destination in metadata. If the waypoint changes, we need
+// to sync this metadata again (add/remove waypoint IP).
+// This is only needed for waypoints, as a normal workload update will already trigger and EDS push.
+func (c *Controller) updateEndpointsOnWaypointChange(wl *model.WorkloadInfo) sets.Set[model.ConfigKey] {
+	updates := sets.New[model.ConfigKey]()
+	// For each VIP, trigger and EDS update
+	for vip := range wl.VirtualIps {
+		for _, svc := range c.ambientIndex.serviceVipIndex.Lookup(vip) {
+			updates.Insert(model.ConfigKey{
+				Kind:      kind.ServiceEntry,
+				Name:      string(kube.ServiceHostname(svc.Name, svc.Namespace, c.opts.DomainSuffix)),
+				Namespace: svc.Namespace,
+			})
 		}
 	}
-	if err := multierror.Flatten(errs.ErrorOrNil()); err != nil {
-		log.Errorf("one or more errors while pushing endpoint updates for waypoint %q in namespace %s: %v", name, namespace, err)
-	}
+	return updates
 }
 
 func (c *Controller) setupIndex() *AmbientIndex {
@@ -826,6 +831,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		},
 	}
 	c.serviceInformer.AddEventHandler(serviceHandler)
+	idx.serviceVipIndex = controllers.CreateIndex[*v1.Service, string](c.client.KubeInformer().Core().V1().Services().Informer(), getVIPs)
 	return &idx
 }
 
