@@ -140,8 +140,8 @@ func NewController(
 
 func (c *Controller) Schemas() collection.Schemas {
 	return collection.SchemasFor(
-		collections.IstioNetworkingV1Alpha3Virtualservices,
-		collections.IstioNetworkingV1Alpha3Gateways,
+		collections.VirtualService,
+		collections.Gateway,
 	)
 }
 

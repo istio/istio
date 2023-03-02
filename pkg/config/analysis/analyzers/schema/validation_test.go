@@ -131,7 +131,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 }
 
 func schemaWithValidateFn(validateFn func(cfg config.Config) (validation.Warning, error)) resource2.Schema {
-	original := collections.IstioNetworkingV1Alpha3Virtualservices
+	original := collections.VirtualService
 	return resource2.Builder{
 		ClusterScoped: original.IsClusterScoped(),
 		Kind:          original.Kind(),

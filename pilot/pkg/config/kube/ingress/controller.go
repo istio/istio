@@ -72,8 +72,8 @@ import (
 // -
 
 var schemas = collection.SchemasFor(
-	collections.IstioNetworkingV1Alpha3Virtualservices,
-	collections.IstioNetworkingV1Alpha3Gateways)
+	collections.VirtualService,
+	collections.Gateway)
 
 // Control needs RBAC permissions to write to Pods.
 

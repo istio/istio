@@ -499,7 +499,7 @@ var testGrid = []testCase{
 			"testdata/virtualservice_dupmatches.yaml",
 			"testdata/virtualservice_overlappingmatches.yaml",
 		},
-		analyzer: schemaValidation.CollectionValidationAnalyzer(collections.IstioNetworkingV1Alpha3Virtualservices),
+		analyzer: schemaValidation.CollectionValidationAnalyzer(collections.VirtualService),
 		expected: []message{
 			{msg.VirtualServiceUnreachableRule, "VirtualService duplicate-match"},
 			{msg.VirtualServiceUnreachableRule, "VirtualService foo/sample-foo-cluster01"},
