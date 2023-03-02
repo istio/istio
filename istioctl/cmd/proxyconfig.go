@@ -881,7 +881,7 @@ func logCmd() *cobra.Command {
 						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
 						for logName, typ := range loggerNames {
 							if typ == Ztunnel {
-								// TODO validate ztunnel logger name when available
+								// TODO validate ztunnel logger name when available: https://github.com/istio/ztunnel/issues/426
 								continue
 							}
 							if !strings.Contains(logName, loggerLevel[0]) {
