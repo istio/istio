@@ -141,7 +141,7 @@ func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Facto
 	if !strings.Contains(resname, "/") {
 		return resname, ns, nil
 	}
-	client, podName, namespace, selector, err := getClientForResource(resname, defaultNS, factory)
+	client, podName, namespace, selector, err := getClientForResource(resname, ns, factory)
 	if err != nil {
 		return "", "", err
 	}
