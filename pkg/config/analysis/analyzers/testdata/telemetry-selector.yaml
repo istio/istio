@@ -90,7 +90,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: reviews # Multiple sidecars have the same selector, should generate errors for both
+      app: reviews # Multiple telemetries have the same selector, should generate errors for both
   metrics:
     - providers:
         - name: prometheus
@@ -107,7 +107,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: reviews # Multiple sidecars have the same selector, should generate errors for both
+      app: reviews # Multiple telemetries have the same selector, should generate errors for both
   metrics:
     - providers:
         - name: prometheus
@@ -124,7 +124,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: ratings-app # Multiple sidecars select overlapping workloads, should generate errors for both
+      app: ratings-app # Multiple telemetries select overlapping workloads, should generate errors for both
   metrics:
     - providers:
         - name: prometheus
@@ -141,7 +141,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      myapp: ratings-myapp # Multiple sidecars select overlapping workloads, should generate errors for both
+      myapp: ratings-myapp # Multiple telemetries select overlapping workloads, should generate errors for both
   metrics:
     - providers:
         - name: prometheus
