@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
@@ -413,7 +414,7 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 	if !ok {
 		return
 	}
-	fmg := fmc.Resource(collections.CustomResourceDefinition.GroupVersionResource())
+	fmg := fmc.Resource(gvr.CustomResourceDefinition)
 	fmd, ok := fmg.(metadatafake.MetadataClient)
 	if !ok {
 		return

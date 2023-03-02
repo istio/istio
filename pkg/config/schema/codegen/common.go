@@ -51,6 +51,10 @@ func Run() error {
 			"Entries":     inp.Entries,
 			"PackageName": "gvk",
 		}),
+		writeTemplate("pkg/config/schema/gvr/resources.gen.go", gvrTemplate, map[string]any{
+			"Entries":     inp.Entries,
+			"PackageName": "gvr",
+		}),
 		writeTemplate("pkg/config/schema/kind/resources.gen.go", kindTemplate, map[string]any{
 			"Entries":     kindEntries,
 			"PackageName": "kind",

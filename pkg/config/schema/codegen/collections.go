@@ -33,12 +33,77 @@ const gvkTemplate = `
 package {{.PackageName}}
 
 import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvr"
 )
 
 var (
 {{- range .Entries }}
 	{{.Resource.Identifier}} = config.GroupVersionKind{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Kind: "{{.Resource.Kind}}"}
+{{- end }}
+)
+
+// ToGVR converts a GVK to a GVR.
+func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
+	switch g {
+{{- range .Entries }}
+		case {{.Resource.Identifier}}:
+			return gvr.{{.Resource.Identifier}}, true
+{{- end }}
+	}
+
+	return schema.GroupVersionResource{}, false
+}
+
+// MustToGVR converts a GVK to a GVR, and panics if it cannot be converted
+// Warning: this is only safe for known types; do not call on arbitrary GVKs
+func MustToGVR(g config.GroupVersionKind) schema.GroupVersionResource {
+	r, ok := ToGVR(g)
+	if !ok {
+		panic("unknown kind: " + g.String())
+	}
+	return r
+}
+
+// FromGVR converts a GVR to a GVK.
+func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
+	switch g {
+{{- range .Entries }}
+		case gvr.{{.Resource.Identifier}}:
+			return {{.Resource.Identifier}}, true
+{{- end }}
+	}
+
+	return config.GroupVersionKind{}, false
+}
+
+// FromGVR converts a GVR to a GVK, and panics if it cannot be converted
+// Warning: this is only safe for known types; do not call on arbitrary GVRs
+func MustFromGVR(g schema.GroupVersionResource) config.GroupVersionKind {
+	r, ok := FromGVR(g)
+	if !ok {
+		panic("unknown kind: " + g.String())
+	}
+	return r
+}
+`
+
+const gvrTemplate = `
+// GENERATED FILE -- DO NOT EDIT
+//
+
+package {{.PackageName}}
+
+import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvr"
+)
+
+var (
+{{- range .Entries }}
+	{{.Resource.Identifier}} = schema.GroupVersionResource{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Resource: "{{.Resource.Plural}}"}
 {{- end }}
 )
 `
@@ -51,6 +116,7 @@ package {{.PackageName}}
 
 import (
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 const (
@@ -74,14 +140,17 @@ func (k Kind) String() string {
 	}
 }
 
-func FromGvk(gvk config.GroupVersionKind) Kind {
+func MustFromGVK(g config.GroupVersionKind) Kind {
+	switch g {
 {{- range .Entries }}
-	if gvk.Kind == "{{.Resource.Kind}}" && gvk.Group == "{{.Resource.Group}}" && gvk.Version == "{{.Resource.Version}}" {
-		return {{.Resource.Identifier}}
-	}
+	{{- if not (eq .Resource.Identifier "Address") }}
+		case gvk.{{.Resource.Identifier}}:
+			return {{.Resource.Identifier}}
+	{{- end }}
 {{- end }}
+	}
 
-	panic("unknown kind: " + gvk.String())
+	panic("unknown kind: " + g.String())
 }
 `
 
