@@ -709,6 +709,12 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 	if len(listenerOpts.bind) == 0 {
 		svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
 		svcExtraListenAddress := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
+		// Override the svcListenAddress, using the proxy ipFamily, for cases where the ipFamily cannot be detected easily.
+		// For example: due to the possibility of using hostnames instead of ips in ServiceEntry, it is hard to detect ipFamily for such services.
+		if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsIPv6() &&
+			svcListenAddress == constants.UnspecifiedIP {
+			svcListenAddress = constants.UnspecifiedIPv6
+		}
 		// We should never get an empty address.
 		// This is a safety guard, in case some platform adapter isn't doing things
 		// properly
