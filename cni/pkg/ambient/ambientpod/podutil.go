@@ -22,7 +22,6 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
 )
 
@@ -46,11 +45,6 @@ func PodZtunnelEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 func podHasSidecar(pod *corev1.Pod) bool {
 	if _, f := pod.Annotations[annotation.SidecarStatus.Name]; f {
 		return true
-	}
-	for _, c := range pod.Spec.Containers {
-		if c.Name == inject.ProxyContainerName {
-			return true
-		}
 	}
 	return false
 }
