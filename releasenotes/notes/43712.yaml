@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 40861
+releaseNotes:
+  - |
+    **Fixed** a bug in `istioctl analyze` where some unexpected messages are displayed when analyzing files that contain gateway resources.

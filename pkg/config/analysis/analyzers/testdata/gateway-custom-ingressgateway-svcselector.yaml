@@ -13,7 +13,7 @@ spec:
       name: http2
       protocol: HTTP
     hosts:
-      - "*"
+    - "*"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -28,7 +28,7 @@ spec:
       name: http2
       protocol: HTTP
     hosts:
-      - "*"
+    - "*"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -89,4 +89,3 @@ spec:
     protocol: TCP
   selector:
     myapp: ingressgateway-8001
-    
