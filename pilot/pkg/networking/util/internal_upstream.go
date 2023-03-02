@@ -23,37 +23,18 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
-var IstioHostMetadata = &internalupstream.InternalUpstreamTransport_MetadataValueSource{
-	Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{
-		Host: &metadata.MetadataKind_Host{},
-	}},
-	Name: IstioMetadataKey,
-}
-
-var IstioClusterMetadata = &internalupstream.InternalUpstreamTransport_MetadataValueSource{
-	Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
-		Cluster: &metadata.MetadataKind_Cluster{},
-	}},
-	Name: IstioMetadataKey,
-}
-
 var TunnelHostMetadata = &internalupstream.InternalUpstreamTransport_MetadataValueSource{
 	Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
 	Name: "tunnel",
 }
 
-var TunnelClusterMetadata = &internalupstream.InternalUpstreamTransport_MetadataValueSource{
-	Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{Cluster: &metadata.MetadataKind_Cluster{}}},
-	Name: "tunnel",
-}
-
 func InternalUpstreamTransportSocket(passthroughMetadata ...*internalupstream.InternalUpstreamTransport_MetadataValueSource) *core.TransportSocket {
 	return &core.TransportSocket{
-		Name: "envoy.transport_sockets.internal_upstream",
+		Name: "internal_upstream",
 		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
 			PassthroughMetadata: passthroughMetadata,
 			TransportSocket: &core.TransportSocket{
-				Name:       "envoy.transport_sockets.raw_buffer",
+				Name:       "raw_buffer",
 				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
 			},
 		})},
