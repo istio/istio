@@ -30,7 +30,6 @@ import (
 	"time"
 
 	jsonmerge "github.com/evanphx/json-patch/v5"
-	"go.uber.org/atomic"
 	"gomodules.xyz/jsonpatch/v3"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -80,10 +79,6 @@ type Client struct {
 	// handlers defines a list of event handlers per-type
 	handlers map[config.GroupVersionKind][]model.EventHandler
 
-	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
-	beginSync *atomic.Bool
-	// initialSync is set to true after performing an initial processing of all objects.
-	initialSync      *atomic.Bool
 	schemasByCRDName map[string]resource.Schema
 	client           kube.Client
 	crdWatcher       *crdwatcher.Controller
@@ -160,8 +155,6 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
 		client:           client,
 		crdWatcher:       crdwatcher.NewController(client),
-		beginSync:        atomic.NewBool(false),
-		initialSync:      atomic.NewBool(false),
 		logger:           scope.WithLabels("controller", opts.Identifier),
 		namespacesFilter: opts.NamespacesFilter,
 		crdWatches: map[config.GroupVersionKind]*waiter{
@@ -220,8 +213,6 @@ func (cl *Client) Run(stop <-chan struct{}) {
 		cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
 		return
 	}
-	cl.SyncAll()
-	cl.initialSync.Store(true)
 	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
 
 	cl.queue.Run(stop)
@@ -239,34 +230,7 @@ func (cl *Client) informerSynced() bool {
 }
 
 func (cl *Client) HasSynced() bool {
-	return cl.initialSync.Load()
-}
-
-// SyncAll syncs all the objects during bootstrap to make the configs updated to caches
-func (cl *Client) SyncAll() {
-	cl.beginSync.Store(true)
-	wg := sync.WaitGroup{}
-	for _, h := range cl.allKinds() {
-		handlers := cl.handlers[h.schema.GroupVersionKind()]
-		if len(handlers) == 0 {
-			continue
-		}
-		h := h
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			objects := h.informer.List(metav1.NamespaceAll, klabels.Everything())
-			for _, currItem := range objects {
-				currConfig := TranslateObject(currItem, h.schema.GroupVersionKind(), h.client.domainSuffix)
-				if cl.objectInRevision(&currConfig) {
-					for _, f := range handlers {
-						f(config.Config{}, currConfig, model.EventAdd)
-					}
-				}
-			}
-		}()
-	}
-	wg.Wait()
+	return cl.queue.HasSynced()
 }
 
 // Schemas for the store

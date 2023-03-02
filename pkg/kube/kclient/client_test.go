@@ -52,8 +52,7 @@ func TestHasSynced(t *testing.T) {
 	c.RunAndWait(test.NewStop(t))
 	retry.UntilOrFail(t, deployments.HasSynced, retry.Timeout(time.Second*2), retry.Delay(time.Millisecond))
 	// This checks sync worked properly. This MUST be immediately available, not eventually
-	// TODO: this only works on client-go 0.27
-	// assert.Equal(t, handled.Load(), 1)
+	assert.Equal(t, handled.Load(), 1)
 }
 
 func TestClient(t *testing.T) {

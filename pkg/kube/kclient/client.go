@@ -132,12 +132,12 @@ func (n *readClient[T]) ShutdownHandlers() {
 }
 
 func (n *readClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
-	reg, _ := n.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) {
+	reg, _ := n.informer.AddEventHandler(cache.ResourceEventHandlerDetailedFuncs{
+		AddFunc: func(obj any, isInInitialList bool) {
 			if n.filter != nil && !n.filter(obj) {
 				return
 			}
-			h.OnAdd(obj)
+			h.OnAdd(obj, isInInitialList)
 		},
 		UpdateFunc: func(old, new any) {
 			if n.filter != nil && !n.filter(new) {
@@ -156,19 +156,15 @@ func (n *readClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 }
 
 func (n *readClient[T]) HasSynced() bool {
-	return n.informer.HasSynced()
-	/*
-		TODO: client-go v0.27
-		if !n.informer.HasSynced() {
+	if !n.informer.HasSynced() {
+		return false
+	}
+	for _, g := range n.registeredHandlers {
+		if !g.HasSynced() {
 			return false
 		}
-			for _, g := range n.registeredHandlers {
-				if !g.HasSynced() {
-					return false
-				}
-			}
-		return true
-	*/
+	}
+	return true
 }
 
 func (n *readClient[T]) List(namespace string, selector klabels.Selector) []T {

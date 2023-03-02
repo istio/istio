@@ -163,7 +163,7 @@ func run(sArgs *serverArgs) {
 	if len(watchNamespaces) > 0 {
 		// Create MultiNamespacedCache with watched namespaces if it's not empty.
 		mgrOpt = manager.Options{
-			NewCache:                cache.MultiNamespacedCacheBuilder(watchNamespaces),
+			Cache:                   cache.Options{Namespaces: watchNamespaces},
 			MetricsBindAddress:      monitoringBindAddress,
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
