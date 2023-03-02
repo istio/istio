@@ -136,7 +136,7 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 	assert.Equal(t, cache.store.Len(), 1)
 
 	// Flush the cache and validate the index is cleaned.
-	cache.flush()
+	cache.Flush()
 	assert.Equal(t, cache.indexLen(), 1)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
@@ -191,7 +191,7 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 	assert.Equal(t, cache.store.Len(), 1)
 
 	// Flush the cache and validate the index is cleaned.
-	cache.flush()
+	cache.Flush()
 	assert.Equal(t, cache.indexLen(), 2)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
@@ -264,7 +264,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	assert.Equal(t, cache.store.Len(), 1)
 
 	// Flush the cache and validate the index is cleaned.
-	cache.flush()
+	cache.Flush()
 	assert.Equal(t, cache.indexLen(), 3)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
@@ -279,7 +279,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	assert.Equal(t, cache.store.Len(), 2)
 
 	// Flush the cache and validate the index is cleaned.
-	cache.flush()
+	cache.Flush()
 	assert.Equal(t, cache.indexLen(), 5)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
@@ -296,7 +296,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	assert.Equal(t, cache.store.Len(), 1)
 
 	// Flush the cache and validate the index is cleaned.
-	cache.flush()
+	cache.Flush()
 	assert.Equal(t, cache.indexLen(), 3)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
@@ -311,7 +311,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	assert.Equal(t, cache.store.Len(), 2)
 
 	// Flush the cache and validate the index is cleaned.
-	cache.flush()
+	cache.Flush()
 	assert.Equal(t, cache.indexLen(), 5)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
@@ -326,7 +326,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	cache.Clear(sets.Set[ConfigKey]{{Kind: kind.Service, Name: "name", Namespace: "namespace"}: {}})
 
 	// Flush the cache and validate the index is cleaned.
-	cache.flush()
+	cache.Flush()
 	assert.Equal(t, cache.indexLen(), 0)
 
 	assert.Equal(t, cache.store.Len(), 0)

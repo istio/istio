@@ -80,8 +80,8 @@ type dependents interface {
 // typedXdsCache interface defines a store for caching XDS responses.
 // All operations are thread safe.
 type typedXdsCache[K comparable] interface {
-	// flush clears the evicted indexes.
-	flush()
+	// Flush clears the evicted indexes.
+	Flush()
 	// Add adds the given key with the value and its dependents for the given pushContext to the cache.
 	// If the cache has been updated to a newer push context, the write will be dropped silently.
 	// This ensures stale data does not overwrite fresh data when dealing with concurrent
@@ -144,7 +144,7 @@ func newLru[K comparable](evictCallback simplelru.EvictCallback[K, cacheValue]) 
 	return l
 }
 
-func (l *lruCache[K]) flush() {
+func (l *lruCache[K]) Flush() {
 	l.mu.Lock()
 	for _, keyConfigs := range l.evictQueue {
 		l.clearConfigIndex(keyConfigs.key, keyConfigs.dependentConfigs)
@@ -370,7 +370,7 @@ type disabledCache[K comparable] struct{}
 
 var _ typedXdsCache[uint64] = &disabledCache[uint64]{}
 
-func (d disabledCache[K]) flush() {
+func (d disabledCache[K]) Flush() {
 }
 
 func (d disabledCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *discovery.Resource) {
