@@ -349,6 +349,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 func buildWaypointConnectOriginateListener() *listener.Listener {
 	return buildConnectOriginateListener("")
 }
+
 func buildConnectOriginateListener(baggage string) *listener.Listener {
 	var headers []*core.HeaderValueOption
 	if baggage != "" {

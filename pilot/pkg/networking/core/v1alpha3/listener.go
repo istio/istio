@@ -113,7 +113,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	l := builder.getListeners()
 	if builder.node.EnableHBONE() {
 		if !builder.node.IsAmbient() {
-			l = append(l, sidecarOutboundTunnelListener(builder.push, builder.node))
+			l = append(l, sidecarOutboundTunnelListener(builder.node))
 		}
 	}
 	return l
@@ -1652,7 +1652,7 @@ func listenerKey(bind string, port int) string {
 const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
 
 // sidecarOutboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
-func sidecarOutboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+func sidecarOutboundTunnelListener(proxy *model.Proxy) *listener.Listener {
 	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
 	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
 	baggage := fmt.Sprintf(baggageFormat,

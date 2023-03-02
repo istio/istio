@@ -25,7 +25,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -39,10 +38,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -1065,18 +1062,4 @@ var InternalUpstreamSocket = &core.TransportSocket{
 		},
 		TransportSocket: xdsfilters.RawBufferTransportSocket,
 	})},
-}
-
-func buildHBONECommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
-	ctx := &tls.CommonTlsContext{}
-	authnmodel.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), false)
-
-	ctx.AlpnProtocols = util.ALPNH2Only
-
-	ctx.TlsParams = &tls.TlsParameters{
-		// Ensure TLS 1.3 is used everywhere for HBONE
-		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
-		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
-	}
-	return ctx
 }
