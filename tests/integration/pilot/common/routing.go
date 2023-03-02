@@ -2925,9 +2925,10 @@ spec:
 	parsedIP := net.ParseIP(fakeExternalAddress)
 	if parsedIP != nil {
 		if parsedIP.To4() == nil && parsedIP.To16() != nil {
-			// CI has some issues with IPV6 DNS resolution, due to which
-			// we are not able to directly use the host name in the IPV6 external service connectivity test.
-			// Hence using a bogus IPV6 address with -HHost option as a workaround.
+			// CI has issues with ipv6 DNS resolution, due to which
+			// we are not able to directly use the host name in the connectivity tests.
+			// Hence using a bogus IPv6 address with -HHost option as a workaround to
+			// simulate ServiceEntry based wildcard listener scenarios.
 			fakeExternalAddress = "2002::1"
 		} else {
 			fakeExternalAddress = "1.1.1.1"
