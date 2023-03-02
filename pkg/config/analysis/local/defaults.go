@@ -32,6 +32,24 @@ spec:
     - args:
       name: istio-proxy
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.ingressService}}
+  namespace: {{.namespace}}
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  template:
+    metadata:
+      labels:
+        istio: ingressgateway
+    spec:
+      containers:
+      - args:
+        name: istio-proxy
+---
 apiVersion: v1
 kind: Service
 metadata:
