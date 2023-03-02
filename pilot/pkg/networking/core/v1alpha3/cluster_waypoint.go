@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"fmt"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -40,17 +39,18 @@ import (
 	"istio.io/pkg/log"
 )
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, proxy *model.Proxy) []*cluster.Cluster {
 	if !proxy.EnableHBONE() {
 		return nil
 	}
-	clusters := make([]*cluster.Cluster, 0)
-	for _, i := range instances {
-		p := i.Endpoint.EndpointPort
-		name := fmt.Sprintf("inbound-hbone|%d", p)
-		clusters = append(clusters, cb.buildInternalListenerCluster(name, name).build())
-	}
-	return clusters
+	// This TCP cluster routes to "internal" listener.
+	clusterType := cluster.Cluster_STATIC
+	llb := util.BuildInternalEndpoint(MainInternalName, nil)
+	localCluster := cb.buildDefaultCluster(MainInternalName, clusterType, llb,
+		model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
+	localCluster.cluster.TransportSocketMatches = nil
+	localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()
+	return []*cluster.Cluster{localCluster.build()}
 }
 
 func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
@@ -60,13 +60,13 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	svcs map[host.Name]*model.Service,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	// Creates "internal" cluster to route to the main "internal" listener.
+	// Creates "main_internal" cluster to route to the main internal listener.
 	// Creates "encap" listener to route to the encap listener.
 	clusters = append(clusters, cb.buildWaypointInboundInternal()...)
 	// Creates per-VIP load balancing upstreams.
 	clusters = append(clusters, cb.buildWaypointInboundVIP(svcs)...)
 	// Upstream of the "encap" listener.
-	clusters = append(clusters, cb.buildWaypointInboundConnect(proxy, push))
+	clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
 
 	for _, c := range clusters {
 		if c.TransportSocket != nil && c.TransportSocketMatches != nil {
@@ -123,8 +123,8 @@ func (cb *ClusterBuilder) buildWaypointInboundInternal() []*cluster.Cluster {
 	{
 		// This TCP cluster routes to "internal" listener.
 		clusterType := cluster.Cluster_STATIC
-		llb := util.BuildInternalEndpoint("internal", nil)
-		localCluster := cb.buildDefaultCluster("internal", clusterType, llb,
+		llb := util.BuildInternalEndpoint(MainInternalName, nil)
+		localCluster := cb.buildDefaultCluster(MainInternalName, clusterType, llb,
 			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
 		localCluster.cluster.TransportSocketMatches = nil
 		localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()
@@ -133,7 +133,7 @@ func (cb *ClusterBuilder) buildWaypointInboundInternal() []*cluster.Cluster {
 	{
 		// This TCP/HTTP cluster routes from "internal" listener.
 		clusterType := cluster.Cluster_STATIC
-		llb := util.BuildInternalEndpoint("connect_originate", nil)
+		llb := util.BuildInternalEndpoint(ConnectOriginate, nil)
 		localCluster := cb.buildDefaultCluster("encap", clusterType, llb,
 			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
 		localCluster.cluster.TransportSocketMatches = nil
@@ -179,10 +179,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Serv
 }
 
 // CONNECT origination cluster
-func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
-	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, nil, true)
-
+func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	// Restrict upstream SAN to waypoint scope.
 	scope := proxy.WaypointScope()
 	m := &matcher.StringMatcher{}
@@ -195,13 +192,22 @@ func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *
 			Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/ns/" + scope.Namespace + "/sa/",
 		}
 	}
+	return cb.buildConnectOriginate(proxy, push, m)
+}
+
+func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.PushContext, uriSanMatcher *matcher.StringMatcher) *cluster.Cluster {
+	ctx := &tls.CommonTlsContext{}
+	security.ApplyToCommonTLSContext(ctx, proxy, nil, nil, true)
+
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
 
 	// NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used.
-	validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
-		SanType: tls.SubjectAltNameMatcher_URI,
-		Matcher: m,
-	})
+	if uriSanMatcher != nil {
+		validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
+			SanType: tls.SubjectAltNameMatcher_URI,
+			Matcher: uriSanMatcher,
+		})
+	}
 	aliases := authn.TrustDomainsForValidation(push.Mesh)
 	if len(aliases) > 0 {
 		matchers := util.StringToPrefixMatch(security.AppendURIPrefixToTrustDomain(aliases))
@@ -220,7 +226,7 @@ func (cb *ClusterBuilder) buildWaypointInboundConnect(proxy *model.Proxy, push *
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
 	return &cluster.Cluster{
-		Name:                          "connect_originate",
+		Name:                          ConnectOriginate,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:                durationpb.New(2 * time.Second),

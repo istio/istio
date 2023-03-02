@@ -24,7 +24,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -113,10 +112,8 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	builder.patchListeners()
 	l := builder.getListeners()
 	if builder.node.EnableHBONE() {
-		if builder.node.IsAmbient() {
-			l = append(l, outboundTunnelListener(builder.push, builder.node))
-		} else {
-			l = append(l, sidecarOutboundTunnelListener(builder.push, builder.node))
+		if !builder.node.IsAmbient() {
+			l = append(l, sidecarOutboundTunnelListener(builder.node))
 		}
 	}
 	return l
@@ -1655,37 +1652,14 @@ func listenerKey(bind string, port int) string {
 const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
 
 // sidecarOutboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
-func sidecarOutboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
-	name := util.OutboundTunnel
+func sidecarOutboundTunnelListener(proxy *model.Proxy) *listener.Listener {
 	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
 	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
-	p := &tcp.TcpProxy{
-		StatPrefix:       name,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
-		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
-			HeadersToAdd: []*core.HeaderValueOption{
-				{Header: &core.HeaderValue{
-					Key: "baggage",
-					Value: fmt.Sprintf(baggageFormat,
-						proxy.Metadata.ClusterID, proxy.ConfigNamespace,
-						// TODO do not hardcode deployment. But I think we ignore it anyways?
-						"deployment", proxy.Metadata.WorkloadName,
-						canonicalName, canonicalRevision,
-					),
-				}},
-			},
-		},
-	}
-
-	l := &listener.Listener{
-		Name:              name,
-		UseOriginalDst:    wrappers.Bool(false),
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		ListenerFilters:   []*listener.ListenerFilter{xdsfilters.SetDstAddress},
-		FilterChains: []*listener.FilterChain{{
-			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
-		}},
-	}
-	return l
+	baggage := fmt.Sprintf(baggageFormat,
+		proxy.Metadata.ClusterID, proxy.ConfigNamespace,
+		// TODO do not hardcode deployment. But I think we ignore it anyways?
+		"deployment", proxy.Metadata.WorkloadName,
+		canonicalName, canonicalRevision,
+	)
+	return buildConnectOriginateListener(baggage)
 }

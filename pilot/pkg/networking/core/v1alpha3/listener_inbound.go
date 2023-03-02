@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -40,7 +39,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
-	istiomatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -156,55 +154,33 @@ type ServiceInstancePort struct {
 }
 
 func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
-	vhost := &route.VirtualHost{
-		Name:    "inbound-hbone-connect",
-		Domains: []string{"*"},
-	}
 	inboundChainConfigs := lb.buildInboundChainConfigs()
-	for _, cc := range inboundChainConfigs {
-		// TODO passthrough
-		p := strconv.Itoa(int(cc.port.TargetPort))
-		destination := "inbound-hbone" + "|" + p
-		vhost.Routes = append(vhost.Routes, &route.Route{
-			Match: &route.RouteMatch{
-				PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
-				Headers: []*route.HeaderMatcher{
-					istiomatcher.HeaderMatcher(":authority", "*:"+p),
-				},
-			},
-			Action: &route.Route_Route{Route: &route.RouteAction{
-				UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-					UpgradeType:   "CONNECT",
-					ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-				}},
-
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: destination},
-			}},
-			TypedPerFilterConfig: map[string]*anypb.Any{
-				xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabledSidecar,
-			},
-		})
-	}
-	l := &listener.Listener{
-		Name:    "inbound-hbone",
-		Address: util.BuildAddress("0.0.0.0", model.HBoneInboundListenPort),
-		FilterChains: []*listener.FilterChain{
-			{
-				TransportSocket: buildDownstreamTLSTransportSocket(lb.authnBuilder.ForHBONE().TCP),
-				Filters: []*listener.Filter{
-					xdsfilters.IstioNetworkAuthenticationFilterShared,
-					buildHBONEConnectionManager(vhost),
-				},
-			},
+	routes := []*route.Route{{
+		Match: &route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
 		},
-	}
+		Action: &route.Route_Route{Route: &route.RouteAction{
+			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+				UpgradeType:   "CONNECT",
+				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+			}},
 
-	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
-
-	var listeners []*listener.Listener
-	listeners = append(listeners, l)
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
+		}},
+		TypedPerFilterConfig: map[string]*anypb.Any{
+			// Note the difference with the waypoint below in the connect authority filter config.
+			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabledSidecar,
+		},
+	}}
+	terminate := lb.buildConnectTerminateListener(routes)
 	// Now we have top level listener... but we must have an internal listener for each standard filter chain
 	// 1 listener per port; that listener will do protocol detection.
+	l := &listener.Listener{
+		Name:              MainInternalName,
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		TrafficDirection:  core.TrafficDirection_INBOUND,
+	}
+
 	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
 		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
@@ -216,48 +192,16 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 			fcm := c.GetFilterChainMatch()
 			if fcm != nil {
 				// Clear out settings that do not matter anymore
-				fcm.DestinationPort = nil
 				fcm.TransportProtocol = ""
 			}
 		}
-		name := "inbound-hbone" + "|" + strconv.Itoa(int(cc.port.TargetPort))
-		l := &listener.Listener{
-			Name:              name,
-			ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-			TrafficDirection:  core.TrafficDirection_INBOUND,
-			FilterChains:      chains,
-		}
-		accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
-		l.ListenerFilters = populateListenerFilters(lb.node, l, true)
-		l.ListenerFilters = append(l.ListenerFilters, xdsfilters.SetDstAddress)
-		listeners = append(listeners, l)
+		l.FilterChains = append(l.FilterChains, chains...)
 	}
-	return listeners
-}
-
-func buildHBONEConnectionManager(vhost *route.VirtualHost) *listener.Filter {
-	connMgr := &hcm.HttpConnectionManager{}
-	connMgr.StatPrefix = "inbound-hbone"
-
-	connMgr.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{
-		RouteConfig: &route.RouteConfiguration{
-			Name:             "local_route",
-			VirtualHosts:     []*route.VirtualHost{vhost},
-			ValidateClusters: proto.BoolFalse,
-		},
-	}
-	connMgr.HttpFilters = []*hcm.HttpFilter{xdsfilters.ConnectAuthorityFilter, xdsfilters.Router}
-	connMgr.Http2ProtocolOptions = &core.Http2ProtocolOptions{
-		AllowConnect: true,
-	}
-	// TODO: I doubt this is needed
-	connMgr.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
-		UpgradeType: "CONNECT",
-	}}
-	return &listener.Filter{
-		Name:       wellknown.HTTPConnectionManager,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(connMgr)},
-	}
+	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
+	// TODO: Exclude inspectors from some inbound ports.
+	l.ListenerFilters = populateListenerFilters(lb.node, l, true)
+	l.ListenerFilters = append(l.ListenerFilters, xdsfilters.SetDstAddress)
+	return []*listener.Listener{terminate, l}
 }
 
 // buildInboundListeners creates inbound listeners.
