@@ -295,11 +295,11 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		schema     resource.Schema
 		spec       config2.Spec
 	}{
-		{"VirtualService", configName, collections.IstioNetworkingV1Alpha3Virtualservices, ExampleVirtualService},
-		{"DestinationRule", configName, collections.IstioNetworkingV1Alpha3Destinationrules, ExampleDestinationRule},
-		{"ServiceEntry", configName, collections.IstioNetworkingV1Alpha3Serviceentries, ExampleServiceEntry},
-		{"Gateway", configName, collections.IstioNetworkingV1Alpha3Gateways, ExampleGateway},
-		{"AuthorizationPolicy", configName, collections.IstioSecurityV1Beta1Authorizationpolicies, ExampleAuthorizationPolicy},
+		{"VirtualService", configName, collections.VirtualService, ExampleVirtualService},
+		{"DestinationRule", configName, collections.DestinationRule, ExampleDestinationRule},
+		{"ServiceEntry", configName, collections.ServiceEntry, ExampleServiceEntry},
+		{"Gateway", configName, collections.Gateway, ExampleGateway},
+		{"AuthorizationPolicy", configName, collections.AuthorizationPolicy, ExampleAuthorizationPolicy},
 	}
 
 	for _, c := range cases {

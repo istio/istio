@@ -103,46 +103,6 @@ func TestSchema_FindByGroupVersionKind(t *testing.T) {
 	g.Expect(found).To(BeFalse())
 }
 
-func TestSchema_MustFindByGroupVersionKind(t *testing.T) {
-	g := NewWithT(t)
-	b := collection.NewSchemasBuilder()
-
-	s := resource.Builder{
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-		Group:        "mygroup",
-		Kind:         "Empty",
-		Plural:       "empties",
-		Version:      "v1",
-	}.MustBuild()
-
-	b.MustAdd(s)
-	schemas := b.Build()
-
-	got := schemas.MustFindByGroupVersionKind(config.GroupVersionKind{
-		Group:   "mygroup",
-		Version: "v1",
-		Kind:    "Empty",
-	})
-	g.Expect(s).To(Equal(got))
-}
-
-func TestSchema_MustFindByGroupVersionKind_Panic(t *testing.T) {
-	g := NewWithT(t)
-
-	defer func() {
-		r := recover()
-		g.Expect(r).NotTo(BeNil())
-	}()
-
-	schemas := collection.NewSchemasBuilder().Build()
-	_ = schemas.MustFindByGroupVersionKind(config.GroupVersionKind{
-		Group:   "mygroup",
-		Version: "v1",
-		Kind:    "Empty",
-	})
-}
-
 func TestSchemas_Kinds(t *testing.T) {
 	g := NewWithT(t)
 

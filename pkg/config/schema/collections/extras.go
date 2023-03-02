@@ -12,19 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package collections
 
-import (
-	"fmt"
-	"os"
-
-	"istio.io/istio/pkg/config/schema/codegen"
-)
-
-// Utility for generating collections.gen.go. Called from gen.go
-func main() {
-	if err := codegen.Run(); err != nil {
-		fmt.Println(err)
-		os.Exit(-2)
-	}
-}
+var Istio = Pilot.Add(MeshNetworks).Add(MeshConfig)

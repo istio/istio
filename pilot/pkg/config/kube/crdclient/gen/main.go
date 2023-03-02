@@ -154,6 +154,8 @@ var (
 		"requestauthentications":        "RequestAuthentications",
 		"gatewayclasses":                "GatewayClasses",
 		"httproutes":                    "HTTPRoutes",
+		"grpcroutes":                    "GRPCRoutes",
+		"udproutes":                     "UDPRoutes",
 		"tcproutes":                     "TCPRoutes",
 		"tlsroutes":                     "TLSRoutes",
 		"referencepolicies":             "ReferencePolicies",

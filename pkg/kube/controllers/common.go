@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -53,36 +53,28 @@ func UnstructuredToGVR(u unstructured.Unstructured) (schema.GroupVersionResource
 		Version: gv.Version,
 		Kind:    u.GetKind(),
 	}
-	found, ok := collections.All.FindByGroupVersionKind(gk)
+	found, ok := gvk.ToGVR(gk)
 	if !ok {
 		return res, fmt.Errorf("unknown gvk: %v", gk)
 	}
-	return schema.GroupVersionResource{
-		Group:    gk.Group,
-		Version:  gk.Version,
-		Resource: found.Plural(),
-	}, nil
+	return found, nil
 }
 
 // ObjectToGVR extracts the GVR of an unstructured resource. This is useful when using dynamic
 // clients.
 func ObjectToGVR(u Object) (schema.GroupVersionResource, error) {
-	gvk := u.GetObjectKind().GroupVersionKind()
+	g := u.GetObjectKind().GroupVersionKind()
 
 	gk := config.GroupVersionKind{
-		Group:   gvk.Group,
-		Version: gvk.Version,
-		Kind:    gvk.Kind,
+		Group:   g.Group,
+		Version: g.Version,
+		Kind:    g.Kind,
 	}
-	found, ok := collections.All.FindByGroupVersionKind(gk)
+	found, ok := gvk.ToGVR(gk)
 	if !ok {
 		return schema.GroupVersionResource{}, fmt.Errorf("unknown gvk: %v", gk)
 	}
-	return schema.GroupVersionResource{
-		Group:    gk.Group,
-		Version:  gk.Version,
-		Resource: found.Plural(),
-	}, nil
+	return found, nil
 }
 
 // EnqueueForParentHandler returns a handler that will enqueue the parent (by ownerRef) resource

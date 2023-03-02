@@ -41,8 +41,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	istioProtocol "istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/url"
@@ -519,8 +519,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	if err == nil {
 		return fmt.Errorf("service %q already exists, skip", opts.Name)
 	}
-	serviceEntryGVR := collections.IstioNetworkingV1Alpha3Serviceentries.GroupVersionResource()
-	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(context.TODO(), resourceName(opts.Name), metav1.GetOptions{})
+	_, err = dynamicClient.Resource(gvr.ServiceEntry).Namespace(ns).Get(context.TODO(), resourceName(opts.Name), metav1.GetOptions{})
 	if err == nil {
 		return fmt.Errorf("service entry %q already exists, skip", resourceName(opts.Name))
 	}
@@ -668,8 +667,7 @@ func createServiceEntry(dynamicClient dynamic.Interface, ns string,
 	if u == nil {
 		return fmt.Errorf("failed to create vm service")
 	}
-	serviceEntryGVR := collections.IstioNetworkingV1Alpha3Serviceentries.GroupVersionResource()
-	_, err := dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Create(context.TODO(), u, metav1.CreateOptions{})
+	_, err := dynamicClient.Resource(gvr.ServiceEntry).Namespace(ns).Create(context.TODO(), u, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create service entry %v", err)
 	}

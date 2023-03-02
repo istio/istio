@@ -75,7 +75,7 @@ var updateConfigSet = []*config.Config{
 func TestMonitorForChange(t *testing.T) {
 	g := gomega.NewWithT(t)
 
-	store := memory.Make(collection.SchemasFor(collections.IstioNetworkingV1Alpha3Gateways))
+	store := memory.Make(collection.SchemasFor(collections.Gateway))
 
 	var (
 		callCount int
@@ -154,7 +154,7 @@ func TestMonitorFileSnapshot(t *testing.T) {
 
 	ts.testSetup(t)
 
-	store := memory.Make(collection.SchemasFor(collections.IstioNetworkingV1Alpha3Gateways))
+	store := memory.Make(collection.SchemasFor(collections.Gateway))
 	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(), "foo")
 
 	mon := NewMonitor("", store, fileWatcher.ReadConfigFiles, "")
@@ -167,7 +167,7 @@ func TestMonitorFileSnapshot(t *testing.T) {
 func TestMonitorForError(t *testing.T) {
 	g := gomega.NewWithT(t)
 
-	store := memory.Make(collection.SchemasFor(collections.IstioNetworkingV1Alpha3Gateways))
+	store := memory.Make(collection.SchemasFor(collections.Gateway))
 
 	var (
 		callCount int

@@ -36,8 +36,8 @@ import (
 func TestAggregateStoreBasicMake(t *testing.T) {
 	g := gomega.NewWithT(t)
 
-	schema1 := collections.K8SGatewayApiV1Beta1Httproutes
-	schema2 := collections.K8SGatewayApiV1Beta1Gatewayclasses
+	schema1 := collections.HTTPRoute
+	schema2 := collections.GatewayClass
 	store1 := memory.Make(collection.SchemasFor(schema1))
 	store2 := memory.Make(collection.SchemasFor(schema2))
 
@@ -66,8 +66,8 @@ func TestAggregateStoreMakeValidationFailure(t *testing.T) {
 func TestAggregateStoreGet(t *testing.T) {
 	g := gomega.NewWithT(t)
 
-	store1 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Gatewayclasses))
-	store2 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Gatewayclasses))
+	store1 := memory.Make(collection.SchemasFor(collections.GatewayClass))
+	store2 := memory.Make(collection.SchemasFor(collections.GatewayClass))
 
 	configReturn := &config.Config{
 		Meta: config.Meta{
@@ -91,8 +91,8 @@ func TestAggregateStoreGet(t *testing.T) {
 func TestAggregateStoreList(t *testing.T) {
 	g := gomega.NewWithT(t)
 
-	store1 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
-	store2 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
+	store1 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
+	store2 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 
 	if _, err := store1.Create(config.Config{
 		Meta: config.Meta{
@@ -124,8 +124,8 @@ func TestAggregateStoreList(t *testing.T) {
 func TestAggregateStoreWrite(t *testing.T) {
 	g := gomega.NewWithT(t)
 
-	store1 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
-	store2 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
+	store1 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
+	store2 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 
 	stores := []model.ConfigStore{store1, store2}
 
@@ -162,8 +162,8 @@ func TestAggregateStoreWrite(t *testing.T) {
 func TestAggregateStoreWriteWithoutWriter(t *testing.T) {
 	g := gomega.NewWithT(t)
 
-	store1 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
-	store2 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
+	store1 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
+	store2 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 
 	stores := []model.ConfigStore{store1, store2}
 
@@ -218,11 +218,11 @@ func TestAggregateStoreCache(t *testing.T) {
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
 
-	store1 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
+	store1 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 	controller1 := memory.NewController(store1)
 	go controller1.Run(stop)
 
-	store2 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
+	store2 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 	controller2 := memory.NewController(store2)
 	go controller2.Run(stop)
 

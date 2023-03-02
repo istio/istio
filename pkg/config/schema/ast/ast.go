@@ -27,23 +27,10 @@ import (
 
 // Metadata is the top-level container.
 type Metadata struct {
-	Collections []*Collection `json:"collections"`
-	Resources   []*Resource   `json:"resources"`
+	Resources []*Resource `json:"resources"`
 }
 
 var _ json.Unmarshaler = &Metadata{}
-
-// Collection metadata. Describes basic structure of collections.
-type Collection struct {
-	Name         string `json:"name"`
-	VariableName string `json:"variableName"`
-	Description  string `json:"description"`
-	Group        string `json:"group"`
-	Kind         string `json:"kind"`
-	Pilot        bool   `json:"pilot"`
-	Builtin      bool   `json:"builtin"`
-	Deprecated   bool   `json:"deprecated"`
-}
 
 // Resource metadata for resources contained within a collection.
 type Resource struct {
@@ -54,6 +41,7 @@ type Resource struct {
 	Kind               string   `json:"kind"`
 	Plural             string   `json:"plural"`
 	ClusterScoped      bool     `json:"clusterScoped"`
+	Builtin            bool     `json:"builtin"`
 	Proto              string   `json:"proto"`
 	ProtoPackage       string   `json:"protoPackage"`
 	StatusProto        string   `json:"statusProto"`
@@ -75,15 +63,13 @@ func (m *Metadata) FindResourceForGroupKind(group, kind string) *Resource {
 // UnmarshalJSON implements json.Unmarshaler
 func (m *Metadata) UnmarshalJSON(data []byte) error {
 	var in struct {
-		Collections []*Collection `json:"collections"`
-		Resources   []*Resource   `json:"resources"`
+		Resources []*Resource `json:"resources"`
 	}
 
 	if err := json.Unmarshal(data, &in); err != nil {
 		return err
 	}
 
-	m.Collections = in.Collections
 	m.Resources = in.Resources
 	seen := sets.New[string]()
 	// Process resources.
@@ -103,18 +89,6 @@ func (m *Metadata) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	// Process collections.
-	for i, c := range m.Collections {
-		// If no variable name was specified, use default.
-		if c.VariableName == "" {
-			m.Collections[i].VariableName = asCollectionVariableName(c.Name)
-		}
-
-		if c.Description == "" {
-			m.Collections[i].Description = "describes the collection " + c.Name
-		}
-	}
-
 	return nil
 }
 
@@ -130,10 +104,4 @@ func Parse(yamlText string) (*Metadata, error) {
 
 func asResourceVariableName(n string) string {
 	return strcase.CamelCase(n)
-}
-
-func asCollectionVariableName(n string) string {
-	n = strcase.CamelCaseWithSeparator(n, "/")
-	n = strcase.CamelCaseWithSeparator(n, ".")
-	return n
 }

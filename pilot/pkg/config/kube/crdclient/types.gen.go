@@ -55,10 +55,10 @@ import (
 
 func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch cfg.GroupVersionKind {
-	case gvk.WasmPlugin:
-		return ic.ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).Create(context.TODO(), &clientextensionsv1alpha1.WasmPlugin{
+	case gvk.AuthorizationPolicy:
+		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).Create(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*extensionsv1alpha1.WasmPlugin)),
+			Spec:       *(cfg.Spec.(*securityv1beta1.AuthorizationPolicy)),
 		}, metav1.CreateOptions{})
 	case gvk.DestinationRule:
 		return ic.NetworkingV1alpha3().DestinationRules(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.DestinationRule{
@@ -70,10 +70,50 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.EnvoyFilter)),
 		}, metav1.CreateOptions{})
+	case gvk.GRPCRoute:
+		return sc.GatewayV1alpha2().GRPCRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.GRPCRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.GRPCRouteSpec)),
+		}, metav1.CreateOptions{})
 	case gvk.Gateway:
 		return ic.NetworkingV1alpha3().Gateways(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.Gateway{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.Gateway)),
+		}, metav1.CreateOptions{})
+	case gvk.GatewayClass:
+		return sc.GatewayV1beta1().GatewayClasses().Create(context.TODO(), &gatewayv1beta1.GatewayClass{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewayClassSpec)),
+		}, metav1.CreateOptions{})
+	case gvk.HTTPRoute:
+		return sc.GatewayV1beta1().HTTPRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1beta1.HTTPRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1beta1.HTTPRouteSpec)),
+		}, metav1.CreateOptions{})
+	case gvk.KubernetesGateway:
+		return sc.GatewayV1beta1().Gateways(cfg.Namespace).Create(context.TODO(), &gatewayv1beta1.Gateway{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewaySpec)),
+		}, metav1.CreateOptions{})
+	case gvk.PeerAuthentication:
+		return ic.SecurityV1beta1().PeerAuthentications(cfg.Namespace).Create(context.TODO(), &clientsecurityv1beta1.PeerAuthentication{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*securityv1beta1.PeerAuthentication)),
+		}, metav1.CreateOptions{})
+	case gvk.ProxyConfig:
+		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*networkingv1beta1.ProxyConfig)),
+		}, metav1.CreateOptions{})
+	case gvk.ReferenceGrant:
+		return sc.GatewayV1alpha2().ReferenceGrants(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.ReferenceGrant{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
+		}, metav1.CreateOptions{})
+	case gvk.RequestAuthentication:
+		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).Create(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*securityv1beta1.RequestAuthentication)),
 		}, metav1.CreateOptions{})
 	case gvk.ServiceEntry:
 		return ic.NetworkingV1alpha3().ServiceEntries(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.ServiceEntry{
@@ -85,10 +125,35 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.Sidecar)),
 		}, metav1.CreateOptions{})
+	case gvk.TCPRoute:
+		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.TCPRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TCPRouteSpec)),
+		}, metav1.CreateOptions{})
+	case gvk.TLSRoute:
+		return sc.GatewayV1alpha2().TLSRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.TLSRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TLSRouteSpec)),
+		}, metav1.CreateOptions{})
+	case gvk.Telemetry:
+		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).Create(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*telemetryv1alpha1.Telemetry)),
+		}, metav1.CreateOptions{})
+	case gvk.UDPRoute:
+		return sc.GatewayV1alpha2().UDPRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.UDPRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.UDPRouteSpec)),
+		}, metav1.CreateOptions{})
 	case gvk.VirtualService:
 		return ic.NetworkingV1alpha3().VirtualServices(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.VirtualService{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.VirtualService)),
+		}, metav1.CreateOptions{})
+	case gvk.WasmPlugin:
+		return ic.ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).Create(context.TODO(), &clientextensionsv1alpha1.WasmPlugin{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*extensionsv1alpha1.WasmPlugin)),
 		}, metav1.CreateOptions{})
 	case gvk.WorkloadEntry:
 		return ic.NetworkingV1alpha3().WorkloadEntries(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.WorkloadEntry{
@@ -100,61 +165,6 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.WorkloadGroup)),
 		}, metav1.CreateOptions{})
-	case gvk.ProxyConfig:
-		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*networkingv1beta1.ProxyConfig)),
-		}, metav1.CreateOptions{})
-	case gvk.AuthorizationPolicy:
-		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).Create(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*securityv1beta1.AuthorizationPolicy)),
-		}, metav1.CreateOptions{})
-	case gvk.PeerAuthentication:
-		return ic.SecurityV1beta1().PeerAuthentications(cfg.Namespace).Create(context.TODO(), &clientsecurityv1beta1.PeerAuthentication{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*securityv1beta1.PeerAuthentication)),
-		}, metav1.CreateOptions{})
-	case gvk.RequestAuthentication:
-		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).Create(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*securityv1beta1.RequestAuthentication)),
-		}, metav1.CreateOptions{})
-	case gvk.Telemetry:
-		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).Create(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*telemetryv1alpha1.Telemetry)),
-		}, metav1.CreateOptions{})
-	case gvk.ReferenceGrant:
-		return sc.GatewayV1alpha2().ReferenceGrants(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.ReferenceGrant{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
-		}, metav1.CreateOptions{})
-	case gvk.TCPRoute:
-		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.TCPRoute{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TCPRouteSpec)),
-		}, metav1.CreateOptions{})
-	case gvk.TLSRoute:
-		return sc.GatewayV1alpha2().TLSRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1alpha2.TLSRoute{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TLSRouteSpec)),
-		}, metav1.CreateOptions{})
-	case gvk.GatewayClass:
-		return sc.GatewayV1beta1().GatewayClasses().Create(context.TODO(), &gatewayv1beta1.GatewayClass{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewayClassSpec)),
-		}, metav1.CreateOptions{})
-	case gvk.KubernetesGateway:
-		return sc.GatewayV1beta1().Gateways(cfg.Namespace).Create(context.TODO(), &gatewayv1beta1.Gateway{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewaySpec)),
-		}, metav1.CreateOptions{})
-	case gvk.HTTPRoute:
-		return sc.GatewayV1beta1().HTTPRoutes(cfg.Namespace).Create(context.TODO(), &gatewayv1beta1.HTTPRoute{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1beta1.HTTPRouteSpec)),
-		}, metav1.CreateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
 	}
@@ -162,10 +172,10 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 
 func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch cfg.GroupVersionKind {
-	case gvk.WasmPlugin:
-		return ic.ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).Update(context.TODO(), &clientextensionsv1alpha1.WasmPlugin{
+	case gvk.AuthorizationPolicy:
+		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*extensionsv1alpha1.WasmPlugin)),
+			Spec:       *(cfg.Spec.(*securityv1beta1.AuthorizationPolicy)),
 		}, metav1.UpdateOptions{})
 	case gvk.DestinationRule:
 		return ic.NetworkingV1alpha3().DestinationRules(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.DestinationRule{
@@ -177,10 +187,50 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.EnvoyFilter)),
 		}, metav1.UpdateOptions{})
+	case gvk.GRPCRoute:
+		return sc.GatewayV1alpha2().GRPCRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.GRPCRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.GRPCRouteSpec)),
+		}, metav1.UpdateOptions{})
 	case gvk.Gateway:
 		return ic.NetworkingV1alpha3().Gateways(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.Gateway{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.Gateway)),
+		}, metav1.UpdateOptions{})
+	case gvk.GatewayClass:
+		return sc.GatewayV1beta1().GatewayClasses().Update(context.TODO(), &gatewayv1beta1.GatewayClass{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewayClassSpec)),
+		}, metav1.UpdateOptions{})
+	case gvk.HTTPRoute:
+		return sc.GatewayV1beta1().HTTPRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1beta1.HTTPRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1beta1.HTTPRouteSpec)),
+		}, metav1.UpdateOptions{})
+	case gvk.KubernetesGateway:
+		return sc.GatewayV1beta1().Gateways(cfg.Namespace).Update(context.TODO(), &gatewayv1beta1.Gateway{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewaySpec)),
+		}, metav1.UpdateOptions{})
+	case gvk.PeerAuthentication:
+		return ic.SecurityV1beta1().PeerAuthentications(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.PeerAuthentication{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*securityv1beta1.PeerAuthentication)),
+		}, metav1.UpdateOptions{})
+	case gvk.ProxyConfig:
+		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*networkingv1beta1.ProxyConfig)),
+		}, metav1.UpdateOptions{})
+	case gvk.ReferenceGrant:
+		return sc.GatewayV1alpha2().ReferenceGrants(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.ReferenceGrant{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
+		}, metav1.UpdateOptions{})
+	case gvk.RequestAuthentication:
+		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*securityv1beta1.RequestAuthentication)),
 		}, metav1.UpdateOptions{})
 	case gvk.ServiceEntry:
 		return ic.NetworkingV1alpha3().ServiceEntries(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.ServiceEntry{
@@ -192,10 +242,35 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.Sidecar)),
 		}, metav1.UpdateOptions{})
+	case gvk.TCPRoute:
+		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.TCPRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TCPRouteSpec)),
+		}, metav1.UpdateOptions{})
+	case gvk.TLSRoute:
+		return sc.GatewayV1alpha2().TLSRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.TLSRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TLSRouteSpec)),
+		}, metav1.UpdateOptions{})
+	case gvk.Telemetry:
+		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).Update(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*telemetryv1alpha1.Telemetry)),
+		}, metav1.UpdateOptions{})
+	case gvk.UDPRoute:
+		return sc.GatewayV1alpha2().UDPRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.UDPRoute{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*gatewayv1alpha2.UDPRouteSpec)),
+		}, metav1.UpdateOptions{})
 	case gvk.VirtualService:
 		return ic.NetworkingV1alpha3().VirtualServices(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.VirtualService{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.VirtualService)),
+		}, metav1.UpdateOptions{})
+	case gvk.WasmPlugin:
+		return ic.ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).Update(context.TODO(), &clientextensionsv1alpha1.WasmPlugin{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*extensionsv1alpha1.WasmPlugin)),
 		}, metav1.UpdateOptions{})
 	case gvk.WorkloadEntry:
 		return ic.NetworkingV1alpha3().WorkloadEntries(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.WorkloadEntry{
@@ -207,61 +282,6 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.WorkloadGroup)),
 		}, metav1.UpdateOptions{})
-	case gvk.ProxyConfig:
-		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*networkingv1beta1.ProxyConfig)),
-		}, metav1.UpdateOptions{})
-	case gvk.AuthorizationPolicy:
-		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*securityv1beta1.AuthorizationPolicy)),
-		}, metav1.UpdateOptions{})
-	case gvk.PeerAuthentication:
-		return ic.SecurityV1beta1().PeerAuthentications(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.PeerAuthentication{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*securityv1beta1.PeerAuthentication)),
-		}, metav1.UpdateOptions{})
-	case gvk.RequestAuthentication:
-		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*securityv1beta1.RequestAuthentication)),
-		}, metav1.UpdateOptions{})
-	case gvk.Telemetry:
-		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).Update(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*telemetryv1alpha1.Telemetry)),
-		}, metav1.UpdateOptions{})
-	case gvk.ReferenceGrant:
-		return sc.GatewayV1alpha2().ReferenceGrants(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.ReferenceGrant{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
-		}, metav1.UpdateOptions{})
-	case gvk.TCPRoute:
-		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.TCPRoute{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TCPRouteSpec)),
-		}, metav1.UpdateOptions{})
-	case gvk.TLSRoute:
-		return sc.GatewayV1alpha2().TLSRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1alpha2.TLSRoute{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1alpha2.TLSRouteSpec)),
-		}, metav1.UpdateOptions{})
-	case gvk.GatewayClass:
-		return sc.GatewayV1beta1().GatewayClasses().Update(context.TODO(), &gatewayv1beta1.GatewayClass{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewayClassSpec)),
-		}, metav1.UpdateOptions{})
-	case gvk.KubernetesGateway:
-		return sc.GatewayV1beta1().Gateways(cfg.Namespace).Update(context.TODO(), &gatewayv1beta1.Gateway{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1beta1.GatewaySpec)),
-		}, metav1.UpdateOptions{})
-	case gvk.HTTPRoute:
-		return sc.GatewayV1beta1().HTTPRoutes(cfg.Namespace).Update(context.TODO(), &gatewayv1beta1.HTTPRoute{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*gatewayv1beta1.HTTPRouteSpec)),
-		}, metav1.UpdateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
 	}
@@ -270,8 +290,8 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 func updateStatus(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch cfg.GroupVersionKind {
 
-	case gvk.WasmPlugin:
-		return ic.ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).UpdateStatus(context.TODO(), &clientextensionsv1alpha1.WasmPlugin{
+	case gvk.AuthorizationPolicy:
+		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
@@ -288,8 +308,50 @@ func updateStatus(ic versionedclient.Interface, sc gatewayapiclient.Interface, c
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
+	case gvk.GRPCRoute:
+		return sc.GatewayV1alpha2().GRPCRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1alpha2.GRPCRoute{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*gatewayv1alpha2.GRPCRouteStatus)),
+		}, metav1.UpdateOptions{})
+
 	case gvk.Gateway:
 		return ic.NetworkingV1alpha3().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.Gateway{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+
+	case gvk.GatewayClass:
+		return sc.GatewayV1beta1().GatewayClasses().UpdateStatus(context.TODO(), &gatewayv1beta1.GatewayClass{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*gatewayv1beta1.GatewayClassStatus)),
+		}, metav1.UpdateOptions{})
+
+	case gvk.HTTPRoute:
+		return sc.GatewayV1beta1().HTTPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1beta1.HTTPRoute{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*gatewayv1beta1.HTTPRouteStatus)),
+		}, metav1.UpdateOptions{})
+
+	case gvk.KubernetesGateway:
+		return sc.GatewayV1beta1().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1beta1.Gateway{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*gatewayv1beta1.GatewayStatus)),
+		}, metav1.UpdateOptions{})
+
+	case gvk.PeerAuthentication:
+		return ic.SecurityV1beta1().PeerAuthentications(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.PeerAuthentication{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+
+	case gvk.ProxyConfig:
+		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+
+	case gvk.RequestAuthentication:
+		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
@@ -306,8 +368,38 @@ func updateStatus(ic versionedclient.Interface, sc gatewayapiclient.Interface, c
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 
+	case gvk.TCPRoute:
+		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1alpha2.TCPRoute{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*gatewayv1alpha2.TCPRouteStatus)),
+		}, metav1.UpdateOptions{})
+
+	case gvk.TLSRoute:
+		return sc.GatewayV1alpha2().TLSRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1alpha2.TLSRoute{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*gatewayv1alpha2.TLSRouteStatus)),
+		}, metav1.UpdateOptions{})
+
+	case gvk.Telemetry:
+		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).UpdateStatus(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+
+	case gvk.UDPRoute:
+		return sc.GatewayV1alpha2().UDPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1alpha2.UDPRoute{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*gatewayv1alpha2.UDPRouteStatus)),
+		}, metav1.UpdateOptions{})
+
 	case gvk.VirtualService:
 		return ic.NetworkingV1alpha3().VirtualServices(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.VirtualService{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+
+	case gvk.WasmPlugin:
+		return ic.ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).UpdateStatus(context.TODO(), &clientextensionsv1alpha1.WasmPlugin{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
@@ -323,66 +415,6 @@ func updateStatus(ic versionedclient.Interface, sc gatewayapiclient.Interface, c
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
-
-	case gvk.ProxyConfig:
-		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
-		}, metav1.UpdateOptions{})
-
-	case gvk.AuthorizationPolicy:
-		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
-		}, metav1.UpdateOptions{})
-
-	case gvk.PeerAuthentication:
-		return ic.SecurityV1beta1().PeerAuthentications(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.PeerAuthentication{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
-		}, metav1.UpdateOptions{})
-
-	case gvk.RequestAuthentication:
-		return ic.SecurityV1beta1().RequestAuthentications(cfg.Namespace).UpdateStatus(context.TODO(), &clientsecurityv1beta1.RequestAuthentication{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
-		}, metav1.UpdateOptions{})
-
-	case gvk.Telemetry:
-		return ic.TelemetryV1alpha1().Telemetries(cfg.Namespace).UpdateStatus(context.TODO(), &clienttelemetryv1alpha1.Telemetry{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
-		}, metav1.UpdateOptions{})
-
-	case gvk.TCPRoute:
-		return sc.GatewayV1alpha2().TCPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1alpha2.TCPRoute{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*gatewayv1alpha2.TCPRouteStatus)),
-		}, metav1.UpdateOptions{})
-
-	case gvk.TLSRoute:
-		return sc.GatewayV1alpha2().TLSRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1alpha2.TLSRoute{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*gatewayv1alpha2.TLSRouteStatus)),
-		}, metav1.UpdateOptions{})
-
-	case gvk.GatewayClass:
-		return sc.GatewayV1beta1().GatewayClasses().UpdateStatus(context.TODO(), &gatewayv1beta1.GatewayClass{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*gatewayv1beta1.GatewayClassStatus)),
-		}, metav1.UpdateOptions{})
-
-	case gvk.KubernetesGateway:
-		return sc.GatewayV1beta1().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1beta1.Gateway{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*gatewayv1beta1.GatewayStatus)),
-		}, metav1.UpdateOptions{})
-
-	case gvk.HTTPRoute:
-		return sc.GatewayV1beta1().HTTPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &gatewayv1beta1.HTTPRoute{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*gatewayv1beta1.HTTPRouteStatus)),
-		}, metav1.UpdateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
 	}
@@ -394,20 +426,20 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 	}
 	// TODO support setting field manager
 	switch orig.GroupVersionKind {
-	case gvk.WasmPlugin:
-		oldRes := &clientextensionsv1alpha1.WasmPlugin{
+	case gvk.AuthorizationPolicy:
+		oldRes := &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*extensionsv1alpha1.WasmPlugin)),
+			Spec:       *(orig.Spec.(*securityv1beta1.AuthorizationPolicy)),
 		}
-		modRes := &clientextensionsv1alpha1.WasmPlugin{
+		modRes := &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*extensionsv1alpha1.WasmPlugin)),
+			Spec:       *(mod.Spec.(*securityv1beta1.AuthorizationPolicy)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
 			return nil, err
 		}
-		return ic.ExtensionsV1alpha1().WasmPlugins(orig.Namespace).
+		return ic.SecurityV1beta1().AuthorizationPolicies(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.DestinationRule:
 		oldRes := &clientnetworkingv1alpha3.DestinationRule{
@@ -439,6 +471,21 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().EnvoyFilters(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.GRPCRoute:
+		oldRes := &gatewayv1alpha2.GRPCRoute{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*gatewayv1alpha2.GRPCRouteSpec)),
+		}
+		modRes := &gatewayv1alpha2.GRPCRoute{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*gatewayv1alpha2.GRPCRouteSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return sc.GatewayV1alpha2().GRPCRoutes(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.Gateway:
 		oldRes := &clientnetworkingv1alpha3.Gateway{
 			ObjectMeta: origMeta,
@@ -453,6 +500,111 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 			return nil, err
 		}
 		return ic.NetworkingV1alpha3().Gateways(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.GatewayClass:
+		oldRes := &gatewayv1beta1.GatewayClass{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*gatewayv1beta1.GatewayClassSpec)),
+		}
+		modRes := &gatewayv1beta1.GatewayClass{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*gatewayv1beta1.GatewayClassSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return sc.GatewayV1beta1().GatewayClasses().
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.HTTPRoute:
+		oldRes := &gatewayv1beta1.HTTPRoute{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*gatewayv1beta1.HTTPRouteSpec)),
+		}
+		modRes := &gatewayv1beta1.HTTPRoute{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*gatewayv1beta1.HTTPRouteSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return sc.GatewayV1beta1().HTTPRoutes(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.KubernetesGateway:
+		oldRes := &gatewayv1beta1.Gateway{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*gatewayv1beta1.GatewaySpec)),
+		}
+		modRes := &gatewayv1beta1.Gateway{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*gatewayv1beta1.GatewaySpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return sc.GatewayV1beta1().Gateways(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.PeerAuthentication:
+		oldRes := &clientsecurityv1beta1.PeerAuthentication{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*securityv1beta1.PeerAuthentication)),
+		}
+		modRes := &clientsecurityv1beta1.PeerAuthentication{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*securityv1beta1.PeerAuthentication)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return ic.SecurityV1beta1().PeerAuthentications(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.ProxyConfig:
+		oldRes := &clientnetworkingv1beta1.ProxyConfig{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*networkingv1beta1.ProxyConfig)),
+		}
+		modRes := &clientnetworkingv1beta1.ProxyConfig{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*networkingv1beta1.ProxyConfig)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return ic.NetworkingV1beta1().ProxyConfigs(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.ReferenceGrant:
+		oldRes := &gatewayv1alpha2.ReferenceGrant{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
+		}
+		modRes := &gatewayv1alpha2.ReferenceGrant{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return sc.GatewayV1alpha2().ReferenceGrants(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.RequestAuthentication:
+		oldRes := &clientsecurityv1beta1.RequestAuthentication{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*securityv1beta1.RequestAuthentication)),
+		}
+		modRes := &clientsecurityv1beta1.RequestAuthentication{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*securityv1beta1.RequestAuthentication)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return ic.SecurityV1beta1().RequestAuthentications(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.ServiceEntry:
 		oldRes := &clientnetworkingv1alpha3.ServiceEntry{
@@ -484,6 +636,66 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().Sidecars(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.TCPRoute:
+		oldRes := &gatewayv1alpha2.TCPRoute{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*gatewayv1alpha2.TCPRouteSpec)),
+		}
+		modRes := &gatewayv1alpha2.TCPRoute{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*gatewayv1alpha2.TCPRouteSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return sc.GatewayV1alpha2().TCPRoutes(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.TLSRoute:
+		oldRes := &gatewayv1alpha2.TLSRoute{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*gatewayv1alpha2.TLSRouteSpec)),
+		}
+		modRes := &gatewayv1alpha2.TLSRoute{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*gatewayv1alpha2.TLSRouteSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return sc.GatewayV1alpha2().TLSRoutes(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.Telemetry:
+		oldRes := &clienttelemetryv1alpha1.Telemetry{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*telemetryv1alpha1.Telemetry)),
+		}
+		modRes := &clienttelemetryv1alpha1.Telemetry{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*telemetryv1alpha1.Telemetry)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return ic.TelemetryV1alpha1().Telemetries(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.UDPRoute:
+		oldRes := &gatewayv1alpha2.UDPRoute{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*gatewayv1alpha2.UDPRouteSpec)),
+		}
+		modRes := &gatewayv1alpha2.UDPRoute{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*gatewayv1alpha2.UDPRouteSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return sc.GatewayV1alpha2().UDPRoutes(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.VirtualService:
 		oldRes := &clientnetworkingv1alpha3.VirtualService{
 			ObjectMeta: origMeta,
@@ -498,6 +710,21 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 			return nil, err
 		}
 		return ic.NetworkingV1alpha3().VirtualServices(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.WasmPlugin:
+		oldRes := &clientextensionsv1alpha1.WasmPlugin{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*extensionsv1alpha1.WasmPlugin)),
+		}
+		modRes := &clientextensionsv1alpha1.WasmPlugin{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*extensionsv1alpha1.WasmPlugin)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return ic.ExtensionsV1alpha1().WasmPlugins(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.WorkloadEntry:
 		oldRes := &clientnetworkingv1alpha3.WorkloadEntry{
@@ -529,171 +756,6 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().WorkloadGroups(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.ProxyConfig:
-		oldRes := &clientnetworkingv1beta1.ProxyConfig{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*networkingv1beta1.ProxyConfig)),
-		}
-		modRes := &clientnetworkingv1beta1.ProxyConfig{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*networkingv1beta1.ProxyConfig)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return ic.NetworkingV1beta1().ProxyConfigs(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.AuthorizationPolicy:
-		oldRes := &clientsecurityv1beta1.AuthorizationPolicy{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*securityv1beta1.AuthorizationPolicy)),
-		}
-		modRes := &clientsecurityv1beta1.AuthorizationPolicy{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*securityv1beta1.AuthorizationPolicy)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return ic.SecurityV1beta1().AuthorizationPolicies(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.PeerAuthentication:
-		oldRes := &clientsecurityv1beta1.PeerAuthentication{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*securityv1beta1.PeerAuthentication)),
-		}
-		modRes := &clientsecurityv1beta1.PeerAuthentication{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*securityv1beta1.PeerAuthentication)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return ic.SecurityV1beta1().PeerAuthentications(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.RequestAuthentication:
-		oldRes := &clientsecurityv1beta1.RequestAuthentication{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*securityv1beta1.RequestAuthentication)),
-		}
-		modRes := &clientsecurityv1beta1.RequestAuthentication{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*securityv1beta1.RequestAuthentication)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return ic.SecurityV1beta1().RequestAuthentications(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.Telemetry:
-		oldRes := &clienttelemetryv1alpha1.Telemetry{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*telemetryv1alpha1.Telemetry)),
-		}
-		modRes := &clienttelemetryv1alpha1.Telemetry{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*telemetryv1alpha1.Telemetry)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return ic.TelemetryV1alpha1().Telemetries(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.ReferenceGrant:
-		oldRes := &gatewayv1alpha2.ReferenceGrant{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
-		}
-		modRes := &gatewayv1alpha2.ReferenceGrant{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*gatewayv1alpha2.ReferenceGrantSpec)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return sc.GatewayV1alpha2().ReferenceGrants(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.TCPRoute:
-		oldRes := &gatewayv1alpha2.TCPRoute{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*gatewayv1alpha2.TCPRouteSpec)),
-		}
-		modRes := &gatewayv1alpha2.TCPRoute{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*gatewayv1alpha2.TCPRouteSpec)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return sc.GatewayV1alpha2().TCPRoutes(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.TLSRoute:
-		oldRes := &gatewayv1alpha2.TLSRoute{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*gatewayv1alpha2.TLSRouteSpec)),
-		}
-		modRes := &gatewayv1alpha2.TLSRoute{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*gatewayv1alpha2.TLSRouteSpec)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return sc.GatewayV1alpha2().TLSRoutes(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.GatewayClass:
-		oldRes := &gatewayv1beta1.GatewayClass{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*gatewayv1beta1.GatewayClassSpec)),
-		}
-		modRes := &gatewayv1beta1.GatewayClass{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*gatewayv1beta1.GatewayClassSpec)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return sc.GatewayV1beta1().GatewayClasses().
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.KubernetesGateway:
-		oldRes := &gatewayv1beta1.Gateway{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*gatewayv1beta1.GatewaySpec)),
-		}
-		modRes := &gatewayv1beta1.Gateway{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*gatewayv1beta1.GatewaySpec)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return sc.GatewayV1beta1().Gateways(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.HTTPRoute:
-		oldRes := &gatewayv1beta1.HTTPRoute{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*gatewayv1beta1.HTTPRouteSpec)),
-		}
-		modRes := &gatewayv1beta1.HTTPRoute{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*gatewayv1beta1.HTTPRouteSpec)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return sc.GatewayV1beta1().HTTPRoutes(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", orig.GroupVersionKind)
 	}
@@ -705,57 +767,61 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 		deleteOptions.Preconditions = &metav1.Preconditions{ResourceVersion: resourceVersion}
 	}
 	switch typ {
-	case gvk.WasmPlugin:
-		return ic.ExtensionsV1alpha1().WasmPlugins(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.AuthorizationPolicy:
+		return ic.SecurityV1beta1().AuthorizationPolicies(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.DestinationRule:
 		return ic.NetworkingV1alpha3().DestinationRules(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.EnvoyFilter:
 		return ic.NetworkingV1alpha3().EnvoyFilters(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.GRPCRoute:
+		return sc.GatewayV1alpha2().GRPCRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.Gateway:
 		return ic.NetworkingV1alpha3().Gateways(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.GatewayClass:
+		return sc.GatewayV1beta1().GatewayClasses().Delete(context.TODO(), name, deleteOptions)
+	case gvk.HTTPRoute:
+		return sc.GatewayV1beta1().HTTPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.KubernetesGateway:
+		return sc.GatewayV1beta1().Gateways(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.PeerAuthentication:
+		return ic.SecurityV1beta1().PeerAuthentications(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.ProxyConfig:
+		return ic.NetworkingV1beta1().ProxyConfigs(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.ReferenceGrant:
+		return sc.GatewayV1alpha2().ReferenceGrants(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.RequestAuthentication:
+		return ic.SecurityV1beta1().RequestAuthentications(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.ServiceEntry:
 		return ic.NetworkingV1alpha3().ServiceEntries(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.Sidecar:
 		return ic.NetworkingV1alpha3().Sidecars(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.VirtualService:
-		return ic.NetworkingV1alpha3().VirtualServices(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.WorkloadEntry:
-		return ic.NetworkingV1alpha3().WorkloadEntries(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.WorkloadGroup:
-		return ic.NetworkingV1alpha3().WorkloadGroups(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.ProxyConfig:
-		return ic.NetworkingV1beta1().ProxyConfigs(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.AuthorizationPolicy:
-		return ic.SecurityV1beta1().AuthorizationPolicies(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.PeerAuthentication:
-		return ic.SecurityV1beta1().PeerAuthentications(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.RequestAuthentication:
-		return ic.SecurityV1beta1().RequestAuthentications(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.Telemetry:
-		return ic.TelemetryV1alpha1().Telemetries(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.ReferenceGrant:
-		return sc.GatewayV1alpha2().ReferenceGrants(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.TCPRoute:
 		return sc.GatewayV1alpha2().TCPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.TLSRoute:
 		return sc.GatewayV1alpha2().TLSRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.GatewayClass:
-		return sc.GatewayV1beta1().GatewayClasses().Delete(context.TODO(), name, deleteOptions)
-	case gvk.KubernetesGateway:
-		return sc.GatewayV1beta1().Gateways(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.HTTPRoute:
-		return sc.GatewayV1beta1().HTTPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.Telemetry:
+		return ic.TelemetryV1alpha1().Telemetries(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.UDPRoute:
+		return sc.GatewayV1alpha2().UDPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.VirtualService:
+		return ic.NetworkingV1alpha3().VirtualServices(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.WasmPlugin:
+		return ic.ExtensionsV1alpha1().WasmPlugins(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.WorkloadEntry:
+		return ic.NetworkingV1alpha3().WorkloadEntries(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.WorkloadGroup:
+		return ic.NetworkingV1alpha3().WorkloadGroups(namespace).Delete(context.TODO(), name, deleteOptions)
 	default:
 		return fmt.Errorf("unsupported type: %v", typ)
 	}
 }
 
 var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.Config{
-	gvk.WasmPlugin: func(r runtime.Object) config.Config {
-		obj := r.(*clientextensionsv1alpha1.WasmPlugin)
+	gvk.AuthorizationPolicy: func(r runtime.Object) config.Config {
+		obj := r.(*clientsecurityv1beta1.AuthorizationPolicy)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.WasmPlugin,
+				GroupVersionKind:  gvk.AuthorizationPolicy,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -808,11 +874,162 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
+	gvk.GRPCRoute: func(r runtime.Object) config.Config {
+		obj := r.(*gatewayv1alpha2.GRPCRoute)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.GRPCRoute,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
 	gvk.Gateway: func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.Gateway)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.Gateway,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.GatewayClass: func(r runtime.Object) config.Config {
+		obj := r.(*gatewayv1beta1.GatewayClass)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.GatewayClass,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.HTTPRoute: func(r runtime.Object) config.Config {
+		obj := r.(*gatewayv1beta1.HTTPRoute)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.HTTPRoute,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.KubernetesGateway: func(r runtime.Object) config.Config {
+		obj := r.(*gatewayv1beta1.Gateway)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.KubernetesGateway,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.PeerAuthentication: func(r runtime.Object) config.Config {
+		obj := r.(*clientsecurityv1beta1.PeerAuthentication)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.PeerAuthentication,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.ProxyConfig: func(r runtime.Object) config.Config {
+		obj := r.(*clientnetworkingv1beta1.ProxyConfig)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.ProxyConfig,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.ReferenceGrant: func(r runtime.Object) config.Config {
+		obj := r.(*gatewayv1alpha2.ReferenceGrant)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.ReferenceGrant,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
+		}
+	},
+	gvk.RequestAuthentication: func(r runtime.Object) config.Config {
+		obj := r.(*clientsecurityv1beta1.RequestAuthentication)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.RequestAuthentication,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -865,11 +1082,106 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
+	gvk.TCPRoute: func(r runtime.Object) config.Config {
+		obj := r.(*gatewayv1alpha2.TCPRoute)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.TCPRoute,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.TLSRoute: func(r runtime.Object) config.Config {
+		obj := r.(*gatewayv1alpha2.TLSRoute)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.TLSRoute,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.Telemetry: func(r runtime.Object) config.Config {
+		obj := r.(*clienttelemetryv1alpha1.Telemetry)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.Telemetry,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.UDPRoute: func(r runtime.Object) config.Config {
+		obj := r.(*gatewayv1alpha2.UDPRoute)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.UDPRoute,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
 	gvk.VirtualService: func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.VirtualService)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.VirtualService,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.WasmPlugin: func(r runtime.Object) config.Config {
+		obj := r.(*clientextensionsv1alpha1.WasmPlugin)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.WasmPlugin,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -922,219 +1234,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
-	gvk.ProxyConfig: func(r runtime.Object) config.Config {
-		obj := r.(*clientnetworkingv1beta1.ProxyConfig)
+	gvk.ConfigMap: func(r runtime.Object) config.Config {
+		obj := r.(*corev1.ConfigMap)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.ProxyConfig,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.AuthorizationPolicy: func(r runtime.Object) config.Config {
-		obj := r.(*clientsecurityv1beta1.AuthorizationPolicy)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.AuthorizationPolicy,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.PeerAuthentication: func(r runtime.Object) config.Config {
-		obj := r.(*clientsecurityv1beta1.PeerAuthentication)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.PeerAuthentication,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.RequestAuthentication: func(r runtime.Object) config.Config {
-		obj := r.(*clientsecurityv1beta1.RequestAuthentication)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.RequestAuthentication,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.Telemetry: func(r runtime.Object) config.Config {
-		obj := r.(*clienttelemetryv1alpha1.Telemetry)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.Telemetry,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.ReferenceGrant: func(r runtime.Object) config.Config {
-		obj := r.(*gatewayv1alpha2.ReferenceGrant)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.ReferenceGrant,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec: &obj.Spec,
-		}
-	},
-	gvk.TCPRoute: func(r runtime.Object) config.Config {
-		obj := r.(*gatewayv1alpha2.TCPRoute)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.TCPRoute,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.TLSRoute: func(r runtime.Object) config.Config {
-		obj := r.(*gatewayv1alpha2.TLSRoute)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.TLSRoute,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.GatewayClass: func(r runtime.Object) config.Config {
-		obj := r.(*gatewayv1beta1.GatewayClass)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.GatewayClass,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.KubernetesGateway: func(r runtime.Object) config.Config {
-		obj := r.(*gatewayv1beta1.Gateway)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.KubernetesGateway,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.HTTPRoute: func(r runtime.Object) config.Config {
-		obj := r.(*gatewayv1beta1.HTTPRoute)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.HTTPRoute,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.MutatingWebhookConfiguration: func(r runtime.Object) config.Config {
-		obj := r.(*admissionregistrationv1.MutatingWebhookConfiguration)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.MutatingWebhookConfiguration,
+				GroupVersionKind:  gvk.ConfigMap,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1184,11 +1288,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: &obj.Spec,
 		}
 	},
-	gvk.ConfigMap: func(r runtime.Object) config.Config {
-		obj := r.(*corev1.ConfigMap)
+	gvk.Endpoints: func(r runtime.Object) config.Config {
+		obj := r.(*corev1.Endpoints)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.ConfigMap,
+				GroupVersionKind:  gvk.Endpoints,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1202,11 +1306,30 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: obj,
 		}
 	},
-	gvk.Endpoints: func(r runtime.Object) config.Config {
-		obj := r.(*corev1.Endpoints)
+	gvk.Ingress: func(r runtime.Object) config.Config {
+		obj := r.(*networkingv1.Ingress)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Endpoints,
+				GroupVersionKind:  gvk.Ingress,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.MutatingWebhookConfiguration: func(r runtime.Object) config.Config {
+		obj := r.(*admissionregistrationv1.MutatingWebhookConfiguration)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.MutatingWebhookConfiguration,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1292,24 +1415,6 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: obj,
 		}
 	},
-	gvk.ServiceAccount: func(r runtime.Object) config.Config {
-		obj := r.(*corev1.ServiceAccount)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.ServiceAccount,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec: obj,
-		}
-	},
 	gvk.Service: func(r runtime.Object) config.Config {
 		obj := r.(*corev1.Service)
 		return config.Config{
@@ -1328,11 +1433,11 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: &obj.Spec,
 		}
 	},
-	gvk.Ingress: func(r runtime.Object) config.Config {
-		obj := r.(*networkingv1.Ingress)
+	gvk.ServiceAccount: func(r runtime.Object) config.Config {
+		obj := r.(*corev1.ServiceAccount)
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Ingress,
+				GroupVersionKind:  gvk.ServiceAccount,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1343,8 +1448,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
 			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
+			Spec: obj,
 		}
 	},
 }
