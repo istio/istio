@@ -98,6 +98,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 
 		RootNamespace:                  constants.IstioSystemNamespace,
 		ProxyListenPort:                15001,
+		ProxyInboundListenPort:         15006,
 		ConnectTimeout:                 durationpb.New(10 * time.Second),
 		DefaultServiceExportTo:         []string{"*"},
 		DefaultVirtualServiceExportTo:  []string{"*"},
