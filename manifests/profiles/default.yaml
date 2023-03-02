@@ -9,7 +9,8 @@ spec:
   # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
     defaultConfig:
-      proxyMetadata: {}
+      proxyMetadata:
+        ISTIO_META_ENABLE_HBONE: "true"
     enablePrometheusMerge: true
     # Opt-out of global http2 upgrades.
     # Destination rule is used to opt-in.
@@ -126,7 +127,8 @@ spec:
       replicaCount: 1
       image: pilot
       traceSampling: 1.0
-      env: {}
+      env:
+        PILOT_ENABLE_HBONE: "true"
       cpu:
         targetAverageUtilization: 80
       nodeSelector: {}
