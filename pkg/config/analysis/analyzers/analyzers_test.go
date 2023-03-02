@@ -759,6 +759,28 @@ var testGrid = []testCase{
 			{msg.InvalidTelemetryProvider, "Telemetry istio-system/mesh-default"},
 		},
 	},
+	{
+		name:       "telemetrySelector",
+		inputFiles: []string{"testdata/telemetry-selector.yaml"},
+		analyzer:   &telemetry.SelectorAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Telemetry default/maps-to-nonexistent"},
+			{msg.ReferencedResourceNotFound, "Telemetry other/maps-to-different-ns"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/dupe-1"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/dupe-2"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/overlap-1"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/overlap-2"},
+		},
+	},
+	{
+		name:       "telemetryDefaultSelector",
+		inputFiles: []string{"testdata/telemetry-default-selector.yaml"},
+		analyzer:   &telemetry.DefaultSelectorAnalyzer{},
+		expected: []message{
+			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-2"},
+			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-1"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
