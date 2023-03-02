@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 type ExecList struct {
@@ -72,10 +71,6 @@ func execute(cmd string, args ...string) error {
 	}
 
 	return nil
-}
-
-func (s *Server) matchesAmbientSelectors(lbl map[string]string) bool {
-	return ambientSelectors.Matches(labels.Set(lbl))
 }
 
 func getEnvFromPod(pod *corev1.Pod, envName string) string {

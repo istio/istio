@@ -19,59 +19,32 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/log"
 )
 
-func hasPodIP(pod *corev1.Pod) bool {
-	return pod.Status.PodIP != ""
+// PodZtunnelEnabled determines if a pod is eligible for ztunnel redirection
+func PodZtunnelEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
+	if namespace.GetLabels()[constants.DataplaneMode] != constants.DataplaneModeAmbient {
+		// Namespace does not have ambient mode enabled
+		return false
+	}
+	if podHasSidecar(pod) {
+		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
+		return false
+	}
+	if pod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionDisabled {
+		// Pod explicitly asked to not have redirection enabled
+		return false
+	}
+	return true
 }
 
-func isRunning(pod *corev1.Pod) bool {
-	return pod.Status.Phase == corev1.PodRunning
-}
-
-func ShouldPodBeInMesh(namespace *corev1.Namespace, pod *corev1.Pod, ignoreNotRunning bool) bool {
-	// Pod must:
-	// - Be running
-	// - Have an IP address
-	// - Cannot have a legacy label (istio.io/rev or istio-injection=enabled)
-	// - If mesh is in namespace mode, must be in active namespace
-	if (ignoreNotRunning || (isRunning(pod) && hasPodIP(pod))) &&
-		!HasLegacyLabel(pod.GetLabels()) &&
-		!PodHasOptOut(pod) &&
-		IsNamespaceActive(namespace) {
+func podHasSidecar(pod *corev1.Pod) bool {
+	if _, f := pod.Annotations[annotation.SidecarStatus.Name]; f {
 		return true
-	}
-
-	return false
-}
-
-func PodHasOptOut(pod *corev1.Pod) bool {
-	if val, ok := pod.Annotations[constants.AmbientRedirection]; ok {
-		return val == constants.AmbientRedirectionDisabled
-	}
-	return false
-}
-
-func IsNamespaceActive(namespace *corev1.Namespace) bool {
-	//   - Namespace cannot have "legacy" labels (ie. istio.io/rev or istio-injection=enabled)
-	//   - Namespace must have label istio.io/dataplane-mode=ambient
-	if namespace != nil &&
-		!HasLegacyLabel(namespace.GetLabels()) &&
-		namespace.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient {
-		return true
-	}
-
-	return false
-}
-
-func HasSelectors(lbls map[string]string, selectors []labels.Selector) bool {
-	for _, sel := range selectors {
-		if sel.Matches(labels.Set(lbls)) {
-			return true
-		}
 	}
 	return false
 }
