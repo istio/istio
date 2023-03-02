@@ -165,18 +165,18 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 			}},
 
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: InternalName},
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
 		}},
 		TypedPerFilterConfig: map[string]*anypb.Any{
-			// Note the difference with the waypoint below.
+			// Note the difference with the waypoint below in the connect authority filter config.
 			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabledSidecar,
 		},
 	}}
-	terminate := lb.buildTerminateConnectListener(routes)
+	terminate := lb.buildConnectTerminateListener(routes)
 	// Now we have top level listener... but we must have an internal listener for each standard filter chain
 	// 1 listener per port; that listener will do protocol detection.
 	l := &listener.Listener{
-		Name:              InternalName,
+		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		TrafficDirection:  core.TrafficDirection_INBOUND,
 	}

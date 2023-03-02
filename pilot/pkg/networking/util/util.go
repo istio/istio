@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 
-	typev3 "github.com/cncf/xds/go/xds/type/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -66,8 +65,6 @@ const (
 	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
 	Passthrough = "allow_any"
-	// OutboundTunnel is HBONE's outbound cluster.
-	OutboundTunnel = "outbound-tunnel"
 
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
@@ -813,19 +810,4 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 		}
 	}
 	return nil
-}
-
-// InternalListenerSetAddressFilter is a filter for internal listeners that overrides the address based on the metadata
-// from BuildTunnelMetadata
-func InternalListenerSetAddressFilter() *listener.ListenerFilter {
-	v, _ := structpb.NewStruct(map[string]interface{}{})
-	return &listener.ListenerFilter{
-		Name: "set_dst_address",
-		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&typev3.TypedStruct{
-				TypeUrl: "type.googleapis.com/istio.set_internal_dst_address.v1.Config",
-				Value:   v,
-			}),
-		},
-	}
 }

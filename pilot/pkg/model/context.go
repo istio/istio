@@ -1210,7 +1210,10 @@ func (node *Proxy) EnableHBONE() bool {
 	return node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE))
 }
 
-// WaypointScope is either an entire namespace or an individual service account in the namespace.
+// WaypointScope is either an entire namespace or an individual service account
+// in the namespace. This setting dictates the upstream TLS verification
+// strategy, depending on the binding of the waypoints to its backend
+// workloads.
 type WaypointScope struct {
 	Namespace      string
 	ServiceAccount string // optional

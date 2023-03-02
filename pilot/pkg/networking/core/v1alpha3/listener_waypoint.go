@@ -59,8 +59,11 @@ const (
 	// ConnectTerminate is the name for the resources associated with the termination of HTTP CONNECT.
 	ConnectTerminate = "connect_terminate"
 
-	// InternalName is the name for the resources associated with the main (non-tunnel) internal listener.
-	InternalName = "internal"
+	// MainInternalName is the name for the resources associated with the main (non-tunnel) internal listener.
+	MainInternalName = "main_internal"
+
+	// ConnectOriginate is the name for the resources associated with the origination of HTTP CONNECT.
+	ConnectOriginate = "connect_originate"
 )
 
 type WorkloadAndServices struct {
@@ -105,14 +108,14 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	wls, svcs := FindAssociatedResources(lb.node, lb.push)
 
 	listeners = append(listeners,
-		lb.buildWaypointInboundTerminateConnect(),
+		lb.buildWaypointInboundConnectTerminate(),
 		lb.buildWaypointInternal(wls, svcs),
-		lb.buildWaypointInboundOriginateConnect())
+		buildWaypointConnectOriginateListener())
 
 	return listeners
 }
 
-func (lb *ListenerBuilder) buildHCMTerminateConnectChain(routes []*route.Route) []*listener.Filter {
+func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) []*listener.Filter {
 	h := &hcm.HttpConnectionManager{
 		StatPrefix: ConnectTerminate,
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
@@ -164,7 +167,7 @@ func (lb *ListenerBuilder) buildHCMTerminateConnectChain(routes []*route.Route) 
 	}
 }
 
-func (lb *ListenerBuilder) buildTerminateConnectListener(routes []*route.Route) *listener.Listener {
+func (lb *ListenerBuilder) buildConnectTerminateListener(routes []*route.Route) *listener.Listener {
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	l := &listener.Listener{
 		Name:    ConnectTerminate,
@@ -178,14 +181,14 @@ func (lb *ListenerBuilder) buildTerminateConnectListener(routes []*route.Route) 
 						CommonTlsContext: buildCommonTLSContext(lb.node, lb.push),
 					})},
 				},
-				Filters: lb.buildHCMTerminateConnectChain(routes),
+				Filters: lb.buildHCMConnectTerminateChain(routes),
 			},
 		},
 	}
 	return l
 }
 
-func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.Listener {
 	routes := []*route.Route{{
 		Match: &route.RouteMatch{
 			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
@@ -195,13 +198,13 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 				UpgradeType:   "CONNECT",
 				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 			}},
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: InternalName},
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
 		}},
 		TypedPerFilterConfig: map[string]*any.Any{
 			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
 		},
 	}}
-	return lb.buildTerminateConnectListener(routes)
+	return lb.buildConnectTerminateListener(routes)
 }
 
 func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs map[host.Name]*model.Service) *listener.Listener {
@@ -317,10 +320,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		}
 	}
 	l := &listener.Listener{
-		Name:              InternalName,
+		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
-			util.InternalListenerSetAddressFilter(),
+			xdsfilters.SetDstAddress,
 			// TODO: This may affect the data path due to the server-first protocols triggering a time-out. Need exception filter.
 			xdsfilters.HTTPInspector,
 		},
@@ -343,22 +346,34 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 	return l
 }
 
-func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.Listener {
-	name := "connect_originate"
+func buildWaypointConnectOriginateListener() *listener.Listener {
+	return buildConnectOriginateListener("")
+}
+func buildConnectOriginateListener(baggage string) *listener.Listener {
+	var headers []*core.HeaderValueOption
+	if baggage != "" {
+		headers = append(headers, &core.HeaderValueOption{Header: &core.HeaderValue{
+			Key:   "baggage",
+			Value: baggage,
+		}})
+	}
 	l := &listener.Listener{
-		Name:              name,
+		Name:              ConnectOriginate,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		ListenerFilters:   []*listener.ListenerFilter{util.InternalListenerSetAddressFilter()},
+		ListenerFilters: []*listener.ListenerFilter{
+			xdsfilters.SetDstAddress,
+		},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
 				ConfigType: &listener.Filter_TypedConfig{
 					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-						StatPrefix:       name,
-						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
+						StatPrefix:       ConnectOriginate,
+						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: ConnectOriginate},
 						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-							Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
+							Hostname:     "%DOWNSTREAM_LOCAL_ADDRESS%",
+							HeadersToAdd: headers,
 						},
 					}),
 				},
@@ -718,32 +733,4 @@ func buildCommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.Com
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
 	return ctx
-}
-
-// outboundTunnelListener is built for each ServiceAccount from pods on the node.
-// This listener adds the original destination headers from the dynamic EDS metadata pass through.
-// We build the listener per-service account so that it can point to the corresponding cluster that presents the correct cert.
-func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
-	name := util.OutboundTunnel
-	p := &tcp.TcpProxy{
-		StatPrefix: name,
-		// TODO
-		// AccessLog:        accessLogString("outbound tunnel"),
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
-		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
-		},
-	}
-
-	l := &listener.Listener{
-		Name:              name,
-		UseOriginalDst:    wrappers.Bool(false),
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		ListenerFilters:   []*listener.ListenerFilter{util.InternalListenerSetAddressFilter()},
-		FilterChains: []*listener.FilterChain{{
-			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
-		}},
-	}
-	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarOutbound)
-	return l
 }

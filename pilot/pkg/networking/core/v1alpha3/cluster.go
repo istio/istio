@@ -20,20 +20,15 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	anypb "github.com/golang/protobuf/ptypes/any"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -51,7 +46,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -207,7 +201,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 
 	// OutboundTunnel cluster is needed for sidecar and gateway.
 	if proxy.EnableHBONE() {
-		clusters = append(clusters, outboundTunnelCluster(proxy, req.Push))
+		clusters = append(clusters, cb.buildConnectOriginate(proxy, req.Push, nil))
 	}
 
 	// if credential socket exists, create a cluster for it
@@ -1071,33 +1065,6 @@ var InternalUpstreamSocket = &core.TransportSocket{
 		},
 		TransportSocket: xdsfilters.RawBufferTransportSocket,
 	})},
-}
-
-func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
-	return &cluster.Cluster{
-		Name:                 util.OutboundTunnel,
-		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:       proto.Clone(push.Mesh.ConnectTimeout).(*durationpb.Duration),
-		CleanupInterval:      durationpb.New(60 * time.Second),
-		TypedExtensionProtocolOptions: map[string]*anypb.Any{
-			v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
-				UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
-					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
-						Http2ProtocolOptions: &core.Http2ProtocolOptions{
-							AllowConnect: true,
-						},
-					},
-				}},
-			}),
-		},
-		TransportSocket: &core.TransportSocket{
-			Name: wellknown.TransportSocketTls,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
-				CommonTlsContext: buildHBONECommonTLSContext(proxy, push),
-			})},
-		},
-	}
 }
 
 func buildHBONECommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
