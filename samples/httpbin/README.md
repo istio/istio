@@ -4,9 +4,7 @@ This sample runs [httpbin](https://httpbin.org) as an Istio service.
 Httpbin is a well known HTTP testing service that can be used for experimenting
 with all kinds of Istio features.
 
-The upstream repo for httpbin is https://github.com/postmanlabs/httpbin and this 
-sample uses a [fork with multiarch image support](https://github.com/Kong/httpbin)
-
+This sample uses a fork of the [upstream httpbin repo](https://github.com/postmanlabs/httpbin) with [multiarch image support](https://github.com/Kong/httpbin)
 
 To use it:
 
