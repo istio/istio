@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"net"
 	"net/netip"
 	"sort"
 	"strconv"
@@ -212,9 +211,9 @@ type LocalityEndpoints struct {
 	llbEndpoints endpoint.LocalityLbEndpoints
 }
 
-func (e *LocalityEndpoints) append(ep *model.IstioEndpoint, le *endpoint.LbEndpoint) {
+func (e *LocalityEndpoints) append(ep *model.IstioEndpoint, le ...*endpoint.LbEndpoint) {
 	e.istioEndpoints = append(e.istioEndpoints, ep)
-	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
+	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le...)
 }
 
 func (e *LocalityEndpoints) refreshWeight() {
@@ -299,15 +298,18 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				}
 			}
 
+			envoyEndpoints := []*endpoint.LbEndpoint{ep.EnvoyEndpoint}
 			// Currently the HBONE implementation leads to different endpoint generation depending on if the
 			// client proxy supports HBONE or not. This breaks the cache.
 			// For now, just disable caching if the global HBONE flag is enabled.
 			if ep.EnvoyEndpoint == nil || features.EnableHBONE {
-				eep := buildEnvoyLbEndpoint(b, ep)
-				if eep == nil {
+				eeps := buildEnvoyLbEndpoint(b, ep)
+				if len(eeps) == 0 {
 					continue
 				}
-				ep.EnvoyEndpoint = eep
+				ep.EnvoyEndpoint = eeps[0]
+			} else {
+				envoyEndpoints = []*endpoint.LbEndpoint{ep.EnvoyEndpoint}
 			}
 
 			locLbEps, found := localityEpMap[ep.Locality.Label]
@@ -322,7 +324,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			}
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
-			if b.mtlsChecker != nil {
+			if b.mtlsChecker != nil && len(envoyEndpoints) == 1 {
 				b.mtlsChecker.computeForEndpoint(ep)
 				if features.EnableAutomTLSCheckPolicies {
 					tlsMode := ep.TLSMode
@@ -331,10 +333,11 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 					}
 					if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
 						ep.EnvoyEndpoint = nep
+						envoyEndpoints[0] = nep
 					}
 				}
 			}
-			locLbEps.append(ep, ep.EnvoyEndpoint)
+			locLbEps.append(ep, envoyEndpoints...)
 		}
 	}
 	shards.Unlock()
@@ -379,7 +382,7 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) []*endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
 	healthStatus := core.HealthStatus_HEALTHY
 	// This is enabled by features.SendUnhealthyEndpoints - otherwise they are not tracked.
@@ -411,34 +414,16 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	// Do not remove pilot/pkg/xds/fake.go
 	util.AppendLbEndpointMetadata(e.Metadata(), ep.Metadata)
 
+	// Proxyless client cannot handle tunneling, even if the server can
+	if !b.proxy.EnableHBONE() || b.proxy.IsProxylessGrpc() {
+		return []*endpoint.LbEndpoint{ep}
+	}
+
+	var out []*endpoint.LbEndpoint
 	address, port := e.Address, e.EndpointPort
 	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
 
-	supportsTunnel := false
-	// Other side is a waypoint proxy.
-	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
-		supportsTunnel = true
-	}
-
-	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	if b.push.SupportsTunnel(e.Address) {
-		supportsTunnel = true
-	}
-	// Otherwise supports tunnel
-	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
-	// need to pick the right one based on our support overlap.
-	if e.SupportsTunnel(model.TunnelHTTP) {
-		supportsTunnel = true
-	}
-	if b.proxy.IsProxylessGrpc() {
-		// Proxyless client cannot handle tunneling, even if the server can
-		supportsTunnel = false
-	}
-
-	if !b.proxy.EnableHBONE() {
-		supportsTunnel = false
-	}
-
+	supportsTunnel := supportTunnel(b, e)
 	// Setup tunnel information, if needed
 	if b.dir == model.TrafficDirectionInboundVIP {
 		// This is only used in waypoint proxy
@@ -451,8 +436,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 		}
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
 		if supportsTunnel {
-			address := e.Address
-			tunnelPort := 15008
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
 			ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, address, int(e.EndpointPort), tunnelPort)
@@ -461,28 +444,60 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 				Value: e.GetLoadBalancingWeight(),
 			}
 		}
+		out = []*endpoint.LbEndpoint{ep}
 	} else if supportsTunnel {
+		var wayPointAddresses []string
 		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
 		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
 			workloads := findWaypoints(b.push, e)
-			if len(workloads) > 0 {
-				// TODO: load balance
-				tunnelAddress = workloads[0].String()
+			for _, wl := range workloads {
+				wayPointAddresses = append(wayPointAddresses, wl.String())
 			}
 		}
-		// Setup tunnel metadata so requests will go through the tunnel
-		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(networking.ConnectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
-		}}
-		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
-			},
+		if len(wayPointAddresses) == 0 {
+			wayPointAddresses = []string{tunnelAddress}
+		}
+		out = make([]*endpoint.LbEndpoint, 0, len(wayPointAddresses))
+		for _, tunnelAddress := range wayPointAddresses {
+			// Setup tunnel metadata so requests will go through the tunnel
+			metadata := &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					model.TunnelLabelShortName: util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort),
+				},
+			}
+			ep = util.BuildInternalLbEndpoint(networking.ConnectOriginate, metadata)
+			ep.LoadBalancingWeight = &wrappers.UInt32Value{
+				Value: e.GetLoadBalancingWeight(),
+			}
+			ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+				},
+			}
+			out = append(out, ep)
 		}
 	}
 
-	return ep
+	return out
+}
+
+func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
+	// Other side is a waypoint proxy.
+	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
+		return true
+	}
+
+	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
+	if b.push.SupportsTunnel(e.Address) {
+		return true
+	}
+	// Otherwise supports tunnel
+	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
+	// need to pick the right one based on our support overlap.
+	if e.SupportsTunnel(model.TunnelHTTP) {
+		return true
+	}
+	return false
 }
 
 // waypointInScope computes whether the endpoint is owned by the waypoint

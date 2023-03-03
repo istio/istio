@@ -614,7 +614,9 @@ func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []network
 			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			for _, e := range testEndpoints {
-				e.AssertInvarianceInTest()
+				if !b.proxy.EnableHBONE() {
+					e.AssertInvarianceInTest()
+				}
 			}
 			compareEndpoints(t, filtered, tt.want)
 
@@ -717,7 +719,9 @@ func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFil
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			filtered = b.EndpointsWithMTLSFilter(filtered)
 			for _, e := range testEndpoints {
-				e.AssertInvarianceInTest()
+				if !b.proxy.EnableHBONE() {
+					e.AssertInvarianceInTest()
+				}
 			}
 			compareEndpoints(t, filtered, tt.want)
 
