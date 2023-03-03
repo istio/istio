@@ -17,6 +17,8 @@ package kuberesource
 import (
 	"fmt"
 
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -25,6 +27,8 @@ import (
 
 func SkipExcludedCollections(requiredCols []config.GroupVersionKind, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
 	resultBuilder := collection.NewSchemasBuilder()
+
+	var requirePod bool
 	for _, gv := range requiredCols {
 		s, f := collections.All.FindByGroupVersionKind(gv)
 		if !f {
@@ -48,7 +52,21 @@ func SkipExcludedCollections(requiredCols []config.GroupVersionKind, excludedRes
 			continue
 		}
 
+		if gv.Kind == name.PodStr {
+			requirePod = true
+		}
 		_ = resultBuilder.Add(s)
+	}
+	if requirePod {
+		// If we require pods, we need to add its higher level workload resources in case of needing to.
+		// This is a bit of a hack, but it's the best we can do without missing any workload file configs.
+		for k := range file.WorkloadKinds {
+			s, f := collections.All.FindByGroupVersionKind(k)
+			if !f {
+				continue
+			}
+			_ = resultBuilder.Add(s)
+		}
 	}
 
 	return resultBuilder.Build()

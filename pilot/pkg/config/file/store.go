@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/operator/pkg/name"
 	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -465,12 +464,12 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	return cfgs, nil
 }
 
+var WorkloadKinds = map[config.GroupVersionKind]bool{
+	gvk.Deployment: true,
+}
+
 func isWorkload(gvk config.GroupVersionKind) bool {
-	switch gvk.Kind {
-	case name.StatefulSetStr, name.DaemonSetStr, name.ReplicaSetStr, name.DeploymentStr, name.JobStr, name.CronJobStr:
-		return true
-	}
-	return false
+	return WorkloadKinds[gvk]
 }
 
 // generateAnalyzePodFromWorkloadTemplate creates a fake pod from a workload template, to mimic the behavior of the
@@ -551,8 +550,7 @@ const (
 )
 
 // ToConfig converts the given object and proto to a config.Config
-func ToConfig(object metav1.Object, schema sresource.Schema, source resource.Reference, fieldMap map[string]int,
-	fromFile bool) (*config.Config, error) {
+func ToConfig(object metav1.Object, schema sresource.Schema, source resource.Reference, fieldMap map[string]int, fromFile bool) (*config.Config, error) {
 	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
 	if err != nil {
 		return nil, err

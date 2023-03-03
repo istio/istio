@@ -82,8 +82,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: httpbin8001-gateway
-  namespace: test-valid
+  name: test-valid-gateway
 spec:
   selector:
     myapp: gateway
@@ -95,11 +94,10 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-ingressgateway
-  namespace: test-valid
+  name: test-valid-gateway-deploy
 spec:
   selector:
     matchLabels:
@@ -112,3 +110,15 @@ spec:
       containers:
         - args:
           name: istio-proxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-valid-gateway-deploy
+spec:
+  ports:
+  - name: http2
+    port: 8001
+    protocol: TCP
+  selector:
+    myapp: gateway
