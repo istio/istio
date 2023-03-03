@@ -618,3 +618,29 @@ messages:
     args:
       - name: podNames
         type: "[]string"
+
+  - name: "ConflictingTelemetryWorkloadSelectors"
+    code: IST0159
+    level: Error
+    description: "A Telemetry resource selects the same workloads as another Telemetry resource"
+    template: "The Telemetries %v in namespace %q select the same workload pod %q, which can lead to undefined behavior."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0159/"
+    args:
+      - name: conflictingTelemetries
+        type: "[]string"
+      - name: namespace
+        type: string
+      - name: workloadPod
+        type: string
+
+  - name: "MultipleTelemetriesWithoutWorkloadSelectors"
+    code: IST0160
+    level: Error
+    description: "More than one telemetry resource in a namespace has no workload selector"
+    template: "The Telemetries %v in namespace %q have no workload selector, which can lead to undefined behavior."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0160/"
+    args:
+      - name: conflictingTelemetries
+        type: "[]string"
+      - name: namespace
+        type: string
