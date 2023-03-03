@@ -154,7 +154,6 @@ type ServiceInstancePort struct {
 }
 
 func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
-	inboundChainConfigs := lb.buildInboundChainConfigs()
 	routes := []*route.Route{{
 		Match: &route.RouteMatch{
 			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
@@ -181,6 +180,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		TrafficDirection:  core.TrafficDirection_INBOUND,
 	}
 
+	inboundChainConfigs := lb.buildInboundChainConfigs()
 	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
 		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)

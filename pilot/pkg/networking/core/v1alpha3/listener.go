@@ -104,18 +104,17 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	case model.SidecarProxy:
 		builder = configgen.buildSidecarListeners(builder)
 	case model.Waypoint:
-		builder = configgen.buildSidecarListeners(builder)
+		builder = configgen.buildWaypointListeners(builder)
 	case model.Router:
 		builder = configgen.buildGatewayListeners(builder)
 	}
 
 	builder.patchListeners()
 	l := builder.getListeners()
-	if builder.node.EnableHBONE() {
-		if !builder.node.IsAmbient() {
-			l = append(l, sidecarOutboundTunnelListener(builder.node))
-		}
+	if builder.node.EnableHBONE() && !builder.node.IsAmbient() {
+		l = append(l, outboundTunnelListener(builder.node))
 	}
+
 	return l
 }
 
@@ -214,6 +213,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(builder *ListenerBui
 			buildHTTPProxyListener().
 			buildVirtualOutboundListener()
 	}
+	return builder
+}
+
+// buildWaypointListeners produces a list of listeners for waypoint
+func (configgen *ConfigGeneratorImpl) buildWaypointListeners(builder *ListenerBuilder) *ListenerBuilder {
+	builder.inboundListeners = builder.buildWaypointInbound()
 	return builder
 }
 
@@ -1651,8 +1656,8 @@ func listenerKey(bind string, port int) string {
 
 const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
 
-// sidecarOutboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
-func sidecarOutboundTunnelListener(proxy *model.Proxy) *listener.Listener {
+// outboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
+func outboundTunnelListener(proxy *model.Proxy) *listener.Listener {
 	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
 	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
 	baggage := fmt.Sprintf(baggageFormat,
