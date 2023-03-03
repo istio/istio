@@ -298,7 +298,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				}
 			}
 
-			envoyEndpoints := []*endpoint.LbEndpoint{ep.EnvoyEndpoint}
+			var envoyEndpoints []*endpoint.LbEndpoint
 			// Currently the HBONE implementation leads to different endpoint generation depending on if the
 			// client proxy supports HBONE or not. This breaks the cache.
 			// For now, just disable caching if the global HBONE flag is enabled.
@@ -419,7 +419,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) []*endpoin
 		return []*endpoint.LbEndpoint{ep}
 	}
 
-	var out []*endpoint.LbEndpoint
 	address, port := e.Address, e.EndpointPort
 	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
 
@@ -444,11 +443,11 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) []*endpoin
 				Value: e.GetLoadBalancingWeight(),
 			}
 		}
-		out = []*endpoint.LbEndpoint{ep}
+		return []*endpoint.LbEndpoint{ep}
 	} else if supportsTunnel {
 		var wayPointAddresses []string
 		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
-		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
+		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() {
 			workloads := findWaypoints(b.push, e)
 			for _, wl := range workloads {
 				wayPointAddresses = append(wayPointAddresses, wl.String())
@@ -457,7 +456,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) []*endpoin
 		if len(wayPointAddresses) == 0 {
 			wayPointAddresses = []string{tunnelAddress}
 		}
-		out = make([]*endpoint.LbEndpoint, 0, len(wayPointAddresses))
+		out := make([]*endpoint.LbEndpoint, 0, len(wayPointAddresses))
 		for _, tunnelAddress := range wayPointAddresses {
 			// Setup tunnel metadata so requests will go through the tunnel
 			metadata := &core.Metadata{
@@ -476,9 +475,10 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) []*endpoin
 			}
 			out = append(out, ep)
 		}
+		return out
 	}
 
-	return out
+	return []*endpoint.LbEndpoint{ep}
 }
 
 func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
