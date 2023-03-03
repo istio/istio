@@ -89,22 +89,16 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 }
 
 func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
-	if lb.node.IsWaypointProxy() {
-		lb.inboundListeners = lb.buildWaypointInbound()
-	} else {
-		lb.inboundListeners = lb.buildInboundListeners()
-		if lb.node.EnableHBONE() {
-			lb.inboundListeners = append(lb.inboundListeners, lb.buildInboundHBONEListeners()...)
-		}
+	lb.inboundListeners = lb.buildInboundListeners()
+	if lb.node.EnableHBONE() {
+		lb.inboundListeners = append(lb.inboundListeners, lb.buildInboundHBONEListeners()...)
 	}
 
 	return lb
 }
 
 func (lb *ListenerBuilder) appendSidecarOutboundListeners() *ListenerBuilder {
-	if !lb.node.IsAmbient() {
-		lb.outboundListeners = lb.buildSidecarOutboundListeners(lb.node, lb.push)
-	}
+	lb.outboundListeners = lb.buildSidecarOutboundListeners(lb.node, lb.push)
 	return lb
 }
 
@@ -119,7 +113,7 @@ func (lb *ListenerBuilder) buildHTTPProxyListener() *ListenerBuilder {
 }
 
 func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
-	if lb.node.GetInterceptionMode() == model.InterceptionNone || lb.node.IsWaypointProxy() {
+	if lb.node.GetInterceptionMode() == model.InterceptionNone {
 		// virtual listener is not necessary since workload is not using IPtables for traffic interception
 		return lb
 	}

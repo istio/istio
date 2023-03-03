@@ -275,7 +275,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 	{
 		// Direct pod access chain.
 		cc := inboundChainConfig{
-			clusterName: "encap",
+			clusterName: EncapCluster.Name,
 			port: ServiceInstancePort{
 				Name:     "unknown",
 				Protocol: protocol.TCP,
