@@ -303,11 +303,11 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			// client proxy supports HBONE or not. This breaks the cache.
 			// For now, just disable caching if the global HBONE flag is enabled.
 			if ep.EnvoyEndpoint == nil || features.EnableHBONE {
-				eeps := buildEnvoyLbEndpoint(b, ep)
-				if len(eeps) == 0 {
+				envoyEndpoints = buildEnvoyLbEndpoint(b, ep)
+				if len(envoyEndpoints) == 0 {
 					continue
 				}
-				ep.EnvoyEndpoint = eeps[0]
+				ep.EnvoyEndpoint = envoyEndpoints[0]
 			} else {
 				envoyEndpoints = []*endpoint.LbEndpoint{ep.EnvoyEndpoint}
 			}
