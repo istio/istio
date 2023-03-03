@@ -168,7 +168,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
-		clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, proxy)...)
+		clusters = append(clusters, configgen.buildInboundHBONEClusters(proxy)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
