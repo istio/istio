@@ -60,10 +60,14 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
-var hboneTransportSocketMatch = &structpb.Struct{
-	Fields: map[string]*structpb.Value{
-		model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+var hboneTransportSocket = &cluster.Cluster_TransportSocketMatch{
+	Name: "hbone",
+	Match: &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+		},
 	},
+	TransportSocket: InternalUpstreamSocket,
 }
 
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
@@ -992,11 +996,7 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 			transportSocket := c.TransportSocket
 			c.TransportSocket = nil
 			c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-				{
-					Name:            "hbone",
-					Match:           hboneTransportSocketMatch,
-					TransportSocket: InternalUpstreamSocket,
-				},
+				hboneTransportSocket,
 				{
 					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
 					Match:           istioMtlsTransportSocketMatch,
@@ -1012,11 +1012,7 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 				c.TransportSocket = nil
 
 				c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-					{
-						Name:            "hbone",
-						Match:           hboneTransportSocketMatch,
-						TransportSocket: InternalUpstreamSocket,
-					},
+					hboneTransportSocket,
 					{
 						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
 						TransportSocket: ts,

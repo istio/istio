@@ -59,11 +59,8 @@ var (
 	EncapCluster        = buildInternalUpstreamCluster("encap", ConnectOriginate)
 )
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(proxy *model.Proxy) []*cluster.Cluster {
-	if !proxy.EnableHBONE() {
-		return nil
-	}
-	return []*cluster.Cluster{MainInternalCluster}
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters() *cluster.Cluster {
+	return MainInternalCluster
 }
 
 func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(

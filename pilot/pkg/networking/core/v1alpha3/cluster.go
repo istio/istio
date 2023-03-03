@@ -168,7 +168,9 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
-		clusters = append(clusters, configgen.buildInboundHBONEClusters(proxy)...)
+		if proxy.EnableHBONE() {
+			clusters = append(clusters, configgen.buildInboundHBONEClusters())
+		}
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
@@ -1031,11 +1033,7 @@ func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
 }
 
 var HboneOrPlaintextSocket = []*cluster.Cluster_TransportSocketMatch{
-	{
-		Name:            "hbone",
-		Match:           hboneTransportSocketMatch,
-		TransportSocket: InternalUpstreamSocket,
-	},
+	hboneTransportSocket,
 	defaultTransportSocketMatch(),
 }
 
