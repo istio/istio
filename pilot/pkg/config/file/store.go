@@ -438,6 +438,9 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 
 	pos := kube2.Position{Filename: name, Line: lineNum}
 	c, err := ToConfig(objMeta, schema, &pos, fieldMap, false)
+	if err != nil {
+		return nil, err
+	}
 	cfgs := []kubeResource{
 		{
 			schema: schema,
