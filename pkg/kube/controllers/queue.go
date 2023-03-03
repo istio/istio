@@ -15,6 +15,8 @@
 package controllers
 
 import (
+	"fmt"
+
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
@@ -150,7 +152,7 @@ func (q Queue) processNextItem() bool {
 		return true
 	}
 
-	q.log.Debugf("handling update: %v", key)
+	q.log.Debugf("handling update: %v", formatKey(key))
 
 	// 'Done marks item as done processing' - should be called at the end of all processing
 	defer q.queue.Done(key)
@@ -159,14 +161,31 @@ func (q Queue) processNextItem() bool {
 	if err != nil {
 		retryCount := q.queue.NumRequeues(key) + 1
 		if retryCount < q.maxAttempts {
-			q.log.Errorf("error handling %v, retrying (retry count: %d): %v", key, retryCount, err)
+			q.log.Errorf("error handling %v, retrying (retry count: %d): %v", formatKey(key), retryCount, err)
 			q.queue.AddRateLimited(key)
 			// Return early, so we do not call Forget(), allowing the rate limiting to backoff
 			return true
 		}
-		q.log.Errorf("error handling %v, and retry budget exceeded: %v", key, err)
+		q.log.Errorf("error handling %v, and retry budget exceeded: %v", formatKey(key), err)
 	}
 	// 'Forget indicates that an item is finished being retried.' - should be called whenever we do not want to backoff on this key.
 	q.queue.Forget(key)
 	return true
+}
+
+func formatKey(key any) string {
+	if t, ok := key.(Event); ok {
+		key = t.Latest()
+	}
+	if t, ok := key.(types.NamespacedName); ok {
+		return t.String()
+	}
+	if t, ok := key.(Object); ok {
+		return t.GetNamespace() + "/" + t.GetName()
+	}
+	res := fmt.Sprint(key)
+	if len(res) >= 50 {
+		return res[:50]
+	}
+	return res
 }
