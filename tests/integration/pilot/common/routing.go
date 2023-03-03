@@ -19,8 +19,8 @@ package common
 
 import (
 	"fmt"
-	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"reflect"
 	"sort"
@@ -2922,10 +2922,10 @@ spec:
 `, t.Apps.EchoNamespace.Namespace.Name())
 
 	fakeExternalAddress := t.Apps.External.All[0].Address()
-	parsedIP := net.ParseIP(fakeExternalAddress)
-	if parsedIP != nil {
-		if parsedIP.To4() == nil && parsedIP.To16() != nil {
-			// CI has issues with ipv6 DNS resolution, due to which
+	parsedIP, err := netip.ParseAddr(fakeExternalAddress)
+	if err == nil {
+		if parsedIP.Is6() {
+			// CI has some issues with ipv6 DNS resolution, due to which
 			// we are not able to directly use the host name in the connectivity tests.
 			// Hence using a bogus IPv6 address with -HHost option as a workaround to
 			// simulate ServiceEntry based wildcard listener scenarios.
