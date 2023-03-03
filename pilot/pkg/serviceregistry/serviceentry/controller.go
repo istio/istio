@@ -256,7 +256,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		}
 	}
 
-	cfgs, _ := s.store.List(gvk.ServiceEntry, curr.Namespace)
+	cfgs := s.store.List(gvk.ServiceEntry, curr.Namespace)
 	currSes := getWorkloadServiceEntries(cfgs, wle)
 	var oldSes map[types.NamespacedName]*config.Config
 	if oldWle != nil {
@@ -501,7 +501,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	}
 
 	// We will only select entries in the same namespace
-	cfgs, _ := s.store.List(gvk.ServiceEntry, wi.Namespace)
+	cfgs := s.store.List(gvk.ServiceEntry, wi.Namespace)
 	if len(cfgs) == 0 {
 		s.mutex.Unlock()
 		return

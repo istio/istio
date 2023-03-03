@@ -113,8 +113,7 @@ func TestMonitorForChange(t *testing.T) {
 		}
 	}()
 	g.Eventually(func() error {
-		c, err := store.List(gvk.Gateway, "")
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		c := store.List(gvk.Gateway, "")
 
 		if len(c) != 1 {
 			return errors.New("no configs")
@@ -128,8 +127,7 @@ func TestMonitorForChange(t *testing.T) {
 	}).Should(gomega.Succeed())
 
 	g.Eventually(func() error {
-		c, err := store.List(gvk.Gateway, "")
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		c := store.List(gvk.Gateway, "")
 		if len(c) == 0 {
 			return errors.New("no config")
 		}
@@ -142,7 +140,7 @@ func TestMonitorForChange(t *testing.T) {
 		return nil
 	}).Should(gomega.Succeed())
 
-	g.Eventually(func() ([]config.Config, error) {
+	g.Eventually(func() []config.Config {
 		return store.List(gvk.Gateway, "")
 	}).Should(gomega.HaveLen(0))
 }
@@ -218,8 +216,7 @@ func TestMonitorForError(t *testing.T) {
 	// nil data return and error return keeps the existing data aka createConfigSet
 	<-delay
 	g.Eventually(func() error {
-		c, err := store.List(gvk.Gateway, "")
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		c := store.List(gvk.Gateway, "")
 
 		if len(c) != 1 {
 			return errors.New("config files erased on Copilot error")

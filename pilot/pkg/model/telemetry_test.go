@@ -84,10 +84,7 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 		ConfigStore: store,
 		Watcher:     mesh.NewFixedWatcher(m),
 	}
-	telemetries, err := getTelemetries(environment)
-	if err != nil {
-		t.Fatalf("getTelemetries failed: %v", err)
-	}
+	telemetries := getTelemetries(environment)
 
 	ctx := NewPushContext()
 	ctx.Mesh = m
@@ -135,7 +132,7 @@ func (ts *telemetryStore) Get(_ config.GroupVersionKind, _, _ string) *config.Co
 	return nil
 }
 
-func (ts *telemetryStore) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (ts *telemetryStore) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	var configs []config.Config
 	for _, data := range ts.data {
 		if data.typ == typ {
@@ -145,7 +142,7 @@ func (ts *telemetryStore) List(typ config.GroupVersionKind, namespace string) ([
 			configs = append(configs, data.cfg)
 		}
 	}
-	return configs, nil
+	return configs
 }
 
 func newTracingConfig(providerName string, disabled bool) *TracingConfig {

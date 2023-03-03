@@ -166,11 +166,8 @@ func (c *Controller) Delete(kind config.GroupVersionKind, key, namespace string,
 	return errors.New("Delete failure: config" + key + "does not exist")
 }
 
-func (c *Controller) List(kind config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	configs, err := c.configStore.List(kind, namespace)
-	if err != nil {
-		return nil, err
-	}
+func (c *Controller) List(kind config.GroupVersionKind, namespace string) []config.Config {
+	configs := c.configStore.List(kind, namespace)
 	if c.namespacesFilter != nil {
 		var out []config.Config
 		for _, config := range configs {
@@ -178,7 +175,7 @@ func (c *Controller) List(kind config.GroupVersionKind, namespace string) ([]con
 				out = append(out, config)
 			}
 		}
-		return out, err
+		return out
 	}
-	return configs, nil
+	return configs
 }

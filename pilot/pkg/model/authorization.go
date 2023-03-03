@@ -40,16 +40,13 @@ type AuthorizationPolicies struct {
 }
 
 // GetAuthorizationPolicies returns the AuthorizationPolicies for the given environment.
-func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) {
+func GetAuthorizationPolicies(env *Environment) *AuthorizationPolicies {
 	policy := &AuthorizationPolicies{
 		NamespaceToPolicies: map[string][]AuthorizationPolicy{},
 		RootNamespace:       env.Mesh().GetRootNamespace(),
 	}
 
-	policies, err := env.List(gvk.AuthorizationPolicy, NamespaceAll)
-	if err != nil {
-		return nil, err
-	}
+	policies := env.List(gvk.AuthorizationPolicy, NamespaceAll)
 	sortConfigByCreationTime(policies)
 	for _, config := range policies {
 		authzConfig := AuthorizationPolicy{
@@ -61,7 +58,7 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 		policy.NamespaceToPolicies[config.Namespace] = append(policy.NamespaceToPolicies[config.Namespace], authzConfig)
 	}
 
-	return policy, nil
+	return policy
 }
 
 type AuthorizationPoliciesResult struct {

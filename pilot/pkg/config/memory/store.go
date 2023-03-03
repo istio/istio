@@ -92,12 +92,12 @@ func (cr *store) Get(kind config.GroupVersionKind, name, namespace string) *conf
 	return &config
 }
 
-func (cr *store) List(kind config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (cr *store) List(kind config.GroupVersionKind, namespace string) []config.Config {
 	cr.mutex.RLock()
 	defer cr.mutex.RUnlock()
 	data, exists := cr.data[kind]
 	if !exists {
-		return nil, nil
+		return nil
 	}
 	out := make([]config.Config, 0, len(cr.data[kind]))
 	if namespace == "" {
@@ -109,13 +109,13 @@ func (cr *store) List(kind config.GroupVersionKind, namespace string) ([]config.
 	} else {
 		ns, exists := data[namespace]
 		if !exists {
-			return nil, nil
+			return nil
 		}
 		for _, value := range ns {
 			out = append(out, value.(config.Config))
 		}
 	}
-	return out, nil
+	return out
 }
 
 func (cr *store) Delete(kind config.GroupVersionKind, name, namespace string, resourceVersion *string) error {

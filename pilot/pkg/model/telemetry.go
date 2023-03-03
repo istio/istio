@@ -108,7 +108,7 @@ type metricsKey struct {
 }
 
 // getTelemetries returns the Telemetry configurations for the given environment.
-func getTelemetries(env *Environment) (*Telemetries, error) {
+func getTelemetries(env *Environment) *Telemetries {
 	telemetries := &Telemetries{
 		NamespaceToTelemetries: map[string][]Telemetry{},
 		RootNamespace:          env.Mesh().GetRootNamespace(),
@@ -117,10 +117,7 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 		computedLoggingConfig:  map[loggingKey][]LoggingConfig{},
 	}
 
-	fromEnv, err := env.List(gvk.Telemetry, NamespaceAll)
-	if err != nil {
-		return nil, err
-	}
+	fromEnv := env.List(gvk.Telemetry, NamespaceAll)
 	sortConfigByCreationTime(fromEnv)
 	for _, config := range fromEnv {
 		telemetry := Telemetry{
@@ -131,7 +128,7 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 		telemetries.NamespaceToTelemetries[config.Namespace] = append(telemetries.NamespaceToTelemetries[config.Namespace], telemetry)
 	}
 
-	return telemetries, nil
+	return telemetries
 }
 
 type metricsConfig struct {

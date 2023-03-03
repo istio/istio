@@ -107,20 +107,16 @@ func (cr *store) Get(typ config.GroupVersionKind, name, namespace string) *confi
 }
 
 // List all configs in the stores.
-func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (cr *store) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	if len(cr.stores[typ]) == 0 {
-		return nil, nil
+		return nil
 	}
-	var errs *multierror.Error
 	var configs []config.Config
 	// Used to remove duplicated config
 	configMap := sets.New[string]()
 
 	for _, store := range cr.stores[typ] {
-		storeConfigs, err := store.List(typ, namespace)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		}
+		storeConfigs := store.List(typ, namespace)
 		for _, cfg := range storeConfigs {
 			key := cfg.GroupVersionKind.Kind + cfg.Namespace + cfg.Name
 			if !configMap.InsertContains(key) {
@@ -128,7 +124,7 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.C
 			}
 		}
 	}
-	return configs, errs.ErrorOrNil()
+	return configs
 }
 
 func (cr *store) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
