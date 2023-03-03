@@ -895,29 +895,25 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 		Name: name,
 	}
 
-	switch m := in.MatchType.(type) {
-	case *networking.StringMatch_Exact:
-		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
-			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}},
+	if isCatchAllStringMatch(in) {
+		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_PresentMatch{
+			PresentMatch: true,
 		}
-	case *networking.StringMatch_Regex:
+		return out
+	}
+
+	if em := util.ConvertToEnvoyMatch(in); em != nil {
 		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
-			StringMatch: &matcher.StringMatcher{
-				MatchPattern: &matcher.StringMatcher_SafeRegex{
-					SafeRegex: &matcher.RegexMatcher{
-						Regex: m.Regex,
-					},
-				},
-			},
+			StringMatch: em,
 		}
 	}
 
 	return out
 }
 
-// isCatchAllHeaderMatch determines if the given header is matched with all strings or not.
+// isCatchAllStringMatch determines if the given matcher is matched with all strings or not.
 // Currently, if the regex has "*" value, it returns true
-func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
+func isCatchAllStringMatch(in *networking.StringMatch) bool {
 	if in == nil {
 		return true
 	}
@@ -954,7 +950,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 		Name: name,
 	}
 
-	if isCatchAllHeaderMatch(in) {
+	if isCatchAllStringMatch(in) {
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_PresentMatch{PresentMatch: true}
 		return out
 	}
