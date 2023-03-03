@@ -537,6 +537,10 @@ func (b bindStatus) String() string {
 // clusterOrigin defines an Origin that refers to the cluster
 type clusterOrigin struct{}
 
+func (o clusterOrigin) IsFromFile() bool {
+	return false
+}
+
 func (o clusterOrigin) String() string {
 	return ""
 }
