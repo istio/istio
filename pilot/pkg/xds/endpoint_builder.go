@@ -435,6 +435,10 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 		requestsTunnel = false
 	}
 
+	if features.EnableHBONE {
+		requestsTunnel = false
+	}
+
 	// Setup tunnel information, if needed
 	if b.dir == model.TrafficDirectionInboundVIP {
 		// This is only used in waypoint proxy
