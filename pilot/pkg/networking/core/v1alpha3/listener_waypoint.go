@@ -542,7 +542,7 @@ func (lb *ListenerBuilder) translateRoute(
 
 	out := &route.Route{
 		Name:     routeName,
-		Match:    istio_route.TranslateRouteMatch(lb.node, virtualService, match),
+		Match:    istio_route.TranslateRouteMatch(virtualService, match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 	authority := ""
@@ -557,6 +557,8 @@ func (lb *ListenerBuilder) translateRoute(
 
 	if in.Redirect != nil {
 		istio_route.ApplyRedirect(out, in.Redirect, listenPort, model.UseGatewaySemantics(virtualService))
+	} else if in.DirectResponse != nil {
+		istio_route.ApplyDirectResponse(out, in.DirectResponse)
 	} else {
 		lb.routeDestination(out, in, authority, listenPort)
 	}
