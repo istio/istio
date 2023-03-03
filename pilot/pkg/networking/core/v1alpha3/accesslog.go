@@ -36,6 +36,9 @@ const (
 	// EnvoyServerName for istio's envoy
 	EnvoyServerName = "istio-envoy"
 
+	// EnvoyWaypoint for ambient waypoint
+	EnvoyWaypoint = "waypoint-envoy"
+
 	celFilter                          = "envoy.access_loggers.extension_filters.cel"
 	listenerEnvoyAccessLogFriendlyName = "listener_envoy_accesslog"
 

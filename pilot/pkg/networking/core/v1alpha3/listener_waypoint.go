@@ -135,7 +135,7 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 			Uri:     true,
 			Dns:     true,
 		},
-		ServerName:       EnvoyServerName,
+		ServerName:       EnvoyWaypoint,
 		UseRemoteAddress: proto.BoolFalse,
 	}
 
@@ -178,7 +178,8 @@ func (lb *ListenerBuilder) buildConnectTerminateListener(routes []*route.Route) 
 				TransportSocket: &core.TransportSocket{
 					Name: "tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
-						CommonTlsContext: buildCommonTLSContext(lb.node, lb.push),
+						CommonTlsContext:         buildCommonConnectTLSContext(lb.node, lb.push),
+						RequireClientCertificate: &wrappers.BoolValue{Value: true},
 					})},
 				},
 				Filters: lb.buildHCMConnectTerminateChain(routes),
@@ -409,22 +410,11 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, po
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig, pre, post []*hcm.HttpFilter) []*listener.Filter {
 	var filters []*listener.Filter
-	if !lb.node.IsAmbient() {
-		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
-	}
-
 	httpOpts := &httpListenerOpts{
 		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
-			// Append and forward client cert to backend.
-			ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
-			SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
-				Subject: proto.BoolTrue,
-				Uri:     true,
-				Dns:     true,
-			},
 			ServerName: EnvoyServerName,
 		},
 		protocol:   cc.port.Protocol,
@@ -723,10 +713,21 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 	)
 }
 
-// TODO remove dupe with ztunnelgen
-func buildCommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
+// NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used with this function.
+func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), true)
+	security.ApplyToCommonTLSContext(ctx, proxy, nil, nil, true)
+	aliases := authn.TrustDomainsForValidation(push.Mesh)
+	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
+	if len(aliases) > 0 {
+		matchers := util.StringToPrefixMatch(security.AppendURIPrefixToTrustDomain(aliases))
+		for _, matcher := range matchers {
+			validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
+				SanType: tls.SubjectAltNameMatcher_URI,
+				Matcher: matcher,
+			})
+		}
+	}
 	ctx.AlpnProtocols = []string{"h2"}
 	ctx.TlsParams = &tls.TlsParameters{
 		// Ensure TLS 1.3 is used everywhere

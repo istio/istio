@@ -19,6 +19,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
@@ -28,9 +29,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
-	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
@@ -39,18 +38,32 @@ import (
 	"istio.io/pkg/log"
 )
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, proxy *model.Proxy) []*cluster.Cluster {
+// buildInternalUpstreamCluster builds a single endpoint cluster to the internal listener.
+func buildInternalUpstreamCluster(name string, internalListener string) *cluster.Cluster {
+	return &cluster.Cluster{
+		Name:                 name,
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+		LoadAssignment: &endpoint.ClusterLoadAssignment{
+			ClusterName: name,
+			Endpoints:   util.BuildInternalEndpoint(internalListener, nil),
+		},
+		TransportSocket: util.InternalUpstreamTransportSocket(),
+		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
+		},
+	}
+}
+
+var (
+	MainInternalCluster = buildInternalUpstreamCluster(MainInternalName, MainInternalName)
+	EncapCluster        = buildInternalUpstreamCluster("encap", ConnectOriginate)
+)
+
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(proxy *model.Proxy) []*cluster.Cluster {
 	if !proxy.EnableHBONE() {
 		return nil
 	}
-	// This TCP cluster routes to "internal" listener.
-	clusterType := cluster.Cluster_STATIC
-	llb := util.BuildInternalEndpoint(MainInternalName, nil)
-	localCluster := cb.buildDefaultCluster(MainInternalName, clusterType, llb,
-		model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
-	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()
-	return []*cluster.Cluster{localCluster.build()}
+	return []*cluster.Cluster{MainInternalCluster}
 }
 
 func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
@@ -62,7 +75,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	clusters := make([]*cluster.Cluster, 0)
 	// Creates "main_internal" cluster to route to the main internal listener.
 	// Creates "encap" listener to route to the encap listener.
-	clusters = append(clusters, cb.buildWaypointInboundInternal()...)
+	clusters = append(clusters, MainInternalCluster, EncapCluster)
 	// Creates per-VIP load balancing upstreams.
 	clusters = append(clusters, cb.buildWaypointInboundVIP(svcs)...)
 	// Upstream of the "encap" listener.
@@ -98,52 +111,9 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, por
 
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket(util.TunnelHostMetadata, util.IstioHostMetadata)
+	localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket(util.TunnelHostMetadata)
 	maybeApplyEdsConfig(localCluster.cluster)
 	return localCluster
-}
-
-var InternalUpstreamSocketMatch = []*cluster.Cluster_TransportSocketMatch{
-	{
-		Name: "internal_upstream",
-		Match: &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
-			},
-		},
-		TransportSocket: util.InternalUpstreamTransportSocket(util.TunnelHostMetadata, util.IstioHostMetadata),
-	},
-	defaultTransportSocketMatch(),
-}
-
-var BaggagePassthroughTransportSocket = util.InternalUpstreamTransportSocket(util.IstioClusterMetadata, util.IstioHostMetadata)
-
-func (cb *ClusterBuilder) buildWaypointInboundInternal() []*cluster.Cluster {
-	clusters := []*cluster.Cluster{}
-	{
-		// This TCP cluster routes to "internal" listener.
-		clusterType := cluster.Cluster_STATIC
-		llb := util.BuildInternalEndpoint(MainInternalName, nil)
-		localCluster := cb.buildDefaultCluster(MainInternalName, clusterType, llb,
-			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
-		localCluster.cluster.TransportSocketMatches = nil
-		localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()
-		clusters = append(clusters, localCluster.build())
-	}
-	{
-		// This TCP/HTTP cluster routes from "internal" listener.
-		clusterType := cluster.Cluster_STATIC
-		llb := util.BuildInternalEndpoint(ConnectOriginate, nil)
-		localCluster := cb.buildDefaultCluster("encap", clusterType, llb,
-			model.TrafficDirectionInbound, &model.Port{Protocol: protocol.TCP}, nil, nil)
-		localCluster.cluster.TransportSocketMatches = nil
-		localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket()
-		localCluster.cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
-			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
-		}
-		clusters = append(clusters, localCluster.build())
-	}
-	return clusters
 }
 
 // `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
@@ -196,34 +166,13 @@ func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push
 }
 
 func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.PushContext, uriSanMatcher *matcher.StringMatcher) *cluster.Cluster {
-	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, nil, true)
-
+	ctx := buildCommonConnectTLSContext(proxy, push)
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
-
-	// NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used.
 	if uriSanMatcher != nil {
 		validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
 			SanType: tls.SubjectAltNameMatcher_URI,
 			Matcher: uriSanMatcher,
 		})
-	}
-	aliases := authn.TrustDomainsForValidation(push.Mesh)
-	if len(aliases) > 0 {
-		matchers := util.StringToPrefixMatch(security.AppendURIPrefixToTrustDomain(aliases))
-		for _, matcher := range matchers {
-			validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
-				SanType: tls.SubjectAltNameMatcher_URI,
-				Matcher: matcher,
-			})
-		}
-	}
-
-	ctx.AlpnProtocols = []string{"h2"}
-	ctx.TlsParams = &tls.TlsParameters{
-		// Ensure TLS 1.3 is used everywhere
-		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
-		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
 	return &cluster.Cluster{
 		Name:                          ConnectOriginate,
