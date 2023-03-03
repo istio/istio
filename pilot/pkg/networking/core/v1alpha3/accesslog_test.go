@@ -463,9 +463,9 @@ func TestSetHttpAccessLog(t *testing.T) {
 				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-with-server-accesslog-filter"}},
 			},
-			hcm:   &hcm.HttpConnectionManager{},
+			hcm:   &httppb.HttpConnectionManager{},
 			class: networking.ListenerClassSidecarOutbound,
-			expected: &hcm.HttpConnectionManager{
+			expected: &httppb.HttpConnectionManager{
 				AccessLog: []*accesslog.AccessLog{
 					{
 						Name:       wellknown.FileAccessLog,
