@@ -389,6 +389,11 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) []config.
 
 	list, err := h.lister(namespace).List(klabels.Everything())
 	if err != nil {
+		// Should never happen
+		if features.EnableUnsafeAssertions {
+			cl.logger.Fatalf("lister returned err for %v: %v", namespace, err)
+		}
+		cl.logger.Errorf("lister returned err for %v: %v", namespace, err)
 		return nil
 	}
 
