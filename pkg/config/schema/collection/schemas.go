@@ -96,17 +96,6 @@ func (s Schemas) ForEach(handleSchema func(resource.Schema) (done bool)) {
 	}
 }
 
-func (s Schemas) Intersect(otherSchemas Schemas) Schemas {
-	resultBuilder := NewSchemasBuilder()
-	for _, myschema := range s.All() {
-		if _, ok := otherSchemas.FindByGroupVersionResource(myschema.GroupVersionResource()); ok {
-			// an error indicates the schema has already been added, which doesn't negatively impact intersect
-			_ = resultBuilder.Add(myschema)
-		}
-	}
-	return resultBuilder.Build()
-}
-
 func (s Schemas) Union(otherSchemas Schemas) Schemas {
 	resultBuilder := NewSchemasBuilder()
 	for _, myschema := range s.All() {
@@ -153,28 +142,6 @@ func (s Schemas) FindByGroupVersionResource(gvr schema.GroupVersionResource) (re
 	}
 
 	return nil, false
-}
-
-// FindByPlural searches and returns the first schema with the given Group, Version and plural form of the Kind
-func (s Schemas) FindByPlural(group, version, plural string) (resource.Schema, bool) {
-	for _, rs := range s.byAddOrder {
-		if rs.Plural() == plural &&
-			rs.Group() == group &&
-			rs.Version() == version {
-			return rs, true
-		}
-	}
-
-	return nil, false
-}
-
-// MustFindByGroupVersionKind calls FindByGroupVersionKind and panics if not found.
-func (s Schemas) MustFindByGroupVersionKind(gvk config.GroupVersionKind) resource.Schema {
-	r, found := s.FindByGroupVersionKind(gvk)
-	if !found {
-		panic(fmt.Sprintf("Schemas.MustFindByGroupVersionKind: unable to find %s", gvk))
-	}
-	return r
 }
 
 // All returns all known Schemas

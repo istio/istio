@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -66,7 +65,7 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "deprecation.DeprecationAnalyzer",
 		Description: "Checks for deprecated Istio types and fields",
-		Inputs:      append(deprecationInputs, collections.Deprecated.GroupVersionKinds()...),
+		Inputs:      deprecationInputs,
 	}
 }
 
@@ -84,13 +83,6 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 		fa.analyzeCRD(r, ctx)
 		return true
 	})
-	for _, s := range collections.Deprecated.GroupVersionKinds() {
-		ctx.ForEach(s, func(r *resource.Instance) bool {
-			ctx.Report(s,
-				msg.NewDeprecated(r, crDeprecatedMessage(s.String())))
-			return true
-		})
-	}
 }
 
 func (*FieldAnalyzer) analyzeCRD(r *resource.Instance, ctx analysis.Context) {
@@ -144,10 +136,6 @@ func replacedMessage(deprecated, replacement string) string {
 
 func ignoredMessage(field string) string {
 	return fmt.Sprintf("%s ignored", field)
-}
-
-func crDeprecatedMessage(typename string) string {
-	return fmt.Sprintf("Custom resource type %q is deprecated", typename)
 }
 
 func crRemovedMessage(group, kind string) string {

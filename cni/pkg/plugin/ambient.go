@@ -51,11 +51,7 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 		return false, err
 	}
 
-	if ambientpod.HasLegacyLabel(pod.Labels) || ambientpod.HasLegacyLabel(ns.Labels) {
-		return false, fmt.Errorf("ambient: pod %s/%s or namespace has legacy labels", podNamespace, podName)
-	}
-
-	if ambientpod.ShouldPodBeInMesh(ns, pod, true) {
+	if ambientpod.PodZtunnelEnabled(ns, pod) {
 		if ambientConfig.RedirectMode == ambient.EbpfMode.String() {
 			ifIndex, mac, err := ambient.GetIndexAndPeerMac(podIfname, podNetNs)
 			if err != nil {

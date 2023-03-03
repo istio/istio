@@ -18,13 +18,4 @@ package schema
 // We will generate collections twice. Once is the full collection set. The other includes only Istio types, with build tags set for agent
 // This allows the agent to use collections without importing all of Kubernetes libraries
 // nolint: lll
-//go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/collections.main.go collections metadata.yaml "$REPO_ROOT/pkg/config/schema/collections/collections.gen.go" k8s "$REPO_ROOT/pkg/config/schema/collections/collections.agent.gen.go" "agent"
-// Create gvk helpers
-//go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/collections.main.go gvk metadata.yaml "$REPO_ROOT/pkg/config/schema/gvk/resources.gen.go"
-// Create kind helpers
-//go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/collections.main.go kind metadata.yaml "$REPO_ROOT/pkg/config/schema/kind/resources.gen.go"
-
-//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/collections/collections.gen.go"
-//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/collections/collections.agent.gen.go"
-//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/gvk/resources.gen.go"
-//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/schema/kind/resources.gen.go"
+//go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/collections.main.go

@@ -402,7 +402,7 @@ func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
 func createWleConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreController, error) {
 	log.Infof("Creating WorkloadEntry only config store for %s", opts.ClusterID)
 	workloadEntriesSchemas := collection.NewSchemasBuilder().
-		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
+		MustAdd(collections.WorkloadEntry).
 		Build()
 	crdOpts := crdclient.Option{Revision: revision, DomainSuffix: opts.DomainSuffix, Identifier: "mc-workload-entry-controller"}
 	return crdclient.NewForSchemas(client, crdOpts, workloadEntriesSchemas)

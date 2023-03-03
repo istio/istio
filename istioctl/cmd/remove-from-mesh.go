@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
 )
@@ -299,8 +299,7 @@ func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernete
 	if err != nil {
 		return fmt.Errorf("service %q does not exist, skip", svcName)
 	}
-	serviceEntryGVR := collections.IstioNetworkingV1Alpha3Serviceentries.GroupVersionResource()
-	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(context.TODO(), resourceName(svcName), metav1.GetOptions{})
+	_, err = dynamicClient.Resource(gvr.ServiceEntry).Namespace(ns).Get(context.TODO(), resourceName(svcName), metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("service entry %q does not exist, skip", resourceName(svcName))
 	}
@@ -310,7 +309,7 @@ func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernete
 	}
 	name := strings.Join([]string{svcName, ns}, ".")
 	fmt.Fprintf(writer, "Kubernetes Service %q has been deleted for external service %q\n", name, svcName)
-	err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Delete(context.TODO(), resourceName(svcName), metav1.DeleteOptions{})
+	err = dynamicClient.Resource(gvr.ServiceEntry).Namespace(ns).Delete(context.TODO(), resourceName(svcName), metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete service entry %q due to %v", resourceName(svcName), err)
 	}

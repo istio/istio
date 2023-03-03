@@ -96,18 +96,18 @@ func (a *AmbientIndex) insertWorkloadToService(svcAddress string, workload *mode
 	a.byService[svcAddress] = append(a.byService[svcAddress], workload)
 }
 
-func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
+func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
 	addr := netip.MustParseAddr(ipStr).AsSlice()
 	updates := sets.New[model.ConfigKey]()
 	if isDelete {
 		for _, wl := range a.byPod {
-			if !(wl.Namespace == sa.Namespace && (sa.ServiceAccount == "" || wl.ServiceAccount == sa.ServiceAccount)) {
-				continue
-			}
 			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 				continue
 			}
-			wl := wl.Clone()
+			if wl.Namespace != scope.Namespace || (scope.ServiceAccount != "" && wl.ServiceAccount != scope.ServiceAccount) {
+				continue
+			}
+
 			addrs := make([][]byte, 0, len(wl.WaypointAddresses))
 			filtered := false
 			for _, a := range wl.WaypointAddresses {
@@ -121,21 +121,18 @@ func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDe
 			if filtered {
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
-				a.byPod[wl.ResourceName()] = wl
-				for vip := range wl.VirtualIps {
-					a.insertWorkloadToService(vip, wl)
-				}
 			}
 			updates.Merge(c.updateEndpointsOnWaypointChange(wl))
 		}
 	} else {
 		for _, wl := range a.byPod {
-			if !(wl.Namespace == sa.Namespace && (sa.ServiceAccount == "" || wl.ServiceAccount == sa.ServiceAccount)) {
-				continue
-			}
 			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 				continue
 			}
+			if wl.Namespace != scope.Namespace || (scope.ServiceAccount != "" && wl.ServiceAccount != scope.ServiceAccount) {
+				continue
+			}
+
 			found := false
 			for _, a := range wl.WaypointAddresses {
 				if bytes.Equal(a, addr) {
@@ -144,14 +141,9 @@ func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, ipStr string, isDe
 				}
 			}
 			if !found {
-				wl := wl.Clone()
 				wl.WaypointAddresses = append(wl.WaypointAddresses, addr)
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
-				a.byPod[wl.ResourceName()] = wl
-				for vip := range wl.VirtualIps {
-					a.insertWorkloadToService(vip, wl)
-				}
 			}
 			updates.Merge(c.updateEndpointsOnWaypointChange(wl))
 		}
@@ -580,17 +572,20 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	if p == nil {
 		return nil
 	}
-	// First check for a waypoint for our SA explicit
-	// TODO: this is not robust against temporary waypoint downtime. We also need the users intent (Gateway).
-	waypoints := c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace, ServiceAccount: p.Spec.ServiceAccountName}]
-	if len(waypoints) == 0 {
-		// if there are none, check namespace wide waypoints
-		waypoints = c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace}]
-	}
+	var waypoints sets.String
 	if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		// Waypoints do not have waypoints
 		waypoints = nil
+	} else {
+		// First check for a waypoint for our SA explicit
+		// TODO: this is not robust against temporary waypoint downtime. We also need the users intent (Gateway).
+		waypoints = c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace, ServiceAccount: p.Spec.ServiceAccountName}]
+		if len(waypoints) == 0 {
+			// if there are none, check namespace wide waypoints
+			waypoints = c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace}]
+		}
 	}
+
 	policies := c.selectorAuthorizationPolicies(p.Namespace, p.Labels)
 	wl := c.constructWorkload(p, sets.SortedList(waypoints), policies)
 	if wl == nil {
@@ -629,24 +624,25 @@ func (c *Controller) setupIndex() *AmbientIndex {
 	}
 	// handlePod handles a Pod event. Returned is XDS events to trigger, if any.
 	handlePod := func(oldObj, newObj any, isDelete bool) sets.Set[model.ConfigKey] {
+		// TODO: ignore unrelated update to improve performance
 		oldPod := controllers.Extract[*v1.Pod](oldObj)
 		p := controllers.Extract[*v1.Pod](newObj)
 		updates := sets.New[model.ConfigKey]()
 		// This is a waypoint update
 		if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-			n := model.WaypointScope{Namespace: p.Namespace, ServiceAccount: p.Annotations[constants.WaypointServiceAccount]}
+			scope := model.WaypointScope{Namespace: p.Namespace, ServiceAccount: p.Annotations[constants.WaypointServiceAccount]}
 			ip := p.Status.PodIP
 			if isDelete || !IsPodReady(p) {
-				if idx.waypoints[n].Contains(ip) {
-					idx.waypoints[n].Delete(ip)
-					updates.Merge(idx.updateWaypoint(n, ip, true, c))
+				if idx.waypoints[scope].Contains(ip) {
+					sets.DeleteCleanupLast(idx.waypoints, scope, ip)
+					updates.Merge(idx.updateWaypoint(scope, ip, true, c))
 				}
 			} else {
-				if _, f := idx.waypoints[n]; !f {
-					idx.waypoints[n] = sets.New[string]()
+				if _, f := idx.waypoints[scope]; !f {
+					idx.waypoints[scope] = sets.New[string]()
 				}
-				if !idx.waypoints[n].InsertContains(ip) {
-					updates.Merge(idx.updateWaypoint(n, ip, false, c))
+				if !idx.waypoints[scope].InsertContains(ip) {
+					updates.Merge(idx.updateWaypoint(scope, ip, false, c))
 				}
 			}
 		}
