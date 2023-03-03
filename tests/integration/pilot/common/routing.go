@@ -20,6 +20,7 @@ package common
 import (
 	"fmt"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"reflect"
 	"sort"
@@ -2901,6 +2902,103 @@ func VMTestCases(vms echo.Instances) func(t TrafficContext) {
 				},
 			})
 		}
+	}
+}
+
+func TestExternalService(t TrafficContext) {
+	// Let us enable outboundTrafficPolicy REGISTRY_ONLY
+	// on one of the workloads, to verify selective external connectivity
+	SidecarScope := fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: restrict-external-service
+  namespace: %s
+spec:
+  workloadSelector:
+    labels:
+      app: a
+  outboundTrafficPolicy:
+    mode: "REGISTRY_ONLY"
+`, t.Apps.EchoNamespace.Namespace.Name())
+
+	fakeExternalAddress := t.Apps.External.All[0].Address()
+	parsedIP, err := netip.ParseAddr(fakeExternalAddress)
+	if err == nil {
+		if parsedIP.Is6() {
+			// CI has some issues with ipv6 DNS resolution, due to which
+			// we are not able to directly use the host name in the connectivity tests.
+			// Hence using a bogus IPv6 address with -HHost option as a workaround to
+			// simulate ServiceEntry based wildcard listener scenarios.
+			fakeExternalAddress = "2002::1"
+		} else {
+			fakeExternalAddress = "1.1.1.1"
+		}
+	}
+
+	testCases := []struct {
+		name       string
+		statusCode int
+		from       echo.Instances
+		to         string
+		protocol   protocol.Instance
+		port       int
+	}{
+		// TC1: Test connectivity to external service from outboundTrafficPolicy restricted pod.
+		// The external service is exposed through a ServiceEntry, so the traffic should go through
+		{
+			name:       "traffic from outboundTrafficPolicy REGISTRY_ONLY to allowed host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.A,
+			to:         t.Apps.External.All[0].Address(),
+			protocol:   protocol.HTTPS,
+			port:       443,
+		},
+		// TC2: Same test as TC1, but use a fake external ip in destination for connectivity.
+		{
+			name:       "traffic from outboundTrafficPolicy REGISTRY_ONLY to allowed host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.A,
+			to:         fakeExternalAddress,
+			protocol:   protocol.HTTPS,
+			port:       443,
+		},
+		// TC3: Test connectivity to external service from outboundTrafficPolicy=PASS_THROUGH pod.
+		// Traffic should go through without the need for any explicit ServiceEntry
+		{
+			name:       "traffic from outboundTrafficPolicy PASS_THROUGH to any host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.B,
+			to:         t.Apps.External.All[0].Address(),
+			protocol:   protocol.HTTP,
+			port:       80,
+		},
+		// TC4: Same test as TC3, but use a fake external ip in destination for connectivity.
+		{
+			name:       "traffic from outboundTrafficPolicy PASS_THROUGH to any host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.B,
+			to:         fakeExternalAddress,
+			protocol:   protocol.HTTP,
+			port:       80,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.RunTraffic(TrafficTestCase{
+			name:   fmt.Sprintf("%v to external service %v", tc.from[0].NamespacedName(), tc.to),
+			config: SidecarScope,
+			opts: echo.CallOptions{
+				Address: tc.to,
+				HTTP: echo.HTTP{
+					Headers: HostHeader(t.Apps.External.All[0].Config().DefaultHostHeader),
+				},
+				Port: echo.Port{Protocol: tc.protocol, ServicePort: tc.port},
+				Check: check.And(
+					check.Status(tc.statusCode),
+				),
+			},
+			call: tc.from[0].CallOrFail,
+		})
 	}
 }
 
