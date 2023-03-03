@@ -452,12 +452,12 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		if pod == nil {
 			return cfgs, nil
 		}
-		pc, err := ToConfig(pod, collections.K8SCoreV1Pods, &pos, nil, true)
+		pc, err := ToConfig(pod, collections.Pod, &pos, nil, true)
 		if err != nil {
 			return cfgs, err
 		}
 		cfgs = append(cfgs, kubeResource{
-			schema: collections.K8SCoreV1Pods,
+			schema: collections.Pod,
 			sha:    sha256.Sum256(yamlChunk),
 			config: pc,
 		})
