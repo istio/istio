@@ -448,6 +448,11 @@ FilterMessages:
 			continue FilterMessages
 		}
 
+		// Filter out any messages that are generated from file templates
+		if m.Resource != nil && m.Resource.Origin.IsFromFile() {
+			continue FilterMessages
+		}
+
 		msgs = append(msgs, m)
 	}
 	return msgs

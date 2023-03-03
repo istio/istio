@@ -33,6 +33,11 @@ type Origin struct {
 	ResourceVersion resource.Version
 	Ref             resource.Reference
 	FieldsMap       map[string]int
+	FromFile        bool
+}
+
+func (o *Origin) IsFromFile() bool {
+	return o.FromFile
 }
 
 var (

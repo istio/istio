@@ -24,9 +24,14 @@ var (
 )
 
 type testOrigin struct {
-	name     string
-	ref      resource.Reference
-	fieldMap map[string]int
+	name       string
+	ref        resource.Reference
+	fieldMap   map[string]int
+	isFromFile bool
+}
+
+func (o testOrigin) IsFromFile() bool {
+	return o.isFromFile
 }
 
 func (o testOrigin) FriendlyName() string {

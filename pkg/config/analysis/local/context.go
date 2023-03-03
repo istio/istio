@@ -181,12 +181,17 @@ func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema sre
 			return nil, fmt.Errorf("error parsing reference: %s", err)
 		}
 	}
+	var isFromFile bool
+	if v := cfg.Meta.Annotations[file.FromFileKey]; v == file.FromFileValue {
+		isFromFile = true
+	}
 	res.Origin = &kube.Origin{
 		Type:            col,
 		FullName:        res.Metadata.FullName,
 		ResourceVersion: resource.Version(cfg.ResourceVersion),
 		Ref:             outref,
 		FieldsMap:       out,
+		FromFile:        isFromFile,
 	}
 	// MCP is not aware of generation, add that here.
 	res.Metadata.Generation = cfg.Generation

@@ -15,22 +15,16 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
+  labels:
+    myapp: private-ingressgateway
   name: my-ingressgateway-1234
 spec:
-  selector:
-    matchLabels:
-      myapp: private-ingressgateway
-  template:
-    metadata:
-      labels:
-        myapp: private-ingressgateway
-    spec:
-      containers:
-        - args:
-          name: istio-proxy
+  containers:
+    - args:
+      name: istio-proxy
 ---
 apiVersion: v1
 kind: Service

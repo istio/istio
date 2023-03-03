@@ -29,6 +29,11 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	yamlv3 "gopkg.in/yaml.v3"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -433,17 +438,66 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}
 
 	pos := kube2.Position{Filename: name, Line: lineNum}
-	c, err := ToConfig(objMeta, schema, &pos, fieldMap)
-	if err != nil {
-		return resources, err
-	}
-	return []kubeResource{
+	c, err := ToConfig(objMeta, schema, &pos, fieldMap, false)
+	cfgs := []kubeResource{
 		{
 			schema: schema,
 			sha:    sha256.Sum256(yamlChunk),
 			config: c,
 		},
-	}, nil
+	}
+	_, found = r.FindByGroupVersionAliasesKind(gvk.Pod)
+	if isWorkload(c.GroupVersionKind) && found {
+		pod := generateAnalyzePodFromWorkloadTemplate(c)
+		if pod == nil {
+			return cfgs, nil
+		}
+		pc, err := ToConfig(pod, collections.K8SCoreV1Pods, &pos, nil, true)
+		if err != nil {
+			return cfgs, err
+		}
+		cfgs = append(cfgs, kubeResource{
+			schema: collections.K8SCoreV1Pods,
+			sha:    sha256.Sum256(yamlChunk),
+			config: pc,
+		})
+	}
+	return cfgs, nil
+}
+
+func isWorkload(gvk config.GroupVersionKind) bool {
+	switch gvk.Kind {
+	case name.StatefulSetStr, name.DaemonSetStr, name.ReplicaSetStr, name.DeploymentStr, name.JobStr, name.CronJobStr:
+		return true
+	}
+	return false
+}
+
+// generateAnalyzePodFromWorkloadTemplate creates a fake pod from a workload template, to mimic the behavior of the
+// in-cluster analysis.
+func generateAnalyzePodFromWorkloadTemplate(cfg *config.Config) *corev1.Pod {
+	meta := metav1.ObjectMeta{}
+	spec := corev1.PodSpec{}
+	switch t := cfg.Spec.(type) {
+	case *appsv1.DeploymentSpec:
+		if t == nil {
+			return nil
+		}
+		meta = t.Template.ObjectMeta
+		spec = t.Template.Spec
+	}
+	if meta.Namespace == "" {
+		meta.Namespace = cfg.Namespace
+	}
+	// This is a fake pod generated from file, so only having one pod with the template is fine, and we don't need to
+	// generate a unique name like the in-cluster environment do.
+	if meta.Name == "" {
+		meta.Name = cfg.Name
+	}
+	return &corev1.Pod{
+		ObjectMeta: meta,
+		Spec:       spec,
+	}
 }
 
 type resourceYamlChunk struct {
@@ -491,10 +545,14 @@ func extractResourceChunksFromListYamlChunk(chunk []byte) ([]resourceYamlChunk, 
 const (
 	FieldMapKey  = "istiofilefieldmap"
 	ReferenceKey = "istiosource"
+	FromFileKey  = "istiofromfile"
+
+	FromFileValue = "true"
 )
 
 // ToConfig converts the given object and proto to a config.Config
-func ToConfig(object metav1.Object, schema sresource.Schema, source resource.Reference, fieldMap map[string]int) (*config.Config, error) {
+func ToConfig(object metav1.Object, schema sresource.Schema, source resource.Reference, fieldMap map[string]int,
+	fromFile bool) (*config.Config, error) {
 	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
 	if err != nil {
 		return nil, err
@@ -516,6 +574,9 @@ func ToConfig(object metav1.Object, schema sresource.Schema, source resource.Ref
 			return nil, err
 		}
 		annots[ReferenceKey] = string(jsonsource)
+		if fromFile {
+			annots[FromFileKey] = FromFileValue
+		}
 		u.SetAnnotations(annots)
 	}
 	result := TranslateObject(u, "", schema)

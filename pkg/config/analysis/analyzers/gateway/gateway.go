@@ -17,7 +17,6 @@ package gateway
 import (
 	"fmt"
 
-	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
@@ -42,8 +41,8 @@ func (*IngressGatewayPortAnalyzer) Metadata() analysis.Metadata {
 		Name:        "gateway.IngressGatewayPortAnalyzer",
 		Description: "Checks a gateway's ports against the gateway's Kubernetes service ports",
 		Inputs: []config.GroupVersionKind{
-			gvk.Deployment,
 			gvk.Gateway,
+			gvk.Pod,
 			gvk.Service,
 		},
 	}
@@ -69,17 +68,13 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 
 	// For pods selected by gw.Selector, find Services that select them and remember those ports
 	gwSelector := klabels.SelectorFromSet(gw.Selector)
-	c.ForEach(gvk.Deployment, func(deploy *resource.Instance) bool {
-		dep := deploy.Message.(*appsv1.DeploymentSpec)
-		if dep == nil {
-			return true
-		}
-		podLabels := klabels.Set(dep.Template.Labels)
+	c.ForEach(gvk.Pod, func(rPod *resource.Instance) bool {
+		podLabels := klabels.Set(rPod.Metadata.Labels)
 		if gwSelector.Matches(podLabels) {
 			gwSelectorMatches++
 			c.ForEach(gvk.Service, func(rSvc *resource.Instance) bool {
 				nsSvc := string(rSvc.Metadata.FullName.Namespace)
-				if nsSvc != deploy.Metadata.FullName.Namespace.String() {
+				if nsSvc != rPod.Metadata.FullName.Namespace.String() {
 					return true // Services only select pods in their namespace
 				}
 

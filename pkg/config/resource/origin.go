@@ -24,6 +24,9 @@ type Origin interface {
 	// and their corresponding line numbers as values
 	FieldMap() map[string]int
 	Comparator() string
+
+	// IsFromFile returns true if the resource is from a file template
+	IsFromFile() bool
 }
 
 // Reference provides more information about an Origin. This is also source-implementation dependant.

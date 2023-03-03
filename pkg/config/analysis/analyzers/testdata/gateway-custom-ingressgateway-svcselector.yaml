@@ -8,12 +8,12 @@ spec:
   selector:
     myapp: ingressgateway-8001
   servers:
-  - port:
-      number: 8001
-      name: http2
-      protocol: HTTP
-    hosts:
-    - "*"
+    - port:
+        number: 8001
+        name: http2
+        protocol: HTTP
+      hosts:
+        - "*"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -23,46 +23,34 @@ spec:
   selector:
     myapp: ingressgateway-8001
   servers:
-  - port:
-      number: 8002
-      name: http2
-      protocol: HTTP
-    hosts:
-    - "*"
+    - port:
+        number: 8002
+        name: http2
+        protocol: HTTP
+      hosts:
+        - "*"
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
+  labels:
+    myapp: ingressgateway-8001
   name: my-ingressgateway-8001
 spec:
-  selector:
-    matchLabels:
-      myapp: ingressgateway-8001
-  template:
-    metadata:
-      labels:
-        myapp: ingressgateway-8001
-    spec:
-      containers:
-        - args:
-          name: istio-proxy
+  containers:
+    - args:
+      name: istio-proxy
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
+  labels:
+    myapp: ingressgateway-8002
   name: my-ingressgateway-8002
 spec:
-  selector:
-    matchLabels:
-      myapp: ingressgateway-8002
-  template:
-    metadata:
-      labels:
-        myapp: ingressgateway-8002
-    spec:
-      containers:
-        - args:
-          name: istio-proxy
+  containers:
+    - args:
+      name: istio-proxy
 ---
 apiVersion: v1
 kind: Service
@@ -70,11 +58,11 @@ metadata:
   name: my-8002
 spec:
   ports:
-  - name: http2
-    nodePort: 31380
-    port: 8002
-    protocol: TCP
-    targetPort: 80
+    - name: http2
+      nodePort: 31380
+      port: 8002
+      protocol: TCP
+      targetPort: 80
   selector:
     myapp: ingressgateway-8002
 ---
@@ -84,8 +72,43 @@ metadata:
   name: my-8001
 spec:
   ports:
-  - name: http2
-    port: 8001
-    protocol: TCP
+    - name: http2
+      port: 8001
+      protocol: TCP
   selector:
     myapp: ingressgateway-8001
+---
+# this will be valid, and no warning/error messages since the deployment exists
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: httpbin8001-gateway
+  namespace: test-valid
+spec:
+  selector:
+    myapp: gateway
+  servers:
+    - port:
+        number: 8001
+        name: http2
+        protocol: HTTP
+      hosts:
+        - "*"
+---
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: my-ingressgateway
+  namespace: test-valid
+spec:
+  selector:
+    matchLabels:
+      myapp: gateway
+  template:
+    metadata:
+      labels:
+        myapp: gateway
+    spec:
+      containers:
+        - args:
+          name: istio-proxy
