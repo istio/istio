@@ -67,12 +67,13 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		kubeClient: client,
 	}
 
+	s.iptablesCommand = lazy.New(func() (string, error) {
+		return s.detectIptablesCommand(), nil
+	})
+
 	switch args.RedirectMode {
 	case IptablesMode:
 		s.redirectMode = IptablesMode
-		s.iptablesCommand = lazy.New(func() (string, error) {
-			return s.detectIptablesCommand(), nil
-		})
 		// We need to find our Host IP -- is there a better way to do this?
 		h, err := GetHostIP(s.kubeClient.Kube())
 		if err != nil || h == "" {
