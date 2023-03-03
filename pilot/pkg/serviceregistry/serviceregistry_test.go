@@ -874,7 +874,9 @@ func TestWorkloadInstances(t *testing.T) {
 		m := mesh.DefaultMeshConfig()
 		var nodeMeta *model.NodeMetadata
 		if ambient {
-			nodeMeta = &model.NodeMetadata{EnableHBONE: true}
+			nodeMeta = &model.NodeMetadata{Labels: map[string]string{
+				model.TunnelLabel: model.TunnelHTTP,
+			}}
 			pod = pod.DeepCopy()
 			pod.Annotations[constants.AmbientRedirection] = constants.AmbientRedirectionEnabled
 		}
