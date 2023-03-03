@@ -317,7 +317,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
+			authzPolicies := createFakeAuthorizationPolicies(tc.configs)
 
 			result := authzPolicies.ListAuthorizationPolicies(tc.ns, tc.workloadLabels)
 			if !reflect.DeepEqual(tc.wantAllow, result.Allow) {
@@ -336,7 +336,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	}
 }
 
-func createFakeAuthorizationPolicies(configs []config.Config, t *testing.T) *AuthorizationPolicies {
+func createFakeAuthorizationPolicies(configs []config.Config) *AuthorizationPolicies {
 	store := &authzFakeStore{}
 	for _, cfg := range configs {
 		store.add(cfg)

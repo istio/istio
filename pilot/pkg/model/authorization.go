@@ -18,10 +18,7 @@ import (
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
-	istiolog "istio.io/pkg/log"
 )
-
-var authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)
 
 type AuthorizationPolicy struct {
 	Name        string                      `json:"name"`

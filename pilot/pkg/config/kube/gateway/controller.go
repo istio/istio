@@ -47,10 +47,7 @@ import (
 
 var log = istiolog.RegisterScope("gateway", "gateway-api controller", 0)
 
-var (
-	errUnsupportedOp   = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
-	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway and virtual service resource type")
-)
+var errUnsupportedOp = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
 
 // Controller defines the controller for the gateway-api. The controller acts a bit different from most.
 // Rather than watching the CRs directly, we depend on the existing model.ConfigStoreController which

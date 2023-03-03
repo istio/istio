@@ -25,10 +25,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/protomarshal"
-	istiolog "istio.io/pkg/log"
 )
-
-var pclog = istiolog.RegisterScope("proxyconfig", "Istio ProxyConfig", 0)
 
 // ProxyConfigs organizes ProxyConfig configuration by namespace.
 type ProxyConfigs struct {

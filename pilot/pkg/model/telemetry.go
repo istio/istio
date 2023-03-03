@@ -44,10 +44,7 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
-
-var telemetryLog = istiolog.RegisterScope("telemetry", "Istio Telemetry", 0)
 
 // Telemetry holds configuration for Telemetry API resources.
 type Telemetry struct {
