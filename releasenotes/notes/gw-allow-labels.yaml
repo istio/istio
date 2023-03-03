@@ -6,4 +6,4 @@ issue:
   - 43585
 releaseNotes:
   - |
-    **Added** support for allowing labels to be added to the gateway pod template via `.Values.labels`.
+    **Added** support for labels to be added to the Gateway pod template via `.Values.labels`.
