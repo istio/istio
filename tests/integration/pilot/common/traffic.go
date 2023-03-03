@@ -268,6 +268,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 	RunCase("destinationrule", destinationRuleCases)
 	RunCase("vm", VMTestCases(apps.VM))
 	RunCase("dns", DNSTestCases)
+	RunCase("externalservice", TestExternalService)
 }
 
 func ExpectString(got, expected, help string) error {
