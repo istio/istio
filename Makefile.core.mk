@@ -202,17 +202,22 @@ endif
 # List of all binaries to build
 # We split the binaries into "agent" binaries and standard ones. This corresponds to build "agent".
 # This allows conditional compilation to avoid pulling in costly dependencies to the agent, such as XDS and k8s.
-AGENT_BINARIES:=./pilot/cmd/pilot-agent ./cni/cmd/istio-cni
+AGENT_BINARIES:=./pilot/cmd/pilot-agent
 STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./samples/extauthz/cmd/extauthz \
   ./operator/cmd/operator \
-  ./cni/cmd/istio-cni-taint \
-  ./cni/cmd/install-cni \
   ./tools/bug-report
-BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES)
+
+# These are binaries that require Linux to build, and should
+# be skipped on other platforms. Notably this includes the current Linux-only Istio CNI plugin
+LINUX_AGENT_BINARIES:=./cni/cmd/istio-cni \
+  ./cni/cmd/istio-cni-taint \
+  ./cni/cmd/install-cni
+
+BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES) $(LINUX_AGENT_BINARIES)
 
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
@@ -230,6 +235,7 @@ build: depend ## Builds all go binaries.
 build-linux: depend
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ $(STANDARD_BINARIES)
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=agent $(AGENT_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=agent $(LINUX_AGENT_BINARIES)
 
 # Create targets for TARGET_OUT_LINUX/binary
 # There are two use cases here:
@@ -249,6 +255,7 @@ endef
 
 $(foreach bin,$(STANDARD_BINARIES),$(eval $(call build-linux,$(bin),"")))
 $(foreach bin,$(AGENT_BINARIES),$(eval $(call build-linux,$(bin),"agent")))
+$(foreach bin,$(LINUX_AGENT_BINARIES),$(eval $(call build-linux,$(bin),"agent")))
 
 # Create helper targets for each binary, like "pilot-discovery"
 # As an optimization, these still build everything
