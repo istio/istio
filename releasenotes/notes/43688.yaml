@@ -5,5 +5,5 @@ issue:
   - https://github.com/istio/istio/issues/43688
 releaseNotes:
   - |
-    **Fixed** an issue that when there is different Bind specified in the Gateways with same port and different protocol, listeners are not generated correctly.
+    **Fixed** an issue that when there are different Binds specified in the Gateways with the same port and different protocols, listeners are not generated correctly.
 

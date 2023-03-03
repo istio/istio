@@ -132,7 +132,7 @@ const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gatewa
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
 func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
 	gatewayPorts := make(map[uint32]bool)
-	nonPlainTextGatewayPortsBindMap := map[uint32]map[string]string{}
+	nonPlainTextGatewayPortsBindMap := map[uint32]sets.String{}
 	mergedServers := make(map[ServerPort]*MergedServers)
 	mergedQUICServers := make(map[ServerPort]*MergedServers)
 	serverPorts := make([]ServerPort, 0)
@@ -269,18 +269,19 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							}
 							serversByRouteName[routeName] = []*networking.Server{s}
 						}
-						if bindsMap, ok := nonPlainTextGatewayPortsBindMap[resolvedPort]; ok {
-							bindsMap[serverPort.Bind] = "true"
+						// build the port bind map for none plain text protocol, thus can avoid protocol conflict if it's different bind
+						if bindsPortMap, ok := nonPlainTextGatewayPortsBindMap[resolvedPort]; ok && !bindsPortMap.Contains(serverPort.Bind) {
+							bindsPortMap.Insert(serverPort.Bind)
 						} else {
-							bindsMap := make(map[string]string)
-							bindsMap[serverPort.Bind] = "true"
-							nonPlainTextGatewayPortsBindMap[resolvedPort] = bindsMap
+							bindsPortMap := sets.String{}
+							bindsPortMap.Insert(serverPort.Bind)
+							nonPlainTextGatewayPortsBindMap[resolvedPort] = bindsPortMap
 						}
 						// If the bind/port combination is not being used as non-plaintext, they are different
 						// listeners and won't get conflicted even with same port different protocol
 						// i.e 0.0.0.0:443:GRPC/1.0.0.1:443:GRPC/1.0.0.2:443:HTTPS they are not conflicted, otherwise
 						// We have another TLS server on the same port. Can differentiate servers using SNI
-						if s.Tls == nil && nonPlainTextGatewayPortsBindMap[resolvedPort][serverPort.Bind] != "true" {
+						if s.Tls == nil && !nonPlainTextGatewayPortsBindMap[resolvedPort].Contains(serverPort.Bind) {
 							log.Warnf("TLS server without TLS options %s %s", gatewayName, s.String())
 							continue
 						}
