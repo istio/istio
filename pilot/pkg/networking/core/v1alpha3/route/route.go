@@ -394,7 +394,7 @@ func translateRoute(
 
 	out := &route.Route{
 		Name:     routeName,
-		Match:    TranslateRouteMatch(node, virtualService, match),
+		Match:    TranslateRouteMatch(virtualService, match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 
@@ -415,7 +415,7 @@ func translateRoute(
 	if in.Redirect != nil {
 		ApplyRedirect(out, in.Redirect, listenPort, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
-		applyDirectResponse(out, in.DirectResponse)
+		ApplyDirectResponse(out, in.DirectResponse)
 	} else {
 		applyHTTPRouteDestination(out, node, virtualService, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
@@ -627,7 +627,7 @@ func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 	out.Action = action
 }
 
-func applyDirectResponse(out *route.Route, directResponse *networking.HTTPDirectResponse) {
+func ApplyDirectResponse(out *route.Route, directResponse *networking.HTTPDirectResponse) {
 	action := &route.Route_DirectResponse{
 		DirectResponse: &route.DirectResponseAction{
 			Status: directResponse.Status,
@@ -812,7 +812,7 @@ func TranslateHeadersOperations(headers *networking.Headers) HeadersOperations {
 }
 
 // TranslateRouteMatch translates match condition
-func TranslateRouteMatch(node *model.Proxy, vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
+func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
@@ -1048,7 +1048,7 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 	}
 	val := &route.Route{
-		Match: TranslateRouteMatch(nil, config.Config{}, nil),
+		Match: TranslateRouteMatch(config.Config{}, nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
