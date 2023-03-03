@@ -435,7 +435,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 		requestsTunnel = false
 	}
 
-	if features.EnableHBONE {
+	if !features.EnableHBONE {
 		requestsTunnel = false
 	}
 
