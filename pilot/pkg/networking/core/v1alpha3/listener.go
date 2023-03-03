@@ -111,7 +111,8 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 
 	builder.patchListeners()
 	l := builder.getListeners()
-	if builder.node.EnableHBONE() && !builder.node.IsAmbient() {
+	// Add sidecar HBONE origination listeners if any destination may request it.
+	if features.EnableHBONE && !builder.node.IsAmbient() {
 		l = append(l, outboundTunnelListener(builder.node))
 	}
 

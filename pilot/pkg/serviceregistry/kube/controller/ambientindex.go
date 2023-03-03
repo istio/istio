@@ -920,7 +920,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 		wl.Protocol = workloadapi.Protocol_HTTP
 	}
 	// Otherwise supports tunnel directly
-	if model.SupportsTunnel(pod.Labels, model.TunnelHTTP) {
+	if model.RequestsTunnel(pod.Labels, model.TunnelHTTP) {
 		wl.Protocol = workloadapi.Protocol_HTTP
 		wl.NativeHbone = true
 	}

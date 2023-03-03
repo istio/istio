@@ -2263,7 +2263,7 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 	}]
 }
 
-func (ps *PushContext) SupportsTunnel(ip string) bool {
+func (ps *PushContext) RequestsTunnel(ip string) bool {
 	infos, _ := ps.ambientIndex.PodInformation(sets.New(types.NamespacedName{Name: ip}))
 	for _, p := range infos {
 		if p.Protocol == workloadapi.Protocol_HTTP {

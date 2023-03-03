@@ -602,14 +602,20 @@ var (
 	).Get()
 
 	// EnableHBONE provides a global Pilot flag for enabling HBONE.
-	// Generally, this could be a per-proxy setting (and is, via ENABLE_HBONE node metadata).
-	// However, there are some code paths that impact all clients, hence the global flag.
 	// Warning: do not enable by default until endpoint_builder.go caching is fixed (and possibly other locations).
 	EnableHBONE = env.Register(
 		"PILOT_ENABLE_HBONE",
 		false,
-		"If enabled, HBONE support can be configured for proxies. "+
-			"Note: proxies must opt in on a per-proxy basis with ENABLE_HBONE to actually get HBONE config, in addition to this flag.").Get()
+		"Required for enabling HBONE tunneling support in xDS. "+
+			"Note: proxies must opt in on a per-proxy basis to listen and request forwarding to the tunneling port, in addition to this flag.").Get()
+
+	// EnableQBONE provides a global Pilot flag for enabling QBONE.
+	// Warning: do not enable by default until endpoint_builder.go caching is fixed (and possibly other locations).
+	EnableQBONE = env.Register(
+		"PILOT_ENABLE_QBONE",
+		false,
+		"Required for enabling QBONE tunneling support in xDS. "+
+			"Note: proxies must opt in on a per-proxy basis to listen and request forwarding to the tunneling port, in addition to this flag.").Get()
 
 	EnableAmbientControllers = env.Register(
 		"PILOT_ENABLE_AMBIENT_CONTROLLERS",

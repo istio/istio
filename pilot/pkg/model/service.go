@@ -164,7 +164,12 @@ const (
 )
 
 const (
-	// TunnelLabel defines the label workloads describe to indicate that they support tunneling.
+	// TunnelLabel is a label to request the control plane to configure the
+	// clients to forward traffic to this workload using HBONE/QBONE tunneling
+	// protocols. This label automatically implies that the
+	// workload should accept on the corresponding tunnel ports. The label is
+	// subject to the global ENABLE_HBONE and ENABLE_QBONE feature flags, and only
+	// globally permitted tunnel protocol ports are open.
 	// Values are expected to be a CSV list, sorted by preference, of protocols supported.
 	// Currently supported values:
 	// * "http": indicates tunneling over HTTP over TCP. HTTP/2 vs HTTP/1.1 may be supported by ALPN negotiation.
@@ -180,6 +185,9 @@ const (
 	// negotiation. Note: ALPN negotiation is not currently implemented; HTTP/2 will always be used.
 	// This is future-proofed, however, because only the `h2` ALPN is exposed.
 	TunnelHTTP = "http"
+	// TunnelQUIC indicates preference for tunneling using QUIC transport, which allows for more efficient
+	// tunneling of UDP and IP traffic.
+	TunnelQUIC = "quic"
 )
 
 const (
@@ -199,7 +207,7 @@ const (
 	IstioCanonicalServiceRevisionLabelName = "service.istio.io/canonical-revision"
 )
 
-func SupportsTunnel(labels map[string]string, tunnelType string) bool {
+func RequestsTunnel(labels map[string]string, tunnelType string) bool {
 	return sets.New(strings.Split(labels[TunnelLabel], ",")...).Contains(tunnelType)
 }
 
@@ -497,8 +505,8 @@ type IstioEndpoint struct {
 	NodeName string
 }
 
-func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
-	return SupportsTunnel(ep.Labels, tunnelType)
+func (ep *IstioEndpoint) RequestsTunnel(tunnelType string) bool {
+	return RequestsTunnel(ep.Labels, tunnelType)
 }
 
 // GetLoadBalancingWeight returns the weight for this endpoint, normalized to always be > 0.

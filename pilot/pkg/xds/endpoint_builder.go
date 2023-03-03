@@ -414,29 +414,25 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	address, port := e.Address, e.EndpointPort
 	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
 
-	supportsTunnel := false
+	requestsTunnel := false
 	// Other side is a waypoint proxy.
 	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
-		supportsTunnel = true
+		requestsTunnel = true
 	}
 
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	if b.push.SupportsTunnel(e.Address) {
-		supportsTunnel = true
+	if b.push.RequestsTunnel(e.Address) {
+		requestsTunnel = true
 	}
 	// Otherwise supports tunnel
 	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
 	// need to pick the right one based on our support overlap.
-	if e.SupportsTunnel(model.TunnelHTTP) {
-		supportsTunnel = true
+	if e.RequestsTunnel(model.TunnelHTTP) {
+		requestsTunnel = true
 	}
 	if b.proxy.IsProxylessGrpc() {
 		// Proxyless client cannot handle tunneling, even if the server can
-		supportsTunnel = false
-	}
-
-	if !b.proxy.EnableHBONE() {
-		supportsTunnel = false
+		requestsTunnel = false
 	}
 
 	// Setup tunnel information, if needed
@@ -450,7 +446,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 			return nil
 		}
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
-		if supportsTunnel {
+		if requestsTunnel {
 			address := e.Address
 			tunnelPort := 15008
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
@@ -461,7 +457,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 				Value: e.GetLoadBalancingWeight(),
 			}
 		}
-	} else if supportsTunnel {
+	} else if requestsTunnel {
 		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
 		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
 			workloads := findWaypoints(b.push, e)

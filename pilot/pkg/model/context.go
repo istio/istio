@@ -624,9 +624,13 @@ type NodeMetadata struct {
 	// This depends on DNSCapture.
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
-	// EnableHBONE, if set, will enable generation of HBONE config.
+	// ListenHBONE, if set, the proxy will listen on HBONE port.
 	// Note: this only impacts sidecars; ztunnel and waypoint proxy unconditionally use HBONE.
-	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
+	ListenHBONE StringBool `json:"LISTEN_HBONE,omitempty"`
+
+	// ListenQBONE, if set, the proxy will listen on QBONE port.
+	// Note: this only impacts sidecars.
+	ListenQBONE StringBool `json:"LISTEN_QBONE,omitempty"`
 
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
@@ -1206,8 +1210,11 @@ func (node *Proxy) FuzzValidate() bool {
 	return len(node.IPAddresses) != 0
 }
 
-func (node *Proxy) EnableHBONE() bool {
-	return node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE))
+func (node *Proxy) AcceptHBONE() bool {
+	if node.IsAmbient() {
+		return true
+	}
+	return features.EnableHBONE && (bool(node.Metadata.ListenHBONE) || RequestsTunnel(node.Labels, TunnelHTTP))
 }
 
 // WaypointScope is either an entire namespace or an individual service account
