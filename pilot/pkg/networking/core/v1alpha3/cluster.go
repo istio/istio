@@ -175,7 +175,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	case model.Waypoint:
-		_, svcs := FindAssociatedResources(proxy, req.Push)
+		svcs := findWaypointServices(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(req.Push.ServicesAttachedToMesh(), svcs, services))
@@ -216,39 +216,6 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		return resources, model.DefaultXdsLogDetails
 	}
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
-}
-
-// filterWaypointOutboundServices is used to determine the set of outbound clusters we need to build for waypoints.
-// Waypoints typically only have inbound clusters, except in cases where we have a route from
-// a service owned by the waypoint to a service not owned by the waypoint.
-// It looks at:
-// * referencedServices: all services referenced by mesh virtual services
-// * waypointServices: all services owned by this waypoint
-// * all services
-// We want to find any VirtualServices that are from a waypointServices to a non-waypointService
-func filterWaypointOutboundServices(
-	referencedServices map[string]sets.String,
-	waypointServices map[host.Name]*model.Service,
-	services []*model.Service,
-) []*model.Service {
-	outboundServices := sets.New[string]()
-	for waypointService := range waypointServices {
-		refs := referencedServices[waypointService.String()]
-		for ref := range refs {
-			// We reference this service. Is it "inbound" for the waypoint or "outbound"?
-			ws, f := waypointServices[host.Name(ref)]
-			if !f || ws.MeshExternal {
-				outboundServices.Insert(ref)
-			}
-		}
-	}
-	res := make([]*model.Service, 0, len(outboundServices))
-	for _, s := range services {
-		if outboundServices.Contains(s.Hostname.String()) {
-			res = append(res, s)
-		}
-	}
-	return res
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
