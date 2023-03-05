@@ -160,7 +160,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		},
 		Action: &route.Route_Route{Route: &route.RouteAction{
 			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-				UpgradeType:   "CONNECT",
+				UpgradeType:   ConnectUpgradeType,
 				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 			}},
 

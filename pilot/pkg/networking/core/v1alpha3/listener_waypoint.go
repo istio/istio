@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
-	"time"
 
 	xds "github.com/cncf/xds/go/xds/core/v3"
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
@@ -30,7 +29,6 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	any "google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -99,10 +97,9 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 	}
 
 	// Protocol settings
-	notimeout := durationpb.New(0 * time.Second)
-	h.StreamIdleTimeout = notimeout
+	h.StreamIdleTimeout = istio_route.Notimeout
 	h.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
-		UpgradeType: "CONNECT",
+		UpgradeType: ConnectUpgradeType,
 	}}
 	h.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		AllowConnect: true,
@@ -155,7 +152,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 		},
 		Action: &route.Route_Route{Route: &route.RouteAction{
 			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-				UpgradeType:   "CONNECT",
+				UpgradeType:   ConnectUpgradeType,
 				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 			}},
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},

@@ -33,6 +33,9 @@ const (
 
 	// EncapClusterName is the name of the cluster used for traffic to the connect_originate listener.
 	EncapClusterName = "encap"
+
+	// ConnectUpgradeType is the type of upgrade for HTTP CONNECT.
+	ConnectUpgradeType = "CONNECT"
 )
 
 type WorkloadAndServices struct {
