@@ -64,7 +64,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// 1. Decapsulation CONNECT listener.
 	// 2. IP dispatch listener, handling both VIPs and direct pod IPs.
 	// 3. Encapsulation CONNECT listener, originating the tunnel
-	wls, svcs := findAssociatedResources(lb.node, lb.push)
+	wls, svcs := findWaypointResources(lb.node, lb.push)
 
 	listeners = append(listeners,
 		lb.buildWaypointInboundConnectTerminate(),
@@ -657,7 +657,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 	}
 
 	if service != nil {
-		_, svcs := findAssociatedResources(lb.node, lb.push)
+		_, svcs := findWaypointResources(lb.node, lb.push)
 		_, f := svcs[service.Hostname]
 		if !f || service.MeshExternal {
 			// this waypoint proxy isn't responsible for this service so we use outbound; TODO quicker lookup

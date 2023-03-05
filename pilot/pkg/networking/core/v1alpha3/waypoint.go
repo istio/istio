@@ -31,7 +31,7 @@ const (
 	// ConnectOriginate is the name for the resources associated with the origination of HTTP CONNECT.
 	ConnectOriginate = "connect_originate"
 
-	// EncapClusterName is the name of the cluster used for traffic to the internal encap listener.
+	// EncapClusterName is the name of the cluster used for traffic to the connect_originate listener.
 	EncapClusterName = "encap"
 )
 
@@ -59,7 +59,7 @@ func findWaypointServices(node *model.Proxy, push *model.PushContext) map[host.N
 	return svcs
 }
 
-func findAssociatedResources(node *model.Proxy, push *model.PushContext) ([]WorkloadAndServices, map[host.Name]*model.Service) {
+func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]WorkloadAndServices, map[host.Name]*model.Service) {
 	wls := []WorkloadAndServices{}
 	scope := node.WaypointScope()
 	workloads := push.WorkloadsForWaypoint(scope)
