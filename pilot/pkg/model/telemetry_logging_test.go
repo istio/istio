@@ -666,6 +666,9 @@ func TestAccessLogging(t *testing.T) {
 			if cfgs != nil {
 				got = []string{}
 				for _, p := range cfgs {
+					if p.Disabled {
+						continue
+					}
 					got = append(got, p.Provider.Name)
 				}
 				sort.Strings(got)
