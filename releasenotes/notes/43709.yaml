@@ -3,4 +3,4 @@ kind: bug-fix
 area: istioctl
 releaseNotes:
   - |
-    **Fixed** resource namespace resolution is incorrect for `istioctl` command.
+    **Fixed** resource namespace resolution for `istioctl` commands.
