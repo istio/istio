@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/util/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +30,8 @@ import (
 	"k8s.io/client-go/rest/fake"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	"k8s.io/kubectl/pkg/scheme"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestInferPodInfo(t *testing.T) {
