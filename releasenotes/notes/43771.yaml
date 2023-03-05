@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 43771
+releaseNotes:
+  - |
+    **Improvement** executing the 'downloadIstioCtl.sh' script will not change to home directory at the end.
