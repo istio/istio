@@ -305,6 +305,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/connection_id_generator/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/crypto_stream/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/proof_source/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/server_preferred_address/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/rate_limit_descriptors/expr/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/rbac/matchers/upstream_ip_port/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/regex_engines/v3"
