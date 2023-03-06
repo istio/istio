@@ -19,13 +19,13 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func copyBinaries(srcDir string, targetDirs []string, updateBinaries bool, skipBinaries []string) error {
-	skipBinariesSet := arrToSet(skipBinaries)
-
+	skipBinariesSet := sets.New(skipBinaries...)
 	for _, targetDir := range targetDirs {
-		if file.IsDirWriteable(targetDir) != nil {
+		if err := file.IsDirWriteable(targetDir); err != nil {
 			installLog.Infof("Directory %s is not writable, skipping.", targetDir)
 			continue
 		}
@@ -36,8 +36,12 @@ func copyBinaries(srcDir string, targetDirs []string, updateBinaries bool, skipB
 		}
 
 		for _, f := range files {
+			if f.IsDir() {
+				continue
+			}
+
 			filename := f.Name()
-			if skipBinariesSet[filename] {
+			if skipBinariesSet.Contains(filename) {
 				installLog.Infof("%s is in SKIP_CNI_BINARIES, skipping.", filename)
 				continue
 			}
@@ -58,12 +62,4 @@ func copyBinaries(srcDir string, targetDirs []string, updateBinaries bool, skipB
 	}
 
 	return nil
-}
-
-func arrToSet(array []string) map[string]bool {
-	set := make(map[string]bool)
-	for _, v := range array {
-		set[v] = true
-	}
-	return set
 }
