@@ -129,6 +129,7 @@ printf "%s download complete!\n" "${filename}"
 mkdir -p "$HOME/.istioctl/bin"
 mv "${tmp}/istioctl" "$HOME/.istioctl/bin/istioctl"
 chmod +x "$HOME/.istioctl/bin/istioctl"
+rm -r "${tmp}"
 
 # Print message
 printf "\n"
