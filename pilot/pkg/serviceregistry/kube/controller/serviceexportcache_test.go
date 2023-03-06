@@ -16,7 +16,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -202,10 +201,7 @@ func (ec *serviceExportCacheImpl) unExport(t *testing.T) {
 func (ec *serviceExportCacheImpl) waitForXDS(t *testing.T, exported bool) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		event := ec.opts.XDSUpdater.(*FakeXdsUpdater).Wait("eds")
-		if event == nil {
-			return errors.New("failed waiting for XDS event")
-		}
+		event := ec.opts.XDSUpdater.(*FakeXdsUpdater).WaitOrFail(t, "eds")
 		if len(event.Endpoints) != 1 {
 			return fmt.Errorf("waitForXDS failed: expected 1 endpoint, found %d", len(event.Endpoints))
 		}
