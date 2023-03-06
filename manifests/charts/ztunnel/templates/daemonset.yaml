@@ -107,6 +107,7 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/config
           name: istio-ztunnel-config
+          optional: true
       volumes:
       - name: istio-token
         projected:
