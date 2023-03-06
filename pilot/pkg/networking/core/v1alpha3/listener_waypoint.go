@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
-	"time"
 
 	xds "github.com/cncf/xds/go/xds/core/v3"
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
@@ -30,7 +29,6 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	any "google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -49,51 +47,10 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
 )
-
-const (
-	// ConnectTerminate is the name for the resources associated with the termination of HTTP CONNECT.
-	ConnectTerminate = "connect_terminate"
-
-	// MainInternalName is the name for the resources associated with the main (non-tunnel) internal listener.
-	MainInternalName = "main_internal"
-
-	// ConnectOriginate is the name for the resources associated with the origination of HTTP CONNECT.
-	ConnectOriginate = "connect_originate"
-)
-
-type WorkloadAndServices struct {
-	WorkloadInfo *model.WorkloadInfo
-	Services     []*model.Service
-}
-
-func FindAssociatedResources(node *model.Proxy, push *model.PushContext) ([]WorkloadAndServices, map[host.Name]*model.Service) {
-	wls := []WorkloadAndServices{}
-	scope := node.WaypointScope()
-	workloads := push.WorkloadsForWaypoint(scope)
-	for _, wl := range workloads {
-		wls = append(wls, WorkloadAndServices{WorkloadInfo: wl})
-	}
-	svcs := map[host.Name]*model.Service{}
-	for i, wl := range wls {
-		for _, ns := range push.ServiceIndex.HostnameAndNamespace {
-			svc := ns[wl.WorkloadInfo.Namespace]
-			if svc == nil {
-				continue
-			}
-			if labels.Instance(svc.Attributes.LabelSelectors).SubsetOf(wl.WorkloadInfo.Labels) {
-				svcs[svc.Hostname] = svc
-				wl.Services = append(wl.Services, svc)
-			}
-		}
-		wls[i] = wl
-	}
-	return wls, svcs
-}
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 	return lb.push.ServiceForHostname(lb.node, name)
@@ -105,7 +62,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// 1. Decapsulation CONNECT listener.
 	// 2. IP dispatch listener, handling both VIPs and direct pod IPs.
 	// 3. Encapsulation CONNECT listener, originating the tunnel
-	wls, svcs := FindAssociatedResources(lb.node, lb.push)
+	wls, svcs := findWaypointResources(lb.node, lb.push)
 
 	listeners = append(listeners,
 		lb.buildWaypointInboundConnectTerminate(),
@@ -140,10 +97,9 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 	}
 
 	// Protocol settings
-	notimeout := durationpb.New(0 * time.Second)
-	h.StreamIdleTimeout = notimeout
+	h.StreamIdleTimeout = istio_route.Notimeout
 	h.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
-		UpgradeType: "CONNECT",
+		UpgradeType: ConnectUpgradeType,
 	}}
 	h.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		AllowConnect: true,
@@ -196,7 +152,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 		},
 		Action: &route.Route_Route{Route: &route.RouteAction{
 			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-				UpgradeType:   "CONNECT",
+				UpgradeType:   ConnectUpgradeType,
 				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 			}},
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
@@ -221,7 +177,6 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 			portString := fmt.Sprintf("%d", port.Port)
 			cc := inboundChainConfig{
 				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
-				// clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port),
 				port: ServiceInstancePort{
 					Name:       port.Name,
 					Port:       uint32(port.Port),
@@ -275,7 +230,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 	{
 		// Direct pod access chain.
 		cc := inboundChainConfig{
-			clusterName: EncapCluster.Name,
+			clusterName: EncapClusterName,
 			port: ServiceInstancePort{
 				Name:     "unknown",
 				Protocol: protocol.TCP,
@@ -699,7 +654,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 	}
 
 	if service != nil {
-		_, svcs := FindAssociatedResources(lb.node, lb.push)
+		_, svcs := findWaypointResources(lb.node, lb.push)
 		_, f := svcs[service.Hostname]
 		if !f || service.MeshExternal {
 			// this waypoint proxy isn't responsible for this service so we use outbound; TODO quicker lookup
