@@ -223,7 +223,9 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							RecordRejectedConfig(gatewayName)
 							continue
 						}
-						if routeName == "" {
+						// For TCP gateway/route the route name is empty but if they are different binds, should continue to generate the listener
+						// i.e gateway 10.0.0.1:8000:TCP should not conflict with 10.0.0.2:8000:TCP
+						if routeName == "" && current.Bind == serverPort.Bind {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 								gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
 							RecordRejectedConfig(gatewayName)
