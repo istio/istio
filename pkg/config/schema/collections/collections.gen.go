@@ -12,6 +12,7 @@ import (
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
+	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -43,6 +44,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.AuthorizationPolicy{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateAuthorizationPolicy,
 	}.MustBuild()
@@ -57,6 +59,7 @@ var (
 		ReflectType:   reflect.TypeOf(&k8sioapicorev1.ConfigMap{}).Elem(),
 		ProtoPackage:  "k8s.io/api/core/v1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -71,6 +74,7 @@ var (
 		ReflectType:   reflect.TypeOf(&k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition{}).Elem(),
 		ProtoPackage:  "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1",
 		ClusterScoped: true,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -85,6 +89,7 @@ var (
 		ReflectType:   reflect.TypeOf(&k8sioapiappsv1.DeploymentSpec{}).Elem(),
 		ProtoPackage:  "k8s.io/api/apps/v1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -102,8 +107,24 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.DestinationRule{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateDestinationRule,
+	}.MustBuild()
+
+	EndpointSlice = resource.Builder{
+		Identifier:    "EndpointSlice",
+		Group:         "",
+		Kind:          "EndpointSlice",
+		Plural:        "endpointslices",
+		Version:       "v1",
+		Proto:         "k8s.io.api.discovery.v1.EndpointSlice",
+		ReflectType:   reflect.TypeOf(&k8sioapidiscoveryv1.EndpointSlice{}).Elem(),
+		ProtoPackage:  "k8s.io/api/discovery/v1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	Endpoints = resource.Builder{
@@ -116,6 +137,7 @@ var (
 		ReflectType:   reflect.TypeOf(&k8sioapicorev1.Endpoints{}).Elem(),
 		ProtoPackage:  "k8s.io/api/core/v1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -130,6 +152,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.EnvoyFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateEnvoyFilter,
 	}.MustBuild()
@@ -144,6 +167,7 @@ var (
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.GRPCRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.GRPCRouteStatus{}).Elem(),
 		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateGRPCRoute,
 	}.MustBuild()
@@ -161,6 +185,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.Gateway{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateGateway,
 	}.MustBuild()
@@ -178,6 +203,7 @@ var (
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayClassSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayClassStatus{}).Elem(),
 		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1beta1",
 		ClusterScoped: true,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateGatewayClass,
 	}.MustBuild()
@@ -195,6 +221,7 @@ var (
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.HTTPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.HTTPRouteStatus{}).Elem(),
 		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1beta1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateHTTPRoute,
 	}.MustBuild()
@@ -209,6 +236,22 @@ var (
 		ReflectType: reflect.TypeOf(&k8sioapinetworkingv1.IngressSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapinetworkingv1.IngressStatus{}).Elem(),
 		ProtoPackage: "k8s.io/api/networking/v1", StatusPackage: "k8s.io/api/networking/v1",
 		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
+	IngressClass = resource.Builder{
+		Identifier:    "IngressClass",
+		Group:         "networking.k8s.io",
+		Kind:          "IngressClass",
+		Plural:        "ingressclasses",
+		Version:       "v1",
+		Proto:         "k8s.io.api.networking.v1.IngressClassSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapinetworkingv1.IngressClassSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/networking/v1",
+		ClusterScoped: true,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -226,6 +269,7 @@ var (
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewaySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayStatus{}).Elem(),
 		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1beta1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateKubernetesGateway,
 	}.MustBuild()
@@ -240,6 +284,7 @@ var (
 		ReflectType:   reflect.TypeOf(&istioioapimeshv1alpha1.MeshConfig{}).Elem(),
 		ProtoPackage:  "istio.io/api/mesh/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     true,
 		Builtin:       false,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -254,6 +299,7 @@ var (
 		ReflectType:   reflect.TypeOf(&istioioapimeshv1alpha1.MeshNetworks{}).Elem(),
 		ProtoPackage:  "istio.io/api/mesh/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     true,
 		Builtin:       false,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -268,6 +314,7 @@ var (
 		ReflectType:   reflect.TypeOf(&k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration{}).Elem(),
 		ProtoPackage:  "k8s.io/api/admissionregistration/v1",
 		ClusterScoped: true,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -282,6 +329,7 @@ var (
 		ReflectType:   reflect.TypeOf(&k8sioapicorev1.NamespaceSpec{}).Elem(),
 		ProtoPackage:  "k8s.io/api/core/v1",
 		ClusterScoped: true,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -296,6 +344,7 @@ var (
 		ReflectType:   reflect.TypeOf(&k8sioapicorev1.NodeSpec{}).Elem(),
 		ProtoPackage:  "k8s.io/api/core/v1",
 		ClusterScoped: true,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -310,6 +359,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.PeerAuthentication{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidatePeerAuthentication,
 	}.MustBuild()
@@ -324,6 +374,7 @@ var (
 		ReflectType:   reflect.TypeOf(&k8sioapicorev1.PodSpec{}).Elem(),
 		ProtoPackage:  "k8s.io/api/core/v1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -338,6 +389,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1beta1.ProxyConfig{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/networking/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateProxyConfig,
 	}.MustBuild()
@@ -352,6 +404,7 @@ var (
 		ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.ReferenceGrantSpec{}).Elem(),
 		ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1alpha2",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -369,6 +422,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.RequestAuthentication{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateRequestAuthentication,
 	}.MustBuild()
@@ -383,6 +437,7 @@ var (
 		ReflectType:   reflect.TypeOf(&k8sioapicorev1.Secret{}).Elem(),
 		ProtoPackage:  "k8s.io/api/core/v1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -397,6 +452,7 @@ var (
 		ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceSpec{}).Elem(),
 		ProtoPackage:  "k8s.io/api/core/v1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -411,6 +467,7 @@ var (
 		ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceAccount{}).Elem(),
 		ProtoPackage:  "k8s.io/api/core/v1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
@@ -428,6 +485,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.ServiceEntry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateServiceEntry,
 	}.MustBuild()
@@ -445,6 +503,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.Sidecar{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateSidecar,
 	}.MustBuild()
@@ -459,6 +518,7 @@ var (
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TCPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TCPRouteStatus{}).Elem(),
 		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateTCPRoute,
 	}.MustBuild()
@@ -473,6 +533,7 @@ var (
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TLSRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TLSRouteStatus{}).Elem(),
 		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateTLSRoute,
 	}.MustBuild()
@@ -487,6 +548,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapitelemetryv1alpha1.Telemetry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/telemetry/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateTelemetry,
 	}.MustBuild()
@@ -501,6 +563,7 @@ var (
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.UDPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.UDPRouteStatus{}).Elem(),
 		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateUDPRoute,
 	}.MustBuild()
@@ -518,6 +581,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.VirtualService{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateVirtualService,
 	}.MustBuild()
@@ -532,6 +596,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.WasmPlugin{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateWasmPlugin,
 	}.MustBuild()
@@ -549,6 +614,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadEntry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateWorkloadEntry,
 	}.MustBuild()
@@ -566,6 +632,7 @@ var (
 		ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadGroup{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
+		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateWorkloadGroup,
 	}.MustBuild()
@@ -577,6 +644,7 @@ var (
 		MustAdd(CustomResourceDefinition).
 		MustAdd(Deployment).
 		MustAdd(DestinationRule).
+		MustAdd(EndpointSlice).
 		MustAdd(Endpoints).
 		MustAdd(EnvoyFilter).
 		MustAdd(GRPCRoute).
@@ -584,6 +652,7 @@ var (
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
 		MustAdd(Ingress).
+		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
 		MustAdd(MeshConfig).
 		MustAdd(MeshNetworks).
@@ -615,11 +684,13 @@ var (
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
 		MustAdd(Deployment).
+		MustAdd(EndpointSlice).
 		MustAdd(Endpoints).
 		MustAdd(GRPCRoute).
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
 		MustAdd(Ingress).
+		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
 		MustAdd(MutatingWebhookConfiguration).
 		MustAdd(Namespace).

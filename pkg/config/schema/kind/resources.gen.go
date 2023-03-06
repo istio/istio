@@ -15,6 +15,7 @@ const (
 	CustomResourceDefinition
 	Deployment
 	DestinationRule
+	EndpointSlice
 	Endpoints
 	EnvoyFilter
 	GRPCRoute
@@ -22,6 +23,7 @@ const (
 	GatewayClass
 	HTTPRoute
 	Ingress
+	IngressClass
 	KubernetesGateway
 	MeshConfig
 	MeshNetworks
@@ -62,6 +64,8 @@ func (k Kind) String() string {
 		return "Deployment"
 	case DestinationRule:
 		return "DestinationRule"
+	case EndpointSlice:
+		return "EndpointSlice"
 	case Endpoints:
 		return "Endpoints"
 	case EnvoyFilter:
@@ -76,6 +80,8 @@ func (k Kind) String() string {
 		return "HTTPRoute"
 	case Ingress:
 		return "Ingress"
+	case IngressClass:
+		return "IngressClass"
 	case KubernetesGateway:
 		return "Gateway"
 	case MeshConfig:
@@ -141,6 +147,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return Deployment
 	case gvk.DestinationRule:
 		return DestinationRule
+	case gvk.EndpointSlice:
+		return EndpointSlice
 	case gvk.Endpoints:
 		return Endpoints
 	case gvk.EnvoyFilter:
@@ -155,6 +163,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return HTTPRoute
 	case gvk.Ingress:
 		return Ingress
+	case gvk.IngressClass:
+		return IngressClass
 	case gvk.KubernetesGateway:
 		return KubernetesGateway
 	case gvk.MeshConfig:

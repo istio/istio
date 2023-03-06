@@ -103,6 +103,9 @@ type Builder struct {
 	// ClusterScoped is true for resource in cluster-level.
 	ClusterScoped bool
 
+	// Synthetic is true for resource that do not actually exist in a cluster
+	Synthetic bool
+
 	// Builtin is true for resources that are builtin (not CRD)
 	Builtin bool
 
@@ -174,6 +177,7 @@ func (b Builder) BuildNoValidate() Schema {
 
 	return &schemaImpl{
 		clusterScoped: b.ClusterScoped,
+		synthetic:     b.Synthetic,
 		builtin:       b.Builtin,
 		gvk: config.GroupVersionKind{
 			Group:   b.Group,
@@ -207,6 +211,7 @@ type schemaImpl struct {
 	statusType     reflect.Type
 	statusPackage  string
 	identifier     string
+	synthetic      bool
 }
 
 func (s *schemaImpl) GroupVersionKind() config.GroupVersionKind {

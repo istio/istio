@@ -15,11 +15,14 @@
 package codegen
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/stoewer/go-strcase"
 
 	"istio.io/istio/pkg/config/schema/ast"
 	"istio.io/istio/pkg/test/env"
@@ -89,23 +92,165 @@ func MustFromGVR(g schema.GroupVersionResource) config.GroupVersionKind {
 }
 `
 
-const gvrTemplate = `
+const crdclientTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
 
 package {{.PackageName}}
 
 import (
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"reflect"
+	"fmt"
+	"context"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
+	"k8s.io/client-go/informers"
+	istioinformer "istio.io/client-go/pkg/informers/externalversions"
+	kubeextinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	ktypes "istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvr"
+	"k8s.io/apimachinery/pkg/runtime"
+	kubeext "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/client-go/kubernetes"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+
+	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	apiistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
+	apiistioioapisecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
+	apiistioioapitelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
+{{- range .Packages}}
+	{{.ImportName}} "{{.PackageName}}"
+{{- end}}
 )
 
-var (
+func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
+	switch cfg.GroupVersionKind {
 {{- range .Entries }}
-	{{.Resource.Identifier}} = schema.GroupVersionResource{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Resource: "{{.Resource.Plural}}"}
+	{{- if and (not .Resource.Synthetic) (not .Resource.Builtin) }}
+	case gvk.{{.Resource.Identifier}}:
+		return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}cfg.Namespace{{end}}).Create(context.TODO(), &{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*{{ .ClientImport }}.{{.SpecType}})),
+		}, metav1.CreateOptions{})
+	{{- end }}
 {{- end }}
-)
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
+	}
+}
+
+func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
+	switch cfg.GroupVersionKind {
+{{- range .Entries }}
+	{{- if and (not .Resource.Synthetic) (not .Resource.Builtin) }}
+	case gvk.{{.Resource.Identifier}}:
+		return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}cfg.Namespace{{end}}).Update(context.TODO(), &{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*{{ .ClientImport }}.{{.SpecType}})),
+		}, metav1.UpdateOptions{})
+	{{- end }}
+{{- end }}
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
+	}
+}
+
+func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
+	switch cfg.GroupVersionKind {
+{{- range .Entries }}
+	{{- if and (not .Resource.Synthetic) (not .Resource.Builtin) (not (eq .StatusType "")) }}
+	case gvk.{{.Resource.Identifier}}:
+		return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}cfg.Namespace{{end}}).UpdateStatus(context.TODO(), &{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}{
+			ObjectMeta: objMeta,
+			Status:       *(cfg.Status.(*{{ .StatusImport }}.{{.StatusType}})),
+		}, metav1.UpdateOptions{})
+	{{- end }}
+{{- end }}
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
+	}
+}
+
+func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod config.Config, modMeta metav1.ObjectMeta, typ types.PatchType) (metav1.Object, error) {
+	if orig.GroupVersionKind != mod.GroupVersionKind {
+		return nil, fmt.Errorf("gvk mismatch: %v, modified: %v", orig.GroupVersionKind, mod.GroupVersionKind)
+	}
+	switch orig.GroupVersionKind {
+{{- range .Entries }}
+	{{- if and (not .Resource.Synthetic) (not .Resource.Builtin) }}
+	case gvk.{{.Resource.Identifier}}:
+		oldRes := &{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}{
+				ObjectMeta: origMeta,
+				Spec:       *(orig.Spec.(*{{ .ClientImport }}.{{.SpecType}})),
+		}
+		modRes := &{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*{{ .ClientImport }}.{{.SpecType}})),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+				return nil, err
+		}
+		return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}orig.Namespace{{end}}).
+				Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	{{- end }}
+{{- end }}
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", orig.GroupVersionKind)
+	}
+}
+
+
+func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
+	var deleteOptions metav1.DeleteOptions
+	if resourceVersion != nil {
+		deleteOptions.Preconditions = &metav1.Preconditions{ResourceVersion: resourceVersion}
+	}
+	switch typ {
+{{- range .Entries }}
+	{{- if and (not .Resource.Synthetic) (not .Resource.Builtin) }}
+	case gvk.{{.Resource.Identifier}}:
+		return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}namespace{{end}}).Delete(context.TODO(), name, deleteOptions)
+	{{- end }}
+{{- end }}
+	default:
+		return fmt.Errorf("unsupported type: %v", typ)
+	}
+}
+
+
+var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.Config{
+{{- range .Entries }}
+	{{- if and (not .Resource.Synthetic) }}
+	gvk.{{.Resource.Identifier}}: func(r runtime.Object) config.Config {
+		obj := r.(*{{ .IstioAwareClientImport }}.{{.Resource.Kind}})
+		return config.Config{
+		  Meta: config.Meta{
+		  	GroupVersionKind:  gvk.{{.Resource.Identifier}},
+		  	Name:              obj.Name,
+		  	Namespace:         obj.Namespace,
+		  	Labels:            obj.Labels,
+		  	Annotations:       obj.Annotations,
+		  	ResourceVersion:   obj.ResourceVersion,
+		  	CreationTimestamp: obj.CreationTimestamp.Time,
+		  	OwnerReferences:   obj.OwnerReferences,
+		  	UID:               string(obj.UID),
+		  	Generation:        obj.Generation,
+		  },
+			Spec:   {{ if not .Resource.Specless }}&obj.Spec{{ else }}obj{{ end }},
+      {{- if not (eq .StatusType "") }}
+		  Status: &obj.Status,
+      {{- end }}
+		}
+	},
+	{{- end }}
+{{- end }}
+}
+
 `
 
 const kindTemplate = `
@@ -188,11 +333,12 @@ var (
 			{{- end}}
 			Proto: "{{ .Resource.Proto }}",
 			{{- if ne .Resource.StatusProto "" }}StatusProto: "{{ .Resource.StatusProto }}",{{end}}
-			ReflectType: {{ .Type }},
-			{{- if ne .StatusType "" }}StatusType: {{ .StatusType }}, {{end}}
+			ReflectType: reflect.TypeOf(&{{.ClientImport}}.{{.SpecType}}{}).Elem(),
+			{{- if ne .StatusType "" }}StatusType: reflect.TypeOf(&{{.StatusImport}}.{{.StatusType}}{}).Elem(), {{end}}
 			ProtoPackage: "{{ .Resource.ProtoPackage }}",
 			{{- if ne "" .Resource.StatusProtoPackage}}StatusPackage: "{{ .Resource.StatusProtoPackage }}", {{end}}
 			ClusterScoped: {{ .Resource.ClusterScoped }},
+			Synthetic: {{ .Resource.Synthetic }},
 			Builtin: {{ .Resource.Builtin }},
 			ValidateProto: validation.{{ .Resource.Validate }},
 		}.MustBuild()
@@ -235,8 +381,26 @@ var (
 `
 
 type colEntry struct {
-	Resource   *ast.Resource
-	Type       string
+	Resource *ast.Resource
+
+	// ClientImport represents the import alias for the client. Example: clientnetworkingv1alpha3.
+	ClientImport string
+	// ClientImport represents the import alias for the status. Example: clientnetworkingv1alpha3.
+	StatusImport string
+	// IstioAwareClientImport represents the import alias for the API, taking into account Istio storing its API (spec)
+	// seperate from its client import
+	// Example: apiclientnetworkingv1alpha3.
+	IstioAwareClientImport string
+	// ClientGroupPath represents the group in the client. Example: NetworkingV1alpha3.
+	ClientGroupPath string
+	// InformerGroup represents the group in the client. Example: Networking().V1alpha3().
+	InformerGroup string
+	// ClientGetter returns the path to get the client from a kube.Client. Example: Istio.
+	ClientGetter string
+	// ClientTypePath returns the kind name. Basically upper cased "plural". Example: Gateways
+	ClientTypePath string
+	// SpecType returns the type of the Spec field. Example: HTTPRouteSpec.
+	SpecType   string
 	StatusType string
 }
 
@@ -265,11 +429,18 @@ func buildInputs() (inputs, error) {
 		stat := strings.Split(r.StatusProto, ".")
 		statName := stat[len(stat)-1]
 		e := colEntry{
-			Resource: r,
-			Type:     fmt.Sprintf("reflect.TypeOf(&%s.%s{}).Elem()", toImport(r.ProtoPackage), tname),
+			Resource:               r,
+			ClientImport:           toImport(r.ProtoPackage),
+			StatusImport:           toImport(r.StatusProtoPackage),
+			IstioAwareClientImport: toIstioAwareImport(r.ProtoPackage),
+			ClientGroupPath:        toGroup(r.ProtoPackage),
+			InformerGroup:          toInformerGroup(r.ProtoPackage),
+			ClientGetter:           toGetter(r.ProtoPackage),
+			ClientTypePath:         toTypePath(r),
+			SpecType:               tname,
 		}
 		if r.StatusProtoPackage != "" {
-			e.StatusType = fmt.Sprintf("reflect.TypeOf(&%s.%s{}).Elem()", toImport(r.StatusProtoPackage), statName)
+			e.StatusType = statName
 		}
 		entries = append(entries, e)
 	}
@@ -304,6 +475,58 @@ func buildInputs() (inputs, error) {
 	}, nil
 }
 
+func toTypePath(r *ast.Resource) string {
+	k := r.Kind
+	g := r.Plural
+	res := strings.Builder{}
+	for i, c := range g {
+		if i >= len(k) {
+			res.WriteByte(byte(c))
+		} else {
+			if k[i] == bytes.ToUpper([]byte{byte(c)})[0] {
+				res.WriteByte(k[i])
+			} else {
+				res.WriteByte(byte(c))
+			}
+		}
+	}
+	return res.String()
+}
+
+func toGetter(protoPackage string) string {
+	if strings.Contains(protoPackage, "istio.io") {
+		return "Istio"
+	} else if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
+		return "GatewayAPI"
+	} else if strings.Contains(protoPackage, "k8s.io/apiextensions-apiserver") {
+		return "Ext"
+	} else {
+		return "Kube"
+	}
+}
+
+func toGroup(protoPackage string) string {
+	p := strings.Split(protoPackage, "/")
+	e := len(p) - 1
+	if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
+		// Gateway has one level of nesting with custom name
+		return "Gateway" + strcase.UpperCamelCase(p[e])
+	}
+	// rest have two levels of nesting
+	return strcase.UpperCamelCase(p[e-1]) + strcase.UpperCamelCase(p[e])
+}
+
+func toInformerGroup(protoPackage string) string {
+	p := strings.Split(protoPackage, "/")
+	e := len(p) - 1
+	if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
+		// Gateway has one level of nesting with custom name
+		return "Gateway()." + strcase.UpperCamelCase(p[e]) + "()"
+	}
+	// rest have two levels of nesting
+	return strcase.UpperCamelCase(p[e-1]) + "()." + strcase.UpperCamelCase(p[e]) + "()"
+}
+
 type packageImport struct {
 	PackageName string
 	ImportName  string
@@ -311,4 +534,12 @@ type packageImport struct {
 
 func toImport(p string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(p, "/", ""), ".", ""), "-", "")
+}
+
+func toIstioAwareImport(p string) string {
+	imp := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(p, "/", ""), ".", ""), "-", "")
+	if strings.Contains(p, "istio.io") {
+		return "api" + imp
+	}
+	return imp
 }
