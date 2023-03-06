@@ -130,7 +130,12 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 
 	// TODO: add more checks
 
-	sa := local.NewSourceAnalyzer(analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}), resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil)
+	sa := local.NewSourceAnalyzer(
+		analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
+		resource.Namespace(selectedNamespace),
+		resource.Namespace(istioNamespace),
+		nil,
+	)
 	// Set up the kube client
 	config := kube.BuildClientCmd(kubeconfig, configContext)
 	restConfig, err := config.ClientConfig()
