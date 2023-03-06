@@ -286,7 +286,7 @@ func TestBackoff(t *testing.T) {
 // TestUpdateAll ensures that we create request to update all webhooks when CA bundle changes.
 func TestUpdateAll(t *testing.T) {
 	c := createTestController(t)
-	c.queue = workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute))
+	c.queue = workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Millisecond, 1*time.Minute))
 
 	// add two validating webhook configurations
 	const secondName = "second"
@@ -318,7 +318,7 @@ func TestUpdateAll(t *testing.T) {
 			}
 		}
 		return true
-	}, retry.Delay(time.Second), retry.Timeout(time.Second*5))
+	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*5))
 }
 
 func TestCABundleChange(t *testing.T) {
