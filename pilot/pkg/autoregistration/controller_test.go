@@ -92,10 +92,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
 			c.RegisterWorkload(tc, time.Now())
-			items, err := store.List(gvk.WorkloadEntry, model.NamespaceAll)
-			if err != nil {
-				t.Fatalf("failed listing WorkloadEntry: %v", err)
-			}
+			items := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if len(items) != 0 {
 				t.Fatalf("expected 0 WorkloadEntry")
 			}
