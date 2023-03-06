@@ -92,6 +92,7 @@ func MustFromGVR(g schema.GroupVersionResource) config.GroupVersionKind {
 }
 `
 
+// nolint: lll
 const crdclientTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
@@ -388,7 +389,7 @@ type colEntry struct {
 	// ClientImport represents the import alias for the status. Example: clientnetworkingv1alpha3.
 	StatusImport string
 	// IstioAwareClientImport represents the import alias for the API, taking into account Istio storing its API (spec)
-	// seperate from its client import
+	// separate from its client import
 	// Example: apiclientnetworkingv1alpha3.
 	IstioAwareClientImport string
 	// ClientGroupPath represents the group in the client. Example: NetworkingV1alpha3.
