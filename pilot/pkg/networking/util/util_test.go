@@ -1376,7 +1376,7 @@ func TestEndpointTLSModeLabel(t *testing.T) {
 			name:    "endpoint tlsMode !=  tlsMode,case1.1  ",
 			tlsMode: model.IstioMutualTLSModeLabel,
 			endpoint: &endpoint.LbEndpoint{
-				//endpoint tlsMode is not defined
+				// endpoint tlsMode is not defined
 				Metadata: &core.Metadata{},
 			},
 			want: &endpoint.LbEndpoint{
@@ -1426,7 +1426,7 @@ func TestEndpointTLSModeLabel(t *testing.T) {
 			tlsMode: model.DisabledTLSModeLabel,
 			endpoint: &endpoint.LbEndpoint{
 				Metadata: &core.Metadata{
-					//endpoint tlsMode is not defined
+					// endpoint tlsMode is not defined
 					FilterMetadata: map[string]*structpb.Struct{},
 				},
 			},
@@ -1437,7 +1437,7 @@ func TestEndpointTLSModeLabel(t *testing.T) {
 			name:    "endpoint tlsMode !=  tlsMode,case 2.1  ",
 			tlsMode: model.DisabledTLSModeLabel,
 			endpoint: &endpoint.LbEndpoint{
-				//endpoint tlsMode is not defined
+				// endpoint tlsMode is not defined
 				Metadata: &core.Metadata{},
 			},
 			want: nil,
