@@ -2352,6 +2352,119 @@ func TestBuildGatewayListeners(t *testing.T) {
 			[]string{"0.0.0.0_443", "0.0.0.0_9443"},
 		},
 		{
+			"gateway with multiple TCP/HTTPS servers with bind",
+			&pilot_model.Proxy{},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: "gateway1", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 8000, Protocol: "TCP"},
+								Hosts: []string{"*"},
+								Bind:  "10.0.0.1",
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "gateway2", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 8000, Protocol: "TCP"},
+								Hosts: []string{"*"},
+								Bind:  "10.0.0.2",
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "gateway3", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "https", Number: 8000, Protocol: "HTTPS"},
+								Hosts: []string{"*"},
+								Bind:  "10.0.0.3",
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+						},
+					},
+				},
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway1"},
+						Hosts:    []string{"*"},
+						Tcp: []*networking.TCPRoute{
+							{
+								Match: []*networking.L4MatchAttributes{
+									{
+										Port: 8000,
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "foo.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway2"},
+						Hosts:    []string{"*"},
+						Tcp: []*networking.TCPRoute{
+							{
+								Match: []*networking.L4MatchAttributes{
+									{
+										Port: 8000,
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "foo.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway3"},
+						Hosts:    []string{"*"},
+						Http: []*networking.HTTPRoute{
+							{
+								Route: []*networking.HTTPRouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "grpc.example.org",
+											Port: &networking.PortSelector{
+												Number: 80,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			[]string{"10.0.0.1_8000", "10.0.0.2_8000", "10.0.0.3_8000"},
+		},
+		{
 			"gateway with HTTPS/GRPC servers with bind",
 			&pilot_model.Proxy{},
 			[]config.Config{
