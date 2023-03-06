@@ -26,7 +26,9 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 	filter "istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -219,6 +221,16 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 
 	if opts.ServiceHandler != nil {
 		c.AppendServiceHandler(opts.ServiceHandler)
+	}
+
+	t.Cleanup(func() {
+		c.client.Shutdown()
+	})
+	if !opts.SkipRun {
+		t.Cleanup(func() {
+			assert.NoError(t, queue.WaitForClose(c.queue, time.Second*5))
+			<-c.queue.Closed()
+		})
 	}
 	c.stop = opts.Stop
 	if c.stop == nil {

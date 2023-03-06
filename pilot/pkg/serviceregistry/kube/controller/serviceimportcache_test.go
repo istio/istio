@@ -60,7 +60,6 @@ func TestServiceNotImported(t *testing.T) {
 	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
 		t.Run(mode.String(), func(t *testing.T) {
 			c, ic := newTestServiceImportCache(t, mode)
-
 			ic.createKubeService(t, c)
 
 			// Check that the service does not have ClusterSet IPs.
