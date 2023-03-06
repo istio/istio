@@ -693,7 +693,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				},
 			},
 			mesh: &meshconfig.MeshConfig{
-				MeshExternal_TLS: &meshconfig.MeshConfig_TLSConfig{
+				TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
 					EcdhCurves: []string{"P-256"},
 				},
 			},
@@ -741,7 +741,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				},
 			},
 			mesh: &meshconfig.MeshConfig{
-				MeshExternal_TLS: &meshconfig.MeshConfig_TLSConfig{
+				TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
 					EcdhCurves: []string{"P-256"},
 				},
 			},
@@ -817,7 +817,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				},
 			},
 			mesh: &meshconfig.MeshConfig{
-				MeshExternal_TLS: &meshconfig.MeshConfig_TLSConfig{
+				TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
 					EcdhCurves: []string{"P-256", "P-384"},
 				},
 			},

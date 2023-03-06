@@ -1721,7 +1721,7 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 
 	v = appendValidation(v, ValidateMeshTLSConfig(mesh))
 
-	v = appendValidation(v, ValidateMeshExternalTLSConfig(mesh))
+	v = appendValidation(v, ValidateMeshTLSDefaults(mesh))
 
 	return v.Unwrap()
 }
@@ -1747,12 +1747,12 @@ func ValidateMeshTLSConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	return errs
 }
 
-func ValidateMeshExternalTLSConfig(mesh *meshconfig.MeshConfig) (v Validation) {
+func ValidateMeshTLSDefaults(mesh *meshconfig.MeshConfig) (v Validation) {
 	unrecognizedECDHCurves := sets.New[string]()
 	validECDHCurves := sets.New[string]()
 	duplicateECDHCurves := sets.New[string]()
-	if meshExternalTLS := mesh.MeshExternal_TLS; meshExternalTLS != nil {
-		for _, cs := range meshExternalTLS.EcdhCurves {
+	if tlsDefaults := mesh.TlsDefaults; tlsDefaults != nil {
+		for _, cs := range tlsDefaults.EcdhCurves {
 			if !security.IsValidECDHCurve(cs) {
 				unrecognizedECDHCurves.Insert(cs)
 			} else if validECDHCurves.InsertContains(cs) {

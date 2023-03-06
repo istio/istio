@@ -2699,7 +2699,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				mutable:          newTestCluster(),
 				isDrWithSelector: true,
 				mesh: &meshconfig.MeshConfig{
-					MeshExternal_TLS: &meshconfig.MeshConfig_TLSConfig{
+					TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
 						EcdhCurves: []string{"P-256"},
 					},
 				},
@@ -2742,7 +2742,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				mutable:          newTestCluster(),
 				isDrWithSelector: true,
 				mesh: &meshconfig.MeshConfig{
-					MeshExternal_TLS: &meshconfig.MeshConfig_TLSConfig{
+					TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
 						EcdhCurves: []string{"P-256", "P-384"},
 					},
 				},
@@ -2791,7 +2791,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
 				mesh: &meshconfig.MeshConfig{
-					MeshExternal_TLS: &meshconfig.MeshConfig_TLSConfig{
+					TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
 						EcdhCurves: []string{"P-256", "P-384"},
 					},
 				},

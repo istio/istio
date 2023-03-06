@@ -418,7 +418,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		MeshMTLS: &meshconfig.MeshConfig_TLSConfig{
 			EcdhCurves: []string{"P-256"},
 		},
-		MeshExternal_TLS: &meshconfig.MeshConfig_TLSConfig{
+		TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
 			EcdhCurves: []string{"P-256", "P-256", "invalid"},
 		},
 	}

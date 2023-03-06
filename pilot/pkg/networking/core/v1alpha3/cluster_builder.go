@@ -1185,8 +1185,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 // ApplyECDHCurves applies the ECDH curves from mesh config to UpstreamTlsContext
 // Used for building upstream TLS context for mesh external TLS/mTLS origination
 func ApplyECDHCurves(tlsContext *auth.UpstreamTlsContext, mesh *meshconfig.MeshConfig) {
-	if mesh != nil && mesh.MeshExternal_TLS != nil && len(mesh.MeshExternal_TLS.EcdhCurves) > 0 {
-		tlsContext.CommonTlsContext.TlsParams.EcdhCurves = mesh.MeshExternal_TLS.EcdhCurves
+	if mesh != nil && mesh.TlsDefaults != nil && len(mesh.TlsDefaults.EcdhCurves) > 0 {
+		tlsContext.CommonTlsContext.TlsParams.EcdhCurves = mesh.TlsDefaults.EcdhCurves
 	}
 }
 
