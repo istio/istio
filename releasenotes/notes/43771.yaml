@@ -5,4 +5,4 @@ issue:
   - 43771
 releaseNotes:
   - |
-    **Improved** executing the 'downloadIstioCtl.sh' script will not change to home directory at the end.
+    **Improved** the `downloadIstioCtl.sh` script to not change to the home directory at the end.
