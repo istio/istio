@@ -92,7 +92,8 @@ func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioName
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
-	istioNamespace resource.Namespace, cr CollectionReporterFn) *IstiodAnalyzer {
+	istioNamespace resource.Namespace, cr CollectionReporterFn,
+) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(config.GroupVersionKind) {}
