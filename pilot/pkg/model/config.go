@@ -162,7 +162,7 @@ type ConfigStore interface {
 
 	// List returns objects by type and namespace.
 	// Use "" for the namespace to list across namespaces.
-	List(typ config.GroupVersionKind, namespace string) ([]config.Config, error)
+	List(typ config.GroupVersionKind, namespace string) []config.Config
 
 	// Create adds a new configuration object to the store. If an object with the
 	// same name and namespace for the type already exists, the operation fails
@@ -338,7 +338,7 @@ func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]
 }
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortConfigByCreationTime(configs []config.Config) {
+func sortConfigByCreationTime(configs []config.Config) []config.Config {
 	sort.Slice(configs, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
@@ -350,6 +350,7 @@ func sortConfigByCreationTime(configs []config.Config) {
 		}
 		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
 	})
+	return configs
 }
 
 // key creates a key from a reference's name and namespace.

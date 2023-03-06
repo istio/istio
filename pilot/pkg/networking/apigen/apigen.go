@@ -89,16 +89,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 		return resp, model.DefaultXdsLogDetails, nil
 	}
 
-	// TODO: what is the proper way to handle errors ?
-	// Normally once istio is 'ready' List can't return errors on a valid config -
-	// even if k8s is disconnected, we still cache all previous results.
-	// This needs further consideration - I don't think XDS or MCP transports
-	// have a clear recommendation.
-	cfg, err := g.store.List(rgvk, "")
-	if err != nil {
-		log.Warnf("ADS: Error reading resource %s %v", w.TypeUrl, err)
-		return resp, model.DefaultXdsLogDetails, nil
-	}
+	cfg := g.store.List(rgvk, "")
 	for _, c := range cfg {
 		// Right now model.Config is not a proto - until we change it, mcp.Resource.
 		// This also helps migrating MCP users.

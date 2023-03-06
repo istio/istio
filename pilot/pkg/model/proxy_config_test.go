@@ -413,10 +413,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				DefaultConfig: tc.defaultConfig,
 			}
 			original, _ := protomarshal.ToJSON(m)
-			pcs, err := GetProxyConfigs(store, m)
-			if err != nil {
-				t.Fatalf("failed to list proxyconfigs: %v", err)
-			}
+			pcs := GetProxyConfigs(store, m)
 			merged := pcs.EffectiveProxyConfig(tc.proxy, m)
 			pc := mesh.DefaultProxyConfig()
 			proto.Merge(pc, tc.expected)

@@ -1220,11 +1220,7 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 		return
 	}
 
-	existingConfigs, err := a.Store.List(groupVersionKind, "")
-	if err != nil {
-		adscLog.Warnf("Error listing existing configs %v", err)
-		return
-	}
+	existingConfigs := a.Store.List(groupVersionKind, "")
 
 	received := make(map[string]*config.Config)
 	for _, rsc := range resources {
@@ -1283,7 +1279,7 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 				continue
 			}
 			if a.LocalCacheDir != "" {
-				err = os.Remove(a.LocalCacheDir + "_res." +
+				err := os.Remove(a.LocalCacheDir + "_res." +
 					config.GroupVersionKind.Kind + "." + config.Namespace + "." + config.Name + ".json")
 				if err != nil {
 					adscLog.Warnf("Error deleting received MCP config to local file %v", err)

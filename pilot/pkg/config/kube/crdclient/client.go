@@ -313,8 +313,7 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 	}
 	obj, err := h.lister(namespace).Get(name)
 	if err != nil {
-		// TODO we should be returning errors not logging
-		cl.logger.Warnf("couldn't find %s/%s in informer index", namespace, name)
+		cl.logger.Debugf("couldn't find %s/%s in informer index", namespace, name)
 		return nil
 	}
 
@@ -382,15 +381,20 @@ func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, re
 }
 
 // List implements store interface
-func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (cl *Client) List(kind config.GroupVersionKind, namespace string) []config.Config {
 	h, f := cl.kind(kind)
 	if !f {
-		return nil, nil
+		return nil
 	}
 
 	list, err := h.lister(namespace).List(klabels.Everything())
 	if err != nil {
-		return nil, err
+		// Should never happen
+		if features.EnableUnsafeAssertions {
+			cl.logger.Fatalf("lister returned err for %v: %v", namespace, err)
+		}
+		cl.logger.Errorf("lister returned err for %v: %v", namespace, err)
+		return nil
 	}
 
 	out := make([]config.Config, 0, len(list))
@@ -401,7 +405,7 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 		}
 	}
 
-	return out, nil
+	return out
 }
 
 func (cl *Client) objectInRevision(o *config.Config) bool {

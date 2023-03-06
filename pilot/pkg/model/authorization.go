@@ -18,10 +18,7 @@ import (
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
-	istiolog "istio.io/pkg/log"
 )
-
-var authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)
 
 type AuthorizationPolicy struct {
 	Name        string                      `json:"name"`
@@ -40,16 +37,13 @@ type AuthorizationPolicies struct {
 }
 
 // GetAuthorizationPolicies returns the AuthorizationPolicies for the given environment.
-func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) {
+func GetAuthorizationPolicies(env *Environment) *AuthorizationPolicies {
 	policy := &AuthorizationPolicies{
 		NamespaceToPolicies: map[string][]AuthorizationPolicy{},
 		RootNamespace:       env.Mesh().GetRootNamespace(),
 	}
 
-	policies, err := env.List(gvk.AuthorizationPolicy, NamespaceAll)
-	if err != nil {
-		return nil, err
-	}
+	policies := env.List(gvk.AuthorizationPolicy, NamespaceAll)
 	sortConfigByCreationTime(policies)
 	for _, config := range policies {
 		authzConfig := AuthorizationPolicy{
@@ -61,7 +55,7 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 		policy.NamespaceToPolicies[config.Namespace] = append(policy.NamespaceToPolicies[config.Namespace], authzConfig)
 	}
 
-	return policy, nil
+	return policy
 }
 
 type AuthorizationPoliciesResult struct {

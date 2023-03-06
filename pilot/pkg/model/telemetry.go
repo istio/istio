@@ -44,10 +44,7 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
-
-var telemetryLog = istiolog.RegisterScope("telemetry", "Istio Telemetry", 0)
 
 // Telemetry holds configuration for Telemetry API resources.
 type Telemetry struct {
@@ -108,7 +105,7 @@ type metricsKey struct {
 }
 
 // getTelemetries returns the Telemetry configurations for the given environment.
-func getTelemetries(env *Environment) (*Telemetries, error) {
+func getTelemetries(env *Environment) *Telemetries {
 	telemetries := &Telemetries{
 		NamespaceToTelemetries: map[string][]Telemetry{},
 		RootNamespace:          env.Mesh().GetRootNamespace(),
@@ -117,10 +114,7 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 		computedLoggingConfig:  map[loggingKey][]LoggingConfig{},
 	}
 
-	fromEnv, err := env.List(gvk.Telemetry, NamespaceAll)
-	if err != nil {
-		return nil, err
-	}
+	fromEnv := env.List(gvk.Telemetry, NamespaceAll)
 	sortConfigByCreationTime(fromEnv)
 	for _, config := range fromEnv {
 		telemetry := Telemetry{
@@ -131,7 +125,7 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 		telemetries.NamespaceToTelemetries[config.Namespace] = append(telemetries.NamespaceToTelemetries[config.Namespace], telemetry)
 	}
 
-	return telemetries, nil
+	return telemetries
 }
 
 type metricsConfig struct {
