@@ -548,11 +548,13 @@ func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.
 	// We make a copy instead of modifying on existing endpoint pointer directly to avoid data race.
 	// See https://github.com/istio/istio/issues/34227 for details.
 	newEndpoint := proto.Clone(ep).(*endpoint.LbEndpoint)
+
+	// ep.Metadata.FilterMetadata maybe an empty map or nil, after clone, corresponding field will be a nil map.
+	if newEndpoint.Metadata.FilterMetadata == nil {
+		newEndpoint.Metadata.FilterMetadata = make(map[string]*structpb.Struct)
+	}
+
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
-		// ep.Metadata.FilterMetadata maybe a empty map, after clone, corresponding field will be a nil map.
-		if newEndpoint.Metadata.FilterMetadata == nil {
-			newEndpoint.Metadata.FilterMetadata = make(map[string]*structpb.Struct)
-		}
 		newEndpoint.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: tlsMode}},
