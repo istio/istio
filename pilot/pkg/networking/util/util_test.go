@@ -1475,10 +1475,9 @@ func TestEndpointTLSModeLabel(t *testing.T) {
 			if newEp == nil || tt.want == nil {
 				if tt.want == newEp {
 					return
-				} else {
-					t.Errorf("test case[%s] error, Unexpected Endpoint metadata got %v, want %v", tt.name, newEp, tt.want)
-					return
 				}
+				t.Errorf("test case[%s] error, Unexpected Endpoint metadata got %v, want %v", tt.name, newEp, tt.want)
+				return
 			}
 
 			if !reflect.DeepEqual(newEp.Metadata, tt.want.Metadata) {
