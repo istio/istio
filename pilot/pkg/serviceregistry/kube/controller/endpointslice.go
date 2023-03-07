@@ -24,15 +24,12 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/discovery/v1"
-	listerv1beta1 "k8s.io/client-go/listers/discovery/v1beta1"
-	"k8s.io/client-go/tools/cache"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
-	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	filterinformer "istio.io/istio/pkg/kube/informer"
 )
@@ -40,7 +37,6 @@ import (
 type endpointSliceController struct {
 	kubeEndpoints
 	endpointCache *endpointSliceCache
-	useV1Resource bool
 }
 
 var _ kubeEndpointsController = &endpointSliceController{}
@@ -53,14 +49,7 @@ var (
 func newEndpointSliceController(c *Controller) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
-	useV1Resource := endpointSliceV1Available(c.client)
-	var informer cache.SharedIndexInformer
-	if useV1Resource {
-		informer = c.client.KubeInformer().Discovery().V1().EndpointSlices().Informer()
-	} else {
-		informer = c.client.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer()
-	}
-
+	informer := c.client.KubeInformer().Discovery().V1().EndpointSlices().Informer()
 	filteredInformer := filterinformer.NewFilteredSharedIndexInformer(
 		c.opts.DiscoveryNamespacesFilter.Filter,
 		informer,
@@ -70,16 +59,10 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 			c:        c,
 			informer: filteredInformer,
 		},
-		useV1Resource: useV1Resource,
 		endpointCache: newEndpointSliceCache(),
 	}
 	c.registerHandlers(filteredInformer, "EndpointSlice", out.onEvent, nil)
 	return out
-}
-
-// TODO use this to automatically switch to EndpointSlice mode
-func endpointSliceV1Available(client kubelib.Client) bool {
-	return client != nil && !kubelib.IsLessThanVersion(client, 21)
 }
 
 func (esc *endpointSliceController) getInformer() filterinformer.FilteredSharedIndexInformer {
@@ -87,20 +70,11 @@ func (esc *endpointSliceController) getInformer() filterinformer.FilteredSharedI
 }
 
 func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selector) (slices []any, err error) {
-	if esc.useV1Resource {
-		var eps []*v1.EndpointSlice
-		eps, err = listerv1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
-		slices = make([]any, len(eps))
-		for i, ep := range eps {
-			slices[i] = ep
-		}
-	} else {
-		var eps []*v1beta1.EndpointSlice
-		eps, err = listerv1beta1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
-		slices = make([]any, len(eps))
-		for i, ep := range eps {
-			slices[i] = ep
-		}
+	var eps []*v1.EndpointSlice
+	eps, err = listerv1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
+	slices = make([]any, len(eps))
+	for i, ep := range eps {
+		slices[i] = ep
 	}
 	return
 }
@@ -118,8 +92,6 @@ func (esc *endpointSliceController) onEvent(_, curr any, event model.Event) erro
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
-// TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
-// To tackle this, we need a ip2instance map like what we have in service entry.
 func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
 	eps, err := esc.listSlices(proxy.Metadata.Namespace, endpointSliceSelector)
 	if err != nil {
