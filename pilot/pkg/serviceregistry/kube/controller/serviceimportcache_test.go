@@ -16,7 +16,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -440,7 +439,7 @@ func (ic *serviceImportCacheImpl) createServiceImport(t *testing.T, importType m
 
 	if shouldCreateMCSService {
 		// Wait for the XDS event.
-		ic.waitForXDS(t)
+		ic.checkXDS(t)
 	}
 }
 
@@ -473,7 +472,7 @@ func (ic *serviceImportCacheImpl) setServiceImportVIPs(t *testing.T, vips []stri
 		}, serviceImportTimeout)
 
 		// Wait for the XDS event.
-		ic.waitForXDS(t)
+		ic.checkXDS(t)
 	} else {
 		// Wait for the import to be processed by the controller.
 		retry.UntilSuccessOrFail(t, func() error {
@@ -510,19 +509,9 @@ func (ic *serviceImportCacheImpl) isImported(name types.NamespacedName) bool {
 	return item != nil
 }
 
-func (ic *serviceImportCacheImpl) waitForXDS(t *testing.T) {
+func (ic *serviceImportCacheImpl) checkXDS(t test.Failer) error {
 	t.Helper()
-
-	retry.UntilSuccessOrFail(t, func() error {
-		return ic.checkXDS()
-	}, serviceImportTimeout)
-}
-
-func (ic *serviceImportCacheImpl) checkXDS() error {
-	event := ic.opts.XDSUpdater.(*FakeXdsUpdater).Wait("service")
-	if event == nil {
-		return errors.New("failed waiting for XDS event")
-	}
+	event := ic.opts.XDSUpdater.(*FakeXdsUpdater).WaitOrFail(t, "service")
 
 	// The name of the event will be the cluster-local hostname.
 	eventID := serviceImportClusterSetHost.String()
