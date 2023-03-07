@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -728,6 +729,18 @@ func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *mod
 					default:
 						dumps[resourceType] = append(dumps[resourceType], rr)
 					}
+				case v3.WorkloadType:
+					w := &workloadapi.Workload{}
+					if err := rr.GetResource().UnmarshalTo(w); err != nil {
+						istiolog.Warnf("failed to unmarshal workload: %v", err)
+						continue
+					}
+					w.Address = []byte(parseAddressSlice(w.Address))
+					for i := range w.WaypointAddresses {
+						w.WaypointAddresses[i] = []byte(parseAddressSlice(w.WaypointAddresses[i]))
+					}
+					rr.Resource = protoconv.MessageToAny(w)
+					dumps[resourceType] = append(dumps[resourceType], rr)
 				default:
 					dumps[resourceType] = append(dumps[resourceType], rr)
 				}
@@ -739,6 +752,11 @@ func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *mod
 	}
 
 	return dumps
+}
+
+func parseAddressSlice(addr []byte) string {
+	ii, _ := netip.AddrFromSlice(addr)
+	return ii.String()
 }
 
 // connectionConfigDump converts the connection internal state into an Envoy Admin API config dump proto
