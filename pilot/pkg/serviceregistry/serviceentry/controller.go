@@ -17,7 +17,6 @@ package serviceentry
 import (
 	"fmt"
 	"hash/fnv"
-	"reflect"
 	"strconv"
 	"sync"
 	"time"
@@ -840,7 +839,7 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 		newSvc, f := newServiceHosts[s.Hostname]
 		if !f {
 			deleted = append(deleted, s)
-		} else if !reflect.DeepEqual(s, newSvc) {
+		} else if !s.Equals(newSvc) {
 			updated = append(updated, newSvc)
 		} else {
 			unchanged = append(unchanged, newSvc)
