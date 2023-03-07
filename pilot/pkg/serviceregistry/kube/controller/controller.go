@@ -1226,6 +1226,40 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 		c.workloadInstancesIndex.Insert(si)
 	}
 
+	// handle WorkloadInstance in ambient by creating a mock pod that models the VM workload.
+	ambientMockPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      si.Name,
+			Namespace: si.Namespace,
+			Labels:    si.Endpoint.Labels,
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: si.Endpoint.ServiceAccount,
+			NodeName:           si.Endpoint.NodeName,
+			Containers: []v1.Container{
+				{
+					Ports: []v1.ContainerPort{},
+				},
+			},
+		},
+		Status: v1.PodStatus{
+			PodIP: si.Endpoint.Address,
+			Conditions: []v1.PodCondition{{
+				Type:   v1.PodReady,
+				Status: v1.ConditionTrue,
+			}},
+		},
+	}
+	// treat workloads on ambient as HBONE native
+	ambientMockPod.Labels[model.TunnelLabel] = model.TunnelHTTP
+	for k, v := range si.PortMap {
+		ambientMockPod.Spec.Containers[0].Ports = append(ambientMockPod.Spec.Containers[0].Ports, v1.ContainerPort{
+			Name:          k,
+			ContainerPort: int32(v),
+		})
+	}
+	c.ambientIndex.handlePods([]*v1.Pod{ambientMockPod})
+
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
 	dummyPod := &v1.Pod{
