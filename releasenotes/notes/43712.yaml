@@ -5,4 +5,4 @@ issue:
   - 40861
 releaseNotes:
   - |
-    **Added** a bug in `istioctl analyze` where unexpected messages are displayed when analyzing files that contain gateway resources.
+    **Fixed** a bug in `istioctl analyze` where unexpected messages are displayed when analyzing files that contain gateway resources.
