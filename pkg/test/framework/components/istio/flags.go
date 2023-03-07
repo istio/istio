@@ -41,7 +41,8 @@ func init() {
 		e.g. components.cni.enabled=true,components.cni.namespace=kube-system`)
 	flag.BoolVar(&settingsFromCommandline.EnableCNI, "istio.test.istio.enableCNI", settingsFromCommandline.EnableCNI,
 		"Deploy Istio with CNI enabled.")
-	flag.StringVar(&settingsFromCommandline.IngressGatewayServiceName, "istio.test.kube.ingressgatewayServiceName", settingsFromCommandline.IngressGatewayServiceName,
+	flag.StringVar(&settingsFromCommandline.IngressGatewayServiceName, "istio.test.kube.ingressgatewayServiceName",
+		settingsFromCommandline.IngressGatewayServiceName,
 		`Specifies the name of the ingressgateway service to use when running tests in a preinstalled istio installation.
 		Should only be set when istio.test.kube.deploy=false`)
 }
