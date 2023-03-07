@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 43311
+releaseNotes:
+  - |
+    **Improved** the pc workloads by printing the waypoint name (if any) for the workload.
