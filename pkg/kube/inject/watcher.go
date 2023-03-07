@@ -191,7 +191,7 @@ func readConfigMap(cm *v1.ConfigMap, configKey, valuesKey string) (*Config, stri
 	return c, valuesConfig, nil
 }
 
-// WatcherMultiCast allows multiple event handlers to register for the same watcher,
+// WatcherMulticast allows multiple event handlers to register for the same watcher,
 // simplifying injector based controllers.
 type WatcherMulticast struct {
 	handlers []func(*Config, string) error
