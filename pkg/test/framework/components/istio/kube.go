@@ -126,7 +126,11 @@ func (i *istioImpl) Ingresses() ingress.Instances {
 }
 
 func (i *istioImpl) IngressFor(c cluster.Cluster) ingress.Instance {
-	name := types.NamespacedName{Name: defaultIngressServiceName, Namespace: i.cfg.SystemNamespace}
+	ingressServiceName := defaultIngressServiceName
+	if serviceNameOverride := i.cfg.IngressGatewayServiceName; serviceNameOverride != "" {
+		ingressServiceName = serviceNameOverride
+	}
+	name := types.NamespacedName{Name: ingressServiceName, Namespace: i.cfg.SystemNamespace}
 	return i.CustomIngressFor(c, name, defaultIngressIstioLabel)
 }
 
