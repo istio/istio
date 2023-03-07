@@ -22,6 +22,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	matcherv3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/util/protomarshal"
