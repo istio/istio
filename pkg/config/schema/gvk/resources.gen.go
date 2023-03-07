@@ -16,6 +16,7 @@ var (
 	CustomResourceDefinition     = config.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"}
 	Deployment                   = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
 	DestinationRule              = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "DestinationRule"}
+	EndpointSlice                = config.GroupVersionKind{Group: "", Version: "v1", Kind: "EndpointSlice"}
 	Endpoints                    = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"}
 	EnvoyFilter                  = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "EnvoyFilter"}
 	GRPCRoute                    = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "GRPCRoute"}
@@ -23,6 +24,7 @@ var (
 	GatewayClass                 = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "GatewayClass"}
 	HTTPRoute                    = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "HTTPRoute"}
 	Ingress                      = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "Ingress"}
+	IngressClass                 = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "IngressClass"}
 	KubernetesGateway            = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "Gateway"}
 	MeshConfig                   = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshConfig"}
 	MeshNetworks                 = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshNetworks"}
@@ -62,6 +64,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.Deployment, true
 	case DestinationRule:
 		return gvr.DestinationRule, true
+	case EndpointSlice:
+		return gvr.EndpointSlice, true
 	case Endpoints:
 		return gvr.Endpoints, true
 	case EnvoyFilter:
@@ -76,6 +80,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.HTTPRoute, true
 	case Ingress:
 		return gvr.Ingress, true
+	case IngressClass:
+		return gvr.IngressClass, true
 	case KubernetesGateway:
 		return gvr.KubernetesGateway, true
 	case MeshConfig:
@@ -152,6 +158,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return Deployment, true
 	case gvr.DestinationRule:
 		return DestinationRule, true
+	case gvr.EndpointSlice:
+		return EndpointSlice, true
 	case gvr.Endpoints:
 		return Endpoints, true
 	case gvr.EnvoyFilter:
@@ -166,6 +174,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return HTTPRoute, true
 	case gvr.Ingress:
 		return Ingress, true
+	case gvr.IngressClass:
+		return IngressClass, true
 	case gvr.KubernetesGateway:
 		return KubernetesGateway, true
 	case gvr.MeshConfig:
