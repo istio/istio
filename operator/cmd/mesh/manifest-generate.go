@@ -108,9 +108,6 @@ func ManifestGenerateCmd(rootArgs *RootArgs, mgArgs *ManifestGenerateArgs, logOp
 
   # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
   istioctl manifest generate --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
-
-  # For setting boolean-string option, it should be enclosed quotes and escaped with a backslash (\).
-  istioctl manifest generate --set meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_VIA_AGENT=\"false\"
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
