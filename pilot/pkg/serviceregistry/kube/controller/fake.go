@@ -229,7 +229,6 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 	if !opts.SkipRun {
 		t.Cleanup(func() {
 			assert.NoError(t, queue.WaitForClose(c.queue, time.Second*5))
-			<-c.queue.Closed()
 		})
 	}
 	c.stop = opts.Stop
