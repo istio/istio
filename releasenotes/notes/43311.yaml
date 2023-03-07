@@ -5,4 +5,4 @@ issue:
   - 43311
 releaseNotes:
   - |
-    **Improved** the pc workloads by printing the waypoint name (if any) for the workload.
+    **Improved** `istioctl proxy-config workload` by printing the waypoint name (if any) for the workload.
