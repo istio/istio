@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: istioctl
-issue:
-  - 43311
-releaseNotes:
-  - |
-    **Improved** `istioctl proxy-config workload` by printing the waypoint name (if any) for the workload.
