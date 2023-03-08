@@ -886,6 +886,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 		VirtualIps:            vips,
 		AuthorizationPolicies: policies,
 		Status:                workloadapi.WorkloadStatus_HEALTHY,
+		ClusterId:             c.Cluster().String(),
 	}
 	if !IsPodReady(pod) {
 		wl.Status = workloadapi.WorkloadStatus_UNHEALTHY
