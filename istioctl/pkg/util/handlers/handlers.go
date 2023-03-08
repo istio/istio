@@ -134,6 +134,7 @@ func getClientForResource(resname, ns string, factory cmdutil.Factory) (*corev1c
 	return clientset, "", namespace, selector.String(), nil
 }
 
+// this is used for testing. it should not be changed in regular code.
 var getFirstPodFunc func(client corev1client.PodsGetter, namespace string, selector string, timeout time.Duration,
 	sortBy func([]*corev1.Pod) sort.Interface) (*corev1.Pod, int, error)
 
