@@ -1115,6 +1115,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				}
 			}
 		}
+		// Apply ECDH Curves from MeshConfig
+		ApplyECDHCurves(tlsContext, opts.mesh)
 
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
@@ -1169,12 +1171,23 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
+		// Apply ECDH Curves from MeshConfig
+		ApplyECDHCurves(tlsContext, opts.mesh)
+
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 	}
 	return tlsContext, nil
+}
+
+// ApplyECDHCurves applies the ECDH curves from mesh config to UpstreamTlsContext
+// Used for building upstream TLS context for mesh external TLS/mTLS origination
+func ApplyECDHCurves(tlsContext *auth.UpstreamTlsContext, mesh *meshconfig.MeshConfig) {
+	if mesh != nil && mesh.TlsDefaults != nil && len(mesh.TlsDefaults.EcdhCurves) > 0 {
+		tlsContext.CommonTlsContext.TlsParams.EcdhCurves = mesh.TlsDefaults.EcdhCurves
+	}
 }
 
 // Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.
