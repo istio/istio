@@ -67,10 +67,10 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 
 	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
 	ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
-		CipherSuites: SupportedCiphers,
+		CipherSuites:              SupportedCiphers,
+		TlsMinimumProtocolVersion: minTLSVersion,
+		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
-	ctx.CommonTlsContext.TlsParams.TlsMinimumProtocolVersion = minTLSVersion
-	ctx.CommonTlsContext.TlsParams.TlsMaximumProtocolVersion = tls.TlsParameters_TLSv1_3
 	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{}, /*subjectAltNames*/
 		trustDomainAliases, ctx.RequireClientCertificate.Value)
 	return ctx
