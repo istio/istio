@@ -114,12 +114,7 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 		return
 	}
 	// TODO: this needs to include file source as well
-	cfgs, err := i.store.List(colschema.GroupVersionKind(), "")
-	if err != nil {
-		// TODO: demote this log before merging
-		log.Errorf("collection %s could not be listed: %s", col.String(), err)
-		return
-	}
+	cfgs := i.store.List(colschema.GroupVersionKind(), "")
 	broken := false
 	cache := map[resource.FullName]*resource.Instance{}
 	for _, cfg := range cfgs {

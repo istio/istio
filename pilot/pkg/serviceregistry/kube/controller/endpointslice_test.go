@@ -51,9 +51,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 
 	createService(controller, svcName, ns, nil,
 		[]int32{8080}, map[string]string{"app": appName}, t)
-	if ev := fx.Wait("service"); ev == nil {
-		t.Fatal("Timeout creating service")
-	}
+	fx.WaitOrFail(t, "service")
 
 	// Ensure that the service is available.
 	hostname := kube.ServiceHostname(svcName, ns, controller.opts.DomainSuffix)
@@ -68,9 +66,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	createEndpoints(t, controller, svcName, ns, portNames, svc1Ips, nil, map[string]string{
 		mcs.LabelServiceName: svcName,
 	})
-	if ev := fx.WaitForDuration("eds", 200*time.Millisecond); ev != nil {
-		t.Fatalf("Received unexpected EDS event")
-	}
+	fx.AssertEmpty(t, time.Millisecond*50)
 
 	// Ensure that getting by port returns no ServiceInstances.
 	instances := controller.InstancesByPort(svc, svc.Ports[0].Port)

@@ -26,7 +26,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v23.0.0+incompatible
-	github.com/envoyproxy/go-control-plane v0.11.1-0.20230221171959-fd2c72087533
+	github.com/envoyproxy/go-control-plane v0.11.1-0.20230303230207-58bf12899b29
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.14.1
 	github.com/felixge/fgprof v0.9.3
@@ -88,9 +88,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.11.1
-	istio.io/api v0.0.0-20230302172406-582f573dde0c
-	istio.io/client-go v1.12.0-alpha.5.0.20230302202906-d05eafad7a08
-	istio.io/pkg v0.0.0-20230220143559-b49e87774e1e
+	istio.io/api v0.0.0-20230306191145-5e59387fbd49
+	istio.io/client-go v1.18.0-alpha.0.0.20230307014051-0cfc02bec78c
+	istio.io/pkg v0.0.0-20230302202707-0023da60c4c9
 	k8s.io/api v0.26.1
 	k8s.io/apiextensions-apiserver v0.26.1
 	k8s.io/apimachinery v0.26.1
@@ -222,7 +222,7 @@ require (
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/stoewer/go-strcase v1.2.1 // indirect
+	github.com/stoewer/go-strcase v1.2.1
 	github.com/stretchr/testify v1.8.1 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect

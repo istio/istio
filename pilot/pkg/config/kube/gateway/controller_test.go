@@ -95,9 +95,8 @@ func TestListInvalidGroupVersionKind(t *testing.T) {
 	controller := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 
 	typ := config.GroupVersionKind{Kind: "wrong-kind"}
-	c, err := controller.List(typ, "ns1")
+	c := controller.List(typ, "ns1")
 	g.Expect(c).To(HaveLen(0))
-	g.Expect(err).To(HaveOccurred())
 }
 
 func TestListGatewayResourceType(t *testing.T) {
@@ -136,8 +135,7 @@ func TestListGatewayResourceType(t *testing.T) {
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(HaveOccurred())
-	cfg, err := controller.List(gvk.Gateway, "ns1")
-	g.Expect(err).ToNot(HaveOccurred())
+	cfg := controller.List(gvk.Gateway, "ns1")
 	g.Expect(cfg).To(HaveLen(1))
 	for _, c := range cfg {
 		g.Expect(c.GroupVersionKind).To(Equal(gvk.Gateway))
@@ -181,8 +179,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(HaveOccurred())
-	cfg, err := controller.List(gvk.VirtualService, "ns1")
-	g.Expect(err).ToNot(HaveOccurred())
+	cfg := controller.List(gvk.VirtualService, "ns1")
 	g.Expect(cfg).To(HaveLen(1))
 	for _, c := range cfg {
 		g.Expect(c.GroupVersionKind).To(Equal(gvk.VirtualService))
@@ -193,8 +190,6 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 }
 
 func TestNamespaceEvent(t *testing.T) {
-	g := NewWithT(t)
-
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
 	c := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
@@ -227,32 +222,32 @@ func TestNamespaceEvent(t *testing.T) {
 	}}
 
 	clientSet.Kube().CoreV1().Namespaces().Create(ctx, &ns1, metav1.CreateOptions{})
-	g.Expect(s.WaitForDuration("xds", time.Second)).To(BeNil())
+	s.AssertEmpty(t, time.Millisecond*10)
 
 	clientSet.Kube().CoreV1().Namespaces().Create(ctx, &ns2, metav1.CreateOptions{})
-	g.Expect(s.WaitForDuration("xds", time.Second)).ToNot(BeNil())
+	s.WaitOrFail(t, "xds")
 
 	ns1.Annotations = map[string]string{"foo": "bar"}
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
-	g.Expect(s.WaitForDuration("xds", time.Second)).To(BeNil())
+	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns2.Annotations = map[string]string{"foo": "bar"}
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
-	g.Expect(s.WaitForDuration("xds", time.Second)).To(BeNil())
+	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns1.Labels["bar"] = "foo"
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
-	g.Expect(s.WaitForDuration("xds", time.Second)).To(BeNil())
+	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns2.Labels["foo"] = "bar"
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
-	g.Expect(s.WaitForDuration("xds", time.Second)).ToNot(BeNil())
+	s.WaitOrFail(t, "xds")
 
 	ns1.Labels["allowed"] = "true"
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
-	g.Expect(s.WaitForDuration("xds", time.Second)).ToNot(BeNil())
+	s.WaitOrFail(t, "xds")
 
 	ns2.Labels["allowed"] = "false"
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
-	g.Expect(s.WaitForDuration("xds", time.Second)).ToNot(BeNil())
+	s.WaitOrFail(t, "xds")
 }

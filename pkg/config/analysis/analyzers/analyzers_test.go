@@ -20,7 +20,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -760,6 +759,28 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "telemetrySelector",
+		inputFiles: []string{"testdata/telemetry-selector.yaml"},
+		analyzer:   &telemetry.SelectorAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Telemetry default/maps-to-nonexistent"},
+			{msg.ReferencedResourceNotFound, "Telemetry other/maps-to-different-ns"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/dupe-1"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/dupe-2"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/overlap-1"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/overlap-2"},
+		},
+	},
+	{
+		name:       "telemetryDefaultSelector",
+		inputFiles: []string{"testdata/telemetry-default-selector.yaml"},
+		analyzer:   &telemetry.DefaultSelectorAnalyzer{},
+		expected: []message{
+			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-2"},
+			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-1"},
+		},
+	},
+	{
 		name:       "Analyze gateway injection",
 		inputFiles: []string{"testdata/gateway-injection.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
@@ -883,7 +904,7 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 }
 
 func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.IstiodAnalyzer, error) {
-	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
+	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr)
 
 	// If a mesh config file is specified, use it instead of the defaults
 	if tc.meshConfigFile != "" {

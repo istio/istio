@@ -154,14 +154,13 @@ type ServiceInstancePort struct {
 }
 
 func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
-	inboundChainConfigs := lb.buildInboundChainConfigs()
 	routes := []*route.Route{{
 		Match: &route.RouteMatch{
 			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
 		},
 		Action: &route.Route_Route{Route: &route.RouteAction{
 			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-				UpgradeType:   "CONNECT",
+				UpgradeType:   ConnectUpgradeType,
 				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 			}},
 
@@ -181,6 +180,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		TrafficDirection:  core.TrafficDirection_INBOUND,
 	}
 
+	inboundChainConfigs := lb.buildInboundChainConfigs()
 	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
 		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
@@ -225,7 +225,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 			cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
 			opts = getTLSFilterChainMatchOptions(lp)
-			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, istionetworking.TransportProtocolTCP, false)
+			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, lb.push.Mesh, istionetworking.TransportProtocolTCP, false)
 			mtls.HTTP = mtls.TCP
 		} else {
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)

@@ -116,8 +116,7 @@ func TestAggregateStoreList(t *testing.T) {
 	store, err := makeStore(stores, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	l, err := store.List(gvk.HTTPRoute, "")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	l := store.List(gvk.HTTPRoute, "")
 	g.Expect(l).To(gomega.HaveLen(2))
 }
 
@@ -141,21 +140,18 @@ func TestAggregateStoreWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	la, err := store.List(gvk.HTTPRoute, "")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	la := store.List(gvk.HTTPRoute, "")
 	g.Expect(la).To(gomega.HaveLen(1))
 	g.Expect(la[0].Name).To(gomega.Equal("other"))
 
-	l, err := store1.List(gvk.HTTPRoute, "")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	l := store1.List(gvk.HTTPRoute, "")
 	g.Expect(l).To(gomega.HaveLen(1))
 	g.Expect(l[0].Name).To(gomega.Equal("other"))
 
 	// Check the aggregated and individual store return identical response
 	g.Expect(la).To(gomega.BeEquivalentTo(l))
 
-	l, err = store2.List(gvk.HTTPRoute, "")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	l = store2.List(gvk.HTTPRoute, "")
 	g.Expect(l).To(gomega.HaveLen(0))
 }
 

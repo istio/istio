@@ -47,8 +47,7 @@ type Controller struct {
 func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreController,
 	kubeClient kube.Client, revision, namespace string, statusManager *status.Manager, domainSuffix string,
 ) (*Controller, error) {
-	ia := local.NewIstiodAnalyzer(analyzers.AllCombined(),
-		"", resource.Namespace(namespace), func(name config.GroupVersionKind) {}, true)
+	ia := local.NewIstiodAnalyzer(analyzers.AllCombined(), "", resource.Namespace(namespace), func(name config.GroupVersionKind) {})
 	ia.AddSource(rwConfigStore)
 	// Filter out configs watched by rwConfigStore so we don't watch multiple times
 	store, err := crdclient.NewForSchemas(kubeClient,

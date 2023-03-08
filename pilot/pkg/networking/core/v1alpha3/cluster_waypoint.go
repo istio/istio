@@ -47,7 +47,7 @@ func buildInternalUpstreamCluster(name string, internalListener string) *cluster
 			ClusterName: name,
 			Endpoints:   util.BuildInternalEndpoint(internalListener, nil),
 		},
-		TransportSocket: util.InternalUpstreamTransportSocket(),
+		TransportSocket: util.DefaultInternalUpstreamTransportSocket,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
@@ -56,14 +56,11 @@ func buildInternalUpstreamCluster(name string, internalListener string) *cluster
 
 var (
 	MainInternalCluster = buildInternalUpstreamCluster(MainInternalName, MainInternalName)
-	EncapCluster        = buildInternalUpstreamCluster("encap", ConnectOriginate)
+	EncapCluster        = buildInternalUpstreamCluster(EncapClusterName, ConnectOriginate)
 )
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(proxy *model.Proxy) []*cluster.Cluster {
-	if !proxy.EnableHBONE() {
-		return nil
-	}
-	return []*cluster.Cluster{MainInternalCluster}
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters() *cluster.Cluster {
+	return MainInternalCluster
 }
 
 func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
@@ -74,7 +71,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	// Creates "main_internal" cluster to route to the main internal listener.
-	// Creates "encap" listener to route to the encap listener.
+	// Creates "encap" cluster to route to the encap listener.
 	clusters = append(clusters, MainInternalCluster, EncapCluster)
 	// Creates per-VIP load balancing upstreams.
 	clusters = append(clusters, cb.buildWaypointInboundVIP(svcs)...)
@@ -111,7 +108,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, por
 
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = util.InternalUpstreamTransportSocket(util.TunnelHostMetadata)
+	localCluster.cluster.TransportSocket = util.TunnelHostInternalUpstreamTransportSocket
 	maybeApplyEdsConfig(localCluster.cluster)
 	return localCluster
 }

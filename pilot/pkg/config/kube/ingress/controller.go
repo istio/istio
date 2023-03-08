@@ -306,15 +306,15 @@ func sortIngressByCreationTime(configs []any) []*knetworking.Ingress {
 	return ingr
 }
 
-func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (c *controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	if typ != gvk.Gateway &&
 		typ != gvk.VirtualService {
-		return nil, errUnsupportedOp
+		return nil
 	}
 
 	list, err := c.filteredIngressInformer.List(namespace)
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
 	out := make([]config.Config, 0)
@@ -322,7 +322,7 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 	for _, ingress := range sortIngressByCreationTime(list) {
 		process, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ingress)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		if !process {
 			continue
@@ -343,7 +343,7 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 		}
 	}
 
-	return out, nil
+	return out
 }
 
 func (c *controller) Create(_ config.Config) (string, error) {

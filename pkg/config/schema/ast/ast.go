@@ -42,6 +42,8 @@ type Resource struct {
 	Plural             string   `json:"plural"`
 	ClusterScoped      bool     `json:"clusterScoped"`
 	Builtin            bool     `json:"builtin"`
+	Specless           bool     `json:"specless"`
+	Synthetic          bool     `json:"synthetic"`
 	Proto              string   `json:"proto"`
 	ProtoPackage       string   `json:"protoPackage"`
 	StatusProto        string   `json:"statusProto"`

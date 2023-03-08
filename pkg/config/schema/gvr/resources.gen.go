@@ -13,6 +13,7 @@ var (
 	CustomResourceDefinition     = schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
 	Deployment                   = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 	DestinationRule              = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "destinationrules"}
+	EndpointSlice                = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "endpointslices"}
 	Endpoints                    = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "endpoints"}
 	EnvoyFilter                  = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "envoyfilters"}
 	GRPCRoute                    = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "grpcroutes"}
@@ -20,6 +21,7 @@ var (
 	GatewayClass                 = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "gatewayclasses"}
 	HTTPRoute                    = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "httproutes"}
 	Ingress                      = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
+	IngressClass                 = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}
 	KubernetesGateway            = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "gateways"}
 	MeshConfig                   = schema.GroupVersionResource{Group: "", Version: "v1alpha1", Resource: "meshconfigs"}
 	MeshNetworks                 = schema.GroupVersionResource{Group: "", Version: "v1alpha1", Resource: "meshnetworks"}

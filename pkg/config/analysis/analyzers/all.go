@@ -65,6 +65,8 @@ func All() []analysis.Analyzer {
 		&webhook.Analyzer{},
 		&envoyfilter.EnvoyPatchAnalyzer{},
 		&telemetry.ProdiverAnalyzer{},
+		&telemetry.SelectorAnalyzer{},
+		&telemetry.DefaultSelectorAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)

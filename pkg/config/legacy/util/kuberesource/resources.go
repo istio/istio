@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
-func SkipExcludedCollections(requiredCols []config.GroupVersionKind, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
+func SkipExcludedCollections(requiredCols []config.GroupVersionKind, excludedResourceKinds []string) collection.Schemas {
 	resultBuilder := collection.NewSchemasBuilder()
 
 	var requirePod bool
@@ -40,11 +40,9 @@ func SkipExcludedCollections(requiredCols []config.GroupVersionKind, excludedRes
 			disabled = true
 
 			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
-			if enableServiceDiscovery {
-				if IsRequiredForServiceDiscovery(s) {
-					// This is needed for service discovery. Re-enable.
-					disabled = false
-				}
+			if IsRequiredForServiceDiscovery(s) {
+				// This is needed for service discovery. Re-enable.
+				disabled = false
 			}
 		}
 

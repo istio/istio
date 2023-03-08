@@ -252,16 +252,6 @@ type Controller struct {
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
 	servicesMap map[host.Name]*model.Service
-	// hostNamesForNamespacedName returns all possible hostnames for the given service name.
-	// If Kubernetes Multi-Cluster Services (MCS) is enabled, this will contain the regular
-	// hostname as well as the MCS hostname (clusterset.local). Otherwise, only the regular
-	// hostname will be returned.
-	hostNamesForNamespacedName func(name types.NamespacedName) []host.Name
-	// servicesForNamespacedName returns all services for the given service name.
-	// If Kubernetes Multi-Cluster Services (MCS) is enabled, this will contain the regular
-	// service as well as the MCS service (clusterset.local), if available. Otherwise,
-	// only the regular service will be returned.
-	servicesForNamespacedName func(name types.NamespacedName) []*model.Service
 	// nodeSelectorsForServices stores hostname => label selectors that can be used to
 	// refine the set of node port IPs for a service.
 	nodeSelectorsForServices map[host.Name]labels.Instance
@@ -305,42 +295,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		initialSync:                atomic.NewBool(false),
 
 		multinetwork: initMultinetwork(),
-	}
-
-	if features.EnableMCSHost {
-		c.hostNamesForNamespacedName = func(name types.NamespacedName) []host.Name {
-			return []host.Name{
-				kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix),
-				serviceClusterSetLocalHostname(name),
-			}
-		}
-		c.servicesForNamespacedName = func(name types.NamespacedName) []*model.Service {
-			out := make([]*model.Service, 0, 2)
-
-			c.RLock()
-			if svc := c.servicesMap[kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix)]; svc != nil {
-				out = append(out, svc)
-			}
-
-			if svc := c.servicesMap[serviceClusterSetLocalHostname(name)]; svc != nil {
-				out = append(out, svc)
-			}
-			c.RUnlock()
-
-			return out
-		}
-	} else {
-		c.hostNamesForNamespacedName = func(name types.NamespacedName) []host.Name {
-			return []host.Name{
-				kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix),
-			}
-		}
-		c.servicesForNamespacedName = func(name types.NamespacedName) []*model.Service {
-			if svc := c.GetService(kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix)); svc != nil {
-				return []*model.Service{svc}
-			}
-			return nil
-		}
 	}
 
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
@@ -1490,6 +1444,48 @@ func (c *Controller) AppendNamespaceDiscoveryHandlers(f func(string, model.Event
 // AppendCrdHandlers register handlers on crd event.
 func (c *Controller) AppendCrdHandlers(f func(name string)) {
 	c.crdHandlers = append(c.crdHandlers, f)
+}
+
+// hostNamesForNamespacedName returns all possible hostnames for the given service name.
+// If Kubernetes Multi-Cluster Services (MCS) is enabled, this will contain the regular
+// hostname as well as the MCS hostname (clusterset.local). Otherwise, only the regular
+// hostname will be returned.
+func (c *Controller) hostNamesForNamespacedName(name types.NamespacedName) []host.Name {
+	if features.EnableMCSHost {
+		return []host.Name{
+			kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix),
+			serviceClusterSetLocalHostname(name),
+		}
+	}
+	return []host.Name{
+		kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix),
+	}
+}
+
+// servicesForNamespacedName returns all services for the given service name.
+// If Kubernetes Multi-Cluster Services (MCS) is enabled, this will contain the regular
+// service as well as the MCS service (clusterset.local), if available. Otherwise,
+// only the regular service will be returned.
+func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*model.Service {
+	if features.EnableMCSHost {
+		out := make([]*model.Service, 0, 2)
+
+		c.RLock()
+		if svc := c.servicesMap[kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix)]; svc != nil {
+			out = append(out, svc)
+		}
+
+		if svc := c.servicesMap[serviceClusterSetLocalHostname(name)]; svc != nil {
+			out = append(out, svc)
+		}
+		c.RUnlock()
+
+		return out
+	}
+	if svc := c.GetService(kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix)); svc != nil {
+		return []*model.Service{svc}
+	}
+	return nil
 }
 
 // stripPodUnusedFields is the transform function for shared pod informers,

@@ -25,10 +25,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/protomarshal"
-	istiolog "istio.io/pkg/log"
 )
-
-var pclog = istiolog.RegisterScope("proxyconfig", "Istio ProxyConfig", 0)
 
 // ProxyConfigs organizes ProxyConfig configuration by namespace.
 type ProxyConfigs struct {
@@ -73,21 +70,18 @@ func (p *ProxyConfigs) EffectiveProxyConfig(meta *NodeMetadata, mc *meshconfig.M
 	return effectiveProxyConfig
 }
 
-func GetProxyConfigs(store ConfigStore, mc *meshconfig.MeshConfig) (*ProxyConfigs, error) {
+func GetProxyConfigs(store ConfigStore, mc *meshconfig.MeshConfig) *ProxyConfigs {
 	proxyconfigs := &ProxyConfigs{
 		namespaceToProxyConfigs: map[string][]*v1beta1.ProxyConfig{},
 		rootNamespace:           mc.GetRootNamespace(),
 	}
-	resources, err := store.List(gvk.ProxyConfig, NamespaceAll)
-	if err != nil {
-		return nil, err
-	}
+	resources := store.List(gvk.ProxyConfig, NamespaceAll)
 	sortConfigByCreationTime(resources)
 	ns := proxyconfigs.namespaceToProxyConfigs
 	for _, resource := range resources {
 		ns[resource.Namespace] = append(ns[resource.Namespace], resource.Spec.(*v1beta1.ProxyConfig))
 	}
-	return proxyconfigs, nil
+	return proxyconfigs
 }
 
 func (p *ProxyConfigs) mergedGlobalConfig() *meshconfig.ProxyConfig {

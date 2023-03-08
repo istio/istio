@@ -113,7 +113,7 @@ func (s *Server) Reconcile(input any) error {
 		// For update, we just need to handle opt outs
 		newPod := event.New.(*corev1.Pod)
 		oldPod := event.Old.(*corev1.Pod)
-		ns, _ := s.nsLister.Get(newPod.Name)
+		ns, _ := s.nsLister.Get(newPod.Namespace)
 		if ns == nil {
 			return fmt.Errorf("failed to find namespace %v", ns)
 		}
