@@ -63,6 +63,12 @@ func (p *ProxyConfigs) EffectiveProxyConfig(meta *NodeMetadata, mc *meshconfig.M
 		}
 	}
 	effectiveProxyConfig = mergeWithPrecedence(workloadConfig, effectiveProxyConfig)
+	if !mc.EnableTracing {
+		// For sidecar, the proxyConfig needs to override the default implicit configuration explicitly
+		// therefore, if the user turns off tracing, we need to set the tracing configuration to empty
+		// in order to prevent sidecar to do unnecessary dns resolution for the default tracing server (zipkin server)
+		effectiveProxyConfig.Tracing = &meshconfig.Tracing{}
+	}
 
 	return effectiveProxyConfig
 }
