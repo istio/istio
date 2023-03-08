@@ -182,7 +182,7 @@ func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema sre
 		}
 	}
 	var isFromFile bool
-	if v := cfg.Meta.Annotations[file.FromFileKey]; v == file.FromFileValue {
+	if v := cfg.Meta.Annotations[file.FromFileKey]; v == file.FromFileValueTrue {
 		isFromFile = true
 	}
 	res.Origin = &kube.Origin{

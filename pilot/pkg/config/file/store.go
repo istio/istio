@@ -549,7 +549,7 @@ const (
 	ReferenceKey = "istiosource"
 	FromFileKey  = "istiofromfile"
 
-	FromFileValue = "true"
+	FromFileValueTrue = "true"
 )
 
 // ToConfig converts the given object and proto to a config.Config
@@ -576,7 +576,7 @@ func ToConfig(object metav1.Object, schema sresource.Schema, source resource.Ref
 		}
 		annots[ReferenceKey] = string(jsonsource)
 		if fromFile {
-			annots[FromFileKey] = FromFileValue
+			annots[FromFileKey] = FromFileValueTrue
 		}
 		u.SetAnnotations(annots)
 	}
