@@ -759,6 +759,12 @@ var testGrid = []testCase{
 			{msg.InvalidTelemetryProvider, "Telemetry istio-system/mesh-default"},
 		},
 	},
+	{
+		name:       "Analyze gateway injection",
+		inputFiles: []string{"testdata/gateway-injection.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected:   []message{},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
