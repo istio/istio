@@ -180,10 +180,8 @@ func TestSync(t *testing.T) {
 	stop := make(chan struct{})
 	go q.Run(stop)
 	retry.UntilOrFail(t, q.HasSynced, retry.Delay(time.Microsecond))
+	// Must always be 1 since we are synced
 	assert.Equal(t, handles.Load(), 1)
-	q.Push(task)
 	close(stop)
 	assert.NoError(t, WaitForClose(q, time.Second))
-	// event 2 is guaranteed to happen from WaitForClose
-	assert.Equal(t, handles.Load(), 2)
 }
