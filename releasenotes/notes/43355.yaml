@@ -31,4 +31,4 @@ issue:
 # release notes.
 releaseNotes:
   - |-
-    **Fixed** `istioctl install --set <boolvar>=<bool>` or `istioctl manifests generate --set <boolvar>=<bool>` returns `Error: generate config: failed to unmarshall mesh config: json: cannot unmarshal bool into Go value of type string`.
+    **Fixed** `istioctl install --set <boolvar>=<bool>` and `istioctl manifests generate --set <boolvar>=<bool>` improperly converting a boolean into a string.
