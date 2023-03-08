@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - https://github.com/istio/istio/issues/43807
+releaseNotes:
+  - |
+    **Added** the config name before each configuration summary when using `istioctl pc all`.
+  - |
+    **Added** the endpoint configuration summary to `istioctl pc all`.
