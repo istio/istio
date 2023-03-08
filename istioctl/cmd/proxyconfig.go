@@ -535,6 +535,12 @@ func allConfigCmd() *cobra.Command {
 						Name:    routeName,
 						Verbose: verboseProxyConfig,
 					},
+					configdump.EndpointFilter{
+						Address: address,
+						Port:    uint32(port),
+						Cluster: clusterName,
+						Status:  status,
+					},
 				)
 			default:
 				return fmt.Errorf("output format %q not supported", outputFormat)
