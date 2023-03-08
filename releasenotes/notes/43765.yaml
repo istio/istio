@@ -5,4 +5,4 @@ issue:
   - 43765
 releaseNotes:
   - |
-    **Improved** the `istioctl pc secret` output to include certificate serial number in HEX.
+    **Improved** the `istioctl pc secret` output to display the certificate serial number in HEX.
