@@ -35,7 +35,7 @@ type ProxyConfigs struct {
 
 // EffectiveProxyConfig generates the correct merged ProxyConfig for a given ProxyConfigTarget.
 func (p *ProxyConfigs) EffectiveProxyConfig(meta *NodeMetadata, mc *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
-	if p == nil || meta == nil {
+	if p == nil || meta == nil || mc == nil {
 		return nil
 	}
 
