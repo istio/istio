@@ -211,6 +211,17 @@ func TestGenerator(t *testing.T) {
           name: x-foo`),
 		},
 		{
+			name:  "requestInlineHeaderGenerator",
+			g:     requestInlineHeaderGenerator{},
+			key:   "request.inline-headers[x-foo]",
+			value: "foo",
+			want: yamlPrincipal(t, `
+         header:
+          name: x-foo
+          safeRegexMatch:
+            regex: ^foo$|^foo,.*|.*,foo,.*|.*,foo$`),
+		},
+		{
 			name:  "requestClaimGenerator",
 			g:     requestClaimGenerator{},
 			key:   "request.auth.claims[bar]",

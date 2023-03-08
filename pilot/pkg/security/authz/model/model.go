@@ -32,19 +32,20 @@ const (
 	RBACShadowRulesDenyStatPrefix     = "istio_dry_run_deny_"
 	RBACExtAuthzShadowRulesStatPrefix = "istio_ext_authz_"
 
-	attrRequestHeader    = "request.headers"             // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
-	attrSrcIP            = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrRemoteIP         = "remote.ip"                   // original client ip determined from x-forwarded-for or proxy protocol.
-	attrSrcNamespace     = "source.namespace"            // e.g. "default".
-	attrSrcPrincipal     = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
-	attrRequestPrincipal = "request.auth.principal"      // authenticated principal of the request.
-	attrRequestAudiences = "request.auth.audiences"      // intended audience(s) for this authentication information.
-	attrRequestPresenter = "request.auth.presenter"      // authorized presenter of the credential.
-	attrRequestClaims    = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
-	attrDestIP           = "destination.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrDestPort         = "destination.port"            // must be in the range [0, 65535].
-	attrConnSNI          = "connection.sni"              // server name indication, e.g. "www.example.com".
-	attrEnvoyFilter      = "experimental.envoy.filters." // an experimental attribute for checking Envoy Metadata directly.
+	attrRequestHeader       = "request.headers"             // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+	attrRequestInlineHeader = "request.inline-headers"      // header name is surrounded by brackets, e.g. "request.inline-headers[User-Agent]".
+	attrSrcIP               = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrRemoteIP            = "remote.ip"                   // original client ip determined from x-forwarded-for or proxy protocol.
+	attrSrcNamespace        = "source.namespace"            // e.g. "default".
+	attrSrcPrincipal        = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
+	attrRequestPrincipal    = "request.auth.principal"      // authenticated principal of the request.
+	attrRequestAudiences    = "request.auth.audiences"      // intended audience(s) for this authentication information.
+	attrRequestPresenter    = "request.auth.presenter"      // authorized presenter of the credential.
+	attrRequestClaims       = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+	attrDestIP              = "destination.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrDestPort            = "destination.port"            // must be in the range [0, 65535].
+	attrConnSNI             = "connection.sni"              // server name indication, e.g. "www.example.com".
+	attrEnvoyFilter         = "experimental.envoy.filters." // an experimental attribute for checking Envoy Metadata directly.
 
 	// Internal names used to generate corresponding Envoy matcher.
 	methodHeader = ":method"
@@ -105,6 +106,8 @@ func New(r *authzpb.Rule) (*Model, error) {
 			basePrincipal.appendLast(requestPresenterGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestHeader):
 			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
+		case strings.HasPrefix(k, attrRequestInlineHeader):
+			basePrincipal.appendLast(requestInlineHeaderGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestClaims):
 			basePrincipal.appendLast(requestClaimGenerator{}, k, when.Values, when.NotValues)
 		default:
