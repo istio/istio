@@ -2,6 +2,7 @@ apiVersion: release-notes/v2
 kind: feature
 area: traffic-management
 releaseNotes:
-  - |
-    **Updated** enable `PILOT_USE_ENDPOINT_SLICE` feature flag by default to use Endpointslice mode.
-    **Removed** support for `Endpointslice` version `discovery.k8s.io/v1beta1`. The `v1` version has been available since Kubernetes 1.21.
+- |
+  **Updated** enable `PILOT_USE_ENDPOINT_SLICE` feature flag by default to use Endpointslice mode.
+- |
+  **Removed** support for `Endpointslice` version `discovery.k8s.io/v1beta1`. The `v1` version has been available since Kubernetes 1.21.
