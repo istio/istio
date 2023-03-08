@@ -265,7 +265,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 
 	// used for both initKubeRegistry and initClusterRegistries
-	args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.DetectEndpointMode(s.kubeClient)
+	args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.DetectEndpointMode()
 
 	s.initMeshConfiguration(args, s.fileWatcher)
 	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())

@@ -261,13 +261,13 @@ var (
 		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
 
-	enableEndpointSliceController, endpointSliceControllerSpecified = env.Register(
+	EnableEndpointSliceController = env.Register(
 		"PILOT_USE_ENDPOINT_SLICE",
-		false,
+		true,
 		"If enabled, Pilot will use EndpointSlices as the source of endpoints for Kubernetes services. "+
 			"By default, this is false, and Endpoints will be used. This requires the Kubernetes EndpointSlice controller to be enabled. "+
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
-	).Lookup()
+	).Get()
 
 	MCSAPIGroup = env.Register("MCS_API_GROUP", "multicluster.x-k8s.io",
 		"The group to be used for the Kubernetes Multi-Cluster Services (MCS) API.").Get()
@@ -754,11 +754,6 @@ var (
 	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
 		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
 )
-
-// EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
-func EnableEndpointSliceController() (value bool, ok bool) {
-	return enableEndpointSliceController, endpointSliceControllerSpecified
-}
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
