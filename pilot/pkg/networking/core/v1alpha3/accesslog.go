@@ -105,6 +105,9 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 func buildAccessLogFromTelemetry(cfgs []model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
 	als := make([]*accesslog.AccessLog, 0, len(cfgs))
 	for _, c := range cfgs {
+		if c.Disabled {
+			continue
+		}
 		filters := make([]*accesslog.AccessLogFilter, 0, 2)
 		if forListener {
 			filters = append(filters, addAccessLogFilter())

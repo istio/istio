@@ -80,11 +80,8 @@ func (s *KubeSource) Get(typ config.GroupVersionKind, name, namespace string) *c
 	return s.inner.Get(typ, name, namespace)
 }
 
-func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	configs, err := s.inner.List(typ, namespace)
-	if err != nil {
-		return nil, err
-	}
+func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) []config.Config {
+	configs := s.inner.List(typ, namespace)
 	if s.namespacesFilter != nil {
 		var out []config.Config
 		for _, config := range configs {
@@ -92,9 +89,9 @@ func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) ([]conf
 				out = append(out, config)
 			}
 		}
-		return out, err
+		return out
 	}
-	return configs, nil
+	return configs
 }
 
 func (s *KubeSource) Create(config config.Config) (revision string, err error) {

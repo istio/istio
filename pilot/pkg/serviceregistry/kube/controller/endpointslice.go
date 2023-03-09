@@ -24,15 +24,12 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/discovery/v1"
-	listerv1beta1 "k8s.io/client-go/listers/discovery/v1beta1"
-	"k8s.io/client-go/tools/cache"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
-	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	filterinformer "istio.io/istio/pkg/kube/informer"
 )
@@ -40,7 +37,6 @@ import (
 type endpointSliceController struct {
 	kubeEndpoints
 	endpointCache *endpointSliceCache
-	useV1Resource bool
 }
 
 var _ kubeEndpointsController = &endpointSliceController{}
@@ -53,13 +49,7 @@ var (
 func newEndpointSliceController(c *Controller) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
-	useV1Resource := endpointSliceV1Available(c.client)
-	var informer cache.SharedIndexInformer
-	if useV1Resource {
-		informer = c.client.KubeInformer().Discovery().V1().EndpointSlices().Informer()
-	} else {
-		informer = c.client.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer()
-	}
+	informer := c.client.KubeInformer().Discovery().V1().EndpointSlices().Informer()
 
 	filteredInformer := filterinformer.NewFilteredSharedIndexInformer(
 		c.opts.DiscoveryNamespacesFilter.Filter,
@@ -70,39 +60,18 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 			c:        c,
 			informer: filteredInformer,
 		},
-		useV1Resource: useV1Resource,
 		endpointCache: newEndpointSliceCache(),
 	}
 	c.registerHandlers(filteredInformer, "EndpointSlice", out.onEvent, nil)
 	return out
 }
 
-// TODO use this to automatically switch to EndpointSlice mode
-func endpointSliceV1Available(client kubelib.Client) bool {
-	return client != nil && !kubelib.IsLessThanVersion(client, 21)
-}
-
 func (esc *endpointSliceController) getInformer() filterinformer.FilteredSharedIndexInformer {
 	return esc.informer
 }
 
-func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selector) (slices []any, err error) {
-	if esc.useV1Resource {
-		var eps []*v1.EndpointSlice
-		eps, err = listerv1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
-		slices = make([]any, len(eps))
-		for i, ep := range eps {
-			slices[i] = ep
-		}
-	} else {
-		var eps []*v1beta1.EndpointSlice
-		eps, err = listerv1beta1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
-		slices = make([]any, len(eps))
-		for i, ep := range eps {
-			slices[i] = ep
-		}
-	}
-	return
+func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selector) ([]*v1.EndpointSlice, error) {
+	return listerv1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
 }
 
 func (esc *endpointSliceController) onEvent(_, curr any, event model.Event) error {
@@ -139,10 +108,9 @@ func serviceNameForEndpointSlice(labels map[string]string) string {
 	return labels[v1beta1.LabelServiceName]
 }
 
-func (esc *endpointSliceController) sliceServiceInstances(c *Controller, slice any, proxy *model.Proxy) []*model.ServiceInstance {
+func (esc *endpointSliceController) sliceServiceInstances(c *Controller, ep *v1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
-	ep := wrapEndpointSlice(slice)
-	if ep.AddressType() == v1.AddressTypeFQDN {
+	if ep.AddressType == v1.AddressTypeFQDN {
 		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 		return out
 	}
@@ -152,7 +120,7 @@ func (esc *endpointSliceController) sliceServiceInstances(c *Controller, slice a
 
 		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
-		for _, port := range ep.Ports() {
+		for _, port := range ep.Ports {
 			if port.Name == nil || port.Port == nil {
 				continue
 			}
@@ -162,7 +130,7 @@ func (esc *endpointSliceController) sliceServiceInstances(c *Controller, slice a
 			}
 			// consider multiple IP scenarios
 			for _, ip := range proxy.IPAddresses {
-				for _, ep := range ep.Endpoints() {
+				for _, ep := range ep.Endpoints {
 					for _, a := range ep.Addresses {
 						if a == ip {
 							istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name, discoverabilityPolicy)
@@ -186,9 +154,9 @@ func (esc *endpointSliceController) sliceServiceInstances(c *Controller, slice a
 }
 
 func (esc *endpointSliceController) forgetEndpoint(endpoint any) map[host.Name][]*model.IstioEndpoint {
-	slice := wrapEndpointSlice(endpoint)
+	slice := endpoint.(*v1.EndpointSlice)
 	key := kube.KeyFunc(slice.Name, slice.Namespace)
-	for _, e := range slice.Endpoints() {
+	for _, e := range slice.Endpoints {
 		for _, a := range e.Addresses {
 			esc.c.pods.endpointDeleted(key, a)
 		}
@@ -212,15 +180,15 @@ func (esc *endpointSliceController) buildIstioEndpoints(es any, hostName host.Na
 
 func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, ep any) {
 	var endpoints []*model.IstioEndpoint
-	slice := wrapEndpointSlice(ep)
-	if slice.AddressType() == v1.AddressTypeFQDN {
+	slice := ep.(*v1.EndpointSlice)
+	if slice.AddressType == v1.AddressTypeFQDN {
 		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 		return
 	}
 	svc := esc.c.GetService(hostName)
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
 
-	for _, e := range slice.Endpoints() {
+	for _, e := range slice.Endpoints {
 		// Draining tracking is only enabled if persistent sessions is enabled.
 		// If we start using them for other features, this can be adjusted.
 		draining := features.PersistentSessionLabel != "" &&
@@ -246,7 +214,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 			}
 			builder := NewEndpointBuilder(esc.c, pod)
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
-			for _, port := range slice.Ports() {
+			for _, port := range slice.Ports {
 				var portNum int32
 				if port.Port != nil {
 					portNum = *port.Port
@@ -317,13 +285,12 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 	discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 	var out []*model.ServiceInstance
-	for _, es := range slices {
-		slice := wrapEndpointSlice(es)
-		if slice.AddressType() == v1.AddressTypeFQDN {
+	for _, slice := range slices {
+		if slice.AddressType == v1.AddressTypeFQDN {
 			// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 			continue
 		}
-		for _, e := range slice.Endpoints() {
+		for _, e := range slice.Endpoints {
 			for _, a := range e.Addresses {
 				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
 				if pod == nil && expectedPod {
@@ -332,7 +299,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 
 				builder := NewEndpointBuilder(esc.c, pod)
 				// identify the port by name. K8S EndpointPort uses the service port name
-				for _, port := range slice.Ports() {
+				for _, port := range slice.Ports {
 					var portNum int32
 					if port.Port != nil {
 						portNum = *port.Port
@@ -432,81 +399,4 @@ func endpointSliceSelectorForService(name string) klabels.Selector {
 	return klabels.Set(map[string]string{
 		v1beta1.LabelServiceName: name,
 	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
-}
-
-func wrapEndpointSlice(slice any) *endpointSliceWrapper {
-	switch es := slice.(type) {
-	case *v1.EndpointSlice:
-		return &endpointSliceWrapper{ObjectMeta: es.ObjectMeta, v1: es}
-	case *v1beta1.EndpointSlice:
-		return &endpointSliceWrapper{ObjectMeta: es.ObjectMeta, v1beta1: es}
-	default:
-		log.Fatalf("unknown type %T", es)
-	}
-	return nil
-}
-
-type endpointSliceWrapper struct {
-	metav1.ObjectMeta
-	v1beta1 *v1beta1.EndpointSlice
-	v1      *v1.EndpointSlice
-}
-
-func (esw *endpointSliceWrapper) AddressType() v1.AddressType {
-	if esw.v1 != nil {
-		return esw.v1.AddressType
-	}
-	return v1.AddressType(esw.v1beta1.AddressType)
-}
-
-func (esw *endpointSliceWrapper) Ports() []v1.EndpointPort {
-	if esw.v1 != nil {
-		return esw.v1.Ports
-	}
-	out := make([]v1.EndpointPort, len(esw.v1beta1.Ports))
-	for i, p := range esw.v1beta1.Ports {
-		out[i] = v1.EndpointPort{
-			Name:        p.Name,
-			Protocol:    p.Protocol,
-			Port:        p.Port,
-			AppProtocol: p.AppProtocol,
-		}
-	}
-	return out
-}
-
-func (esw *endpointSliceWrapper) Endpoints() []v1.Endpoint {
-	if esw.v1 != nil {
-		return esw.v1.Endpoints
-	}
-	out := make([]v1.Endpoint, len(esw.v1beta1.Endpoints))
-	for i, ep := range esw.v1beta1.Endpoints {
-		zone := ep.Topology[NodeZoneLabelGA]
-
-		var fz []v1.ForZone
-		if ep.Hints != nil {
-			fz = make([]v1.ForZone, len(ep.Hints.ForZones))
-			for i, el := range fz {
-				fz[i] = v1.ForZone{Name: el.Name}
-			}
-		}
-
-		out[i] = v1.Endpoint{
-			Addresses: ep.Addresses,
-			Conditions: v1.EndpointConditions{
-				Ready:       ep.Conditions.Ready,
-				Serving:     ep.Conditions.Serving,
-				Terminating: ep.Conditions.Serving,
-			},
-			Hostname:           ep.Hostname,
-			TargetRef:          ep.TargetRef,
-			DeprecatedTopology: ep.Topology,
-			NodeName:           ep.NodeName,
-			Zone:               &zone,
-			Hints: &v1.EndpointHints{
-				ForZones: fz,
-			},
-		}
-	}
-	return out
 }

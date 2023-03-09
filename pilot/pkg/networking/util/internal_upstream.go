@@ -23,20 +23,30 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
-var TunnelHostMetadata = &internalupstream.InternalUpstreamTransport_MetadataValueSource{
-	Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
-	Name: "tunnel",
+var TunnelHostMetadata = []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
+	{
+		Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
+		Name: "tunnel",
+	},
 }
 
-func InternalUpstreamTransportSocket(passthroughMetadata ...*internalupstream.InternalUpstreamTransport_MetadataValueSource) *core.TransportSocket {
-	return &core.TransportSocket{
-		Name: "internal_upstream",
-		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-			PassthroughMetadata: passthroughMetadata,
-			TransportSocket: &core.TransportSocket{
-				Name:       "raw_buffer",
-				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
-			},
-		})},
-	}
+var DefaultInternalUpstreamTransportSocket = &core.TransportSocket{
+	Name: "internal_upstream",
+	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
+		TransportSocket: &core.TransportSocket{
+			Name:       "raw_buffer",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
+		},
+	})},
+}
+
+var TunnelHostInternalUpstreamTransportSocket = &core.TransportSocket{
+	Name: "internal_upstream",
+	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
+		PassthroughMetadata: TunnelHostMetadata,
+		TransportSocket: &core.TransportSocket{
+			Name:       "raw_buffer",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&rawbuffer.RawBuffer{})},
+		},
+	})},
 }

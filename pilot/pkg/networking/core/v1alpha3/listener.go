@@ -30,6 +30,7 @@ import (
 	"golang.org/x/exp/slices"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -119,7 +120,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
-	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
+	proxy *model.Proxy, mesh *meshconfig.MeshConfig, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
 ) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
@@ -191,13 +192,19 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	}
 
 	// Set TLS parameters if they are non-default
-	if len(serverTLSSettings.CipherSuites) > 0 ||
+	var ecdhCurves []string
+	if mesh != nil && mesh.TlsDefaults != nil &&
+		(serverTLSSettings.Mode == networking.ServerTLSSettings_MUTUAL || serverTLSSettings.Mode == networking.ServerTLSSettings_SIMPLE) {
+		ecdhCurves = mesh.TlsDefaults.EcdhCurves
+	}
+	if len(serverTLSSettings.CipherSuites) > 0 || len(ecdhCurves) > 0 ||
 		serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
 		serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
 		ctx.CommonTlsContext.TlsParams = &auth.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(serverTLSSettings.MinProtocolVersion),
 			TlsMaximumProtocolVersion: convertTLSProtocol(serverTLSSettings.MaxProtocolVersion),
 			CipherSuites:              serverTLSSettings.CipherSuites,
+			EcdhCurves:                ecdhCurves,
 		}
 	}
 

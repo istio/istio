@@ -487,7 +487,7 @@ func TestADSC_handleMCP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			adsc.handleMCP(gvk.ServiceEntry, tt.resources)
-			configs, _ := adsc.Store.List(gvk.ServiceEntry, "")
+			configs := adsc.Store.List(gvk.ServiceEntry, "")
 			if len(configs) != len(tt.expectedResources) {
 				t.Errorf("expected %v got %v", len(tt.expectedResources), len(configs))
 			}

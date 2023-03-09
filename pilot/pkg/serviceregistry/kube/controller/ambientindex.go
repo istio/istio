@@ -219,11 +219,7 @@ func (a *AmbientIndex) matchesScope(scope model.WaypointScope, w *model.Workload
 }
 
 func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
-	cfgs, err := c.configController.List(gvk.AuthorizationPolicy, metav1.NamespaceAll)
-	if err != nil {
-		log.Warnf("failed to list policies")
-		return nil
-	}
+	cfgs := c.configController.List(gvk.AuthorizationPolicy, metav1.NamespaceAll)
 	l := len(cfgs)
 	if len(requested) > 0 {
 		l = len(requested)
@@ -256,14 +252,8 @@ func (c *Controller) selectorAuthorizationPolicies(ns string, lbls map[string]st
 	if isNil(c.configController) {
 		return nil
 	}
-	global, err := c.configController.List(gvk.AuthorizationPolicy, c.meshWatcher.Mesh().GetRootNamespace())
-	if err != nil {
-		return nil
-	}
-	local, err := c.configController.List(gvk.AuthorizationPolicy, ns)
-	if err != nil {
-		return nil
-	}
+	global := c.configController.List(gvk.AuthorizationPolicy, c.meshWatcher.Mesh().GetRootNamespace())
+	local := c.configController.List(gvk.AuthorizationPolicy, ns)
 	res := sets.New[string]()
 	matches := func(c config.Config) bool {
 		sel := c.Spec.(*v1beta1.AuthorizationPolicy).Selector
@@ -890,6 +880,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 		VirtualIps:            vips,
 		AuthorizationPolicies: policies,
 		Status:                workloadapi.WorkloadStatus_HEALTHY,
+		ClusterId:             c.Cluster().String(),
 	}
 	if !IsPodReady(pod) {
 		wl.Status = workloadapi.WorkloadStatus_UNHEALTHY

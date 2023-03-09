@@ -47,10 +47,7 @@ import (
 
 var log = istiolog.RegisterScope("gateway", "gateway-api controller", 0)
 
-var (
-	errUnsupportedOp   = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
-	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway and virtual service resource type")
-)
+var errUnsupportedOp = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
 
 // Controller defines the controller for the gateway-api. The controller acts a bit different from most.
 // Rather than watching the CRs directly, we depend on the existing model.ConfigStoreController which
@@ -149,20 +146,20 @@ func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 	return nil
 }
 
-func (c *Controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (c *Controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	if typ != gvk.Gateway && typ != gvk.VirtualService {
-		return nil, errUnsupportedType
+		return nil
 	}
 
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	switch typ {
 	case gvk.Gateway:
-		return filterNamespace(c.state.Gateway, namespace), nil
+		return filterNamespace(c.state.Gateway, namespace)
 	case gvk.VirtualService:
-		return filterNamespace(c.state.VirtualService, namespace), nil
+		return filterNamespace(c.state.VirtualService, namespace)
 	default:
-		return nil, errUnsupportedType
+		return nil
 	}
 }
 
@@ -184,30 +181,12 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	defer func() {
 		log.Debugf("reconcile complete in %v", time.Since(t0))
 	}()
-	gatewayClass, err := c.cache.List(gvk.GatewayClass, metav1.NamespaceAll)
-	if err != nil {
-		return fmt.Errorf("failed to list type GatewayClass: %v", err)
-	}
-	gateway, err := c.cache.List(gvk.KubernetesGateway, metav1.NamespaceAll)
-	if err != nil {
-		return fmt.Errorf("failed to list type Gateway: %v", err)
-	}
-	httpRoute, err := c.cache.List(gvk.HTTPRoute, metav1.NamespaceAll)
-	if err != nil {
-		return fmt.Errorf("failed to list type HTTPRoute: %v", err)
-	}
-	tcpRoute, err := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
-	if err != nil {
-		return fmt.Errorf("failed to list type TCPRoute: %v", err)
-	}
-	tlsRoute, err := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
-	if err != nil {
-		return fmt.Errorf("failed to list type TLSRoute: %v", err)
-	}
-	referenceGrant, err := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
-	if err != nil {
-		return fmt.Errorf("failed to list type BackendPolicy: %v", err)
-	}
+	gatewayClass := c.cache.List(gvk.GatewayClass, metav1.NamespaceAll)
+	gateway := c.cache.List(gvk.KubernetesGateway, metav1.NamespaceAll)
+	httpRoute := c.cache.List(gvk.HTTPRoute, metav1.NamespaceAll)
+	tcpRoute := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
+	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
+	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
 
 	input := KubernetesResources{
 		GatewayClass:   deepCopyStatus(gatewayClass),

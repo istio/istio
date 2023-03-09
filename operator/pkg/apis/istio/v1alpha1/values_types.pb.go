@@ -3344,7 +3344,7 @@ func (x *TelemetryV2MetadataExchangeConfig) GetWasmEnabled() *wrapperspb.BoolVal
 	return nil
 }
 
-// Conrols telemetry v2 prometheus settings.
+// Controls telemetry v2 prometheus settings.
 type TelemetryV2PrometheusConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3411,7 +3411,7 @@ func (x *TelemetryV2PrometheusConfig) GetConfigOverride() *TelemetryV2Prometheus
 	return nil
 }
 
-// Conrols telemetry v2 stackdriver settings.
+// TelemetryV2StackDriverConfig controls telemetry v2 stackdriver settings.
 type TelemetryV2StackDriverConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3519,7 +3519,7 @@ func (x *TelemetryV2StackDriverConfig) GetInboundAccessLogging() TelemetryV2Stac
 	return TelemetryV2StackDriverConfig_NONE
 }
 
-// Conrols telemetry v2 access log policy filter settings.
+// TelemetryV2AccessLogPolicyFilterConfig controls telemetry v2 access log policy filter settings.
 type TelemetryV2AccessLogPolicyFilterConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

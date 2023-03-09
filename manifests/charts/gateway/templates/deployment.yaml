@@ -25,7 +25,7 @@ spec:
         {{- with .Values.revision }}
         istio.io/rev: {{ . }}
         {{- end }}
-        {{- include "gateway.selectorLabels" . | nindent 8 }}
+        {{- include "gateway.podLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

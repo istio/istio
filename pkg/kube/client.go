@@ -89,7 +89,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/lazy"
-	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/pkg/log"
@@ -155,6 +154,9 @@ type Client interface {
 
 	// GetKubernetesVersion returns the Kubernetes server version
 	GetKubernetesVersion() (*kubeVersion.Info, error)
+
+	// Shutdown closes all informers and waits for them to terminate
+	Shutdown()
 }
 
 // CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
@@ -223,9 +225,6 @@ type CLIClient interface {
 
 	// InvalidateDiscovery invalidates the discovery client, useful after manually changing CRD's
 	InvalidateDiscovery()
-
-	// Shutdown closes all informers and waits for them to terminate
-	Shutdown()
 }
 
 type PortManager func() (uint16, error)
@@ -300,15 +299,6 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
 	}
 
-	// discoveryv1/EndpointSlices readable from discoveryv1beta1/EndpointSlices
-	c.mirrorQueue = queue.NewQueue(1 * time.Second)
-	mirrorResource(
-		c.mirrorQueue,
-		c.kubeInformer.Discovery().V1().EndpointSlices().Informer(),
-		c.kube.DiscoveryV1beta1().EndpointSlices,
-		endpointSliceV1toV1beta1,
-	)
-
 	c.fastSync = true
 
 	c.version = lazy.NewWithRetry(c.kube.Discovery().ServerVersion)
@@ -355,9 +345,6 @@ type client struct {
 	// If enabled, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
-
-	mirrorQueue        queue.Instance
-	mirrorQueueStarted atomic.Bool
 
 	// These may be set only when creating an extended client.
 	revision        string
@@ -542,11 +529,6 @@ func (c *client) HasStarted() bool {
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
-	if c.mirrorQueue != nil && !c.mirrorQueueStarted.Load() {
-		c.mirrorQueueStarted.Store(true)
-		go c.mirrorQueue.Run(stop)
-	}
-
 	c.startInformer(stop)
 
 	if c.fastSync {
@@ -585,8 +567,8 @@ func (c *client) Shutdown() {
 	// TODO: use these once they are implemented
 	// c.dynamicInformer.Shutdown()
 	// c.metadataInformer.Shutdown()
-	// c.istioInformer.Shutdown()
-	// c.gatewayapiInformer.Shutdown()
+	c.istioInformer.Shutdown()
+	c.gatewayapiInformer.Shutdown()
 	c.extInformer.Shutdown()
 }
 

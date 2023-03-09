@@ -122,8 +122,6 @@ type FakeDiscoveryServer struct {
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
-	stop := test.NewStop(t)
-
 	m := opts.MeshConfig
 	if m == nil {
 		m = mesh.DefaultMeshConfig()
@@ -191,11 +189,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			XDSUpdater:       xdsUpdater,
 			NetworksWatcher:  opts.NetworksWatcher,
 			Mode:             opts.KubernetesEndpointMode,
-			Stop:             stop,
 			SkipRun:          true,
 			ConfigController: k8sConfig,
 			MeshWatcher:      mesh.NewFixedWatcher(m),
 		})
+		stop := test.NewStop(t)
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
 			defaultKubeClient = client
@@ -212,6 +210,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		}
 	}
 
+	stop := test.NewStop(t)
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	})

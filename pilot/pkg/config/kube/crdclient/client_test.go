@@ -82,12 +82,7 @@ func TestClientNoCRDs(t *testing.T) {
 		t.Fatalf("Create => got %v", err)
 	}
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-		// List should actually not return an error in this case; this allows running with missing CRDs
-		// Instead, we just return an empty list.
-		if err != nil {
-			return fmt.Errorf("expected no error, but got %v", err)
-		}
+		l := store.List(r.GroupVersionKind(), configMeta.Namespace)
 		if len(l) != 0 {
 			return fmt.Errorf("expected no items returned for unknown CRD")
 		}
@@ -123,12 +118,7 @@ func TestClientDelayedCRDs(t *testing.T) {
 	}
 
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-		// List should actually not return an error in this case; this allows running with missing CRDs
-		// Instead, we just return an empty list.
-		if err != nil {
-			return fmt.Errorf("expected no error, but got %v", err)
-		}
+		l := store.List(r.GroupVersionKind(), configMeta.Namespace)
 		if len(l) != 0 {
 			return fmt.Errorf("expected no items returned for unknown CRD")
 		}
@@ -138,12 +128,7 @@ func TestClientDelayedCRDs(t *testing.T) {
 	createCRD(t, fake, r)
 
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-		// List should actually not return an error in this case; this allows running with missing CRDs
-		// Instead, we just return an empty list.
-		if err != nil {
-			return fmt.Errorf("expected no error, but got %v", err)
-		}
+		l := store.List(r.GroupVersionKind(), configMeta.Namespace)
 		if len(l) != 1 {
 			return fmt.Errorf("expected items returned")
 		}
@@ -190,10 +175,7 @@ func TestClient(t *testing.T) {
 
 			// Validate it shows up in List
 			retry.UntilSuccessOrFail(t, func() error {
-				cfgs, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-				if err != nil {
-					return err
-				}
+				cfgs := store.List(r.GroupVersionKind(), configMeta.Namespace)
 				if len(cfgs) != 1 {
 					return fmt.Errorf("expected 1 config, got %v", len(cfgs))
 				}

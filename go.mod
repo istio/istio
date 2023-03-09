@@ -88,8 +88,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.11.1
-	istio.io/api v0.0.0-20230302172406-582f573dde0c
-	istio.io/client-go v1.12.0-alpha.5.0.20230302202906-d05eafad7a08
+	istio.io/api v0.0.0-20230308201648-8dd86e0de495
+	istio.io/client-go v1.18.0-alpha.0.0.20230308202146-b38f8c34aab4
 	istio.io/pkg v0.0.0-20230302202707-0023da60c4c9
 	k8s.io/api v0.26.1
 	k8s.io/apiextensions-apiserver v0.26.1
@@ -222,7 +222,7 @@ require (
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/stoewer/go-strcase v1.2.1 // indirect
+	github.com/stoewer/go-strcase v1.2.1
 	github.com/stretchr/testify v1.8.1 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect

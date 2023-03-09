@@ -700,12 +700,8 @@ func getTestAuthenticationPolicies(configs []*config.Config, t *testing.T) *Auth
 		ConfigStore: configStore,
 		Watcher:     mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
 	}
-	authnPolicy, err := initAuthenticationPolicies(environment)
-	if err != nil {
-		t.Fatalf("getTestAuthenticationPolicies %v", err)
-	}
 
-	return authnPolicy
+	return initAuthenticationPolicies(environment)
 }
 
 func createTestRequestAuthenticationResource(name string, namespace string, selector *selectorpb.WorkloadSelector) *config.Config {

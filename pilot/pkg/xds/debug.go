@@ -462,7 +462,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	s.Env.ConfigStore.Schemas().ForEach(func(schema resource.Schema) bool {
-		cfg, _ := s.Env.ConfigStore.List(schema.GroupVersionKind(), "")
+		cfg := s.Env.ConfigStore.List(schema.GroupVersionKind(), "")
 		for _, c := range cfg {
 			configs = append(configs, kubernetesConfig{c})
 		}
