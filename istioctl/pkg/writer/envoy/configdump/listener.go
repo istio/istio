@@ -316,7 +316,6 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 					fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", l.Name, address, port, match.match, match.destination)
 				} else {
 					fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", address, port, match.match, match.destination)
-
 				}
 			}
 		} else {
