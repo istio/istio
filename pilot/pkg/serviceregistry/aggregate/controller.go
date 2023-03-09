@@ -100,14 +100,14 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadap
 	return res
 }
 
-func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
+func (c *Controller) WorkloadInfos(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
 	i := []*model.WorkloadInfo{}
 	removed := sets.New[string]()
 	if !features.EnableAmbientControllers {
 		return i, []string{}
 	}
 	for _, p := range c.GetRegistries() {
-		wis, r := p.PodInformation(addresses)
+		wis, r := p.WorkloadInfos(addresses)
 		i = append(i, wis...)
 		removed.InsertAll(r...)
 	}

@@ -92,7 +92,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 	}
 
 	resources := make(model.Resources, 0)
-	wls, removed := e.s.Env.ServiceDiscovery.PodInformation(addresses)
+	wls, removed := e.s.Env.ServiceDiscovery.WorkloadInfos(addresses)
 	// Note: while "removed" is a weird name for a resource that never existed, this is how the spec works:
 	// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#id2
 
@@ -112,7 +112,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 		w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).Merge(have))
 	}
 	if full {
-		// If it's a full push, PodInformation won't have info to compute the full set of removals.
+		// If it's a full push, WorkloadInfos won't have info to compute the full set of removals.
 		// Instead, we need can see what resources are missing that we were subscribe to; those were removed.
 		removes := subs.Difference(have).InsertAll(removed...)
 		removed = sets.SortedList(removes)

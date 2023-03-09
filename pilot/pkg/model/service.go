@@ -798,7 +798,7 @@ type ServiceDiscovery interface {
 }
 
 type AmbientIndexes interface {
-	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
+	WorkloadInfos(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
 	AdditionalPodSubscriptions(
 		proxy *Proxy,
 		allAddresses sets.Set[types.NamespacedName],
@@ -812,7 +812,7 @@ type AmbientIndexes interface {
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
 type NoopAmbientIndexes struct{}
 
-func (u NoopAmbientIndexes) PodInformation(sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
+func (u NoopAmbientIndexes) WorkloadInfos(sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
 	return nil, nil
 }
 

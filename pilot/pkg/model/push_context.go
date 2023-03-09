@@ -2164,8 +2164,8 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 	}]
 }
 
-func (ps *PushContext) SupportsTunnel(ip string) bool {
-	infos, _ := ps.ambientIndex.PodInformation(sets.New(types.NamespacedName{Name: ip}))
+func (ps *PushContext) SupportsTunnel(ip string, clusterID string) bool {
+	infos, _ := ps.ambientIndex.WorkloadInfos(sets.New(types.NamespacedName{Name: ip, Namespace: clusterID}))
 	for _, p := range infos {
 		if p.Protocol == workloadapi.Protocol_HTTP {
 			return true
