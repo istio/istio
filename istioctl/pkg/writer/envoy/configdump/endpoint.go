@@ -112,7 +112,7 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string
 func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
 
-	fmt.Fprintln(w, "Name\tSTATUS\tLOCALITY\tCLUSTER")
+	fmt.Fprintln(w, "NAME\tSTATUS\tLOCALITY\tCLUSTER")
 	dump, err := c.retrieveSortedEndpointsSlice(filter)
 	if err != nil {
 		return err
@@ -121,7 +121,7 @@ func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 		for _, llb := range eds.Endpoints {
 			for _, ep := range llb.LbEndpoints {
 				addr := retrieveEndpointAddress(ep)
-				if c.IncludeConfigType && len(addr) > 0 {
+				if c.IncludeConfigType {
 					addr = fmt.Sprintf("endpoint/%s", addr)
 				}
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",

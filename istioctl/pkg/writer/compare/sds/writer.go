@@ -77,7 +77,7 @@ func (w *sdsWriter) printSecretItemsTabular(secrets []SecretItem) error {
 	tw := new(tabwriter.Writer).Init(w.w, 0, 5, 5, ' ', 0)
 	fmt.Fprintln(tw, strings.Join(secretItemColumns, "\t"))
 	for _, s := range secrets {
-		if w.includeType && len(s.Name) > 0 {
+		if w.includeType {
 			s.Name = fmt.Sprintf("secret/%s", s.Name)
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%t\t%s\t%s\t%s\n",
