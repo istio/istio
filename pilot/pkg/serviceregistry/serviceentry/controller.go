@@ -890,7 +890,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
-			hash.Write([]byte(svc.Attributes.Namespace + "/" + svc.Hostname.String()))
+			hash.Write([]byte(makeServiceKey(svc)))
 			// First hash is calculated by
 			s := hash.Sum32()
 			firstHash := s % uint32(maxIPs)
@@ -933,7 +933,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			}
 			continue
 		}
-		n := svc.Hostname.String()
+		n := makeServiceKey(svc)
 		if v, ok := hnMap[n]; ok {
 			log.Debugf("Reuse IP for domain %s", n)
 			setAutoAllocatedIPs(svc, v)
@@ -953,6 +953,10 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		}
 	}
 	return services
+}
+
+func makeServiceKey(svc *model.Service) string {
+	return svc.Attributes.Namespace + "/" + svc.Hostname.String()
 }
 
 func setAutoAllocatedIPs(svc *model.Service, octets octetPair) {
