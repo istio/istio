@@ -15,7 +15,6 @@
 package gateway
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
@@ -23,11 +22,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
-	gatewayclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/typed/apis/v1beta1"
-	lister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/util/istiomultierror"
 )
@@ -39,25 +37,21 @@ import (
 // This controller intentionally does not do leader election for simplicity. Because we only create
 // and not update there is no need; the first controller to create the GatewayClass wins.
 type ClassController struct {
-	queue        controllers.Queue
-	classes      lister.GatewayClassLister
-	directClient gatewayclient.GatewayClassInterface
+	queue   controllers.Queue
+	classes client.Cached[*gateway.GatewayClass]
 }
 
-func NewClassController(client kube.Client) *ClassController {
+func NewClassController(kc kube.Client) *ClassController {
 	gc := &ClassController{}
 	gc.queue = controllers.NewQueue("gateway class",
 		controllers.WithReconciler(gc.Reconcile),
 		controllers.WithMaxAttempts(25))
 
-	class := client.GatewayAPIInformer().Gateway().V1beta1().GatewayClasses()
-	gc.classes = class.Lister()
-	gc.directClient = client.GatewayAPI().GatewayV1beta1().GatewayClasses()
-	_, _ = class.Informer().
-		AddEventHandler(controllers.FilteredObjectHandler(gc.queue.AddObject, func(o controllers.Object) bool {
-			_, f := classInfos[o.GetName()]
-			return f
-		}))
+	gc.classes = client.NewCached[*gateway.GatewayClass](kc)
+	gc.classes.AddEventHandler(controllers.FilteredObjectHandler(gc.queue.AddObject, func(o controllers.Object) bool {
+		_, f := classInfos[o.GetName()]
+		return f
+	}))
 	return gc
 }
 
@@ -76,12 +70,7 @@ func (c *ClassController) Reconcile(types.NamespacedName) error {
 }
 
 func (c *ClassController) reconcileClass(class string) error {
-	_, err := c.classes.Get(class)
-	if err := controllers.IgnoreNotFound(err); err != nil {
-		log.Errorf("unable to fetch GatewayClass: %v", err)
-		return err
-	}
-	if !kerrors.IsNotFound(err) {
+	if c.classes.Get(class, "") != nil {
 		log.Debugf("GatewayClass/%v already exists, no action", class)
 		return nil
 	}
@@ -95,7 +84,8 @@ func (c *ClassController) reconcileClass(class string) error {
 			Description:    &classInfo.description,
 		},
 	}
-	gc, err = c.directClient.Create(context.Background(), gc, metav1.CreateOptions{})
+	var err error
+	gc, err = c.classes.Create(gc)
 	if err != nil && !kerrors.IsConflict(err) {
 		return err
 	} else if err != nil && kerrors.IsConflict(err) {
@@ -116,7 +106,7 @@ func (c *ClassController) reconcileClass(class string) error {
 		Reason:             string(gateway.GatewayClassConditionStatusAccepted),
 		Message:            "Handled by Istio controller",
 	}}}
-	if _, err := c.directClient.UpdateStatus(context.Background(), gc, metav1.UpdateOptions{}); err != nil {
+	if _, err := c.classes.UpdateStatus(gc); err != nil {
 		return fmt.Errorf("failed to update status: %v", err)
 	}
 	return err

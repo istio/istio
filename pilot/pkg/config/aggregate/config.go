@@ -18,9 +18,6 @@ package aggregate
 import (
 	"errors"
 
-	"github.com/hashicorp/go-multierror"
-	"k8s.io/client-go/tools/cache"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -167,16 +164,6 @@ type storeCache struct {
 	caches []model.ConfigStoreController
 }
 
-func (cr *storeCache) HasStarted() bool {
-	for _, cache := range cr.caches {
-		if !cache.HasStarted() {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (cr *storeCache) HasSynced() bool {
 	for _, cache := range cr.caches {
 		if !cache.HasSynced() {
@@ -192,16 +179,6 @@ func (cr *storeCache) RegisterEventHandler(kind config.GroupVersionKind, handler
 			cache.RegisterEventHandler(kind, handler)
 		}
 	}
-}
-
-func (cr *storeCache) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
-	var errs error
-	for _, cache := range cr.caches {
-		if err := cache.SetWatchErrorHandler(handler); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-	return errs
 }
 
 func (cr *storeCache) Run(stop <-chan struct{}) {

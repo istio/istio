@@ -39,10 +39,10 @@ func FuzzKubeController(f *testing.F) {
 		controller.onServiceEvent(nil, s, model.EventAdd)
 		if fco.Mode == EndpointsOnly {
 			e := fuzz.Struct[*corev1.Endpoints](fg)
-			controller.endpoints.onEvent(nil, e, model.EventAdd)
+			controller.endpoints.(*endpointsController).onEvent(nil, e, model.EventAdd)
 		} else {
 			e := fuzz.Struct[*v1.EndpointSlice](fg)
-			controller.endpoints.onEvent(nil, e, model.EventAdd)
+			controller.endpoints.(*endpointSliceController).onEvent(nil, e, model.EventAdd)
 		}
 	})
 }

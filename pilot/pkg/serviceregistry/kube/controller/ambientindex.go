@@ -331,10 +331,7 @@ func (c *Controller) getPodsInPolicy(ns string, sel map[string]string) []*v1.Pod
 	if ns == c.meshWatcher.Mesh().GetRootNamespace() {
 		ns = metav1.NamespaceAll
 	}
-	allPods, err := c.podLister.Pods(ns).List(klabels.Everything())
-	if err != nil {
-		return nil
-	}
+	allPods := c.podsClient.List(ns, klabels.Everything())
 	var pods []*v1.Pod
 	for _, pod := range allPods {
 		if labels.Instance(sel).SubsetOf(pod.Labels) {
@@ -640,7 +637,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			}
 		},
 	}
-	c.podInformer.AddEventHandler(podHandler)
+	c.podsClient.AddEventHandler(podHandler)
 
 	serviceHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
@@ -686,7 +683,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			}
 		},
 	}
-	c.serviceInformer.AddEventHandler(serviceHandler)
+	c.services.AddEventHandler(serviceHandler)
 	idx.serviceVipIndex = controllers.CreateIndex[*v1.Service, string](c.client.KubeInformer().Core().V1().Services().Informer(), getVIPs)
 	return &idx
 }
@@ -776,7 +773,8 @@ func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
 func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
 	svc := controllers.Extract[*v1.Service](obj)
 	vips := getVIPs(svc)
-	pods := getPodsInService(c.podLister, svc)
+	allPods := c.podsClient.List(svc.Namespace, klabels.Everything())
+	pods := getPodsInService(allPods, svc)
 	var wls []*model.WorkloadInfo
 	for _, p := range pods {
 		wl := a.byPod[p.Status.PodIP]
@@ -846,7 +844,8 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 		return nil
 	}
 	vips := map[string]*workloadapi.PortList{}
-	if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
+	allServices := c.services.List(pod.Namespace, klabels.Everything())
+	if services, err := getPodServices(allServices, pod); err == nil && len(services) > 0 {
 		for _, svc := range services {
 			for _, vip := range getVIPs(svc) {
 				if vips[vip] == nil {

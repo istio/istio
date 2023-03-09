@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,11 +27,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
-	lister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
@@ -43,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	kclient "istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -75,15 +71,17 @@ import (
 //   - SSA using standard API types doesn't work well either: https://github.com/kubernetes-sigs/controller-runtime/issues/1669
 //   - This leaves YAML templates, converted to unstructured types and Applied with the dynamic client.
 type DeploymentController struct {
-	client             kube.Client
-	clusterID          cluster.ID
-	queue              controllers.Queue
-	patcher            patcher
-	gatewayLister      lister.GatewayLister
-	gatewayClassLister lister.GatewayClassLister
+	client         kube.Client
+	clusterID      cluster.ID
+	queue          controllers.Queue
+	patcher        patcher
+	gateways       kclient.Cached[*gateway.Gateway]
+	gatewayClasses kclient.Cached[*gateway.GatewayClass]
 
-	injectConfig func() inject.WebhookConfig
-	handlers     *controllers.InformerHandler
+	injectConfig    func() inject.WebhookConfig
+	deployments     kclient.Cached[*appsv1.Deployment]
+	services        kclient.Cached[*corev1.Service]
+	serviceAccounts kclient.Cached[*corev1.ServiceAccount]
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -188,8 +186,8 @@ var knownControllers = func() sets.String {
 func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()),
 ) *DeploymentController {
-	gw := client.GatewayAPIInformer().Gateway().V1beta1().Gateways()
-	gwc := client.GatewayAPIInformer().Gateway().V1beta1().GatewayClasses()
+	gateways := kclient.NewCached[*gateway.Gateway](client)
+	gatewayClasses := kclient.NewCached[*gateway.GatewayClass](client)
 	dc := &DeploymentController{
 		client:    client,
 		clusterID: clusterID,
@@ -202,10 +200,9 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 			}, subresources...)
 			return err
 		},
-		handlers:           controllers.NewInformerHandler(),
-		gatewayLister:      gw.Lister(),
-		gatewayClassLister: gwc.Lister(),
-		injectConfig:       webhookConfig,
+		gateways:       gateways,
+		gatewayClasses: gatewayClasses,
+		injectConfig:   webhookConfig,
 	}
 	dc.queue = controllers.NewQueue("gateway deployment",
 		controllers.WithReconciler(dc.Reconcile),
@@ -218,30 +215,19 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 
 	// Use the full informer, since we are already fetching all Services for other purposes
 	// If we somehow stop watching Services in the future we can add a label selector like below.
-	serviceInformer := client.KubeInformer().Core().V1().Services().Informer()
-	dc.handlers.RegisterEventHandler(serviceInformer, handler)
+	dc.services = kclient.NewCached[*corev1.Service](client)
+	dc.services.AddEventHandler(handler)
 
 	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
-	deployInformer := client.KubeInformer().InformerFor(&appsv1.Deployment{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
-		return appsinformersv1.NewFilteredDeploymentInformer(
-			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
-			func(options *metav1.ListOptions) {
-				// All types of gateways have this label
-				options.LabelSelector = constants.ManagedGatewayLabel
-			},
-		)
-	})
-	_ = deployInformer.SetTransform(kube.StripUnusedFields)
-	dc.handlers.RegisterEventHandler(deployInformer, handler)
+	dc.deployments = kclient.NewCachedFiltered[*appsv1.Deployment](client, kclient.Filter{LabelSelector: constants.ManagedGatewayLabel})
+	dc.deployments.AddEventHandler(handler)
 
-	serviceAccountInformer := client.KubeInformer().Core().V1().ServiceAccounts().Informer()
-	_ = serviceAccountInformer.SetTransform(kube.StripUnusedFields)
-	dc.handlers.RegisterEventHandler(serviceAccountInformer, handler)
+	dc.serviceAccounts = kclient.NewCached[*corev1.ServiceAccount](client)
+	dc.serviceAccounts.AddEventHandler(handler)
 
-	dc.handlers.RegisterEventHandler(gw.Informer(), controllers.ObjectHandler(dc.queue.AddObject))
-	dc.handlers.RegisterEventHandler(gwc.Informer(), controllers.ObjectHandler(func(o controllers.Object) {
-		gws, _ := dc.gatewayLister.List(klabels.Everything())
-		for _, g := range gws {
+	gateways.AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
+	gatewayClasses.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		for _, g := range dc.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 			if string(g.Spec.GatewayClassName) == o.GetName() {
 				dc.queue.AddObject(g)
 			}
@@ -250,8 +236,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 
 	// On injection template change, requeue all gateways
 	injectionHandler(func() {
-		gws, _ := dc.gatewayLister.List(klabels.Everything())
-		for _, gw := range gws {
+		for _, gw := range dc.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 			dc.queue.AddObject(gw)
 		}
 	})
@@ -261,26 +246,26 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 
 func (d *DeploymentController) Run(stop <-chan struct{}) {
 	d.queue.Run(stop)
-	d.handlers.Cleanup()
+	d.deployments.ShutdownHandlers()
+	d.services.ShutdownHandlers()
+	d.serviceAccounts.ShutdownHandlers()
+	d.gateways.ShutdownHandlers()
+	d.gatewayClasses.ShutdownHandlers()
 }
 
 // Reconcile takes in the name of a Gateway and ensures the cluster is in the desired state
 func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	log := log.WithLabels("gateway", req)
 
-	gw, err := d.gatewayLister.Gateways(req.Namespace).Get(req.Name)
-	if err != nil || gw == nil {
+	gw := d.gateways.Get(req.Name, req.Namespace)
+	if gw == nil {
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
-		if err := controllers.IgnoreNotFound(err); err != nil {
-			log.Errorf("unable to fetch Gateway: %v", err)
-			return err
-		}
 		return nil
 	}
 
-	gc, _ := d.gatewayClassLister.Get(string(gw.Spec.GatewayClassName))
+	gc := d.gatewayClasses.Get(string(gw.Spec.GatewayClassName), "")
 	if gc != nil {
 		// We found the gateway class, but we do not implement it. Skip
 		if !knownControllers.Contains(string(gc.Spec.ControllerName)) {

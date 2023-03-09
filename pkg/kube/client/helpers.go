@@ -12,33 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ptr
+package client
 
-// Of returns a pointer to the input. In most cases, callers should just do &t. However, in some cases
-// Go cannot take a pointer. For example, `ptr.Of(f())`.
-func Of[T any](t T) *T {
-	return &t
-}
+import (
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
-// OrEmpty returns *t if its non-nil, or else an empty T
-func OrEmpty[T any](t *T) T {
-	if t != nil {
-		return *t
+	"istio.io/istio/pkg/kube/controllers"
+)
+
+func CreateOrUpdate[T controllers.Object](c Cached[T], object T) (T, error) {
+	res, err := c.Create(object)
+	if kerrors.IsAlreadyExists(err) {
+		// Already exist, update
+		return c.Update(object)
 	}
-	var empty T
-	return empty
-}
-
-// OrDefault returns *t if its non-nil, or else def.
-func OrDefault[T any](t *T, def T) T {
-	if t != nil {
-		return *t
-	}
-	return def
-}
-
-// Empty returns an empty T type
-func Empty[T any]() T {
-	var empty T
-	return empty
+	return res, err
 }

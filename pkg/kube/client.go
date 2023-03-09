@@ -86,6 +86,7 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 	"istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/lazy"
@@ -147,7 +148,6 @@ type Client interface {
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
-	HasStarted() bool
 
 	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
 	WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
@@ -157,6 +157,9 @@ type Client interface {
 
 	// Shutdown closes all informers and waits for them to terminate
 	Shutdown()
+
+	// ClusterID returns the cluster this client is connected to
+	ClusterID() cluster.ID
 }
 
 // CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
@@ -322,6 +325,7 @@ type fakeClient interface {
 type client struct {
 	clientFactory util.Factory
 	config        *rest.Config
+	clusterID     cluster.ID
 
 	extSet      kubeExtClient.Interface
 	extInformer kubeExtInformers.SharedInformerFactory
@@ -450,7 +454,7 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 // NewDefaultClient returns a default client, using standard Kubernetes config resolution to determine
 // the cluster to access.
 func NewDefaultClient() (Client, error) {
-	return NewClient(BuildClientCmd("", ""))
+	return NewClient(BuildClientCmd("", ""), "")
 }
 
 // NewCLIClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
@@ -462,7 +466,7 @@ func NewCLIClient(clientConfig clientcmd.ClientConfig, revision string) (CLIClie
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
-func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
+func NewClient(clientConfig clientcmd.ClientConfig, cluster cluster.ID) (Client, error) {
 	return newClientInternal(newClientFactory(clientConfig, false), "")
 }
 
@@ -520,10 +524,6 @@ func (c *client) GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory {
 
 func (c *client) ExtInformer() kubeExtInformers.SharedInformerFactory {
 	return c.extInformer
-}
-
-func (c *client) HasStarted() bool {
-	return c.started.Load()
 }
 
 // RunAndWait starts all informers and waits for their caches to sync.
@@ -584,6 +584,10 @@ func (c *client) startInformer(stop <-chan struct{}) {
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 	return c.version.Get()
+}
+
+func (c *client) ClusterID() cluster.ID {
+	return c.clusterID
 }
 
 type reflectInformerSync interface {

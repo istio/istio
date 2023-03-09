@@ -669,7 +669,7 @@ func splitInput(t test.Failer, configs []config.Config) KubernetesResources {
 	}
 
 	client := kube.NewFakeClient(secrets...)
-	out.Credentials = credentials.NewCredentialsController(client, "")
+	out.Credentials = credentials.NewCredentialsController(client)
 	client.RunAndWait(test.NewStop(t))
 
 	out.Domain = "domain.suffix"

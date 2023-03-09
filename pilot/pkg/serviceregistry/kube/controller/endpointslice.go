@@ -17,26 +17,26 @@ package controller
 import (
 	"sync"
 
+	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/discovery/v1"
 	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
-	listerv1 "k8s.io/client-go/listers/discovery/v1"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/kube/controllers"
-	filterinformer "istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/kube/client"
 )
 
 type endpointSliceController struct {
-	kubeEndpoints
 	endpointCache *endpointSliceCache
+	slices        client.Cached[*v1.EndpointSlice]
+	c             *Controller
 }
 
 var _ kubeEndpointsController = &endpointSliceController{}
@@ -49,33 +49,38 @@ var (
 func newEndpointSliceController(c *Controller) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
-	informer := c.client.KubeInformer().Discovery().V1().EndpointSlices().Informer()
-
-	filteredInformer := filterinformer.NewFilteredSharedIndexInformer(
-		c.opts.DiscoveryNamespacesFilter.Filter,
-		informer,
-	)
+	slices := client.NewCachedFiltered[*v1.EndpointSlice](c.client, client.Filter{ObjectFilter: c.opts.GetFilter()})
 	out := &endpointSliceController{
-		kubeEndpoints: kubeEndpoints{
-			c:        c,
-			informer: filteredInformer,
-		},
+		c:             c,
+		slices:        slices,
 		endpointCache: newEndpointSliceCache(),
 	}
-	c.registerHandlers(filteredInformer, "EndpointSlice", out.onEvent, nil)
+	registerHandlers[*v1.EndpointSlice](c, slices, "EndpointSlice", out.onEvent, nil)
 	return out
 }
 
-func (esc *endpointSliceController) getInformer() filterinformer.FilteredSharedIndexInformer {
-	return esc.informer
+func (esc *endpointSliceController) HasSynced() bool {
+	return esc.slices.HasSynced()
 }
 
-func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selector) ([]*v1.EndpointSlice, error) {
-	return listerv1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
+func (esc *endpointSliceController) sync(name, ns string) error {
+	if name != "" {
+		ep := esc.slices.Get(name, ns)
+		if ep == nil {
+			return nil
+		}
+		return esc.onEvent(nil, ep, model.EventAdd)
+	}
+	var err *multierror.Error
+	endpoints := esc.slices.List(ns, klabels.Everything())
+	log.Debugf("initializing %d endpointslices", len(endpoints))
+	for _, s := range endpoints {
+		err = multierror.Append(err, esc.onEvent(nil, s, model.EventAdd))
+	}
+	return err.ErrorOrNil()
 }
 
-func (esc *endpointSliceController) onEvent(_, curr any, event model.Event) error {
-	ep := controllers.ExtractObject(curr)
+func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model.Event) error {
 	if ep == nil {
 		return nil
 	}
@@ -90,11 +95,7 @@ func (esc *endpointSliceController) onEvent(_, curr any, event model.Event) erro
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
-	eps, err := esc.listSlices(proxy.Metadata.Namespace, endpointSliceSelector)
-	if err != nil {
-		log.Errorf("Get endpointslice by index failed: %v", err)
-		return nil
-	}
+	eps := esc.slices.List(proxy.Metadata.Namespace, endpointSliceSelector)
 	var out []*model.ServiceInstance
 	for _, ep := range eps {
 		instances := esc.sliceServiceInstances(c, ep, proxy)
@@ -155,7 +156,7 @@ func (esc *endpointSliceController) sliceServiceInstances(c *Controller, ep *v1.
 
 func (esc *endpointSliceController) forgetEndpoint(endpoint any) map[host.Name][]*model.IstioEndpoint {
 	slice := endpoint.(*v1.EndpointSlice)
-	key := kube.KeyFunc(slice.Name, slice.Namespace)
+	key := config.NamespacedName(slice)
 	for _, e := range slice.Endpoints {
 		for _, a := range e.Addresses {
 			esc.c.pods.endpointDeleted(key, a)
@@ -241,9 +242,9 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 
 func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, hostName host.Name, updateCache bool) []*model.IstioEndpoint {
 	esLabelSelector := endpointSliceSelectorForService(name)
-	slices, err := esc.listSlices(namespace, esLabelSelector)
-	if err != nil || len(slices) == 0 {
-		log.Debugf("endpoint slices of (%s, %s) not found => error %v", name, namespace, err)
+	slices := esc.slices.List(namespace, esLabelSelector)
+	if len(slices) == 0 {
+		log.Debugf("endpoint slices of (%s, %s) not found", name, namespace)
 		return nil
 	}
 
@@ -267,11 +268,7 @@ func (esc *endpointSliceController) getServiceNamespacedName(es any) types.Names
 
 func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	esLabelSelector := endpointSliceSelectorForService(svc.Attributes.Name)
-	slices, err := esc.listSlices(svc.Attributes.Namespace, esLabelSelector)
-	if err != nil {
-		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
-		return nil
-	}
+	slices := esc.slices.List(svc.Attributes.Namespace, esLabelSelector)
 	if len(slices) == 0 {
 		return nil
 	}

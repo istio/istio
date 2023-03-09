@@ -97,7 +97,7 @@ func (q *queueImpl) get() (task Task, shutdown bool) {
 		q.cond.Wait()
 	}
 
-	if q.closing {
+	if q.closing && len(q.tasks) == 0 {
 		// We must be shutting down.
 		return nil, true
 	}

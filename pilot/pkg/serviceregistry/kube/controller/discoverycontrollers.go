@@ -18,7 +18,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -48,7 +47,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
 ) {
 	otype := "Namespaces"
-	_, _ = c.nsInformer.AddEventHandler(controllers.EventHandler[*v1.Namespace]{
+	c.namespaces.AddEventHandler(controllers.EventHandler[*v1.Namespace]{
 		AddFunc: func(ns *v1.Namespace) {
 			incrementEvent(otype, "add")
 			if discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta) {
@@ -142,21 +141,11 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 	var errs *multierror.Error
 
 	// for each resource type, issue create events for objects in the labeled namespace
-
-	services, err := c.serviceLister.Services(ns).List(labels.Everything())
-	if err != nil {
-		log.Errorf("error listing services: %v", err)
-		return
-	}
-	for _, svc := range services {
+	for _, svc := range c.services.List(ns, labels.Everything()) {
 		errs = multierror.Append(errs, c.onServiceEvent(nil, svc, model.EventAdd))
 	}
 
-	pods, err := listerv1.NewPodLister(c.pods.informer.GetIndexer()).Pods(ns).List(labels.Everything())
-	if err != nil {
-		log.Errorf("error listing pods: %v", err)
-		return
-	}
+	pods := c.podsClient.List(ns, labels.Everything())
 	for _, pod := range pods {
 		errs = multierror.Append(errs, c.pods.onEvent(nil, pod, model.EventAdd))
 	}
@@ -164,26 +153,7 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 		c.ambientIndex.handlePods(pods, c)
 	}
 
-	switch endpointMode {
-	case EndpointsOnly:
-		endpoints, err := listerv1.NewEndpointsLister(c.endpoints.getInformer().GetIndexer()).Endpoints(ns).List(labels.Everything())
-		if err != nil {
-			log.Errorf("error listing endpoints: %v", err)
-			return
-		}
-		for _, ep := range endpoints {
-			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
-		}
-	case EndpointSliceOnly:
-		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(ns, labels.Everything())
-		if err != nil {
-			log.Errorf("error listing endpoint slices: %v", err)
-			return
-		}
-		for _, ep := range endpointSlices {
-			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
-		}
-	}
+	errs = multierror.Append(errs, c.endpoints.sync("", ns))
 
 	for _, handler := range c.namespaceDiscoveryHandlers {
 		handler(ns, model.EventAdd)
@@ -220,26 +190,7 @@ func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpoi
 		errs = multierror.Append(errs, c.pods.onEvent(nil, pod, model.EventDelete))
 	}
 
-	switch endpointMode {
-	case EndpointsOnly:
-		endpoints, err := kubeClient.KubeInformer().Core().V1().Endpoints().Lister().Endpoints(ns).List(labels.Everything())
-		if err != nil {
-			log.Errorf("error listing endpoints: %v", err)
-			return
-		}
-		for _, ep := range endpoints {
-			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventDelete))
-		}
-	case EndpointSliceOnly:
-		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(ns, labels.Everything())
-		if err != nil {
-			log.Errorf("error listing endpoint slices: %v", err)
-			return
-		}
-		for _, ep := range endpointSlices {
-			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventDelete))
-		}
-	}
+	errs = multierror.Append(errs, c.endpoints.sync("", ns))
 
 	for _, handler := range c.namespaceDiscoveryHandlers {
 		handler(ns, model.EventDelete)
