@@ -1687,6 +1687,37 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "collision",
+			inServices: []*model.Service{
+				{
+					Hostname:       "a17061.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+				},
+				{
+					Hostname:       "a44155.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:                 "a17061.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.0.1",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
+				},
+				{
+					Hostname:                 "a44155.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.75.79",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:4b4f",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
