@@ -402,7 +402,6 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
 	// If service entry is deleted, call SvcUpdate to cleanup endpoint shards for services.
-	partiallyDeletedSvcs := []*model.Service{}
 	for _, svc := range deletedSvcs {
 		instanceKey := instancesKey{namespace: svc.Attributes.Namespace, hostname: svc.Hostname}
 		// There can be multiple service entries of same host reside in same namespace.
@@ -410,8 +409,8 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 		if len(s.serviceInstances.getByKey(instanceKey)) == 0 {
 			s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
 		} else {
-			// If there are some endpoints remaining for the host, trigger eds cache update
-			partiallyDeletedSvcs = append(partiallyDeletedSvcs, svc)
+			// If there are some endpoints remaining for the host, add svc to updatedSvcs to trigger eds cache update
+			updatedSvcs = append(updatedSvcs, svc)
 		}
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
@@ -436,14 +435,13 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 		return
 	}
 
-	// When doing a full push, the non DNS added, updated, unchanged, partiallyDeleted services trigger an eds update
+	// When doing a full push, the non DNS added, updated, unchanged services trigger an eds update
 	// so that endpoint shards are updated.
-	allServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs)+len(partiallyDeletedSvcs))
-	nonDNSServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs)+len(partiallyDeletedSvcs))
+	allServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs))
+	nonDNSServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs))
 	allServices = append(allServices, addedSvcs...)
 	allServices = append(allServices, updatedSvcs...)
 	allServices = append(allServices, unchangedSvcs...)
-	allServices = append(allServices, partiallyDeletedSvcs...)
 	for _, svc := range allServices {
 		if !(svc.Resolution == model.DNSLB || svc.Resolution == model.DNSRoundRobinLB) {
 			nonDNSServices = append(nonDNSServices, svc)
