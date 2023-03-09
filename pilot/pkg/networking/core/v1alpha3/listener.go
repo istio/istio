@@ -191,15 +191,15 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		}
 	}
 
-	// If Mesh TLSDefaults are set, use them.
-	if mesh.GetTlsDefaults() != nil && isSimpleOrMutual(serverTLSSettings.Mode) {
-		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
-	}
+	applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
 	applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
 	return ctx
 }
 
 func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ctx *auth.CommonTlsContext) {
+	if tlsDefaults == nil {
+		return
+	}
 	if len(tlsDefaults.EcdhCurves) > 0 {
 		tlsParamsOrNew(ctx).EcdhCurves = tlsDefaults.EcdhCurves
 	}
@@ -209,6 +209,9 @@ func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ct
 }
 
 func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx *auth.CommonTlsContext) {
+	if !isSimpleOrMutual(serverTLSSettings.Mode) {
+		return
+	}
 	if serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
 		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = convertTLSProtocol(serverTLSSettings.MinProtocolVersion)
 	}
