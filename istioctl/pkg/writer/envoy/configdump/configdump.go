@@ -115,29 +115,20 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 	return secretWriter.PrintSecretItems(secretItems)
 }
 
-func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf RouteFilter, epf EndpointFilter) error {
-	w := c.Stdout
-	writeSeperator := func(writer io.Writer, configName string) {
-		fmt.Fprintf(writer, "\n--------------------\n%s CONFIG:\n\n", configName)
-	}
-	writeSeperator(w, "CLUSTER")
+func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf RouteFilter) error {
 	if err := c.PrintClusterSummary(cf); err != nil {
 		return err
 	}
-	writeSeperator(w, "LISTENER")
+	_, _ = c.Stdout.Write([]byte("\n"))
 	if err := c.PrintListenerSummary(lf); err != nil {
 		return err
 	}
-	writeSeperator(w, "ROUTE")
+	_, _ = c.Stdout.Write([]byte("\n"))
 	if err := c.PrintRouteSummary(rf); err != nil {
 		return err
 	}
-	writeSeperator(w, "SECRET")
+	_, _ = c.Stdout.Write([]byte("\n"))
 	if err := c.PrintSecretSummary(); err != nil {
-		return err
-	}
-	writeSeperator(w, "ENDPOINT")
-	if err := c.PrintEndpointsSummary(epf); err != nil {
 		return err
 	}
 	return nil
