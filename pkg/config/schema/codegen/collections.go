@@ -254,6 +254,163 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 
 `
 
+const typesTemplate = `
+// GENERATED FILE -- DO NOT EDIT
+//
+
+package {{.PackageName}}
+
+import (
+	"istio.io/istio/pkg/config"
+
+{{- range .Packages}}
+	{{.ImportName}} "{{.PackageName}}"
+{{- end}}
+)
+
+func GetGVK[T runtime.Object]() config.GroupVersionKind {
+	i := *new(T)
+	t := reflect.TypeOf(i)
+	switch t {
+{{- range .Entries }}
+	case reflect.TypeOf(&{{ .ClientImport }}.{{ .Resource.Kind }}{}):
+		return gvk.{{ .Resource.Identifier }}
+{{- end }}
+  default:
+    panic(fmt.Sprintf("Unknown type %T", i))
+	}
+}
+`
+
+const clientsTemplate = `
+// GENERATED FILE -- DO NOT EDIT
+//
+
+package {{.PackageName}}
+
+import (
+	"reflect"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
+	"k8s.io/client-go/informers"
+	istioinformer "istio.io/client-go/pkg/informers/externalversions"
+	kubeextinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	ktypes "istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/config"
+	"k8s.io/apimachinery/pkg/runtime"
+	kubeext "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/client-go/kubernetes"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+{{- range .Packages}}
+	{{.ImportName}} "{{.PackageName}}"
+{{- end}}
+)
+
+type ClientGetter interface {
+	// Ext returns the API extensions client.
+	Ext() kubeext.Interface
+
+	// Kube returns the core kube client
+	Kube() kubernetes.Interface
+
+	// Dynamic client.
+	Dynamic() dynamic.Interface
+
+	// Metadata returns the Metadata kube client.
+	Metadata() metadata.Interface
+
+	// Istio returns the Istio kube client.
+	Istio() istioclient.Interface
+
+	// GatewayAPI returns the gateway-api kube client.
+	GatewayAPI() gatewayapiclient.Interface
+
+	// KubeInformer returns an informer for core kube client
+	KubeInformer() informers.SharedInformerFactory
+
+	// IstioInformer returns an informer for the istio client
+	IstioInformer() istioinformer.SharedInformerFactory
+
+	// GatewayAPIInformer returns an informer for the gateway-api client
+	GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory
+
+	// ExtInformer returns an informer for the extension client
+	ExtInformer() kubeextinformer.SharedInformerFactory
+}
+
+func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
+	i := *new(T)
+	t := reflect.TypeOf(i)
+	switch t {
+{{- range .Entries }}
+	{{- if not .Resource.Synthetic }}
+	case reflect.TypeOf(&{{ .ClientImport }}.{{ .Resource.Kind }}{}):
+		return  c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}namespace{{end}}).(ktypes.WriteAPI[T])
+	{{- end }}
+{{- end }}
+  default:
+    panic(fmt.Sprintf("Unknown type %T", i))
+	}
+}
+
+func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerOptions) cache.SharedIndexInformer {
+	var l func(options metav1.ListOptions) (runtime.Object, error)
+	var w func(options metav1.ListOptions) (watch.Interface, error)
+	i := *new(T)
+	t := reflect.TypeOf(i)
+	switch t {
+{{- range .Entries }}
+	{{- if not .Resource.Synthetic }}
+	case reflect.TypeOf(&{{ .ClientImport }}.{{ .Resource.Kind }}{}):
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}""{{end}}).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}""{{end}}).Watch(context.Background(), options)
+		}
+	{{- end }}
+{{- end }}
+  default:
+    panic(fmt.Sprintf("Unknown type %T", i))
+	}
+	return c.KubeInformer().InformerFor(*new(T), func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
+		return cache.NewSharedIndexInformer(
+			&cache.ListWatch{
+				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+					options.FieldSelector = opts.FieldSelector
+					options.LabelSelector = opts.LabelSelector
+					return l(options)
+				},
+				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+					options.FieldSelector = opts.FieldSelector
+					options.LabelSelector = opts.LabelSelector
+					return w(options)
+				},
+			},
+			*new(T),
+			resync,
+			cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+		)
+	})
+}
+
+func GetInformer[T runtime.Object](c ClientGetter) cache.SharedIndexInformer {
+	i := *new(T)
+	t := reflect.TypeOf(i)
+	switch t {
+{{- range .Entries }}
+	{{- if not .Resource.Synthetic }}
+	case reflect.TypeOf(&{{ .ClientImport }}.{{ .Resource.Kind }}{}):
+		return  c.{{.ClientGetter}}Informer().{{ .InformerGroup }}.{{ .ClientTypePath }}().Informer()
+	{{- end }}
+{{- end }}
+  default:
+    panic(fmt.Sprintf("Unknown type %T", i))
+	}
+}
+`
+
 const kindTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
