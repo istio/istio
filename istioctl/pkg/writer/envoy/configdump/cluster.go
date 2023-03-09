@@ -68,6 +68,7 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
+	includeConfigType := c.IncludeConfigType
 	_, _ = fmt.Fprintln(w, "SERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE\tDESTINATION RULE")
 	for _, c := range clusters {
 		if filter.Verify(c) {
@@ -76,9 +77,15 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 				if subset == "" {
 					subset = "-"
 				}
+				if includeConfigType && len(fqdn) > 0 {
+					fqdn = host.Name(fmt.Sprintf("cluster/%s", fqdn))
+				}
 				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", fqdn, port, subset, direction, c.GetType(),
 					describeManagement(c.GetMetadata()))
 			} else {
+				if includeConfigType && len(c.Name) > 0 {
+					c.Name = fmt.Sprintf("cluster/%s", c.Name)
+				}
 				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", c.Name, "-", "-", "-", c.GetType(),
 					describeManagement(c.GetMetadata()))
 			}

@@ -518,6 +518,7 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 				}
+				configWriter.IncludeConfigType = true
 				return configWriter.PrintFullSummary(
 					configdump.ClusterFilter{
 						FQDN:      host.Name(fqdn),
@@ -534,6 +535,12 @@ func allConfigCmd() *cobra.Command {
 					configdump.RouteFilter{
 						Name:    routeName,
 						Verbose: verboseProxyConfig,
+					},
+					configdump.EndpointFilter{
+						Address: address,
+						Port:    uint32(port),
+						Cluster: clusterName,
+						Status:  status,
 					},
 				)
 			default:

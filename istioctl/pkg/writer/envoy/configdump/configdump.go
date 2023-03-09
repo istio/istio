@@ -32,6 +32,8 @@ import (
 type ConfigWriter struct {
 	Stdout     io.Writer
 	configDump *configdump.Wrapper
+	// IncludeConfigType indicates whether to include the config type in the output
+	IncludeConfigType bool
 }
 
 // Prime loads the config dump into the writer ready for printing
@@ -111,11 +113,11 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 		return err
 	}
 
-	secretWriter := sdscompare.NewSDSWriter(c.Stdout, sdscompare.TABULAR)
+	secretWriter := sdscompare.NewSDSWriter(c.Stdout, sdscompare.TABULAR, c.IncludeConfigType)
 	return secretWriter.PrintSecretItems(secretItems)
 }
 
-func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf RouteFilter) error {
+func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf RouteFilter, epf EndpointFilter) error {
 	if err := c.PrintClusterSummary(cf); err != nil {
 		return err
 	}
@@ -129,6 +131,10 @@ func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf 
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
 	if err := c.PrintSecretSummary(); err != nil {
+		return err
+	}
+	_, _ = c.Stdout.Write([]byte("\n"))
+	if err := c.PrintEndpointsSummary(epf); err != nil {
 		return err
 	}
 	return nil

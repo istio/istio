@@ -299,6 +299,9 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 	for _, l := range verifiedListeners {
 		address := retrieveListenerAddress(l)
 		port := retrieveListenerPort(l)
+		if c.IncludeConfigType && len(address) > 0 {
+			address = fmt.Sprintf("listener/%s", address)
+		}
 		if filter.Verbose {
 
 			matches := retrieveListenerMatches(l)

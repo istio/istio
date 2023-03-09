@@ -36,17 +36,19 @@ const (
 )
 
 // NewSDSWriter generates a new instance which conforms to SDSWriter interface
-func NewSDSWriter(w io.Writer, format Format) SDSWriter {
+func NewSDSWriter(w io.Writer, format Format, includeConfigType bool) SDSWriter {
 	return &sdsWriter{
-		w:      w,
-		output: format,
+		w:           w,
+		output:      format,
+		includeType: includeConfigType,
 	}
 }
 
 // sdsWriter is provided concrete implementation of SDSWriter
 type sdsWriter struct {
-	w      io.Writer
-	output Format
+	w           io.Writer
+	output      Format
+	includeType bool
 }
 
 // PrintSecretItems uses the user supplied output format to determine how to display the diffed secrets
@@ -75,6 +77,9 @@ func (w *sdsWriter) printSecretItemsTabular(secrets []SecretItem) error {
 	tw := new(tabwriter.Writer).Init(w.w, 0, 5, 5, ' ', 0)
 	fmt.Fprintln(tw, strings.Join(secretItemColumns, "\t"))
 	for _, s := range secrets {
+		if w.includeType && len(s.Name) > 0 {
+			s.Name = fmt.Sprintf("secret/%s", s.Name)
+		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%t\t%s\t%s\t%s\n",
 			s.Name, s.Type, s.State, s.Valid, s.SerialNumber, s.NotAfter, s.NotBefore)
 	}
