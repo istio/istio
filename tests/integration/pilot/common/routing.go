@@ -1024,7 +1024,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: cross-network-gateway-test
-  namespace: {{.SystemNamespace}}
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   selector:
     istio: ingressgateway
@@ -1168,7 +1168,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: ingressgateway-redirect-config
-  namespace: {{.SystemNamespace}}
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   configPatches:
   - applyTo: NETWORK_FILTER
@@ -1304,7 +1304,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: ingressgateway-redirect-config
-  namespace: {{.SystemNamespace}}
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   configPatches:
   - applyTo: NETWORK_FILTER
@@ -3224,7 +3224,7 @@ apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
 metadata:
   name: default
-  namespace: {{.SystemNamespace}}
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
