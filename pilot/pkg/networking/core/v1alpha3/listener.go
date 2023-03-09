@@ -196,12 +196,12 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		if len(mesh.TlsDefaults.EcdhCurves) > 0 {
 			tlsParamsOrNew(ctx.CommonTlsContext).EcdhCurves = mesh.TlsDefaults.EcdhCurves
 		}
-		// Set the minimum TLS version from server settings or mesh config.
-		if serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
-			tlsParamsOrNew(ctx.CommonTlsContext).TlsMinimumProtocolVersion = convertTLSProtocol(serverTLSSettings.MinProtocolVersion)
-		} else if mesh.TlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
+		if mesh.TlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
 			tlsParamsOrNew(ctx.CommonTlsContext).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(mesh.TlsDefaults.MinProtocolVersion)
 		}
+	}
+	if serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		tlsParamsOrNew(ctx.CommonTlsContext).TlsMinimumProtocolVersion = convertTLSProtocol(serverTLSSettings.MinProtocolVersion)
 	}
 	if len(serverTLSSettings.CipherSuites) > 0 {
 		tlsParamsOrNew(ctx.CommonTlsContext).CipherSuites = serverTLSSettings.CipherSuites
