@@ -1695,6 +1695,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					DefaultAddress: "0.0.0.0",
 				},
 				{
+					// hashes to the same value as the hostname above,
+					// a new collision needs to be found if the hash algorithm changes
 					Hostname:       "a44155.example.com",
 					Resolution:     model.DNSLB,
 					DefaultAddress: "0.0.0.0",
@@ -1714,6 +1716,59 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					DefaultAddress:           "0.0.0.0",
 					AutoAllocatedIPv4Address: "240.240.75.79",
 					AutoAllocatedIPv6Address: "2001:2::f0f0:4b4f",
+				},
+			},
+		},
+		{
+			name: "stable IP - baseline test",
+			inServices: []*model.Service{
+				{
+					Hostname:       "a.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+					Attributes:     model.ServiceAttributes{Namespace: "a"},
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:                 "a.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.163.38",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:a326",
+				},
+			},
+		},
+		{
+			name: "stable IP - not affected by other namespace",
+			inServices: []*model.Service{
+				{
+					Hostname:       "a.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+					Attributes:     model.ServiceAttributes{Namespace: "a"},
+				},
+				{
+					Hostname:       "a.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+					Attributes:     model.ServiceAttributes{Namespace: "b"},
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:                 "a.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.163.38",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:a326",
+				},
+				{
+					Hostname:                 "a.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.114.198",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:72c6",
 				},
 			},
 		},
