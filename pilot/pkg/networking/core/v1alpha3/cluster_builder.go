@@ -1116,7 +1116,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
-		ApplyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
+		applyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
 
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
@@ -1171,7 +1171,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
-		ApplyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
+		applyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
 
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
@@ -1181,8 +1181,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	return tlsContext, nil
 }
 
-// ApplyTLSDefaults applies tls default settings from mesh config to UpstreamTlsContext.
-func ApplyTLSDefaults(tlsContext *auth.UpstreamTlsContext, tlsDefaults *meshconfig.MeshConfig_TLSConfig) {
+// applyTLSDefaults applies tls default settings from mesh config to UpstreamTlsContext.
+func applyTLSDefaults(tlsContext *auth.UpstreamTlsContext, tlsDefaults *meshconfig.MeshConfig_TLSConfig) {
 	if tlsDefaults == nil {
 		return
 	}

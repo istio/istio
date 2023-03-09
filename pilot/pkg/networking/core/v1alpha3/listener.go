@@ -193,23 +193,31 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 
 	// If Mesh TLSDefaults are set, use them.
 	if mesh.GetTlsDefaults() != nil && isSimpleOrMutual(serverTLSSettings.Mode) {
-		if len(mesh.TlsDefaults.EcdhCurves) > 0 {
-			tlsParamsOrNew(ctx.CommonTlsContext).EcdhCurves = mesh.TlsDefaults.EcdhCurves
-		}
-		if mesh.TlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
-			tlsParamsOrNew(ctx.CommonTlsContext).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(mesh.TlsDefaults.MinProtocolVersion)
-		}
+		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
 	}
+	applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
+	return ctx
+}
+
+func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ctx *auth.CommonTlsContext) {
+	if len(tlsDefaults.EcdhCurves) > 0 {
+		tlsParamsOrNew(ctx).EcdhCurves = tlsDefaults.EcdhCurves
+	}
+	if tlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(tlsDefaults.MinProtocolVersion)
+	}
+}
+
+func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx *auth.CommonTlsContext) {
 	if serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
-		tlsParamsOrNew(ctx.CommonTlsContext).TlsMinimumProtocolVersion = convertTLSProtocol(serverTLSSettings.MinProtocolVersion)
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = convertTLSProtocol(serverTLSSettings.MinProtocolVersion)
 	}
 	if len(serverTLSSettings.CipherSuites) > 0 {
-		tlsParamsOrNew(ctx.CommonTlsContext).CipherSuites = serverTLSSettings.CipherSuites
+		tlsParamsOrNew(ctx).CipherSuites = serverTLSSettings.CipherSuites
 	}
 	if serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
-		tlsParamsOrNew(ctx.CommonTlsContext).TlsMaximumProtocolVersion = convertTLSProtocol(serverTLSSettings.MaxProtocolVersion)
+		tlsParamsOrNew(ctx).TlsMaximumProtocolVersion = convertTLSProtocol(serverTLSSettings.MaxProtocolVersion)
 	}
-	return ctx
 }
 
 func isSimpleOrMutual(mode networking.ServerTLSSettings_TLSmode) bool {
