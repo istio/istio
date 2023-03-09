@@ -1687,17 +1687,105 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "collision",
+			inServices: []*model.Service{
+				{
+					Hostname:       "a17061.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+				},
+				{
+					// hashes to the same value as the hostname above,
+					// a new collision needs to be found if the hash algorithm changes
+					Hostname:       "a44155.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:                 "a17061.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.0.1",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
+				},
+				{
+					Hostname:                 "a44155.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.75.79",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:4b4f",
+				},
+			},
+		},
+		{
+			name: "stable IP - baseline test",
+			inServices: []*model.Service{
+				{
+					Hostname:       "a.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+					Attributes:     model.ServiceAttributes{Namespace: "a"},
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:                 "a.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.163.38",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:a326",
+				},
+			},
+		},
+		{
+			name: "stable IP - not affected by other namespace",
+			inServices: []*model.Service{
+				{
+					Hostname:       "a.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+					Attributes:     model.ServiceAttributes{Namespace: "a"},
+				},
+				{
+					Hostname:       "a.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+					Attributes:     model.ServiceAttributes{Namespace: "b"},
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:                 "a.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.163.38",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:a326",
+				},
+				{
+					Hostname:                 "a.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.114.198",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:72c6",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := autoAllocateIPs(tt.inServices)
-			if got[0].AutoAllocatedIPv4Address != tt.wantServices[0].AutoAllocatedIPv4Address {
-				t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
-					got[0].AutoAllocatedIPv4Address, tt.wantServices[0].AutoAllocatedIPv4Address)
-			}
-			if got[0].AutoAllocatedIPv6Address != tt.wantServices[0].AutoAllocatedIPv6Address {
-				t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
-					got[0].AutoAllocatedIPv6Address, tt.wantServices[0].AutoAllocatedIPv6Address)
+			gotServices := autoAllocateIPs(tt.inServices)
+			for i, got := range gotServices {
+				if got.AutoAllocatedIPv4Address != tt.wantServices[i].AutoAllocatedIPv4Address {
+					t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
+						got.AutoAllocatedIPv4Address, tt.wantServices[i].AutoAllocatedIPv4Address)
+				}
+				if got.AutoAllocatedIPv6Address != tt.wantServices[i].AutoAllocatedIPv6Address {
+					t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
+						got.AutoAllocatedIPv6Address, tt.wantServices[i].AutoAllocatedIPv6Address)
+				}
 			}
 		})
 	}
