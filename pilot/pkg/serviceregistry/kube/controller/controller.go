@@ -306,7 +306,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			c.namespaces,
 			"Namespaces",
 			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
-				c.handleSelectedNamespace(c.opts.EndpointMode, cur.Namespace)
+				c.handleSelectedNamespace(cur.Namespace)
 				return nil
 			},
 			func(old, cur *v1.Namespace) bool {
@@ -1025,7 +1025,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
 			allServices := c.services.List(pod.Namespace, klabels.Everything())
-			if services, err := getPodServices(allServices, pod); err == nil && len(services) > 0 {
+			if services := getPodServices(allServices, pod); len(services) > 0 {
 				out := make([]*model.ServiceInstance, 0)
 				for _, svc := range services {
 					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
@@ -1067,7 +1067,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInst
 
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
 	allServices := c.services.List(si.Namespace, klabels.Everything())
-	if k8sServices, err := getPodServices(allServices, dummyPod); err == nil && len(k8sServices) > 0 {
+	if k8sServices := getPodServices(allServices, dummyPod); len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
@@ -1123,7 +1123,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	shard := model.ShardKeyFromRegistry(c)
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
 	allServices := c.services.List(si.Namespace, klabels.Everything())
-	if k8sServices, err := getPodServices(allServices, dummyPod); err == nil && len(k8sServices) > 0 {
+	if k8sServices := getPodServices(allServices, dummyPod); len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
@@ -1196,10 +1196,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 
 	// Find the Service associated with the pod.
 	allServices := c.services.List(proxy.ConfigNamespace, klabels.Everything())
-	services, err := getPodServices(allServices, dummyPod)
-	if err != nil {
-		return nil, fmt.Errorf("error getting instances for %s: %v", proxy.ID, err)
-	}
+	services := getPodServices(allServices, dummyPod)
 	if len(services) == 0 {
 		return nil, fmt.Errorf("no instances found for %s", proxy.ID)
 	}
@@ -1225,6 +1222,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 
 				var portNum int
 				if len(proxy.Metadata.PodPorts) > 0 {
+					var err error
 					portNum, err = findPortFromMetadata(port, proxy.Metadata.PodPorts)
 					if err != nil {
 						return nil, fmt.Errorf("failed to find target port for %v: %v", proxy.ID, err)

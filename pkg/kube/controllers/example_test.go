@@ -111,6 +111,7 @@ func (c *Controller) HasSynced() bool {
 	return c.queue.HasSynced()
 }
 
+// nolint: gocritic
 func Example() {
 	// Setup our fake client. This can be pre-populated with items.
 	c := kube.NewFakeClient(&corev1.Pod{

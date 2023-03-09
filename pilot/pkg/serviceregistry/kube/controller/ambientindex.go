@@ -845,7 +845,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 	}
 	vips := map[string]*workloadapi.PortList{}
 	allServices := c.services.List(pod.Namespace, klabels.Everything())
-	if services, err := getPodServices(allServices, pod); err == nil && len(services) > 0 {
+	if services := getPodServices(allServices, pod); len(services) > 0 {
 		for _, svc := range services {
 			for _, vip := range getVIPs(svc) {
 				if vips[vip] == nil {

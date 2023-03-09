@@ -38,6 +38,10 @@ type cacheHandler struct {
 }
 
 func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
+	if err := h.client.checkReadyForEvents(curr); err != nil {
+		return err
+	}
+
 	currItem := controllers.ExtractObject(curr)
 	if currItem == nil {
 		return nil

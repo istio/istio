@@ -52,7 +52,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 			incrementEvent(otype, "add")
 			if discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta) {
 				c.queue.Push(func() error {
-					c.handleSelectedNamespace(endpointMode, ns.Name)
+					c.handleSelectedNamespace(ns.Name)
 					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
 					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
 					if features.EnableEnhancedResourceScoping {
@@ -71,9 +71,9 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 			if membershipChanged {
 				handleFunc := func() error {
 					if namespaceAdded {
-						c.handleSelectedNamespace(endpointMode, new.Name)
+						c.handleSelectedNamespace(new.Name)
 					} else {
-						c.handleDeselectedNamespace(kubeClient, endpointMode, new.Name)
+						c.handleDeselectedNamespace(new.Name)
 					}
 					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
 					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
@@ -111,7 +111,7 @@ func (c *Controller) initMeshWatcherHandler(
 		for _, nsName := range newSelectedNamespaces {
 			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
 			c.queue.Push(func() error {
-				c.handleSelectedNamespace(endpointMode, nsName)
+				c.handleSelectedNamespace(nsName)
 				return nil
 			})
 		}
@@ -119,7 +119,7 @@ func (c *Controller) initMeshWatcherHandler(
 		for _, nsName := range deselectedNamespaces {
 			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
 			c.queue.Push(func() error {
-				c.handleDeselectedNamespace(kubeClient, endpointMode, nsName)
+				c.handleDeselectedNamespace(nsName)
 				return nil
 			})
 		}
@@ -137,7 +137,7 @@ func (c *Controller) initMeshWatcherHandler(
 }
 
 // issue create events for all services, pods, and endpoints in the newly labeled namespace
-func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns string) {
+func (c *Controller) handleSelectedNamespace(ns string) {
 	var errs *multierror.Error
 
 	// for each resource type, issue create events for objects in the labeled namespace
@@ -167,26 +167,15 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 // issue delete events for all services, pods, and endpoints in the delabled namespace
 // use kubeClient.KubeInformer() to bypass filter in order to list resources from non-labeled namespace,
 // which fetches informers from the SharedInformerFactory cache (i.e. does not instantiate a new informer)
-func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpointMode EndpointMode, ns string) {
+func (c *Controller) handleDeselectedNamespace(ns string) {
 	var errs *multierror.Error
 
 	// for each resource type, issue delete events for objects in the delabled namespace
-
-	services, err := kubeClient.KubeInformer().Core().V1().Services().Lister().Services(ns).List(labels.Everything())
-	if err != nil {
-		log.Errorf("error listing services: %v", err)
-		return
-	}
-	for _, svc := range services {
+	for _, svc := range c.services.List(ns, labels.Everything()) {
 		errs = multierror.Append(errs, c.onServiceEvent(nil, svc, model.EventDelete))
 	}
 
-	pods, err := kubeClient.KubeInformer().Core().V1().Pods().Lister().Pods(ns).List(labels.Everything())
-	if err != nil {
-		log.Errorf("error listing pods: %v", err)
-		return
-	}
-	for _, pod := range pods {
+	for _, pod := range c.podsClient.List(ns, labels.Everything()) {
 		errs = multierror.Append(errs, c.pods.onEvent(nil, pod, model.EventDelete))
 	}
 

@@ -153,18 +153,19 @@ func (n *readClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 }
 
 func (n *readClient[T]) HasSynced() bool {
-	if !n.inf.HasSynced() {
-		return false
-	}
+	return n.inf.HasSynced()
 	/*
 		TODO: client-go v0.27
-		for _, g := range n.registeredHandlers {
-			if !g.HasSynced() {
-				return false
-			}
+		if !n.inf.HasSynced() {
+			return false
 		}
+			for _, g := range n.registeredHandlers {
+				if !g.HasSynced() {
+					return false
+				}
+			}
+		return true
 	*/
-	return true
 }
 
 func (n *readClient[T]) List(namespace string, selector klabels.Selector) []T {
