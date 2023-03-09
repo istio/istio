@@ -1689,14 +1689,16 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := autoAllocateIPs(tt.inServices)
-			if got[0].AutoAllocatedIPv4Address != tt.wantServices[0].AutoAllocatedIPv4Address {
-				t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
-					got[0].AutoAllocatedIPv4Address, tt.wantServices[0].AutoAllocatedIPv4Address)
-			}
-			if got[0].AutoAllocatedIPv6Address != tt.wantServices[0].AutoAllocatedIPv6Address {
-				t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
-					got[0].AutoAllocatedIPv6Address, tt.wantServices[0].AutoAllocatedIPv6Address)
+			gotServices := autoAllocateIPs(tt.inServices)
+			for i, got := range gotServices {
+				if got.AutoAllocatedIPv4Address != tt.wantServices[i].AutoAllocatedIPv4Address {
+					t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
+						got.AutoAllocatedIPv4Address, tt.wantServices[i].AutoAllocatedIPv4Address)
+				}
+				if got.AutoAllocatedIPv6Address != tt.wantServices[i].AutoAllocatedIPv6Address {
+					t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
+						got.AutoAllocatedIPv6Address, tt.wantServices[i].AutoAllocatedIPv6Address)
+				}
 			}
 		})
 	}
