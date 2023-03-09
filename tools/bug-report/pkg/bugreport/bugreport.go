@@ -299,12 +299,14 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 		cp := params.SetNamespace(namespace).SetPod(pod).SetContainer(container)
 		proxyDir := archive.ProxyOutputPath(tempDir, namespace, pod)
 		switch {
-		case common.IsProxyContainer(params.ClusterVersion, container):
+		case common.IsProxyContainer(params.ClusterVersion, container) && !IsZtunnelPod(pod):
 			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
 			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
 			getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 			getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 
+		case IsZtunnelPod(pod):
+			//getFromCluster(content.)
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
 			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
 			getIstiodLogs(runner, config, resources, namespace, pod, &mandatoryWg)
@@ -331,6 +333,10 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 
 	// Analyze runs many queries internally, so run these queries sequentially and after everything else has finished.
 	runAnalyze(config, params, analyzeTimeout)
+}
+
+func IsZtunnelPod(podName string) bool {
+	return strings.HasPrefix(podName, "ztunnel")
 }
 
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
