@@ -1,0 +1,28 @@
+connection_window_size: 4194304
+frame_size: 1048576
+socks5_addr: 127.0.0.1:15080
+admin_addr: 127.0.0.1:15000
+stats_addr: '[::]:15020'
+readiness_addr: '[::]:15021'
+inbound_addr: '[::]:15008'
+inbound_plaintext_addr: '[::]:15006'
+outbound_addr: '[::]:15001'
+local_node: ambient-worker2
+local_ip: 10.244.1.53
+ca_address: https://istiod.istio-system.svc:15012
+ca_root_cert: !File ./var/run/secrets/istio/root-cert.pem
+xds_address: https://istiod.istio-system.svc:15012
+xds_root_cert: !File ./var/run/secrets/istio/root-cert.pem
+xds_on_demand: false
+fake_ca: false
+termination_grace_period:
+  secs: 5
+  nanos: 0
+proxy_metadata:
+  ISTIO_VERSION: 1.18-dev
+num_worker_threads: 2
+enable_original_source: null
+proxy_args: proxy ztunnel
+
+2023-03-08T06:40:11.080935Z  WARN xds{id=9}: ztunnel::xds::client: XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 5.12s
+

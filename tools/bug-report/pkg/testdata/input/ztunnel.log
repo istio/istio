@@ -1,0 +1,68 @@
+[2m2023-03-08T06:40:05.955227Z[0m [32m INFO[0m [2mztunnel[0m[2m:[0m version: version.BuildInfo{Version:"fb9f37e11c2bf20819b2e949a222fb9e1096ec3d", GitRevision:"fb9f37e11c2bf20819b2e949a222fb9e1096ec3d", RustVersion:"1.66.0", BuildStatus:"Clean", GitTag:"fb9f37e", IstioVersion:"unknown"}
+[2m2023-03-08T06:40:05.957117Z[0m [32m INFO[0m [2mztunnel[0m[2m:[0m running with config: window_size: 4194304
+connection_window_size: 4194304
+frame_size: 1048576
+socks5_addr: 127.0.0.1:15080
+admin_addr: 127.0.0.1:15000
+stats_addr: '[::]:15020'
+readiness_addr: '[::]:15021'
+inbound_addr: '[::]:15008'
+inbound_plaintext_addr: '[::]:15006'
+outbound_addr: '[::]:15001'
+local_node: ambient-worker2
+local_ip: 10.244.1.53
+ca_address: https://istiod.istio-system.svc:15012
+ca_root_cert: !File ./var/run/secrets/istio/root-cert.pem
+xds_address: https://istiod.istio-system.svc:15012
+xds_root_cert: !File ./var/run/secrets/istio/root-cert.pem
+xds_on_demand: false
+fake_ca: false
+termination_grace_period:
+  secs: 5
+  nanos: 0
+proxy_metadata:
+  ISTIO_VERSION: 1.18-dev
+num_worker_threads: 2
+enable_original_source: null
+proxy_args: proxy ztunnel
+
+[2m2023-03-08T06:40:05.959283Z[0m [32m INFO[0m [2mztunnel::readiness[0m[2m:[0m Task 'workload manager' complete (12.562962ms), still awaiting 2 tasks
+[2m2023-03-08T06:40:05.959719Z[0m [32m INFO[0m [2mztunnel::proxy::inbound[0m[2m:[0m listener established [3maddress[0m[2m=[0m[::]:15008 [3mcomponent[0m[2m=[0m"inbound" [3mtransparent[0m[2m=[0mtrue
+[2m2023-03-08T06:40:05.959828Z[0m [32m INFO[0m [2mztunnel::proxy::inbound_passthrough[0m[2m:[0m listener established [3maddress[0m[2m=[0m[::]:15006 [3mcomponent[0m[2m=[0m"inbound plaintext" [3mtransparent[0m[2m=[0mtrue
+[2m2023-03-08T06:40:05.959844Z[0m [32m INFO[0m [2mztunnel::proxy::outbound[0m[2m:[0m listener established [3maddress[0m[2m=[0m[::]:15001 [3mcomponent[0m[2m=[0m"outbound" [3mtransparent[0m[2m=[0mtrue
+[2m2023-03-08T06:40:05.959860Z[0m [32m INFO[0m [2mztunnel::proxy::socks5[0m[2m:[0m listener established [3maddress[0m[2m=[0m127.0.0.1:15080 [3mcomponent[0m[2m=[0m"socks5"
+[2m2023-03-08T06:40:05.959941Z[0m [32m INFO[0m [2mztunnel::readiness[0m[2m:[0m Task 'proxy listeners' complete (13.232799ms), still awaiting 1 tasks
+[2m2023-03-08T06:40:05.959953Z[0m [32m INFO[0m [2mztunnel::hyper_util[0m[2m:[0m listener established [3maddress[0m[2m=[0m127.0.0.1:15000 [3mcomponent[0m[2m=[0m"admin"
+[2m2023-03-08T06:40:05.959967Z[0m [32m INFO[0m [2mztunnel::hyper_util[0m[2m:[0m listener established [3maddress[0m[2m=[0m[::]:15020 [3mcomponent[0m[2m=[0m"stats"
+[2m2023-03-08T06:40:05.960219Z[0m [32m INFO[0m [2mztunnel::hyper_util[0m[2m:[0m listener established [3maddress[0m[2m=[0m[::]:15021 [3mcomponent[0m[2m=[0m"readiness"
+[2m2023-03-08T06:40:05.962290Z[0m [33m WARN[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m1[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 20ms
+[2m2023-03-08T06:40:05.984447Z[0m [33m WARN[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m2[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 40ms
+[2m2023-03-08T06:40:06.026733Z[0m [33m WARN[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m3[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 80ms
+[2m2023-03-08T06:40:06.108629Z[0m [33m WARN[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m4[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 160ms
+[2m2023-03-08T06:40:06.270963Z[0m [33m WARN[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m5[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 320ms
+[2m2023-03-08T06:40:06.592455Z[0m [33m WARN[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m6[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 640ms
+[2m2023-03-08T06:40:07.234539Z[0m [33m WARN[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m7[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 1.28s
+[2m2023-03-08T06:40:08.518003Z[0m [33m WARN[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m8[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 2.56s
+[2m2023-03-08T06:40:11.080935Z[0m [33m WARN[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m9[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 5.12s
+[2m2023-03-08T06:40:16.202357Z[0m [33m WARN[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m10[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 10.24s
+[2m2023-03-08T06:40:26.447626Z[0m [32m INFO[0m [2mztunnel::xds::client[0m[2m:[0m sending initial request [3mresources[0m[2m=[0m0 [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload"
+[2m2023-03-08T06:40:26.447762Z[0m [32m INFO[0m [2mztunnel::xds::client[0m[2m:[0m sending initial request [3mresources[0m[2m=[0m0 [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.security.Authorization"
+[2m2023-03-08T06:40:26.471024Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m Stream established
+[2m2023-03-08T06:40:26.471154Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload" [3msize[0m[2m=[0m28
+[2m2023-03-08T06:40:26.471597Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.security.Authorization" [3msize[0m[2m=[0m0
+[2m2023-03-08T06:40:26.471663Z[0m [32m INFO[0m [2mztunnel::readiness[0m[2m:[0m Task 'ads client' complete (20.52495019s), marking server ready
+[2m2023-03-08T06:40:35.854742Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload" [3msize[0m[2m=[0m3
+[2m2023-03-08T06:44:39.476934Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload" [3msize[0m[2m=[0m0
+[2m2023-03-08T06:44:39.477119Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::workload[0m[2m:[0m handling delete 10.244.1.48
+[2m2023-03-08T06:44:39.477261Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::workload[0m[2m:[0m handling delete 10.244.1.49
+[2m2023-03-08T06:44:42.302178Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload" [3msize[0m[2m=[0m1
+[2m2023-03-08T06:44:42.523489Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload" [3msize[0m[2m=[0m1
+[2m2023-03-08T06:44:42.922822Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload" [3msize[0m[2m=[0m2
+[2m2023-03-08T06:44:43.123111Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload" [3msize[0m[2m=[0m0
+[2m2023-03-08T06:44:43.123221Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::workload[0m[2m:[0m handling delete 10.244.1.47
+[2m2023-03-08T06:44:43.123251Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::workload[0m[2m:[0m handling delete 10.244.2.50
+[2m2023-03-08T06:44:43.505989Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload" [3msize[0m[2m=[0m1
+[2m2023-03-08T06:44:43.717047Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload" [3msize[0m[2m=[0m1
+[2m2023-03-08T06:44:43.899870Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload" [3msize[0m[2m=[0m1
+[2m2023-03-08T06:44:44.122453Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::xds::client[0m[2m:[0m received response [3mtype_url[0m[2m=[0m"type.googleapis.com/istio.workload.Workload" [3msize[0m[2m=[0m1
+[2m2023-03-08T06:44:44.122711Z[0m [32m INFO[0m [1mxds[0m[1m{[0m[3mid[0m[2m=[0m11[1m}[0m[2m:[0m [2mztunnel::workload[0m[2m:[0m handling delete 10.244.2.52

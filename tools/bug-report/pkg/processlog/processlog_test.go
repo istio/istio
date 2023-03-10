@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/tools/bug-report/pkg/config"
 )
 
 func TestTimeRangeFilter(t *testing.T) {
@@ -77,6 +78,56 @@ func TestTimeRangeFilter(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := getTimeRange(inLog, start, end)
+			if got != want {
+				t.Errorf("%s: got:\n%s\n\nwant:\n%s\n", tt.name, got, want)
+			}
+		})
+	}
+}
+
+func TestProcessZtunnel(t *testing.T) {
+	testDataDir := filepath.Join(env.IstioSrc, "tools/bug-report/pkg/testdata/")
+	b := util.ReadFile(t, filepath.Join(testDataDir, "input/ztunnel.log"))
+	inLog := string(b)
+	tests := []struct {
+		name  string
+		start string
+		end   string
+	}{
+		{
+			name:  "only_config_ztunnel",
+			start: "2020-05-29T23:37:27.285018Z",
+			end:   "2020-06-10T23:37:27.285018Z",
+		},
+		{
+			name:  "range_equals_ztunnel",
+			start: "2023-03-08T06:40:11.080935Z",
+			end:   "2023-03-08T06:40:11.080935Z",
+		},
+		{
+			name:  "range_not_equals_ztunnel",
+			start: "2023-03-08T06:40:05.959283Z",
+			end:   "2023-03-08T06:40:26.471154Z",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var b []byte
+			b = util.ReadFile(t, filepath.Join(testDataDir, "output", tt.name+".log"))
+			want := string(b)
+			start, err := time.Parse(time.RFC3339Nano, tt.start)
+			if err != nil {
+				t.Fatal(err)
+			}
+			end, err := time.Parse(time.RFC3339Nano, tt.end)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg := &config.BugReportConfig{
+				StartTime: start,
+				EndTime:   end,
+			}
+			got, _ := ProcessZtunnel(cfg, inLog)
 			if got != want {
 				t.Errorf("%s: got:\n%s\n\nwant:\n%s\n", tt.name, got, want)
 			}

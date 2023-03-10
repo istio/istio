@@ -1,0 +1,50 @@
+connection_window_size: 4194304
+frame_size: 1048576
+socks5_addr: 127.0.0.1:15080
+admin_addr: 127.0.0.1:15000
+stats_addr: '[::]:15020'
+readiness_addr: '[::]:15021'
+inbound_addr: '[::]:15008'
+inbound_plaintext_addr: '[::]:15006'
+outbound_addr: '[::]:15001'
+local_node: ambient-worker2
+local_ip: 10.244.1.53
+ca_address: https://istiod.istio-system.svc:15012
+ca_root_cert: !File ./var/run/secrets/istio/root-cert.pem
+xds_address: https://istiod.istio-system.svc:15012
+xds_root_cert: !File ./var/run/secrets/istio/root-cert.pem
+xds_on_demand: false
+fake_ca: false
+termination_grace_period:
+  secs: 5
+  nanos: 0
+proxy_metadata:
+  ISTIO_VERSION: 1.18-dev
+num_worker_threads: 2
+enable_original_source: null
+proxy_args: proxy ztunnel
+
+2023-03-08T06:40:05.959283Z  INFO ztunnel::readiness: Task 'workload manager' complete (12.562962ms), still awaiting 2 tasks
+2023-03-08T06:40:05.959719Z  INFO ztunnel::proxy::inbound: listener established address=[::]:15008 component="inbound" transparent=true
+2023-03-08T06:40:05.959828Z  INFO ztunnel::proxy::inbound_passthrough: listener established address=[::]:15006 component="inbound plaintext" transparent=true
+2023-03-08T06:40:05.959844Z  INFO ztunnel::proxy::outbound: listener established address=[::]:15001 component="outbound" transparent=true
+2023-03-08T06:40:05.959860Z  INFO ztunnel::proxy::socks5: listener established address=127.0.0.1:15080 component="socks5"
+2023-03-08T06:40:05.959941Z  INFO ztunnel::readiness: Task 'proxy listeners' complete (13.232799ms), still awaiting 1 tasks
+2023-03-08T06:40:05.959953Z  INFO ztunnel::hyper_util: listener established address=127.0.0.1:15000 component="admin"
+2023-03-08T06:40:05.959967Z  INFO ztunnel::hyper_util: listener established address=[::]:15020 component="stats"
+2023-03-08T06:40:05.960219Z  INFO ztunnel::hyper_util: listener established address=[::]:15021 component="readiness"
+2023-03-08T06:40:05.962290Z  WARN xds{id=1}: ztunnel::xds::client: XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 20ms
+2023-03-08T06:40:05.984447Z  WARN xds{id=2}: ztunnel::xds::client: XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 40ms
+2023-03-08T06:40:06.026733Z  WARN xds{id=3}: ztunnel::xds::client: XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 80ms
+2023-03-08T06:40:06.108629Z  WARN xds{id=4}: ztunnel::xds::client: XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 160ms
+2023-03-08T06:40:06.270963Z  WARN xds{id=5}: ztunnel::xds::client: XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 320ms
+2023-03-08T06:40:06.592455Z  WARN xds{id=6}: ztunnel::xds::client: XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 640ms
+2023-03-08T06:40:07.234539Z  WARN xds{id=7}: ztunnel::xds::client: XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 1.28s
+2023-03-08T06:40:08.518003Z  WARN xds{id=8}: ztunnel::xds::client: XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 2.56s
+2023-03-08T06:40:11.080935Z  WARN xds{id=9}: ztunnel::xds::client: XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 5.12s
+2023-03-08T06:40:16.202357Z  WARN xds{id=10}: ztunnel::xds::client: XDS client error: gRPC connection error (The service is currently unavailable): error trying to connect: dns error: failed to lookup address information: Name or service not known, retrying in 10.24s
+2023-03-08T06:40:26.447626Z  INFO ztunnel::xds::client: sending initial request resources=0 type_url="type.googleapis.com/istio.workload.Workload"
+2023-03-08T06:40:26.447762Z  INFO ztunnel::xds::client: sending initial request resources=0 type_url="type.googleapis.com/istio.security.Authorization"
+2023-03-08T06:40:26.471024Z  INFO xds{id=11}: ztunnel::xds::client: Stream established
+2023-03-08T06:40:26.471154Z  INFO xds{id=11}: ztunnel::xds::client: received response type_url="type.googleapis.com/istio.workload.Workload" size=28
+
