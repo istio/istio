@@ -112,9 +112,8 @@ func TestProcessZtunnel(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var b []byte
-			b = util.ReadFile(t, filepath.Join(testDataDir, "output", tt.name+".log"))
-			want := string(b)
+			output := util.ReadFile(t, filepath.Join(testDataDir, "output", tt.name+".log"))
+			want := string(output)
 			start, err := time.Parse(time.RFC3339Nano, tt.start)
 			if err != nil {
 				t.Fatal(err)
