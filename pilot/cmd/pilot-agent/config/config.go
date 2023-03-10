@@ -64,9 +64,9 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	if proxyConfig.Concurrency == nil {
 		// We want to detect based on CPU limit configured. If we are running on a 100 core machine, but with
 		// only 2 CPUs allocated, we want to have 2 threads, not 100, or we will get excessively throttled.
-		if CpuLimit != 0 {
-			log.Infof("cpu limit detected as %v, setting concurrency", CpuLimit)
-			proxyConfig.Concurrency = wrapperspb.Int32(int32(CpuLimit))
+		if CPULimit != 0 {
+			log.Infof("cpu limit detected as %v, setting concurrency", CPULimit)
+			proxyConfig.Concurrency = wrapperspb.Int32(int32(CPULimit))
 		}
 	}
 	// Respect the old flag, if they set it. This should never be set in typical installation.
@@ -166,7 +166,7 @@ func GetPilotSan(discoveryAddress string) string {
 	return discHost
 }
 
-var CpuLimit = env.Register(
+var CPULimit = env.Register(
 	"ISTIO_CPU_LIMIT",
 	0,
 	"CPU limit for the current process. Expressed as an integer value, rounded up.",
