@@ -5,6 +5,4 @@ issue:
   - 43807
 releaseNotes:
   - |
-    **Added** the config type for each configuration summary when using `istioctl pc all`.
-  - |
-    **Added** the endpoint configuration summary to `istioctl pc all`.
+    **Added** config type and endpoint configuration summaries to `istioctl proxy-config all`
