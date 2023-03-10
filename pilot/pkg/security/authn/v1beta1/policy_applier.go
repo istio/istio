@@ -188,6 +188,9 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(
 		mc = a.push.Mesh
 	}
 	// Configure TLS version based on meshconfig TLS API.
+	// This is used to configure TLS version for inbound filter chain of ISTIO MUTUAL cases.
+	// For MUTUAL and SIMPLE TLS modes specified via ServerTLSSettings in Sidecar or Gateway,
+	// TLS version is configured in the BuildListenerContext.
 	minTLSVersion := authn_utils.GetMinTLSVersion(mc.GetMeshMTLS().GetMinProtocolVersion())
 	return authn.MTLSSettings{
 		Port: endpointPort,
