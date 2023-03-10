@@ -22,30 +22,20 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
-	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	filter "istio.io/istio/pkg/kube/namespace"
 )
 
 // initialize handlers for discovery selection scoping
-func (c *Controller) initDiscoveryHandlers(
-	kubeClient kubelib.Client,
-	endpointMode EndpointMode,
-	meshWatcher mesh.Watcher,
-	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
-) {
-	c.initDiscoveryNamespaceHandlers(kubeClient, endpointMode, discoveryNamespacesFilter)
-	c.initMeshWatcherHandler(kubeClient, endpointMode, meshWatcher, discoveryNamespacesFilter)
+func (c *Controller) initDiscoveryHandlers(meshWatcher mesh.Watcher, discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) {
+	c.initDiscoveryNamespaceHandlers(discoveryNamespacesFilter)
+	c.initMeshWatcherHandler(meshWatcher, discoveryNamespacesFilter)
 }
 
 // handle discovery namespace membership changes triggered by namespace events,
 // which requires triggering create/delete event handlers for services, pods, and endpoints,
 // and updating the DiscoveryNamespacesFilter.
-func (c *Controller) initDiscoveryNamespaceHandlers(
-	kubeClient kubelib.Client,
-	endpointMode EndpointMode,
-	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
-) {
+func (c *Controller) initDiscoveryNamespaceHandlers(discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) {
 	otype := "Namespaces"
 	c.namespaces.AddEventHandler(controllers.EventHandler[*v1.Namespace]{
 		AddFunc: func(ns *v1.Namespace) {
@@ -99,12 +89,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 // handle discovery namespace membership changes triggered by changes to meshConfig's discovery selectors
 // which requires updating the DiscoveryNamespaceFilter and triggering create/delete event handlers for services/pods/endpoints
 // for membership changes
-func (c *Controller) initMeshWatcherHandler(
-	kubeClient kubelib.Client,
-	endpointMode EndpointMode,
-	meshWatcher mesh.Watcher,
-	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
-) {
+func (c *Controller) initMeshWatcherHandler(meshWatcher mesh.Watcher, discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) {
 	meshWatcher.AddMeshHandler(func() {
 		newSelectedNamespaces, deselectedNamespaces := discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
 

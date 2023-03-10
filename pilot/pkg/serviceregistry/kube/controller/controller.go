@@ -335,7 +335,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
 
-	c.initDiscoveryHandlers(kubeClient, options.EndpointMode, options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
+	c.initDiscoveryHandlers(options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
 
 	c.services = client.NewCachedFiltered[*v1.Service](kubeClient, client.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
 
