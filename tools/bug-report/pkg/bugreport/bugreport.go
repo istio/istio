@@ -30,6 +30,8 @@ import (
 	"github.com/spf13/cobra"
 
 	label2 "istio.io/api/label"
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -46,6 +48,8 @@ import (
 	"istio.io/istio/tools/bug-report/pkg/processlog"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
@@ -56,6 +60,12 @@ var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
 	bugReportDefaultExclude        = []string{strings.Join(sets.SortedList(inject.IgnoredNamespaces), ",")}
+
+	istioOperatorGVR = schema.GroupVersionResource{
+		Group:    iopv1alpha1.SchemeGroupVersion.Group,
+		Version:  iopv1alpha1.SchemeGroupVersion.Version,
+		Resource: "istiooperators",
+	}
 )
 
 // Cmd returns a cobra command for bug-report.
@@ -157,7 +167,16 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 
 	common.LogAndPrintf("\n\nFetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
-	gatherInfo(runner, config, resources, paths)
+	// Determine whether the installation is distroless.
+	distroless, err := isDistroless(client, config, clusterResourcesCtx)
+	if err != nil {
+		return err
+	}
+	if distroless {
+		log.Info("Found distroless Istio installation")
+	}
+
+	gatherInfo(runner, config, resources, paths, distroless)
 	if len(gErrors) != 0 {
 		log.Error(gErrors.ToError())
 	}
@@ -196,6 +215,31 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	}
 	common.LogAndPrintf("Done.\n")
 	return nil
+}
+
+func isDistroless(client kube.CLIClient, brConfig *config.BugReportConfig, ctx context.Context) (bool, error) {
+	iops, err := client.Dynamic().Resource(istioOperatorGVR).
+		Namespace(brConfig.IstioNamespace).
+		List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false, fmt.Errorf("error while retrieving to IstioOperator CR - %v", err)
+	}
+
+	// TODO: WIP: Which iop to consider in case of multiple?
+	for _, iop := range iops.Items {
+		iopObj, err := operator_istio.UnmarshalIstioOperator(util.ToYAML(iop.Object), true)
+		if err != nil {
+			return false, fmt.Errorf("error while converting to IstioOperator CR - %s/%s: %v",
+				iop.GetNamespace(), iop.GetName(), err)
+		}
+		values := iopObj.Spec.Values.Fields["global"]
+		if values != nil && values.GetStructValue() != nil && values.GetStructValue().Fields["variant"] != nil {
+			return strings.EqualFold(
+				values.GetStructValue().Fields["variant"].GetStringValue(), "distroless",
+			), nil
+		}
+	}
+	return false, nil
 }
 
 func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string) {
@@ -270,7 +314,7 @@ func getIstioVersion(kubeconfig, configContext, istioNamespace, revision string)
 // gatherInfo fetches all logs, resources, debug etc. using goroutines.
 // proxy logs and info are saved in logs/stats/importance global maps.
 // Errors are reported through gErrors.
-func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources, paths []string) {
+func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources, paths []string, distroless bool) {
 	// no timeout on mandatoryWg.
 	var mandatoryWg sync.WaitGroup
 	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
@@ -306,8 +350,11 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 		proxyDir := archive.ProxyOutputPath(tempDir, namespace, pod)
 		switch {
 		case common.IsProxyContainer(params.ClusterVersion, container):
-			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
-			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+			// Distroless containers do not have utilities to run coredump and netstat.
+			if !distroless {
+				getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
+				getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+			}
 			getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 			getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 
