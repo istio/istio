@@ -596,6 +596,10 @@ func (s *Server) initServers(args *PilotArgs) {
 		ReadTimeout: 30 * time.Second,
 	}
 	if multiplexGRPC {
+		// To allow the gRPC handler to make per-request decision,
+		// use ReadHeaderTimeout instead of ReadTimeout.
+		s.httpServer.ReadTimeout = 0
+		s.httpServer.ReadHeaderTimeout = 30 * time.Second
 		s.httpServer.Handler = multiplexHandler
 	}
 
