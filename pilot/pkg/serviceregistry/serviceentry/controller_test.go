@@ -481,7 +481,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "other.com", namespace: httpStatic.Namespace},
-			Event{kind: "edscache", host: "*.google.com", namespace: httpStatic.Namespace},                                                                                                        //deleted host added first and unchanged host added later
+			Event{kind: "edscache", host: "*.google.com", namespace: httpStatic.Namespace},
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace})}}) // service deleted
 	})
 
