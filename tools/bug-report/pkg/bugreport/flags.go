@@ -92,7 +92,7 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	cmd.PersistentFlags().StringVar(&tempDir, "dir", "",
 		"Set a specific directory for temporary artifact storage.")
 
-	cmd.PersistentFlags().StringVarP(&outputDir, "output-dir", "o", "",
+	cmd.PersistentFlags().StringVar(&outputDir, "output-dir", "",
 		"Set a specific directory for output archive file.")
 
 	// requests per second limit

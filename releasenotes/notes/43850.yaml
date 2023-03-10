@@ -5,4 +5,4 @@ issue:
   - 43842
 releaseNotes:
   - |
-    **Added** `--output-dir` or `-o` flag to specify the output directory for the `bug-report` command's generated archive file.
+    **Added** `--output-dir` flag to specify the output directory for the `bug-report` command's generated archive file.
