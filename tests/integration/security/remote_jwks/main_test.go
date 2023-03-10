@@ -69,6 +69,7 @@ values:
   pilot:
     env:
       PILOT_JWT_ENABLE_REMOTE_JWKS: envoy
+      AUTO_CREATE_CLUSTER_ENTRY: "true"
 meshConfig:
   accessLogFile: /dev/stdout`
 }

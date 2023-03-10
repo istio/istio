@@ -17,6 +17,7 @@ package v1beta1
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -249,6 +250,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		// If failed to parse the cluster name, only fallback to let istiod to fetch the jwksUri when
 		// remoteJwksMode is Hybrid.
 		if features.JwksFetchMode != jwt.Istiod && jwtRule.JwksUri != "" {
+			fmt.Println("inside fetch from envoy")
 			jwksInfo, err := security.ParseJwksURI(jwtRule.JwksUri)
 			if err != nil {
 				authnLog.Errorf("Failed to parse jwt rule jwks uri %v", err)
@@ -257,6 +259,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			authnLog.Debugf("Look up cluster result: %v", cluster)
 
 			if err == nil && len(cluster) > 0 {
+				fmt.Println("------found a cluster for envoy fetch-------")
 				// This is a case of URI pointing to mesh cluster. Setup Remote Jwks and let Envoy fetch the key.
 				provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
 					RemoteJwks: &envoy_jwt.RemoteJwks{
@@ -277,12 +280,13 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 				authnLog.Errorf("Failed to look up Envoy cluster %v. "+
 					"Please create ServiceEntry to register external JWKs server or "+
 					"set PILOT_JWT_ENABLE_REMOTE_JWKS to hybrid/istiod mode.", err)
+				fmt.Println("------coming here for envoy fetch finally-------")
 				provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
 					RemoteJwks: &envoy_jwt.RemoteJwks{
 						HttpUri: &core.HttpUri{
 							Uri: jwtRule.JwksUri,
 							HttpUpstreamType: &core.HttpUri_Cluster{
-								Cluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", jwksInfo.Hostname, jwksInfo.Port),
+								Cluster: "jwksuri-autogen-" + jwksInfo.Hostname.String() + "-" + strconv.Itoa(jwksInfo.Port),
 							},
 							Timeout: &durationpb.Duration{Seconds: 5},
 						},

@@ -240,6 +240,12 @@ var (
 		return jwt.ConvertToJwksFetchMode(v)
 	}()
 
+	AutoCreateClusterEntry = env.Register(
+		"AUTO_CREATE_CLUSTER_ENTRY",
+		false,
+		"Automatically create cluster entries for JWKSURI",
+	).Get()
+
 	EnableEDSForHeadless = env.Register(
 		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
 		false,

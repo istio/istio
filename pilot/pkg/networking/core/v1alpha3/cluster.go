@@ -174,7 +174,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
-		// Setup inbound clusters
+		// Setup inbound clusters,
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
 		clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, proxy, instances)...)
@@ -214,6 +214,15 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
 		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
 	}
+
+	// Creating cluster for reqAuth JWKSUri
+	// [TODO] This code is only for MCP usecase, need to add this in OSS as well.
+	jwksClusters := CreateMCPClusterForJwksURI(proxy, req, cb)
+
+	if len(jwksClusters) > 0 {
+		clusters = append(clusters, jwksClusters...)
+	}
+
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}

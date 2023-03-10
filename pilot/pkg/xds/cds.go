@@ -65,6 +65,10 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 				}
 			}
 		}
+		// skipping the ReqAuth trigger whenever Auto creation of SE is disabled.
+		if features.AutoCreateClusterEntry {
+			delete(skippedCdsConfigs, kind.RequestAuthentication)
+		}
 
 		if _, f := skippedCdsConfigs[config.Kind]; !f {
 			return true

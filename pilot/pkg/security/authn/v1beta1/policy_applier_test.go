@@ -413,7 +413,7 @@ func TestJwtFilter(t *testing.T) {
 											HttpUri: &core.HttpUri{
 												Uri: "http://invalid-issuer.com:7443/jwks",
 												HttpUpstreamType: &core.HttpUri_Cluster{
-													Cluster: "outbound|7443||invalid-issuer.com",
+													Cluster: "jwksuri-autogen-invalid-issuer.com-7443",
 												},
 												Timeout: &durationpb.Duration{Seconds: 5},
 											},
