@@ -283,7 +283,8 @@ func ValidatingWebhookConfigurationsExists(a kubernetes.Interface, names []strin
 		return false
 	}
 
-	if len(cfgs.Items) != len(names) {
+	// Target cluster could have other validating webhook configurations
+	if len(cfgs.Items) < len(names) {
 		return false
 	}
 

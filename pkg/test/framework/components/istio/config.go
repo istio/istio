@@ -159,6 +159,10 @@ type Config struct {
 
 	// Custom deploymeny for east-west gateway
 	EastWestGatewayValues string
+
+	// IngressGatewayServiceName is the service name to use to reference the ingressgateway
+	// This field should only be set when DeployIstio is false
+	IngressGatewayServiceName string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {
@@ -327,6 +331,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("IstiodlessRemotes:              %v\n", c.IstiodlessRemotes)
 	result += fmt.Sprintf("OperatorOptions:                %v\n", c.OperatorOptions)
 	result += fmt.Sprintf("EnableCNI:                      %v\n", c.EnableCNI)
+	result += fmt.Sprintf("IngressGatewayServiceName:      %v\n", c.IngressGatewayServiceName)
 
 	return result
 }
