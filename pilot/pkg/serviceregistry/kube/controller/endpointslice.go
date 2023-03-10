@@ -63,19 +63,24 @@ func (esc *endpointSliceController) HasSynced() bool {
 	return esc.slices.HasSynced()
 }
 
-func (esc *endpointSliceController) sync(name, ns string) error {
+func (esc *endpointSliceController) sync(name, ns string, event model.Event, filtered bool) error {
 	if name != "" {
 		ep := esc.slices.Get(name, ns)
 		if ep == nil {
 			return nil
 		}
-		return esc.onEvent(nil, ep, model.EventAdd)
+		return esc.onEvent(nil, ep, event)
 	}
 	var err *multierror.Error
-	endpoints := esc.slices.List(ns, klabels.Everything())
+	var endpoints []*v1.EndpointSlice
+	if filtered {
+		endpoints = esc.slices.List(ns, klabels.Everything())
+	} else {
+		endpoints = esc.slices.ListUnfiltered(ns, klabels.Everything())
+	}
 	log.Debugf("initializing %d endpointslices", len(endpoints))
 	for _, s := range endpoints {
-		err = multierror.Append(err, esc.onEvent(nil, s, model.EventAdd))
+		err = multierror.Append(err, esc.onEvent(nil, s, event))
 	}
 	return err.ErrorOrNil()
 }

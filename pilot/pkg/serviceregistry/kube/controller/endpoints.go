@@ -122,7 +122,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	return out
 }
 
-func (e *endpointsController) sync(name, ns string) error {
+func (e *endpointsController) sync(name, ns string, event model.Event, filtered bool) error {
 	if name != "" {
 		ep := e.endpoints.Get(name, ns)
 		if ep == nil {
@@ -131,10 +131,15 @@ func (e *endpointsController) sync(name, ns string) error {
 		return e.onEvent(nil, ep, model.EventAdd)
 	}
 	var err *multierror.Error
-	endpoints := e.endpoints.List(ns, klabels.Everything())
-	log.Debugf("initializing %d endpoints", len(endpoints))
+	var endpoints []*v1.Endpoints
+	if filtered {
+		endpoints = e.endpoints.List(ns, klabels.Everything())
+	} else {
+		endpoints = e.endpoints.ListUnfiltered(ns, klabels.Everything())
+	}
+	log.Debugf("syncing %d endpoints", len(endpoints))
 	for _, s := range endpoints {
-		err = multierror.Append(err, e.onEvent(nil, s, model.EventAdd))
+		err = multierror.Append(err, e.onEvent(nil, s, event))
 	}
 	return err.ErrorOrNil()
 }

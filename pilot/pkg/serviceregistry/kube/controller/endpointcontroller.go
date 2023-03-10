@@ -36,7 +36,7 @@ type kubeEndpointsController interface {
 	// * name+namespace: sync a single object
 	// * namespace: sync that namespace
 	// * neither: sync all namespaces
-	sync(name, ns string) error
+	sync(name, ns string, event model.Event, filtered bool) error
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep any, host host.Name) []*model.IstioEndpoint

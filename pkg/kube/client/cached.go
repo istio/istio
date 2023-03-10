@@ -39,6 +39,8 @@ type CachedRead[T controllers.Object] interface {
 	// List looks up an object by namespace and labels.
 	// Use metav1.NamespaceAll and klabels.Everything() to select everything.
 	List(namespace string, selector klabels.Selector) []T
+	// ListUnfiltered is like List but ignores any *client side* filters previously configured.
+	ListUnfiltered(namespace string, selector klabels.Selector) []T
 
 	// AddEventHandler inserts a handler. The handler will be called for all Create/Update/Removals.
 	// When ShutdownHandlers is called, the handler is removed.
@@ -175,6 +177,20 @@ func (n *readClient[T]) List(namespace string, selector klabels.Selector) []T {
 		if n.applyFilter(cast) {
 			res = append(res, cast)
 		}
+	})
+
+	// Should never happen
+	if err != nil && features.EnableUnsafeAssertions {
+		log.Fatalf("lister returned err for %v: %v", namespace, err)
+	}
+	return res
+}
+
+func (n *readClient[T]) ListUnfiltered(namespace string, selector klabels.Selector) []T {
+	var res []T
+	err := cache.ListAllByNamespace(n.inf.GetIndexer(), namespace, selector, func(i any) {
+		cast := i.(T)
+		res = append(res, cast)
 	})
 
 	// Should never happen

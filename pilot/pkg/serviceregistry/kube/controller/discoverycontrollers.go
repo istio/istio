@@ -138,7 +138,7 @@ func (c *Controller) handleSelectedNamespace(ns string) {
 		c.ambientIndex.handlePods(pods, c)
 	}
 
-	errs = multierror.Append(errs, c.endpoints.sync("", ns))
+	errs = multierror.Append(errs, c.endpoints.sync("", ns, model.EventAdd, false))
 
 	for _, handler := range c.namespaceDiscoveryHandlers {
 		handler(ns, model.EventAdd)
@@ -156,15 +156,15 @@ func (c *Controller) handleDeselectedNamespace(ns string) {
 	var errs *multierror.Error
 
 	// for each resource type, issue delete events for objects in the delabled namespace
-	for _, svc := range c.services.List(ns, labels.Everything()) {
+	for _, svc := range c.services.ListUnfiltered(ns, labels.Everything()) {
 		errs = multierror.Append(errs, c.onServiceEvent(nil, svc, model.EventDelete))
 	}
 
-	for _, pod := range c.podsClient.List(ns, labels.Everything()) {
+	for _, pod := range c.podsClient.ListUnfiltered(ns, labels.Everything()) {
 		errs = multierror.Append(errs, c.pods.onEvent(nil, pod, model.EventDelete))
 	}
 
-	errs = multierror.Append(errs, c.endpoints.sync("", ns))
+	errs = multierror.Append(errs, c.endpoints.sync("", ns, model.EventDelete, false))
 
 	for _, handler := range c.namespaceDiscoveryHandlers {
 		handler(ns, model.EventDelete)

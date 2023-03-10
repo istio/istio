@@ -362,7 +362,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.pods = newPodCache(c, c.podsClient, func(key types.NamespacedName) {
 		if shouldEnqueue("Pods", c.beginSync) {
 			c.queue.Push(func() error {
-				return c.endpoints.sync(key.Name, key.Namespace)
+				return c.endpoints.sync(key.Name, key.Namespace, model.EventAdd, true)
 			})
 		}
 	})
@@ -734,7 +734,7 @@ func (c *Controller) SyncAll() error {
 	err = multierror.Append(err, c.syncNodes())
 	err = multierror.Append(err, c.syncServices())
 	err = multierror.Append(err, c.syncPods())
-	err = multierror.Append(err, c.endpoints.sync("", metav1.NamespaceAll))
+	err = multierror.Append(err, c.endpoints.sync("", metav1.NamespaceAll, model.EventAdd, true))
 
 	return multierror.Flatten(err.ErrorOrNil())
 }

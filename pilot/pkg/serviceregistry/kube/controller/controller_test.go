@@ -1298,6 +1298,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 			expectedSvcList = []*model.Service{svc3, svc4}
 			eventually(t, func() bool {
 				svcList := controller.Services()
+				log.Errorf("howardjohn: %v\n%v", svcList, expectedSvcList)
 				return servicesEqual(svcList, expectedSvcList)
 			})
 		})
@@ -1562,6 +1563,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 		fx *FakeXdsUpdater,
 		controller *FakeController,
 	) {
+		t.Helper()
 		// update meshConfig
 		if err := testMeshWatcher.Update(meshConfig, 5); err != nil {
 			t.Fatalf("%v", err)

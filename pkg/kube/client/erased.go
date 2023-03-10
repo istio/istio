@@ -32,6 +32,8 @@ type Erased interface {
 	// List looks up an object by namespace and labels.
 	// Use metav1.NamespaceAll and klabels.Everything() to select everything.
 	List(namespace string, selector klabels.Selector) []controllers.Object
+	// ListUnfiltered is like List but ignores any *client side* filters previously configured.
+	ListUnfiltered(namespace string, selector klabels.Selector) []controllers.Object
 
 	// AddEventHandler inserts a handler. The handler will be called for all Create/Update/Removals.
 	// When ShutdownHandlers is called, the handler is removed.
