@@ -299,14 +299,15 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 		cp := params.SetNamespace(namespace).SetPod(pod).SetContainer(container)
 		proxyDir := archive.ProxyOutputPath(tempDir, namespace, pod)
 		switch {
-		case common.IsProxyContainer(params.ClusterVersion, container) && !IsZtunnelPod(pod):
+		case common.IsProxyContainer(params.ClusterVersion, container) && !isZtunnelPod(pod):
 			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
 			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
 			getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 			getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 
-		case IsZtunnelPod(pod):
-			//getFromCluster(content.)
+		case isZtunnelPod(pod):
+			getFromCluster(content.GetZtunnelInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+			getZtunnelLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
 			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
 			getIstiodLogs(runner, config, resources, namespace, pod, &mandatoryWg)
@@ -335,7 +336,7 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	runAnalyze(config, params, analyzeTimeout)
 }
 
-func IsZtunnelPod(podName string) bool {
+func isZtunnelPod(podName string) bool {
 	return strings.HasPrefix(podName, "ztunnel")
 }
 
@@ -407,25 +408,71 @@ func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, 
 	}()
 }
 
+func getZtunnelLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
+	path, namespace, pod, container string, wg *sync.WaitGroup,
+) {
+	wg.Add(1)
+	log.Infof("Waiting on logs %s", pod)
+	go func() {
+		defer wg.Done()
+		clog, cstat, imp, err := getZtunnelLog(runner, resources, config, namespace, pod, container)
+		appendGlobalErr(err)
+		lock.Lock()
+		if err == nil {
+			logs[path], stats[path], importance[path] = clog, cstat, imp
+		}
+		lock.Unlock()
+		log.Infof("Done with logs %s", pod)
+	}()
+}
+
 // getLog fetches the logs for the given namespace/pod/container and returns the log text and stats for it.
-func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *config.BugReportConfig,
+func getLogStr(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *config.BugReportConfig,
 	namespace, pod, container string,
-) (string, *processlog.Stats, int, error) {
+) (string, error) {
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
 	clog, err := runner.Logs(namespace, pod, container, false, config.DryRun)
 	if err != nil {
-		return "", nil, 0, err
+		return "", err
 	}
 	if resources.ContainerRestarts(namespace, pod, container) > 0 {
 		pclog, err := runner.Logs(namespace, pod, container, true, config.DryRun)
 		if err != nil {
-			return "", nil, 0, err
+			return "", err
 		}
 		clog = "========= Previous log present (appended at the end) =========\n\n" + clog +
 			"\n\n========= Previous log =========\n\n" + pclog
 	}
-	var cstat *processlog.Stats
-	clog, cstat = processlog.Process(config, clog)
+	return clog, nil
+}
+
+func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *config.BugReportConfig,
+	namespace, pod, container string,
+) (string, *processlog.Stats, int, error) {
+	clog, err := getLogStr(runner, resources, config, namespace, pod, container)
+	if err != nil {
+		return "", nil, 0, err
+	}
+	return processLog(clog, config)
+}
+
+func getZtunnelLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *config.BugReportConfig,
+	namespace, pod, container string,
+) (string, *processlog.Stats, int, error) {
+	clog, err := getLogStr(runner, resources, config, namespace, pod, container)
+	if err != nil {
+		return "", nil, 0, err
+	}
+	return processZtunnelLog(clog, config)
+}
+
+func processZtunnelLog(log string, config *config.BugReportConfig) (string, *processlog.Stats, int, error) {
+	clog, cstat := processlog.ProcessZtunnel(config, log)
+	return clog, cstat, cstat.Importance(), nil
+}
+
+func processLog(log string, config *config.BugReportConfig) (string, *processlog.Stats, int, error) {
+	clog, cstat := processlog.Process(config, log)
 	return clog, cstat, cstat.Importance(), nil
 }
 

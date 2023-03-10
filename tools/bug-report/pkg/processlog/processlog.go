@@ -15,6 +15,7 @@
 package processlog
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -29,6 +30,12 @@ const (
 	levelInfo  = "info"
 	levelDebug = "debug"
 	levelTrace = "trace"
+)
+
+var (
+	matchEscape = regexp.MustCompile(`\x1b\[[0-9;]*[mK]`)
+
+	matchZtunnelLog = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(\S+)\s+`)
 )
 
 // Stats represents log statistics.
@@ -51,6 +58,54 @@ func (s *Stats) Importance() int {
 func Process(config *config.BugReportConfig, logStr string) (string, *Stats) {
 	out := getTimeRange(logStr, config.StartTime, config.EndTime)
 	return out, getStats(config, out)
+}
+
+func ProcessZtunnel(config *config.BugReportConfig, logStr string) (string, *Stats) {
+	var sb strings.Builder
+	stats := &Stats{}
+	start := config.StartTime
+	end := config.EndTime
+	for _, l := range strings.Split(logStr, "\n") {
+		t, level, line, valid := processZtunnelLogLine(l)
+		if len(level) != 0 {
+			switch strings.ToLower(level) {
+			case levelFatal:
+				stats.numFatals++
+			case levelError:
+				stats.numErrors++
+			case levelWarn:
+				stats.numWarnings++
+			}
+		}
+		if !valid {
+			// This maybe some configs or other logs, just append it.
+			sb.WriteString(line)
+			sb.WriteString("\n")
+			continue
+		}
+		if (t.Equal(start) || t.After(start)) && (t.Equal(end) || t.Before(end)) {
+			sb.WriteString(line)
+			sb.WriteString("\n")
+		}
+	}
+	return sb.String(), stats
+}
+
+func removeColor(s string) string {
+	return matchEscape.ReplaceAllString(s, "")
+}
+
+func processZtunnelLogLine(l string) (timestamp *time.Time, level string, text string, valid bool) {
+	line := removeColor(l)
+	match := matchZtunnelLog.FindStringSubmatch(line)
+	if match == nil {
+		return nil, "", line, false
+	}
+	t, err := time.Parse(time.RFC3339Nano, match[1])
+	if err != nil {
+		return nil, "", line, false
+	}
+	return &t, match[2], line, true
 }
 
 // getTimeRange returns the log lines that fall inside the start to end time range, inclusive.

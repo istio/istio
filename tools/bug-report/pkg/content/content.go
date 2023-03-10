@@ -197,6 +197,21 @@ func GetProxyInfo(p *Params) (map[string]string, error) {
 	return ret, nil
 }
 
+func GetZtunnelInfo(p *Params) (map[string]string, error) {
+	if p.Namespace == "" || p.Pod == "" {
+		return nil, fmt.Errorf("getZtunnelInfo requires namespace and pod")
+	}
+	ret := make(map[string]string)
+	for _, url := range common.ZtunnelDebugURLs(p.ClusterVersion) {
+		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun)
+		if err != nil {
+			return nil, err
+		}
+		ret[url] = out
+	}
+	return ret, nil
+}
+
 // GetNetstat returns netstat for the given container.
 func GetNetstat(p *Params) (map[string]string, error) {
 	if p.Namespace == "" || p.Pod == "" {
