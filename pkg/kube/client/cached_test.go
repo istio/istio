@@ -114,7 +114,7 @@ func TestClient(t *testing.T) {
 	slices.SortFunc(deploys, func(a, b *appsv1.Deployment) bool {
 		return a.Name < b.Name
 	})
-	assert.Equal(t, tester.List(obj1.Namespace, klabels.Everything()), []*appsv1.Deployment{obj1, obj2})
+	assert.Equal(t, deploys, []*appsv1.Deployment{obj1, obj2})
 	assert.Equal(t, tester.Get(obj3.Name, obj3.Namespace), nil)
 
 	tester.Delete(obj3.Name, obj3.Namespace)
