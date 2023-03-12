@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 42341
+releaseNotes:
+  - |
+    **Updated** namespace controller to create `istio-ca-root-cert` when Ambient mode is enabled and `global.platform=openshift`.
