@@ -23,11 +23,14 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/platform"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/k8s"
 )
 
@@ -56,6 +59,8 @@ type NamespaceController struct {
 
 	// if meshConfig.DiscoverySelectors specified, DiscoveryNamespacesFilter tracks the namespaces to be watched by this controller.
 	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
+
+	ignoredNamespaces sets.Set[string]
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
@@ -98,6 +103,12 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 			return true
 		}))
 	}
+
+	c.ignoredNamespaces = inject.IgnoredNamespaces.Copy()
+	if platform.IsOpenShift() && features.EnableAmbientControllers {
+		c.ignoredNamespaces.Delete(constants.KubeSystemNamespace)
+	}
+
 	return c
 }
 
@@ -167,7 +178,7 @@ func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) {
 
 func (nc *NamespaceController) syncNamespace(ns string) {
 	// skip special kubernetes system namespaces
-	if inject.IgnoredNamespaces.Contains(ns) {
+	if nc.ignoredNamespaces.Contains(ns) {
 		return
 	}
 	nc.queue.Add(types.NamespacedName{Name: ns})
