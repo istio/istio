@@ -40,6 +40,7 @@ const (
 	IPv6
 	UNKNOWN
 )
+
 type lookupIPAddrType = func(ctx context.Context, addr string) ([]netip.Addr, error)
 
 // ErrResolveNoAddress error occurs when IP address resolution is attempted,
