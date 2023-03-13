@@ -26,6 +26,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -88,6 +89,7 @@ import (
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/lazy"
 	"istio.io/istio/pkg/sleep"
@@ -160,6 +162,10 @@ type Client interface {
 
 	// ClusterID returns the cluster this client is connected to
 	ClusterID() cluster.ID
+
+	// RegisterFilter registers that we have taken out a shared informer watch against type t, with the given filter.
+	// This allows detecting conflicting filters, as the informers are shared.
+	RegisterFilter(t reflect.Type, filter kubetypes.Filter) error
 }
 
 // CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
@@ -243,6 +249,7 @@ const resyncInterval = 0
 func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c := &client{
 		informerWatchesPending: atomic.NewInt32(0),
+		filters:                map[reflect.Type]kubetypes.Filter{},
 	}
 	c.kube = fake.NewSimpleClientset(objects...)
 	c.kubeInformer = informers.NewSharedInformerFactory(c.kube, resyncInterval)
@@ -360,6 +367,9 @@ type client struct {
 
 	portManager PortManager
 
+	filtersMu sync.Mutex
+	filters   map[reflect.Type]kubetypes.Filter
+
 	// http is a client for HTTP requests
 	http *http.Client
 }
@@ -368,6 +378,7 @@ type client struct {
 func newClientInternal(clientFactory *clientFactory, revision string) (*client, error) {
 	var c client
 	var err error
+	c.filters = map[reflect.Type]kubetypes.Filter{}
 
 	c.clientFactory = clientFactory
 
@@ -584,6 +595,26 @@ func (c *client) startInformer(stop <-chan struct{}) {
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 	return c.version.Get()
+}
+
+func (c *client) RegisterFilter(t reflect.Type, filter kubetypes.Filter) error {
+	if t == nil {
+		// Type may not be available when using untyped clients
+		return nil
+	}
+	c.filtersMu.Lock()
+	defer c.filtersMu.Unlock()
+	existing, f := c.filters[t]
+	if f {
+		if filter.FieldSelector != existing.FieldSelector ||
+			filter.LabelSelector != existing.LabelSelector ||
+			fmt.Sprintf("%v", filter.ObjectTransform) != fmt.Sprintf("%v", existing.ObjectTransform) {
+			return fmt.Errorf("for type %v, registered conflicting filter %+v (existing: %+v)", t, filter, existing)
+		}
+	} else {
+		c.filters[t] = filter
+	}
+	return nil
 }
 
 func (c *client) ClusterID() cluster.ID {

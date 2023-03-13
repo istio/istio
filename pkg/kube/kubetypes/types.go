@@ -30,6 +30,23 @@ type InformerOptions struct {
 	FieldSelector string
 }
 
+// Filter allows filtering read operations
+type Filter struct {
+	// A selector to restrict the list of returned objects by their labels.
+	// This is a *server side* filter.
+	LabelSelector string
+	// A selector to restrict the list of returned objects by their fields.
+	// This is a *server side* filter.
+	FieldSelector string
+	// ObjectFilter allows arbitrary filtering logic.
+	// This is a *client side* filter. This means CPU/memory costs are still present for filtered objects.
+	// Use LabelSelector or FieldSelector instead, if possible.
+	ObjectFilter func(t any) bool
+	// ObjectTransform allows arbitrarily modifying objects stored in the underlying cache.
+	// If unset, a default transform is provided to remove ManagedFields (high cost, low value)
+	ObjectTransform func(obj any) (any, error)
+}
+
 // WriteAPI exposes a generic API for a client go type for write operations.
 type WriteAPI[T runtime.Object] interface {
 	Create(ctx context.Context, object T, opts metav1.CreateOptions) (T, error)

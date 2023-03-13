@@ -15,8 +15,11 @@
 package kclient
 
 import (
+	"reflect"
+
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -32,6 +35,15 @@ func NewUntyped(c kube.Client, inf cache.SharedIndexInformer, filter Filter) Unt
 }
 
 func newReadClient[T controllers.Object](c kube.Client, inf cache.SharedIndexInformer, filter Filter) readClient[T] {
+	i := *new(T)
+	t := reflect.TypeOf(i)
+	if err := c.RegisterFilter(t, filter); err != nil {
+		if features.EnableUnsafeAssertions {
+			log.Fatal(err)
+		} else {
+			log.Warn(err)
+		}
+	}
 	if filter.ObjectTransform != nil {
 		_ = inf.SetTransform(filter.ObjectTransform)
 	} else {

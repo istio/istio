@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
@@ -44,6 +45,7 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/pkg/version"
 )
 
@@ -79,6 +81,10 @@ type MockClient struct {
 	IstioVersions     *version.MeshInfo
 	KubernetesVersion uint
 	IstiodVersion     string
+}
+
+func (c MockClient) RegisterFilter(t reflect.Type, filter kubetypes.Filter) error {
+	panic("not used in mock")
 }
 
 func (c MockClient) SetPortManager(manager PortManager) {
