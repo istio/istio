@@ -51,8 +51,6 @@ spec:
         - <nil>
         - --log_output_level
         - <nil>
-        - --concurrency
-        - "2"
         env:
         - name: ISTIO_META_SERVICE_ACCOUNT
           valueFrom:
@@ -88,6 +86,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: ISTIO_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
             {}
