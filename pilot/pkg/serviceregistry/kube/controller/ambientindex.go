@@ -557,7 +557,7 @@ func stringToIP(rules []string) []*workloadapi.Address {
 }
 
 func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
-	if p == nil {
+	if p == nil || !IsPodRunning(p) || p.Spec.HostNetwork {
 		return nil
 	}
 	var waypoints sets.String
@@ -691,11 +691,10 @@ func (c *Controller) setupIndex() *AmbientIndex {
 	return &idx
 }
 
-func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
+func (a *AmbientIndex) handlePod(_, newObj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	// TODO: ignore unrelated update to improve performance
-	oldPod := controllers.Extract[*v1.Pod](oldObj)
 	p := controllers.Extract[*v1.Pod](newObj)
 	updates := sets.New[model.ConfigKey]()
 	// This is a waypoint update
@@ -721,9 +720,9 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	if !isDelete {
 		wl = c.extractWorkload(p)
 	}
+	oldWl := a.byPod[p.Status.PodIP]
 	if wl == nil {
 		// This is an explicit delete event, or there is no longer a Workload to create (pod NotReady, etc)
-		oldWl := a.byPod[p.Status.PodIP]
 		delete(a.byPod, p.Status.PodIP)
 		if oldWl != nil {
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
@@ -738,7 +737,6 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 		// It was a 'delete' for a resource we didn't know yet, no need to send an event
 		return updates
 	}
-	oldWl := c.extractWorkload(oldPod)
 	if oldWl != nil && proto.Equal(wl.Workload, oldWl.Workload) {
 		log.Debugf("%v: no change, skipping", wl.ResourceName())
 		return updates
@@ -836,15 +834,6 @@ func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([
 }
 
 func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies []string) *workloadapi.Workload {
-	if pod == nil {
-		return nil
-	}
-	if !IsPodRunning(pod) {
-		return nil
-	}
-	if pod.Spec.HostNetwork {
-		return nil
-	}
 	vips := map[string]*workloadapi.PortList{}
 	if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
 		for _, svc := range services {
