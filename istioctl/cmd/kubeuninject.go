@@ -197,23 +197,10 @@ func removeDNSConfig(podDNSConfig *corev1.PodDNSConfig) {
 	if podDNSConfig == nil {
 		return
 	}
-
-	l := len(podDNSConfig.Searches)
-	index := 0
-	for index < l {
-		s := podDNSConfig.Searches[index]
-		if strings.Contains(s, "global") {
-			if index < len(podDNSConfig.Searches)-1 {
-				podDNSConfig.Searches = append(podDNSConfig.Searches[:index],
-					podDNSConfig.Searches[index+1:]...)
-			} else {
-				podDNSConfig.Searches = podDNSConfig.Searches[:index]
-			}
-			// reset to 0
-			index = 0
-			l = len(podDNSConfig.Searches)
-		} else {
-			index++
+	for i := 0; i < len(podDNSConfig.Searches); i++ {
+		if strings.Contains(podDNSConfig.Searches[i], "global") {
+			podDNSConfig.Searches = append(podDNSConfig.Searches[:i], podDNSConfig.Searches[i+1:]...)
+			i--
 		}
 	}
 }
