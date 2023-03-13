@@ -120,12 +120,11 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 	if network.AllIPv6(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
 	} else if DualStackEnv {
-			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
-			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
-			ipFamily := network.CheckIPFamilyTypeForFirstIPs(e.NodeIPs)
-			if ipFamily == network.IPv6 {
-				proxyLocalAddressType = "v6"
-			}
+		// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
+		// So let the first ip family policy to decide its DNSLookupFamilyIP policy
+		ipFamily := network.CheckIPFamilyTypeForFirstIPs(e.NodeIPs)
+		if ipFamily == network.IPv6 {
+			proxyLocalAddressType = "v6"
 		}
 	}
 	startupArgs := []string{
