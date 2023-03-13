@@ -49,8 +49,8 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
-	kclient "istio.io/istio/pkg/kube/client"
-	"istio.io/istio/pkg/kube/client/clienttest"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
@@ -1381,7 +1381,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 			client := kubelib.NewFakeClient()
 			meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
 			discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
-				kclient.NewCached[*corev1.Namespace](client),
+				kclient.New[*corev1.Namespace](client),
 				meshWatcher.Mesh().DiscoverySelectors,
 			)
 
@@ -1584,7 +1584,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	t.Cleanup(client.Shutdown)
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
-		kclient.NewCached[*corev1.Namespace](client),
+		kclient.New[*corev1.Namespace](client),
 		meshWatcher.Mesh().DiscoverySelectors,
 	)
 
@@ -1952,7 +1952,7 @@ func createEndpoints(t *testing.T, controller *FakeController, name, namespace s
 			Ports:     eps,
 		}},
 	}
-	clienttest.Wrap(t, kclient.NewCached[*corev1.Endpoints](controller.client)).CreateOrUpdate(endpoint)
+	clienttest.Wrap(t, kclient.New[*corev1.Endpoints](controller.client)).CreateOrUpdate(endpoint)
 
 	// Create endpoint slice as well
 	esps := make([]discovery.EndpointPort, 0)
@@ -1977,7 +1977,7 @@ func createEndpoints(t *testing.T, controller *FakeController, name, namespace s
 		Endpoints: sliceEndpoint,
 		Ports:     esps,
 	}
-	clienttest.Wrap(t, kclient.NewCached[*discovery.EndpointSlice](controller.client)).CreateOrUpdate(endpointSlice)
+	clienttest.Wrap(t, kclient.New[*discovery.EndpointSlice](controller.client)).CreateOrUpdate(endpointSlice)
 }
 
 func updateEndpoints(controller *FakeController, name, namespace string, portNames, ips []string, t *testing.T) {

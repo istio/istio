@@ -39,8 +39,8 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	kclient "istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -151,7 +151,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		informer:            secretsInformer,
 	}
 
-	namespaces := kclient.NewCached[*corev1.Namespace](kubeclientset)
+	namespaces := kclient.New[*corev1.Namespace](kubeclientset)
 	controller.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(namespaces, meshWatcher.Mesh().GetDiscoverySelectors())
 	controller.queue = controllers.NewQueue("multicluster secret",
 		controllers.WithMaxAttempts(maxRetries),

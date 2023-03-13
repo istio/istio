@@ -31,8 +31,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	kclient "istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/kclient"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -47,7 +47,7 @@ func TestNamespaceController(t *testing.T) {
 	watcher.SetAndNotify(nil, nil, caBundle)
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
-		kclient.NewCached[*v1.Namespace](client),
+		kclient.New[*v1.Namespace](client),
 		meshWatcher.MeshConfig.DiscoverySelectors,
 	)
 	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
@@ -102,7 +102,7 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 		},
 	})
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
-		kclient.NewCached[*v1.Namespace](client),
+		kclient.New[*v1.Namespace](client),
 		meshWatcher.Mesh().DiscoverySelectors,
 	)
 	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
@@ -178,7 +178,7 @@ func updateNamespace(t *testing.T, client kubernetes.Interface, ns string, label
 }
 
 // nolint:unparam
-func expectConfigMap(t *testing.T, configmaps kclient.Cached[*v1.ConfigMap], name, ns string, data map[string]string) {
+func expectConfigMap(t *testing.T, configmaps kclient.Client[*v1.ConfigMap], name, ns string, data map[string]string) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		cm := configmaps.Get(name, ns)
@@ -192,7 +192,7 @@ func expectConfigMap(t *testing.T, configmaps kclient.Cached[*v1.ConfigMap], nam
 	}, retry.Timeout(time.Second*10))
 }
 
-func expectConfigMapNotExist(t *testing.T, configmaps kclient.Cached[*v1.ConfigMap], ns string) {
+func expectConfigMapNotExist(t *testing.T, configmaps kclient.Client[*v1.ConfigMap], ns string) {
 	t.Helper()
 	err := retry.Until(func() bool {
 		cm := configmaps.Get(CACertNamespaceConfigMap, ns)

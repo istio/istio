@@ -30,8 +30,8 @@ import (
 	"istio.io/istio/cni/pkg/ambient/constants"
 	ebpf "istio.io/istio/cni/pkg/ebpf/server"
 	"istio.io/istio/pkg/kube"
-	kclient "istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/lazy"
 )
 
@@ -40,8 +40,8 @@ type Server struct {
 	ctx        context.Context
 	queue      controllers.Queue
 
-	namespaces kclient.Cached[*corev1.Namespace]
-	pods       kclient.Cached[*corev1.Pod]
+	namespaces kclient.Client[*corev1.Namespace]
+	pods       kclient.Client[*corev1.Pod]
 
 	mu         sync.Mutex
 	ztunnelPod *corev1.Pod

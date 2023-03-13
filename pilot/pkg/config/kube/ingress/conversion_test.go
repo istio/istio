@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/test"
 )
 
@@ -487,10 +487,10 @@ func TestNamedPortIngressConversion(t *testing.T) {
 	}
 }
 
-func createFakeClient(t test.Failer, objects ...runtime.Object) client.Cached[*corev1.Service] {
+func createFakeClient(t test.Failer, objects ...runtime.Object) kclient.Client[*corev1.Service] {
 	kc := kube.NewFakeClient(objects...)
 	stop := test.NewStop(t)
-	services := client.NewCached[*corev1.Service](kc)
+	services := kclient.New[*corev1.Service](kc)
 	kc.RunAndWait(stop)
 	kube.WaitForCacheSync(stop, services.HasSynced)
 	return services

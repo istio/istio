@@ -38,9 +38,9 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
-	kclient "istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/sets"
@@ -75,13 +75,13 @@ type DeploymentController struct {
 	clusterID      cluster.ID
 	queue          controllers.Queue
 	patcher        patcher
-	gateways       kclient.Cached[*gateway.Gateway]
-	gatewayClasses kclient.Cached[*gateway.GatewayClass]
+	gateways       kclient.Client[*gateway.Gateway]
+	gatewayClasses kclient.Client[*gateway.GatewayClass]
 
 	injectConfig    func() inject.WebhookConfig
-	deployments     kclient.Cached[*appsv1.Deployment]
-	services        kclient.Cached[*corev1.Service]
-	serviceAccounts kclient.Cached[*corev1.ServiceAccount]
+	deployments     kclient.Client[*appsv1.Deployment]
+	services        kclient.Client[*corev1.Service]
+	serviceAccounts kclient.Client[*corev1.ServiceAccount]
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -186,8 +186,8 @@ var knownControllers = func() sets.String {
 func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()),
 ) *DeploymentController {
-	gateways := kclient.NewCached[*gateway.Gateway](client)
-	gatewayClasses := kclient.NewCached[*gateway.GatewayClass](client)
+	gateways := kclient.New[*gateway.Gateway](client)
+	gatewayClasses := kclient.New[*gateway.GatewayClass](client)
 	dc := &DeploymentController{
 		client:    client,
 		clusterID: clusterID,
@@ -215,14 +215,14 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 
 	// Use the full informer, since we are already fetching all Services for other purposes
 	// If we somehow stop watching Services in the future we can add a label selector like below.
-	dc.services = kclient.NewCached[*corev1.Service](client)
+	dc.services = kclient.New[*corev1.Service](client)
 	dc.services.AddEventHandler(handler)
 
 	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
-	dc.deployments = kclient.NewCachedFiltered[*appsv1.Deployment](client, kclient.Filter{LabelSelector: constants.ManagedGatewayLabel})
+	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, kclient.Filter{LabelSelector: constants.ManagedGatewayLabel})
 	dc.deployments.AddEventHandler(handler)
 
-	dc.serviceAccounts = kclient.NewCached[*corev1.ServiceAccount](client)
+	dc.serviceAccounts = kclient.New[*corev1.ServiceAccount](client)
 	dc.serviceAccounts.AddEventHandler(handler)
 
 	gateways.AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))

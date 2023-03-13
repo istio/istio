@@ -23,13 +23,13 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/kube/client"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
-	pods client.Cached[*v1.Pod]
+	pods kclient.Client[*v1.Pod]
 
 	sync.RWMutex
 	// podsByIP maintains stable pod IP to name key mapping
@@ -49,7 +49,7 @@ type PodCache struct {
 	c *Controller
 }
 
-func newPodCache(c *Controller, pods client.Cached[*v1.Pod], queueEndpointEvent func(types.NamespacedName)) *PodCache {
+func newPodCache(c *Controller, pods kclient.Client[*v1.Pod], queueEndpointEvent func(types.NamespacedName)) *PodCache {
 	out := &PodCache{
 		pods:               pods,
 		c:                  c,

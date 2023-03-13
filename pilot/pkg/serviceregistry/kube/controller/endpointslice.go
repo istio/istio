@@ -30,12 +30,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/kube/client"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 type endpointSliceController struct {
 	endpointCache *endpointSliceCache
-	slices        client.Cached[*v1.EndpointSlice]
+	slices        kclient.Client[*v1.EndpointSlice]
 	c             *Controller
 }
 
@@ -49,7 +49,7 @@ var (
 func newEndpointSliceController(c *Controller) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
-	slices := client.NewCachedFiltered[*v1.EndpointSlice](c.client, client.Filter{ObjectFilter: c.opts.GetFilter()})
+	slices := kclient.NewFiltered[*v1.EndpointSlice](c.client, kclient.Filter{ObjectFilter: c.opts.GetFilter()})
 	out := &endpointSliceController{
 		c:             c,
 		slices:        slices,

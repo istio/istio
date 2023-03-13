@@ -45,8 +45,8 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/kube/watcher/crdwatcher"
@@ -229,15 +229,15 @@ type Controller struct {
 
 	queue queue.Instance
 
-	namespaces client.Cached[*v1.Namespace]
-	services   client.Cached[*v1.Service]
+	namespaces kclient.Client[*v1.Namespace]
+	services   kclient.Client[*v1.Service]
 
 	endpoints kubeEndpointsController
 
 	// Used to watch node accessible from remote cluster.
 	// In multi-cluster(shared control plane multi-networks) scenario, ingress gateway service can be of nodePort type.
 	// With this, we can populate mesh's gateway address with the node ips.
-	nodes client.Cached[*v1.Node]
+	nodes kclient.Client[*v1.Node]
 
 	crdWatcher *crdwatcher.Controller
 	exports    serviceExportCache
@@ -275,7 +275,7 @@ type Controller struct {
 	initialSync *atomic.Bool
 	meshWatcher mesh.Watcher
 
-	podsClient client.Cached[*v1.Pod]
+	podsClient kclient.Client[*v1.Pod]
 
 	ambientIndex     *AmbientIndex
 	configController model.ConfigStoreController
@@ -299,7 +299,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		multinetwork: initMultinetwork(),
 	}
 
-	c.namespaces = client.NewCached[*v1.Namespace](kubeClient)
+	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 	if features.EnableAmbientControllers {
 		registerHandlers[*v1.Namespace](
 			c,
@@ -337,7 +337,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.initDiscoveryHandlers(options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
 
-	c.services = client.NewCachedFiltered[*v1.Service](kubeClient, client.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
+	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
 
 	registerHandlers[*v1.Service](c, c.services, "Services", c.onServiceEvent, nil)
 
@@ -352,10 +352,10 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	// This is for getting the node IPs of a selected set of nodes
-	c.nodes = client.NewCachedFiltered[*v1.Node](kubeClient, client.Filter{ObjectTransform: stripNodeUnusedFields})
+	c.nodes = kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: stripNodeUnusedFields})
 	registerHandlers[*v1.Node](c, c.nodes, "Nodes", c.onNodeEvent, nil)
 
-	c.podsClient = client.NewCachedFiltered[*v1.Pod](kubeClient, client.Filter{
+	c.podsClient = kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
 		ObjectFilter:    c.opts.DiscoveryNamespacesFilter.Filter,
 		ObjectTransform: stripPodUnusedFields,
 	})
@@ -640,7 +640,7 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 type FilterOutFunc[T controllers.Object] func(old, cur T) bool
 
 func registerHandlers[T controllers.Object](c *Controller,
-	informer client.CachedRead[T], otype string,
+	informer kclient.Reader[T], otype string,
 	handler func(T, T, model.Event) error, filter FilterOutFunc[T],
 ) {
 	wrappedHandler := func(prev, curr T, event model.Event) error {

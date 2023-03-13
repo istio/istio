@@ -22,9 +22,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/kclient"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/security/pkg/k8s"
 )
@@ -42,8 +42,8 @@ type NamespaceController struct {
 
 	queue controllers.Queue
 
-	namespaces client.Cached[*v1.Namespace]
-	configmaps client.Cached[*v1.ConfigMap]
+	namespaces kclient.Client[*v1.Namespace]
+	configmaps kclient.Client[*v1.ConfigMap]
 
 	// if meshConfig.DiscoverySelectors specified, DiscoveryNamespacesFilter tracks the namespaces to be watched by this controller.
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
@@ -59,8 +59,8 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 	}
 	c.queue = controllers.NewQueue("namespace controller", controllers.WithReconciler(c.insertDataForNamespace))
 
-	c.configmaps = client.NewCached[*v1.ConfigMap](kubeClient)
-	c.namespaces = client.NewCached[*v1.Namespace](kubeClient)
+	c.configmaps = kclient.New[*v1.ConfigMap](kubeClient)
+	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
 	c.configmaps.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		if o.GetName() != CACertNamespaceConfigMap {

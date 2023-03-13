@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package kclient
 
 import (
 	"k8s.io/client-go/tools/cache"
@@ -24,7 +24,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-type Untyped = CachedRead[controllers.Object]
+type Untyped = Reader[controllers.Object]
 
 // NewUntyped returns an untyped client for a given informer. This is read-only.
 func NewUntyped(c kube.Client, inf cache.SharedIndexInformer, filter Filter) Untyped {

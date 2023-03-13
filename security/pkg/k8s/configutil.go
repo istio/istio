@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube/client"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 // InsertDataToConfigMap inserts a data to a configmap in a namespace.
@@ -30,7 +30,7 @@ import (
 // lister: the configmap lister.
 // meta: the metadata of configmap.
 // caBundle: ca cert data bytes.
-func InsertDataToConfigMap(client client.Cached[*v1.ConfigMap], meta metav1.ObjectMeta, caBundle []byte) error {
+func InsertDataToConfigMap(client kclient.Client[*v1.ConfigMap], meta metav1.ObjectMeta, caBundle []byte) error {
 	configmap := client.Get(meta.Name, meta.Namespace)
 	if configmap == nil {
 		// Create a new ConfigMap.
@@ -74,7 +74,7 @@ func insertData(cm *v1.ConfigMap, data map[string]string) bool {
 	return needsUpdate
 }
 
-func updateDataInConfigMap(c client.Cached[*v1.ConfigMap], cm *v1.ConfigMap, caBundle []byte) error {
+func updateDataInConfigMap(c kclient.Client[*v1.ConfigMap], cm *v1.ConfigMap, caBundle []byte) error {
 	if cm == nil {
 		return fmt.Errorf("cannot update nil configmap")
 	}

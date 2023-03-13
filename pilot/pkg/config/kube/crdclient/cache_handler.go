@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/pkg/log"
 )
 
@@ -33,7 +33,7 @@ import (
 // and will be invoked on each informer event.
 type cacheHandler struct {
 	client   *Client
-	informer client.Untyped
+	informer kclient.Untyped
 	schema   resource.Schema
 }
 
@@ -90,7 +90,7 @@ func createCacheHandler(cl *Client, schema resource.Schema, i informers.GenericI
 	h := &cacheHandler{
 		client:   cl,
 		schema:   schema,
-		informer: client.NewUntyped(cl.client, i.Informer(), client.Filter{ObjectFilter: cl.namespacesFilter}),
+		informer: kclient.NewUntyped(cl.client, i.Informer(), kclient.Filter{ObjectFilter: cl.namespacesFilter}),
 	}
 
 	kind := schema.Kind()

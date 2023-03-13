@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package kclient
 
 import (
 	"context"
@@ -31,9 +31,9 @@ import (
 	"istio.io/pkg/log"
 )
 
-// Cached wraps a Kubernetes client providing cached read access and direct write access.
+// Reader wraps a Kubernetes client providing cached read access.
 // This is based on informers, so most of the same caveats to informers apply here.
-type CachedRead[T controllers.Object] interface {
+type Reader[T controllers.Object] interface {
 	// Get looks up an object by name and namespace. If it does not exist, nil is returned
 	Get(name, namespace string) T
 	// List looks up an object by namespace and labels.
@@ -55,8 +55,9 @@ type CachedRead[T controllers.Object] interface {
 	ShutdownHandlers()
 }
 
-type Cached[T controllers.Object] interface {
-	CachedRead[T]
+// Reader wraps a Kubernetes client providing cached read access and direct write access.
+type Client[T controllers.Object] interface {
+	Reader[T]
 
 	// Create creates a resource, returning the newly applied resource.
 	Create(object T) (T, error)
@@ -200,36 +201,23 @@ func (n *readClient[T]) ListUnfiltered(namespace string, selector klabels.Select
 	return res
 }
 
-// Filter allows filtering read operations
-type Filter struct {
-	// A selector to restrict the list of returned objects by their labels.
-	// This is a *server side* filter.
-	LabelSelector string
-	// A selector to restrict the list of returned objects by their fields.
-	// This is a *server side* filter.
-	FieldSelector string
-	// ObjectFilter allows arbitrary filtering logic.
-	// This is a *client side* filter. This means CPU/memory costs are still present for filtered objects.
-	// Use LabelSelector or FieldSelector instead, if possible.
-	ObjectFilter func(t any) bool
-	// ObjectTransform allows arbitrarily modifying objects stored in the underlying cache.
-	// If unset, a default transform is provided to remove ManagedFields (high cost, low value)
-	ObjectTransform func(obj any) (any, error)
-}
+// Filter allows filtering read operations.
+// This is aliased to allow easier access when constructing clients.
+type Filter = kubetypes.Filter
 
-// NewCached returns a Cached for the given type.
+// New returns a Client for the given type.
 // Internally, this uses a shared informer, so calling this multiple times will share the same internals.
-func NewCached[T controllers.Object](c kube.Client) Cached[T] {
-	return NewCachedFiltered[T](c, Filter{})
+func New[T controllers.Object](c kube.Client) Client[T] {
+	return NewFiltered[T](c, Filter{})
 }
 
-// NewCachedFiltered returns a Cached with some filter applied.
+// NewFiltered returns a Client with some filter applied.
 // Internally, this uses a shared informer, so calling this multiple times will share the same internals.
 //
 // Warning: currently, if filter.LabelSelector or filter.FieldSelector are set, the same informer will still be used
 // This means there must only be one filter configuration for a given type using the same kube.Client (generally, this means the whole program).
 // Use with caution.
-func NewCachedFiltered[T controllers.Object](c kube.Client, filter Filter) Cached[T] {
+func NewFiltered[T controllers.Object](c kube.Client, filter Filter) Client[T] {
 	var inf cache.SharedIndexInformer
 	if filter.LabelSelector == "" && filter.FieldSelector == "" {
 		inf = kubeclient.GetInformer[T](c)

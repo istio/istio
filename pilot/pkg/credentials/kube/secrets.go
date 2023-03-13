@@ -32,8 +32,8 @@ import (
 	"istio.io/istio/pilot/pkg/credentials"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/pkg/log"
 )
 
@@ -56,7 +56,7 @@ const (
 )
 
 type CredentialsController struct {
-	secrets client.Cached[*v1.Secret]
+	secrets kclient.Client[*v1.Secret]
 	sar     authorizationv1client.SubjectAccessReviewInterface
 
 	mu                 sync.RWMutex
@@ -83,7 +83,7 @@ func NewCredentialsController(kc kube.Client) *CredentialsController {
 	fieldSelector := fields.AndSelectors(
 		fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
 		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
-	secrets := client.NewCachedFiltered[*v1.Secret](kc, client.Filter{
+	secrets := kclient.NewFiltered[*v1.Secret](kc, kclient.Filter{
 		FieldSelector: fieldSelector,
 	})
 

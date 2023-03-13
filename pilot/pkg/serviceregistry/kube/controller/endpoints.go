@@ -25,18 +25,18 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/kube/client"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 type endpointsController struct {
-	endpoints client.Cached[*v1.Endpoints]
+	endpoints kclient.Client[*v1.Endpoints]
 	c         *Controller
 }
 
 var _ kubeEndpointsController = &endpointsController{}
 
 func newEndpointsController(c *Controller) *endpointsController {
-	endpoints := client.NewCachedFiltered[*v1.Endpoints](c.client, client.Filter{ObjectFilter: c.opts.GetFilter()})
+	endpoints := kclient.NewFiltered[*v1.Endpoints](c.client, kclient.Filter{ObjectFilter: c.opts.GetFilter()})
 	out := &endpointsController{
 		endpoints: endpoints,
 		c:         c,

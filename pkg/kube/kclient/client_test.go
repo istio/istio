@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client_test
+package kclient_test
 
 import (
 	"fmt"
@@ -27,8 +27,8 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
-	"istio.io/istio/pkg/kube/client/clienttest"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -38,7 +38,7 @@ import (
 func TestHasSynced(t *testing.T) {
 	handled := atomic.NewInt64(0)
 	c := kube.NewFakeClient()
-	deployments := client.NewCached[*appsv1.Deployment](c)
+	deployments := kclient.New[*appsv1.Deployment](c)
 	obj1 := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "1", Namespace: "default"},
 		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 1},
@@ -59,7 +59,7 @@ func TestHasSynced(t *testing.T) {
 func TestClient(t *testing.T) {
 	tracker := newTracker(t)
 	c := kube.NewFakeClient()
-	deployments := client.NewCachedFiltered[*appsv1.Deployment](c, client.Filter{ObjectFilter: func(t any) bool {
+	deployments := kclient.NewFiltered[*appsv1.Deployment](c, kclient.Filter{ObjectFilter: func(t any) bool {
 		return t.(*appsv1.Deployment).Namespace == "default"
 	}})
 	deployments.AddEventHandler(controllers.EventHandler[*appsv1.Deployment]{

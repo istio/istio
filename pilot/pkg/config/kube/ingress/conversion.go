@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube/client"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/pkg/log"
 )
 
@@ -126,7 +126,7 @@ func ConvertIngressV1alpha3(ingress knetworking.Ingress, mesh *meshconfig.MeshCo
 
 // ConvertIngressVirtualService converts from ingress spec to Istio VirtualServices
 func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix string,
-	ingressByHost map[string]*config.Config, services client.Cached[*corev1.Service],
+	ingressByHost map[string]*config.Config, services kclient.Client[*corev1.Service],
 ) {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
@@ -251,7 +251,7 @@ func getMatchURILength(match *networking.HTTPMatchRequest) (length int, exact bo
 }
 
 func ingressBackendToHTTPRoute(backend *knetworking.IngressBackend, namespace string,
-	domainSuffix string, services client.Cached[*corev1.Service],
+	domainSuffix string, services kclient.Client[*corev1.Service],
 ) *networking.HTTPRoute {
 	if backend == nil {
 		return nil
@@ -287,7 +287,7 @@ func ingressBackendToHTTPRoute(backend *knetworking.IngressBackend, namespace st
 	}
 }
 
-func resolveNamedPort(backend *knetworking.IngressBackend, namespace string, services client.Cached[*corev1.Service]) (int32, error) {
+func resolveNamedPort(backend *knetworking.IngressBackend, namespace string, services kclient.Client[*corev1.Service]) (int32, error) {
 	svc := services.Get(backend.Service.Name, namespace)
 	if svc == nil {
 		return 0, errNotFound

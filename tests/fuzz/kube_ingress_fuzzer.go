@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 func FuzzConvertIngressVirtualService(data []byte) int {
@@ -58,12 +58,12 @@ func FuzzConvertIngressV1alpha3(data []byte) int {
 	return 1
 }
 
-func newServiceLister(objects ...runtime.Object) (client.Cached[*corev1.Service], func()) {
+func newServiceLister(objects ...runtime.Object) (kclient.Client[*corev1.Service], func()) {
 	kc := kube.NewFakeClient(objects...)
 	stop := make(chan struct{})
 	kc.RunAndWait(stop)
 	teardown := func() {
 		close(stop)
 	}
-	return client.NewCached[*corev1.Service](kc), teardown
+	return kclient.New[*corev1.Service](kc), teardown
 }

@@ -17,7 +17,7 @@ package clienttest
 import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/pkg/kube/client"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/test"
 )
@@ -32,7 +32,7 @@ type TestCached[T controllers.Object] interface {
 }
 
 type testCached[T controllers.Object] struct {
-	c client.Cached[T]
+	c kclient.Client[T]
 	t test.Failer
 }
 
@@ -61,7 +61,7 @@ func (t testCached[T]) Update(object T) T {
 }
 
 func (t testCached[T]) CreateOrUpdate(object T) T {
-	res, err := client.CreateOrUpdate(t.c, object)
+	res, err := kclient.CreateOrUpdate(t.c, object)
 	if err != nil {
 		t.t.Fatalf("createOrUpdate %v/%v: %v", object.GetNamespace(), object.GetName(), err)
 	}
@@ -75,8 +75,8 @@ func (t testCached[T]) Delete(name, namespace string) {
 	}
 }
 
-// Wrap returns a client.Cached that calls t.Fatal on errors
-func Wrap[T controllers.Object](t test.Failer, c client.Cached[T]) TestCached[T] {
+// Wrap returns a kclient.Client that calls t.Fatal on errors
+func Wrap[T controllers.Object](t test.Failer, c kclient.Client[T]) TestCached[T] {
 	return testCached[T]{
 		c: c,
 		t: t,

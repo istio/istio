@@ -38,8 +38,8 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
@@ -63,7 +63,7 @@ type Controller struct {
 	cache model.ConfigStoreController
 
 	// Gateway-api types reference namespace labels directly, so we need access to these
-	namespaces       client.Cached[*corev1.Namespace]
+	namespaces       kclient.Client[*corev1.Namespace]
 	namespaceHandler model.EventHandler
 
 	// Gateway-api types reference secrets directly, so we need access to these
@@ -98,7 +98,7 @@ func NewController(
 ) *Controller {
 	var ctl *status.Controller
 
-	namespaces := client.NewCached[*corev1.Namespace](kc)
+	namespaces := kclient.New[*corev1.Namespace](kc)
 	gatewayController := &Controller{
 		client:                kc,
 		cache:                 c,

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package kclient
 
 import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,7 +20,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 )
 
-func CreateOrUpdate[T controllers.Object](c Cached[T], object T) (T, error) {
+func CreateOrUpdate[T controllers.Object](c Client[T], object T) (T, error) {
 	res, err := c.Create(object)
 	if kerrors.IsAlreadyExists(err) {
 		// Already exist, update

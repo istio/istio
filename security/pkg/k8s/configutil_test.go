@@ -30,7 +30,7 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/test"
 )
 
@@ -87,7 +87,7 @@ func TestUpdateDataInConfigMap(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			kc := kube.NewFakeClient()
 			fake := kc.Kube().(*fake.Clientset)
-			configmaps := client.NewCached[*v1.ConfigMap](kc)
+			configmaps := kclient.New[*v1.ConfigMap](kc)
 			if tc.existingConfigMap != nil {
 				if _, err := configmaps.Create(tc.existingConfigMap); err != nil {
 					t.Errorf("failed to create configmap %v", err)
@@ -197,7 +197,7 @@ func TestInsertDataToConfigMap(t *testing.T) {
 			}
 			kc := kube.NewFakeClient(objs...)
 			fake := kc.Kube().(*fake.Clientset)
-			configmaps := client.NewCached[*v1.ConfigMap](kc)
+			configmaps := kclient.New[*v1.ConfigMap](kc)
 			if tc.clientMod != nil {
 				tc.clientMod(fake)
 			}

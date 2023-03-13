@@ -25,8 +25,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/util/istiomultierror"
 )
 
@@ -38,7 +38,7 @@ import (
 // and not update there is no need; the first controller to create the GatewayClass wins.
 type ClassController struct {
 	queue   controllers.Queue
-	classes client.Cached[*gateway.GatewayClass]
+	classes kclient.Client[*gateway.GatewayClass]
 }
 
 func NewClassController(kc kube.Client) *ClassController {
@@ -47,7 +47,7 @@ func NewClassController(kc kube.Client) *ClassController {
 		controllers.WithReconciler(gc.Reconcile),
 		controllers.WithMaxAttempts(25))
 
-	gc.classes = client.NewCached[*gateway.GatewayClass](kc)
+	gc.classes = kclient.New[*gateway.GatewayClass](kc)
 	gc.classes.AddEventHandler(controllers.FilteredObjectHandler(gc.queue.AddObject, func(o controllers.Object) bool {
 		_, f := classInfos[o.GetName()]
 		return f

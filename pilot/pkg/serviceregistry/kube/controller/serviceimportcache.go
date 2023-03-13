@@ -34,8 +34,8 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/mcs"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -91,7 +91,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 type serviceImportCacheImpl struct {
 	*Controller
 
-	serviceImports  client.Untyped
+	serviceImports  kclient.Untyped
 	serviceImportCh chan struct{}
 	started         atomic.Bool
 }
@@ -297,7 +297,7 @@ func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
 	}
 
 	dInformer := ic.client.DynamicInformer().ForResource(mcs.ServiceImportGVR).Informer()
-	ic.serviceImports = client.NewUntyped(ic.client, dInformer, client.Filter{ObjectFilter: ic.opts.GetFilter()})
+	ic.serviceImports = kclient.NewUntyped(ic.client, dInformer, kclient.Filter{ObjectFilter: ic.opts.GetFilter()})
 	// Register callbacks for Service events anywhere in the mesh.
 	ic.opts.MeshServiceController.AppendServiceHandlerForCluster(ic.Cluster(), ic.onServiceEvent)
 	// Register callbacks for ServiceImport events in this cluster only.

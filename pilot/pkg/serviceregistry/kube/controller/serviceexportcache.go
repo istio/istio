@@ -30,8 +30,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/mcs"
 )
 
@@ -104,7 +104,7 @@ type discoverabilityPolicySelector func(*model.Service) model.EndpointDiscoverab
 type serviceExportCacheImpl struct {
 	*Controller
 
-	serviceExports client.Untyped
+	serviceExports kclient.Untyped
 
 	// clusterLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the cluster.local host.
 	clusterLocalPolicySelector discoverabilityPolicySelector
@@ -203,7 +203,7 @@ func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
 		return
 	}
 	dInformer := ec.client.DynamicInformer().ForResource(mcs.ServiceExportGVR).Informer()
-	ec.serviceExports = client.NewUntyped(ec.client, dInformer, client.Filter{ObjectFilter: ec.opts.GetFilter()})
+	ec.serviceExports = kclient.NewUntyped(ec.client, dInformer, kclient.Filter{ObjectFilter: ec.opts.GetFilter()})
 	// Register callbacks for events.
 	registerHandlers[controllers.Object](ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)
 	go dInformer.Run(stop)

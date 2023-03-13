@@ -23,8 +23,8 @@ import (
 
 	"istio.io/istio/cni/pkg/ambient/ambientpod"
 	"istio.io/istio/pkg/config/constants"
-	kclient "istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 var ErrLegacyLabel = "Namespace %s has sidecar label istio-injection or istio.io/rev " +
@@ -38,13 +38,13 @@ func (s *Server) setupHandlers() {
 	)
 
 	// We only need to handle pods on our node
-	s.pods = kclient.NewCachedFiltered[*corev1.Pod](s.kubeClient, kclient.Filter{FieldSelector: "spec.nodeName=" + NodeName})
+	s.pods = kclient.NewFiltered[*corev1.Pod](s.kubeClient, kclient.Filter{FieldSelector: "spec.nodeName=" + NodeName})
 	s.pods.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
 		s.queue.Add(o)
 	}))
 
 	// Namespaces could be anything though, so we watch all of those
-	s.namespaces = kclient.NewCached[*corev1.Namespace](s.kubeClient)
+	s.namespaces = kclient.New[*corev1.Namespace](s.kubeClient)
 	s.namespaces.AddEventHandler(controllers.ObjectHandler(s.EnqueueNamespace))
 }
 

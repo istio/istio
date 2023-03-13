@@ -21,8 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
@@ -50,13 +50,13 @@ type DiscoveryNamespacesFilter interface {
 
 type discoveryNamespacesFilter struct {
 	lock                sync.RWMutex
-	namespaces          client.Cached[*corev1.Namespace]
+	namespaces          kclient.Client[*corev1.Namespace]
 	discoveryNamespaces sets.String
 	discoverySelectors  []labels.Selector // nil if discovery selectors are not specified, permits all namespaces for discovery
 }
 
 func NewDiscoveryNamespacesFilter(
-	namespaces client.Cached[*corev1.Namespace],
+	namespaces kclient.Client[*corev1.Namespace],
 	discoverySelectors []*metav1.LabelSelector,
 ) DiscoveryNamespacesFilter {
 	discoveryNamespacesFilter := &discoveryNamespacesFilter{

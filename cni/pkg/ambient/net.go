@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	pconstants "istio.io/istio/pkg/config/constants"
-	kclient "istio.io/istio/pkg/kube/client"
+	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -180,7 +180,7 @@ func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
 }
 
 // GetHostIPByRoute get the automatically chosen host ip to the Pod's CIDR
-func GetHostIPByRoute(pods kclient.Cached[*corev1.Pod]) (string, error) {
+func GetHostIPByRoute(pods kclient.Client[*corev1.Pod]) (string, error) {
 	// We assume per node POD's CIDR is the same block, so the route to the POD
 	// from host should be "same". Otherwise, there may multiple host IPs will be
 	// used as source to dial to PODs.

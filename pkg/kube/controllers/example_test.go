@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )
@@ -34,7 +34,7 @@ import (
 // in Istio.
 // In this example, we simply print all pods.
 type Controller struct {
-	pods   client.Cached[*corev1.Pod]
+	pods   kclient.Client[*corev1.Pod]
 	queue  controllers.Queue
 	events *atomic.Int32
 }
@@ -49,10 +49,10 @@ func NewController(cl kube.Client) *Controller {
 	// In general, you should *not* ever do a direct List or Get call to the api-server.
 	// Each kube.Client (which, there should be one per cluster) has a shared set of watches to the API server,
 	// so two controllers watching Pods will only open a single watch to the API server.
-	c.pods = client.NewCached[*corev1.Pod](cl)
+	c.pods = kclient.New[*corev1.Pod](cl)
 	// Some other examples:
-	// filteredPods := client.NewCachedFiltered[*corev1.Pod](c, kclient.Filter{ObjectFilter: options.GetFilter()})
-	// singlePod := client.NewCachedFiltered[*corev1.Pod](c, kclient.Filter{FieldSelector: "metadata.name=my-pod})
+	// filteredPods := client.NewFiltered[*corev1.Pod](c, kclient.Filter{ObjectFilter: options.GetFilter()})
+	// singlePod := client.NewFiltered[*corev1.Pod](c, kclient.Filter{FieldSelector: "metadata.name=my-pod})
 
 	// Establish a queue. This ensures that:
 	// * our event handlers are fast (simply enqueuing an item)

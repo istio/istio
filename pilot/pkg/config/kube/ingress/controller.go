@@ -37,8 +37,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
-	kclient "istio.io/istio/pkg/kube/client"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/pkg/env"
 )
 
@@ -84,9 +84,9 @@ type controller struct {
 	// processed ingresses
 	ingresses map[types.NamespacedName]*knetworking.Ingress
 
-	classes  kclient.Cached[*knetworking.IngressClass]
-	ingress  kclient.Cached[*knetworking.Ingress]
-	services kclient.Cached[*corev1.Service]
+	classes  kclient.Client[*knetworking.IngressClass]
+	ingress  kclient.Client[*knetworking.Ingress]
+	services kclient.Client[*corev1.Service]
 }
 
 // TODO: move to features ( and remove in 1.2 )
@@ -98,9 +98,9 @@ var errUnsupportedOp = errors.New("unsupported operation: the ingress config sto
 func NewController(client kube.Client, meshWatcher mesh.Holder,
 	options kubecontroller.Options,
 ) model.ConfigStoreController {
-	ingress := kclient.NewCachedFiltered[*knetworking.Ingress](client, kclient.Filter{ObjectFilter: options.GetFilter()})
-	classes := kclient.NewCached[*knetworking.IngressClass](client)
-	services := kclient.NewCachedFiltered[*corev1.Service](client, kclient.Filter{ObjectFilter: options.GetFilter()})
+	ingress := kclient.NewFiltered[*knetworking.Ingress](client, kclient.Filter{ObjectFilter: options.GetFilter()})
+	classes := kclient.New[*knetworking.IngressClass](client)
+	services := kclient.NewFiltered[*corev1.Service](client, kclient.Filter{ObjectFilter: options.GetFilter()})
 
 	c := &controller{
 		meshWatcher:  meshWatcher,
