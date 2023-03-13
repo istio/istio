@@ -387,7 +387,10 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 			if features.EnableDualStack {
 				// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
 				// using Cluster_ALL to enable Happy Eyeballsfor upstream connections
-				c.DnsLookupFamily = cluster.Cluster_ALL
+				ipFamily := networkutil.CheckIPFamilyTypeForFirstIPs(cb.proxyIPAddresses)
+				if ipFamily == networkutil.IPv6 {
+					c.DnsLookupFamily = cluster.Cluster_AUTO
+				}
 			} else {
 				// keep the original logic if Dual Stack is disable
 				c.DnsLookupFamily = cluster.Cluster_V4_ONLY

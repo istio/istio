@@ -32,6 +32,16 @@ const (
 	waitTimeout  = 2 * time.Minute
 )
 
+// ip family enum
+type IPFamilyType int
+
+const (
+	IPv4 = iota
+	IPv6
+	UNKNOWN
+)
+
+
 type lookupIPAddrType = func(ctx context.Context, addr string) ([]netip.Addr, error)
 
 // ErrResolveNoAddress error occurs when IP address resolution is attempted,
@@ -191,6 +201,19 @@ func AllIPv4(ipAddrs []string) bool {
 		}
 	}
 	return true
+}
+
+// CheckIPFamilyTypeForFirstIPs checks the ip family type for the first ip addresses
+func CheckIPFamilyTypeForFirstIPs(ipAddrs []string) IPFamilyType {
+	if len(ipAddrs) == 0 {
+		return UNKNOWN 
+	}
+
+	netIP, _ := netip.ParseAddr(ipAddrs[0])
+	if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
+		return IPv6
+	}
+	return IPv4
 }
 
 // GlobalUnicastIP returns the first global unicast address in the passed in addresses.

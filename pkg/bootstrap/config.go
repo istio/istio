@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/netip"
 	"os"
 	"path"
 	"strconv"
@@ -69,6 +68,11 @@ const (
 	// "component" suffix is for istio_build metric.
 	v2Prefixes = "reporter=,"
 	v2Suffix   = ",component,istio"
+)
+
+var (
+	StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
+	DualStackEnv = env.RegisterBoolVar("ISTIO_AGENT_DUAL_STACK", false, "Enable pilot-agent to work in dual-stack clusters").Get()
 )
 
 // Config for creating a bootstrap file.
@@ -141,11 +145,11 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
 	} else {
 		// Dual Stack
-		if features.EnableDualStack {
+		if DualStackEnv {
 			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
 			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
-			netIP, _ := netip.ParseAddr(cfg.Metadata.InstanceIPs[0])
-			if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
+			ipFamily := network.CheckIPFamilyTypeForFirstIPs(cfg.Metadata.InstanceIPs)
+			if ipFamily == network.IPv6 {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv6),
 					option.Wildcard(option.WildcardIPv6),
@@ -310,8 +314,6 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
 	return opts
 }
-
-var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
 func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 	// Setup defaults
