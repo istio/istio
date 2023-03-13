@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/istioctl/pkg/writer"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
@@ -1277,24 +1278,32 @@ func secretConfigCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			var configWriter *configdump.ConfigWriter
+			var newWriter writer.ConfigDumpWriter
 			var err error
 			if len(args) == 1 {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
+				if isZtunnelPod(podName) {
+					newWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
+				} else {
+					newWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
+				}
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				newWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				if err != nil {
+					log.Warnf("couldn't parse envoy secrets dump (%v), attempting ztunnel format", err)
+					newWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				}
 			}
 			if err != nil {
 				return err
 			}
 			switch outputFormat {
 			case summaryOutput:
-				return configWriter.PrintSecretSummary()
+				return newWriter.PrintSecretSummary()
 			case jsonOutput, yamlOutput:
-				return configWriter.PrintSecretDump(outputFormat)
+				return newWriter.PrintSecretDump(outputFormat)
 			default:
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}

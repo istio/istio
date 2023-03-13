@@ -18,6 +18,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"text/tabwriter"
+
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 )
@@ -49,14 +52,41 @@ func (c *ConfigWriter) PrintBootstrapDump(outputFormat string) error {
 
 // PrintSecretDump prints just the secret config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintSecretDump(outputFormat string) error {
-	// TODO
+	if c.ztunnelDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	secretDump := c.ztunnelDump.Certificates
+	out, err := json.MarshalIndent(secretDump, "", "    ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal workloads: %v", err)
+	}
+	if outputFormat == "yaml" {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return err
+		}
+	}
+	fmt.Fprintln(c.Stdout, string(out))
 	return nil
 }
 
 // PrintSecretSummary prints a summary of dynamic active secrets from the config dump
 func (c *ConfigWriter) PrintSecretSummary() error {
-	// TODO
-	return nil
+	if c.ztunnelDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	secretDump := c.ztunnelDump.Certificates
+	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 1, ' ', 0)
+	fmt.Fprintln(w, "RESOURCE NAME\tTYPE\tSTATUS\tVALID\tSERIAL NUMBER\tNOT AFTER\tNOT BEFORE")
+
+	for _, secret := range secretDump {
+		for _, ca := range secret.CaCert {
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n", secret.Identity, "CA", "ACTIVE", true, ca.SerialNumber, ca.ExpirationTime, ca.ValidFrom)
+		}
+		for _, ca := range secret.CertChain {
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n", secret.Identity, "Cert Chain", "ACTIVE", true, ca.SerialNumber, ca.ExpirationTime, ca.ValidFrom)
+		}
+	}
+	return w.Flush()
 }
 
 func (c *ConfigWriter) PrintFullSummary(wf WorkloadFilter) error {
