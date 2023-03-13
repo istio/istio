@@ -17,8 +17,8 @@ package clienttest
 import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/test"
 )
 

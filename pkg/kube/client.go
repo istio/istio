@@ -608,7 +608,7 @@ func (c *client) RegisterFilter(t reflect.Type, filter kubetypes.Filter) error {
 	if f {
 		if filter.FieldSelector != existing.FieldSelector ||
 			filter.LabelSelector != existing.LabelSelector ||
-			fmt.Sprintf("%v", filter.ObjectTransform) != fmt.Sprintf("%v", existing.ObjectTransform) {
+			fmt.Sprintf("%p", filter.ObjectTransform) != fmt.Sprintf("%p", existing.ObjectTransform) {
 			return fmt.Errorf("for type %v, registered conflicting filter %+v (existing: %+v)", t, filter, existing)
 		}
 	} else {
