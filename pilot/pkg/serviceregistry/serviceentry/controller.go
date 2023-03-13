@@ -408,6 +408,9 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 		// Delete endpoint shards only if there are no service instances.
 		if len(s.serviceInstances.getByKey(instanceKey)) == 0 {
 			s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
+		} else {
+			// If there are some endpoints remaining for the host, add svc to updatedSvcs to trigger eds cache update
+			updatedSvcs = append(updatedSvcs, svc)
 		}
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
