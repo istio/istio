@@ -8,4 +8,4 @@ issue:
 # release notes.
 releaseNotes:
 - |
-  **Added** Provision to provide overridden/explicit value for failoverPriority label. This provided value is used while assigning priority for endpoints instead of the client's value.
+  **Added** provision to provide overridden/explicit value for `failoverPriority` label. This provided value is used while assigning priority for endpoints instead of the client's value.
