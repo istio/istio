@@ -40,8 +40,6 @@ const (
 	IPv6
 	UNKNOWN
 )
-
-
 type lookupIPAddrType = func(ctx context.Context, addr string) ([]netip.Addr, error)
 
 // ErrResolveNoAddress error occurs when IP address resolution is attempted,
@@ -206,7 +204,7 @@ func AllIPv4(ipAddrs []string) bool {
 // CheckIPFamilyTypeForFirstIPs checks the ip family type for the first ip addresses
 func CheckIPFamilyTypeForFirstIPs(ipAddrs []string) IPFamilyType {
 	if len(ipAddrs) == 0 {
-		return UNKNOWN 
+		return UNKNOWN
 	}
 
 	netIP, _ := netip.ParseAddr(ipAddrs[0])

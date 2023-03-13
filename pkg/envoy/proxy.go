@@ -30,7 +30,7 @@ import (
 
 var (
 	istioBootstrapOverrideVar = env.Register("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
-	DualStackEnv = env.RegisterBoolVar("ISTIO_AGENT_DUAL_STACK", false, "Enable pilot-agent to work in dual-stack clusters").Get()
+	DualStackEnv              = env.RegisterBoolVar("ISTIO_AGENT_DUAL_STACK", false, "Enable pilot-agent to work in dual-stack clusters").Get()
 )
 
 type envoy struct {

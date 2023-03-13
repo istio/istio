@@ -72,7 +72,7 @@ const (
 
 var (
 	StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
-	DualStackEnv = env.RegisterBoolVar("ISTIO_AGENT_DUAL_STACK", false, "Enable pilot-agent to work in dual-stack clusters").Get()
+	DualStackEnv  = env.RegisterBoolVar("ISTIO_AGENT_DUAL_STACK", false, "Enable pilot-agent to work in dual-stack clusters").Get()
 )
 
 // Config for creating a bootstrap file.
