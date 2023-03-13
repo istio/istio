@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
+	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -53,6 +54,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
@@ -399,12 +401,103 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	if err != nil {
 		scope.Errorf("Error during reconcile: %s", err)
 	}
+	if err = processDefaultWebhookAfterReconcile(iopMerged, r.kubeClient); err != nil {
+		scope.Errorf("Error during reconcile: %s", err)
+		return reconcile.Result{}, err
+	}
+
 	if err := reconciler.SetStatusComplete(status); err != nil {
 		scope.Errorf("Error during reconcile, failed to update status to Complete. Error: %s", err)
 		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, err
+}
+
+func ProcessDefaultWebhook(client kube.CLIClient, iop *iopv1alpha1.IstioOperator, ns string) (processed bool, err error) {
+	// Detect whether previous installation exists prior to performing the installation.
+	exists := revtag.PreviousInstallExists(context.Background(), client.Kube())
+	rev := iop.Spec.Revision
+	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
+	operatorManageWebhooks := operatorManageWebhooks(iop)
+	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
+		if rev == "" {
+			rev = revtag.DefaultRevisionName
+		}
+		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
+
+		o := &revtag.GenerateOptions{
+			Tag:                  revtag.DefaultRevisionName,
+			Revision:             rev,
+			Overwrite:            true,
+			AutoInjectNamespaces: autoInjectNamespaces,
+		}
+		// If tag cannot be created could be remote cluster install, don't fail out.
+		tagManifests, err := revtag.Generate(context.Background(), client, o, ns)
+		if err == nil {
+			err = revtag.Create(client, tagManifests)
+			if err != nil {
+				return false, err
+			}
+		}
+		processed = true
+	}
+	return processed, nil
+}
+
+// operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
+func operatorManageWebhooks(iop *iopv1alpha1.IstioOperator) bool {
+	if iop.Spec.GetValues() == nil {
+		return false
+	}
+	globalValues := iop.Spec.Values.AsMap()["global"]
+	global, ok := globalValues.(map[string]any)
+	if !ok {
+		return false
+	}
+	omw, ok := global["operatorManageWebhooks"].(bool)
+	if !ok {
+		return false
+	}
+	return omw
+}
+
+func processDefaultWebhookAfterReconcile(iop *iopv1alpha1.IstioOperator, client kube.Client) error {
+	var ns string
+	if configuredNamespace := iopv1alpha1.Namespace(iop.Spec); configuredNamespace != "" {
+		ns = configuredNamespace
+	} else {
+		ns = constants.IstioSystemNamespace
+	}
+	rc := client.RESTConfig()
+	// operator controller requires high privileges, so can use the CLIClient to apply yamls.
+	kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), "")
+	if err != nil {
+		return fmt.Errorf("failed to create client: %v", err)
+	}
+	if _, err = ProcessDefaultWebhook(kubeClient, iop, ns); err != nil {
+		return fmt.Errorf("failed to process default webhook: %v", err)
+	}
+	return nil
+}
+
+// validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
+// Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
+func validateEnableNamespacesByDefault(iop *iopv1alpha1.IstioOperator) bool {
+	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
+		return false
+	}
+	sidecarValues := iop.Spec.Values.AsMap()["sidecarInjectorWebhook"]
+	sidecarMap, ok := sidecarValues.(map[string]any)
+	if !ok {
+		return false
+	}
+	autoInjectNamespaces, ok := sidecarMap["enableNamespacesByDefault"].(bool)
+	if !ok {
+		return false
+	}
+
+	return autoInjectNamespaces
 }
 
 // mergeIOPSWithProfile overlays the values in iop on top of the defaults for the profile given by iop.profile and
