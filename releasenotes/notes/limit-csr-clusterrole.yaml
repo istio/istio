@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** a configuration parameter to limit the clusterrole for k8s CSR permissions for custom CA usecases alone.

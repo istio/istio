@@ -71,6 +71,7 @@ rules:
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]
 
+{{- if .Values.base.enableCertificateSigningRequestControllers }}
   # Istiod and bootstrap.
   - apiGroups: ["certificates.k8s.io"]
     resources:
@@ -87,6 +88,7 @@ rules:
     - {{ . | quote }}
 {{- end }}
     verbs: ["approve"]
+{{- end}}
 
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]

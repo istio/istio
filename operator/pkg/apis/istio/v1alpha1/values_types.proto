@@ -1145,6 +1145,9 @@ message BaseConfig {
   google.protobuf.BoolValue enableIstioConfigCRDs = 3;
 
   google.protobuf.BoolValue validateGateway = 4;
+
+  // If disabled, permissions required to support custom k8s CAs will not be enabled.
+  google.protobuf.BoolValue enableCertificateSigningRequestControllers = 5;
 }
 
 message IstiodRemoteConfig {

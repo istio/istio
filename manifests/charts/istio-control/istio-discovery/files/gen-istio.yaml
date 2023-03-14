@@ -1906,7 +1906,6 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]
-
   # Istiod and bootstrap.
   - apiGroups: ["certificates.k8s.io"]
     resources:
