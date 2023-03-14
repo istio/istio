@@ -753,6 +753,10 @@ var (
 
 	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
 		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
+
+	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
+		"If set, limit Kubernetes watches to a single namespace. "+
+			"Warning: only a single namespace can be set.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
