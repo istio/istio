@@ -381,20 +381,13 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
-	healthStatus := core.HealthStatus_HEALTHY
-	// This is enabled by features.SendUnhealthyEndpoints - otherwise they are not tracked.
-	if e.HealthStatus == model.UnHealthy {
-		healthStatus = core.HealthStatus_UNHEALTHY
-	}
-	if e.HealthStatus == model.Draining {
-		healthStatus = core.HealthStatus_DRAINING
-	}
+	healthStatus := e.HealthStatus
 	if features.DrainingLabel != "" && e.Labels[features.DrainingLabel] != "" {
-		healthStatus = core.HealthStatus_DRAINING
+		healthStatus = model.Draining
 	}
 
 	ep := &endpoint.LbEndpoint{
-		HealthStatus: healthStatus,
+		HealthStatus: core.HealthStatus(healthStatus),
 		LoadBalancingWeight: &wrappers.UInt32Value{
 			Value: e.GetLoadBalancingWeight(),
 		},
