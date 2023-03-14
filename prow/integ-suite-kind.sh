@@ -133,6 +133,10 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   export HUB
 fi
 
+if [[ "${SKIP_CLEANUP}" = true ]]; then
+  export CLEANUP=false
+fi
+
 # Setup junit report and verbose logging
 export T="${T:-"-v -count=1"}"
 export CI="true"
