@@ -822,6 +822,9 @@ func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, 
 		return nil, formatError(err)
 	}
 	defer closeQuietly(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
 	out, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, formatError(err)
