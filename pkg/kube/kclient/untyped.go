@@ -40,9 +40,8 @@ func newReadClient[T controllers.Object](c kube.Client, inf cache.SharedIndexInf
 	if err := c.RegisterFilter(t, filter); err != nil {
 		if features.EnableUnsafeAssertions {
 			log.Fatal(err)
-		} else {
-			log.Warn(err)
 		}
+		log.Warn(err)
 	}
 	if filter.ObjectTransform != nil {
 		_ = inf.SetTransform(filter.ObjectTransform)
