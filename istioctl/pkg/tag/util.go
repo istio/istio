@@ -172,3 +172,47 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 
 	return nil
 }
+
+// DeleteConflictedDefaultTag deletes conflicted tagged MutatingWebhookConfiguration, if it exists and if the default revision MutatingWebhookConfiguration was not deactivated by istioctl.
+func DeleteConflictedDefaultTag(ctx context.Context, client kubernetes.Interface) error {
+	webhooks, err := GetWebhooksWithTag(ctx, client, DefaultRevisionName)
+	if err != nil {
+		return err
+	}
+
+	if !isDefaultRevisionDeactivated(ctx, client) && len(webhooks) > 0 {
+		for _, wh := range webhooks {
+			err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func isDefaultRevisionDeactivated(ctx context.Context, client kubernetes.Interface) bool {
+	mwcs, err := GetWebhooksWithRevision(ctx, client, DefaultRevisionName)
+	if err != nil {
+		return true
+	}
+
+	if len(mwcs) == 0 {
+		return true
+	}
+
+	for _, mwc := range mwcs {
+		for _, wh := range mwc.Webhooks {
+			if fmt.Sprint(wh.NamespaceSelector.MatchLabels) == fmt.Sprint(neverMatch) && fmt.Sprint(wh.ObjectSelector.MatchLabels) == fmt.Sprint(neverMatch) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
