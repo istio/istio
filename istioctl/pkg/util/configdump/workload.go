@@ -36,7 +36,7 @@ type ZtunnelDump struct {
 }
 
 type CertsDump struct {
-	Identity  string `json:"identity"`
+	Identity  string  `json:"identity"`
 	CaCert    []*Cert `json:"ca_cert"`
 	CertChain []*Cert `json:"cert_chain"`
 }
