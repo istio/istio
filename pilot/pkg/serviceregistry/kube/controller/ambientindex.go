@@ -814,7 +814,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[
 	return updates
 }
 
-// PodInformation returns all WorkloadInfo's in the cluster.
+// WorkloadInfos returns all WorkloadInfo's in the cluster.
 // This may be scoped to specific subsets by specifying a non-empty addresses field
 func (c *Controller) WorkloadInfos(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
 	if len(addresses) == 0 {
