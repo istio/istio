@@ -25,6 +25,21 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type ambient_redirectAppInfo struct {
+	Ifindex uint32
+	MacAddr [6]uint8
+	Pads    [2]uint8
+}
+
+type ambient_redirectHostInfo struct{ Addr [4]uint32 }
+
+type ambient_redirectZtunnelInfo struct {
+	Ifindex uint32
+	MacAddr [6]uint8
+	Flag    uint8
+	Pad     uint8
+}
+
 // loadAmbient_redirect returns the embedded CollectionSpec for ambient_redirect.
 func loadAmbient_redirect() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_Ambient_redirectBytes)
