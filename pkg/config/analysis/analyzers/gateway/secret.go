@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/security/pkg/pki/ca"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -31,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 // SecretAnalyzer checks a gateway's referenced secrets for correctness
