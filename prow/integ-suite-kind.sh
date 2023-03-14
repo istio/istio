@@ -133,7 +133,7 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   export HUB
 fi
 
-if [[ "${SKIP_CLEANUP}" = true ]]; then
+if [[ "${SKIP_CLEANUP:-}" = true ]]; then
   export CLEANUP=false
 fi
 
