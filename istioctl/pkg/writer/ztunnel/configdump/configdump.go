@@ -18,11 +18,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"text/tabwriter"
+	"time"
 
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
+	"istio.io/pkg/log"
 )
 
 // ConfigWriter is a writer for processing responses from the Ztunnel Admin config_dump endpoint
@@ -75,18 +78,40 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 		return fmt.Errorf("config writer has not been primed")
 	}
 	secretDump := c.ztunnelDump.Certificates
-	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 1, ' ', 0)
-	fmt.Fprintln(w, "RESOURCE NAME\tTYPE\tSTATUS\tVALID\tSERIAL NUMBER\tNOT AFTER\tNOT BEFORE")
+	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
+	fmt.Fprintln(w, "RESOURCE NAME\tTYPE\tSTATUS\tVALID CERT\tSERIAL NUMBER\tNOT AFTER\tNOT BEFORE")
 
 	for _, secret := range secretDump {
 		for _, ca := range secret.CaCert {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n", secret.Identity, "CA", "ACTIVE", true, ca.SerialNumber, ca.ExpirationTime, ca.ValidFrom)
+			n := new(big.Int)
+			n, _ = n.SetString(ca.SerialNumber, 10)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n", secret.Identity, "CA", "ACTIVE", certNotExpired(ca), n, ca.ExpirationTime, ca.ValidFrom)
 		}
 		for _, ca := range secret.CertChain {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n", secret.Identity, "Cert Chain", "ACTIVE", true, ca.SerialNumber, ca.ExpirationTime, ca.ValidFrom)
+			n := new(big.Int)
+			n, _ = n.SetString(ca.SerialNumber, 10)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n", secret.Identity, "Cert Chain", "ACTIVE", certNotExpired(ca), n, ca.ExpirationTime, ca.ValidFrom)
 		}
 	}
 	return w.Flush()
+}
+
+func certNotExpired(cert *configdump.Cert) bool {
+	today := time.Now()
+	expDate, err := time.Parse(time.RFC3339, cert.ExpirationTime)
+	if err != nil {
+		log.Errorf("certificate timestamp (%v) could not be parsed: %v", cert.ExpirationTime, err)
+		return false
+	}
+	fromDate, err := time.Parse(time.RFC3339, cert.ValidFrom)
+	if err != nil {
+		log.Errorf("certificate timestamp (%v) could not be parsed: %v", cert.ValidFrom, err)
+		return false
+	}
+	if today.After(fromDate) && today.Before(expDate) {
+		return true
+	}
+	return false
 }
 
 func (c *ConfigWriter) PrintFullSummary(wf WorkloadFilter) error {
