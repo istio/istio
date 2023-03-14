@@ -171,6 +171,17 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gatewaySecretValidations",
+		inputFiles: []string{"testdata/gateway-secrets-validation.yaml"},
+		analyzer:   &gateway.SecretAnalyzer{},
+		expected: []message{
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-invalid-keys"},
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-missing-keys"},
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-invalid-cert"},
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-expired"},
+		},
+	},
+	{
 		name:       "conflicting gateways detect",
 		inputFiles: []string{"testdata/conflicting-gateways.yaml"},
 		analyzer:   &gateway.ConflictingGatewayAnalyzer{},

@@ -15,8 +15,13 @@
 package gateway
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"time"
 
+	"istio.io/istio/security/pkg/pki/ca"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
@@ -79,7 +84,8 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 				continue
 			}
 
-			if !ctx.Exists(gvk.Secret, resource.NewShortOrFullName(gwNs, cn)) {
+			secret := ctx.Find(gvk.Secret, resource.NewShortOrFullName(gwNs, cn))
+			if secret == nil {
 				m := msg.NewReferencedResourceNotFound(r, "credentialName", cn)
 
 				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.CredentialName, i)); ok {
@@ -87,10 +93,53 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 				}
 
 				ctx.Report(gvk.Gateway, m)
+				continue
+			}
+			if !isValidSecret(secret) {
+				m := msg.NewInvalidGatewayCredential(r, r.Metadata.FullName.Name.String(), gwNs.String())
+
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.CredentialName, i)); ok {
+					m.Line = line
+				}
+
+				ctx.Report(gvk.Secret, m)
 			}
 		}
 		return true
 	})
+}
+
+func isValidSecret(secret *resource.Instance) bool {
+	s, ok := secret.Message.(*corev1.Secret)
+	if !ok {
+		return false
+	}
+	certData, ok := s.Data[ca.TLSSecretCACertFile]
+	if !ok {
+		return false
+	}
+	_, hasKey := s.Data[ca.TLSSecretCAPrivateKeyFile]
+	if !hasKey {
+		return false
+	}
+	permBlock, _ := pem.Decode(certData)
+	if permBlock == nil {
+		return false
+	}
+	cert, err := x509.ParseCertificate(permBlock.Bytes)
+	if err != nil {
+		// failed to parse certificate
+		return false
+	}
+	// check if the certificate has expired
+	now := time.Now()
+	if cert.NotAfter.IsZero() || now.After(cert.NotAfter) {
+		return false
+	}
+	if cert.NotBefore.IsZero() || now.Before(cert.NotBefore) {
+		return false
+	}
+	return true
 }
 
 // Gets the namespace for the gateway (in terms of the actual workload selected by the gateway, NOT the namespace of the Gateway CRD)
