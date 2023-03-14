@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -121,16 +122,16 @@ type DependenciesStub struct {
 	ExecutedAll      []string
 }
 
-func (s *DependenciesStub) RunOrFail(cmd string, args ...string) {
+func (s *DependenciesStub) RunOrFail(cmd string, stdin io.ReadSeeker, args ...string) {
 	s.execute(false /*quietly*/, cmd, args...)
 }
 
-func (s *DependenciesStub) Run(cmd string, args ...string) error {
+func (s *DependenciesStub) Run(cmd string, stdin io.ReadSeeker, args ...string) error {
 	s.execute(false /*quietly*/, cmd, args...)
 	return nil
 }
 
-func (s *DependenciesStub) RunQuietlyAndIgnore(cmd string, args ...string) {
+func (s *DependenciesStub) RunQuietlyAndIgnore(cmd string, stdin io.ReadSeeker, args ...string) {
 	s.execute(true /*quietly*/, cmd, args...)
 }
 

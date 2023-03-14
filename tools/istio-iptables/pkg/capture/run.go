@@ -20,7 +20,6 @@ import (
 	"net/netip"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/vishvananda/netlink"
 
@@ -283,9 +282,9 @@ func configureIPv6Addresses(cfg *config.Config) error {
 func (cfg *IptablesConfigurator) Run() {
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		_ = cfg.ext.Run(constants.IPTABLESSAVE)
+		_ = cfg.ext.Run(constants.IPTABLESSAVE, nil)
 		if cfg.cfg.EnableInboundIPv6 {
-			_ = cfg.ext.Run(constants.IP6TABLESSAVE)
+			_ = cfg.ext.Run(constants.IP6TABLESSAVE, nil)
 		}
 	}()
 
@@ -555,7 +554,7 @@ func (f UDPRuleApplier) RunV4(args ...string) {
 	case DeleteOps:
 		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
 		deleteArgs = append(deleteArgs, args...)
-		f.ext.RunQuietlyAndIgnore(f.cmd, deleteArgs...)
+		f.ext.RunQuietlyAndIgnore(f.cmd, nil, deleteArgs...)
 	}
 }
 
@@ -566,7 +565,7 @@ func (f UDPRuleApplier) RunV6(args ...string) {
 	case DeleteOps:
 		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
 		deleteArgs = append(deleteArgs, args...)
-		f.ext.RunQuietlyAndIgnore(f.cmd, deleteArgs...)
+		f.ext.RunQuietlyAndIgnore(f.cmd, nil, deleteArgs...)
 	}
 }
 
@@ -723,7 +722,7 @@ func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter config.Interce
 
 func (cfg *IptablesConfigurator) createRulesFile(f *os.File, contents string) error {
 	defer f.Close()
-	log.Infof("Writing following contents to rules file: %v\n%v", f.Name(), strings.TrimSpace(contents))
+	log.Infof("Writing to rules file: %v", f.Name())
 	writer := bufio.NewWriter(f)
 	_, err := writer.WriteString(contents)
 	if err != nil {
@@ -736,45 +735,38 @@ func (cfg *IptablesConfigurator) createRulesFile(f *os.File, contents string) er
 func (cfg *IptablesConfigurator) executeIptablesCommands(commands [][]string) {
 	for _, cmd := range commands {
 		if len(cmd) > 1 {
-			cfg.ext.RunOrFail(cmd[0], cmd[1:]...)
+			cfg.ext.RunOrFail(cmd[0], nil, cmd[1:]...)
 		} else {
-			cfg.ext.RunOrFail(cmd[0])
+			cfg.ext.RunOrFail(cmd[0], nil)
 		}
 	}
 }
 
 func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(isIpv4 bool) error {
-	var data, filename, cmd string
+	var data, cmd string
 	if isIpv4 {
 		data = cfg.iptables.BuildV4Restore()
-		filename = fmt.Sprintf("iptables-rules-%d.txt", time.Now().UnixNano())
 		cmd = constants.IPTABLESRESTORE
 	} else {
 		data = cfg.iptables.BuildV6Restore()
-		filename = fmt.Sprintf("ip6tables-rules-%d.txt", time.Now().UnixNano())
 		cmd = constants.IP6TABLESRESTORE
 	}
-	var rulesFile *os.File
-	var err error
+
 	if cfg.cfg.OutputPath != "" {
 		// Print the iptables rules into the given output file.
-		rulesFile, err = os.OpenFile(cfg.cfg.OutputPath, os.O_CREATE|os.O_WRONLY, 0o644)
+		rulesFile, err := os.OpenFile(cfg.cfg.OutputPath, os.O_CREATE|os.O_WRONLY, 0o644)
 		if err != nil {
 			return fmt.Errorf("unable to open iptables rules output file %v: %v", cfg.cfg.OutputPath, err)
 		}
-	} else {
-		// Otherwise create a temporary file to write iptables rules to, which will be cleaned up at the end.
-		rulesFile, err = os.CreateTemp("", filename)
-		if err != nil {
-			return fmt.Errorf("unable to create iptables-restore file: %v", err)
+		if err := cfg.createRulesFile(rulesFile, data); err != nil {
+			return err
 		}
-		defer os.Remove(rulesFile.Name())
 	}
-	if err := cfg.createRulesFile(rulesFile, data); err != nil {
-		return err
-	}
+
+	log.Infof("Running %s with the following input:\n%v", cmd, strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	cfg.ext.RunOrFail(cmd, "--noflush", rulesFile.Name())
+	cfg.ext.RunOrFail(cmd, strings.NewReader(data), "--noflush")
+
 	return nil
 }
 
