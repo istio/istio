@@ -798,6 +798,7 @@ type ServiceDiscovery interface {
 }
 
 type AmbientIndexes interface {
+	// WorkloadInfos return workloads by ip and networkID.
 	WorkloadInfos(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
 	AdditionalPodSubscriptions(
 		proxy *Proxy,

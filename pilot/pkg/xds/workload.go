@@ -66,6 +66,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 	}
 	// Specific requested resource: always include
 	for ip := range req.Delta.Subscribed {
+		// TODO: add network
 		addresses.Insert(types.NamespacedName{Name: ip})
 	}
 	if !w.Wildcard {

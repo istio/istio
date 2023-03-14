@@ -118,7 +118,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, i
 			wl.WaypointAddresses = addrs
 			if filtered {
 				// If there was a change, also update the VIPs and record for a push
-				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName(), Namespace: wl.ClusterId})
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName(), Namespace: wl.Network})
 			}
 			updates.Merge(c.updateEndpointsOnWaypointChange(wl))
 		}
@@ -141,7 +141,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, i
 			if !found {
 				wl.WaypointAddresses = append(wl.WaypointAddresses, addr)
 				// If there was a change, also update the VIPs and record for a push
-				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName(), Namespace: wl.ClusterId})
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName(), Namespace: wl.Network})
 			}
 			updates.Merge(c.updateEndpointsOnWaypointChange(wl))
 		}
@@ -316,7 +316,7 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 		c.ambientIndex.mu.Lock()
 		c.ambientIndex.byPod[ip] = newWl
 		c.ambientIndex.mu.Unlock()
-		updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName(), Namespace: newWl.ClusterId}] = struct{}{}
+		updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName(), Namespace: newWl.Network}] = struct{}{}
 	}
 
 	if len(updates) > 0 {
@@ -731,7 +731,7 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 				a.dropWorkloadFromService(vip, p.Status.PodIP)
 			}
 			log.Debugf("%v: workload removed, pushing", p.Status.PodIP)
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: p.Status.PodIP, Namespace: oldWl.ClusterId})
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: p.Status.PodIP, Namespace: oldWl.Network})
 			return updates
 		}
 		// It was a 'delete' for a resource we didn't know yet, no need to send an event
@@ -755,7 +755,7 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	}
 
 	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
-	updates.Insert(model.ConfigKey{Kind: kind.Address, Name: p.Status.PodIP, Namespace: wl.ClusterId})
+	updates.Insert(model.ConfigKey{Kind: kind.Address, Name: p.Status.PodIP, Namespace: wl.Network})
 	return updates
 }
 
@@ -792,7 +792,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[
 	updates := map[model.ConfigKey]struct{}{}
 	for _, vip := range vips {
 		for _, wl := range a.byService[vip] {
-			updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName(), Namespace: wl.ClusterId}] = struct{}{}
+			updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName(), Namespace: wl.Network}] = struct{}{}
 		}
 	}
 	// Update indexes
@@ -808,7 +808,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[
 	// Fetch updates again, in case it changed from adding new workloads
 	for _, vip := range vips {
 		for _, wl := range a.byService[vip] {
-			updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName(), Namespace: wl.ClusterId}] = struct{}{}
+			updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName(), Namespace: wl.Network}] = struct{}{}
 		}
 	}
 	return updates
@@ -824,10 +824,8 @@ func (c *Controller) WorkloadInfos(addresses sets.Set[types.NamespacedName]) ([]
 	var wls []*model.WorkloadInfo
 	var removed []string
 	for p := range addresses {
-		if p.Namespace != "" && p.Namespace != c.Cluster().String() {
-			continue
-		}
 		wl := c.ambientIndex.Lookup(p.Name)
+		// TODO: filter out workloads that are in different networks.
 		if len(wl) == 0 {
 			removed = append(removed, p.Name)
 		} else {
@@ -876,7 +874,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 		Name:                  pod.Name,
 		Namespace:             pod.Namespace,
 		Address:               parseIP(pod.Status.PodIP),
-		Network:               c.network.String(),
+		Network:               string(c.Network(pod.Status.PodIP, pod.Labels)),
 		ServiceAccount:        pod.Spec.ServiceAccountName,
 		Node:                  pod.Spec.NodeName,
 		VirtualIps:            vips,

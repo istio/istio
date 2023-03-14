@@ -421,7 +421,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	}
 
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	if b.push.SupportsTunnel(e.Address, e.Locality.ClusterID.String()) {
+	if b.push.SupportsTunnel(e.Address, string(e.Network)) {
 		supportsTunnel = true
 	}
 	// Otherwise supports tunnel
