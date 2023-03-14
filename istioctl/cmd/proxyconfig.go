@@ -25,12 +25,14 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/pkg/log"
@@ -297,8 +299,17 @@ func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat stri
 	} else if outputFormat == prometheusOutput {
 		path += "/prometheus"
 	} else if outputFormat == prometheusMergedOutput {
-		path += "/prometheus"
-		port = 15020
+		pod, err := kubeClient.Kube().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve Pod %s/%s: %v", podNamespace, podName, err)
+		}
+
+		promPath, promPort, err := util.PrometheusPathAndPort(pod)
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve prometheus path and port from Pod %s/%s: %v", podNamespace, podName, err)
+		}
+		path = promPath
+		port = promPort
 	}
 
 	result, err := kubeClient.EnvoyDoWithPort(context.Background(), podName, podNamespace, "GET", path, port)
