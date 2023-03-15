@@ -13,9 +13,6 @@ base:
   # Users should consider enabling this if they want full gateway-api validation but don't have other validation servers.
   validateGateway: false
 
-  # If disabled, permissions required to support custom k8s CAs will not be enabled.
-  enableCertificateSigningRequestControllers: true
-
 istiodRemote:
   # Sidecar injector mutating webhook configuration url
   # For example: https://$remotePilotAddress:15017/inject

@@ -71,8 +71,8 @@ rules:
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]
 
-{{- if .Values.base.enableCertificateSigningRequestControllers }}
   # Istiod and bootstrap.
+{{- if .Values.pilot.env.EXTERNAL_CA }}
   - apiGroups: ["certificates.k8s.io"]
     resources:
       - "certificatesigningrequests"
