@@ -173,7 +173,8 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 	return nil
 }
 
-// DeleteConflictedDefaultTag deletes conflicted tagged MutatingWebhookConfiguration, if it exists and if the default revision MutatingWebhookConfiguration was not deactivated by istioctl.
+// DeleteConflictedDefaultTag deletes conflicted tagged MutatingWebhookConfiguration, if it exists
+// and if the default revision MutatingWebhookConfiguration was not deactivated by istioctl.
 func DeleteConflictedDefaultTag(ctx context.Context, client kubernetes.Interface) error {
 	webhooks, err := GetWebhooksWithTag(ctx, client, DefaultRevisionName)
 	if err != nil {
