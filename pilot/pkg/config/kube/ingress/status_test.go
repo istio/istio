@@ -157,7 +157,6 @@ func testRunningAddressesWithHostname(t *testing.T) {
 }
 
 func TestRunningAddressesWithPod(t *testing.T) {
-	ingressNamespace = "istio-system" // it is set in real pilot on newController.
 	syncer := makeStatusSyncer(t)
 	syncer.meshHolder = fakeMeshHolder("")
 

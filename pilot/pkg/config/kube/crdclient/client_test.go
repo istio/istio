@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	"golang.org/x/exp/slices"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -407,4 +408,32 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 	}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestClientSync(t *testing.T) {
+	obj := &clientnetworkingv1alpha3.ServiceEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-service-entry",
+			Namespace: "test",
+		},
+		Spec: v1alpha3.ServiceEntry{},
+	}
+	fake := kube.NewFakeClient()
+	fake.Istio().NetworkingV1alpha3().ServiceEntries("test").Create(context.Background(), obj, metav1.CreateOptions{})
+	for _, s := range collections.Pilot.All() {
+		createCRD(t, fake, s)
+	}
+	stop := test.NewStop(t)
+	c, err := New(fake, Option{})
+	assert.NoError(t, err)
+
+	events := atomic.NewInt64(0)
+	c.RegisterEventHandler(gvk.ServiceEntry, func(c config.Config, c2 config.Config, event model.Event) {
+		events.Inc()
+	})
+	go c.Run(stop)
+	fake.RunAndWait(stop)
+	kube.WaitForCacheSync(stop, c.HasSynced)
+	// This MUST have been called by the time HasSynced returns true
+	assert.Equal(t, events.Load(), 1)
 }
