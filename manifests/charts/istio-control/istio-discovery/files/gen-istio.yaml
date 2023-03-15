@@ -2251,6 +2251,10 @@ spec:
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.memory
           resources:
             requests:
               cpu: 500m
