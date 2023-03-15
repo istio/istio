@@ -85,7 +85,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 				// consider multiple IP scenarios
 				for _, ip := range proxy.IPAddresses {
 					if hasProxyIP(ss.Addresses, ip) || hasProxyIP(ss.NotReadyAddresses, ip) {
-						istioEndpoint := builder.buildIstioEndpoint(ip, port.Port, svcPort.Name, discoverabilityPolicy)
+						istioEndpoint := builder.buildIstioEndpoint(ip, port.Port, svcPort.Name, discoverabilityPolicy, model.Healthy)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,
 							ServicePort: svcPort,
@@ -190,7 +190,7 @@ func (e *endpointsController) buildServiceInstances(ep *v1.Endpoints, ss v1.Endp
 		for _, port := range ss.Ports {
 			if port.Name == "" || // 'name optional if single port is defined'
 				svcPort.Name == port.Name {
-				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, svcPort.Name, discoverabilityPolicy)
+				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, svcPort.Name, discoverabilityPolicy, model.Healthy)
 				istioEndpoint.HealthStatus = health
 				out = append(out, &model.ServiceInstance{
 					Endpoint:    istioEndpoint,
@@ -215,8 +215,7 @@ func (e *endpointsController) buildIstioEndpointFromAddress(ep *v1.Endpoints, ss
 		builder := NewEndpointBuilder(e.c, pod)
 		// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 		for _, port := range ss.Ports {
-			istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name, discoverabilityPolicy)
-			istioEndpoint.HealthStatus = health
+			istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name, discoverabilityPolicy, health)
 			istioEndpoints = append(istioEndpoints, istioEndpoint)
 		}
 	}

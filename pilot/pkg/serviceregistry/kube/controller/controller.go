@@ -1330,7 +1330,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 					out = append(out, &model.ServiceInstance{
 						Service:     modelService,
 						ServicePort: svcPort,
-						Endpoint:    epBuilder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy),
+						Endpoint:    epBuilder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy, model.Healthy),
 					})
 				}
 			}
@@ -1380,7 +1380,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 			svcPort := tps[tp]
 			// consider multiple IP scenarios
 			for _, ip := range proxy.IPAddresses {
-				istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy)
+				istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy, model.Healthy)
 				out = append(out, &model.ServiceInstance{
 					Service:     svc,
 					ServicePort: svcPort,

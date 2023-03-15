@@ -469,7 +469,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						Label:     "r/z",
 						ClusterID: clusterID,
 					},
-					TLSMode: "mutual",
+					HealthStatus: model.Healthy,
+					TLSMode:      "mutual",
 				},
 			}
 
@@ -552,6 +553,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod2",
 					Namespace:      "nsa",
+					HealthStatus:   model.Healthy,
 					NodeName:       p.Spec.NodeName,
 				},
 			}
@@ -628,6 +630,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod3",
 					Namespace:      "nsa",
+					HealthStatus:   model.Healthy,
 					NodeName:       p.Spec.NodeName,
 				},
 			}

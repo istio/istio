@@ -133,7 +133,7 @@ func (esc *endpointSliceController) sliceServiceInstances(c *Controller, ep *v1.
 				for _, ep := range ep.Endpoints {
 					for _, a := range ep.Addresses {
 						if a == ip {
-							istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name, discoverabilityPolicy)
+							istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name, discoverabilityPolicy, model.Healthy)
 							out = append(out, &model.ServiceInstance{
 								Endpoint:    istioEndpoint,
 								ServicePort: svcPort,
@@ -178,6 +178,22 @@ func (esc *endpointSliceController) buildIstioEndpoints(es any, hostName host.Na
 	return esc.endpointCache.Get(hostName)
 }
 
+func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus {
+	if e.Conditions.Ready == nil || *e.Conditions.Ready {
+		return model.Healthy
+	}
+
+	if features.PersistentSessionLabel != "" &&
+		svc != nil &&
+		svc.Attributes.Labels[features.PersistentSessionLabel] != "" &&
+		(e.Conditions.Serving == nil || *e.Conditions.Serving) &&
+		(e.Conditions.Terminating == nil || *e.Conditions.Terminating) {
+		return model.Draining
+	}
+
+	return model.UnHealthy
+}
+
 func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, ep any) {
 	var endpoints []*model.IstioEndpoint
 	slice := ep.(*v1.EndpointSlice)
@@ -191,22 +207,14 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	for _, e := range slice.Endpoints {
 		// Draining tracking is only enabled if persistent sessions is enabled.
 		// If we start using them for other features, this can be adjusted.
-		draining := features.PersistentSessionLabel != "" &&
-			svc != nil &&
-			svc.Attributes.Labels != nil &&
-			svc.Attributes.Labels[features.PersistentSessionLabel] != "" &&
-			e.Conditions.Ready != nil &&
-			e.Conditions.Serving != nil &&
-			*e.Conditions.Serving &&
-			!*e.Conditions.Ready
+		healthStatus := endpointHealthStatus(svc, e)
 		if !features.SendUnhealthyEndpoints.Load() {
-			if !draining && e.Conditions.Ready != nil && !*e.Conditions.Ready {
+			if healthStatus == model.UnHealthy {
 				// Ignore not ready endpoints. Draining endpoints are tracked, but not returned
 				// except for persistent-session clusters.
 				continue
 			}
 		}
-		ready := e.Conditions.Ready == nil || *e.Conditions.Ready
 		for _, a := range e.Addresses {
 			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
 			if pod == nil && expectedPod {
@@ -224,14 +232,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 					portName = *port.Name
 				}
 
-				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy)
-				if ready {
-					istioEndpoint.HealthStatus = model.Healthy
-				} else if draining {
-					istioEndpoint.HealthStatus = model.Draining
-				} else {
-					istioEndpoint.HealthStatus = model.UnHealthy
-				}
+				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus)
 				endpoints = append(endpoints, istioEndpoint)
 			}
 		}
@@ -307,7 +308,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 
 					if port.Name == nil ||
 						svcPort.Name == *port.Name {
-						istioEndpoint := builder.buildIstioEndpoint(a, portNum, svcPort.Name, discoverabilityPolicy)
+						istioEndpoint := builder.buildIstioEndpoint(a, portNum, svcPort.Name, discoverabilityPolicy, model.Healthy)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,
 							ServicePort: svcPort,
