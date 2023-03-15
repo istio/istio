@@ -444,11 +444,11 @@ func istiodLogCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not build port forwarder for ControlZ %s: %v", podName, err)
 			}
-			defer portForwarder.Close()
 			err = portForwarder.Start()
 			if err != nil {
 				return fmt.Errorf("could not start port forwarder for ControlZ %s: %v", podName, err)
 			}
+			defer portForwarder.Close()
 
 			ctrlzClient := &ControlzClient{
 				baseURL: &url.URL{
