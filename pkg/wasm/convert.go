@@ -151,6 +151,10 @@ func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *wasm.Wasm, 
 	}
 
 	if wasmHTTPFilterConfig.Config.GetVmConfig().GetCode().GetRemote() == nil {
+		if wasmHTTPFilterConfig.Config.GetVmConfig().GetCode().GetLocal() == nil {
+			return nil, nil, fmt.Errorf("no remote and local load found in Wasm HTTP filter %+v", wasmHTTPFilterConfig)
+		}
+		// This has a local Wasm. Let's bypass it.
 		wasmLog.Debugf("no remote load found in Wasm HTTP filter %+v", wasmHTTPFilterConfig)
 		return nil, nil, nil
 	}
@@ -187,7 +191,7 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 		}
 		resourceVersion = envs.KeyValues[model.WasmResourceVersionEnv]
 
-		// Strip all internal env variables(with ISTIO_META prefix) from VM env variable.
+		// Strip all internal env variables(with ISTIO_META) from VM env variable.
 		// These env variables are added by Istio control plane and meant to be consumed by the
 		// agent for image pulling control should not be leaked to Envoy or the Wasm extension runtime.
 		delete(envs.KeyValues, model.WasmSecretEnv)
