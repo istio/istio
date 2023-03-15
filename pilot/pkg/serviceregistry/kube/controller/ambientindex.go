@@ -698,7 +698,8 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	old := controllers.Extract[*v1.Pod](oldObj)
 	if old != nil {
 		// compare only labels and pod phase, which are what we care about
-		if reflect.DeepEqual(old.Labels, p.Labels) && old.Status.Phase == p.Status.Phase {
+		if reflect.DeepEqual(old.Labels, p.Labels) && old.Status.Phase == p.Status.Phase &&
+			IsPodReady(old) == IsPodReady(p) {
 			return nil
 		}
 	}
