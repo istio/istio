@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"fmt"
+	"time"
 
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,6 +36,7 @@ type Queue struct {
 	name        string
 	maxAttempts int
 	workFn      func(key any) error
+	closed      chan struct{}
 	log         *istiolog.Scope
 }
 
@@ -81,6 +83,7 @@ func WithGenericReconciler(f func(key any) error) func(q *Queue) {
 func NewQueue(name string, options ...func(*Queue)) Queue {
 	q := Queue{
 		name:        name,
+		closed:      make(chan struct{}),
 		initialSync: atomic.NewBool(false),
 	}
 	for _, o := range options {
@@ -108,16 +111,15 @@ func (q Queue) Run(stop <-chan struct{}) {
 	defer q.queue.ShutDown()
 	q.log.Infof("starting")
 	q.queue.Add(defaultSyncSignal)
-	done := make(chan struct{})
 	go func() {
 		// Process updates until we return false, which indicates the queue is terminated
 		for q.processNextItem() {
 		}
-		close(done)
+		close(q.closed)
 	}()
 	select {
 	case <-stop:
-	case <-done:
+	case <-q.closed:
 	}
 	q.log.Infof("stopped")
 }
@@ -134,6 +136,11 @@ var defaultSyncSignal = syncSignal{}
 // processed at least once, but may have failed.
 func (q Queue) HasSynced() bool {
 	return q.initialSync.Load()
+}
+
+// Closed returns a chan that will be signaled when the Instance has stopped processing tasks.
+func (q Queue) Closed() <-chan struct{} {
+	return q.closed
 }
 
 // processNextItem is the main workFn loop for the queue
@@ -171,6 +178,25 @@ func (q Queue) processNextItem() bool {
 	// 'Forget indicates that an item is finished being retried.' - should be called whenever we do not want to backoff on this key.
 	q.queue.Forget(key)
 	return true
+}
+
+// WaitForClose blocks until the Instance has stopped processing tasks or the timeout expires.
+// If the timeout is zero, it will wait until the queue is done processing.
+// WaitForClose an error if the timeout expires.
+func (q Queue) WaitForClose(timeout time.Duration) error {
+	closed := q.Closed()
+	if timeout == 0 {
+		<-closed
+		return nil
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-closed:
+		return nil
+	case <-timer.C:
+		return fmt.Errorf("timeout waiting for queue to close after %v", timeout)
+	}
 }
 
 func formatKey(key any) string {

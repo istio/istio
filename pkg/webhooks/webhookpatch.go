@@ -100,11 +100,12 @@ func newWebhookPatcherQueue(reconciler controllers.ReconcilerFn) controllers.Que
 func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
 	go w.informer.Run(stopChan)
 	go w.startCaBundleWatcher(stopChan)
+	kubelib.WaitForCacheSync(stopChan, w.informer.HasSynced)
 	w.queue.Run(stopChan)
 }
 
 func (w *WebhookCertPatcher) HasSynced() bool {
-	return w.informer.HasSynced() && w.queue.HasSynced()
+	return w.queue.HasSynced()
 }
 
 // webhookPatchTask takes the result of patchMutatingWebhookConfig and modifies the result for use in task queue

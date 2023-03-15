@@ -30,7 +30,6 @@ import (
 	"time"
 
 	jsonmerge "github.com/evanphx/json-patch/v5"
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	"gomodules.xyz/jsonpatch/v3"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -210,16 +209,6 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler mod
 	cl.handlers[kind] = append(cl.handlers[kind], handler)
 }
 
-func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
-	var errs error
-	for _, h := range cl.allKinds() {
-		if err := h.informer.SetWatchErrorHandler(handler); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-	return errs
-}
-
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
@@ -249,10 +238,6 @@ func (cl *Client) informerSynced() bool {
 	return true
 }
 
-func (cl *Client) HasStarted() bool {
-	return cl.client.HasStarted()
-}
-
 func (cl *Client) HasSynced() bool {
 	return cl.initialSync.Load()
 }
@@ -270,13 +255,8 @@ func (cl *Client) SyncAll() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			objects := h.informer.GetIndexer().List()
-			for _, object := range objects {
-				currItem, ok := object.(runtime.Object)
-				if !ok {
-					cl.logger.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
-					continue
-				}
+			objects := h.informer.List(metav1.NamespaceAll, klabels.Everything())
+			for _, currItem := range objects {
 				currConfig := TranslateObject(currItem, h.schema.GroupVersionKind(), h.client.domainSuffix)
 				if cl.objectInRevision(&currConfig) {
 					for _, f := range handlers {
@@ -301,8 +281,8 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 		cl.logger.Warnf("unknown type: %s", typ)
 		return nil
 	}
-	obj, err := h.lister(namespace).Get(name)
-	if err != nil {
+	obj := h.informer.Get(name, namespace)
+	if obj == nil {
 		cl.logger.Debugf("couldn't find %s/%s in informer index", namespace, name)
 		return nil
 	}
@@ -377,15 +357,7 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) []config.
 		return nil
 	}
 
-	list, err := h.lister(namespace).List(klabels.Everything())
-	if err != nil {
-		// Should never happen
-		if features.EnableUnsafeAssertions {
-			cl.logger.Fatalf("lister returned err for %v: %v", namespace, err)
-		}
-		cl.logger.Errorf("lister returned err for %v: %v", namespace, err)
-		return nil
-	}
+	list := h.informer.List(namespace, klabels.Everything())
 
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
