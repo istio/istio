@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvr"
 	kubelib "istio.io/istio/pkg/kube"
@@ -58,18 +59,23 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 }
 
 // NewStatusSyncer creates a new instance
-func NewStatusSyncer(meshHolder mesh.Holder, kc kubelib.Client) *StatusSyncer {
+func NewStatusSyncer(meshHolder mesh.Holder, kc kubelib.Client, options kubecontroller.Options) *StatusSyncer {
 	// queue requires a time duration for a retry delay after a handler error
 	q := queue.NewQueue(5 * time.Second)
 
 	return &StatusSyncer{
 		meshHolder:     meshHolder,
-		ingresses:      kclient.New[*knetworking.Ingress](kc),
+		ingresses:      kclient.NewFiltered[*knetworking.Ingress](kc, kclient.Filter{ObjectFilter: options.GetFilter()}),
 		ingressClasses: kclient.New[*knetworking.IngressClass](kc),
-		pods:           kclient.New[*corev1.Pod](kc),
-		services:       kclient.New[*corev1.Service](kc),
-		nodes:          kclient.New[*corev1.Node](kc),
-		queue:          q,
+		pods: kclient.NewFiltered[*corev1.Pod](kc, kclient.Filter{
+			ObjectFilter:    options.GetFilter(),
+			ObjectTransform: kubelib.StripPodUnusedFields,
+		}),
+		services: kclient.NewFiltered[*corev1.Service](kc, kclient.Filter{ObjectFilter: options.GetFilter()}),
+		nodes: kclient.NewFiltered[*corev1.Node](kc, kclient.Filter{
+			ObjectTransform: kubelib.StripNodeUnusedFields,
+		}),
+		queue: q,
 	}
 }
 
