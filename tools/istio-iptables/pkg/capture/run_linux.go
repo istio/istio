@@ -97,7 +97,7 @@ func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
 	if ext != nil && cfg.CNIMode {
 		if cfg.HostNSEnterExec {
 			command := os.Args[0]
-			return ext.Run(command, constants.CommandConfigureRoutes)
+			return ext.Run(command, nil, constants.CommandConfigureRoutes)
 		}
 
 		nsContainer, err := ns.GetNS(cfg.NetworkNamespace)

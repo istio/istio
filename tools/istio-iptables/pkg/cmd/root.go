@@ -148,7 +148,6 @@ func constructConfig() *config.Config {
 		RedirectDNS:             viper.GetBool(constants.RedirectDNS),
 		DropInvalid:             viper.GetBool(constants.DropInvalid),
 		CaptureAllDNS:           viper.GetBool(constants.CaptureAllDNS),
-		OutputPath:              viper.GetString(constants.OutputPath),
 		NetworkNamespace:        viper.GetString(constants.NetworkNamespace),
 		CNIMode:                 viper.GetBool(constants.CNIMode),
 		HostNSEnterExec:         viper.GetBool(constants.HostNSEnterExec),
@@ -368,11 +367,6 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	}
 	viper.SetDefault(constants.CaptureAllDNS, false)
 
-	if err := viper.BindPFlag(constants.OutputPath, cmd.Flags().Lookup(constants.OutputPath)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.OutputPath, "")
-
 	if err := viper.BindPFlag(constants.NetworkNamespace, cmd.Flags().Lookup(constants.NetworkNamespace)); err != nil {
 		handleError(err)
 	}
@@ -467,8 +461,6 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 
 	rootCmd.Flags().Bool(constants.CaptureAllDNS, false,
 		"Instead of only capturing DNS traffic to DNS server IP, capture all DNS traffic at port 53. This setting is only effective when redirect dns is enabled.")
-
-	rootCmd.Flags().String(constants.OutputPath, "", "A file path to write the applied iptables rules to.")
 
 	rootCmd.Flags().String(constants.NetworkNamespace, "", "The network namespace that iptables rules should be applied to.")
 
