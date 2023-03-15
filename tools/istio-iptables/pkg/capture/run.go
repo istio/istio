@@ -14,7 +14,6 @@
 package capture
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"net/netip"
@@ -720,18 +719,6 @@ func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter config.Interce
 	}
 }
 
-func (cfg *IptablesConfigurator) createRulesFile(f *os.File, contents string) error {
-	defer f.Close()
-	log.Infof("Writing to rules file: %v", f.Name())
-	writer := bufio.NewWriter(f)
-	_, err := writer.WriteString(contents)
-	if err != nil {
-		return fmt.Errorf("unable to write iptables-restore file: %v", err)
-	}
-	err = writer.Flush()
-	return err
-}
-
 func (cfg *IptablesConfigurator) executeIptablesCommands(commands [][]string) {
 	for _, cmd := range commands {
 		if len(cmd) > 1 {
@@ -742,7 +729,7 @@ func (cfg *IptablesConfigurator) executeIptablesCommands(commands [][]string) {
 	}
 }
 
-func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(isIpv4 bool) error {
+func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(isIpv4 bool) {
 	var data, cmd string
 	if isIpv4 {
 		data = cfg.iptables.BuildV4Restore()
@@ -752,38 +739,17 @@ func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(isIpv4 bool) erro
 		cmd = constants.IP6TABLESRESTORE
 	}
 
-	if cfg.cfg.OutputPath != "" {
-		// Print the iptables rules into the given output file.
-		rulesFile, err := os.OpenFile(cfg.cfg.OutputPath, os.O_CREATE|os.O_WRONLY, 0o644)
-		if err != nil {
-			return fmt.Errorf("unable to open iptables rules output file %v: %v", cfg.cfg.OutputPath, err)
-		}
-		if err := cfg.createRulesFile(rulesFile, data); err != nil {
-			return err
-		}
-	}
-
 	log.Infof("Running %s with the following input:\n%v", cmd, strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
 	cfg.ext.RunOrFail(cmd, strings.NewReader(data), "--noflush")
-
-	return nil
 }
 
 func (cfg *IptablesConfigurator) executeCommands() {
 	if cfg.cfg.RestoreFormat {
 		// Execute iptables-restore
-		err := cfg.executeIptablesRestoreCommand(true)
-		if err != nil {
-			log.Errorf("Failed to execute iptables-restore command: %v", err)
-			os.Exit(1)
-		}
+		cfg.executeIptablesRestoreCommand(true)
 		// Execute ip6tables-restore
-		err = cfg.executeIptablesRestoreCommand(false)
-		if err != nil {
-			log.Errorf("Failed to execute iptables-restore command: %v", err)
-			os.Exit(1)
-		}
+		cfg.executeIptablesRestoreCommand(false)
 	} else {
 		// Execute iptables commands
 		cfg.executeIptablesCommands(cfg.iptables.BuildV4())
