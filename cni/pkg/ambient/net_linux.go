@@ -333,7 +333,7 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	log.Debugf("CreateRulesOnNode: ztunnelVeth=%s, ztunnelIP=%s", ztunnelVeth, ztunnelIP)
 
 	// Check if chain exists, if it exists flush.. otherwise initialize
-	err = execute(s.IptablesCmd(), "-t", "mangle", "-C", "output", "-j", constants.ChainZTunnelOutput)
+	err = execute(s.IptablesCmd(), "-t", "mangle", "-C", "OUTPUT", "-j", constants.ChainZTunnelOutput)
 	if err == nil {
 		log.Debugf("Chain %s already exists, flushing", constants.ChainOutput)
 		s.flushLists()
