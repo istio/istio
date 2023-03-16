@@ -17,6 +17,7 @@ package controller
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -638,7 +639,7 @@ func registerHandlers[T controllers.Object](c *Controller,
 ) {
 	wrappedHandler := func(prev, curr T, event model.Event) error {
 		curr = informer.Get(curr.GetName(), curr.GetNamespace())
-		if curr == nil {
+		if reflect.ValueOf(curr).IsNil() {
 			// this can happen when an immediate delete after update
 			// the delete event can be handled later
 			return nil
