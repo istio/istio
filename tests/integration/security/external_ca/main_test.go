@@ -70,6 +70,9 @@ func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool, is
 
 	cfgYaml := tmpl.MustEvaluate(`
 values:
+  pilot:
+    env:
+      EXTERNAL_CA: ISTIOD_RA_KUBERNETES_API
   meshConfig:
     defaultConfig:
       proxyMetadata:
@@ -92,8 +95,6 @@ components:
       env:
       - name: CERT_SIGNER_DOMAIN
         value: clusterissuers.istio.io
-      - name: EXTERNAL_CA
-        value: ISTIOD_RA_KUBERNETES_API
       - name: PILOT_CERT_PROVIDER
         value: k8s.io/clusterissuers.istio.io/signer2
       overlays:
