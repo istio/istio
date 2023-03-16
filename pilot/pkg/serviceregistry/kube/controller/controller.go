@@ -305,7 +305,10 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			c,
 			c.namespaces,
 			"Namespaces",
-			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+			func(_ *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+				if cur == nil {
+					return nil
+				}
 				c.handleSelectedNamespace(cur.Namespace)
 				return nil
 			},
@@ -321,9 +324,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			c,
 			c.namespaces,
 			"Namespaces",
-			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+			func(_ *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+				if cur == nil {
+					return nil
+				}
 				if cur.Namespace == c.opts.SystemNamespace {
-					return c.onSystemNamespaceEvent(old, cur, event)
+					return c.onSystemNamespaceEvent(cur, event)
 				}
 				return nil
 			},
@@ -647,8 +653,6 @@ func registerHandlers[T controllers.Object](c *Controller,
 		curr = informer.Get(curr.GetName(), curr.GetNamespace())
 		return handler(prev, curr, event)
 	}
-	// TODO
-	//_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.Cluster()))
 	informer.AddEventHandler(
 		controllers.EventHandler[T]{
 			AddFunc: func(obj T) {
@@ -742,7 +746,7 @@ func (c *Controller) SyncAll() error {
 func (c *Controller) syncSystemNamespace() error {
 	ns := c.namespaces.Get(c.opts.SystemNamespace, "")
 	if ns != nil {
-		return c.onSystemNamespaceEvent(nil, ns, model.EventAdd)
+		return c.onSystemNamespaceEvent(ns, model.EventAdd)
 	}
 	return nil
 }
@@ -1151,7 +1155,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 }
 
-func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event) error {
+func (c *Controller) onSystemNamespaceEvent(ns *v1.Namespace, ev model.Event) error {
 	if ev == model.EventDelete {
 		return nil
 	}
