@@ -306,7 +306,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			c.namespaces,
 			"Namespaces",
 			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
-				c.handleSelectedNamespace(cur.Namespace)
+				c.handleSelectedNamespace(cur.Name)
 				return nil
 			},
 			func(old, cur *v1.Namespace) bool {
@@ -322,12 +322,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			c.namespaces,
 			"Namespaces",
 			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
-				if cur.Namespace == c.opts.SystemNamespace {
-					return c.onSystemNamespaceEvent(old, cur, event)
-				}
-				return nil
+				return c.onSystemNamespaceEvent(old, cur, event)
 			},
-			nil,
+			func(old, cur *v1.Namespace) bool {
+				return cur.Namespace == c.opts.SystemNamespace
+			},
 		)
 	}
 
@@ -493,9 +492,6 @@ func (c *Controller) Cleanup() error {
 }
 
 func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) error {
-	if curr == nil {
-		return nil
-	}
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.
@@ -594,9 +590,6 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 }
 
 func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
-	if node == nil {
-		return nil
-	}
 	var updatedNeeded bool
 	if event == model.EventDelete {
 		updatedNeeded = true
@@ -645,6 +638,11 @@ func registerHandlers[T controllers.Object](c *Controller,
 ) {
 	wrappedHandler := func(prev, curr T, event model.Event) error {
 		curr = informer.Get(curr.GetName(), curr.GetNamespace())
+		if curr == nil {
+			// this can happen when an immediate delete after update
+			// the delete event can be handled later
+			return nil
+		}
 		return handler(prev, curr, event)
 	}
 	// TODO

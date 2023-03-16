@@ -55,7 +55,7 @@ type Reader[T controllers.Object] interface {
 	ShutdownHandlers()
 }
 
-// Reader wraps a Kubernetes client providing cached read access and direct write access.
+// Client wraps a Kubernetes client providing cached read access and direct write access.
 type Client[T controllers.Object] interface {
 	Reader[T]
 
@@ -75,13 +75,13 @@ type writeClient[T controllers.Object] struct {
 }
 
 type readClient[T controllers.Object] struct {
-	inf                cache.SharedIndexInformer
+	informer           cache.SharedIndexInformer
 	filter             func(t any) bool
 	registeredHandlers []cache.ResourceEventHandlerRegistration
 }
 
 func (n *readClient[T]) Get(name, namespace string) T {
-	obj, exists, err := n.inf.GetIndexer().GetByKey(keyFunc(name, namespace))
+	obj, exists, err := n.informer.GetIndexer().GetByKey(keyFunc(name, namespace))
 	if err != nil {
 		return ptr.Empty[T]()
 	}
@@ -127,12 +127,12 @@ func (n *writeClient[T]) Delete(name, namespace string) error {
 
 func (n *readClient[T]) ShutdownHandlers() {
 	for _, c := range n.registeredHandlers {
-		_ = n.inf.RemoveEventHandler(c)
+		_ = n.informer.RemoveEventHandler(c)
 	}
 }
 
 func (n *readClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
-	reg, _ := n.inf.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	reg, _ := n.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			if n.filter != nil && !n.filter(obj) {
 				return
@@ -156,10 +156,10 @@ func (n *readClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 }
 
 func (n *readClient[T]) HasSynced() bool {
-	return n.inf.HasSynced()
+	return n.informer.HasSynced()
 	/*
 		TODO: client-go v0.27
-		if !n.inf.HasSynced() {
+		if !n.informer.HasSynced() {
 			return false
 		}
 			for _, g := range n.registeredHandlers {
@@ -173,7 +173,7 @@ func (n *readClient[T]) HasSynced() bool {
 
 func (n *readClient[T]) List(namespace string, selector klabels.Selector) []T {
 	var res []T
-	err := cache.ListAllByNamespace(n.inf.GetIndexer(), namespace, selector, func(i any) {
+	err := cache.ListAllByNamespace(n.informer.GetIndexer(), namespace, selector, func(i any) {
 		cast := i.(T)
 		if n.applyFilter(cast) {
 			res = append(res, cast)
@@ -189,7 +189,7 @@ func (n *readClient[T]) List(namespace string, selector klabels.Selector) []T {
 
 func (n *readClient[T]) ListUnfiltered(namespace string, selector klabels.Selector) []T {
 	var res []T
-	err := cache.ListAllByNamespace(n.inf.GetIndexer(), namespace, selector, func(i any) {
+	err := cache.ListAllByNamespace(n.informer.GetIndexer(), namespace, selector, func(i any) {
 		cast := i.(T)
 		res = append(res, cast)
 	})
