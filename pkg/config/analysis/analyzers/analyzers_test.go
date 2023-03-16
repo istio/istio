@@ -704,6 +704,12 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "EnvoyFilterFilterChainMatch",
+		inputFiles: []string{"testdata/envoy-filter-filterchain.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "EnvoyFilterUsesAbsoluteOperation",
 		inputFiles: []string{"testdata/absolute-envoy-filter-operation.yaml"},
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
