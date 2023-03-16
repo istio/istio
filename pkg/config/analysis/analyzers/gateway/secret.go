@@ -15,22 +15,20 @@
 package gateway
 
 import (
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/credentials/kube"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/security/pkg/pki/ca"
 )
 
 // SecretAnalyzer checks a gateway's referenced secrets for correctness
@@ -114,29 +112,11 @@ func isValidSecret(secret *resource.Instance) bool {
 	if !ok {
 		return false
 	}
-	certData, ok := s.Data[ca.TLSSecretCACertFile]
-	if !ok {
-		return false
-	}
-	_, hasKey := s.Data[ca.TLSSecretCAPrivateKeyFile]
-	if !hasKey {
-		return false
-	}
-	permBlock, _ := pem.Decode(certData)
-	if permBlock == nil {
-		return false
-	}
-	cert, err := x509.ParseCertificate(permBlock.Bytes)
+	_, certs, _, err := kube.ExtractKeyCertAndStaple(s)
 	if err != nil {
-		// failed to parse certificate
 		return false
 	}
-	// check if the certificate has expired
-	now := time.Now()
-	if cert.NotAfter.IsZero() || now.After(cert.NotAfter) {
-		return false
-	}
-	if cert.NotBefore.IsZero() || now.Before(cert.NotBefore) {
+	if err = xds.ValidateCertificate(certs); err != nil {
 		return false
 	}
 	return true

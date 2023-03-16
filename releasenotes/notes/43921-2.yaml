@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+  - |
+    **Added** additional certificate validations for the `VERIFY_SDS_CERTIFICATE` feature when fetching certificates from the SDS server.

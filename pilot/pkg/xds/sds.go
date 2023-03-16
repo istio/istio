@@ -189,7 +189,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 		if features.VerifySDSCertificate {
-			if err := validateCertificate(caCert); err != nil {
+			if err := ValidateCertificate(caCert); err != nil {
 				recordInvalidCertificate(sr.ResourceName, err)
 				return nil
 			}
@@ -205,7 +205,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return nil
 	}
 	if features.VerifySDSCertificate {
-		if err := validateCertificate(cert); err != nil {
+		if err := ValidateCertificate(cert); err != nil {
 			recordInvalidCertificate(sr.ResourceName, err)
 			return nil
 		}
@@ -214,13 +214,38 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	return res
 }
 
-func validateCertificate(data []byte) error {
+func ValidateCertificate(data []byte) error {
 	block, _ := pem.Decode(data)
 	if block == nil {
 		return fmt.Errorf("pem decode failed")
 	}
-	_, err := x509.ParseCertificates(block.Bytes)
-	return err
+	certs, err := x509.ParseCertificates(block.Bytes)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	trustedRoots := x509.NewCertPool()
+	for _, cert := range certs {
+		// check if the certificate has expired
+		if cert.NotAfter.IsZero() || now.After(cert.NotAfter) {
+			return fmt.Errorf("certificate has expired")
+		}
+		if cert.NotBefore.IsZero() || now.Before(cert.NotBefore) {
+			return fmt.Errorf("certificate is not valid yet")
+		}
+
+		// add the certificate to the trusted roots pool
+		trustedRoots.AddCert(cert)
+	}
+
+	// verify the certificate chain
+	opts := x509.VerifyOptions{
+		Roots: trustedRoots,
+	}
+	if _, err = certs[0].Verify(opts); err != nil {
+		return err
+	}
+	return nil
 }
 
 func recordInvalidCertificate(name string, err error) {
