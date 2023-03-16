@@ -17,11 +17,12 @@ package namespace
 import (
 	"sync"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
@@ -49,17 +50,17 @@ type DiscoveryNamespacesFilter interface {
 
 type discoveryNamespacesFilter struct {
 	lock                sync.RWMutex
-	nsLister            listerv1.NamespaceLister
+	namespaces          kclient.Client[*corev1.Namespace]
 	discoveryNamespaces sets.String
 	discoverySelectors  []labels.Selector // nil if discovery selectors are not specified, permits all namespaces for discovery
 }
 
 func NewDiscoveryNamespacesFilter(
-	nsLister listerv1.NamespaceLister,
+	namespaces kclient.Client[*corev1.Namespace],
 	discoverySelectors []*metav1.LabelSelector,
 ) DiscoveryNamespacesFilter {
 	discoveryNamespacesFilter := &discoveryNamespacesFilter{
-		nsLister: nsLister,
+		namespaces: namespaces,
 	}
 
 	// initialize discovery namespaces filter
@@ -99,11 +100,7 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 	var selectors []labels.Selector
 	newDiscoveryNamespaces := sets.New[string]()
 
-	namespaceList, err := d.nsLister.List(labels.Everything())
-	if err != nil {
-		log.Errorf("error initializing discovery namespaces filter, failed to list namespaces: %v", err)
-		return
-	}
+	namespaceList := d.namespaces.List("", labels.Everything())
 
 	// convert LabelSelectors to Selectors
 	for _, selector := range discoverySelectors {
@@ -142,11 +139,7 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 }
 
 func (d *discoveryNamespacesFilter) SyncNamespaces() error {
-	namespaceList, err := d.nsLister.List(labels.Everything())
-	if err != nil {
-		log.Errorf("error initializing discovery namespaces filter, failed to list namespaces: %v", err)
-		return err
-	}
+	namespaceList := d.namespaces.List("", labels.Everything())
 
 	d.lock.Lock()
 	defer d.lock.Unlock()

@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
-	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -142,7 +141,6 @@ func NewController(configController model.ConfigStoreController, xdsUpdater mode
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
-		_ = configController.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(s.clusterID))
 	}
 	return s
 }
@@ -160,7 +158,6 @@ func NewWorkloadEntryController(configController model.ConfigStoreController, xd
 
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
-		_ = configController.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(s.clusterID))
 	}
 	return s
 }

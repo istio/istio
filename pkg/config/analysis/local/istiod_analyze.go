@@ -25,7 +25,6 @@ import (
 	"github.com/ryanuber/go-glob"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/annotation"
 	"istio.io/api/mesh/v1alpha1"
@@ -210,16 +209,8 @@ func (d dfCache) RegisterEventHandler(kind config.GroupVersionKind, handler mode
 	panic("implement me")
 }
 
-func (d dfCache) HasStarted() bool {
-	return true
-}
-
 // Run intentionally left empty
 func (d dfCache) Run(_ <-chan struct{}) {
-}
-
-func (d dfCache) SetWatchErrorHandler(f func(r *cache.Reflector, err error)) error {
-	panic("implement me")
 }
 
 func (d dfCache) HasSynced() bool {
@@ -281,19 +272,6 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		return
 	}
 	sa.stores = append(sa.stores, store)
-	if !store.HasStarted() {
-		err = store.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
-			// failed resources will never be synced, which causes the process to hang indefinitely.
-			// better to fail fast, and get a good idea for the failure.
-			scope.Analysis.Errorf("Failed to watch crd resource for analysis: %s", err)
-		})
-		if err != nil {
-			scope.Analysis.Errorf("error setting up error handling for kube crdclient: %v", err)
-			return
-		}
-	} else {
-		scope.Analysis.Debugf("store is started, skipping set watch error handler")
-	}
 
 	sa.clientsToRun = append(sa.clientsToRun, c)
 

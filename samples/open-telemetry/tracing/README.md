@@ -90,7 +90,7 @@ Or ensure you have the following additional mesh config set in your Istio:
 ```yaml
 defaultConfig:
   extensionProviders:
-  - name: otel
+  - name: otel-tracing
     opentelemetry:
       port: 4317
       service: opentelemetry-collector.otel-collector.svc.cluster.local
@@ -111,7 +111,7 @@ The core config is:
 ```yaml
 tracing:
 - providers:
-  - name: otel
+  - name: otel-tracing
   randomSamplingPercentage: 0
 ```
 

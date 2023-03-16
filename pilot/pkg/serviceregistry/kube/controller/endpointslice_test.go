@@ -49,9 +49,8 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	pods := []*corev1.Pod{pod}
 	addPods(t, controller, fx, pods...)
 
-	createService(controller, svcName, ns, nil,
+	createServiceWait(controller, svcName, ns, nil,
 		[]int32{8080}, map[string]string{"app": appName}, t)
-	fx.WaitOrFail(t, "service")
 
 	// Ensure that the service is available.
 	hostname := kube.ServiceHostname(svcName, ns, controller.opts.DomainSuffix)

@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/tools/cache"
 
 	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -119,14 +118,6 @@ func (s *KubeSource) RegisterEventHandler(kind config.GroupVersionKind, handler 
 }
 
 func (s *KubeSource) Run(stop <-chan struct{}) {
-}
-
-func (s *KubeSource) SetWatchErrorHandler(f func(r *cache.Reflector, err error)) error {
-	panic("implement me")
-}
-
-func (s *KubeSource) HasStarted() bool {
-	return true
 }
 
 func (s *KubeSource) HasSynced() bool {
