@@ -3,4 +3,4 @@ kind: feature
 area: installation
 releaseNotes:
 - |
-  **Added** a configuration parameter to limit the clusterrole for k8s CSR permissions for custom CA usecases alone.
+  **Added** check to limit the clusterrole for k8s CSR permissions for custom CA usecases by verifying EXTERNAL_CA and defaultCertProvider parameters.
