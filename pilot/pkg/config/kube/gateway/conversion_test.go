@@ -360,6 +360,7 @@ func TestConvertResources(t *testing.T) {
 		{"http"},
 		{"tcp"},
 		{"tls"},
+		{"grpc"},
 		{"mismatch"},
 		{"weighted"},
 		{"zero"},
@@ -423,7 +424,7 @@ func TestConvertResources(t *testing.T) {
 
 			assert.Equal(t, golden, output)
 
-			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.TLSRoute, kr.TCPRoute)
+			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.GRPCRoute, kr.TLSRoute, kr.TCPRoute)
 			goldenStatusFile := fmt.Sprintf("testdata/%s.status.yaml.golden", tt.name)
 			if util.Refresh() {
 				if err := os.WriteFile(goldenStatusFile, outputStatus, 0o644); err != nil {
@@ -655,6 +656,8 @@ func splitInput(t test.Failer, configs []config.Config) GatewayResources {
 			out.Gateway = append(out.Gateway, c)
 		case gvk.HTTPRoute:
 			out.HTTPRoute = append(out.HTTPRoute, c)
+		case gvk.GRPCRoute:
+			out.GRPCRoute = append(out.GRPCRoute, c)
 		case gvk.TCPRoute:
 			out.TCPRoute = append(out.TCPRoute, c)
 		case gvk.TLSRoute:
@@ -716,6 +719,8 @@ func insertDefaults(cfgs []config.Config) []config.Config {
 			c.Status = kstatus.Wrap(&k8s.GatewayStatus{})
 		case gvk.HTTPRoute:
 			c.Status = kstatus.Wrap(&k8s.HTTPRouteStatus{})
+		case gvk.GRPCRoute:
+			c.Status = kstatus.Wrap(&k8s.GRPCRouteStatus{})
 		case gvk.TCPRoute:
 			c.Status = kstatus.Wrap(&k8s.TCPRouteStatus{})
 		case gvk.TLSRoute:
