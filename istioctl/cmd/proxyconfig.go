@@ -1292,8 +1292,13 @@ func secretConfigCmd() *cobra.Command {
 			} else {
 				newWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 				if err != nil {
-					log.Warnf("couldn't parse envoy secrets dump (%v), attempting ztunnel format", err)
+					envoyError := err
 					newWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
+					if err != nil {
+						// failed to parse envoy and ztunnel formats
+						log.Warnf("couldn't parse envoy secrets dump: %v", envoyError)
+						log.Warnf("couldn't parse ztunnel secrets dump %v", err)
+					}
 				}
 			}
 			if err != nil {
