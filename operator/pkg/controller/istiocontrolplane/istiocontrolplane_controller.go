@@ -420,7 +420,7 @@ func ProcessDefaultWebhook(client kube.CLIClient, iop *iopv1alpha1.IstioOperator
 	rev := iop.Spec.Revision
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	operatorManageWebhooks := operatorManageWebhooks(iop)
-	if !operatorManageWebhooks && (!exists || isDefaultInstallation) && iop.Spec.Profile != "remote" {
+	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
 		}
