@@ -1,4 +1,19 @@
 apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  creationTimestamp: null
+  name: istio
+  namespace: default
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Handled by Istio controller
+    reason: Accepted
+    status: "True"
+    type: Accepted
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   creationTimestamp: null
@@ -6,28 +21,29 @@ metadata:
   namespace: istio-system
 spec: null
 status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Resources not yet deployed to the cluster
-    reason: NoResources
-    status: "False"
+    message: Resources available
+    reason: Accepted
+    status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "gateway-istio.istio-system.svc.domain.suffix"
-      not found'
-    reason: Invalid
-    status: "False"
+    message: Gateway has been programmed into Istio configuration
+    reason: Programmed
+    status: "True"
     type: Programmed
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "gateway-istio.istio-system.svc.domain.suffix"
-      not found'
-    reason: AddressNotAssigned
-    status: "False"
+    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: Ready
+    status: "True"
     type: Ready
   - lastTransitionTime: fake
-    message: Resources not yet deployed to the cluster
-    reason: ResourcesPending
-    status: "False"
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
     type: Scheduled
   listeners:
   - attachedRoutes: 1
@@ -69,11 +85,11 @@ status:
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: GRPCRoute
 metadata:
   creationTimestamp: null
-  name: http
+  name: grpc
   namespace: default
 spec: null
 status:

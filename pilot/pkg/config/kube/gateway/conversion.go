@@ -57,6 +57,7 @@ type KubernetesResources struct {
 	GatewayClass   []config.Config
 	Gateway        []config.Config
 	HTTPRoute      []config.Config
+	GRPCRoute      []config.Config
 	TCPRoute       []config.Config
 	TLSRoute       []config.Config
 	ReferenceGrant []config.Config
@@ -133,18 +134,24 @@ type ConfigContext struct {
 	resourceReferences map[model.ConfigKey][]model.ConfigKey
 }
 
+func sortConfigByCreationTime(configs []config.Config) {
+	sort.Slice(configs, func(i, j int) bool {
+		if configs[i].CreationTimestamp.Equal(configs[j].CreationTimestamp) {
+			in := configs[i].Namespace + "/" + configs[i].Name
+			jn := configs[j].Namespace + "/" + configs[j].Name
+			return in < jn
+		}
+		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
+	})
+}
+
 // convertResources is the top level entrypoint to our conversion logic, computing the full state based
 // on KubernetesResources inputs.
 func convertResources(r KubernetesResources) OutputResources {
 	// sort HTTPRoutes by creation timestamp and namespace/name
-	sort.Slice(r.HTTPRoute, func(i, j int) bool {
-		if r.HTTPRoute[i].CreationTimestamp.Equal(r.HTTPRoute[j].CreationTimestamp) {
-			in := r.HTTPRoute[i].Namespace + "/" + r.HTTPRoute[i].Name
-			jn := r.HTTPRoute[j].Namespace + "/" + r.HTTPRoute[j].Name
-			return in < jn
-		}
-		return r.HTTPRoute[i].CreationTimestamp.Before(r.HTTPRoute[j].CreationTimestamp)
-	})
+	sortConfigByCreationTime(r.HTTPRoute)
+	sortConfigByCreationTime(r.GRPCRoute)
+
 	result := OutputResources{}
 	ctx := ConfigContext{
 		KubernetesResources: r,
@@ -261,6 +268,9 @@ func convertVirtualService(r ConfigContext) []config.Config {
 	meshRoutes := make(map[string]map[string]*config.Config)
 	for _, obj := range r.HTTPRoute {
 		buildHTTPVirtualServices(r, obj, gatewayRoutes, meshRoutes)
+	}
+	for _, obj := range r.GRPCRoute {
+		buildGRPCVirtualServices(r, obj, gatewayRoutes)
 	}
 	for _, vsByHost := range gatewayRoutes {
 		for _, vsConfig := range vsByHost {
@@ -465,6 +475,161 @@ func buildHTTPVirtualServices(
 		}
 	}
 	for _, vsByHost := range meshRoutes {
+		for _, cfg := range vsByHost {
+			vs := cfg.Spec.(*istio.VirtualService)
+			sortHTTPRoutes(vs.Http)
+		}
+	}
+}
+
+func buildGRPCVirtualServices(ctx ConfigContext, obj config.Config, gatewayRoutes map[string]map[string]*config.Config) {
+	route := obj.Spec.(*k8s.GRPCRouteSpec)
+	ns := obj.Namespace
+	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, route.Hostnames, gvk.GRPCRoute, ns)
+
+	reportError := func(routeErr *ConfigError) {
+		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+			rs := s.(*k8s.GRPCRouteStatus)
+			rs.Parents = createRouteStatus(parentRefs, obj, rs.Parents, routeErr)
+			return rs
+		})
+	}
+
+	var invalidBackendErr *ConfigError
+	httproutes := []*istio.HTTPRoute{}
+	hosts := hostnameToStringList(route.Hostnames)
+	convertGRPCRule := func(r k8s.GRPCRouteRule) *ConfigError {
+		vs := &istio.HTTPRoute{}
+		for _, match := range r.Matches {
+			headers, err := createGRPCHeadersMatch(match)
+			if err != nil {
+				return err
+			}
+			uri, err := createGRPCURIMatch(match)
+			if err != nil {
+				return err
+			}
+			vs.Match = append(vs.Match, &istio.HTTPMatchRequest{
+				Headers: headers,
+				Uri:     uri,
+			})
+		}
+		for _, filter := range r.Filters {
+			switch filter.Type {
+			case k8s.GRPCRouteFilterRequestHeaderModifier:
+				h := createHeadersFilter(filter.RequestHeaderModifier)
+				if h == nil {
+					continue
+				}
+				if vs.Headers == nil {
+					vs.Headers = &istio.Headers{}
+				}
+				vs.Headers.Request = h
+			case k8s.GRPCRouteFilterRequestMirror:
+				mirror, err := createMirrorFilter(ctx, filter.RequestMirror, ns)
+				if err != nil {
+					return err
+				}
+				vs.Mirror = mirror
+			default:
+				return &ConfigError{
+					Reason:  InvalidFilter,
+					Message: fmt.Sprintf("unsupported filter type %q", filter.Type),
+				}
+			}
+		}
+
+		zero := true
+		for _, w := range r.BackendRefs {
+			if w.Weight == nil || (w.Weight != nil && int(*w.Weight) != 0) {
+				zero = false
+				break
+			}
+		}
+		if zero {
+			// The spec requires us to 503 when there are no >0 weight backends
+			vs.Fault = &istio.HTTPFaultInjection{Abort: &istio.HTTPFaultInjection_Abort{
+				Percentage: &istio.Percent{
+					Value: 100,
+				},
+				ErrorType: &istio.HTTPFaultInjection_Abort_HttpStatus{
+					HttpStatus: 503,
+				},
+			}}
+		}
+
+		route, err := buildGRPCDestination(ctx, r.BackendRefs, ns, zero)
+		if err != nil {
+			if isInvalidBackend(err) {
+				invalidBackendErr = err
+			} else {
+				return err
+			}
+		}
+		vs.Route = route
+
+		httproutes = append(httproutes, vs)
+		return nil
+	}
+
+	for _, r := range route.Rules {
+		if len(r.Matches) > 1 {
+			// split the rule to make sure each rule has up to one match
+			matches := r.Matches
+			for _, m := range matches {
+				r.Matches = []k8s.GRPCRouteMatch{m}
+				if err := convertGRPCRule(r); err != nil {
+					reportError(err)
+					return
+				}
+			}
+		} else if err := convertGRPCRule(r); err != nil {
+			reportError(err)
+			return
+		}
+	}
+	reportError(invalidBackendErr)
+
+	count := 0
+	for _, gw := range filteredReferences(parentRefs) {
+		// for gateway routes, build one VS per gateway+host
+		routeMap := gatewayRoutes
+		routeKey := gw.InternalName
+		if _, f := routeMap[routeKey]; !f {
+			routeMap[routeKey] = make(map[string]*config.Config)
+		}
+		// Create one VS per hostname with a single hostname.
+		// This ensures we can treat each hostname independently, as the spec requires
+		for _, h := range hosts {
+			if cfg := routeMap[routeKey][h]; cfg != nil {
+				// merge http routes
+				vs := cfg.Spec.(*istio.VirtualService)
+				vs.Http = append(vs.Http, httproutes...)
+				// append parents
+				cfg.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s/%s.%s",
+					cfg.Annotations[constants.InternalParentNames], obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
+			} else {
+				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
+				routeMap[routeKey][h] = &config.Config{
+					Meta: config.Meta{
+						CreationTimestamp: obj.CreationTimestamp,
+						GroupVersionKind:  gvk.VirtualService,
+						Name:              name,
+						Annotations:       routeMeta(obj),
+						Namespace:         ns,
+						Domain:            ctx.Domain,
+					},
+					Spec: &istio.VirtualService{
+						Hosts:    []string{h},
+						Gateways: []string{gw.InternalName},
+						Http:     httproutes,
+					},
+				}
+				count++
+			}
+		}
+	}
+	for _, vsByHost := range gatewayRoutes {
 		for _, cfg := range vsByHost {
 			vs := cfg.Spec.(*istio.VirtualService)
 			sortHTTPRoutes(vs.Http)
@@ -940,6 +1105,70 @@ func buildHTTPDestination(
 	return res, invalidBackendErr
 }
 
+func buildGRPCDestination(
+	ctx ConfigContext,
+	forwardTo []k8s.GRPCBackendRef,
+	ns string,
+	totalZero bool,
+) ([]*istio.HTTPRouteDestination, *ConfigError) {
+	if forwardTo == nil {
+		return nil, nil
+	}
+	weights := []int{}
+	action := []k8s.GRPCBackendRef{}
+	for i, w := range forwardTo {
+		wt := 1
+		if w.Weight != nil {
+			wt = int(*w.Weight)
+		}
+		// When total weight is zero, create destination to add falutInjection.
+		// When total weight is not zero, do not create the destination.
+		if wt == 0 && !totalZero {
+			continue
+		}
+		action = append(action, forwardTo[i])
+		weights = append(weights, wt)
+	}
+	if len(weights) == 1 {
+		weights = []int{0}
+	}
+
+	var invalidBackendErr *ConfigError
+	res := []*istio.HTTPRouteDestination{}
+	for i, fwd := range action {
+		dst, err := buildDestination(ctx, fwd.BackendRef, ns)
+		if err != nil {
+			if isInvalidBackend(err) {
+				invalidBackendErr = err
+				// keep going, we will gracefully drop invalid backends
+			} else {
+				return nil, err
+			}
+		}
+		rd := &istio.HTTPRouteDestination{
+			Destination: dst,
+			Weight:      int32(weights[i]),
+		}
+		for _, filter := range fwd.Filters {
+			switch filter.Type {
+			case k8s.GRPCRouteFilterRequestHeaderModifier:
+				h := createHeadersFilter(filter.RequestHeaderModifier)
+				if h == nil {
+					continue
+				}
+				if rd.Headers == nil {
+					rd.Headers = &istio.Headers{}
+				}
+				rd.Headers.Request = h
+			default:
+				return nil, &ConfigError{Reason: InvalidFilter, Message: fmt.Sprintf("unsupported filter type %q", filter.Type)}
+			}
+		}
+		res = append(res, rd)
+	}
+	return res, invalidBackendErr
+}
+
 func buildDestination(ctx ConfigContext, to k8s.BackendRef, ns string) (*istio.Destination, *ConfigError) {
 	// check if the reference is allowed
 	refs := ctx.AllowedReferences
@@ -1189,6 +1418,34 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch
 	return res, nil
 }
 
+func createGRPCHeadersMatch(match k8s.GRPCRouteMatch) (map[string]*istio.StringMatch, *ConfigError) {
+	res := map[string]*istio.StringMatch{}
+	for _, header := range match.Headers {
+		tp := k8sbeta.HeaderMatchExact
+		if header.Type != nil {
+			tp = *header.Type
+		}
+		switch tp {
+		case k8sbeta.HeaderMatchExact:
+			res[string(header.Name)] = &istio.StringMatch{
+				MatchType: &istio.StringMatch_Exact{Exact: header.Value},
+			}
+		case k8sbeta.HeaderMatchRegularExpression:
+			res[string(header.Name)] = &istio.StringMatch{
+				MatchType: &istio.StringMatch_Regex{Regex: header.Value},
+			}
+		default:
+			// Should never happen, unless a new field is added
+			return nil, &ConfigError{Reason: InvalidConfiguration, Message: fmt.Sprintf("unknown type: %q is not supported HeaderMatch type", tp)}
+		}
+	}
+
+	if len(res) == 0 {
+		return nil, nil
+	}
+	return res, nil
+}
+
 func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError) {
 	tp := k8sbeta.PathMatchPathPrefix
 	if match.Path.Type != nil {
@@ -1210,6 +1467,55 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 	case k8sbeta.PathMatchRegularExpression:
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Regex{Regex: dest},
+		}, nil
+	default:
+		// Should never happen, unless a new field is added
+		return nil, &ConfigError{Reason: InvalidConfiguration, Message: fmt.Sprintf("unknown type: %q is not supported Path match type", tp)}
+	}
+}
+
+func createGRPCURIMatch(match k8s.GRPCRouteMatch) (*istio.StringMatch, *ConfigError) {
+	m := match.Method
+	if m == nil {
+		return nil, nil
+	}
+	tp := k8s.GRPCMethodMatchExact
+	if m.Type != nil {
+		tp = *m.Type
+	}
+	if m.Method == nil && m.Service == nil {
+		// Should never happen, invalid per spec
+		return nil, &ConfigError{Reason: InvalidConfiguration, Message: "gRPC match must have method or service defined"}
+	}
+	// gRPC format is /<Service>/<Method>. Since we don't natively understand this, convert to various string matches
+	switch tp {
+	case k8s.GRPCMethodMatchExact:
+		if m.Method == nil {
+			return &istio.StringMatch{
+				MatchType: &istio.StringMatch_Prefix{Prefix: fmt.Sprintf("/%s/", *m.Service)},
+			}, nil
+		}
+		if m.Service == nil {
+			return &istio.StringMatch{
+				MatchType: &istio.StringMatch_Regex{Regex: fmt.Sprintf("/[^/]+/%s", *m.Method)},
+			}, nil
+		}
+		return &istio.StringMatch{
+			MatchType: &istio.StringMatch_Exact{Exact: fmt.Sprintf("/%s/%s", *m.Service, *m.Method)},
+		}, nil
+	case k8s.GRPCMethodMatchRegularExpression:
+		if m.Method == nil {
+			return &istio.StringMatch{
+				MatchType: &istio.StringMatch_Regex{Regex: fmt.Sprintf("/%s/.+", *m.Service)},
+			}, nil
+		}
+		if m.Service == nil {
+			return &istio.StringMatch{
+				MatchType: &istio.StringMatch_Regex{Regex: fmt.Sprintf("/[^/]+/%s", *m.Method)},
+			}, nil
+		}
+		return &istio.StringMatch{
+			MatchType: &istio.StringMatch_Regex{Regex: fmt.Sprintf("/%s/%s", *m.Service, *m.Method)},
 		}, nil
 	default:
 		// Should never happen, unless a new field is added
@@ -1559,6 +1865,7 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 			// Mesh has no configurable AllowedKinds, so allow all supported
 			AllowedKinds: []k8s.RouteGroupKind{
 				{Group: (*k8s.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)},
+				{Group: (*k8s.Group)(ptr.Of(gvk.GRPCRoute.Group)), Kind: k8s.Kind(gvk.GRPCRoute.Kind)},
 				{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)},
 				{Group: (*k8s.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: k8s.Kind(gvk.TLSRoute.Kind)},
 			},
@@ -1941,6 +2248,11 @@ func (kr KubernetesResources) FuzzValidate() bool {
 		}
 	}
 	for _, hr := range kr.HTTPRoute {
+		if hr.Spec == nil {
+			return false
+		}
+	}
+	for _, hr := range kr.GRPCRoute {
 		if hr.Spec == nil {
 			return false
 		}
