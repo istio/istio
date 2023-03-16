@@ -326,7 +326,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 				return c.onSystemNamespaceEvent(old, cur, event)
 			},
 			func(old, cur *v1.Namespace) bool {
-				return cur.Namespace == c.opts.SystemNamespace
+				return cur.Namespace != c.opts.SystemNamespace
 			},
 		)
 	}
