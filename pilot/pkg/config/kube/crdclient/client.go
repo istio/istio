@@ -24,7 +24,6 @@ package crdclient
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -41,7 +40,6 @@ import (
 	"k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -184,18 +182,6 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		}
 	}
 	return out, nil
-}
-
-// Validate we are ready to handle events. Until the informers are synced, we will block the queue
-func (cl *Client) checkReadyForEvents(curr any) error {
-	if !cl.informerSynced() {
-		return errors.New("waiting till full synchronization")
-	}
-	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
-	if err != nil {
-		cl.logger.Infof("Error retrieving key: %v", err)
-	}
-	return nil
 }
 
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
