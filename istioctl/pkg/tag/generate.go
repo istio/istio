@@ -43,11 +43,9 @@ const (
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 )
 
-var (
-	// CreateTempFunc is a function that creates a temporary file.
-	// This is used to allow creating files in directories with write permissions in testing.
-	CreateTempFunc func(dir, pattern string) (*os.File, error)
-)
+// CreateTempFunc is a function that creates a temporary file.
+// This is used to allow creating files in directories with write permissions in testing.
+var CreateTempFunc func(dir, pattern string) (*os.File, error)
 
 // tagWebhookConfig holds config needed to render a tag webhook.
 type tagWebhookConfig struct {
