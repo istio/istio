@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -113,7 +114,7 @@ func makeStatusSyncer(t *testing.T) *StatusSyncer {
 
 	client := kubelib.NewFakeClient()
 	setupFake(t, client)
-	sync := NewStatusSyncer(fakeMeshHolder("istio-ingress"), client)
+	sync := NewStatusSyncer(fakeMeshHolder("istio-ingress"), client, kubecontroller.Options{})
 	client.RunAndWait(test.NewStop(t))
 	return sync
 }
