@@ -85,12 +85,14 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 		for _, ca := range secret.CaCert {
 			n := new(big.Int)
 			n, _ = n.SetString(ca.SerialNumber, 10)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n", secret.Identity, "CA", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n",
+				secret.Identity, "CA", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
 		}
 		for _, ca := range secret.CertChain {
 			n := new(big.Int)
 			n, _ = n.SetString(ca.SerialNumber, 10)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n", secret.Identity, "Cert Chain", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n",
+				secret.Identity, "Cert Chain", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
 		}
 	}
 	return w.Flush()
