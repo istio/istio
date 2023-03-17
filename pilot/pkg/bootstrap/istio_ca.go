@@ -54,6 +54,7 @@ type caOptions struct {
 	Namespace        string
 	Authenticators   []security.Authenticator
 	CertSignerDomain string
+	DiscoveryFilter  func(t any) bool
 }
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -165,7 +166,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
 	// Adds client cert auth and kube (sds enabled)
-	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators, s.kubeClient)
+	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators, s.kubeClient, opts.DiscoveryFilter)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
