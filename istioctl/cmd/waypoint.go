@@ -56,7 +56,7 @@ func waypointCmd() *cobra.Command {
 				Listeners: []gateway.Listener{{
 					Name:     "mesh",
 					Port:     15008,
-					Protocol: "ALL",
+					Protocol: "HBONE",
 				}},
 			},
 		}

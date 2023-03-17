@@ -45,7 +45,6 @@ import (
 
 const (
 	DefaultClassName             = "istio"
-	ControllerName               = "istio.io/gateway-controller"
 	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
 	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
 	gatewayNameOverride          = "gateway.istio.io/name-override"
@@ -1218,39 +1217,33 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 }
 
 // getGatewayClass finds all gateway class that are owned by Istio
-func getGatewayClasses(r KubernetesResources) map[string]struct{} {
-	classes := map[string]struct{}{}
-	builtinClassExists := false
+// Response is ClassName -> Controller type
+func getGatewayClasses(r KubernetesResources) map[string]k8s.GatewayController {
+	res := map[string]k8s.GatewayController{}
+	allFound := sets.New[string]()
 	for _, obj := range r.GatewayClass {
 		gwc := obj.Spec.(*k8s.GatewayClassSpec)
-		if obj.Name == DefaultClassName {
-			builtinClassExists = true
-		}
-		if gwc.ControllerName == ControllerName {
-			// TODO we can add any settings we need here needed for the controller
-			// For now, we have none, so just add a struct
-			classes[obj.Name] = struct{}{}
+		allFound.Insert(obj.Name)
+		if gwc.ControllerName == constants.ManagedGatewayController || gwc.ControllerName == constants.ManagedGatewayMeshController {
+			res[obj.Name] = gwc.ControllerName
 
+			// Set status. If we created it, it may already be there. If not, set it again
 			obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 				gcs := s.(*k8s.GatewayClassStatus)
-				gcs.Conditions = kstatus.UpdateConditionIfChanged(gcs.Conditions, metav1.Condition{
-					Type:               string(k8sbeta.GatewayClassConditionStatusAccepted),
-					Status:             kstatus.StatusTrue,
-					ObservedGeneration: obj.Generation,
-					LastTransitionTime: metav1.Now(),
-					Reason:             string(k8sbeta.GatewayClassConditionStatusAccepted),
-					Message:            "Handled by Istio controller",
-				})
+				*gcs = GetClassStatus(gcs, obj.Generation)
 				return gcs
 			})
 		}
 	}
-	if !builtinClassExists {
+	if !allFound.Contains(DefaultClassName) {
 		// Allow `istio` class without explicit GatewayClass. However, if it already exists then do not
 		// add it here, in case it points to a different controller.
-		classes[DefaultClassName] = struct{}{}
+		res[DefaultClassName] = constants.ManagedGatewayController
 	}
-	return classes
+	if features.EnableAmbientControllers && !allFound.Contains(constants.WaypointGatewayClassName) {
+		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
+	}
+	return res
 }
 
 // parentKey holds info about a parentRef (eg route binding to a Gateway). This is a mirror of
@@ -1363,57 +1356,12 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 	for _, obj := range r.Gateway {
 		obj := obj
 		kgw := obj.Spec.(*k8s.GatewaySpec)
-		if _, f := classes[string(kgw.GatewayClassName)]; !f {
+		controllerName, f := classes[string(kgw.GatewayClassName)]
+		if !f {
 			// No gateway class found, this may be meant for another controller; should be skipped.
 			continue
 		}
 
-		// Setup initial conditions to the success state. If we encounter errors, we will update this.
-		gatewayConditions := map[string]*condition{
-			string(k8sbeta.GatewayConditionReady): {
-				reason:  string(k8sbeta.GatewayReasonReady),
-				message: "Listeners valid",
-			},
-		}
-		if IsManaged(kgw) {
-			gatewayConditions[string(k8sbeta.GatewayConditionAccepted)] = &condition{
-				error: &ConfigError{
-					Reason:  string(k8sbeta.GatewayReasonNoResources),
-					Message: "Resources not yet deployed to the cluster",
-				},
-				setOnce: string(k8sbeta.GatewayReasonPending), // Default reason
-			}
-			gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)] = &condition{
-				error: &ConfigError{
-					Reason:  string(k8sbeta.GatewayReasonPending),
-					Message: "Resources not yet deployed to the cluster",
-				},
-				setOnce: string(k8sbeta.GatewayReasonPending),
-			}
-			// nolint: staticcheck // Deprecated condition, set both until 1.17
-			gatewayConditions[string(k8sbeta.GatewayConditionScheduled)] = &condition{
-				error: &ConfigError{
-					Reason:  "ResourcesPending",
-					Message: "Resources not yet deployed to the cluster",
-				},
-				setOnce: string(k8sbeta.GatewayReasonNotReconciled), // Default reason
-			}
-		} else {
-			gatewayConditions[string(k8sbeta.GatewayConditionAccepted)] = &condition{
-				reason:  string(k8sbeta.GatewayReasonAccepted),
-				message: "Resources available",
-			}
-			// We don't return before generating the config, so we can set this to a positive condition
-			gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)] = &condition{
-				reason:  string(k8sbeta.GatewayReasonProgrammed),
-				message: "Gateway has been programmed into Istio configuration",
-			}
-			// nolint: staticcheck // Deprecated condition, set both until 1.17
-			gatewayConditions[string(k8sbeta.GatewayConditionScheduled)] = &condition{
-				reason:  "ResourcesAvailable",
-				message: "Resources available",
-			}
-		}
 		servers := []*istio.Server{}
 
 		// Extract the addresses. A gateway will bind to a specific Service
@@ -1422,9 +1370,14 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 		for i, l := range kgw.Listeners {
 			i := i
 			namespaceLabelReferences.InsertAll(getNamespaceLabelReferences(l.AllowedRoutes)...)
-			server, ok := buildListener(r, obj, l, i)
+			server, ok := buildListener(r, obj, l, i, controllerName)
 			if !ok {
 				invalidListeners = append(invalidListeners, l.Name)
+				continue
+			}
+			servers = append(servers, server)
+			if controllerName == constants.ManagedGatewayMeshController {
+				// Waypoint doesn't actually convert the routes to VirtualServices
 				continue
 			}
 			meta := parentMeta(obj, &l.Name)
@@ -1466,7 +1419,6 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 			}
 			gwMap[ref] = append(gwMap[ref], pri)
 			result = append(result, gatewayConfig)
-			servers = append(servers, server)
 		}
 
 		// If "gateway.istio.io/alias-for" annotation is present, any Route
@@ -1488,69 +1440,7 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 			gwMap[ref] = gwMap[alias]
 		}
 
-		// TODO: we lose address if servers is empty due to an error
-		internal, external, pending, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
-
-		if len(skippedAddresses) > 0 {
-			warnings = append(warnings, fmt.Sprintf("Only Hostname is supported, ignoring %v", skippedAddresses))
-		}
-		if len(warnings) > 0 {
-			var msg string
-			if len(internal) != 0 {
-				msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
-					humanReadableJoin(internal), strings.Join(warnings, "; "))
-			} else {
-				msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
-			}
-			gatewayConditions[string(k8sbeta.GatewayConditionReady)].error = &ConfigError{
-				Reason:  string(k8sbeta.GatewayReasonAddressNotAssigned),
-				Message: msg,
-			}
-			gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)].error = &ConfigError{
-				Reason:  string(k8sbeta.GatewayReasonInvalid),
-				Message: msg,
-			}
-		} else if len(invalidListeners) > 0 {
-			gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)].error = &ConfigError{
-				Reason:  string(k8sbeta.GatewayReasonInvalid),
-				Message: fmt.Sprintf("Invalid listeners: %v", invalidListeners),
-			}
-			gatewayConditions[string(k8sbeta.GatewayConditionReady)].error = &ConfigError{
-				Reason:  string(k8sbeta.GatewayReasonListenersNotValid),
-				Message: fmt.Sprintf("Invalid listeners: %v", invalidListeners),
-			}
-		} else {
-			gatewayConditions[string(k8sbeta.GatewayConditionReady)].message = fmt.Sprintf("Gateway valid, assigned to service(s) %s", humanReadableJoin(internal))
-			gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)] = &condition{
-				reason:  string(k8sbeta.GatewayReasonProgrammed),
-				message: "Gateway has been programmed into Istio configuration",
-			}
-		}
-		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-			gs := s.(*k8s.GatewayStatus)
-			addressesToReport := external
-			addrType := k8s.IPAddressType
-			if len(addressesToReport) == 0 {
-				// There are no external addresses, so report the internal ones
-				// TODO: should we always report both?
-				addrType = k8s.HostnameAddressType
-				for _, hostport := range internal {
-					svchost, _, _ := net.SplitHostPort(hostport)
-					if !contains(pending, svchost) && !contains(addressesToReport, svchost) {
-						addressesToReport = append(addressesToReport, svchost)
-					}
-				}
-			}
-			gs.Addresses = make([]k8s.GatewayAddress, 0, len(addressesToReport))
-			for _, addr := range addressesToReport {
-				gs.Addresses = append(gs.Addresses, k8s.GatewayAddress{
-					Type:  &addrType,
-					Value: addr,
-				})
-			}
-			return gs
-		})
-		reportGatewayCondition(obj, gatewayConditions)
+		reportGatewayStatus(r, obj, gatewayServices, servers, skippedAddresses, invalidListeners)
 	}
 	// Insert a parent for Mesh references.
 	gwMap[meshParentKey] = []*parentInfo{
@@ -1565,6 +1455,99 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 		},
 	}
 	return result, gwMap, namespaceLabelReferences
+}
+
+// Gateway currently requires a listener (https://github.com/kubernetes-sigs/gateway-api/pull/1596).
+// We don't *really* care about the listener, but it may make sense to add a warning if users do not
+// configure it in an expected way so that we have consistency and can make changes in the future as needed.
+// We could completely reject but that seems more likely to cause pain.
+func unexpectedWaypointListener(l k8s.Listener) bool {
+	if l.Port != 15008 {
+		return true
+	}
+	if l.Protocol != "HBONE" {
+		return true
+	}
+	return false
+}
+
+func reportGatewayStatus(
+	r ConfigContext,
+	obj config.Config,
+	gatewayServices []string,
+	servers []*istio.Server,
+	skippedAddresses []string,
+	invalidListeners []k8s.SectionName,
+) {
+	// TODO: we lose address if servers is empty due to an error
+	internal, external, pending, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
+
+	if len(skippedAddresses) > 0 {
+		warnings = append(warnings, fmt.Sprintf("Only Hostname is supported, ignoring %v", skippedAddresses))
+	}
+
+	// Setup initial conditions to the success state. If we encounter errors, we will update this.
+	// We have two status
+	// Accepted: did we get *some* data to the data plane
+	// Programmed: did we get *all* the data to the data plane
+	gatewayConditions := map[string]*condition{
+		string(k8sbeta.GatewayConditionAccepted): {
+			reason:  string(k8sbeta.GatewayReasonAccepted),
+			message: "Resource accepted",
+		},
+		string(k8sbeta.GatewayConditionProgrammed): {
+			reason:  string(k8sbeta.GatewayReasonProgrammed),
+			message: "Resource programmed",
+		},
+	}
+
+	if len(warnings) > 0 {
+		var msg string
+		if len(internal) != 0 {
+			msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
+				humanReadableJoin(internal), strings.Join(warnings, "; "))
+		} else {
+			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
+		}
+		// TODO: do we need to report if the deployment is ready?
+		gatewayConditions[string(k8sbeta.GatewayConditionAccepted)].error = &ConfigError{
+			Reason:  string(k8sbeta.GatewayReasonNoResources),
+			Message: msg,
+		}
+	} else if len(internal) > 0 {
+		gatewayConditions[string(k8sbeta.GatewayConditionAccepted)].message = fmt.Sprintf("Gateway valid, assigned to service(s) %s", humanReadableJoin(internal))
+	}
+	if len(invalidListeners) > 0 {
+		gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)].error = &ConfigError{
+			Reason:  string(k8sbeta.GatewayReasonInvalid),
+			Message: fmt.Sprintf("Invalid listeners: %v", invalidListeners),
+		}
+	}
+	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+		gs := s.(*k8s.GatewayStatus)
+		addressesToReport := external
+		addrType := k8s.IPAddressType
+		if len(addressesToReport) == 0 {
+			// There are no external addresses, so report the internal ones
+			// TODO: should we always report both?
+			addrType = k8s.HostnameAddressType
+			for _, hostport := range internal {
+				svchost, _, _ := net.SplitHostPort(hostport)
+				if !contains(pending, svchost) && !contains(addressesToReport, svchost) {
+					addressesToReport = append(addressesToReport, svchost)
+				}
+			}
+		}
+		gs.Addresses = make([]k8s.GatewayAddress, 0, len(addressesToReport))
+		for _, addr := range addressesToReport {
+			gs.Addresses = append(gs.Addresses, k8s.GatewayAddress{
+				Type:  &addrType,
+				Value: addr,
+			})
+		}
+		return gs
+	})
+	reportGatewayCondition(obj, gatewayConditions)
 }
 
 // IsManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
@@ -1594,19 +1577,6 @@ func IsManaged(gw *k8s.GatewaySpec) bool {
 		return false
 	}
 	if t := gw.Addresses[0].Type; t == nil || *t == k8s.IPAddressType {
-		return true
-	}
-	return false
-}
-
-func IsManagedBeta(gw *k8sbeta.GatewaySpec) bool {
-	if len(gw.Addresses) == 0 {
-		return true
-	}
-	if len(gw.Addresses) > 1 {
-		return false
-	}
-	if t := gw.Addresses[0].Type; t == nil || *t == k8sbeta.IPAddressType {
 		return true
 	}
 	return false
@@ -1652,12 +1622,8 @@ func getNamespaceLabelReferences(routes *k8s.AllowedRoutes) []string {
 	return res
 }
 
-func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerIndex int) (*istio.Server, bool) {
+func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerIndex int, controllerName k8s.GatewayController) (*istio.Server, bool) {
 	listenerConditions := map[string]*condition{
-		string(k8sbeta.ListenerConditionReady): {
-			reason:  string(k8sbeta.ListenerReasonReady),
-			message: "No errors found",
-		},
 		string(k8sbeta.ListenerConditionAccepted): {
 			reason:  string(k8sbeta.ListenerReasonAccepted),
 			message: "No errors found",
@@ -1665,12 +1631,6 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 		string(k8sbeta.ListenerConditionProgrammed): {
 			reason:  string(k8sbeta.ListenerReasonProgrammed),
 			message: "No errors found",
-		},
-		// nolint: staticcheck // Deprecated condition, set both until 1.17
-		string(k8sbeta.ListenerConditionDetached): {
-			reason:  string(k8sbeta.ListenerReasonAttached),
-			message: "No errors found",
-			status:  kstatus.StatusFalse,
 		},
 		string(k8sbeta.ListenerConditionConflicted): {
 			reason:  string(k8sbeta.ListenerReasonNoConflicts),
@@ -1684,9 +1644,9 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 	}
 
 	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
+
 	tls, err := buildTLS(r, l.TLS, obj, isAutoPassthrough(obj, l))
 	if err != nil {
-		listenerConditions[string(k8sbeta.ListenerConditionReady)].error = err
 		listenerConditions[string(k8sbeta.ListenerConditionResolvedRefs)].error = err
 		return nil, false
 	}
@@ -1700,6 +1660,14 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 		},
 		Hosts: hostnames,
 		Tls:   tls,
+	}
+	if controllerName == constants.ManagedGatewayMeshController {
+		if unexpectedWaypointListener(l) {
+			listenerConditions[string(k8sbeta.ListenerConditionAccepted)].error = &ConfigError{
+				Reason:  string(k8sbeta.ListenerReasonUnsupportedProtocol),
+				Message: `Expected a single listener on port 15008 with protocol "HBONE"`,
+			}
+		}
 	}
 
 	return server, true
