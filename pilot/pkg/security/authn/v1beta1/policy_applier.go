@@ -298,6 +298,19 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks)
 		}
 
+		jwtAllow := &envoy_jwt.JwtRequirement{
+			RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+				AllowMissing: &emptypb.Empty{},
+			},
+		}
+		if jwtRule.Allow == v1beta1.JWTRule_ALLOW_MISSING_OR_FAILED {
+			jwtAllow = &envoy_jwt.JwtRequirement{
+				RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+					AllowMissingOrFailed: &emptypb.Empty{},
+				},
+			}
+		}
+
 		name := fmt.Sprintf("origins-%d", i)
 		providers[name] = provider
 		innerAndList = append(innerAndList, &envoy_jwt.JwtRequirement{
@@ -309,11 +322,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 								ProviderName: name,
 							},
 						},
-						{
-							RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
-								AllowMissing: &emptypb.Empty{},
-							},
-						},
+						jwtAllow,
 					},
 				},
 			},

@@ -1177,6 +1177,116 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "JWTRule_ALLOW_MISSING, the default behavior",
+			in: []*v1beta1.JWTRule{
+				{
+					Issuer: "https://secret.foo.com",
+					Allow:  v1beta1.JWTRule_ALLOW_MISSING,
+				},
+			},
+			expected: &envoy_jwt.JwtAuthentication{
+				Rules: []*envoy_jwt.RequirementRule{
+					{
+						Match: &route.RouteMatch{
+							PathSpecifier: &route.RouteMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+						RequirementType: &envoy_jwt.RequirementRule_Requires{
+							Requires: &envoy_jwt.JwtRequirement{
+								RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+									RequiresAny: &envoy_jwt.JwtRequirementOrList{
+										Requirements: []*envoy_jwt.JwtRequirement{
+											{
+												RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+													ProviderName: "origins-0",
+												},
+											},
+											{
+												RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+													AllowMissing: &emptypb.Empty{},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Providers: map[string]*envoy_jwt.JwtProvider{
+					"origins-0": {
+						Issuer: "https://secret.foo.com",
+						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+							LocalJwks: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: model.CreateFakeJwks(""),
+								},
+							},
+						},
+						Forward:           false,
+						PayloadInMetadata: "https://secret.foo.com",
+					},
+				},
+				BypassCorsPreflight: true,
+			},
+		},
+		{
+			name: "JWTRule_ALLOW_MISSING_OR_FAILED",
+			in: []*v1beta1.JWTRule{
+				{
+					Issuer: "https://secret.foo.com",
+					Allow:  v1beta1.JWTRule_ALLOW_MISSING_OR_FAILED,
+				},
+			},
+			expected: &envoy_jwt.JwtAuthentication{
+				Rules: []*envoy_jwt.RequirementRule{
+					{
+						Match: &route.RouteMatch{
+							PathSpecifier: &route.RouteMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+						RequirementType: &envoy_jwt.RequirementRule_Requires{
+							Requires: &envoy_jwt.JwtRequirement{
+								RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+									RequiresAny: &envoy_jwt.JwtRequirementOrList{
+										Requirements: []*envoy_jwt.JwtRequirement{
+											{
+												RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+													ProviderName: "origins-0",
+												},
+											},
+											{
+												RequiresType: &envoy_jwt.JwtRequirement_AllowMissingOrFailed{
+													AllowMissingOrFailed: &emptypb.Empty{},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Providers: map[string]*envoy_jwt.JwtProvider{
+					"origins-0": {
+						Issuer: "https://secret.foo.com",
+						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
+							LocalJwks: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: model.CreateFakeJwks(""),
+								},
+							},
+						},
+						Forward:           false,
+						PayloadInMetadata: "https://secret.foo.com",
+					},
+				},
+				BypassCorsPreflight: true,
+			},
+		},
+		{
 			name: "Unreachable Jwks URI",
 			in: []*v1beta1.JWTRule{
 				{
