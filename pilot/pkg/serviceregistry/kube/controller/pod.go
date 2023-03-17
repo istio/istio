@@ -143,10 +143,6 @@ func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 
 // onEvent updates the IP-based index (pc.podsByIP).
 func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
-	if pod == nil {
-		return nil
-	}
-
 	ip := pod.Status.PodIP
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.

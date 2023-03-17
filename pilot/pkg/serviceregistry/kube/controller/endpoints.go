@@ -145,10 +145,6 @@ func (e *endpointsController) sync(name, ns string, event model.Event, filtered 
 }
 
 func (e *endpointsController) onEvent(_, ep *v1.Endpoints, event model.Event) error {
-	if ep == nil {
-		return nil
-	}
-
 	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, ep)
 }
 
