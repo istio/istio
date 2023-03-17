@@ -6769,6 +6769,12 @@ spec:
                   selected workloads' proxy.
                 items:
                   properties:
+                    allow:
+                      description: Allow specifies a Jwt requirement.
+                      enum:
+                      - ALLOW_MISSING
+                      - ALLOW_MISSING_OR_FAILED
+                      type: string
                     audiences:
                       items:
                         type: string
@@ -6853,6 +6859,12 @@ spec:
                   selected workloads' proxy.
                 items:
                   properties:
+                    allow:
+                      description: Allow specifies a Jwt requirement.
+                      enum:
+                      - ALLOW_MISSING
+                      - ALLOW_MISSING_OR_FAILED
+                      type: string
                     audiences:
                       items:
                         type: string
