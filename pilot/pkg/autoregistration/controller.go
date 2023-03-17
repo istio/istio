@@ -608,5 +608,11 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 }
 
 func makeProxyKey(proxy *model.Proxy) string {
-	return string(proxy.Metadata.Network) + proxy.IPAddresses[0]
+	key := strings.Join([]string{
+		string(proxy.Metadata.Network),
+		proxy.IPAddresses[0],
+		proxy.Metadata.AutoRegisterGroup,
+		proxy.Metadata.Namespace,
+	}, "~")
+	return key
 }
