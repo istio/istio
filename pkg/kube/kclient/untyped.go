@@ -53,7 +53,7 @@ func newReadClient[T controllers.Object](c kube.Client, inf cache.SharedIndexInf
 		log.Debugf("failed to set watch handler, informer may already be started: %v", err)
 	}
 	return readClient[T]{
-		inf:    inf,
-		filter: filter.ObjectFilter,
+		informer: inf,
+		filter:   filter.ObjectFilter,
 	}
 }

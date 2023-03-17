@@ -86,9 +86,6 @@ func (esc *endpointSliceController) sync(name, ns string, event model.Event, fil
 }
 
 func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model.Event) error {
-	if ep == nil {
-		return nil
-	}
 	esLabels := ep.GetLabels()
 	if endpointSliceSelector.Matches(klabels.Set(esLabels)) {
 		return processEndpointEvent(esc.c, esc, serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
