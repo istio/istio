@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	api "istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -74,6 +75,9 @@ func TestController(t *testing.T) {
 			if err != nil {
 				t.Fatal("failed to create test directory")
 			}
+			tag.CreateTempFunc = func(_, pattern string) (*os.File, error) {
+				return os.CreateTemp(workDir, pattern)
+			}
 			cs := t.Clusters().Default()
 			cleanupInClusterCRs(t, cs)
 			t.Cleanup(func() {
@@ -104,7 +108,7 @@ func TestController(t *testing.T) {
 			}
 			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
-			installWithCRFile(t, t, cs, istioCtl, "demo", "default")
+			installWithCRFile(t, t, cs, istioCtl, "demo", "")
 
 			initCmd = []string{
 				"operator", "init",
@@ -117,7 +121,7 @@ func TestController(t *testing.T) {
 			istioCtl.InvokeOrFail(t, initCmd)
 			t.TrackResource(&operatorDumper{rev: "v2"})
 			installWithCRFile(t, t, cs, istioCtl, "default", "v2")
-			installWithCRFile(t, t, cs, istioCtl, "default", "default")
+			installWithCRFile(t, t, cs, istioCtl, "default", "")
 
 			// istio control plane resources expected to be deleted after deleting CRs
 			cleanupInClusterCRs(t, cs)

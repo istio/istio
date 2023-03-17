@@ -43,6 +43,12 @@ const (
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 )
 
+var (
+	// CreateTempFunc is a function that creates a temporary file.
+	// This is used to allow creating files in directories with write permissions in testing.
+	CreateTempFunc func(dir, pattern string) (*os.File, error)
+)
+
 // tagWebhookConfig holds config needed to render a tag webhook.
 type tagWebhookConfig struct {
 	Tag            string
@@ -335,7 +341,10 @@ func applyYAML(client kube.CLIClient, yamlContent, ns string) error {
 
 // writeToTempFile taken from remote_secret.go
 func writeToTempFile(content string) (string, error) {
-	outFile, err := os.CreateTemp("", "revision-tag-manifest-*")
+	if CreateTempFunc == nil {
+		CreateTempFunc = os.CreateTemp
+	}
+	outFile, err := CreateTempFunc("", "revision-tag-manifest-*")
 	if err != nil {
 		return "", fmt.Errorf("failed creating temp file for manifest: %w", err)
 	}
