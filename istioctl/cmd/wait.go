@@ -176,6 +176,9 @@ func countVersions(versionCount map[string]int, configVersion string) {
 	}
 }
 
+const distributionTrackingDisabledErrorString = "pilot version tracking is disabled " +
+	"(To enable this feature, please set PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING=true)"
+
 func poll(cmd *cobra.Command,
 	acceptedVersions []string,
 	targetResource string,
@@ -197,6 +200,10 @@ func poll(cmd *cobra.Command,
 		var configVersions []xds.SyncedVersions
 		err = json.Unmarshal(response, &configVersions)
 		if err != nil {
+			respStr := string(response)
+			if strings.Contains(respStr, xds.DistributionTrackingDisabledMessage) {
+				return 0, 0, 0, fmt.Errorf("%s", distributionTrackingDisabledErrorString)
+			}
 			return 0, 0, 0, err
 		}
 		printVerbosef(cmd, "sync status: %+v", configVersions)
