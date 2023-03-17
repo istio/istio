@@ -250,4 +250,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
-replace istio.io/api => github.com/wulianglongrd/api v0.0.0-20230317153640-293498c51054
+replace istio.io/api => github.com/wulianglongrd/api v0.0.0-20230317164251-93f0adecbc08
