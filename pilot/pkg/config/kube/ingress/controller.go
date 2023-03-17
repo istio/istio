@@ -118,7 +118,9 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
+	kube.WaitForCacheSync(stop, c.ingress.HasSynced, c.services.HasSynced, c.classes.HasSynced)
 	c.queue.Run(stop)
+	c.ingress.ShutdownHandlers()
 }
 
 func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetworking.Ingress) (bool, error) {
@@ -226,8 +228,7 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 }
 
 func (c *controller) HasSynced() bool {
-	// TODO: add c.queue.HasSynced() once #36332 is ready, ensuring Run is called before HasSynced
-	return c.ingress.HasSynced() && c.services.HasSynced() && c.classes.HasSynced()
+	return c.queue.HasSynced()
 }
 
 func (c *controller) Schemas() collection.Schemas {

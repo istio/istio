@@ -232,7 +232,7 @@ type DistroReportHandler struct {
 	dc *Controller
 }
 
-func (drh *DistroReportHandler) OnAdd(obj any) {
+func (drh *DistroReportHandler) OnAdd(obj any, _ bool) {
 	drh.HandleNew(obj)
 }
 

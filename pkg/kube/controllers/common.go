@@ -296,7 +296,7 @@ type EventHandler[T Object] struct {
 	DeleteFunc func(obj T)
 }
 
-func (e EventHandler[T]) OnAdd(obj interface{}) {
+func (e EventHandler[T]) OnAdd(obj interface{}, _ bool) {
 	if e.AddFunc != nil {
 		e.AddFunc(Extract[T](obj))
 	}

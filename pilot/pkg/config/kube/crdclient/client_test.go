@@ -365,11 +365,9 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 
 	stop := test.NewStop(t)
 	fake.RunAndWait(stop)
+	go store.Run(stop)
 
-	// We don't call Run() and immediately close the stop channel as it occasionally leads to
-	// duplicate add events from the informer that cause test flakes. Instead, just call SyncAll()
-	// to only trigger the initial bootstrap sync.
-	store.SyncAll()
+	kube.WaitForCacheSync(stop, store.HasSynced)
 
 	// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
 	sortFunc := func(a, b config.Config) bool {
