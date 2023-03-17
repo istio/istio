@@ -91,17 +91,17 @@ require (
 	istio.io/api v0.0.0-20230316155820-2516db52690d
 	istio.io/client-go v1.18.0-alpha.0.0.20230317130440-7b6637c2a8d9
 	istio.io/pkg v0.0.0-20230313170827-f8c589fa0294
-	k8s.io/api v0.26.2
+	k8s.io/api v0.27.0-alpha.3
 	k8s.io/apiextensions-apiserver v0.26.2
-	k8s.io/apimachinery v0.26.2
+	k8s.io/apimachinery v0.27.0-alpha.3
 	k8s.io/apiserver v0.26.2
 	k8s.io/cli-runtime v0.26.2
-	k8s.io/client-go v0.26.2
+	k8s.io/client-go v0.27.0-alpha.3
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a
 	k8s.io/kubectl v0.26.2
 	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
-	sigs.k8s.io/controller-runtime v0.14.5
+	sigs.k8s.io/controller-runtime v0.13.1-0.20230315234915-a26de2d610c3
 	sigs.k8s.io/gateway-api v0.6.1
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
