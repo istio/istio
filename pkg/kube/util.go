@@ -305,6 +305,61 @@ func StripUnusedFields(obj any) (any, error) {
 	return obj, nil
 }
 
+// StripNodeUnusedFields is the transform function for shared node informers,
+// it removes unused fields from objects before they are stored in the cache to save memory.
+func StripNodeUnusedFields(obj any) (any, error) {
+	t, ok := obj.(metav1.ObjectMetaAccessor)
+	if !ok {
+		// shouldn't happen
+		return obj, nil
+	}
+	// ManagedFields is large and we never use it
+	t.GetObjectMeta().SetManagedFields(nil)
+	// Annotation is never used
+	t.GetObjectMeta().SetAnnotations(nil)
+	// OwnerReference is never used
+	t.GetObjectMeta().SetOwnerReferences(nil)
+	// only node labels and addressed are useful
+	if node := obj.(*corev1.Node); node != nil {
+		node.Status.Allocatable = nil
+		node.Status.Capacity = nil
+		node.Status.Images = nil
+		node.Status.Conditions = nil
+	}
+
+	return obj, nil
+}
+
+// StripPodUnusedFields is the transform function for shared pod informers,
+// it removes unused fields from objects before they are stored in the cache to save memory.
+func StripPodUnusedFields(obj any) (any, error) {
+	t, ok := obj.(metav1.ObjectMetaAccessor)
+	if !ok {
+		// shouldn't happen
+		return obj, nil
+	}
+	// ManagedFields is large and we never use it
+	t.GetObjectMeta().SetManagedFields(nil)
+	// only container ports can be used
+	if pod := obj.(*corev1.Pod); pod != nil {
+		containers := []corev1.Container{}
+		for _, c := range pod.Spec.Containers {
+			if len(c.Ports) > 0 {
+				containers = append(containers, corev1.Container{
+					Ports: c.Ports,
+				})
+			}
+		}
+		pod.Spec.Containers = containers
+		pod.Spec.InitContainers = nil
+		pod.Spec.Volumes = nil
+		pod.Status.InitContainerStatuses = nil
+		pod.Status.ContainerStatuses = nil
+	}
+
+	return obj, nil
+}
+
 func SlowConvertKindsToRuntimeObjects(in []crd.IstioKind) ([]runtime.Object, error) {
 	res := make([]runtime.Object, 0, len(in))
 	for _, o := range in {
