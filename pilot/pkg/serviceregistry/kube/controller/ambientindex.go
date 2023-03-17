@@ -312,11 +312,13 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 	updates := map[model.ConfigKey]struct{}{}
 	for ip, pod := range pods {
 		newWl := c.extractWorkload(pod)
-		// Update the pod, since it now has new VIP info
-		c.ambientIndex.mu.Lock()
-		c.ambientIndex.byPod[ip] = newWl
-		c.ambientIndex.mu.Unlock()
-		updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
+		if newWl != nil {
+			// Update the pod, since it now has new VIP info
+			c.ambientIndex.mu.Lock()
+			c.ambientIndex.byPod[ip] = newWl
+			c.ambientIndex.mu.Unlock()
+			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
+		}
 	}
 
 	if len(updates) > 0 {
@@ -688,11 +690,21 @@ func (c *Controller) setupIndex() *AmbientIndex {
 	return &idx
 }
 
-func (a *AmbientIndex) handlePod(_, newObj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
+func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
+	p := controllers.Extract[*v1.Pod](newObj)
+	old := controllers.Extract[*v1.Pod](oldObj)
+	if old != nil {
+		// compare only labels and pod phase, which are what we care about
+		if maps.Equal(old.Labels, p.Labels) &&
+			maps.Equal(old.Annotations, p.Annotations) &&
+			old.Status.Phase == p.Status.Phase &&
+			IsPodReady(old) == IsPodReady(p) {
+			return nil
+		}
+	}
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	// TODO: ignore unrelated update to improve performance
-	p := controllers.Extract[*v1.Pod](newObj)
 	updates := sets.New[model.ConfigKey]()
 	// This is a waypoint update
 	if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
@@ -775,14 +787,14 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[
 	pods := getPodsInService(allPods, svc)
 	var wls []*model.WorkloadInfo
 	for _, p := range pods {
-		wl := a.byPod[p.Status.PodIP]
 		// Can be nil if it's not ready, hostNetwork, etc
+		wl := c.extractWorkload(p)
 		if wl != nil {
-			wl = c.extractWorkload(p)
 			// Update the pod, since it now has new VIP info
 			a.byPod[p.Status.PodIP] = wl
 			wls = append(wls, wl)
 		}
+
 	}
 
 	// We send an update for each *workload* IP address previously in the service; they may have changed
