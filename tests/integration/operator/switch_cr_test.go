@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	api "istio.io/api/operator/v1alpha1"
-	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -74,9 +73,6 @@ func TestController(t *testing.T) {
 			workDir, err := t.CreateTmpDirectory("operator-controller-test")
 			if err != nil {
 				t.Fatal("failed to create test directory")
-			}
-			tag.CreateTempFile = func(_, pattern string) (*os.File, error) {
-				return os.CreateTemp(workDir, pattern)
 			}
 			cs := t.Clusters().Default()
 			cleanupInClusterCRs(t, cs)
