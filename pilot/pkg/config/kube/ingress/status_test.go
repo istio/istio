@@ -18,10 +18,10 @@ import (
 	"context"
 	"testing"
 
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
