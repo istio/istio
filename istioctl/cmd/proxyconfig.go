@@ -483,7 +483,12 @@ func allConfigCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					dump, err = extractConfigDump(podName, podNamespace, false)
+
+					if isZtunnelPod(podName) {
+						dump, err = extractZtunnelConfigDump(podName, podNamespace)
+					} else {
+						dump, err = extractConfigDump(podName, podNamespace, false)
+					}
 					if err != nil {
 						return err
 					}
@@ -507,6 +512,20 @@ func allConfigCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
+
+					if isZtunnelPod(podName) {
+						w, err := setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
+						if err != nil {
+							return err
+						}
+
+						return w.PrintFullSummary(ztunnelDump.WorkloadFilter{
+							Address: address,
+							Node:    node,
+							Verbose: verboseProxyConfig,
+						})
+					}
+
 					configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, true, c.OutOrStdout())
 					if err != nil {
 						return err
@@ -604,7 +623,7 @@ func workloadConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-				if !strings.Contains(podName, "ztunnel") {
+				if !isZtunnelPod(podName) {
 					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
