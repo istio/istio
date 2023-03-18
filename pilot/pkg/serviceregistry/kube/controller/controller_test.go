@@ -1301,7 +1301,6 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 			expectedSvcList = []*model.Service{svc3, svc4}
 			eventually(t, func() bool {
 				svcList := controller.Services()
-				log.Errorf("howardjohn: %v\n%v", svcList, expectedSvcList)
 				return servicesEqual(svcList, expectedSvcList)
 			})
 		})
