@@ -435,14 +435,51 @@ func ProcessDefaultWebhook(client kube.CLIClient, iop *iopv1alpha1.IstioOperator
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), client, o, ns)
 		if err == nil {
-			err = revtag.Create(client, tagManifests)
-			if err != nil {
+			if err = applyManifests(client, tagManifests); err != nil {
 				return false, err
 			}
 		}
 		processed = true
 	}
 	return processed, nil
+}
+
+func applyManifests(kubeClient kube.CLIClient, manifests string) error {
+	yamls := strings.Split(manifests, "---")
+	for _, yml := range yamls {
+		if strings.TrimSpace(yml) == "" {
+			continue
+		}
+
+		obj := &unstructured.Unstructured{}
+
+		if err := yaml.Unmarshal([]byte(yml), obj); err != nil {
+			return fmt.Errorf("failed to unmarshal YAML: %w", err)
+		}
+		var gvr schema.GroupVersionResource
+		if obj.GetKind() == name.MutatingWebhookConfigurationStr {
+			gvr = schema.GroupVersionResource{
+				Group:    "admissionregistration.k8s.io",
+				Version:  "v1",
+				Resource: "mutatingwebhookconfigurations",
+			}
+		} else if obj.GetKind() == name.ValidatingWebhookConfigurationStr {
+			gvr = schema.GroupVersionResource{
+				Group:    "admissionregistration.k8s.io",
+				Version:  "v1",
+				Resource: "validatingwebhookconfigurations",
+			}
+		}
+
+		_, err := kubeClient.Dynamic().Resource(gvr).Namespace(obj.GetNamespace()).Patch(context.TODO(), obj.GetName(), types.ApplyPatchType, []byte(yml), metav1.PatchOptions{
+			Force:        nil,
+			FieldManager: "install",
+		})
+		if err != nil {
+			return fmt.Errorf("failed to apply YAML: %w", err)
+		}
+	}
+	return nil
 }
 
 // operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
