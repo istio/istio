@@ -471,10 +471,11 @@ func applyManifests(kubeClient kube.CLIClient, manifests string) error {
 			}
 		}
 
-		_, err := kubeClient.Dynamic().Resource(gvr).Namespace(obj.GetNamespace()).Patch(context.TODO(), obj.GetName(), types.ApplyPatchType, []byte(yml), metav1.PatchOptions{
-			Force:        nil,
-			FieldManager: "install",
-		})
+		_, err := kubeClient.Dynamic().Resource(gvr).Namespace(obj.GetNamespace()).Patch(
+			context.TODO(), obj.GetName(), types.ApplyPatchType, []byte(yml), metav1.PatchOptions{
+				Force:        nil,
+				FieldManager: "install",
+			})
 		if err != nil {
 			return fmt.Errorf("failed to apply YAML: %w", err)
 		}
