@@ -60,9 +60,9 @@ func (a *LightstepAnalyzer) Analyze(c analysis.Context) {
 		telemetry := r.Message.(*telemetryapi.Telemetry)
 		for _, tracing := range telemetry.Tracing {
 			for _, p := range tracing.Providers {
-				if providerNames.Has(string(p.Name)) {
+				if providerNames.Has(p.Name) {
 					c.Report(gvk.Telemetry,
-						msg.NewLightstepProviderStillUsed(r, string(p.Name)))
+						msg.NewLightstepProviderStillUsed(r, p.Name))
 				}
 			}
 		}
