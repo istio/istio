@@ -33,7 +33,7 @@ var _ analysis.Analyzer = &ProdiverAnalyzer{}
 func (a *ProdiverAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "telemetry.ProviderAnalyzer",
-		Description: "Validates that providers in telemery resource is valid",
+		Description: "Validates that providers in telemetry resource is valid",
 		Inputs: []config.GroupVersionKind{
 			gvk.Telemetry,
 			gvk.MeshConfig,
