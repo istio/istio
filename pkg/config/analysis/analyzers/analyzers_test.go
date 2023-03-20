@@ -787,6 +787,15 @@ var testGrid = []testCase{
 			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-1"},
 		},
 	},
+	{
+		name:           "Telemetry Lightstep",
+		inputFiles:     []string{"testdata/telemetry-lightstep.yaml"},
+		analyzer:       &telemetry.LightstepAnalyzer{},
+		meshConfigFile: "testdata/telemetry-lightstep-meshconfig.yaml",
+		expected: []message{
+			{msg.DeprecatedLightstepProvider, "Telemetry istio-system/mesh-default"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
