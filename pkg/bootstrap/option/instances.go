@@ -31,13 +31,14 @@ type (
 )
 
 const (
-	LocalhostIPv4       LocalhostValue       = "127.0.0.1"
-	LocalhostIPv6       LocalhostValue       = "::1"
-	WildcardIPv4        WildcardValue        = "0.0.0.0"
-	WildcardIPv6        WildcardValue        = "::"
-	DNSLookupFamilyIPv4 DNSLookupFamilyValue = "V4_ONLY"
-	DNSLookupFamilyIPv6 DNSLookupFamilyValue = "V6_ONLY"
-	DNSLookupFamilyIPS  DNSLookupFamilyValue = "ALL"
+	LocalhostIPv4           LocalhostValue       = "127.0.0.1"
+	LocalhostIPv6           LocalhostValue       = "::1"
+	WildcardIPv4            WildcardValue        = "0.0.0.0"
+	WildcardIPv6            WildcardValue        = "::"
+	DNSLookupFamilyIPv4     DNSLookupFamilyValue = "V4_ONLY"
+	DNSLookupFamilyIPv4Pred DNSLookupFamilyValue = "V4_PREFERRED"
+	DNSLookupFamilyIPv6     DNSLookupFamilyValue = "V6_ONLY"
+	DNSLookupFamilyIPS      DNSLookupFamilyValue = "ALL"
 )
 
 func ProxyConfig(value *model.NodeMetaProxyConfig) Instance {
