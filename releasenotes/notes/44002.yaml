@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 44002
+releaseNotes:
+  - |
+    **Fixed** `istioctl x revision describe` error warning output.
+  - |
+    **Fixed** `istioctl x revision describe` error egressGateways total output.
