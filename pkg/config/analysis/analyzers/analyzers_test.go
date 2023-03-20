@@ -793,7 +793,7 @@ var testGrid = []testCase{
 		analyzer:       &telemetry.LightstepAnalyzer{},
 		meshConfigFile: "testdata/telemetry-lightstep-meshconfig.yaml",
 		expected: []message{
-			{msg.LightstepProviderStillUsed, "Telemetry istio-system/mesh-default"},
+			{msg.DeprecatedLightstepProvider, "Telemetry istio-system/mesh-default"},
 		},
 	},
 }

@@ -62,7 +62,7 @@ func (a *LightstepAnalyzer) Analyze(c analysis.Context) {
 			for _, p := range tracing.Providers {
 				if providerNames.Has(p.Name) {
 					c.Report(gvk.Telemetry,
-						msg.NewLightstepProviderStillUsed(r, p.Name))
+						msg.NewDeprecatedLightstepProvider(r, p.Name))
 				}
 			}
 		}

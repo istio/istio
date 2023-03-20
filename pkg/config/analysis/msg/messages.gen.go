@@ -237,9 +237,9 @@ var (
 	// Description: More than one telemetry resource in a namespace has no workload selector
 	MultipleTelemetriesWithoutWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0160", "The Telemetries %v in namespace %q have no workload selector, which can lead to undefined behavior.")
 
-	// LightstepProviderStillUsed defines a diag.MessageType for message "LightstepProviderStillUsed".
+	// DeprecatedLightstepProvider defines a diag.MessageType for message "DeprecatedLightstepProvider".
 	// Description: Lightstep provider is still beging used
-	LightstepProviderStillUsed = diag.NewMessageType(diag.Warning, "IST0161", "The Lightstep provider %s is deprecated, please migrate to OpenTelemetry provider.")
+	DeprecatedLightstepProvider = diag.NewMessageType(diag.Warning, "IST0161", "The Lightstep provider %s is deprecated, please migrate to OpenTelemetry provider.")
 )
 
 // All returns a list of all known message types.
@@ -302,7 +302,7 @@ func All() []*diag.MessageType {
 		PodsIstioProxyImageMismatchInNamespace,
 		ConflictingTelemetryWorkloadSelectors,
 		MultipleTelemetriesWithoutWorkloadSelectors,
-		LightstepProviderStillUsed,
+		DeprecatedLightstepProvider,
 	}
 }
 
@@ -866,10 +866,10 @@ func NewMultipleTelemetriesWithoutWorkloadSelectors(r *resource.Instance, confli
 	)
 }
 
-// NewLightstepProviderStillUsed returns a new diag.Message based on LightstepProviderStillUsed.
-func NewLightstepProviderStillUsed(r *resource.Instance, providerName string) diag.Message {
+// NewDeprecatedLightstepProvider returns a new diag.Message based on DeprecatedLightstepProvider.
+func NewDeprecatedLightstepProvider(r *resource.Instance, providerName string) diag.Message {
 	return diag.NewMessage(
-		LightstepProviderStillUsed,
+		DeprecatedLightstepProvider,
 		r,
 		providerName,
 	)

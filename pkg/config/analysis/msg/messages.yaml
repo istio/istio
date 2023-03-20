@@ -645,7 +645,7 @@ messages:
       - name: namespace
         type: string
 
-  - name: "LightstepProviderStillUsed"
+  - name: "DeprecatedLightstepProvider"
     code: IST0161
     level: Warning
     description: "Lightstep provider is still beging used"
