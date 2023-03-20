@@ -1,0 +1,10 @@
+
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 40027
+
+releaseNotes:
+- |
+  **Added** analyzer for lightstep provider.
