@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/pkg/config/protocol"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,6 +28,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
