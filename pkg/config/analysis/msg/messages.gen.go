@@ -238,7 +238,7 @@ var (
 	MultipleTelemetriesWithoutWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0160", "The Telemetries %v in namespace %q have no workload selector, which can lead to undefined behavior.")
 
 	// DeprecatedLightstepProvider defines a diag.MessageType for message "DeprecatedLightstepProvider".
-	// Description: Lightstep provider is still beging used
+	// Description: Lightstep provider is still being used
 	DeprecatedLightstepProvider = diag.NewMessageType(diag.Warning, "IST0161", "The Lightstep provider %s is deprecated, please migrate to OpenTelemetry provider.")
 )
 

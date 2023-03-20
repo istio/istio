@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
 - |
-  **Added** analyzer for showing warning message when deprecated lightstrep provider is still beging used.
+  **Added** an analyzer for showing warning messages when the deprecated `lightstep` provider is still being used.

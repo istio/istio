@@ -648,7 +648,7 @@ messages:
   - name: "DeprecatedLightstepProvider"
     code: IST0161
     level: Warning
-    description: "Lightstep provider is still beging used"
+    description: "Lightstep provider is still being used"
     template: "The Lightstep provider %s is deprecated, please migrate to OpenTelemetry provider."
     url: "https://istio.io/latest/docs/reference/config/analysis/ist0161/"
     args:
