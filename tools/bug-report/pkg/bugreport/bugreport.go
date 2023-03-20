@@ -168,7 +168,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	common.LogAndPrintf("\n\nFetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	// Determine whether the installation is distroless.
-	distroless, err := isDistroless(client, config, clusterResourcesCtx)
+	distroless, err := isDistroless(clusterResourcesCtx, client, config)
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	return nil
 }
 
-func isDistroless(client kube.CLIClient, brConfig *config.BugReportConfig, ctx context.Context) (bool, error) {
+func isDistroless(ctx context.Context, client kube.CLIClient, brConfig *config.BugReportConfig) (bool, error) {
 	iops, err := client.Dynamic().Resource(istioOperatorGVR).
 		Namespace(brConfig.IstioNamespace).
 		List(ctx, metav1.ListOptions{})
