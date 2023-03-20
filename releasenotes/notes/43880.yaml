@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: environments
+issue:
+  - 37235
+releaseNotes:
+  - |
+    **Fixed** bug-report to skip coredump and netstat commands for distroless installation

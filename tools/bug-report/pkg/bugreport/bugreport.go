@@ -28,6 +28,8 @@ import (
 
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	label2 "istio.io/api/label"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
@@ -48,8 +50,6 @@ import (
 	"istio.io/istio/tools/bug-report/pkg/processlog"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
