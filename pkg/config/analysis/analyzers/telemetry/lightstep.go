@@ -15,6 +15,9 @@
 package telemetry
 
 import (
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"istio.io/api/mesh/v1alpha1"
 	telemetryapi "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -23,15 +26,15 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-type ProdiverAnalyzer struct{}
+type LightstepAnalyzer struct{}
 
-var _ analysis.Analyzer = &ProdiverAnalyzer{}
+var _ analysis.Analyzer = &LightstepAnalyzer{}
 
 // Metadata implements Analyzer
-func (a *ProdiverAnalyzer) Metadata() analysis.Metadata {
+func (a *LightstepAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        "telemetry.ProviderAnalyzer",
-		Description: "Validates that providers in telemetry resource is valid",
+		Name:        "telemetry.LightstepAnalyzer",
+		Description: "Validates that lightstep provider is still used",
 		Inputs: []config.GroupVersionKind{
 			gvk.Telemetry,
 			gvk.MeshConfig,
@@ -40,21 +43,30 @@ func (a *ProdiverAnalyzer) Metadata() analysis.Metadata {
 }
 
 // Analyze implements Analyzer
-func (a *ProdiverAnalyzer) Analyze(c analysis.Context) {
+func (a *LightstepAnalyzer) Analyze(c analysis.Context) {
 	meshConfig := fetchMeshConfig(c)
-	if meshConfig.DefaultProviders == nil ||
-		len(meshConfig.DefaultProviders.AccessLogging) == 0 {
-		c.ForEach(gvk.Telemetry, func(r *resource.Instance) bool {
-			telemetry := r.Message.(*telemetryapi.Telemetry)
+	providerNames := sets.NewString()
+	for _, prov := range meshConfig.ExtensionProviders {
+		switch prov.Provider.(type) {
+		case *v1alpha1.MeshConfig_ExtensionProvider_Lightstep:
+			providerNames.Insert(prov.Name)
+		}
+	}
+	if len(providerNames) == 0 {
+		return
+	}
 
-			for _, l := range telemetry.AccessLogging {
-				if len(l.Providers) == 0 {
+	c.ForEach(gvk.Telemetry, func(r *resource.Instance) bool {
+		telemetry := r.Message.(*telemetryapi.Telemetry)
+		for _, tracing := range telemetry.Tracing {
+			for _, p := range tracing.Providers {
+				if providerNames.Has(string(p.Name)) {
 					c.Report(gvk.Telemetry,
-						msg.NewInvalidTelemetryProvider(r, string(r.Metadata.FullName.Name), string(r.Metadata.FullName.Namespace)))
+						msg.NewLightstepProviderStillUsed(r, string(p.Name)))
 				}
 			}
+		}
 
-			return true
-		})
-	}
+		return true
+	})
 }

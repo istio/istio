@@ -236,6 +236,10 @@ var (
 	// MultipleTelemetriesWithoutWorkloadSelectors defines a diag.MessageType for message "MultipleTelemetriesWithoutWorkloadSelectors".
 	// Description: More than one telemetry resource in a namespace has no workload selector
 	MultipleTelemetriesWithoutWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0160", "The Telemetries %v in namespace %q have no workload selector, which can lead to undefined behavior.")
+
+	// LightstepProviderStillUsed defines a diag.MessageType for message "LightstepProviderStillUsed".
+	// Description: Lightstep provider still used
+	LightstepProviderStillUsed = diag.NewMessageType(diag.Warning, "IST0161", "The Lightstep provider %s is deprecated, please migrate to OpenTelemetry provider.")
 )
 
 // All returns a list of all known message types.
@@ -298,6 +302,7 @@ func All() []*diag.MessageType {
 		PodsIstioProxyImageMismatchInNamespace,
 		ConflictingTelemetryWorkloadSelectors,
 		MultipleTelemetriesWithoutWorkloadSelectors,
+		LightstepProviderStillUsed,
 	}
 }
 
@@ -858,5 +863,14 @@ func NewMultipleTelemetriesWithoutWorkloadSelectors(r *resource.Instance, confli
 		r,
 		conflictingTelemetries,
 		namespace,
+	)
+}
+
+// NewLightstepProviderStillUsed returns a new diag.Message based on LightstepProviderStillUsed.
+func NewLightstepProviderStillUsed(r *resource.Instance, providerName string) diag.Message {
+	return diag.NewMessage(
+		LightstepProviderStillUsed,
+		r,
+		providerName,
 	)
 }

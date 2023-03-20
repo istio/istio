@@ -423,7 +423,7 @@ messages:
       - name: ports
         type: "[]int32"
 
-# https://github.com/envoyproxy/envoy/issues/6767
+  # https://github.com/envoyproxy/envoy/issues/6767
   - name: "GatewayDuplicateCertificate"
     code: IST0138
     level: Warning
@@ -550,7 +550,7 @@ messages:
         type: string
       - name: pod
         type: string
-        
+
   - name: "ExternalNameServiceTypeInvalidPortName"
     code: IST0150
     level: Warning
@@ -562,25 +562,25 @@ messages:
     level: Warning
     description: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
     template: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST of ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
-   
+
   - name: "EnvoyFilterUsesReplaceOperationIncorrectly"
     code: IST0152
     level: Error
     description: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
     template: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
-    
+
   - name: "EnvoyFilterUsesAddOperationIncorrectly"
     code: IST0153
     level: Error
     description: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
     template: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
-  
+
   - name: "EnvoyFilterUsesRemoveOperationIncorrectly"
     code: IST0154
     level: Error
     description: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
     template: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
-    
+
   - name: "EnvoyFilterUsesRelativeOperationWithProxyVersion"
     code: IST0155
     level: Warning
@@ -593,10 +593,10 @@ messages:
     description: "The Gateway API CRD version is not supported"
     template: "The Gateway API CRD version %v is lower than the minimum version: %v"
     args:
-    - name: version
-      type: string
-    - name: minimumVersion
-      type: string
+      - name: version
+        type: string
+      - name: minimumVersion
+        type: string
 
   - name: "InvalidTelemetryProvider"
     code: IST0157
@@ -604,10 +604,10 @@ messages:
     description: "The Telemetry with empty providers will be ignored"
     template: "The Telemetry %v in namespace %q with empty providers will be ignored."
     args:
-    - name: name
-      type: string
-    - name: namespace
-      type: string
+      - name: name
+        type: string
+      - name: namespace
+        type: string
 
   - name: "PodsIstioProxyImageMismatchInNamespace"
     code: IST0158
@@ -644,3 +644,13 @@ messages:
         type: "[]string"
       - name: namespace
         type: string
+
+  - name: "LightstepProviderStillUsed"
+    code: IST0161
+    level: Warning
+    description: "Lightstep provider still used"
+    template: "The Lightstep provider %s is deprecated, please migrate to OpenTelemetry provider."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0161/"
+    args:
+      - name: providerName
+        type: "string"
