@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 33237
+releaseNotes:
+  - |
+    **Fixed** overwriting label `istio.io/rev` in injected gateways when `istio.io/rev=<tag>`.
