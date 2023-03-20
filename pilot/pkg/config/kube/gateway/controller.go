@@ -288,11 +288,10 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			gcc.Run(stop)
 		}
 	}()
-	kube.WaitForCacheSync(stop, c.namespaces.HasSynced)
 }
 
 func (c *Controller) HasSynced() bool {
-	return c.cache.HasSynced()
+	return c.cache.HasSynced() && c.namespaces.HasSynced()
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {

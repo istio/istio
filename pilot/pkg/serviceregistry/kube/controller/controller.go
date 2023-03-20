@@ -17,6 +17,7 @@ package controller
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -306,7 +307,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			c.namespaces,
 			"Namespaces",
 			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
-				c.handleSelectedNamespace(cur.Namespace)
+				c.handleSelectedNamespace(cur.Name)
 				return nil
 			},
 			func(old, cur *v1.Namespace) bool {
@@ -352,12 +353,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	// This is for getting the node IPs of a selected set of nodes
-	c.nodes = kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: stripNodeUnusedFields})
+	c.nodes = kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: kubelib.StripNodeUnusedFields})
 	registerHandlers[*v1.Node](c, c.nodes, "Nodes", c.onNodeEvent, nil)
 
 	c.podsClient = kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
 		ObjectFilter:    c.opts.DiscoveryNamespacesFilter.Filter,
-		ObjectTransform: stripPodUnusedFields,
+		ObjectTransform: kubelib.StripPodUnusedFields,
 	})
 	c.pods = newPodCache(c, c.podsClient, func(key types.NamespacedName) {
 		if shouldEnqueue("Pods", c.beginSync) {
@@ -493,9 +494,6 @@ func (c *Controller) Cleanup() error {
 }
 
 func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) error {
-	if curr == nil {
-		return nil
-	}
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.
@@ -594,9 +592,6 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 }
 
 func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
-	if node == nil {
-		return nil
-	}
 	var updatedNeeded bool
 	if event == model.EventDelete {
 		updatedNeeded = true
@@ -645,6 +640,11 @@ func registerHandlers[T controllers.Object](c *Controller,
 ) {
 	wrappedHandler := func(prev, curr T, event model.Event) error {
 		curr = informer.Get(curr.GetName(), curr.GetNamespace())
+		if reflect.ValueOf(curr).IsNil() {
+			// this can happen when an immediate delete after update
+			// the delete event can be handled later
+			return nil
+		}
 		return handler(prev, curr, event)
 	}
 	// TODO
@@ -1412,59 +1412,4 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 		return []*model.Service{svc}
 	}
 	return nil
-}
-
-// stripPodUnusedFields is the transform function for shared pod informers,
-// it removes unused fields from objects before they are stored in the cache to save memory.
-func stripPodUnusedFields(obj any) (any, error) {
-	t, ok := obj.(metav1.ObjectMetaAccessor)
-	if !ok {
-		// shouldn't happen
-		return obj, nil
-	}
-	// ManagedFields is large and we never use it
-	t.GetObjectMeta().SetManagedFields(nil)
-	// only container ports can be used
-	if pod := obj.(*v1.Pod); pod != nil {
-		containers := []v1.Container{}
-		for _, c := range pod.Spec.Containers {
-			if len(c.Ports) > 0 {
-				containers = append(containers, v1.Container{
-					Ports: c.Ports,
-				})
-			}
-		}
-		pod.Spec.Containers = containers
-		pod.Spec.InitContainers = nil
-		pod.Spec.Volumes = nil
-		pod.Status.InitContainerStatuses = nil
-		pod.Status.ContainerStatuses = nil
-	}
-
-	return obj, nil
-}
-
-// stripNodeUnusedFields is the transform function for shared pod informers,
-// it removes unused fields from objects before they are stored in the cache to save memory.
-func stripNodeUnusedFields(obj any) (any, error) {
-	t, ok := obj.(metav1.ObjectMetaAccessor)
-	if !ok {
-		// shouldn't happen
-		return obj, nil
-	}
-	// ManagedFields is large and we never use it
-	t.GetObjectMeta().SetManagedFields(nil)
-	// Annotation is never used
-	t.GetObjectMeta().SetAnnotations(nil)
-	// OwnerReference is never used
-	t.GetObjectMeta().SetOwnerReferences(nil)
-	// only node labels and addressed are useful
-	if node := obj.(*v1.Node); node != nil {
-		node.Status.Allocatable = nil
-		node.Status.Capacity = nil
-		node.Status.Images = nil
-		node.Status.Conditions = nil
-	}
-
-	return obj, nil
 }

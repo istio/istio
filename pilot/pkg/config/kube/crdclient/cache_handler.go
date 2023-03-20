@@ -38,10 +38,6 @@ type cacheHandler struct {
 }
 
 func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
-	if err := h.client.checkReadyForEvents(curr); err != nil {
-		return err
-	}
-
 	currItem := controllers.ExtractObject(curr)
 	if currItem == nil {
 		return nil
@@ -97,27 +93,18 @@ func createCacheHandler(cl *Client, schema resource.Schema, i informers.GenericI
 	h.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			incrementEvent(kind, "add")
-			if !cl.beginSync.Load() {
-				return
-			}
 			cl.queue.Push(func() error {
 				return h.onEvent(nil, obj, model.EventAdd)
 			})
 		},
 		UpdateFunc: func(old, cur any) {
 			incrementEvent(kind, "update")
-			if !cl.beginSync.Load() {
-				return
-			}
 			cl.queue.Push(func() error {
 				return h.onEvent(old, cur, model.EventUpdate)
 			})
 		},
 		DeleteFunc: func(obj any) {
 			incrementEvent(kind, "delete")
-			if !cl.beginSync.Load() {
-				return
-			}
 			cl.queue.Push(func() error {
 				return h.onEvent(nil, obj, model.EventDelete)
 			})

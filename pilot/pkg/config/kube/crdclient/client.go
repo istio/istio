@@ -24,13 +24,11 @@ package crdclient
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	jsonmerge "github.com/evanphx/json-patch/v5"
-	"go.uber.org/atomic"
 	"gomodules.xyz/jsonpatch/v3"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -42,7 +40,6 @@ import (
 	"k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -80,10 +77,6 @@ type Client struct {
 	// handlers defines a list of event handlers per-type
 	handlers map[config.GroupVersionKind][]model.EventHandler
 
-	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
-	beginSync *atomic.Bool
-	// initialSync is set to true after performing an initial processing of all objects.
-	initialSync      *atomic.Bool
 	schemasByCRDName map[string]resource.Schema
 	client           kube.Client
 	crdWatcher       *crdwatcher.Controller
@@ -160,8 +153,6 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
 		client:           client,
 		crdWatcher:       crdwatcher.NewController(client),
-		beginSync:        atomic.NewBool(false),
-		initialSync:      atomic.NewBool(false),
 		logger:           scope.WithLabels("controller", opts.Identifier),
 		namespacesFilter: opts.NamespacesFilter,
 		crdWatches: map[config.GroupVersionKind]*waiter{
@@ -193,18 +184,6 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 	return out, nil
 }
 
-// Validate we are ready to handle events. Until the informers are synced, we will block the queue
-func (cl *Client) checkReadyForEvents(curr any) error {
-	if !cl.informerSynced() {
-		return errors.New("waiting till full synchronization")
-	}
-	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
-	if err != nil {
-		cl.logger.Infof("Error retrieving key: %v", err)
-	}
-	return nil
-}
-
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
 	cl.handlers[kind] = append(cl.handlers[kind], handler)
 }
@@ -220,8 +199,6 @@ func (cl *Client) Run(stop <-chan struct{}) {
 		cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
 		return
 	}
-	cl.SyncAll()
-	cl.initialSync.Store(true)
 	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
 
 	cl.queue.Run(stop)
@@ -239,34 +216,7 @@ func (cl *Client) informerSynced() bool {
 }
 
 func (cl *Client) HasSynced() bool {
-	return cl.initialSync.Load()
-}
-
-// SyncAll syncs all the objects during bootstrap to make the configs updated to caches
-func (cl *Client) SyncAll() {
-	cl.beginSync.Store(true)
-	wg := sync.WaitGroup{}
-	for _, h := range cl.allKinds() {
-		handlers := cl.handlers[h.schema.GroupVersionKind()]
-		if len(handlers) == 0 {
-			continue
-		}
-		h := h
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			objects := h.informer.List(metav1.NamespaceAll, klabels.Everything())
-			for _, currItem := range objects {
-				currConfig := TranslateObject(currItem, h.schema.GroupVersionKind(), h.client.domainSuffix)
-				if cl.objectInRevision(&currConfig) {
-					for _, f := range handlers {
-						f(config.Config{}, currConfig, model.EventAdd)
-					}
-				}
-			}
-		}()
-	}
-	wg.Wait()
+	return cl.queue.HasSynced()
 }
 
 // Schemas for the store
