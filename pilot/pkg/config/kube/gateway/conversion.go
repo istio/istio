@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/pkg/config/protocol"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -1465,7 +1466,7 @@ func unexpectedWaypointListener(l k8s.Listener) bool {
 	if l.Port != 15008 {
 		return true
 	}
-	if l.Protocol != "HBONE" {
+	if l.Protocol != k8s.ProtocolType(protocol.HBONE) {
 		return true
 	}
 	return false
