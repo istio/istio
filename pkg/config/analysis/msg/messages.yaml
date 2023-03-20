@@ -1,7 +1,5 @@
 # Please keep entries ordered by code.
 # NOTE: The range 0000-0100 is reserved for internal and/or future use.
-# Please keep entries ordered by code.
-# NOTE: The range 0000-0100 is reserved for internal and/or future use.
 messages:
   - name: "InternalError"
     code: IST0001
