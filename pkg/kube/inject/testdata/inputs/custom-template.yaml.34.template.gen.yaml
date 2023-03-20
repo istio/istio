@@ -531,7 +531,7 @@ templates:
       labels:
         service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
         service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
-        istio.io/rev: {{ .Revision | default "default" | quote }}
+        istio.io/rev: {{ index .ObjectMeta.Labels `istio.io/rev` | default .Revision | default "default" | quote }}
       annotations: {
         {{- if eq (len $containers) 1 }}
         kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
