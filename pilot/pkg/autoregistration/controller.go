@@ -570,8 +570,11 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	if group.Metadata != nil && group.Metadata.Labels != nil {
 		entry.Labels = mergeLabels(entry.Labels, group.Metadata.Labels)
 	}
-	if proxy.Labels != nil {
-		entry.Labels = mergeLabels(entry.Labels, proxy.Labels)
+	// Explicitly do not use proxy.Labels, as it is only initialized *after* we register the workload,
+	// and it would be circular, as it will set the labels based on the WorkloadEntry -- but we are creating
+	// the workload entry.
+	if proxy.Metadata.Labels != nil {
+		entry.Labels = mergeLabels(entry.Labels, proxy.Metadata.Labels)
 	}
 
 	annotations := map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name}
