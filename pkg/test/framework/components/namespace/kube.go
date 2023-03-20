@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )
 
@@ -239,11 +240,14 @@ func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 		if err := c.ApplyYAMLFiles(n.name, s.Image.PullSecret); err != nil {
 			return err
 		}
-		_, err := c.Kube().CoreV1().ServiceAccounts(n.name).Patch(context.TODO(),
-			"default",
-			types.JSONPatchType,
-			[]byte(`[{"op": "add", "path": "/imagePullSecrets", "value": [{"name": "test-gcr-secret"}]}]`),
-			metav1.PatchOptions{})
+		err := retry.UntilSuccess(func() error {
+			_, err := c.Kube().CoreV1().ServiceAccounts(n.name).Patch(context.TODO(),
+				"default",
+				types.JSONPatchType,
+				[]byte(`[{"op": "add", "path": "/imagePullSecrets", "value": [{"name": "test-gcr-secret"}]}]`),
+				metav1.PatchOptions{})
+			return err
+		}, retry.Delay(1*time.Second), retry.Timeout(10*time.Second))
 		if err != nil {
 			return err
 		}
