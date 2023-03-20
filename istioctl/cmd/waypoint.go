@@ -18,8 +18,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,20 +29,24 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func waypointCmd() *cobra.Command {
 	var waypointServiceAccount string
+	makeGatewayName := func(sa string) string {
+		name := sa
+		if name == "" {
+			name = "namespace"
+		}
+		return name
+	}
 	makeGateway := func(forApply bool) *gateway.Gateway {
 		ns := handlers.HandleNamespace(namespace, defaultNamespace)
 		if namespace == "" && !forApply {
 			ns = ""
-		}
-		name := waypointServiceAccount
-		if name == "" {
-			name = "namespace"
 		}
 		gw := gateway.Gateway{
 			TypeMeta: metav1.TypeMeta{
@@ -48,7 +54,7 @@ func waypointCmd() *cobra.Command {
 				APIVersion: gvk.KubernetesGateway.GroupVersion(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
+				Name:      makeGatewayName(waypointServiceAccount),
 				Namespace: ns,
 			},
 			Spec: gateway.GatewaySpec{
@@ -145,6 +151,84 @@ func waypointCmd() *cobra.Command {
 			return nil
 		},
 	}
+	waypointListCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List managed waypoint configurations",
+		Long:  "List managed waypoint configurations in the cluster created by istioctl",
+		Example: `  # List all waypoints in the cluster
+  # List all waypoints in a specific namespace
+  istioctl x waypoint list --namespace default
+
+  # List all waypoints in the cluster
+  istioctl x waypoint list -A`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			writer := cmd.OutOrStdout()
+			client, err := kubeClient(kubeconfig, configContext)
+			if err != nil {
+				return fmt.Errorf("failed to create Kubernetes client: %v", err)
+			}
+			ns := defaultNamespace
+			if allNamespaces {
+				ns = ""
+			} else if namespace != "" {
+				ns = namespace
+			}
+			gws, err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).
+				List(context.Background(), metav1.ListOptions{})
+			if err != nil {
+				return err
+			}
+			if len(gws.Items) == 0 {
+				fmt.Fprintln(writer, "No waypoints found.")
+				return nil
+			}
+			w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
+			slices.SortFunc(gws.Items, func(i, j gateway.Gateway) bool {
+				if i.Namespace <= j.Namespace {
+					return true
+				}
+				if i.Namespace > j.Namespace {
+					return false
+				}
+				return i.Name < j.Name
+			})
+			filteredGws := make([]gateway.Gateway, 0)
+			for _, gw := range gws.Items {
+				expectedName := makeGatewayName(gw.Annotations[constants.WaypointServiceAccount])
+				if gw.Name != expectedName {
+					continue
+				}
+				filteredGws = append(filteredGws, gw)
+			}
+			//TODO(hanxiaop) deal with revisions
+			if allNamespaces {
+				fmt.Fprintln(w, "NAMESPACE\tNAME\tSERVICE ACCOUNT\tPROGRAMMED\tREADY")
+			} else {
+				fmt.Fprintln(w, "NAME\tSERVICE ACCOUNT\tPROGRAMMED\tREADY")
+			}
+			for _, gw := range filteredGws {
+				sa := gw.Annotations[constants.WaypointServiceAccount]
+				programmed := kstatus.StatusFalse
+				ready := kstatus.StatusFalse
+				for _, cond := range gw.Status.Conditions {
+					if cond.Type == string(gateway.GatewayConditionReady) {
+						ready = string(cond.Status)
+					}
+					if cond.Type == string(gateway.GatewayConditionProgrammed) {
+						programmed = string(cond.Status)
+					}
+				}
+				if allNamespaces {
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, sa, programmed, ready)
+				} else {
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Name, sa, programmed, ready)
+				}
+			}
+			return w.Flush()
+		},
+	}
+	waypointListCmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List all waypoints in all namespaces")
+
 	waypointCmd := &cobra.Command{
 		Use:   "waypoint",
 		Short: "Manage waypoint configuration",
@@ -169,6 +253,7 @@ func waypointCmd() *cobra.Command {
 	waypointCmd.AddCommand(waypointApplyCmd)
 	waypointCmd.AddCommand(waypointGenerateCmd)
 	waypointCmd.AddCommand(waypointDeleteCmd)
+	waypointCmd.AddCommand(waypointListCmd)
 	waypointCmd.PersistentFlags().StringVarP(&waypointServiceAccount, "service-account", "s", "", "service account to create a waypoint for")
 
 	return waypointCmd
