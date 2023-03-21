@@ -76,7 +76,7 @@ kubectl logs -l app=opentelemetry-collector -n istio-system --tail=-1
 
 You can also check logs from Grafana:
 
-```
+```bash
 istioctl dashboard grafana
 ```
 
