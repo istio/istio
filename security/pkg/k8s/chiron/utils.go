@@ -15,7 +15,6 @@
 package chiron
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/pem"
@@ -44,7 +43,21 @@ const (
 	csrRetriesMax = 3
 	// cert-manager use below annotation on kubernetes CSR to control TTL for the generated cert.
 	RequestLifeTimeAnnotationForCertManager = "experimental.cert-manager.io/request-duration"
+
+	// IstioDNSSecretType is the Istio DNS secret annotation type
+	IstioDNSSecretType = "istio.io/dns-key-and-cert"
+
+	// The size of a private key for a leaf certificate.
+	keySize = 2048
+
+	// The number of tries for reading a certificate
+	maxNumCertRead = 10
+
+	// The interval for reading a certificate
+	certReadInterval = 500 * time.Millisecond
 )
+
+var certWatchTimeout = 60 * time.Second
 
 type CsrNameGenerator func(string, string) string
 
@@ -170,22 +183,6 @@ func isTCPReachable(host string, port int) bool {
 		log.Infof("tcp connection is not closed: %v", err)
 	}
 	return true
-}
-
-// Reload CA cert from file and return whether CA cert is changed
-func reloadCACert(wc *WebhookController) (bool, error) {
-	certChanged := false
-	wc.certMutex.Lock()
-	defer wc.certMutex.Unlock()
-	caCert, err := readCACert(wc.k8sCaCertFile)
-	if err != nil {
-		return certChanged, err
-	}
-	if !bytes.Equal(caCert, wc.CACert) {
-		wc.CACert = append([]byte(nil), caCert...)
-		certChanged = true
-	}
-	return certChanged, nil
 }
 
 func submitCSR(clientset clientset.Interface,
