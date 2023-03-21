@@ -20,14 +20,9 @@ import (
 	"strings"
 	"time"
 
-	capi "k8s.io/api/certificates/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"istio.io/istio/pkg/kube"
 	// +kubebuilder:scaffold:imports
 	"istio.io/istio/pkg/test/csrctrl/signer"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -36,13 +31,6 @@ const (
 
 	// The duration of the signed certificates
 	certificateDuration = 1 * time.Hour
-)
-
-var (
-	scheme         = runtime.NewScheme()
-	loggingOptions = log.DefaultOptions()
-	_              = capi.AddToScheme(scheme)
-	_              = corev1.AddToScheme(scheme)
 )
 
 type SignerRootCert struct {

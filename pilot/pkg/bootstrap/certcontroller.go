@@ -37,9 +37,6 @@ const (
 	// configured as the ratio of the certificate TTL.
 	defaultCertGracePeriodRatio = 0.5
 
-	// defaultMinCertGracePeriod is the default minimum grace period for workload cert rotation.
-	defaultMinCertGracePeriod = 10 * time.Minute
-
 	// the interval polling root cert and re sign istiod cert when it changes.
 	rootCertPollingInterval = 60 * time.Second
 

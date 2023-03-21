@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"golang.org/x/exp/maps"
-	capi "k8s.io/api/certificates/v1"
 	certv1 "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -113,17 +112,17 @@ func (s *Signer) HasSynced() bool {
 
 // isCertificateRequestApproved returns true if a certificate request has the
 // "Approved" condition and no "Denied" conditions; false otherwise.
-func isCertificateRequestApproved(csr *capi.CertificateSigningRequest) bool {
+func isCertificateRequestApproved(csr *certv1.CertificateSigningRequest) bool {
 	approved, denied := getCertApprovalCondition(&csr.Status)
 	return approved && !denied
 }
 
-func getCertApprovalCondition(status *capi.CertificateSigningRequestStatus) (approved bool, denied bool) {
+func getCertApprovalCondition(status *certv1.CertificateSigningRequestStatus) (approved bool, denied bool) {
 	for _, c := range status.Conditions {
-		if c.Type == capi.CertificateApproved {
+		if c.Type == certv1.CertificateApproved {
 			approved = true
 		}
-		if c.Type == capi.CertificateDenied {
+		if c.Type == certv1.CertificateDenied {
 			denied = true
 		}
 	}
