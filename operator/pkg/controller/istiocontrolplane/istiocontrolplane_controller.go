@@ -445,7 +445,7 @@ func ProcessDefaultWebhook(client kube.CLIClient, iop *iopv1alpha1.IstioOperator
 }
 
 func applyManifests(kubeClient kube.CLIClient, manifests string) error {
-	yamls := strings.Split(manifests, "---")
+	yamls := strings.Split(manifests, revtag.Separator)
 	for _, yml := range yamls {
 		if strings.TrimSpace(yml) == "" {
 			continue

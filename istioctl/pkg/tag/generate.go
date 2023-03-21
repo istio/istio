@@ -41,6 +41,8 @@ const (
 	vwhTemplateName         = "validatingwebhook.yaml"
 
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
+
+	Separator = "---\n"
 )
 
 // tagWebhookConfig holds config needed to render a tag webhook.
@@ -72,8 +74,6 @@ type GenerateOptions struct {
 	// AutoInjectNamespaces controls, if the sidecars should be injected into all namespaces by default.
 	AutoInjectNamespaces bool
 }
-
-const Separator = "---"
 
 // Generate generates the manifests for a revision tag pointed the given revision.
 func Generate(ctx context.Context, client kube.CLIClient, opts *GenerateOptions, istioNS string) (string, error) {
