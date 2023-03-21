@@ -31,6 +31,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1428,6 +1429,11 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 	for _, svc := range services {
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
+				continue
+			}
+			// Skip external services as service accounts for them (SANs in Service Entry)
+			// may not be in SPIFFE format.
+			if svc.Attributes.ServiceRegistry == provider.External {
 				continue
 			}
 			var accounts sets.String
