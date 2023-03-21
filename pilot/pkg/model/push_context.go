@@ -1431,11 +1431,6 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			// Skip external services as service accounts for them (SANs in Service Entry)
-			// may not be in SPIFFE format.
-			if svc.Attributes.ServiceRegistry == provider.External {
-				continue
-			}
 			var accounts sets.String
 			func() {
 				// First get endpoint level service accounts
@@ -1448,7 +1443,14 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 				if len(svc.ServiceAccounts) > 0 {
 					accounts = accounts.Copy().InsertAll(svc.ServiceAccounts...)
 				}
-				sa := sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
+				var sa []string
+				// Skip external services as service accounts for them (SANs in Service Entry)
+				// may not be in SPIFFE format.
+				if svc.Attributes.ServiceRegistry == provider.External {
+					sa = svc.ServiceAccounts
+				} else {
+					sa = sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
+				}
 				key := serviceAccountKey{
 					hostname:  svc.Hostname,
 					namespace: svc.Attributes.Namespace,
