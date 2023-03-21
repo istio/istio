@@ -308,6 +308,13 @@ func TestInjection(t *testing.T) {
 			want:        "hello-host-network-with-ns.yaml.injected",
 			expectedLog: "Skipping injection because Deployment \"sample/hello-host-network\" has host networking enabled",
 		},
+		{
+			in:   "hello-tracing-disabled.yaml",
+			want: "hello-tracing-disabled.yaml.injected",
+			mesh: func(m *meshapi.MeshConfig) {
+				m.DefaultConfig.Tracing = &meshapi.Tracing{}
+			},
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones

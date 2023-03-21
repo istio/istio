@@ -142,7 +142,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 // will not be modified.
 func ApplyProxyConfig(yaml string, meshConfig *meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
 	mc := proto.Clone(meshConfig).(*meshconfig.MeshConfig)
-	pc, err := applyProxyConfig(yaml, mc.DefaultConfig)
+	pc, err := MergeProxyConfig(yaml, mc.DefaultConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,8 @@ func ApplyProxyConfig(yaml string, meshConfig *meshconfig.MeshConfig) (*meshconf
 	return mc, nil
 }
 
-func applyProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshconfig.ProxyConfig, error) {
+// MergeProxyConfig merges the given proxy config yaml with the given proxy config object.
+func MergeProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshconfig.ProxyConfig, error) {
 	origMetadata := proxyConfig.ProxyMetadata
 	if err := protomarshal.ApplyYAML(yaml, proxyConfig); err != nil {
 		return nil, fmt.Errorf("could not parse proxy config: %v", err)
@@ -209,7 +210,7 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 		return nil, multierror.Prefix(err, "failed to extract proxy config")
 	}
 	if pc != "" {
-		pc, err := applyProxyConfig(pc, defaultConfig.DefaultConfig)
+		pc, err := MergeProxyConfig(pc, defaultConfig.DefaultConfig)
 		if err != nil {
 			return nil, err
 		}
