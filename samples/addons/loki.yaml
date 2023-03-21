@@ -8,8 +8,7 @@ metadata:
     chart: loki-2.16.0
     release: loki
     heritage: Helm
-  annotations:
-    {}
+  annotations: {}
   name: loki
   namespace: istio-system
 automountServiceAccountToken: true
@@ -63,10 +62,10 @@ metadata:
     release: loki
     heritage: Helm
 rules:
-- apiGroups:      ['extensions']
-  resources:      ['podsecuritypolicies']
-  verbs:          ['use']
-  resourceNames:  [loki]
+  - apiGroups: ['extensions']
+    resources: ['podsecuritypolicies']
+    verbs: ['use']
+    resourceNames: [loki]
 ---
 # Source: loki-stack/charts/loki/templates/rolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -84,8 +83,8 @@ roleRef:
   kind: Role
   name: loki
 subjects:
-- kind: ServiceAccount
-  name: loki
+  - kind: ServiceAccount
+    name: loki
 ---
 # Source: loki-stack/charts/loki/templates/service-headless.yaml
 apiVersion: v1
@@ -145,8 +144,7 @@ metadata:
     chart: loki-2.16.0
     release: loki
     heritage: Helm
-  annotations:
-    {}
+  annotations: {}
 spec:
   type: ClusterIP
   ports:
@@ -169,8 +167,7 @@ metadata:
     chart: loki-2.16.0
     release: loki
     heritage: Helm
-  annotations:
-    {}
+  annotations: {}
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -198,8 +195,7 @@ spec:
         runAsGroup: 10001
         runAsNonRoot: true
         runAsUser: 10001
-      initContainers:
-        []
+      initContainers: []
       containers:
         - name: loki
           image: "grafana/loki:2.6.1"
@@ -213,7 +209,7 @@ spec:
               mountPath: /etc/loki
             - name: storage
               mountPath: "/data"
-              subPath: 
+              subPath:
           ports:
             - name: http-metrics
               containerPort: 3100
@@ -234,17 +230,13 @@ spec:
               path: /ready
               port: http-metrics
             initialDelaySeconds: 45
-          resources:
-            {}
+          resources: {}
           securityContext:
             readOnlyRootFilesystem: true
           env:
-      nodeSelector:
-        {}
-      affinity:
-        {}
-      tolerations:
-        []
+      nodeSelector: {}
+      affinity: {}
+      tolerations: []
       terminationGracePeriodSeconds: 4800
       volumes:
         - name: tmp

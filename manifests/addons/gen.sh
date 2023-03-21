@@ -93,4 +93,6 @@ function compressDashboard() {
     -f "${WD}/values-loki.yaml"
 } > "${ADDONS}/loki.yaml"
 
-yamlfmt "${ADDONS}/loki.yaml"
+# yq can not output to same file
+yq -I2 "${ADDONS}/loki.yaml" > "${ADDONS}/loki-format.yaml"
+mv "${ADDONS}/loki-format.yaml" "${ADDONS}/loki.yaml"
