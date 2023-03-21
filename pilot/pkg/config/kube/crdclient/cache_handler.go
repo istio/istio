@@ -15,7 +15,6 @@
 package crdclient
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
@@ -26,7 +25,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/pkg/log"
 )
 
@@ -34,16 +33,11 @@ import (
 // and will be invoked on each informer event.
 type cacheHandler struct {
 	client   *Client
-	informer informer.FilteredSharedIndexInformer
-	lister   func(namespace string) cache.GenericNamespaceLister
+	informer kclient.Untyped
 	schema   resource.Schema
 }
 
 func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
-	if err := h.client.checkReadyForEvents(curr); err != nil {
-		return err
-	}
-
 	currItem := controllers.ExtractObject(curr)
 	if currItem == nil {
 		return nil
@@ -92,42 +86,25 @@ func createCacheHandler(cl *Client, schema resource.Schema, i informers.GenericI
 	h := &cacheHandler{
 		client:   cl,
 		schema:   schema,
-		informer: informer.NewFilteredSharedIndexInformer(cl.namespacesFilter, i.Informer()),
-	}
-
-	h.lister = func(namespace string) cache.GenericNamespaceLister {
-		gr := schema.GroupVersionResource().GroupResource()
-		if schema.IsClusterScoped() || namespace == metav1.NamespaceAll {
-			return cache.NewGenericLister(h.informer.GetIndexer(), gr)
-		}
-		return cache.NewGenericLister(h.informer.GetIndexer(), gr).ByNamespace(namespace)
+		informer: kclient.NewUntyped(cl.client, i.Informer(), kclient.Filter{ObjectFilter: cl.namespacesFilter}),
 	}
 
 	kind := schema.Kind()
 	h.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			incrementEvent(kind, "add")
-			if !cl.beginSync.Load() {
-				return
-			}
 			cl.queue.Push(func() error {
 				return h.onEvent(nil, obj, model.EventAdd)
 			})
 		},
 		UpdateFunc: func(old, cur any) {
 			incrementEvent(kind, "update")
-			if !cl.beginSync.Load() {
-				return
-			}
 			cl.queue.Push(func() error {
 				return h.onEvent(old, cur, model.EventUpdate)
 			})
 		},
 		DeleteFunc: func(obj any) {
 			incrementEvent(kind, "delete")
-			if !cl.beginSync.Load() {
-				return
-			}
 			cl.queue.Push(func() error {
 				return h.onEvent(nil, obj, model.EventDelete)
 			})

@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
-	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -142,7 +141,6 @@ func NewController(configController model.ConfigStoreController, xdsUpdater mode
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
-		_ = configController.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(s.clusterID))
 	}
 	return s
 }
@@ -160,7 +158,6 @@ func NewWorkloadEntryController(configController model.ConfigStoreController, xd
 
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
-		_ = configController.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(s.clusterID))
 	}
 	return s
 }
@@ -408,6 +405,9 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 		// Delete endpoint shards only if there are no service instances.
 		if len(s.serviceInstances.getByKey(instanceKey)) == 0 {
 			s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
+		} else {
+			// If there are some endpoints remaining for the host, add svc to updatedSvcs to trigger eds cache update
+			updatedSvcs = append(updatedSvcs, svc)
 		}
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}

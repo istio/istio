@@ -37,8 +37,6 @@ type NodeAuthorizer struct {
 	trustedNodeAccounts map[types.NamespacedName]struct{}
 }
 
-const NodeSaIndex = "node+sa"
-
 func NewNodeAuthorizer(client kube.Client, trustedNodeAccounts map[types.NamespacedName]struct{}) (*NodeAuthorizer, error) {
 	pods := client.KubeInformer().Core().V1().Pods()
 	// Add an Index on the pods, storing the service account and node. This allows us to later efficiently query.

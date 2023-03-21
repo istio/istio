@@ -224,26 +224,11 @@ func ValidateCertificate(data []byte) error {
 		return err
 	}
 	now := time.Now()
-	trustedRoots := x509.NewCertPool()
 	for _, cert := range certs {
 		// check if the certificate has expired
-		if cert.NotAfter.IsZero() || now.After(cert.NotAfter) {
-			return fmt.Errorf("certificate has expired")
+		if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
+			return fmt.Errorf("certificate is expired or not yet valid")
 		}
-		if cert.NotBefore.IsZero() || now.Before(cert.NotBefore) {
-			return fmt.Errorf("certificate is not valid yet")
-		}
-
-		// add the certificate to the trusted roots pool
-		trustedRoots.AddCert(cert)
-	}
-
-	// verify the certificate chain
-	opts := x509.VerifyOptions{
-		Roots: trustedRoots,
-	}
-	if _, err = certs[0].Verify(opts); err != nil {
-		return err
 	}
 	return nil
 }

@@ -269,15 +269,13 @@ import (
 )
 
 func GetGVK[T runtime.Object]() config.GroupVersionKind {
-	i := *new(T)
-	t := reflect.TypeOf(i)
-	switch t {
+	switch any(ptr.Empty[T]()).(type) {
 {{- range .Entries }}
-	case reflect.TypeOf(&{{ .ClientImport }}.{{ .Resource.Kind }}{}):
+	case *{{ .ClientImport }}.{{ .Resource.Kind }}:
 		return gvk.{{ .Resource.Identifier }}
 {{- end }}
   default:
-    panic(fmt.Sprintf("Unknown type %T", i))
+    panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
 	}
 }
 `
@@ -340,29 +338,26 @@ type ClientGetter interface {
 }
 
 func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
-	i := *new(T)
-	t := reflect.TypeOf(i)
-	switch t {
+	switch any(ptr.Empty[T]()).(type) {
 {{- range .Entries }}
 	{{- if not .Resource.Synthetic }}
-	case reflect.TypeOf(&{{ .ClientImport }}.{{ .Resource.Kind }}{}):
+	case *{{ .ClientImport }}.{{ .Resource.Kind }}:
 		return  c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}namespace{{end}}).(ktypes.WriteAPI[T])
 	{{- end }}
 {{- end }}
   default:
-    panic(fmt.Sprintf("Unknown type %T", i))
+    panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
 	}
 }
 
 func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerOptions) cache.SharedIndexInformer {
 	var l func(options metav1.ListOptions) (runtime.Object, error)
 	var w func(options metav1.ListOptions) (watch.Interface, error)
-	i := *new(T)
-	t := reflect.TypeOf(i)
-	switch t {
+
+	switch any(ptr.Empty[T]()).(type) {
 {{- range .Entries }}
 	{{- if not .Resource.Synthetic }}
-	case reflect.TypeOf(&{{ .ClientImport }}.{{ .Resource.Kind }}{}):
+	case *{{ .ClientImport }}.{{ .Resource.Kind }}:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}""{{end}}).List(context.Background(), options)
 		}
@@ -372,7 +367,7 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 	{{- end }}
 {{- end }}
   default:
-    panic(fmt.Sprintf("Unknown type %T", i))
+    panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
 	}
 	return c.KubeInformer().InformerFor(*new(T), func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
 		return cache.NewSharedIndexInformer(
@@ -396,17 +391,15 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 }
 
 func GetInformer[T runtime.Object](c ClientGetter) cache.SharedIndexInformer {
-	i := *new(T)
-	t := reflect.TypeOf(i)
-	switch t {
+	switch any(ptr.Empty[T]()).(type) {
 {{- range .Entries }}
 	{{- if not .Resource.Synthetic }}
-	case reflect.TypeOf(&{{ .ClientImport }}.{{ .Resource.Kind }}{}):
+	case *{{ .ClientImport }}.{{ .Resource.Kind }}:
 		return  c.{{.ClientGetter}}Informer().{{ .InformerGroup }}.{{ .ClientTypePath }}().Informer()
 	{{- end }}
 {{- end }}
   default:
-    panic(fmt.Sprintf("Unknown type %T", i))
+    panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
 	}
 }
 `

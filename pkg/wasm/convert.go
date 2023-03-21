@@ -16,6 +16,7 @@ package wasm
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/xds"
 )
 
@@ -106,7 +108,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 	return err
 }
 
-// tryUnmarshalIfRemoteWasm returns the typed extension config and wasm config by unmarsharling `resource`,
+// tryUnmarshal returns the typed extension config and wasm config by unmarsharling `resource`,
 // if `resource` is a wasm config loading a wasm module from the remote site.
 // It returns `nil` for both the typed extension config and wasm config if it is not for the remote wasm or has an error.
 func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *wasm.Wasm, error) {
@@ -118,13 +120,15 @@ func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *wasm.Wasm, 
 	}
 
 	// Wasm filter can be configured using typed struct and Wasm filter type
-	if ec.GetTypedConfig() == nil {
+	switch {
+	case ec.GetTypedConfig() == nil:
 		return nil, nil, fmt.Errorf("typed extension config %+v does not contain any typed config", ec)
-	} else if ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType {
+		// TODO: Currently only WASM HTTP filter is supported. Extend it to Network filter when ECDS is supported for network filters.
+	case ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType:
 		if err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig); err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal extension config resource into Wasm HTTP filter: %w", err)
 		}
-	} else if ec.GetTypedConfig().TypeUrl == xds.TypedStructType {
+	case ec.GetTypedConfig().TypeUrl == xds.TypedStructType:
 		typedStruct := &udpa.TypedStruct{}
 		wasmTypedConfig := ec.GetTypedConfig()
 		if err := wasmTypedConfig.UnmarshalTo(typedStruct); err != nil {
@@ -140,9 +144,9 @@ func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *wasm.Wasm, 
 			wasmLog.Debugf("typed extension config %+v does not contain wasm http filter", typedStruct)
 			return nil, nil, nil
 		}
-	} else {
+	default:
 		// This is not a Wasm filter.
-		wasmLog.Debugf("cannot find typed struct in %+v", ec)
+		wasmLog.Debugf("cannot find typed config or typed struct in %+v", ec)
 		return nil, nil, nil
 	}
 
@@ -179,10 +183,23 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 			}
 			pullSecret = []byte(sec)
 		}
-		// Strip all internal env variables from VM env variable.
-		// These env variables are added by Istio control plane and meant to be consumed by the agent for image pulling control,
-		// thus should not be leaked to Envoy or the Wasm extension runtime.
+
+		if ps, found := envs.KeyValues[model.WasmPolicyEnv]; found {
+			if p, found := extensions.PullPolicy_value[ps]; found {
+				pullPolicy = extensions.PullPolicy(p)
+			}
+		}
+		resourceVersion = envs.KeyValues[model.WasmResourceVersionEnv]
+
+		// Strip all internal env variables(with ISTIO_META) from VM env variable.
+		// These env variables are added by Istio control plane and meant to be consumed by the
+		// agent for image pulling control should not be leaked to Envoy or the Wasm extension runtime.
 		delete(envs.KeyValues, model.WasmSecretEnv)
+		for k := range envs.KeyValues {
+			if strings.HasPrefix(k, bootstrap.IstioMetaPrefix) {
+				delete(envs.KeyValues, k)
+			}
+		}
 		if len(envs.KeyValues) == 0 {
 			if len(envs.HostEnvKeys) == 0 {
 				vm.EnvironmentVariables = nil
@@ -190,14 +207,6 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 				envs.KeyValues = nil
 			}
 		}
-
-		if ps, found := envs.KeyValues[model.WasmPolicyEnv]; found {
-			if p, found := extensions.PullPolicy_value[ps]; found {
-				pullPolicy = extensions.PullPolicy(p)
-			}
-		}
-
-		resourceVersion = envs.KeyValues[model.WasmResourceVersionEnv]
 	}
 	remote := vm.GetCode().GetRemote()
 	httpURI := remote.GetHttpUri()

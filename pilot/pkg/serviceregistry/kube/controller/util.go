@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -123,12 +122,7 @@ func findServiceTargetPort(servicePort *model.Port, k8sService *v1.Service) serv
 	return serviceTargetPort{num: 0, name: "", explicitName: false}
 }
 
-func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error) {
-	allServices, err := s.Services(pod.Namespace).List(klabels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
+func getPodServices(allServices []*v1.Service, pod *v1.Pod) []*v1.Service {
 	var services []*v1.Service
 	for _, service := range allServices {
 		if service.Spec.Selector == nil {
@@ -140,14 +134,10 @@ func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error
 		}
 	}
 
-	return services, nil
+	return services
 }
 
-func getPodsInService(s listerv1.PodLister, svc *v1.Service) []*v1.Pod {
-	allPods, err := s.Pods(svc.Namespace).List(klabels.Everything())
-	if err != nil {
-		return nil
-	}
+func getPodsInService(allPods []*v1.Pod, svc *v1.Service) []*v1.Pod {
 	if svc.Spec.Selector == nil {
 		// services with nil selectors match nothing, not everything.
 		return nil
@@ -224,13 +214,13 @@ func isNodePortGatewayService(svc *v1.Service) bool {
 }
 
 // Get the pod key of the proxy which can be used to get pod from the informer cache
-func podKeyByProxy(proxy *model.Proxy) string {
+func podKeyByProxy(proxy *model.Proxy) types.NamespacedName {
 	parts := strings.Split(proxy.ID, ".")
 	if len(parts) == 2 && proxy.Metadata.Namespace == parts[1] {
-		return kube.KeyFunc(parts[0], parts[1])
+		return types.NamespacedName{Name: parts[0], Namespace: parts[1]}
 	}
 
-	return ""
+	return types.NamespacedName{}
 }
 
 func namespacedNameForService(svc *model.Service) types.NamespacedName {

@@ -16,13 +16,6 @@
 // parses prevResult according to the cniVersion
 package plugin
 
-import (
-	"istio.io/pkg/env"
-)
-
-var dryRunFilePath = env.Register("DRY_RUN_FILE_PATH", "",
-	"If provided, CNI will dry run iptables rule apply, and print the applied rules to the given file.")
-
 type iptables struct{}
 
 func newIPTables() InterceptRuleMgr {
