@@ -169,7 +169,13 @@ func (s *Server) Register(grpcServer *grpc.Server) {
 }
 
 // New creates a new instance of `IstioCAServiceServer`
-func New(ca CertificateAuthority, ttl time.Duration, authenticators []security.Authenticator, client kube.Client, filter namespace.DiscoveryFilter) (*Server, error) {
+func New(
+	ca CertificateAuthority,
+	ttl time.Duration,
+	authenticators []security.Authenticator,
+	client kube.Client,
+	filter namespace.DiscoveryFilter,
+) (*Server, error) {
 	certBundle := ca.GetCAKeyCertBundle()
 	if len(certBundle.GetRootCertPem()) != 0 {
 		recordCertsExpiry(certBundle)
