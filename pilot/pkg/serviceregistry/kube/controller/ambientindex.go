@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
@@ -59,7 +60,7 @@ type AmbientIndex struct {
 	waypoints map[model.WaypointScope]sets.String
 
 	// serviceVipIndex maintains an index of VIP -> Service
-	serviceVipIndex *controllers.Index[*v1.Service, string]
+	serviceVipIndex *kclient.Index[*v1.Service, string]
 }
 
 // Lookup finds a given IP address.
@@ -686,7 +687,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		},
 	}
 	c.services.AddEventHandler(serviceHandler)
-	idx.serviceVipIndex = controllers.CreateIndex[*v1.Service, string](c.client.KubeInformer().Core().V1().Services().Informer(), getVIPs)
+	idx.serviceVipIndex = kclient.CreateIndex[*v1.Service, string](c.services, getVIPs)
 	return &idx
 }
 
