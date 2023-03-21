@@ -79,9 +79,13 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 	}
 	secretDump := c.ztunnelDump.Certificates
 	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
-	fmt.Fprintln(w, "RESOURCE NAME\tTYPE\tSTATUS\tVALID CERT\tSERIAL NUMBER\tNOT AFTER\tNOT BEFORE")
+	fmt.Fprintln(w, "NAME\tTYPE\tSTATUS\tVALID CERT\tSERIAL NUMBER\tNOT AFTER\tNOT BEFORE")
 
 	for _, secret := range secretDump {
+		if len(secret.CaCert) == 0 && len(secret.CertChain) == 0 {
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+				secret.Identity, valueOrNA(""), secret.State, false, valueOrNA(""), valueOrNA(""), valueOrNA(""))
+		}
 		for _, ca := range secret.CaCert {
 			n := new(big.Int)
 			n, _ = n.SetString(ca.SerialNumber, 10)
