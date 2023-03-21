@@ -164,8 +164,6 @@ type IstioEgressListenerWrapper struct {
 	// a private virtual service for serviceA from the local namespace,
 	// with a different path rewrite or no path rewrites.
 	virtualServices []config.Config
-
-	listenerHosts map[string][]host.Name
 }
 
 const defaultSidecar = "default-sidecar"
@@ -444,7 +442,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		IstioListener: istioListener,
 	}
 
-	out.listenerHosts = make(map[string][]host.Name)
+	listenerHosts := make(map[string][]host.Name)
 	for _, h := range istioListener.Hosts {
 		parts := strings.SplitN(h, "/", 2)
 		if len(parts) < 2 {
@@ -454,15 +452,15 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		if parts[0] == currentNamespace {
 			parts[0] = configNamespace
 		}
-		if _, exists := out.listenerHosts[parts[0]]; !exists {
-			out.listenerHosts[parts[0]] = make([]host.Name, 0)
+		if _, exists := listenerHosts[parts[0]]; !exists {
+			listenerHosts[parts[0]] = make([]host.Name, 0)
 		}
-		out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], host.Name(parts[1]))
+		listenerHosts[parts[0]] = append(listenerHosts[parts[0]], host.Name(parts[1]))
 	}
 
-	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, out.listenerHosts)
+	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, listenerHosts)
 	svces := ps.servicesExportedToNamespace(configNamespace)
-	out.services = out.selectServices(svces, configNamespace, out.listenerHosts)
+	out.services = out.selectServices(svces, configNamespace, listenerHosts)
 
 	return out
 }

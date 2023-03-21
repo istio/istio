@@ -50,7 +50,7 @@ func NewUDSLogger() *UDSLogger {
 	return l
 }
 
-// StartUDSServer starts up a UDS server which receives log reported from CNI network plugin.
+// StartUDSLogServer starts up a UDS server which receives log reported from CNI network plugin.
 func (l *UDSLogger) StartUDSLogServer(sockAddress string, stop <-chan struct{}) error {
 	if sockAddress == "" {
 		return nil

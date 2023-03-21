@@ -17,7 +17,6 @@ package serviceentry
 import (
 	"fmt"
 	"hash/fnv"
-	"reflect"
 	"strconv"
 	"sync"
 	"time"
@@ -31,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
-	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -43,7 +41,6 @@ import (
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/workloadapi"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -118,23 +115,8 @@ type Controller struct {
 	// Indicates whether this controller is for workload entries.
 	workloadEntryController bool
 
+	model.NoopAmbientIndexes
 	model.NetworkGatewaysHandler
-}
-
-func (s *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
-	return nil, nil
-}
-
-func (s *Controller) AdditionalPodSubscriptions(_ *model.Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
-	return nil
-}
-
-func (s *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
-	return nil
-}
-
-func (s *Controller) AmbientSnapshot() *model.AmbientSnapshot {
-	return nil
 }
 
 type Option func(*Controller)
@@ -159,7 +141,6 @@ func NewController(configController model.ConfigStoreController, xdsUpdater mode
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
-		_ = configController.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(s.clusterID))
 	}
 	return s
 }
@@ -177,7 +158,6 @@ func NewWorkloadEntryController(configController model.ConfigStoreController, xd
 
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
-		_ = configController.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(s.clusterID))
 	}
 	return s
 }
@@ -272,7 +252,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		}
 	}
 
-	cfgs, _ := s.store.List(gvk.ServiceEntry, curr.Namespace)
+	cfgs := s.store.List(gvk.ServiceEntry, curr.Namespace)
 	currSes := getWorkloadServiceEntries(cfgs, wle)
 	var oldSes map[types.NamespacedName]*config.Config
 	if oldWle != nil {
@@ -425,6 +405,9 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 		// Delete endpoint shards only if there are no service instances.
 		if len(s.serviceInstances.getByKey(instanceKey)) == 0 {
 			s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
+		} else {
+			// If there are some endpoints remaining for the host, add svc to updatedSvcs to trigger eds cache update
+			updatedSvcs = append(updatedSvcs, svc)
 		}
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
@@ -517,7 +500,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	}
 
 	// We will only select entries in the same namespace
-	cfgs, _ := s.store.List(gvk.ServiceEntry, wi.Namespace)
+	cfgs := s.store.List(gvk.ServiceEntry, wi.Namespace)
 	if len(cfgs) == 0 {
 		s.mutex.Unlock()
 		return
@@ -856,7 +839,7 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 		newSvc, f := newServiceHosts[s.Hostname]
 		if !f {
 			deleted = append(deleted, s)
-		} else if !reflect.DeepEqual(s, newSvc) {
+		} else if !s.Equals(newSvc) {
 			updated = append(updated, newSvc)
 		} else {
 			unchanged = append(unchanged, newSvc)
@@ -907,7 +890,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
-			hash.Write([]byte(svc.Attributes.Namespace + "/" + svc.Hostname.String()))
+			hash.Write([]byte(makeServiceKey(svc)))
 			// First hash is calculated by
 			s := hash.Sum32()
 			firstHash := s % uint32(maxIPs)
@@ -950,7 +933,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			}
 			continue
 		}
-		n := svc.Hostname.String()
+		n := makeServiceKey(svc)
 		if v, ok := hnMap[n]; ok {
 			log.Debugf("Reuse IP for domain %s", n)
 			setAutoAllocatedIPs(svc, v)
@@ -970,6 +953,10 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		}
 	}
 	return services
+}
+
+func makeServiceKey(svc *model.Service) string {
+	return svc.Attributes.Namespace + "/" + svc.Hostname.String()
 }
 
 func setAutoAllocatedIPs(svc *model.Service, octets octetPair) {

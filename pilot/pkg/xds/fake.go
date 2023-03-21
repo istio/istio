@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
@@ -121,8 +122,6 @@ type FakeDiscoveryServer struct {
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
-	stop := test.NewStop(t)
-
 	m := opts.MeshConfig
 	if m == nil {
 		m = mesh.DefaultMeshConfig()
@@ -190,11 +189,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			XDSUpdater:       xdsUpdater,
 			NetworksWatcher:  opts.NetworksWatcher,
 			Mode:             opts.KubernetesEndpointMode,
-			Stop:             stop,
 			SkipRun:          true,
 			ConfigController: k8sConfig,
 			MeshWatcher:      mesh.NewFixedWatcher(m),
 		})
+		stop := test.NewStop(t)
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
 			defaultKubeClient = client
@@ -211,6 +210,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		}
 	}
 
+	stop := test.NewStop(t)
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	})
@@ -260,7 +260,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	configHandler := func(_, curr config.Config, event model.Event) {
 		pushReq := &model.PushRequest{
 			Full:           true,
-			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.FromGvk(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
 			Reason:         []model.TriggerReason{model.ConfigUpdate},
 		}
 		s.ConfigUpdate(pushReq)
@@ -271,16 +271,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	for _, schema := range schemas {
 		// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
-		if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
-			Resource().GroupVersionKind() {
+		if schema.GroupVersionKind() == gvk.ServiceEntry {
 			continue
 		}
-		if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadentries.
-			Resource().GroupVersionKind() {
+		if schema.GroupVersionKind() == gvk.WorkloadEntry {
 			continue
 		}
 
-		cg.Store().RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
+		cg.Store().RegisterEventHandler(schema.GroupVersionKind(), configHandler)
 	}
 	for _, registry := range registries {
 		k8s, ok := registry.(*kube.FakeController)
@@ -400,9 +398,9 @@ func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
 }
 
 func APIWatches() []string {
-	watches := []string{collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String()}
+	watches := []string{gvk.MeshConfig.String()}
 	for _, sch := range collections.Pilot.All() {
-		watches = append(watches, sch.Resource().GroupVersionKind().String())
+		watches = append(watches, sch.GroupVersionKind().String())
 	}
 	return watches
 }

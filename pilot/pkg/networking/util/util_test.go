@@ -38,7 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
 )
 
@@ -387,7 +387,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -428,7 +428,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			nil,
 			&core.Metadata{
@@ -451,7 +451,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{},
@@ -476,7 +476,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -516,7 +516,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -1223,6 +1223,272 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 			sessionConfig := MaybeBuildStatefulSessionFilterConfig(tt.service)
 			if !reflect.DeepEqual(tt.expectedconfig, sessionConfig) {
 				t.Errorf("unexpected stateful session filter config, expected: %v, got :%v", tt.expectedconfig, sessionConfig)
+			}
+		})
+	}
+}
+
+func TestEndpointTLSModeLabel(t *testing.T) {
+	cases := []struct {
+		name     string
+		endpoint *endpoint.LbEndpoint
+		tlsMode  string
+		want     *endpoint.LbEndpoint
+	}{
+		{
+			name:     "nil endpoint",
+			endpoint: nil,
+			tlsMode:  "",
+			want:     nil,
+		},
+		{
+			name:     "endpoint is empty1",
+			tlsMode:  "",
+			endpoint: &endpoint.LbEndpoint{},
+			want:     nil,
+		},
+		{
+			name:     "endpoint is empty2",
+			tlsMode:  model.DisabledTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{},
+			want:     nil,
+		},
+		{
+			name:     "endpoint is empty3",
+			tlsMode:  model.IstioMutualTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{},
+			want:     nil,
+		},
+
+		{
+			name:    "endpoint metadata have tunnel,case1 ",
+			tlsMode: model.IstioMutualTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						EnvoyTransportSocketMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								model.TunnelLabelShortName: {
+									Kind: &structpb.Value_StringValue{
+										StringValue: model.TunnelHTTP,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+
+		{
+			name:    "endpoint metadata have tunnel,case2 ",
+			tlsMode: model.DisabledTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						EnvoyTransportSocketMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								model.TunnelLabelShortName: {
+									Kind: &structpb.Value_StringValue{
+										StringValue: model.TunnelHTTP,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+
+		{
+			name:    "endpoint tlsMode ==  tlsMode,case1  ",
+			tlsMode: model.DisabledTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						EnvoyTransportSocketMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								model.TLSModeLabelShortname: {
+									Kind: &structpb.Value_StringValue{
+										StringValue: model.DisabledTLSModeLabel,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+
+		{
+			name:    "endpoint tlsMode ==  tlsMode,case2  ",
+			tlsMode: model.IstioMutualTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						EnvoyTransportSocketMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								model.TLSModeLabelShortname: {
+									Kind: &structpb.Value_StringValue{
+										StringValue: model.IstioMutualTLSModeLabel,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: nil,
+		},
+
+		{
+			name:    "endpoint tlsMode !=  tlsMode,case1  ",
+			tlsMode: model.IstioMutualTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						EnvoyTransportSocketMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								model.TLSModeLabelShortname: {
+									Kind: &structpb.Value_StringValue{
+										StringValue: model.DisabledTLSModeLabel,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						EnvoyTransportSocketMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								model.TLSModeLabelShortname: {
+									Kind: &structpb.Value_StringValue{
+										StringValue: model.IstioMutualTLSModeLabel,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+
+		{
+			name:    "endpoint tlsMode !=  tlsMode,case1.1  ",
+			tlsMode: model.IstioMutualTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{
+				// endpoint tlsMode is not defined
+				Metadata: &core.Metadata{},
+			},
+			want: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						EnvoyTransportSocketMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								model.TLSModeLabelShortname: {
+									Kind: &structpb.Value_StringValue{
+										StringValue: model.IstioMutualTLSModeLabel,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+
+		{
+			name:    "endpoint tlsMode !=  tlsMode,case1.2  ",
+			tlsMode: model.IstioMutualTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{},
+				},
+			},
+			want: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						EnvoyTransportSocketMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								model.TLSModeLabelShortname: {
+									Kind: &structpb.Value_StringValue{
+										StringValue: model.IstioMutualTLSModeLabel,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+
+		{
+			name:    "endpoint tlsMode !=  tlsMode,case 2  ",
+			tlsMode: model.DisabledTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					// endpoint tlsMode is not defined
+					FilterMetadata: map[string]*structpb.Struct{},
+				},
+			},
+			want: nil,
+		},
+
+		{
+			name:    "endpoint tlsMode !=  tlsMode,case 2.1  ",
+			tlsMode: model.DisabledTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{
+				// endpoint tlsMode is not defined
+				Metadata: &core.Metadata{},
+			},
+			want: nil,
+		},
+
+		{
+			name:    "endpoint tlsMode !=  tlsMode,case 2.2  ",
+			tlsMode: model.DisabledTLSModeLabel,
+			endpoint: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{
+						EnvoyTransportSocketMetadataKey: {
+							Fields: map[string]*structpb.Value{
+								model.TLSModeLabelShortname: {
+									Kind: &structpb.Value_StringValue{
+										StringValue: model.IstioMutualTLSModeLabel,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &endpoint.LbEndpoint{
+				Metadata: &core.Metadata{
+					FilterMetadata: map[string]*structpb.Struct{},
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			newEp, _ := MaybeApplyTLSModeLabel(tt.endpoint, tt.tlsMode)
+
+			if newEp == nil || tt.want == nil {
+				if tt.want == newEp {
+					return
+				}
+				t.Errorf("test case[%s] error, Unexpected Endpoint metadata got %v, want %v", tt.name, newEp, tt.want)
+				return
+			}
+
+			if !reflect.DeepEqual(newEp.Metadata, tt.want.Metadata) {
+				t.Errorf("test case[%s] error, Unexpected Endpoint metadata got %v, want %v", tt.name, newEp, tt.want)
 			}
 		})
 	}

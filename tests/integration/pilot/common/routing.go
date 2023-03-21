@@ -20,6 +20,7 @@ package common
 import (
 	"fmt"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"reflect"
 	"sort"
@@ -1023,7 +1024,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: cross-network-gateway-test
-  namespace: istio-system
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   selector:
     istio: ingressgateway
@@ -1038,6 +1039,15 @@ spec:
         - "*.local"
 `,
 			children: childs,
+			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
+				systemNamespace := "istio-system"
+				if t.Istio.Settings().SystemNamespace != "" {
+					systemNamespace = t.Istio.Settings().SystemNamespace
+				}
+				return map[string]any{
+					"SystemNamespace": systemNamespace,
+				}
+			},
 		})
 	}
 }
@@ -1158,7 +1168,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: ingressgateway-redirect-config
-  namespace: istio-system
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   configPatches:
   - applyTo: NETWORK_FILTER
@@ -1194,10 +1204,15 @@ spec:
 		setupOpts: fqdnHostHeader,
 		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
 			dest := dests[0]
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
 				"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
+				"SystemNamespace":    systemNamespace,
 			}
 		},
 	})
@@ -1289,7 +1304,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: ingressgateway-redirect-config
-  namespace: istio-system
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   configPatches:
   - applyTo: NETWORK_FILTER
@@ -1324,11 +1339,16 @@ spec:
 		},
 		setupOpts: fqdnHostHeader,
 		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			dest := dests[0]
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
 				"Port":               443,
+				"SystemNamespace":    systemNamespace,
 			}
 		},
 	})
@@ -1413,10 +1433,15 @@ spec:
 		setupOpts: fqdnHostHeader,
 		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
 			dest := dests[0]
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
 				"Port":               dest.PortForName(ports.AutoHTTP.Name).ServicePort,
+				"SystemNamespace":    systemNamespace,
 			}
 		},
 	})
@@ -2904,6 +2929,103 @@ func VMTestCases(vms echo.Instances) func(t TrafficContext) {
 	}
 }
 
+func TestExternalService(t TrafficContext) {
+	// Let us enable outboundTrafficPolicy REGISTRY_ONLY
+	// on one of the workloads, to verify selective external connectivity
+	SidecarScope := fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: restrict-external-service
+  namespace: %s
+spec:
+  workloadSelector:
+    labels:
+      app: a
+  outboundTrafficPolicy:
+    mode: "REGISTRY_ONLY"
+`, t.Apps.EchoNamespace.Namespace.Name())
+
+	fakeExternalAddress := t.Apps.External.All[0].Address()
+	parsedIP, err := netip.ParseAddr(fakeExternalAddress)
+	if err == nil {
+		if parsedIP.Is6() {
+			// CI has some issues with ipv6 DNS resolution, due to which
+			// we are not able to directly use the host name in the connectivity tests.
+			// Hence using a bogus IPv6 address with -HHost option as a workaround to
+			// simulate ServiceEntry based wildcard listener scenarios.
+			fakeExternalAddress = "2002::1"
+		} else {
+			fakeExternalAddress = "1.1.1.1"
+		}
+	}
+
+	testCases := []struct {
+		name       string
+		statusCode int
+		from       echo.Instances
+		to         string
+		protocol   protocol.Instance
+		port       int
+	}{
+		// TC1: Test connectivity to external service from outboundTrafficPolicy restricted pod.
+		// The external service is exposed through a ServiceEntry, so the traffic should go through
+		{
+			name:       "traffic from outboundTrafficPolicy REGISTRY_ONLY to allowed host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.A,
+			to:         t.Apps.External.All[0].Address(),
+			protocol:   protocol.HTTPS,
+			port:       443,
+		},
+		// TC2: Same test as TC1, but use a fake external ip in destination for connectivity.
+		{
+			name:       "traffic from outboundTrafficPolicy REGISTRY_ONLY to allowed host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.A,
+			to:         fakeExternalAddress,
+			protocol:   protocol.HTTPS,
+			port:       443,
+		},
+		// TC3: Test connectivity to external service from outboundTrafficPolicy=PASS_THROUGH pod.
+		// Traffic should go through without the need for any explicit ServiceEntry
+		{
+			name:       "traffic from outboundTrafficPolicy PASS_THROUGH to any host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.B,
+			to:         t.Apps.External.All[0].Address(),
+			protocol:   protocol.HTTP,
+			port:       80,
+		},
+		// TC4: Same test as TC3, but use a fake external ip in destination for connectivity.
+		{
+			name:       "traffic from outboundTrafficPolicy PASS_THROUGH to any host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.B,
+			to:         fakeExternalAddress,
+			protocol:   protocol.HTTP,
+			port:       80,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.RunTraffic(TrafficTestCase{
+			name:   fmt.Sprintf("%v to external service %v", tc.from[0].NamespacedName(), tc.to),
+			config: SidecarScope,
+			opts: echo.CallOptions{
+				Address: tc.to,
+				HTTP: echo.HTTP{
+					Headers: HostHeader(t.Apps.External.All[0].Config().DefaultHostHeader),
+				},
+				Port: echo.Port{Protocol: tc.protocol, ServicePort: tc.port},
+				Check: check.And(
+					check.Status(tc.statusCode),
+				),
+			},
+			call: tc.from[0].CallOrFail,
+		})
+	}
+}
+
 func destinationRule(app, mode string) string {
 	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
@@ -3102,7 +3224,7 @@ apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
 metadata:
   name: default
-  namespace: istio-system
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
@@ -3152,8 +3274,13 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
-				"Headers": []configData{{"X-Jwt-Nested-Key", "exact", "valueC"}},
+				"Headers":         []configData{{"X-Jwt-Nested-Key", "exact", "valueC"}},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3175,11 +3302,16 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
 				"Headers": []configData{
 					{"X-Jwt-Nested-Key", "exact", "valueC"},
 					{"X-Jwt-Iss", "exact", "test-issuer-1@istio.io"},
 				},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3201,8 +3333,13 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
-				"Headers": []configData{{"x-jwt-wrong-header", "exact", "header_to_be_deleted"}},
+				"Headers":         []configData{{"x-jwt-wrong-header", "exact", "header_to_be_deleted"}},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3224,8 +3361,13 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"Headers":         []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3247,8 +3389,13 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
+				"Headers":         []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3270,11 +3417,16 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
 				"Headers": []configData{
 					{"@request.auth.claims.sub", "regex", "(\\W|^)(sub-1|sub-2)(\\W|$)"},
 					{"@request.auth.claims.nested.key1", "regex", "(\\W|^)value[AB](\\W|$)"},
 				},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3296,11 +3448,16 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
 				"Headers": []configData{
 					{"@request.auth.claims.nested.key1", "exact", "valueA"},
 					{"@request.auth.claims.sub", "prefix", "sub"},
 				},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3322,8 +3479,13 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
-				"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "value-not-matched"}},
+				"WithoutHeaders":  []configData{{"@request.auth.claims.nested.key1", "exact", "value-not-matched"}},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3345,8 +3507,13 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
-				"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"WithoutHeaders":  []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3368,12 +3535,17 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
 				"Headers": []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
 				"WithoutHeaders": []configData{
 					{"@request.auth.claims.nested.key1", "exact", "value-not-matched"},
 					{"@request.auth.claims.nested.key1", "regex", "(\\W|^)value\\s{0,3}not{0,1}\\s{0,3}matched(\\W|$)"},
 				},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3395,11 +3567,16 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
 				"Headers": []configData{
 					{"@request.auth.claims.nested.key1", "exact", "valueA"},
 					{"@request.auth.claims.sub", "prefix", "value-not-matched"},
 				},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3421,8 +3598,13 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.sub", "exact", "value-not-matched"}},
+				"Headers":         []configData{{"@request.auth.claims.sub", "exact", "value-not-matched"}},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3444,8 +3626,13 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"Headers":         []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3467,8 +3654,13 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"Headers":         []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3490,8 +3682,13 @@ spec:
 		viaIngress:       true,
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"Headers":         []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3514,8 +3711,13 @@ spec:
 		viaIngress:       true,
 		config:           configRoute,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"Headers":         []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace": systemNamespace,
 			}
 		},
 		opts: echo.CallOptions{

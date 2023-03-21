@@ -292,7 +292,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 		if !skipConfirmation {
 			_, _ = stderr.Write([]byte(err.Error()))
 			if !generate {
-				if !confirm("Apply anyways? [y/N]", w) {
+				if !mesh.Confirm("Apply anyways? [y/N]", w) {
 					return nil
 				}
 			}
@@ -315,12 +315,11 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 }
 
 func analyzeWebhook(name, wh, revision string, config *rest.Config) error {
-	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}),
-		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}), resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil)
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err
 	}
-	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(config))
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(config), "")
 	if err != nil {
 		return err
 	}
@@ -362,7 +361,7 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 	}
 	// warn user if deleting a tag that still has namespaces pointed to it
 	if len(taggedNamespaces) > 0 && !skipConfirmation {
-		if !confirm(buildDeleteTagConfirmation(tagName, taggedNamespaces), w) {
+		if !mesh.Confirm(buildDeleteTagConfirmation(tagName, taggedNamespaces), w) {
 			fmt.Fprintf(w, "Aborting operation.\n")
 			return nil
 		}
@@ -437,17 +436,4 @@ func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 	sb.WriteString("\nProceed with operation? [y/N]")
 
 	return sb.String()
-}
-
-// confirm waits for a user to confirm with the supplied message.
-func confirm(msg string, w io.Writer) bool {
-	fmt.Fprintf(w, "%s ", msg)
-
-	var response string
-	_, err := fmt.Scanln(&response)
-	if err != nil {
-		return false
-	}
-	response = strings.ToUpper(response)
-	return response == "Y" || response == "YES"
 }

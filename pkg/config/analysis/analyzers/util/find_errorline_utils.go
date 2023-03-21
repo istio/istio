@@ -105,6 +105,10 @@ const (
 	// Path for ConfigPatch in envoyFilter
 	// Required parameters: envoyFilter config patch index
 	EnvoyFilterConfigPath = "{.spec.configPatches[%d].patch.value}"
+
+	// Path for selector in telemetry.
+	// Required parameters: selector label.
+	TelemetrySelector = "{.spec.selector.matchLabels.%s}"
 )
 
 // ErrorLine returns the line number of the input path key in the resource

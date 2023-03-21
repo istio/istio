@@ -18,6 +18,8 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestEndpointsEqual(t *testing.T) {
@@ -112,12 +114,8 @@ func TestEndpointsEqual(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := endpointsEqual(tt.a, tt.b)
 			inverse := endpointsEqual(tt.b, tt.a)
-			if got != tt.want {
-				t.Fatalf("Compare endpoints got %v, want %v", got, tt.want)
-			}
-			if got != inverse {
-				t.Fatalf("Expected to be commutative, but was not")
-			}
+			assert.Equal(t, got, tt.want, "compare")
+			assert.Equal(t, got, inverse, "Expected to be commutative")
 		})
 	}
 }

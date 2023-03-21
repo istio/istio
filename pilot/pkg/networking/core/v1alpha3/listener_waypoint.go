@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
-	"time"
 
 	xds "github.com/cncf/xds/go/xds/core/v3"
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
@@ -30,7 +29,6 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	any "google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -49,40 +47,10 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
 )
-
-type WorkloadAndServices struct {
-	WorkloadInfo *model.WorkloadInfo
-	Services     []*model.Service
-}
-
-func FindAssociatedResources(node *model.Proxy, push *model.PushContext) ([]WorkloadAndServices, map[host.Name]*model.Service) {
-	wls := []WorkloadAndServices{}
-	scope := node.WaypointScope()
-	workloads := push.WorkloadsForWaypoint(scope)
-	for _, wl := range workloads {
-		wls = append(wls, WorkloadAndServices{WorkloadInfo: wl})
-	}
-	svcs := map[host.Name]*model.Service{}
-	for i, wl := range wls {
-		for _, ns := range push.ServiceIndex.HostnameAndNamespace {
-			svc := ns[wl.WorkloadInfo.Namespace]
-			if svc == nil {
-				continue
-			}
-			if labels.Instance(svc.Attributes.LabelSelectors).SubsetOf(wl.WorkloadInfo.Labels) {
-				svcs[svc.Hostname] = svc
-				wl.Services = append(wl.Services, svc)
-			}
-		}
-		wls[i] = wl
-	}
-	return wls, svcs
-}
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 	return lb.push.ServiceForHostname(lb.node, name)
@@ -91,48 +59,30 @@ func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	listeners := []*listener.Listener{}
 	// We create 3 listeners:
-	// 1. Decapsulation CONNECT listener, `inbound TERMINATE`.
+	// 1. Decapsulation CONNECT listener.
 	// 2. IP dispatch listener, handling both VIPs and direct pod IPs.
 	// 3. Encapsulation CONNECT listener, originating the tunnel
-	wls, svcs := FindAssociatedResources(lb.node, lb.push)
+	wls, svcs := findWaypointResources(lb.node, lb.push)
 
 	listeners = append(listeners,
-		lb.buildWaypointInboundTerminateConnect(),
+		lb.buildWaypointInboundConnectTerminate(),
 		lb.buildWaypointInternal(wls, svcs),
-		lb.buildWaypointInboundOriginateConnect())
+		buildWaypointConnectOriginateListener())
 
 	return listeners
 }
 
-func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.Listener {
-	name := "connect_terminate"
-	vhost := &route.VirtualHost{
-		Name:    "default",
-		Domains: []string{"*"},
-		Routes: []*route.Route{{
-			Match: &route.RouteMatch{
-				PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
-			},
-			Action: &route.Route_Route{Route: &route.RouteAction{
-				UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-					UpgradeType:   "CONNECT",
-					ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
-				}},
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "internal"},
-			}},
-			TypedPerFilterConfig: map[string]*any.Any{
-				xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
-			},
-		}},
-	}
-
-	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
+func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) []*listener.Filter {
 	h := &hcm.HttpConnectionManager{
-		StatPrefix: name,
+		StatPrefix: ConnectTerminate,
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 			RouteConfig: &route.RouteConfiguration{
-				Name:         "default",
-				VirtualHosts: []*route.VirtualHost{vhost},
+				Name: "default",
+				VirtualHosts: []*route.VirtualHost{{
+					Name:    "default",
+					Domains: []string{"*"},
+					Routes:  routes,
+				}},
 			},
 		},
 		// Append and forward client cert to backend.
@@ -142,18 +92,20 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 			Uri:     true,
 			Dns:     true,
 		},
-		ServerName:       EnvoyServerName,
+		ServerName:       EnvoyWaypoint,
 		UseRemoteAddress: proto.BoolFalse,
 	}
 
 	// Protocol settings
-	notimeout := durationpb.New(0 * time.Second)
-	h.StreamIdleTimeout = notimeout
+	h.StreamIdleTimeout = istio_route.Notimeout
 	h.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{{
-		UpgradeType: "CONNECT",
+		UpgradeType: ConnectUpgradeType,
 	}}
 	h.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 		AllowConnect: true,
+		// TODO(https://github.com/istio/istio/issues/43443)
+		// All streams are bound to the same worker. Therefore, we need to limit for better fairness.
+		MaxConcurrentStreams: &wrappers.UInt32Value{Value: 100},
 	}
 
 	// Filters needed to propagate the tunnel metadata to the inner streams.
@@ -162,9 +114,19 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 		xdsfilters.ConnectAuthorityFilter,
 		xdsfilters.Router,
 	}
+	return []*listener.Filter{
+		xdsfilters.IstioNetworkAuthenticationFilterShared,
+		{
+			Name:       wellknown.HTTPConnectionManager,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
+		},
+	}
+}
 
+func (lb *ListenerBuilder) buildConnectTerminateListener(routes []*route.Route) *listener.Listener {
+	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	l := &listener.Listener{
-		Name:    name,
+		Name:    ConnectTerminate,
 		Address: util.BuildAddress(actualWildcard, model.HBoneInboundListenPort),
 		FilterChains: []*listener.FilterChain{
 			{
@@ -172,20 +134,34 @@ func (lb *ListenerBuilder) buildWaypointInboundTerminateConnect() *listener.List
 				TransportSocket: &core.TransportSocket{
 					Name: "tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
-						CommonTlsContext: buildCommonTLSContext(lb.node, lb.push),
+						CommonTlsContext:         buildCommonConnectTLSContext(lb.node, lb.push),
+						RequireClientCertificate: &wrappers.BoolValue{Value: true},
 					})},
 				},
-				Filters: []*listener.Filter{
-					xdsfilters.IstioNetworkAuthenticationFilterShared,
-					{
-						Name:       wellknown.HTTPConnectionManager,
-						ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
-					},
-				},
+				Filters: lb.buildHCMConnectTerminateChain(routes),
 			},
 		},
 	}
 	return l
+}
+
+func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.Listener {
+	routes := []*route.Route{{
+		Match: &route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
+		},
+		Action: &route.Route_Route{Route: &route.RouteAction{
+			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+				UpgradeType:   ConnectUpgradeType,
+				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+			}},
+			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
+		}},
+		TypedPerFilterConfig: map[string]*any.Any{
+			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
+		},
+	}}
+	return lb.buildConnectTerminateListener(routes)
 }
 
 func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs map[host.Name]*model.Service) *listener.Listener {
@@ -201,7 +177,6 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 			portString := fmt.Sprintf("%d", port.Port)
 			cc := inboundChainConfig{
 				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
-				// clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundPod, "", host.Name(wl.PodIP), port.Port),
 				port: ServiceInstancePort{
 					Name:       port.Name,
 					Port:       uint32(port.Port),
@@ -255,7 +230,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 	{
 		// Direct pod access chain.
 		cc := inboundChainConfig{
-			clusterName: "encap",
+			clusterName: EncapClusterName,
 			port: ServiceInstancePort{
 				Name:     "unknown",
 				Protocol: protocol.TCP,
@@ -301,10 +276,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		}
 	}
 	l := &listener.Listener{
-		Name:              "internal",
+		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
-			util.InternalListenerSetAddressFilter(),
+			xdsfilters.SetDstAddress,
 			// TODO: This may affect the data path due to the server-first protocols triggering a time-out. Need exception filter.
 			xdsfilters.HTTPInspector,
 		},
@@ -327,22 +302,35 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 	return l
 }
 
-func (lb *ListenerBuilder) buildWaypointInboundOriginateConnect() *listener.Listener {
-	name := "connect_originate"
+func buildWaypointConnectOriginateListener() *listener.Listener {
+	return buildConnectOriginateListener("")
+}
+
+func buildConnectOriginateListener(baggage string) *listener.Listener {
+	var headers []*core.HeaderValueOption
+	if baggage != "" {
+		headers = append(headers, &core.HeaderValueOption{Header: &core.HeaderValue{
+			Key:   "baggage",
+			Value: baggage,
+		}})
+	}
 	l := &listener.Listener{
-		Name:              name,
+		Name:              ConnectOriginate,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		ListenerFilters:   []*listener.ListenerFilter{util.InternalListenerSetAddressFilter()},
+		ListenerFilters: []*listener.ListenerFilter{
+			xdsfilters.SetDstAddress,
+		},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
 				ConfigType: &listener.Filter_TypedConfig{
 					TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
-						StatPrefix:       name,
-						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
+						StatPrefix:       ConnectOriginate,
+						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: ConnectOriginate},
 						TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-							Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
+							Hostname:     "%DOWNSTREAM_LOCAL_ADDRESS%",
+							HeadersToAdd: headers,
 						},
 					}),
 				},
@@ -377,22 +365,11 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, po
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig, pre, post []*hcm.HttpFilter) []*listener.Filter {
 	var filters []*listener.Filter
-	if !lb.node.IsAmbient() {
-		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
-	}
-
 	httpOpts := &httpListenerOpts{
 		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
-			// Append and forward client cert to backend.
-			ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
-			SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
-				Subject: proto.BoolTrue,
-				Uri:     true,
-				Dns:     true,
-			},
 			ServerName: EnvoyServerName,
 		},
 		protocol:   cc.port.Protocol,
@@ -520,7 +497,7 @@ func (lb *ListenerBuilder) translateRoute(
 
 	out := &route.Route{
 		Name:     routeName,
-		Match:    istio_route.TranslateRouteMatch(lb.node, virtualService, match),
+		Match:    istio_route.TranslateRouteMatch(virtualService, match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 	authority := ""
@@ -535,6 +512,8 @@ func (lb *ListenerBuilder) translateRoute(
 
 	if in.Redirect != nil {
 		istio_route.ApplyRedirect(out, in.Redirect, listenPort, model.UseGatewaySemantics(virtualService))
+	} else if in.DirectResponse != nil {
+		istio_route.ApplyDirectResponse(out, in.DirectResponse)
 	} else {
 		lb.routeDestination(out, in, authority, listenPort)
 	}
@@ -675,7 +654,7 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 	}
 
 	if service != nil {
-		_, svcs := FindAssociatedResources(lb.node, lb.push)
+		_, svcs := findWaypointResources(lb.node, lb.push)
 		_, f := svcs[service.Hostname]
 		if !f || service.MeshExternal {
 			// this waypoint proxy isn't responsible for this service so we use outbound; TODO quicker lookup
@@ -691,10 +670,21 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 	)
 }
 
-// TODO remove dupe with ztunnelgen
-func buildCommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
+// NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used with this function.
+func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), true)
+	security.ApplyToCommonTLSContext(ctx, proxy, nil, nil, true)
+	aliases := authn.TrustDomainsForValidation(push.Mesh)
+	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
+	if len(aliases) > 0 {
+		matchers := util.StringToPrefixMatch(security.AppendURIPrefixToTrustDomain(aliases))
+		for _, matcher := range matchers {
+			validationCtx.MatchTypedSubjectAltNames = append(validationCtx.MatchTypedSubjectAltNames, &tls.SubjectAltNameMatcher{
+				SanType: tls.SubjectAltNameMatcher_URI,
+				Matcher: matcher,
+			})
+		}
+	}
 	ctx.AlpnProtocols = []string{"h2"}
 	ctx.TlsParams = &tls.TlsParameters{
 		// Ensure TLS 1.3 is used everywhere
@@ -702,32 +692,4 @@ func buildCommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.Com
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
 	return ctx
-}
-
-// outboundTunnelListener is built for each ServiceAccount from pods on the node.
-// This listener adds the original destination headers from the dynamic EDS metadata pass through.
-// We build the listener per-service account so that it can point to the corresponding cluster that presents the correct cert.
-func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
-	name := util.OutboundTunnel
-	p := &tcp.TcpProxy{
-		StatPrefix: name,
-		// TODO
-		// AccessLog:        accessLogString("outbound tunnel"),
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
-		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
-		},
-	}
-
-	l := &listener.Listener{
-		Name:              name,
-		UseOriginalDst:    wrappers.Bool(false),
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		ListenerFilters:   []*listener.ListenerFilter{util.InternalListenerSetAddressFilter()},
-		FilterChains: []*listener.FilterChain{{
-			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
-		}},
-	}
-	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarOutbound)
-	return l
 }

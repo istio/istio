@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -92,7 +93,10 @@ func waypointCmd() *cobra.Command {
 		Short: "Apply a waypoint configuration",
 		Long:  "Apply a waypoint configuration to the cluster",
 		Example: `  # Apply a waypoint to the current namespace
-  istioctl x waypoint apply`,
+  istioctl x waypoint apply
+
+  # Apply a waypoint to a specific namespace for a specific service account
+  istioctl x waypoint apply --service-account something --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gw := makeGateway(true)
 			client, err := kubeClient(kubeconfig, configContext)
@@ -109,9 +113,35 @@ func waypointCmd() *cobra.Command {
 				FieldManager: "istioctl",
 			})
 			if err != nil {
+				if errors.IsNotFound(err) {
+					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint")
+				}
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v applied\n", gw.Namespace, gw.Name)
+			return nil
+		},
+	}
+	waypointDeleteCmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a waypoint configuration",
+		Long:  "Delete a waypoint configuration from the cluster",
+		Example: `  # Delete a waypoint from the current namespace
+  istioctl x waypoint delete
+  
+  # Delete a waypoint from a specific namespace for a specific service account
+  istioctl x waypoint delete --service-account something --namespace default`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			gw := makeGateway(true)
+			client, err := kubeClient(kubeconfig, configContext)
+			if err != nil {
+				return fmt.Errorf("failed to create Kubernetes client: %v", err)
+			}
+			if err = client.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
+				Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v deleted\n", gw.Namespace, gw.Name)
 			return nil
 		},
 	}
@@ -138,6 +168,7 @@ func waypointCmd() *cobra.Command {
 
 	waypointCmd.AddCommand(waypointApplyCmd)
 	waypointCmd.AddCommand(waypointGenerateCmd)
+	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.PersistentFlags().StringVarP(&waypointServiceAccount, "service-account", "s", "", "service account to create a waypoint for")
 
 	return waypointCmd

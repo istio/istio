@@ -36,6 +36,9 @@ const (
 	// EnvoyServerName for istio's envoy
 	EnvoyServerName = "istio-envoy"
 
+	// EnvoyWaypoint for ambient waypoint
+	EnvoyWaypoint = "waypoint-envoy"
+
 	celFilter                          = "envoy.access_loggers.extension_filters.cel"
 	listenerEnvoyAccessLogFriendlyName = "listener_envoy_accesslog"
 
@@ -81,7 +84,7 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 	mesh := push.Mesh
 	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
 
-	if cfgs == nil {
+	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
 			tcp.AccessLog = append(tcp.AccessLog, b.buildFileAccessLog(mesh))
@@ -102,6 +105,9 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 func buildAccessLogFromTelemetry(cfgs []model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
 	als := make([]*accesslog.AccessLog, 0, len(cfgs))
 	for _, c := range cfgs {
+		if c.Disabled {
+			continue
+		}
 		filters := make([]*accesslog.AccessLogFilter, 0, 2)
 		if forListener {
 			filters = append(filters, addAccessLogFilter())
@@ -146,8 +152,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 ) {
 	mesh := push.Mesh
 	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
-
-	if cfgs == nil {
+	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
 			connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh))
@@ -174,7 +179,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 
 	cfgs := push.Telemetry.AccessLogging(push, proxy, class)
 
-	if cfgs == nil {
+	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
 			listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh))

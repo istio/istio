@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/spiffe"
@@ -92,7 +93,8 @@ func (fx *FakeXdsUpdater) EDSUpdate(_ model.ShardKey, hostname string, namespace
 	fx.Events <- Event{kind: "eds", host: hostname, namespace: namespace, endpoints: len(entry)}
 }
 
-func (fx *FakeXdsUpdater) EDSCacheUpdate(_ model.ShardKey, _, _ string, _ []*model.IstioEndpoint) {
+func (fx *FakeXdsUpdater) EDSCacheUpdate(_ model.ShardKey, hostname, namespace string, _ []*model.IstioEndpoint) {
+	fx.Events <- Event{kind: "edscache", host: hostname, namespace: namespace}
 }
 
 func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
@@ -309,6 +311,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStatic.Namespace},
+			Event{kind: "edscache", host: "*.google.com", namespace: httpStatic.Namespace},
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStatic.Namespace})}})
 	})
 
@@ -320,6 +323,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
+			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: httpStaticOverlay.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStaticOverlay.Namespace})}})
 	})
 
@@ -390,6 +394,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// Expect a full push, as the Service has changed
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "*.google.com", namespace: "other"},
+			Event{kind: "edscache", host: "*.google.com", namespace: "other"},
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStaticOverlayUpdatedNs.Namespace})}})
 	})
 
@@ -406,6 +411,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// svcUpdate is not triggered since `httpStatic` is there and has instances, so we should
 		// not delete the endpoints shards of "*.google.com". We xpect a full push as the service has changed.
 		expectEvents(t, events,
+			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlayUpdated.Namespace},
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace})}},
 		)
 
@@ -424,6 +430,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStatic.Namespace},
+			Event{kind: "edscache", host: "*.google.com", namespace: httpStatic.Namespace},
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStatic.Namespace})}})
 
 		// Add back the ServiceEntry, expect these instances to get added
@@ -435,6 +442,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// Service change, so we need a full push
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
+			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace})}})
 	})
 
@@ -465,12 +473,15 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// Service change, so we need a full push
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "other.com", namespace: httpStaticOverlayUpdated.Namespace},
+			Event{kind: "edscache", host: "other.com", namespace: httpStaticOverlayUpdated.Namespace},
+			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlayUpdated.Namespace},
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace})}}) // service added
 
 		// restore this config and remove the added host.
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "other.com", namespace: httpStatic.Namespace},
+			Event{kind: "edscache", host: "*.google.com", namespace: httpStatic.Namespace},
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace})}}) // service deleted
 	})
 
@@ -532,6 +543,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
+			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(
 				model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace},
@@ -550,6 +562,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
+			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(
 				model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace},
@@ -595,6 +608,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
+			Event{kind: "edscache", host: "selector.com", namespace: selector.Namespace},
 			Event{kind: "xds"})
 	})
 
@@ -650,6 +664,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "updated.com", namespace: selector.Namespace},
 			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
+			Event{kind: "edscache", host: "updated.com", namespace: selector.Namespace},
 			Event{kind: "xds"},
 		)
 	})
@@ -681,6 +696,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
 			Event{kind: "svcupdate", host: "updated.com", namespace: selector.Namespace},
+			Event{kind: "edscache", host: "selector.com", namespace: selector.Namespace},
 			Event{kind: "xds"},
 		)
 	})
@@ -713,7 +729,9 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, "4.4.4.4")
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
-		expectEvents(t, events, Event{kind: "xds"})
+		expectEvents(t, events,
+			Event{kind: "edscache", host: "dns.selector.com", namespace: dnsSelector.Namespace},
+			Event{kind: "xds"})
 	})
 
 	t.Run("another workload", func(t *testing.T) {
@@ -851,6 +869,7 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
+			Event{kind: "edscache", host: "selector.com", namespace: selector.Namespace},
 			Event{kind: "xds"})
 	})
 
@@ -1005,6 +1024,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "postman-echo.com")
 		expectServiceInstances(t, sd, selectorDNS, 0, instances)
 		expectEvents(t, events,
+			Event{kind: "edscache", host: "selector.com", namespace: selectorDNS.Namespace},
 			Event{kind: "xds"},
 		)
 	})
@@ -1115,6 +1135,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
+			Event{kind: "edscache", host: "selector.com", namespace: selector.Namespace},
 			Event{kind: "xds"})
 	})
 
@@ -1254,6 +1275,8 @@ func expectEvents(t testing.TB, ch chan Event, events ...Event) {
 	}
 
 	t.Helper()
+	edsCacheExpectedEvents := map[Event]bool{}
+	edsCacheGotEvents := map[Event]bool{}
 	for _, event := range events {
 		got := waitForEvent(t, ch)
 		if event.pushReq != nil {
@@ -1261,11 +1284,20 @@ func expectEvents(t testing.TB, ch chan Event, events ...Event) {
 				t.Fatalf("expected event %+v %+v, got %+v %+v", event, event.pushReq, got, got.pushReq)
 			}
 		}
+		// since edscache events could come in non-deterministic order, compare them at the end
+		if event.kind == "edscache" && got.kind == "edscache" {
+			edsCacheExpectedEvents[event] = true
+			edsCacheGotEvents[got] = true
+			continue
+		}
 
 		event.pushReq, got.pushReq = nil, nil
 		if event != got {
 			t.Fatalf("expected event %+v, got %+v", event, got)
 		}
+	}
+	if !reflect.DeepEqual(edsCacheExpectedEvents, edsCacheGotEvents) {
+		t.Fatalf("expected eds cache events %+v, got %+v", edsCacheExpectedEvents, edsCacheGotEvents)
 	}
 	// Drain events
 	for {
@@ -1348,7 +1380,7 @@ func TestNonServiceConfig(t *testing.T) {
 	// Create a non-service configuration element. This should not affect the service registry at all.
 	cfg := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			GroupVersionKind:  gvk.DestinationRule,
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
 			Domain:            "cluster.local",
@@ -1376,7 +1408,7 @@ func TestNonServiceConfig(t *testing.T) {
 func TestServicesDiff(t *testing.T) {
 	updatedHTTPDNS := &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
+			GroupVersionKind:  gvk.ServiceEntry,
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",
 			CreationTimestamp: GlobalTime,
@@ -1686,17 +1718,105 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "collision",
+			inServices: []*model.Service{
+				{
+					Hostname:       "a17061.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+				},
+				{
+					// hashes to the same value as the hostname above,
+					// a new collision needs to be found if the hash algorithm changes
+					Hostname:       "a44155.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:                 "a17061.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.0.1",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
+				},
+				{
+					Hostname:                 "a44155.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.75.79",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:4b4f",
+				},
+			},
+		},
+		{
+			name: "stable IP - baseline test",
+			inServices: []*model.Service{
+				{
+					Hostname:       "a.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+					Attributes:     model.ServiceAttributes{Namespace: "a"},
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:                 "a.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.163.38",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:a326",
+				},
+			},
+		},
+		{
+			name: "stable IP - not affected by other namespace",
+			inServices: []*model.Service{
+				{
+					Hostname:       "a.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+					Attributes:     model.ServiceAttributes{Namespace: "a"},
+				},
+				{
+					Hostname:       "a.example.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
+					Attributes:     model.ServiceAttributes{Namespace: "b"},
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:                 "a.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.163.38",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:a326",
+				},
+				{
+					Hostname:                 "a.example.com",
+					Resolution:               model.DNSLB,
+					DefaultAddress:           "0.0.0.0",
+					AutoAllocatedIPv4Address: "240.240.114.198",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:72c6",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := autoAllocateIPs(tt.inServices)
-			if got[0].AutoAllocatedIPv4Address != tt.wantServices[0].AutoAllocatedIPv4Address {
-				t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
-					got[0].AutoAllocatedIPv4Address, tt.wantServices[0].AutoAllocatedIPv4Address)
-			}
-			if got[0].AutoAllocatedIPv6Address != tt.wantServices[0].AutoAllocatedIPv6Address {
-				t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
-					got[0].AutoAllocatedIPv6Address, tt.wantServices[0].AutoAllocatedIPv6Address)
+			gotServices := autoAllocateIPs(tt.inServices)
+			for i, got := range gotServices {
+				if got.AutoAllocatedIPv4Address != tt.wantServices[i].AutoAllocatedIPv4Address {
+					t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
+						got.AutoAllocatedIPv4Address, tt.wantServices[i].AutoAllocatedIPv4Address)
+				}
+				if got.AutoAllocatedIPv6Address != tt.wantServices[i].AutoAllocatedIPv6Address {
+					t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
+						got.AutoAllocatedIPv6Address, tt.wantServices[i].AutoAllocatedIPv6Address)
+				}
 			}
 		})
 	}

@@ -42,6 +42,12 @@ type Schema interface {
 	// IsClusterScoped indicates that this resource is scoped to a particular namespace within a cluster.
 	IsClusterScoped() bool
 
+	// IsBuiltin indicates that this resource is builtin (not a CRD)
+	IsBuiltin() bool
+
+	// Identifier returns a unique identifier for the resource
+	Identifier() string
+
 	// Kind for this resource.
 	Kind() string
 
@@ -96,6 +102,15 @@ type Schema interface {
 type Builder struct {
 	// ClusterScoped is true for resource in cluster-level.
 	ClusterScoped bool
+
+	// Synthetic is true for resource that do not actually exist in a cluster
+	Synthetic bool
+
+	// Builtin is true for resources that are builtin (not CRD)
+	Builtin bool
+
+	// Identifier is the unique identifier for the resource
+	Identifier string
 
 	// Kind is the config proto type.
 	Kind string
@@ -162,6 +177,8 @@ func (b Builder) BuildNoValidate() Schema {
 
 	return &schemaImpl{
 		clusterScoped: b.ClusterScoped,
+		synthetic:     b.Synthetic,
+		builtin:       b.Builtin,
 		gvk: config.GroupVersionKind{
 			Group:   b.Group,
 			Version: b.Version,
@@ -172,6 +189,7 @@ func (b Builder) BuildNoValidate() Schema {
 		versionAliases: b.VersionAliases,
 		proto:          b.Proto,
 		goPackage:      b.ProtoPackage,
+		identifier:     b.Identifier,
 		reflectType:    b.ReflectType,
 		validateConfig: b.ValidateProto,
 		statusType:     b.StatusType,
@@ -181,6 +199,7 @@ func (b Builder) BuildNoValidate() Schema {
 
 type schemaImpl struct {
 	clusterScoped  bool
+	builtin        bool
 	gvk            config.GroupVersionKind
 	versionAliases []string
 	plural         string
@@ -191,6 +210,8 @@ type schemaImpl struct {
 	reflectType    reflect.Type
 	statusType     reflect.Type
 	statusPackage  string
+	identifier     string
+	synthetic      bool
 }
 
 func (s *schemaImpl) GroupVersionKind() config.GroupVersionKind {
@@ -207,6 +228,14 @@ func (s *schemaImpl) GroupVersionResource() schema.GroupVersionResource {
 
 func (s *schemaImpl) IsClusterScoped() bool {
 	return s.clusterScoped
+}
+
+func (s *schemaImpl) IsBuiltin() bool {
+	return s.builtin
+}
+
+func (s *schemaImpl) Identifier() string {
+	return s.identifier
 }
 
 func (s *schemaImpl) Kind() string {

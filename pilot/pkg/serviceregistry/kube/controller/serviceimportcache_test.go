@@ -16,14 +16,12 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -61,7 +60,6 @@ func TestServiceNotImported(t *testing.T) {
 	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
 		t.Run(mode.String(), func(t *testing.T) {
 			c, ic := newTestServiceImportCache(t, mode)
-
 			ic.createKubeService(t, c)
 
 			// Check that the service does not have ClusterSet IPs.
@@ -380,7 +378,6 @@ func (ic *serviceImportCacheImpl) getServiceImport(t *testing.T) *mcsapi.Service
 
 func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 	t.Helper()
-	g := NewWithT(t)
 
 	si := ic.getServiceImport(t)
 
@@ -394,7 +391,7 @@ func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 	}
 
 	instances := ic.getProxyServiceInstances()
-	g.Expect(instances).To(HaveLen(expectedServiceCount))
+	assert.Equal(t, len(instances), expectedServiceCount)
 
 	for _, inst := range instances {
 		svc := inst.Service
@@ -403,7 +400,7 @@ func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 				t.Fatalf("found ServiceInstance for unimported service %s", serviceImportClusterSetHost)
 			}
 			// Check the ClusterSet IPs.
-			g.Expect(svc.ClusterVIPs.GetAddressesFor(ic.Cluster())).To(Equal(expectedIPs))
+			assert.Equal(t, svc.ClusterVIPs.GetAddressesFor(ic.Cluster()), expectedIPs)
 			return
 		}
 	}
@@ -440,7 +437,7 @@ func (ic *serviceImportCacheImpl) createServiceImport(t *testing.T, importType m
 
 	if shouldCreateMCSService {
 		// Wait for the XDS event.
-		ic.waitForXDS(t)
+		ic.checkXDS(t)
 	}
 }
 
@@ -473,7 +470,7 @@ func (ic *serviceImportCacheImpl) setServiceImportVIPs(t *testing.T, vips []stri
 		}, serviceImportTimeout)
 
 		// Wait for the XDS event.
-		ic.waitForXDS(t)
+		ic.checkXDS(t)
 	} else {
 		// Wait for the import to be processed by the controller.
 		retry.UntilSuccessOrFail(t, func() error {
@@ -506,23 +503,12 @@ func (ic *serviceImportCacheImpl) unimportService(t *testing.T) {
 }
 
 func (ic *serviceImportCacheImpl) isImported(name types.NamespacedName) bool {
-	item, _, _ := ic.filteredInformer.GetIndexer().GetByKey(name.String())
-	return item != nil
+	return ic.serviceImports.Get(name.Name, name.Namespace) != nil
 }
 
-func (ic *serviceImportCacheImpl) waitForXDS(t *testing.T) {
+func (ic *serviceImportCacheImpl) checkXDS(t test.Failer) error {
 	t.Helper()
-
-	retry.UntilSuccessOrFail(t, func() error {
-		return ic.checkXDS()
-	}, serviceImportTimeout)
-}
-
-func (ic *serviceImportCacheImpl) checkXDS() error {
-	event := ic.opts.XDSUpdater.(*FakeXdsUpdater).Wait("service")
-	if event == nil {
-		return errors.New("failed waiting for XDS event")
-	}
+	event := ic.opts.XDSUpdater.(*FakeXdsUpdater).WaitOrFail(t, "service")
 
 	// The name of the event will be the cluster-local hostname.
 	eventID := serviceImportClusterSetHost.String()

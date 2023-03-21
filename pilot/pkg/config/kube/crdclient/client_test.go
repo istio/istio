@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	"golang.org/x/exp/slices"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
@@ -45,7 +47,7 @@ import (
 func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreController, kube.CLIClient) {
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
-		createCRD(t, fake, s.Resource())
+		createCRD(t, fake, s)
 	}
 	stop := test.NewStop(t)
 	config, err := New(fake, Option{})
@@ -60,10 +62,10 @@ func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCont
 
 // Ensure that the client can run without CRDs present
 func TestClientNoCRDs(t *testing.T) {
-	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
+	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
 	store, _ := makeClient(t, schema)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
-	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
+	r := collections.VirtualService
 	configMeta := config.Meta{
 		Name:             "name",
 		Namespace:        "ns",
@@ -81,12 +83,7 @@ func TestClientNoCRDs(t *testing.T) {
 		t.Fatalf("Create => got %v", err)
 	}
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-		// List should actually not return an error in this case; this allows running with missing CRDs
-		// Instead, we just return an empty list.
-		if err != nil {
-			return fmt.Errorf("expected no error, but got %v", err)
-		}
+		l := store.List(r.GroupVersionKind(), configMeta.Namespace)
 		if len(l) != 0 {
 			return fmt.Errorf("expected no items returned for unknown CRD")
 		}
@@ -99,10 +96,10 @@ func TestClientNoCRDs(t *testing.T) {
 
 // Ensure that the client can run without CRDs present, but then added later
 func TestClientDelayedCRDs(t *testing.T) {
-	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
+	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
 	store, fake := makeClient(t, schema)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
-	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
+	r := collections.VirtualService
 
 	// Create a virtual service
 	configMeta := config.Meta{
@@ -122,12 +119,7 @@ func TestClientDelayedCRDs(t *testing.T) {
 	}
 
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-		// List should actually not return an error in this case; this allows running with missing CRDs
-		// Instead, we just return an empty list.
-		if err != nil {
-			return fmt.Errorf("expected no error, but got %v", err)
-		}
+		l := store.List(r.GroupVersionKind(), configMeta.Namespace)
 		if len(l) != 0 {
 			return fmt.Errorf("expected no items returned for unknown CRD")
 		}
@@ -137,12 +129,7 @@ func TestClientDelayedCRDs(t *testing.T) {
 	createCRD(t, fake, r)
 
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-		// List should actually not return an error in this case; this allows running with missing CRDs
-		// Instead, we just return an empty list.
-		if err != nil {
-			return fmt.Errorf("expected no error, but got %v", err)
-		}
+		l := store.List(r.GroupVersionKind(), configMeta.Namespace)
 		if len(l) != 1 {
 			return fmt.Errorf("expected items returned")
 		}
@@ -156,10 +143,9 @@ func TestClient(t *testing.T) {
 	configName := "test"
 	configNamespace := "test-ns"
 	timeout := retry.Timeout(time.Millisecond * 200)
-	for _, c := range collections.PilotGatewayAPI.All() {
-		name := c.Resource().Kind()
+	for _, r := range collections.PilotGatewayAPI.All() {
+		name := r.Kind()
 		t.Run(name, func(t *testing.T) {
-			r := c.Resource()
 			configMeta := config.Meta{
 				GroupVersionKind: r.GroupVersionKind(),
 				Name:             configName,
@@ -190,10 +176,7 @@ func TestClient(t *testing.T) {
 
 			// Validate it shows up in List
 			retry.UntilSuccessOrFail(t, func() error {
-				cfgs, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-				if err != nil {
-					return err
-				}
+				cfgs := store.List(r.GroupVersionKind(), configMeta.Namespace)
 				if len(cfgs) != 1 {
 					return fmt.Errorf("expected 1 config, got %v", len(cfgs))
 				}
@@ -271,8 +254,7 @@ func TestClient(t *testing.T) {
 	}
 
 	t.Run("update status", func(t *testing.T) {
-		c := collections.IstioNetworkingV1Alpha3Workloadgroups
-		r := c.Resource()
+		r := collections.WorkloadGroup
 		name := "name1"
 		namespace := "bar"
 		cfgMeta := config.Meta{
@@ -336,7 +318,7 @@ func TestClient(t *testing.T) {
 func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 	fake := kube.NewFakeClient()
 	for _, s := range collections.Istio.All() {
-		createCRD(t, fake, s.Resource())
+		createCRD(t, fake, s)
 	}
 
 	// Populate the client with some ServiceEntrys such that 1/3 are in the default revision and
@@ -383,11 +365,9 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 
 	stop := test.NewStop(t)
 	fake.RunAndWait(stop)
+	go store.Run(stop)
 
-	// We don't call Run() and immediately close the stop channel as it occasionally leads to
-	// duplicate add events from the informer that cause test flakes. Instead, just call SyncAll()
-	// to only trigger the initial bootstrap sync.
-	store.SyncAll()
+	kube.WaitForCacheSync(stop, store.HasSynced)
 
 	// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
 	sortFunc := func(a, b config.Config) bool {
@@ -415,7 +395,7 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 	if !ok {
 		return
 	}
-	fmg := fmc.Resource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().GroupVersionResource())
+	fmg := fmc.Resource(gvr.CustomResourceDefinition)
 	fmd, ok := fmg.(metadatafake.MetadataClient)
 	if !ok {
 		return
@@ -426,4 +406,32 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 	}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestClientSync(t *testing.T) {
+	obj := &clientnetworkingv1alpha3.ServiceEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-service-entry",
+			Namespace: "test",
+		},
+		Spec: v1alpha3.ServiceEntry{},
+	}
+	fake := kube.NewFakeClient()
+	fake.Istio().NetworkingV1alpha3().ServiceEntries("test").Create(context.Background(), obj, metav1.CreateOptions{})
+	for _, s := range collections.Pilot.All() {
+		createCRD(t, fake, s)
+	}
+	stop := test.NewStop(t)
+	c, err := New(fake, Option{})
+	assert.NoError(t, err)
+
+	events := atomic.NewInt64(0)
+	c.RegisterEventHandler(gvk.ServiceEntry, func(c config.Config, c2 config.Config, event model.Event) {
+		events.Inc()
+	})
+	go c.Run(stop)
+	fake.RunAndWait(stop)
+	kube.WaitForCacheSync(stop, c.HasSynced)
+	// This MUST have been called by the time HasSynced returns true
+	assert.Equal(t, events.Load(), 1)
 }

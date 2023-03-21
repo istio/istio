@@ -19,12 +19,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 func FuzzConvertIngressVirtualService(data []byte) int {
@@ -58,12 +58,12 @@ func FuzzConvertIngressV1alpha3(data []byte) int {
 	return 1
 }
 
-func newServiceLister(objects ...runtime.Object) (listerv1.ServiceLister, func()) {
-	client := kube.NewFakeClient(objects...)
+func newServiceLister(objects ...runtime.Object) (kclient.Client[*corev1.Service], func()) {
+	kc := kube.NewFakeClient(objects...)
 	stop := make(chan struct{})
-	client.RunAndWait(stop)
+	kc.RunAndWait(stop)
 	teardown := func() {
 		close(stop)
 	}
-	return client.KubeInformer().Core().V1().Services().Lister(), teardown
+	return kclient.New[*corev1.Service](kc), teardown
 }

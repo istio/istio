@@ -228,6 +228,18 @@ var (
 	// PodsIstioProxyImageMismatchInNamespace defines a diag.MessageType for message "PodsIstioProxyImageMismatchInNamespace".
 	// Description: The Istio proxy image of the pods running in the namespace do not match the image defined in the injection configuration.
 	PodsIstioProxyImageMismatchInNamespace = diag.NewMessageType(diag.Warning, "IST0158", "The Istio proxy images of the pods running in the namespace do not match the image defined in the injection configuration (pod names: %v). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pods.")
+
+	// ConflictingTelemetryWorkloadSelectors defines a diag.MessageType for message "ConflictingTelemetryWorkloadSelectors".
+	// Description: A Telemetry resource selects the same workloads as another Telemetry resource
+	ConflictingTelemetryWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0159", "The Telemetries %v in namespace %q select the same workload pod %q, which can lead to undefined behavior.")
+
+	// MultipleTelemetriesWithoutWorkloadSelectors defines a diag.MessageType for message "MultipleTelemetriesWithoutWorkloadSelectors".
+	// Description: More than one telemetry resource in a namespace has no workload selector
+	MultipleTelemetriesWithoutWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0160", "The Telemetries %v in namespace %q have no workload selector, which can lead to undefined behavior.")
+
+	// DeprecatedLightstepProvider defines a diag.MessageType for message "DeprecatedLightstepProvider".
+	// Description: Lightstep provider is still being used
+	DeprecatedLightstepProvider = diag.NewMessageType(diag.Warning, "IST0161", "The Lightstep provider %s is deprecated, please migrate to OpenTelemetry provider.")
 )
 
 // All returns a list of all known message types.
@@ -288,6 +300,9 @@ func All() []*diag.MessageType {
 		UnsupportedGatewayAPIVersion,
 		InvalidTelemetryProvider,
 		PodsIstioProxyImageMismatchInNamespace,
+		ConflictingTelemetryWorkloadSelectors,
+		MultipleTelemetriesWithoutWorkloadSelectors,
+		DeprecatedLightstepProvider,
 	}
 }
 
@@ -827,5 +842,35 @@ func NewPodsIstioProxyImageMismatchInNamespace(r *resource.Instance, podNames []
 		PodsIstioProxyImageMismatchInNamespace,
 		r,
 		podNames,
+	)
+}
+
+// NewConflictingTelemetryWorkloadSelectors returns a new diag.Message based on ConflictingTelemetryWorkloadSelectors.
+func NewConflictingTelemetryWorkloadSelectors(r *resource.Instance, conflictingTelemetries []string, namespace string, workloadPod string) diag.Message {
+	return diag.NewMessage(
+		ConflictingTelemetryWorkloadSelectors,
+		r,
+		conflictingTelemetries,
+		namespace,
+		workloadPod,
+	)
+}
+
+// NewMultipleTelemetriesWithoutWorkloadSelectors returns a new diag.Message based on MultipleTelemetriesWithoutWorkloadSelectors.
+func NewMultipleTelemetriesWithoutWorkloadSelectors(r *resource.Instance, conflictingTelemetries []string, namespace string) diag.Message {
+	return diag.NewMessage(
+		MultipleTelemetriesWithoutWorkloadSelectors,
+		r,
+		conflictingTelemetries,
+		namespace,
+	)
+}
+
+// NewDeprecatedLightstepProvider returns a new diag.Message based on DeprecatedLightstepProvider.
+func NewDeprecatedLightstepProvider(r *resource.Instance, providerName string) diag.Message {
+	return diag.NewMessage(
+		DeprecatedLightstepProvider,
+		r,
+		providerName,
 	)
 }

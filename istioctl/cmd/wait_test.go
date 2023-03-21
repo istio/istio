@@ -25,13 +25,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 	ktesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/config/schema/gvr"
 )
 
 func TestWaitCmd(t *testing.T) {
@@ -45,6 +45,9 @@ func TestWaitCmd(t *testing.T) {
 	}
 	cannedResponse, _ := json.Marshal(cannedResponseObj)
 	cannedResponseMap := map[string][]byte{"onlyonepilot": cannedResponse}
+
+	distributionTrackingDisabledResponse := xds.DistributionTrackingDisabledMessage
+	distributionTrackingDisabledResponseMap := map[string][]byte{"onlyonepilot": []byte(distributionTrackingDisabledResponse)}
 
 	cases := []execTestCase{
 		{
@@ -83,6 +86,12 @@ func TestWaitCmd(t *testing.T) {
 			args:             strings.Split("x wait --timeout 2s --revision canary virtualservice foo.default", " "),
 			wantException:    false,
 		},
+		{
+			execClientConfig: distributionTrackingDisabledResponseMap,
+			args:             strings.Split("x wait --timeout 2s --revision canary virtualservice foo.default", " "),
+			wantException:    true,
+			expectedString:   distributionTrackingDisabledErrorString,
+		},
 	}
 
 	for i, c := range cases {
@@ -109,8 +118,7 @@ func setupK8Sfake() *fake.FakeDynamicClient {
 		// by default, k8s sends all existing objects at the beginning of a watch, but the test mock does not.  This
 		// function forces the test to behave like kubernetes does, but creates a race condition on watch creation.
 		l.Lock()
-		gvr := schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "virtualservices"}
-		x := client.Resource(gvr).Namespace("default")
+		x := client.Resource(gvr.VirtualService).Namespace("default")
 
 		x.Create(context.TODO(),
 			newUnstructured("networking.istio.io/v1alpha3", "virtualservice", "default", "foo", int64(1)),

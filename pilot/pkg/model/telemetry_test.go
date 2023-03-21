@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -84,10 +84,7 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 		ConfigStore: store,
 		Watcher:     mesh.NewFixedWatcher(m),
 	}
-	telemetries, err := getTelemetries(environment)
-	if err != nil {
-		t.Fatalf("getTelemetries failed: %v", err)
-	}
+	telemetries := getTelemetries(environment)
 
 	ctx := NewPushContext()
 	ctx.Mesh = m
@@ -97,7 +94,7 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 func newTelemetry(ns string, spec config.Spec) config.Config {
 	return config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.Telemetry,
 			Name:             "default",
 			Namespace:        ns,
 		},
@@ -135,7 +132,7 @@ func (ts *telemetryStore) Get(_ config.GroupVersionKind, _, _ string) *config.Co
 	return nil
 }
 
-func (ts *telemetryStore) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (ts *telemetryStore) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	var configs []config.Config
 	for _, data := range ts.data {
 		if data.typ == typ {
@@ -145,7 +142,7 @@ func (ts *telemetryStore) List(typ config.GroupVersionKind, namespace string) ([
 			configs = append(configs, data.cfg)
 		}
 	}
-	return configs, nil
+	return configs
 }
 
 func newTracingConfig(providerName string, disabled bool) *TracingConfig {

@@ -775,7 +775,7 @@ func normalizeAndCompareDeployments(got, want *corev1.Pod, ignoreIstioMetaJSONAn
 
 	for _, c := range got.Spec.Containers {
 		for _, env := range c.Env {
-			if env.ValueFrom != nil {
+			if env.ValueFrom != nil && env.ValueFrom.FieldRef != nil {
 				env.ValueFrom.FieldRef.APIVersion = ""
 			}
 			// check if metajson is encoded correctly
@@ -899,7 +899,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 			},
 		}))
 	}
-	pcs, _ := model.GetProxyConfigs(store, m)
+	pcs := model.GetProxyConfigs(store, m)
 	env := model.Environment{
 		Watcher: mesh.NewFixedWatcher(m),
 		PushContext: &model.PushContext{

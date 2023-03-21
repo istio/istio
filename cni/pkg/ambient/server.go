@@ -25,13 +25,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
 	ebpf "istio.io/istio/cni/pkg/ebpf/server"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/lazy"
 )
 
@@ -40,8 +40,8 @@ type Server struct {
 	ctx        context.Context
 	queue      controllers.Queue
 
-	nsLister  listerv1.NamespaceLister
-	podLister listerv1.PodLister
+	namespaces kclient.Client[*corev1.Namespace]
+	pods       kclient.Client[*corev1.Pod]
 
 	mu         sync.Mutex
 	ztunnelPod *corev1.Pod
@@ -67,12 +67,13 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		kubeClient: client,
 	}
 
+	s.iptablesCommand = lazy.New(func() (string, error) {
+		return s.detectIptablesCommand(), nil
+	})
+
 	switch args.RedirectMode {
 	case IptablesMode:
 		s.redirectMode = IptablesMode
-		s.iptablesCommand = lazy.New(func() (string, error) {
-			return s.detectIptablesCommand(), nil
-		})
 		// We need to find our Host IP -- is there a better way to do this?
 		h, err := GetHostIP(s.kubeClient.Kube())
 		if err != nil || h == "" {
@@ -84,16 +85,6 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		s.redirectMode = EbpfMode
 		s.ebpfServer = ebpf.NewRedirectServer()
 		s.ebpfServer.Start(ctx.Done())
-		h, err := GetHostIPByRoute(s.kubeClient.Kube())
-		if err != nil || h == "" {
-			log.Warnf("failed to getting host IP: %v", err)
-		} else if HostIP != h {
-			log.Infof("HostIP changed: (%v) -> (%v)", HostIP, h)
-			HostIP = h
-			if err := s.ebpfServer.UpdateHostIP([]string{HostIP}); err != nil {
-				log.Errorf("failed to update host IP: %v", err)
-			}
-		}
 	}
 
 	s.setupHandlers()
@@ -120,7 +111,7 @@ func buildKubeClient(kubeConfig string) (kube.Client, error) {
 		return nil, fmt.Errorf("failed creating kube config: %v", err)
 	}
 
-	client, err := kube.NewClient(kube.NewClientConfigForRestConfig(kubeRestConfig))
+	client, err := kube.NewClient(kube.NewClientConfigForRestConfig(kubeRestConfig), "")
 	if err != nil {
 		return nil, fmt.Errorf("failed creating kube client: %v", err)
 	}
@@ -129,11 +120,16 @@ func buildKubeClient(kubeConfig string) (kube.Client, error) {
 }
 
 func (s *Server) Start() {
+	log.Debug("CNI ambient server starting")
 	s.kubeClient.RunAndWait(s.ctx.Done())
 	go func() {
 		s.queue.Run(s.ctx.Done())
-		s.cleanup()
 	}()
+}
+
+func (s *Server) Stop() {
+	log.Info("CNI ambient server terminating, cleaning up node net rules")
+	s.cleanupNode()
 }
 
 func (s *Server) UpdateConfig() {
@@ -153,23 +149,24 @@ func (s *Server) UpdateConfig() {
 var ztunnelLabels = labels.SelectorFromValidatedSet(labels.Set{"app": "ztunnel"})
 
 func (s *Server) ReconcileZtunnel() error {
-	pods, err := s.podLister.Pods(metav1.NamespaceAll).List(ztunnelLabels)
-	if err != nil {
-		return err
-	}
+	pods := s.pods.List(metav1.NamespaceAll, ztunnelLabels)
 	var activePod *corev1.Pod
 	for _, p := range pods {
 		ready := kube.CheckPodReady(p) == nil
 		if !ready {
+
+			log.Debugf("ztunnel pod not ready")
 			continue
 		}
 		if activePod == nil {
 			// Only pod ready, mark this as active
 			activePod = p
+			log.Debugf("ztunnel pod set as active")
 		} else if p.CreationTimestamp.After(activePod.CreationTimestamp.Time) {
 			// If we have multiple pods that are ready, use the newest one.
 			// This ensures on a rolling update we start sending traffic to the new pod and drain the old one.
 			activePod = p
+			log.Debugf("newest ztunnel pod set as active")
 		}
 	}
 
@@ -189,7 +186,7 @@ func (s *Server) ReconcileZtunnel() error {
 	s.UpdateConfig()
 	if activePod == nil {
 		log.Infof("active ztunnel updated, no ztunnel running on the node")
-		s.cleanup()
+		s.cleanupNode()
 		return nil
 	}
 	log.Infof("active ztunnel updated to %v", activePod.Name)
@@ -199,17 +196,38 @@ func (s *Server) ReconcileZtunnel() error {
 	switch s.redirectMode {
 	case IptablesMode:
 		// TODO: we should not cleanup and recreate; this has downtime. We should mutate the existing rules in place
-		s.cleanup()
-		veth, err := getDeviceWithDestinationOf(activePod.Status.PodIP)
+		s.cleanupNode()
+		// TODO: this will fail for any networking setup that doesn't create veths for host<->pod networking.
+		// Do we care about that?
+		veth, err := getVethWithDestinationOf(activePod.Status.PodIP)
 		if err != nil {
-			return fmt.Errorf("failed to get device: %v", err)
+			return fmt.Errorf("failed to get veth device: %v", err)
 		}
-		err = s.CreateRulesOnNode(veth, activePod.Status.PodIP, captureDNS)
+		// Create node-level networking rules for redirection
+		err = s.CreateRulesOnNode(veth.Attrs().Name, activePod.Status.PodIP, captureDNS)
+		if err != nil {
+			return fmt.Errorf("failed to configure node for ztunnel: %v", err)
+		}
+		// Collect info needed to jump into node proxy netns and configure it.
+		peerNs, err := getNsNameFromNsID(veth.Attrs().NetNsID)
+		if err != nil {
+			return fmt.Errorf("failed to get ns name: %v", err)
+		}
+		hostIP, err := GetHostIPByRoute(s.pods)
+		if err != nil || hostIP == "" {
+			log.Warnf("failed to getting host IP: %v", err)
+		}
+		peerIndex, err := getPeerIndex(veth)
+		if err != nil {
+			return fmt.Errorf("failed to get veth peerIndex: %v", err)
+		}
+		// Create pod-level networking rules for redirection (from within pod netns)
+		err = s.CreateRulesWithinNodeProxyNS(peerIndex, activePod.Status.PodIP, peerNs, hostIP)
 		if err != nil {
 			return fmt.Errorf("failed to configure node for ztunnel: %v", err)
 		}
 	case EbpfMode:
-		h, err := GetHostIPByRoute(s.kubeClient.Kube())
+		h, err := GetHostIPByRoute(s.pods)
 		if err != nil || h == "" {
 			log.Warnf("failed to getting host IP: %v", err)
 		} else if HostIP != h {
@@ -220,17 +238,10 @@ func (s *Server) ReconcileZtunnel() error {
 			}
 		}
 
-		if veth, err := getDeviceWithDestinationOf(activePod.Status.PodIP); err != nil {
-			log.Warnf("failed to get device: %v", err)
-		} else if err := SetProc("/proc/sys/net/ipv4/conf/"+veth+"/rp_filter", "0"); err != nil {
-			log.Warnf("failed to set rp_filter to 0 for device %s", veth)
-		}
-		if err := SetProc("/proc/sys/net/ipv4/conf/all/rp_filter", "0"); err != nil {
-			log.Warnf("failed to set all rp_filter to 0")
-		}
-
-		if err := s.updateZtunnelEbpfOnNode(activePod, captureDNS); err != nil {
-			return fmt.Errorf("failed to configure node for ztunnel: %v", err)
+		// TODO: this will fail for any networking setup that doesn't create veths for host<->pod networking.
+		// Do we care about that?
+		if err := s.updateNodeProxyEBPF(activePod, captureDNS); err != nil {
+			return fmt.Errorf("failed to configure ztunnel: %v", err)
 		}
 	}
 

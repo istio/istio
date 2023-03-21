@@ -565,7 +565,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(kubeRestConfig))
+		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(kubeRestConfig), args.RegistryOptions.KubeOptions.ClusterID)
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
@@ -620,6 +620,10 @@ func (s *Server) initServers(args *PilotArgs) {
 		ReadTimeout: 30 * time.Second,
 	}
 	if multiplexGRPC {
+		// To allow the gRPC handler to make per-request decision,
+		// use ReadHeaderTimeout instead of ReadTimeout.
+		s.httpServer.ReadTimeout = 0
+		s.httpServer.ReadHeaderTimeout = 30 * time.Second
 		s.httpServer.Handler = multiplexHandler
 	}
 
@@ -897,7 +901,7 @@ func (s *Server) initRegistryEventHandlers() {
 			}
 			pushReq := &model.PushRequest{
 				Full:           true,
-				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.FromGvk(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
 				Reason:         []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.XDSServer.ConfigUpdate(pushReq)
@@ -908,20 +912,17 @@ func (s *Server) initRegistryEventHandlers() {
 		}
 		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
-			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
-				Resource().GroupVersionKind() {
+			if schema.GroupVersionKind() == gvk.ServiceEntry {
 				continue
 			}
-			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadentries.
-				Resource().GroupVersionKind() {
+			if schema.GroupVersionKind() == gvk.WorkloadEntry {
 				continue
 			}
-			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadgroups.
-				Resource().GroupVersionKind() {
+			if schema.GroupVersionKind() == gvk.WorkloadGroup {
 				continue
 			}
 
-			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
+			s.configController.RegisterEventHandler(schema.GroupVersionKind(), configHandler)
 		}
 		if s.environment.GatewayAPIController != nil {
 			s.environment.GatewayAPIController.RegisterEventHandler(gvk.Namespace, func(config.Config, config.Config, model.Event) {

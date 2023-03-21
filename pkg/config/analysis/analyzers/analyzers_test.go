@@ -20,10 +20,10 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/pkg/config/analysis/analyzers/authz"
@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -371,6 +370,14 @@ var testGrid = []testCase{
 		expected:   []message{},
 	},
 	{
+		name:       "serviceWithNoSelector",
+		inputFiles: []string{"testdata/deployment-service-no-selector.yaml"},
+		analyzer:   &deployment.ServiceAssociationAnalyzer{},
+		expected: []message{
+			{msg.DeploymentRequiresServiceAssociated, "Deployment default/helloworld-v2"},
+		},
+	},
+	{
 		name: "regexes",
 		inputFiles: []string{
 			"testdata/virtualservice_regexes.yaml",
@@ -413,6 +420,7 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-ns"},
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-not-ns"},
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-not-ns"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy test-ambient/no-workload"},
 		},
 	},
 	{
@@ -491,7 +499,7 @@ var testGrid = []testCase{
 			"testdata/virtualservice_dupmatches.yaml",
 			"testdata/virtualservice_overlappingmatches.yaml",
 		},
-		analyzer: schemaValidation.CollectionValidationAnalyzer(collections.IstioNetworkingV1Alpha3Virtualservices),
+		analyzer: schemaValidation.CollectionValidationAnalyzer(collections.VirtualService),
 		expected: []message{
 			{msg.VirtualServiceUnreachableRule, "VirtualService duplicate-match"},
 			{msg.VirtualServiceUnreachableRule, "VirtualService foo/sample-foo-cluster01"},
@@ -696,6 +704,12 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "EnvoyFilterFilterChainMatch",
+		inputFiles: []string{"testdata/envoy-filter-filterchain.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "EnvoyFilterUsesAbsoluteOperation",
 		inputFiles: []string{"testdata/absolute-envoy-filter-operation.yaml"},
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
@@ -751,6 +765,37 @@ var testGrid = []testCase{
 			{msg.InvalidTelemetryProvider, "Telemetry istio-system/mesh-default"},
 		},
 	},
+	{
+		name:       "telemetrySelector",
+		inputFiles: []string{"testdata/telemetry-selector.yaml"},
+		analyzer:   &telemetry.SelectorAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Telemetry default/maps-to-nonexistent"},
+			{msg.ReferencedResourceNotFound, "Telemetry other/maps-to-different-ns"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/dupe-1"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/dupe-2"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/overlap-1"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/overlap-2"},
+		},
+	},
+	{
+		name:       "telemetryDefaultSelector",
+		inputFiles: []string{"testdata/telemetry-default-selector.yaml"},
+		analyzer:   &telemetry.DefaultSelectorAnalyzer{},
+		expected: []message{
+			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-2"},
+			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-1"},
+		},
+	},
+	{
+		name:           "Telemetry Lightstep",
+		inputFiles:     []string{"testdata/telemetry-lightstep.yaml"},
+		analyzer:       &telemetry.LightstepAnalyzer{},
+		meshConfigFile: "testdata/telemetry-lightstep-meshconfig.yaml",
+		expected: []message{
+			{msg.DeprecatedLightstepProvider, "Telemetry istio-system/mesh-default"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
@@ -763,7 +808,7 @@ var ignoreAnalyzers = []string{
 
 // TestAnalyzers allows for table-based testing of Analyzers.
 func TestAnalyzers(t *testing.T) {
-	requestedInputsByAnalyzer := make(map[string]map[collection.Name]struct{})
+	requestedInputsByAnalyzer := make(map[string]map[config.GroupVersionKind]struct{})
 
 	// For each test case, verify we get the expected messages as output
 	for _, tc := range testGrid {
@@ -773,9 +818,9 @@ func TestAnalyzers(t *testing.T) {
 
 			// Set up a hook to record which collections are accessed by each analyzer
 			analyzerName := tc.analyzer.Metadata().Name
-			cr := func(col collection.Name) {
+			cr := func(col config.GroupVersionKind) {
 				if _, ok := requestedInputsByAnalyzer[analyzerName]; !ok {
-					requestedInputsByAnalyzer[analyzerName] = make(map[collection.Name]struct{})
+					requestedInputsByAnalyzer[analyzerName] = make(map[config.GroupVersionKind]struct{})
 				}
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
@@ -815,7 +860,7 @@ func TestAnalyzers(t *testing.T) {
 				}
 			}
 
-			requestedInputs := make([]collection.Name, 0)
+			requestedInputs := make([]config.GroupVersionKind, 0)
 			for col := range requestedInputsByAnalyzer[analyzerName] {
 				requestedInputs = append(requestedInputs, col)
 			}
@@ -869,7 +914,7 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 }
 
 func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.IstiodAnalyzer, error) {
-	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
+	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr)
 
 	// If a mesh config file is specified, use it instead of the defaults
 	if tc.meshConfigFile != "" {

@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 39111
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Added** provision to provide overridden/explicit value for `failoverPriority` label. This provided value is used while assigning priority for endpoints instead of the client's value.

@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
@@ -39,8 +39,7 @@ func NewController(client kube.Client, callbacks ...func(name string)) *Controll
 		callbacks: callbacks,
 	}
 
-	crdMetadataInformer := client.MetadataInformer().ForResource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().
-		GroupVersionResource()).Informer()
+	crdMetadataInformer := client.MetadataInformer().ForResource(gvr.CustomResourceDefinition).Informer()
 	_ = crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 	_, _ = crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {

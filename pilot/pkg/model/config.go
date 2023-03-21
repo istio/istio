@@ -20,7 +20,6 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -83,6 +82,16 @@ func ConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.Set[ConfigK
 	}
 
 	return ret
+}
+
+// HasConfigsOfKind returns true if configs has changes of type kind
+func HasConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) bool {
+	for c := range configs {
+		if c.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 // ConfigNamesOfKind extracts config names of the specified kind.
@@ -152,7 +161,7 @@ type ConfigStore interface {
 
 	// List returns objects by type and namespace.
 	// Use "" for the namespace to list across namespaces.
-	List(typ config.GroupVersionKind, namespace string) ([]config.Config, error)
+	List(typ config.GroupVersionKind, namespace string) []config.Config
 
 	// Create adds a new configuration object to the store. If an object with the
 	// same name and namespace for the type already exists, the operation fails
@@ -199,14 +208,9 @@ type ConfigStoreController interface {
 	// configuration type
 	RegisterEventHandler(kind config.GroupVersionKind, handler EventHandler)
 
-	// Run until a signal is received
+	// Run until a signal is received.
+	// Run *should* block, so callers should typically call `go controller.Run(stop)`
 	Run(stop <-chan struct{})
-
-	// SetWatchErrorHandler should be call if store has started
-	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
-
-	// HasStarted return ture after store started.
-	HasStarted() bool
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
@@ -328,7 +332,7 @@ func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]
 }
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortConfigByCreationTime(configs []config.Config) {
+func sortConfigByCreationTime(configs []config.Config) []config.Config {
 	sort.Slice(configs, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
@@ -340,6 +344,7 @@ func sortConfigByCreationTime(configs []config.Config) {
 		}
 		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
 	})
+	return configs
 }
 
 // key creates a key from a reference's name and namespace.

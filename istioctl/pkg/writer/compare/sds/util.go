@@ -223,7 +223,7 @@ func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {
 	}
 
 	return SecretMeta{
-		SerialNumber: fmt.Sprintf("%d", cert.SerialNumber),
+		SerialNumber: fmt.Sprintf("%x", cert.SerialNumber),
 		NotAfter:     cert.NotAfter.Format(time.RFC3339),
 		NotBefore:    cert.NotBefore.Format(time.RFC3339),
 		Type:         certType,

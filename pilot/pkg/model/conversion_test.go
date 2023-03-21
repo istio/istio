@@ -64,7 +64,7 @@ func TestApplyJSON(t *testing.T) {
 }
 
 func TestProtoSchemaConversions(t *testing.T) {
-	destinationRuleSchema := collections.IstioNetworkingV1Alpha3Destinationrules
+	destinationRuleSchema := collections.DestinationRule
 
 	msg := &networking.DestinationRule{
 		Host: "something.svc.local",

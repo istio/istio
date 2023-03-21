@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,6 +34,7 @@ import (
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
+	"istio.io/istio/pkg/config/constants"
 	kubelib "istio.io/istio/pkg/kube"
 )
 
@@ -66,7 +67,7 @@ func inferNsInfo(name, namespace string) (string, string) {
 
 // HandleNamespace returns the defaultNamespace if the namespace is empty
 func HandleNamespace(ns, defaultNamespace string) string {
-	if ns == v1.NamespaceAll {
+	if ns == corev1.NamespaceAll {
 		ns = defaultNamespace
 	}
 	return ns
@@ -114,7 +115,7 @@ func getClientForResource(resname, ns string, factory cmdutil.Factory) (*corev1c
 	if len(infos) != 1 {
 		return nil, "", "", "", errors.New("expected a resource")
 	}
-	_, ok := infos[0].Object.(*v1.Pod)
+	_, ok := infos[0].Object.(*corev1.Pod)
 	if ok {
 		// If we got a pod, just use its name
 		return nil, infos[0].Name, infos[0].Namespace, "", nil
@@ -134,13 +135,17 @@ func getClientForResource(resname, ns string, factory cmdutil.Factory) (*corev1c
 	return clientset, "", namespace, selector.String(), nil
 }
 
+// this is used for testing. it should not be changed in regular code.
+var getFirstPodFunc func(client corev1client.PodsGetter, namespace string, selector string, timeout time.Duration,
+	sortBy func([]*corev1.Pod) sort.Interface) (*corev1.Pod, int, error)
+
 // InferPodInfoFromTypedResource gets a pod name, from an expression like Deployment/httpbin, or Deployment/productpage-v1.bookinfo
 func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Factory) (string, string, error) {
 	resname, ns := inferNsInfo(name, defaultNS)
 	if !strings.Contains(resname, "/") {
 		return resname, ns, nil
 	}
-	client, podName, namespace, selector, err := getClientForResource(resname, defaultNS, factory)
+	client, podName, namespace, selector, err := getClientForResource(resname, ns, factory)
 	if err != nil {
 		return "", "", err
 	}
@@ -148,9 +153,12 @@ func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Facto
 		return podName, namespace, nil
 	}
 	// We need to pass in a sorter, and the one used by `kubectl logs` is good enough.
-	sortBy := func(pods []*v1.Pod) sort.Interface { return podutils.ByLogging(pods) }
+	sortBy := func(pods []*corev1.Pod) sort.Interface { return podutils.ByLogging(pods) }
 	timeout := 2 * time.Second
-	pod, _, err := polymorphichelpers.GetFirstPod(client, namespace, selector, timeout, sortBy)
+	if getFirstPodFunc == nil {
+		getFirstPodFunc = polymorphichelpers.GetFirstPod
+	}
+	pod, _, err := getFirstPodFunc(client, namespace, selector, timeout, sortBy)
 	if err != nil {
 		return "", "", fmt.Errorf("no pods match %q", resname)
 	}
@@ -165,13 +173,13 @@ func SelectorsForObject(object runtime.Object) (namespace string, selector label
 			return "", nil, fmt.Errorf("gateway is not a managed gateway")
 		}
 		namespace = t.Namespace
-		selector, err = labels.Parse(gateway.GatewayNameLabel + "=" + t.Name)
+		selector, err = labels.Parse(constants.GatewayNameLabel + "=" + t.Name)
 	case *gatewayapibeta.Gateway:
 		if !gateway.IsManagedBeta(&t.Spec) {
 			return "", nil, fmt.Errorf("gateway is not a managed gateway")
 		}
 		namespace = t.Namespace
-		selector, err = labels.Parse(gateway.GatewayNameLabel + "=" + t.Name)
+		selector, err = labels.Parse(constants.GatewayNameLabel + "=" + t.Name)
 	default:
 		return polymorphichelpers.SelectorsForObject(object)
 	}

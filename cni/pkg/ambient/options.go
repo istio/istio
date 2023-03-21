@@ -15,8 +15,6 @@
 package ambient
 
 import (
-	klabels "k8s.io/apimachinery/pkg/labels"
-
 	ipsetlib "istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/env"
@@ -33,10 +31,6 @@ var (
 var Ipset = &ipsetlib.IPSet{
 	Name: "ztunnel-pods-ips",
 }
-
-var ambientSelectors = klabels.SelectorFromValidatedSet(map[string]string{
-	constants.DataplaneMode: constants.DataplaneModeAmbient,
-})
 
 type RedirectMode int
 

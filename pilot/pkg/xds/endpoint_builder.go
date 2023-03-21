@@ -29,6 +29,7 @@ import (
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/cluster"
@@ -117,8 +118,12 @@ func (b *EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 	return nil
 }
 
+func (b *EndpointBuilder) Type() string {
+	return model.EDSType
+}
+
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
-func (b *EndpointBuilder) Key() string {
+func (b *EndpointBuilder) Key() any {
 	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
@@ -171,7 +176,7 @@ func (b *EndpointBuilder) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.Sum()
+	return h.Sum64()
 }
 
 func (b *EndpointBuilder) Cacheable() bool {
@@ -376,20 +381,13 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
-	healthStatus := core.HealthStatus_HEALTHY
-	// This is enabled by features.SendUnhealthyEndpoints - otherwise they are not tracked.
-	if e.HealthStatus == model.UnHealthy {
-		healthStatus = core.HealthStatus_UNHEALTHY
-	}
-	if e.HealthStatus == model.Draining {
-		healthStatus = core.HealthStatus_DRAINING
-	}
+	healthStatus := e.HealthStatus
 	if features.DrainingLabel != "" && e.Labels[features.DrainingLabel] != "" {
-		healthStatus = core.HealthStatus_DRAINING
+		healthStatus = model.Draining
 	}
 
 	ep := &endpoint.LbEndpoint{
-		HealthStatus: healthStatus,
+		HealthStatus: core.HealthStatus(healthStatus),
 		LoadBalancingWeight: &wrappers.UInt32Value{
 			Value: e.GetLoadBalancingWeight(),
 		},
@@ -414,8 +412,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
 		supportsTunnel = true
 	}
+
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	if al := e.Labels[constants.AmbientRedirection]; al == constants.AmbientRedirectionEnabled {
+	if b.push.SupportsTunnel(e.Address) {
 		supportsTunnel = true
 	}
 	// Otherwise supports tunnel
@@ -449,9 +448,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 			tunnelPort := 15008
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
-			tunnelOrigLis := "connect_originate"
 			ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, address, int(e.EndpointPort), tunnelPort)
-			ep = util.BuildInternalLbEndpoint(tunnelOrigLis, ep.Metadata)
+			ep = util.BuildInternalLbEndpoint(networking.ConnectOriginate, ep.Metadata)
 			ep.LoadBalancingWeight = &wrappers.UInt32Value{
 				Value: e.GetLoadBalancingWeight(),
 			}
@@ -467,7 +465,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 		}
 		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(util.OutboundTunnel, net.JoinHostPort(address, strconv.Itoa(int(port)))),
+			Address: util.BuildInternalAddressWithIdentifier(networking.ConnectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}
 		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{

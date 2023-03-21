@@ -53,6 +53,7 @@ func TestAmbientIndex(t *testing.T) {
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"}),
+		ClusterID:        "cluster0",
 	})
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
@@ -165,6 +166,7 @@ func TestAmbientIndex(t *testing.T) {
 			CanonicalRevision: "latest",
 			WorkloadType:      workloadapi.WorkloadType_POD,
 			WorkloadName:      "name3",
+			ClusterId:         "cluster0",
 		},
 	}})
 	assertEvent("127.0.0.2")
@@ -260,7 +262,7 @@ func TestAmbientIndex(t *testing.T) {
 
 	// Delete a waypoint
 	deletePod("waypoint2-ns")
-	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.201", "127.0.0.3")
+	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.201", "127.0.0.3", "svc1.ns1.svc.company.com")
 	// Workload should be updated
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("127.0.0.3")[0].WaypointAddresses,

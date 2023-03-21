@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
+	"golang.org/x/exp/slices"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -501,26 +502,11 @@ func (n *networkGatewayNameCache) refreshAndNotify(name string) func() {
 		addrs := n.resolveAndCache(name)
 		n.Unlock()
 
-		if !stringSliceEqual(old.value, addrs) {
+		if !slices.Equal(old.value, addrs) {
 			log.Debugf("network gateways: DNS for %s changed: %v -> %v", name, old.value, addrs)
 			n.NotifyGatewayHandlers()
 		}
 	}
-}
-
-// avoid import cycle
-func stringSliceEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-
-	return true
 }
 
 // resolve gets all the A and AAAA records for the given name

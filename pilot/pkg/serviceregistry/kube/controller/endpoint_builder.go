@@ -50,12 +50,11 @@ type EndpointBuilder struct {
 
 func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 	var locality, sa, namespace, hostname, subdomain, ip, node string
-	var podLabels, podAnnotations labels.Instance
+	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod)
 		podLabels = pod.Labels
-		podAnnotations = pod.Annotations
 		namespace = pod.Namespace
 		subdomain = pod.Spec.Subdomain
 		if subdomain != "" {
@@ -84,7 +83,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		nodeName:     node,
 	}
 	networkID := out.endpointNetwork(ip)
-	out.labels = labelutil.AugmentLabels(podLabels, podAnnotations, c.Cluster(), locality, node, networkID)
+	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, node, networkID)
 	return out
 }
 
@@ -105,7 +104,7 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 	if len(proxy.IPAddresses) > 0 {
 		networkID = out.endpointNetwork(proxy.IPAddresses[0])
 	}
-	out.labels = labelutil.AugmentLabels(proxy.Labels, nil, c.Cluster(), locality, out.nodeName, networkID)
+	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, out.nodeName, networkID)
 	return out
 }
 
@@ -114,6 +113,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 	endpointPort int32,
 	svcPortName string,
 	discoverabilityPolicy model.EndpointDiscoverabilityPolicy,
+	healthStatus model.HealthStatus,
 ) *model.IstioEndpoint {
 	if b == nil {
 		return nil
@@ -140,6 +140,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		HostName:              b.hostname,
 		SubDomain:             b.subDomain,
 		DiscoverabilityPolicy: discoverabilityPolicy,
+		HealthStatus:          healthStatus,
 		NodeName:              b.nodeName,
 	}
 }

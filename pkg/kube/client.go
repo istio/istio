@@ -26,6 +26,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -86,10 +87,11 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 	"istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/lazy"
-	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/pkg/log"
@@ -148,13 +150,22 @@ type Client interface {
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
-	HasStarted() bool
 
 	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
 	WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
 
 	// GetKubernetesVersion returns the Kubernetes server version
 	GetKubernetesVersion() (*kubeVersion.Info, error)
+
+	// Shutdown closes all informers and waits for them to terminate
+	Shutdown()
+
+	// ClusterID returns the cluster this client is connected to
+	ClusterID() cluster.ID
+
+	// RegisterFilter registers that we have taken out a shared informer watch against type t, with the given filter.
+	// This allows detecting conflicting filters, as the informers are shared.
+	RegisterFilter(t reflect.Type, filter kubetypes.Filter) error
 }
 
 // CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
@@ -223,9 +234,6 @@ type CLIClient interface {
 
 	// InvalidateDiscovery invalidates the discovery client, useful after manually changing CRD's
 	InvalidateDiscovery()
-
-	// Shutdown closes all informers and waits for them to terminate
-	Shutdown()
 }
 
 type PortManager func() (uint16, error)
@@ -241,6 +249,7 @@ const resyncInterval = 0
 func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c := &client{
 		informerWatchesPending: atomic.NewInt32(0),
+		filters:                map[reflect.Type]kubetypes.Filter{},
 	}
 	c.kube = fake.NewSimpleClientset(objects...)
 	c.kubeInformer = informers.NewSharedInformerFactory(c.kube, resyncInterval)
@@ -300,15 +309,6 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
 	}
 
-	// discoveryv1/EndpointSlices readable from discoveryv1beta1/EndpointSlices
-	c.mirrorQueue = queue.NewQueue(1 * time.Second)
-	mirrorResource(
-		c.mirrorQueue,
-		c.kubeInformer.Discovery().V1().EndpointSlices().Informer(),
-		c.kube.DiscoveryV1beta1().EndpointSlices,
-		endpointSliceV1toV1beta1,
-	)
-
 	c.fastSync = true
 
 	c.version = lazy.NewWithRetry(c.kube.Discovery().ServerVersion)
@@ -332,6 +332,7 @@ type fakeClient interface {
 type client struct {
 	clientFactory util.Factory
 	config        *rest.Config
+	clusterID     cluster.ID
 
 	extSet      kubeExtClient.Interface
 	extInformer kubeExtInformers.SharedInformerFactory
@@ -356,9 +357,6 @@ type client struct {
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
 
-	mirrorQueue        queue.Instance
-	mirrorQueueStarted atomic.Bool
-
 	// These may be set only when creating an extended client.
 	revision        string
 	restClient      *rest.RESTClient
@@ -369,6 +367,9 @@ type client struct {
 
 	portManager PortManager
 
+	filtersMu sync.Mutex
+	filters   map[reflect.Type]kubetypes.Filter
+
 	// http is a client for HTTP requests
 	http *http.Client
 }
@@ -377,6 +378,7 @@ type client struct {
 func newClientInternal(clientFactory *clientFactory, revision string) (*client, error) {
 	var c client
 	var err error
+	c.filters = map[reflect.Type]kubetypes.Filter{}
 
 	c.clientFactory = clientFactory
 
@@ -463,7 +465,7 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 // NewDefaultClient returns a default client, using standard Kubernetes config resolution to determine
 // the cluster to access.
 func NewDefaultClient() (Client, error) {
-	return NewClient(BuildClientCmd("", ""))
+	return NewClient(BuildClientCmd("", ""), "")
 }
 
 // NewCLIClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
@@ -475,7 +477,7 @@ func NewCLIClient(clientConfig clientcmd.ClientConfig, revision string) (CLIClie
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
-func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
+func NewClient(clientConfig clientcmd.ClientConfig, cluster cluster.ID) (Client, error) {
 	return newClientInternal(newClientFactory(clientConfig, false), "")
 }
 
@@ -535,18 +537,9 @@ func (c *client) ExtInformer() kubeExtInformers.SharedInformerFactory {
 	return c.extInformer
 }
 
-func (c *client) HasStarted() bool {
-	return c.started.Load()
-}
-
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
-	if c.mirrorQueue != nil && !c.mirrorQueueStarted.Load() {
-		c.mirrorQueueStarted.Store(true)
-		go c.mirrorQueue.Run(stop)
-	}
-
 	c.startInformer(stop)
 
 	if c.fastSync {
@@ -585,8 +578,8 @@ func (c *client) Shutdown() {
 	// TODO: use these once they are implemented
 	// c.dynamicInformer.Shutdown()
 	// c.metadataInformer.Shutdown()
-	// c.istioInformer.Shutdown()
-	// c.gatewayapiInformer.Shutdown()
+	c.istioInformer.Shutdown()
+	c.gatewayapiInformer.Shutdown()
 	c.extInformer.Shutdown()
 }
 
@@ -602,6 +595,30 @@ func (c *client) startInformer(stop <-chan struct{}) {
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 	return c.version.Get()
+}
+
+func (c *client) RegisterFilter(t reflect.Type, filter kubetypes.Filter) error {
+	if t == nil {
+		// Type may not be available when using untyped clients
+		return nil
+	}
+	c.filtersMu.Lock()
+	defer c.filtersMu.Unlock()
+	existing, f := c.filters[t]
+	if f {
+		if filter.FieldSelector != existing.FieldSelector ||
+			filter.LabelSelector != existing.LabelSelector ||
+			fmt.Sprintf("%p", filter.ObjectTransform) != fmt.Sprintf("%p", existing.ObjectTransform) {
+			return fmt.Errorf("for type %v, registered conflicting filter %+v (existing: %+v)", t, filter, existing)
+		}
+	} else {
+		c.filters[t] = filter
+	}
+	return nil
+}
+
+func (c *client) ClusterID() cluster.ID {
+	return c.clusterID
 }
 
 type reflectInformerSync interface {
@@ -840,6 +857,9 @@ func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, 
 		return nil, formatError(err)
 	}
 	defer closeQuietly(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
 	out, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, formatError(err)

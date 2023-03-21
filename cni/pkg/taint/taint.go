@@ -147,7 +147,7 @@ func (ts *Setter) AddReadinessTaint(node *corev1.Node) error {
 	return nil
 }
 
-// DeleteTaint removes all the taints that have the same key and effect to given taintToDelete.
+// deleteTaint removes all the taints that have the same key and effect to given taintToDelete.
 func deleteTaint(taints []corev1.Taint, taintToDelete *corev1.Taint) []corev1.Taint {
 	newTaints := []corev1.Taint{}
 	for i := range taints {

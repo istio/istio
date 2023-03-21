@@ -96,8 +96,8 @@ func TestXdsCache(t *testing.T) {
 	t.Run("simple", func(t *testing.T) {
 		c := model.NewXdsCache()
 		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any1)
-		if !reflect.DeepEqual(c.Keys(), []string{ep1.Key()}) {
-			t.Fatalf("unexpected keys: %v, want %v", c.Keys(), ep1.Key())
+		if !reflect.DeepEqual(c.Keys(model.EDSType), []any{ep1.Key()}) {
+			t.Fatalf("unexpected keys: %v, want %v", c.Keys(model.EDSType), ep1.Key())
 		}
 		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
@@ -109,7 +109,7 @@ func TestXdsCache(t *testing.T) {
 
 		c.Clear(sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo.com"}))
 		if got := c.Get(ep1); got != nil {
-			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys(model.EDSType))
 		}
 	})
 
@@ -127,10 +127,10 @@ func TestXdsCache(t *testing.T) {
 		}
 		c.Clear(sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo.com"}))
 		if got := c.Get(ep1); got != nil {
-			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys(model.EDSType))
 		}
 		if got := c.Get(ep2); got != nil {
-			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys(model.EDSType))
 		}
 	})
 
@@ -152,17 +152,17 @@ func TestXdsCache(t *testing.T) {
 		}
 		c.Clear(sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "a", Namespace: "b"}))
 		if got := c.Get(ep1); got != nil {
-			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys(model.EDSType))
 		}
 		if got := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 		c.Clear(sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "b", Namespace: "b"}))
 		if got := c.Get(ep1); got != nil {
-			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys(model.EDSType))
 		}
 		if got := c.Get(ep2); got != nil {
-			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys(model.EDSType))
 		}
 	})
 
@@ -173,14 +173,14 @@ func TestXdsCache(t *testing.T) {
 		c.Add(ep2, &model.PushRequest{Start: start}, any2)
 
 		c.ClearAll()
-		if len(c.Keys()) != 0 {
-			t.Fatalf("expected no keys, got: %v", c.Keys())
+		if len(c.Keys(model.EDSType)) != 0 {
+			t.Fatalf("expected no keys, got: %v", c.Keys(model.EDSType))
 		}
 		if got := c.Get(ep1); got != nil {
-			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys(model.EDSType))
 		}
 		if got := c.Get(ep2); got != nil {
-			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys(model.EDSType))
 		}
 	})
 
@@ -198,8 +198,8 @@ func TestXdsCache(t *testing.T) {
 		t2 := t1.Add(1 * time.Nanosecond)
 		c.Add(ep1, &model.PushRequest{Start: t2}, any1)
 		c.Add(ep1, &model.PushRequest{Start: t1}, any2)
-		if len(c.Keys()) != 1 {
-			t.Fatalf("expected 1 keys, got: %v", c.Keys())
+		if len(c.Keys(model.EDSType)) != 1 {
+			t.Fatalf("expected 1 keys, got: %v", c.Keys(model.EDSType))
 		}
 		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
@@ -236,24 +236,6 @@ func TestXdsCache(t *testing.T) {
 		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any1)
 		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
-		}
-	})
-
-	t.Run("no use old cache", func(t *testing.T) {
-		c := model.NewXdsCache()
-		t1 := time.Now()
-
-		c.Add(ep1, &model.PushRequest{Start: t1}, any1)
-		if got := c.Get(ep1); got == nil {
-			t.Fatalf("expected cahce, but got none")
-		}
-		if got := c.GetWithRequest(ep1, &model.PushRequest{Start: t1.Add(1)}); got != nil {
-			t.Fatalf("expected no cahce, but got %v", got)
-		}
-		// cache with newer token
-		c.Add(ep1, &model.PushRequest{Start: t1.Add(1)}, any1)
-		if got := c.GetWithRequest(ep1, &model.PushRequest{Start: t1.Add(1)}); got == nil {
-			t.Fatalf("expected cahce, but got none")
 		}
 	})
 }

@@ -45,14 +45,12 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -447,9 +445,7 @@ func TestEnvoyFilterOrder(t *testing.T) {
 
 	// Init a new push context
 	pc := NewPushContext()
-	if err := pc.initEnvoyFilters(env); err != nil {
-		t.Fatal(err)
-	}
+	pc.initEnvoyFilters(env)
 	gotns := make([]string, 0)
 	for _, filter := range pc.envoyFiltersByNamespace["testns"] {
 		gotns = append(gotns, filter.Keys()...)
@@ -695,9 +691,7 @@ func TestWasmPlugins(t *testing.T) {
 	// Init a new push context
 	pc := NewPushContext()
 	pc.Mesh = m
-	if err := pc.initWasmPlugins(env); err != nil {
-		t.Fatal(err)
-	}
+	pc.initWasmPlugins(env)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1105,7 +1099,7 @@ func TestSidecarScope(t *testing.T) {
 	}
 	configWithWorkloadSelector := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.Sidecar,
 			Name:             "foo",
 			Namespace:        "default",
 		},
@@ -1113,7 +1107,7 @@ func TestSidecarScope(t *testing.T) {
 	}
 	rootConfig := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.Sidecar,
 			Name:             "global",
 			Namespace:        constants.IstioSystemNamespace,
 		},
@@ -1123,9 +1117,7 @@ func TestSidecarScope(t *testing.T) {
 	_, _ = configStore.Create(rootConfig)
 
 	env.ConfigStore = configStore
-	if err := ps.initSidecarScopes(env); err != nil {
-		t.Fatalf("init sidecar scope failed: %v", err)
-	}
+	ps.initSidecarScopes(env)
 	cases := []struct {
 		proxy    *Proxy
 		labels   labels.Instance
@@ -1245,7 +1237,7 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 	}
 	rootConfig := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.Sidecar,
 			Name:             "global",
 			Namespace:        constants.IstioSystemNamespace,
 		},
@@ -1303,9 +1295,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	}, securityBeta.PeerAuthentication_MutualTLS_DISABLE))
 
 	env.ConfigStore = configStore
-	if err := ps.initAuthnPolicies(env); err != nil {
-		t.Fatalf("init authn policies failed: %v", err)
-	}
+	ps.initAuthnPolicies(env)
 
 	instancePlainText := &ServiceInstance{
 		Endpoint: &IstioEndpoint{
@@ -2309,9 +2299,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 
 	env.ConfigStore = configStore
 	ps.initDefaultExportMaps()
-	if err := ps.initVirtualServices(env); err != nil {
-		t.Fatalf("init virtual services failed: %v", err)
-	}
+	ps.initVirtualServices(env)
 
 	cases := []struct {
 		proxyNs   string
@@ -2383,7 +2371,7 @@ func TestInitVirtualService(t *testing.T) {
 
 	vs1 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "vs1",
 			Namespace:        "ns1",
 		},
@@ -2414,7 +2402,7 @@ func TestInitVirtualService(t *testing.T) {
 	}
 	vs2 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "vs2",
 			Namespace:        "ns2",
 		},
@@ -2446,9 +2434,7 @@ func TestInitVirtualService(t *testing.T) {
 
 	env.ConfigStore = configStore
 	ps.initDefaultExportMaps()
-	if err := ps.initVirtualServices(env); err != nil {
-		t.Fatalf("init virtual services failed: %v", err)
-	}
+	ps.initVirtualServices(env)
 
 	t.Run("resolve shortname", func(t *testing.T) {
 		rules := ps.VirtualServicesForGateway("ns1", gatewayName)
@@ -2514,9 +2500,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		services: []*Service{svc1, svc2, svc3, svc4},
 	}
 	ps.initDefaultExportMaps()
-	if err := ps.initServiceRegistry(env); err != nil {
-		t.Fatalf("init services failed: %v", err)
-	}
+	ps.initServiceRegistry(env)
 
 	cases := []struct {
 		proxyNs   string
@@ -2576,7 +2560,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 
 	vs1 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "vs1",
 			Namespace:        "ns1",
 		},
@@ -2607,7 +2591,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	}
 	vs2 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "vs2",
 			Namespace:        "ns2",
 		},
@@ -2640,9 +2624,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	env.ConfigStore = configStore
 	ps.initTelemetry(env)
 	ps.initDefaultExportMaps()
-	if err := ps.initVirtualServices(env); err != nil {
-		t.Fatalf("init virtual services failed: %v", err)
-	}
+	ps.initVirtualServices(env)
 	got := sets.String{}
 	addHostsFromMeshConfig(ps, got)
 	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, sets.SortedList(got))
@@ -2697,23 +2679,8 @@ type localServiceDiscovery struct {
 	services         []*Service
 	serviceInstances []*ServiceInstance
 
+	NoopAmbientIndexes
 	NetworkGatewaysHandler
-}
-
-func (l *localServiceDiscovery) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
-	return nil, nil
-}
-
-func (l *localServiceDiscovery) AmbientSnapshot() *AmbientSnapshot {
-	return nil
-}
-
-func (l *localServiceDiscovery) AdditionalPodSubscriptions(_ *Proxy, _, _ sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
-	return nil
-}
-
-func (l *localServiceDiscovery) Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization {
-	return nil
 }
 
 var _ ServiceDiscovery = &localServiceDiscovery{}

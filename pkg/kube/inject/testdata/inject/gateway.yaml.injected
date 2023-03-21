@@ -20,7 +20,6 @@ spec:
       creationTimestamp: null
       labels:
         istio: ingressgateway
-        istio.io/rev: default
         service.istio.io/canonical-name: istio-ingressgateway
         service.istio.io/canonical-revision: latest
     spec:
@@ -60,6 +59,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: ISTIO_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              divisor: "0"
+              resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
             {}

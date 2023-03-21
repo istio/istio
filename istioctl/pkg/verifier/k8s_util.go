@@ -65,7 +65,7 @@ func verifyJobPostInstall(job *v1batch.Job) error {
 }
 
 func findResourceInSpec(gvk apimachinery_schema.GroupVersionKind) string {
-	s, f := collections.All.FindByGroupVersionKind(config.GroupVersionKind{
+	s, f := collections.All.FindByGroupVersionAliasesKind(config.GroupVersionKind{
 		Group:   gvk.Group,
 		Version: gvk.Version,
 		Kind:    gvk.Kind,
@@ -73,5 +73,5 @@ func findResourceInSpec(gvk apimachinery_schema.GroupVersionKind) string {
 	if !f {
 		return ""
 	}
-	return s.Resource().Plural()
+	return s.Plural()
 }

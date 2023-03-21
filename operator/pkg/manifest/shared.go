@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/version"
@@ -189,6 +191,12 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 
 	// If enablement came from user values overlay (file or --set), translate into addonComponents paths and overlay that.
 	outYAML, err = translate.OverlayValuesEnablement(outYAML, overlayYAML, overlayYAML)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// convertDefaultIOPMapValues converts default paths values into string, prevent errors when unmarshalling.
+	outYAML, err = convertDefaultIOPMapValues(outYAML, setFlags)
 	if err != nil {
 		return "", nil, err
 	}
@@ -515,6 +523,84 @@ func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 	}
 
 	return string(out), nil
+}
+
+var defaultSetFlagConvertPaths = []string{
+	"meshConfig.defaultConfig.proxyMetadata",
+}
+
+// convertDefaultIOPMapValues converts default map[string]string values into string.
+func convertDefaultIOPMapValues(outYAML string, setFlags []string) (string, error) {
+	return convertIOPMapValues(outYAML, setFlags, defaultSetFlagConvertPaths)
+}
+
+// convertIOPMapValues converts certain paths of map[string]string values into string.
+func convertIOPMapValues(outYAML string, setFlags []string, convertPaths []string) (string, error) {
+	for _, setFlagConvertPath := range convertPaths {
+		if containParentPath(setFlags, setFlagConvertPath) {
+			var (
+				converter              = map[string]interface{}{}
+				convertedProxyMetadata = map[string]string{}
+				subPaths               = strings.Split(setFlagConvertPath, ".")
+			)
+
+			if err := yaml.Unmarshal([]byte(outYAML), &converter); err != nil {
+				return outYAML, err
+			}
+			originMap, ok := converter["spec"].(map[string]any)
+			if !ok {
+				return outYAML, nil
+			}
+
+			for index, subPath := range subPaths {
+				if _, ok := originMap[subPath].(map[string]any); !ok {
+					return outYAML, fmt.Errorf("can not convert subPath %s in setFlag path %s",
+						subPath, setFlagConvertPath)
+				}
+
+				if index == len(subPaths)-1 {
+					for key, value := range originMap[subPath].(map[string]any) {
+						if reflect.TypeOf(value).Kind() == reflect.Int {
+							convertedProxyMetadata[key] = strconv.FormatInt(value.(int64), 10)
+						}
+						if reflect.TypeOf(value).Kind() == reflect.Bool {
+							convertedProxyMetadata[key] = strconv.FormatBool(value.(bool))
+						}
+						if reflect.TypeOf(value).Kind() == reflect.Float64 {
+							convertedProxyMetadata[key] = fmt.Sprint(value)
+						}
+						if reflect.TypeOf(value).Kind() == reflect.String {
+							convertedProxyMetadata[key] = value.(string)
+						}
+					}
+					originMap[subPath] = convertedProxyMetadata
+				} else {
+					originMap = originMap[subPath].(map[string]any)
+				}
+			}
+
+			convertedYaml, err := yaml.Marshal(converter)
+			if err != nil {
+				return outYAML, err
+			}
+			return string(convertedYaml), nil
+		}
+	}
+
+	return outYAML, nil
+}
+
+// containParentPath checks if setFlags contain parent path.
+func containParentPath(setFlags []string, parentPath string) bool {
+	ret := false
+	for _, sf := range setFlags {
+		p, _ := getPV(sf)
+		if strings.Contains(p, parentPath) {
+			ret = true
+			break
+		}
+	}
+	return ret
 }
 
 // GetValueForSetFlag parses the passed set flags which have format key=value and if any set the given path,

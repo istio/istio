@@ -19,13 +19,13 @@ import (
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // GatewayAnalyzer checks the gateways associated with each virtual service
@@ -38,16 +38,16 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.GatewayAnalyzer",
 		Description: "Checks the gateways associated with each virtual service",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Gateways.Name(),
-			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Gateway,
+			gvk.VirtualService,
 		},
 	}
 }
 
 // Analyze implements Analyzer
 func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
 		s.analyzeVirtualService(r, c)
 		return true
 	})
@@ -66,14 +66,14 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 
 		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
 
-		if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways.Name(), gwFullName) {
+		if !c.Exists(gvk.Gateway, gwFullName) {
 			m := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
 				m.Line = line
 			}
 
-			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+			c.Report(gvk.VirtualService, m)
 		}
 
 		if !vsHostInGateway(c, gwFullName, vs.Hosts, vsNs.String()) {
@@ -83,7 +83,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 				m.Line = line
 			}
 
-			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+			c.Report(gvk.VirtualService, m)
 		}
 	}
 }
@@ -92,7 +92,7 @@ func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHosts []st
 	var gatewayHosts []string
 	var gatewayNs string
 
-	c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Gateway, func(r *resource.Instance) bool {
 		if r.Metadata.FullName == gateway {
 			s := r.Message.(*v1alpha3.Gateway)
 			gatewayNs = r.Metadata.FullName.Namespace.String()

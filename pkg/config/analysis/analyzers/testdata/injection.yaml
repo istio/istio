@@ -9,6 +9,14 @@ metadata:
     istio-injection: enabled
   name: default
 ---
+# Namespace doesn't have the injection label, but is labeled for ambient
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio.io/dataplane-mode: ambient
+  name: ambient
+---
 # Namespace is explicitly disabled, Should not generate warning!
 apiVersion: v1
 kind: Namespace

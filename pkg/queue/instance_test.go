@@ -21,6 +21,9 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 func BenchmarkQueue(b *testing.B) {
@@ -164,4 +167,21 @@ func TestClosed(t *testing.T) {
 			t.Error("task ran on closed queue")
 		}
 	})
+}
+
+func TestSync(t *testing.T) {
+	handles := atomic.NewInt32(0)
+	task := func() error {
+		handles.Inc()
+		return nil
+	}
+	q := NewQueue(0)
+	q.Push(task)
+	stop := make(chan struct{})
+	go q.Run(stop)
+	retry.UntilOrFail(t, q.HasSynced, retry.Delay(time.Microsecond))
+	// Must always be 1 since we are synced
+	assert.Equal(t, handles.Load(), 1)
+	close(stop)
+	assert.NoError(t, WaitForClose(q, time.Second))
 }

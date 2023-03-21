@@ -248,3 +248,7 @@ func STSEnabled(value bool) Instance {
 func DiscoveryHost(value string) Instance {
 	return newOption("discovery_host", value)
 }
+
+func MetadataDiscovery(value bool) Instance {
+	return newOption("metadata_discovery", value)
+}

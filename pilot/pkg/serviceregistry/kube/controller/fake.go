@@ -26,7 +26,9 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 	filter "istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -120,32 +122,16 @@ func (fx *FakeXdsUpdater) RemoveShard(shardKey model.ShardKey) {
 
 func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, et string) *FakeXdsEvent {
 	t.Helper()
-	return fx.WaitForDurationOrFail(t, et, 5*time.Second)
-}
-
-func (fx *FakeXdsUpdater) WaitForDurationOrFail(t test.Failer, et string, d time.Duration) *FakeXdsEvent {
-	t.Helper()
-	ev := fx.WaitForDuration(et, d)
-	if ev == nil {
-		t.Fatalf("Timeout creating %q after %s", et, d)
-	}
-	return ev
-}
-
-func (fx *FakeXdsUpdater) Wait(et string) *FakeXdsEvent {
-	return fx.WaitForDuration(et, 5*time.Second)
-}
-
-func (fx *FakeXdsUpdater) WaitForDuration(et string, d time.Duration) *FakeXdsEvent {
 	for {
 		select {
 		case e := <-fx.Events:
 			if e.Type == et {
 				return &e
 			}
+			log.Infof("skipping event %q want %q", e.Type, et)
 			continue
-		case <-time.After(d):
-			return nil
+		case <-time.After(time.Second * 5):
+			t.Fatalf("timed out waiting for %v", et)
 		}
 	}
 }
@@ -158,6 +144,23 @@ func (fx *FakeXdsUpdater) Clear() {
 		case <-fx.Events:
 		default:
 			wait = false
+		}
+	}
+}
+
+// AssertEmpty ensures there are no events in the channel
+func (fx *FakeXdsUpdater) AssertEmpty(t test.Failer, dur time.Duration) {
+	if dur == 0 {
+		select {
+		case e := <-fx.Events:
+			t.Fatalf("got unexpected event %+v", e)
+		default:
+		}
+	} else {
+		select {
+		case e := <-fx.Events:
+			t.Fatalf("got unexpected event %+v", e)
+		case <-time.After(dur):
 		}
 	}
 }
@@ -218,6 +221,15 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 
 	if opts.ServiceHandler != nil {
 		c.AppendServiceHandler(opts.ServiceHandler)
+	}
+
+	t.Cleanup(func() {
+		c.client.Shutdown()
+	})
+	if !opts.SkipRun {
+		t.Cleanup(func() {
+			assert.NoError(t, queue.WaitForClose(c.queue, time.Second*5))
+		})
 	}
 	c.stop = opts.Stop
 	if c.stop == nil {

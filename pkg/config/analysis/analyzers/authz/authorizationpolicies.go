@@ -22,12 +22,12 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // AuthorizationPoliciesAnalyzer checks the validity of authorization policies
@@ -42,11 +42,11 @@ func (a *AuthorizationPoliciesAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "auth.AuthorizationPoliciesAnalyzer",
 		Description: "Checks the validity of authorization policies",
-		Inputs: collection.Names{
-			collections.IstioMeshV1Alpha1MeshConfig.Name(),
-			collections.IstioSecurityV1Beta1Authorizationpolicies.Name(),
-			collections.K8SCoreV1Namespaces.Name(),
-			collections.K8SCoreV1Pods.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.MeshConfig,
+			gvk.AuthorizationPolicy,
+			gvk.Namespace,
+			gvk.Pod,
 		},
 	}
 }
@@ -54,7 +54,7 @@ func (a *AuthorizationPoliciesAnalyzer) Metadata() analysis.Metadata {
 func (a *AuthorizationPoliciesAnalyzer) Analyze(c analysis.Context) {
 	podLabelsMap := initPodLabelsMap(c)
 
-	c.ForEach(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.AuthorizationPolicy, func(r *resource.Instance) bool {
 		a.analyzeNoMatchingWorkloads(r, c, podLabelsMap)
 		a.analyzeNamespaceNotFound(r, c)
 		return true
@@ -72,7 +72,7 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.I
 			apSelector := klabels.SelectorFromSet(ap.Selector.MatchLabels)
 			// If there is at least one pod matching the selector within the whole mesh
 			if !hasMatchingPodsRunning(apSelector, podLabelsMap) {
-				c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewNoMatchingWorkloadsFound(r, apSelector.String()))
+				c.Report(gvk.AuthorizationPolicy, msg.NewNoMatchingWorkloadsFound(r, apSelector.String()))
 			}
 		}
 
@@ -85,7 +85,7 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.I
 	// no messages should be triggered.
 	if ap.Selector == nil {
 		if len(podLabelsMap[apNs]) == 0 {
-			c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewNoMatchingWorkloadsFound(r, ""))
+			c.Report(gvk.AuthorizationPolicy, msg.NewNoMatchingWorkloadsFound(r, ""))
 		}
 		return
 	}
@@ -93,7 +93,7 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.I
 	// If the AuthzPolicy has Selector, then need to find a matching Pod.
 	apSelector := klabels.SelectorFromSet(ap.Selector.MatchLabels)
 	if !hasMatchingPodsRunningIn(apSelector, podLabelsMap[apNs]) {
-		c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewNoMatchingWorkloadsFound(r, apSelector.String()))
+		c.Report(gvk.AuthorizationPolicy, msg.NewNoMatchingWorkloadsFound(r, apSelector.String()))
 	}
 }
 
@@ -109,7 +109,7 @@ func fetchMeshConfig(c analysis.Context) *v1alpha1.MeshConfig {
 		return meshConfig
 	}
 
-	c.ForEach(collections.IstioMeshV1Alpha1MeshConfig.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
 		meshConfig = r.Message.(*v1alpha1.MeshConfig)
 		return r.Metadata.FullName.Name != util.MeshConfigName
 	})
@@ -155,7 +155,7 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 						m.Line = line
 					}
 
-					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), m)
+					c.Report(gvk.AuthorizationPolicy, m)
 				}
 			}
 		}
@@ -164,7 +164,7 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 
 func matchNamespace(exp string, c analysis.Context) bool {
 	match := false
-	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Namespace, func(r *resource.Instance) bool {
 		ns := r.Metadata.FullName.String()
 		match = namespaceMatch(ns, exp)
 		return !match
@@ -191,7 +191,7 @@ func namespaceMatch(ns, exp string) bool {
 func initPodLabelsMap(c analysis.Context) map[string][]klabels.Set {
 	podLabelsMap := make(map[string][]klabels.Set)
 
-	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Pod, func(r *resource.Instance) bool {
 		pLabels := klabels.Set(r.Metadata.Labels)
 
 		ns := r.Metadata.FullName.Namespace.String()
@@ -200,6 +200,10 @@ func initPodLabelsMap(c analysis.Context) map[string][]klabels.Set {
 		}
 
 		if util.PodInMesh(r, c) {
+			podLabelsMap[ns] = append(podLabelsMap[ns], pLabels)
+		}
+
+		if util.PodInAmbientMode(r) {
 			podLabelsMap[ns] = append(podLabelsMap[ns], pLabels)
 		}
 

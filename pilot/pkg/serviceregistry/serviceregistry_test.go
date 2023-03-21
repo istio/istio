@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
-	networkutils "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -866,6 +865,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	istiotest.SetForTest(t, &features.EnableHBONE, true)
+	istiotest.SetForTest(t, &features.EnableAmbientControllers, true)
 	for _, ambient := range []bool{false, true} {
 		name := "disabled"
 		if ambient {
@@ -993,7 +993,7 @@ func expectAmbient(strings []string, ambient bool) []string {
 	}
 	var out []string
 	for _, s := range strings {
-		out = append(out, networkutils.OutboundTunnel+";"+s)
+		out = append(out, "connect_originate;"+s)
 	}
 	return out
 }

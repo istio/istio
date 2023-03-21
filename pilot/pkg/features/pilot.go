@@ -499,7 +499,7 @@ var (
 
 	SpiffeBundleEndpoints = env.Register("SPIFFE_BUNDLE_ENDPOINTS", "",
 		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+
-			"bundle endpoint and uses it to verify client certifiates from that trust domain. The endpoint must be "+
+			"bundle endpoint and uses it to verify client certificates from that trust domain. The endpoint must be "+
 			"compliant to the SPIFFE Bundle Endpoint standard. For details, please refer to "+
 			"https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md . "+
 			"No need to configure this for root certificates issued via Istiod or web-PKI based root certificates. "+
@@ -524,6 +524,9 @@ var (
 
 	XDSCacheMaxSize = env.Register("PILOT_XDS_CACHE_SIZE", 60000,
 		"The maximum number of cache entries for the XDS cache.").Get()
+
+	XDSCacheIndexClearInterval = env.Register("PILOT_XDS_CACHE_INDEX_CLEAR_INTERVAL", 5*time.Second,
+		"The interval for xds cache index clearing.").Get()
 
 	// Note: while this appears unused in the go code, this sets a default which is used in the injection template.
 	EnableLegacyFSGroupInjection = env.Register("ENABLE_LEGACY_FSGROUP_INJECTION", false,
@@ -639,6 +642,10 @@ var (
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
 
+	MetadataDiscovery = env.Register("ISTIO_METADATA_DISCOVERY",
+		false,
+		"Enables proxy discovery of the workload metadata to back-fill the telemetry reports.").Get()
+
 	PartialFullPushes = env.Register("PILOT_PARTIAL_FULL_PUSHES", true,
 		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
 			"This occurs for EDS in many cases regardless of this setting.").Get()
@@ -676,7 +683,7 @@ var (
 
 	AutoReloadPluginCerts = env.Register(
 		"AUTO_RELOAD_PLUGIN_CERTS",
-		false,
+		true,
 		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart istiod to pick up certs."+
 			"Istiod picks newly added intermediate plug-in CA certs and updates it. Plug-in new Root-CA not supported.").Get()
 
