@@ -61,7 +61,7 @@ func (c *ConfigWriter) PrintSecretDump(outputFormat string) error {
 	secretDump := c.ztunnelDump.Certificates
 	out, err := json.MarshalIndent(secretDump, "", "    ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal workloads: %v", err)
+		return fmt.Errorf("failed to marshal secrets dump: %v", err)
 	}
 	if outputFormat == "yaml" {
 		if out, err = yaml.JSONToYAML(out); err != nil {
