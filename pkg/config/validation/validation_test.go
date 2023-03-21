@@ -969,14 +969,16 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 func TestValidateGateway(t *testing.T) {
 	tests := []struct {
 		name    string
+		cfgName string
 		in      proto.Message
 		out     string
 		warning string
 	}{
-		{"empty", &networking.Gateway{}, "server", ""},
-		{"invalid message", &networking.Server{}, "cannot cast", ""},
+		{"empty", someName, &networking.Gateway{}, "server", ""},
+		{"invalid message", someName, &networking.Server{}, "cannot cast", ""},
 		{
 			"happy domain",
+			someName,
 			&networking.Gateway{
 				Servers: []*networking.Server{{
 					Hosts: []string{"foo.bar.com"},
@@ -987,6 +989,7 @@ func TestValidateGateway(t *testing.T) {
 		},
 		{
 			"happy multiple servers",
+			someName,
 			&networking.Gateway{
 				Servers: []*networking.Server{
 					{
@@ -999,6 +1002,7 @@ func TestValidateGateway(t *testing.T) {
 		},
 		{
 			"invalid port",
+			someName,
 			&networking.Gateway{
 				Servers: []*networking.Server{
 					{
@@ -1011,6 +1015,7 @@ func TestValidateGateway(t *testing.T) {
 		},
 		{
 			"duplicate port names",
+			someName,
 			&networking.Gateway{
 				Servers: []*networking.Server{
 					{
@@ -1027,6 +1032,7 @@ func TestValidateGateway(t *testing.T) {
 		},
 		{
 			"invalid domain",
+			someName,
 			&networking.Gateway{
 				Servers: []*networking.Server{
 					{
@@ -1039,6 +1045,7 @@ func TestValidateGateway(t *testing.T) {
 		},
 		{
 			"valid httpsRedirect",
+			someName,
 			&networking.Gateway{
 				Servers: []*networking.Server{
 					{
@@ -1052,6 +1059,7 @@ func TestValidateGateway(t *testing.T) {
 		},
 		{
 			"invalid https httpsRedirect",
+			someName,
 			&networking.Gateway{
 				Servers: []*networking.Server{
 					{
@@ -1065,6 +1073,7 @@ func TestValidateGateway(t *testing.T) {
 		},
 		{
 			"invalid partial wildcard",
+			someName,
 			&networking.Gateway{
 				Servers: []*networking.Server{
 					{
@@ -1075,6 +1084,34 @@ func TestValidateGateway(t *testing.T) {
 				},
 			},
 			"partial wildcard \"*bar.com\" not allowed", "",
+		},
+		{
+			"valid gateway config name",
+			"api.test.com",
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Hosts: []string{"bar.com"},
+						Port:  &networking.Port{Name: "http", Number: 80, Protocol: "http"},
+						Tls:   &networking.ServerTLSSettings{HttpsRedirect: true},
+					},
+				},
+			},
+			"", "",
+		},
+		{
+			"valid gateway config name",
+			"api-foo.test.com",
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Hosts: []string{"bar.com"},
+						Port:  &networking.Port{Name: "http", Number: 80, Protocol: "http"},
+						Tls:   &networking.ServerTLSSettings{HttpsRedirect: true},
+					},
+				},
+			},
+			"", "",
 		},
 	}
 	for _, tt := range tests {
@@ -3111,6 +3148,24 @@ func TestValidateVirtualService(t *testing.T) {
 		{name: "wildcard for non-mesh gateway", in: &networking.VirtualService{
 			Hosts:    []string{"*"},
 			Gateways: []string{"somegateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
+		{name: "namespace/name (sub domain) for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"*"},
+			Gateways: []string{"default/api.test.com"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
+		{name: "namespace/name (sub domain with '-') for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"*"},
+			Gateways: []string{"default/api-foo.test.com"},
 			Http: []*networking.HTTPRoute{{
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},

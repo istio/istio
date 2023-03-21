@@ -37,12 +37,16 @@ const (
 	// In Kubernetes, label names can start with a DNS name followed by a '/':
 	dnsNamePrefixFmt       = dns1123LabelFmt + `(?:\.` + dns1123LabelFmt + `)*/`
 	dnsNamePrefixMaxLength = 253
+
+	dnsSubDomainMaxLength = 253
+	dnsSubDomainFmt       = "[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*"
 )
 
 var (
 	tagRegexp            = regexp.MustCompile("^(" + dnsNamePrefixFmt + ")?(" + qualifiedNameFmt + ")$") // label value can be an empty string
 	labelValueRegexp     = regexp.MustCompile("^" + "(" + qualifiedNameFmt + ")?" + "$")
 	dns1123LabelRegexp   = regexp.MustCompile("^" + dns1123LabelFmt + "$")
+	dnsSubDomainRegexp   = regexp.MustCompile("^" + dnsSubDomainFmt + "$")
 	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
 )
 
@@ -107,6 +111,12 @@ func (i Instance) Validate() error {
 // DNS (RFC 1123).
 func IsDNS1123Label(value string) bool {
 	return len(value) <= DNS1123LabelMaxLength && dns1123LabelRegexp.MatchString(value)
+}
+
+// IsDNS1123SubDomain tests for a string that conforms to the definition of a sub domain in
+// DNS (RFC 1123).
+func IsDNS1123SubDomain(value string) bool {
+	return len(value) <= dnsSubDomainMaxLength && dnsSubDomainRegexp.MatchString(value)
 }
 
 // IsWildcardDNS1123Label tests for a string that conforms to the definition of a label in DNS (RFC 1123), but allows

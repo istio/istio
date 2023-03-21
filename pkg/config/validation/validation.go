@@ -468,8 +468,8 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 	func(cfg config.Config) (Warning, error) {
 		name := cfg.Name
 		v := Validation{}
-		// Gateway name must conform to the DNS label format (no dots)
-		if !labels.IsDNS1123Label(name) {
+		// Gateway name must conform to the DNS sub domain format.
+		if !labels.IsDNS1123SubDomain(name) {
 			v = appendValidation(v, fmt.Errorf("invalid gateway name: %q", name))
 		}
 		value, ok := cfg.Spec.(*networking.Gateway)
@@ -2831,12 +2831,13 @@ func validateGatewayNames(gatewayNames []string) (errs Validation) {
 			errs = appendValidation(errs, fmt.Errorf("config namespace and gateway name cannot be empty"))
 		}
 
-		// namespace and name must be DNS labels
+		// namespace must be DNS labels
 		if !labels.IsDNS1123Label(parts[0]) {
 			errs = appendValidation(errs, fmt.Errorf("invalid value for namespace: %q", parts[0]))
 		}
 
-		if !labels.IsDNS1123Label(parts[1]) {
+		// name must be DNS sub domain
+		if !labels.IsDNS1123SubDomain(parts[1]) {
 			errs = appendValidation(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
 		}
 	}
