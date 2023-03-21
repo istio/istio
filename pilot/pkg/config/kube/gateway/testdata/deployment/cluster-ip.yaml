@@ -210,25 +210,3 @@ spec:
     istio.io/gateway-name: default
   type: ClusterIP
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: default
-  namespace: default
-spec:
-  gatewayClassName: ""
-  listeners: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Deployed gateway to the cluster
-    reason: Accepted
-    status: "True"
-    type: Accepted
-  - lastTransitionTime: fake
-    message: Deployed gateway to the cluster
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
----

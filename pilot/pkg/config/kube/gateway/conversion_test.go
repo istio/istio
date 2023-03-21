@@ -32,6 +32,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	credentials "istio.io/istio/pilot/pkg/credentials/kube"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -350,6 +351,7 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 )
 
 func TestConvertResources(t *testing.T) {
+	features.EnableAmbientControllers = true
 	validator := crdvalidation.NewIstioValidator(t)
 	cases := []struct {
 		name string
@@ -372,6 +374,7 @@ func TestConvertResources(t *testing.T) {
 		{"alias"},
 		{"mcs"},
 		{"route-precedence"},
+		{"waypoint"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
