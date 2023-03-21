@@ -1,6 +1,6 @@
 {{/* Prometheus is enabled if its enabled and there are no config overrides set */}}
 {{ define "prometheus" }}
-{{ and
+{{- and
   (not .Values.meshConfig.defaultProviders)
   .Values.telemetry.enabled .Values.telemetry.v2.enabled .Values.telemetry.v2.prometheus.enabled
   (not (or
@@ -8,22 +8,22 @@
     .Values.telemetry.v2.prometheus.configOverride.inboundSidecar
     .Values.telemetry.v2.prometheus.configOverride.outboundSidecar
   )) }}
-{{ end }}
+{{- end }}
 
 {{/* SD has metrics and logging split. Metrics are enabled if SD is enabled and there are no config overrides set */}}
 {{ define "sd-metrics" }}
-{{ and
+{{- and
   (not .Values.meshConfig.defaultProviders)
   .Values.telemetry.enabled .Values.telemetry.v2.enabled .Values.telemetry.v2.stackdriver.enabled
   (not (or
     .Values.telemetry.v2.stackdriver.configOverride
     .Values.telemetry.v2.stackdriver.disableOutbound ))
 }}
-{{ end }}
+{{- end }}
 
 {{/* SD has metrics and logging split. */}}
 {{ define "sd-logs" }}
-{{ and
+{{- and
   (not .Values.meshConfig.defaultProviders)
   .Values.telemetry.enabled .Values.telemetry.v2.enabled .Values.telemetry.v2.stackdriver.enabled
   (not (or
@@ -32,4 +32,4 @@
     (has .Values.telemetry.v2.stackdriver.inboundAccessLogging (list "" "ALL"))
     .Values.telemetry.v2.stackdriver.disableOutbound ))
 }}
-{{ end }}
+{{- end }}
