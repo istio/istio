@@ -314,6 +314,13 @@ func TestInjection(t *testing.T) {
 				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
 			},
 		},
+		{
+			in:   "hello-tracing-disabled.yaml",
+			want: "hello-tracing-disabled.yaml.injected",
+			mesh: func(m *meshapi.MeshConfig) {
+				m.DefaultConfig.Tracing = &meshapi.Tracing{}
+			},
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
