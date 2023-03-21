@@ -17,11 +17,11 @@ package kclient
 import (
 	"sync"
 
-	"istio.io/istio/pkg/kube/controllers"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/util/sets"
 )
 
