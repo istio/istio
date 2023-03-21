@@ -1,0 +1,15 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  meshConfig:
+    extensionProviders:
+      - name: otel
+        envoyOtelAls:
+          service: opentelemetry-collector.istio-system.svc.cluster.local
+          port: 4317
+          logFormat:
+            labels:
+              pod: "%ENVIRONMENT(POD_NAME)%"
+              namespace: "%ENVIRONMENT(POD_NAMESPACE)%"
+              cluster: "%ENVIRONMENT(ISTIO_META_CLUSTER_ID)%"
+              mesh: "%ENVIRONMENT(ISTIO_META_MESH_ID)%"
