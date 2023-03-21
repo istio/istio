@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -56,7 +57,7 @@ func waypointCmd() *cobra.Command {
 				Listeners: []gateway.Listener{{
 					Name:     "mesh",
 					Port:     15008,
-					Protocol: "ALL",
+					Protocol: gateway.ProtocolType(protocol.HBONE),
 				}},
 			},
 		}

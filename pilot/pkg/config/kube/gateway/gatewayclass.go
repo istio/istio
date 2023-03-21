@@ -21,6 +21,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
@@ -98,16 +99,24 @@ func (c *ClassController) reconcileClass(class string) error {
 	if !classInfo.reportGatewayClassStatus {
 		return nil
 	}
-	gc.Status = gateway.GatewayClassStatus{Conditions: []metav1.Condition{{
-		Type:               string(gateway.GatewayClassConditionStatusAccepted),
-		Status:             kstatus.StatusTrue,
-		ObservedGeneration: gc.Generation,
-		LastTransitionTime: metav1.Now(),
-		Reason:             string(gateway.GatewayClassConditionStatusAccepted),
-		Message:            "Handled by Istio controller",
-	}}}
+	gc.Status = GetClassStatus(&gc.Status, gc.Generation)
 	if _, err := c.classes.UpdateStatus(gc); err != nil {
 		return fmt.Errorf("failed to update status: %v", err)
 	}
 	return err
+}
+
+func GetClassStatus(existing *k8s.GatewayClassStatus, gen int64) k8s.GatewayClassStatus {
+	if existing == nil {
+		existing = &k8s.GatewayClassStatus{}
+	}
+	existing.Conditions = kstatus.UpdateConditionIfChanged(existing.Conditions, metav1.Condition{
+		Type:               string(gateway.GatewayClassConditionStatusAccepted),
+		Status:             kstatus.StatusTrue,
+		ObservedGeneration: gen,
+		LastTransitionTime: metav1.Now(),
+		Reason:             string(gateway.GatewayClassConditionStatusAccepted),
+		Message:            "Handled by Istio controller",
+	})
+	return *existing
 }

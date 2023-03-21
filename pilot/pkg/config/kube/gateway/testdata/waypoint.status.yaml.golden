@@ -1,34 +1,14 @@
 apiVersion: gateway.networking.k8s.io/v1beta1
-kind: GatewayClass
-metadata:
-  creationTimestamp: null
-  name: istio
-  namespace: default
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Handled by Istio controller
-    reason: Accepted
-    status: "True"
-    type: Accepted
----
-apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   creationTimestamp: null
-  name: gateway
-  namespace: istio-system
+  name: namespace
+  namespace: ns
 spec: null
 status:
-  addresses:
-  - type: IPAddress
-    value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: 'Assigned to service(s) example.com:34000, example.com:80, istio-ingressgateway.istio-system.svc.domain.suffix:34000,
-      and istio-ingressgateway.istio-system.svc.domain.suffix:80, but failed to assign
-      to all requested addresses: hostname "istio-ingressgateway.not-default.svc.domain.suffix"
+    message: 'Failed to assign to any requested addresses: hostname "namespace-istio-waypoint.ns.svc.domain.suffix"
       not found'
     reason: NoResources
     status: "False"
@@ -61,16 +41,36 @@ status:
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: http
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
+    name: mesh
+    supportedKinds: []
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: invalid
+  namespace: ns
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: hostname "invalid-istio-waypoint.ns.svc.domain.suffix"
+      not found'
+    reason: NoResources
+    status: "False"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: Expected a single listener on port 15008 with protocol "HBONE"
+      reason: UnsupportedProtocol
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -87,8 +87,8 @@ status:
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: tcp
+    name: mesh
     supportedKinds:
     - group: gateway.networking.k8s.io
-      kind: TCPRoute
+      kind: HTTPRoute
 ---
