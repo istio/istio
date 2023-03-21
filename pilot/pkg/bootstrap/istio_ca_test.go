@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/security/pkg/pki/ca"
 )
 
-const namespace = "istio-system"
+const testNamespace = "istio-system"
 
 func TestRemoteCerts(t *testing.T) {
 	g := NewWithT(t)
@@ -40,7 +40,7 @@ func TestRemoteCerts(t *testing.T) {
 		kubeClient: kube.NewFakeClient(),
 	}
 	caOpts := &caOptions{
-		Namespace: namespace,
+		Namespace: testNamespace,
 	}
 
 	// Should do nothing because cacerts doesn't exist.
@@ -76,7 +76,7 @@ func TestRemoteTLSCerts(t *testing.T) {
 		kubeClient: kube.NewFakeClient(),
 	}
 	caOpts := &caOptions{
-		Namespace: namespace,
+		Namespace: testNamespace,
 	}
 
 	// Should do nothing because cacerts doesn't exist.
@@ -116,10 +116,10 @@ func createCATLSSecret(client kube.Client) error {
 		return err
 	}
 
-	secrets := client.Kube().CoreV1().Secrets(namespace)
+	secrets := client.Kube().CoreV1().Secrets(testNamespace)
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
+			Namespace: testNamespace,
 			Name:      "cacerts",
 		},
 		Type: v1.SecretTypeTLS,
@@ -151,10 +151,10 @@ func createCASecret(client kube.Client) error {
 		return err
 	}
 
-	secrets := client.Kube().CoreV1().Secrets(namespace)
+	secrets := client.Kube().CoreV1().Secrets(testNamespace)
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
+			Namespace: testNamespace,
 			Name:      "cacerts",
 		},
 		Data: map[string][]byte{

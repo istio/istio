@@ -34,6 +34,7 @@ import (
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -54,7 +55,7 @@ type caOptions struct {
 	Namespace        string
 	Authenticators   []security.Authenticator
 	CertSignerDomain string
-	DiscoveryFilter  func(t any) bool
+	DiscoveryFilter  namespace.DiscoveryFilter
 }
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.

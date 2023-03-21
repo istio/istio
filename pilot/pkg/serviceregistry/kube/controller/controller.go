@@ -153,7 +153,7 @@ type Options struct {
 	ConfigController model.ConfigStoreController
 }
 
-func (o *Options) GetFilter() func(t any) bool {
+func (o *Options) GetFilter() namespace.DiscoveryFilter {
 	if o.DiscoveryNamespacesFilter != nil {
 		return o.DiscoveryNamespacesFilter.Filter
 	}
