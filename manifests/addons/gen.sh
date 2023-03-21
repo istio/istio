@@ -92,3 +92,5 @@ function compressDashboard() {
     --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-loki.yaml"
 } > "${ADDONS}/loki.yaml"
+
+yamlfmt "${ADDONS}/loki.yaml"
