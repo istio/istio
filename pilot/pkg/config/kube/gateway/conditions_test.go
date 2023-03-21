@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-func Test_createRouteStatus(t *testing.T) {
+func TestCreateRouteStatus(t *testing.T) {
 	lastTransitionTime := metav1.Now()
 	parentRef := httpRouteSpec.ParentRefs[0]
 	parentStatus := []k8s.RouteParentStatus{

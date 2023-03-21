@@ -16,7 +16,6 @@ package gateway
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 
 	"golang.org/x/exp/slices"
@@ -143,7 +142,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 
 		var currentConditions []metav1.Condition
 		idx := slices.IndexFunc(current, func(s k8sbeta.RouteParentStatus) bool {
-			return reflect.DeepEqual(s.ParentRef, gw.OriginalReference)
+			return parentRefString(s.ParentRef) == parentRefString(gw.OriginalReference)
 		})
 		if idx != -1 {
 			currentConditions = current[idx].Conditions
