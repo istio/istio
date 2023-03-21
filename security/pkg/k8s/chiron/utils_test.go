@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -32,7 +34,10 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
+	csrctrl "istio.io/istio/pkg/test/csrctrl/controllers"
+	"istio.io/istio/pkg/test/util/assert"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -97,47 +102,25 @@ func defaultListReactionFunc(obj runtime.Object) kt.ReactionFunc {
 	}
 }
 
+const testSigner = "test-signer"
+
+func runTestSigner(t test.Failer) ([]csrctrl.SignerRootCert, kube.CLIClient) {
+	c := kube.NewFakeClient()
+	signers, err := csrctrl.RunCSRController(testSigner, test.NewStop(t), []kube.Client{c})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return signers, c
+}
+
 func TestGenKeyCertK8sCA(t *testing.T) {
-	testCases := map[string]struct {
-		gracePeriodRatio float32
-		minGracePeriod   time.Duration
-		k8sCaCertFile    string
-		dnsNames         []string
-		secretNames      []string
-		secretNamespace  string
-		expectFail       bool
-	}{
-		"gen cert should succeed": {
-			gracePeriodRatio: 0.6,
-			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
-			dnsNames:         []string{"foo"},
-			secretNames:      []string{"istio.webhook.foo"},
-			secretNamespace:  "foo.ns",
-			expectFail:       false,
-		},
-	}
+	log.FindScope("default").SetOutputLevel(log.DebugLevel)
+	signers, client := runTestSigner(t)
+	ca := filepath.Join(t.TempDir(), "root-cert.pem")
+	os.WriteFile(ca, []byte(signers[0].Rootcert), 0o666)
 
-	for _, tc := range testCases {
-		client := fake.NewSimpleClientset()
-		csr := &cert.CertificateSigningRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "domain-cluster.local-ns--secret-mock-secret",
-			},
-			Status: cert.CertificateSigningRequestStatus{
-				Certificate: []byte(exampleIssuedCert),
-			},
-		}
-		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
-
-		_, _, _, err := GenKeyCertK8sCA(client, tc.dnsNames[0], tc.k8sCaCertFile, "testSigner", true, DefaulCertTTL)
-		if tc.expectFail {
-			if err == nil {
-				t.Errorf("should have failed")
-			}
-		} else if err != nil {
-			t.Errorf("failed unexpectedly: %v", err)
-		}
-	}
+	_, _, _, err := GenKeyCertK8sCA(client.Kube(), "foo", ca, testSigner, true, DefaulCertTTL)
+	assert.NoError(t, err)
 }
 
 func TestReadCACert(t *testing.T) {

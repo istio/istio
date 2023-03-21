@@ -12,6 +12,7 @@ import (
 
 var (
 	AuthorizationPolicy          = config.GroupVersionKind{Group: "security.istio.io", Version: "v1beta1", Kind: "AuthorizationPolicy"}
+	CertificateSigningRequest    = config.GroupVersionKind{Group: "certificates.k8s.io", Version: "v1", Kind: "CertificateSigningRequest"}
 	ConfigMap                    = config.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 	CustomResourceDefinition     = config.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"}
 	Deployment                   = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
@@ -56,6 +57,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 	switch g {
 	case AuthorizationPolicy:
 		return gvr.AuthorizationPolicy, true
+	case CertificateSigningRequest:
+		return gvr.CertificateSigningRequest, true
 	case ConfigMap:
 		return gvr.ConfigMap, true
 	case CustomResourceDefinition:
@@ -150,6 +153,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 	switch g {
 	case gvr.AuthorizationPolicy:
 		return AuthorizationPolicy, true
+	case gvr.CertificateSigningRequest:
+		return CertificateSigningRequest, true
 	case gvr.ConfigMap:
 		return ConfigMap, true
 	case gvr.CustomResourceDefinition:
