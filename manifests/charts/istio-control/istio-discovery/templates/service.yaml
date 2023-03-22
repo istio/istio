@@ -15,6 +15,12 @@ metadata:
     istio: pilot
     release: {{ .Release.Name }}
 spec:
+  {{- if .Values.pilot.env.ISTIO_DUAL_STACK }}
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies:
+  - IPv6
+  - IPv4
+  {{- end }}
   ports:
     - port: 15010
       name: grpc-xds # plaintext

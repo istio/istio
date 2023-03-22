@@ -11,6 +11,12 @@ metadata:
   {{- end }}
   namespace: {{ .Release.Namespace }}
 spec:
+  {{- if .Values.pilot.env.ISTIO_DUAL_STACK }}
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies:
+  - IPv6
+  - IPv4
+  {{- end }}
   ports:
   - port: 15012
     name: tcp-istiod

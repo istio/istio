@@ -16,6 +16,12 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "IngressGateways"
 spec:
+{{- if .Values.meshConfig.defaultConfig.proxyMetadata.ISTIO_AGENT_DUAL_STACK }}
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies:
+  - IPv6
+  - IPv4
+{{- end }}
 {{- if $gateway.loadBalancerIP }}
   loadBalancerIP: "{{ $gateway.loadBalancerIP }}"
 {{- end }}
