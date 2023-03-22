@@ -51,14 +51,14 @@ func difference(old, curr map[types.NamespacedName]*config.Config) []types.Names
 	return out
 }
 
-// difference returns the elements in `a` that aren't in `b`.
-func diff(a, b []*model.ServiceInstance) []*model.ServiceInstance {
-	mb := make(map[*model.ServiceInstance]struct{}, len(b))
-	for _, x := range b {
+// difference returns the elements in `old` that aren't in `curr`.
+func workloadInstanceDiff(old, curr []*model.ServiceInstance) []*model.ServiceInstance {
+	mb := make(map[*model.ServiceInstance]struct{}, len(curr))
+	for _, x := range curr {
 		mb[x] = struct{}{}
 	}
 	var diff []*model.ServiceInstance
-	for _, x := range a {
+	for _, x := range old {
 		if _, found := mb[x]; !found {
 			diff = append(diff, x)
 		}

@@ -565,7 +565,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			// But that doesn't mean that the old labels did match. We only care about the cases where the oldWi matched and the new one does not.
 			if labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
 				oldInstance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
-				unSelected := diff(oldInstance, currInstance)
+				unSelected := workloadInstanceDiff(oldInstance, currInstance)
 				instancesDeleted = append(instancesDeleted, unSelected...)
 				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 			}
