@@ -17,6 +17,7 @@ package revisions
 import (
 	"sync"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -25,6 +26,7 @@ import (
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/pkg/log"
 )
 
@@ -58,9 +60,9 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 		revisionsToTags: map[string][]string{},
 	}
 	p.queue = controllers.NewQueue("tag", controllers.WithReconciler(p.updateTags))
-	p.webhookInformer = client.KubeInformer().Admissionregistration().V1().MutatingWebhookConfigurations().Informer()
+	p.webhookInformer = kclient.NewFiltered[admissionregistrationv1.MutatingWebhookConfiguration](isTagWebhook)
 	_ = p.webhookInformer.SetTransform(kube.StripUnusedFields)
-	_, _ = p.webhookInformer.AddEventHandler(controllers.FilteredObjectHandler(p.queue.AddObject, isTagWebhook))
+	_, _ = p.webhookInformer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
 
 	return p
 }
