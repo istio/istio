@@ -29,9 +29,11 @@ import (
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	label2 "istio.io/api/label"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/constants"
 	"istio.io/istio/pkg/kube"
@@ -161,7 +163,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	common.LogAndPrintf("\n\nFetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	// Determine whether the installation is distroless.
-	distroless, err := isDistroless(clusterResourcesCtx, client, config)
+	distroless, err := isDistroless(clusterResourcesCtx, client, clientset, config)
 	if err != nil {
 		return err
 	}
@@ -210,7 +212,18 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	return nil
 }
 
-func isDistroless(ctx context.Context, client kube.CLIClient, brConfig *config.BugReportConfig) (bool, error) {
+func isDistroless(ctx context.Context, client kube.CLIClient, clientset *kubernetes.Clientset, brConfig *config.BugReportConfig) (bool, error) {
+	// Get istiod deployment
+	deploy, err := clientset.AppsV1().Deployments(brConfig.IstioNamespace).Get(ctx, "istiod", metav1.GetOptions{})
+	if err != nil {
+		return false, fmt.Errorf("error while retrieving to Istiod deployment - %v", err)
+	}
+	if deploy == nil {
+		return false, nil
+	}
+
+	// owning resource is iop
+	owningRes := deploy.Labels["install.operator.istio.io/owning-resource"]
 	iops, err := client.Dynamic().Resource(constants.IstioOperatorGVR).
 		Namespace(brConfig.IstioNamespace).
 		List(ctx, metav1.ListOptions{})
@@ -218,18 +231,19 @@ func isDistroless(ctx context.Context, client kube.CLIClient, brConfig *config.B
 		return false, fmt.Errorf("error while retrieving to IstioOperator CR - %v", err)
 	}
 
-	// TODO: WIP: Which iop to consider in case of multiple?
 	for _, iop := range iops.Items {
 		iopObj, err := operator_istio.UnmarshalIstioOperator(util.ToYAML(iop.Object), true)
 		if err != nil {
 			return false, fmt.Errorf("error while converting to IstioOperator CR - %s/%s: %v",
 				iop.GetNamespace(), iop.GetName(), err)
 		}
-		values := iopObj.Spec.Values.Fields["global"]
-		if values != nil && values.GetStructValue() != nil && values.GetStructValue().Fields["variant"] != nil {
-			return strings.EqualFold(
-				values.GetStructValue().Fields["variant"].GetStringValue(), "distroless",
-			), nil
+		if strings.HasPrefix(iopObj.Name, name.InstalledSpecCRPrefix+"-"+owningRes) {
+			values := iopObj.Spec.Values.Fields["global"]
+			if values != nil && values.GetStructValue() != nil && values.GetStructValue().Fields["variant"] != nil {
+				return strings.EqualFold(
+					values.GetStructValue().Fields["variant"].GetStringValue(), "distroless",
+				), nil
+			}
 		}
 	}
 	return false, nil
