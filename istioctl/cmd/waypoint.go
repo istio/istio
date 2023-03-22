@@ -148,7 +148,7 @@ func waypointCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			if args != nil && len(args) == 1 {
+			if len(args) == 1 {
 				name := args[0]
 				ns := handlers.HandleNamespace(namespace, defaultNamespace)
 				gw, err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
@@ -223,7 +223,7 @@ func waypointCmd() *cobra.Command {
 				}
 				filteredGws = append(filteredGws, gw)
 			}
-			//TODO(hanxiaop) deal with revisions
+			// TODO(hanxiaop) deal with revisions
 			if allNamespaces {
 				fmt.Fprintln(w, "NAMESPACE\tNAME\tSERVICE ACCOUNT\tPROGRAMMED\tREADY")
 			} else {
