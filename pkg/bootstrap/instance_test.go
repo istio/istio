@@ -250,6 +250,9 @@ func TestGolden(t *testing.T) {
 			base: "tracing_opencensusagent",
 		},
 		{
+			base: "tracing_none",
+		},
+		{
 			// Specify zipkin/statsd address, similar with the default config in v1 tests
 			base: "all",
 		},
