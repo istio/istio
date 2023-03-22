@@ -198,7 +198,6 @@ metadata:
     name: namespace
     uid: ""
 spec:
-  clusterIP: None
   ports:
   - appProtocol: https
     name: https-hbone
