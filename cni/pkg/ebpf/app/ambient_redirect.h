@@ -17,6 +17,15 @@
 
 #define ENABLE_IPV4
 
+enum {
+    LOG_NONE = 0,
+    LOG_FATAL = 1,
+    LOG_ERROR = 2,
+    LOG_WARN = 3,
+    LOG_INFO = 4,
+    LOG_DEBUG = 5,
+};
+
 #define OUTBOUND_CB (4321)
 #define INBOUND_CB (1234)
 #define BYPASS_CB (0xC001F00D)

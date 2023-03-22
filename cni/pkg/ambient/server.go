@@ -84,6 +84,7 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	case EbpfMode:
 		s.redirectMode = EbpfMode
 		s.ebpfServer = ebpf.NewRedirectServer()
+		s.ebpfServer.SetLogLevel(args.LogLevel)
 		s.ebpfServer.Start(ctx.Done())
 	}
 

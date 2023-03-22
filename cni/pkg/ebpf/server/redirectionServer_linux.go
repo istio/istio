@@ -77,6 +77,21 @@ type RedirectServer struct {
 	outboundProgName           string
 }
 
+var stringToLevel = map[string]istiolog.Level{
+	"debug": istiolog.DebugLevel,
+	"info":  istiolog.InfoLevel,
+	"warn":  istiolog.WarnLevel,
+	"error": istiolog.ErrorLevel,
+	"fatal": istiolog.FatalLevel,
+	"none":  istiolog.NoneLevel,
+}
+
+func (r *RedirectServer) SetLogLevel(level string) {
+	if err := r.obj.LogLevel.Update(uint32(0), uint32(stringToLevel[level]), ebpf.UpdateAny); err != nil {
+		log.Errorf("failed to update ebpf log level: %v", err)
+	}
+}
+
 func (r *RedirectServer) UpdateHostIP(ips []string) error {
 	if len(ips) > 2 {
 		return fmt.Errorf("too may ips inputed: %d", len(ips))
