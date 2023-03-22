@@ -491,7 +491,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			}
 			// Check if the old labels still match the new labels. If they don't then we need to
 			// refresh the list of instances for this wi
-			if !labels.Instance(oldWi.Endpoint.Labels).Equals(wi.Endpoint.Labels) {
+			if !oldWi.Endpoint.Labels.Equals(wi.Endpoint.Labels) {
 				labelsChanged = true
 			}
 			// If multiple k8s services select the same pod or a service has multiple ports,
@@ -560,15 +560,13 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 					}] = struct{}{}
 				}
 			}
-		} else {
+		} else if labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
 			// If we're here. It means that the labels changed and the new labels don't match the SE anymore.
 			// But that doesn't mean that the old labels did match. We only care about the cases where the oldWi matched and the new one does not.
-			if labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
-				oldInstance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
-				unSelected := workloadInstanceDiff(oldInstance, currInstance)
-				instancesDeleted = append(instancesDeleted, unSelected...)
-				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
-			}
+			oldInstance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
+			unSelected := workloadInstanceDiff(oldInstance, currInstance)
+			instancesDeleted = append(instancesDeleted, unSelected...)
+			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 		}
 	}
 
