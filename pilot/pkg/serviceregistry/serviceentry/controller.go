@@ -474,6 +474,9 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	// and that the event can be ignored due to no relevant change in the workloadentry
 	redundantEventForPod := false
 
+	// Used to indicate if the wi labels changed and we need to recheck all instances
+	labelsChanged := false
+
 	var addressToDelete string
 	s.mutex.Lock()
 	// this is from a pod. Store it in separate map so that
@@ -485,6 +488,11 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		if oldWi = s.workloadInstances.Insert(wi); oldWi != nil {
 			if oldWi.Endpoint.Address != wi.Endpoint.Address {
 				addressToDelete = oldWi.Endpoint.Address
+			}
+			// Check if the old labels still match the new labels. If they don't then we need to
+			// refresh the list of instances for this wi
+			if !labels.Instance(oldWi.Endpoint.Labels).Equals(wi.Endpoint.Labels) {
+				labelsChanged = true
 			}
 			// If multiple k8s services select the same pod or a service has multiple ports,
 			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
@@ -513,54 +521,57 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if se.WorkloadSelector != nil {
-			// If the workload selector exists, then we need to verify that the subset still is a match (in case the workload instance labels change)
-			if reflect.DeepEqual(se.WorkloadSelector.Labels, wi.Endpoint.Labels) || labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
-				// If the workload instance still matches. We take care of the possible events.
-				seNamespacedName := config.NamespacedName(cfg)
-				services := s.services.getServices(seNamespacedName)
-				instance := convertWorkloadInstanceToServiceInstance(wi, services, se)
-				instances = append(instances, instance...)
-				if addressToDelete != "" {
-					for _, i := range instance {
-						di := i.DeepCopy()
-						di.Endpoint.Address = addressToDelete
-						instancesDeleted = append(instancesDeleted, di)
-					}
-					s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
-				} else if event == model.EventDelete {
-					s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
-				} else {
-					s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
-				}
-				// If serviceentry's resolution is DNS, make a full push
-				// TODO: maybe cds?
-				if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
-					se.WorkloadSelector != nil {
 
-					fullPush = true
-					for _, inst := range instance {
-						configsUpdated[model.ConfigKey{
-							Kind:      kind.ServiceEntry,
-							Name:      string(inst.Service.Hostname),
-							Namespace: cfg.Namespace,
-						}] = struct{}{}
-					}
+		if se.WorkloadSelector == nil || (!labelsChanged && !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels)) {
+			// If the labels didn't change. And the new SE doesn't match then the old didn't match either and we can skip processing it.
+			continue
+		}
+
+		seNamespacedName := config.NamespacedName(cfg)
+		services := s.services.getServices(seNamespacedName)
+		currInstance := convertWorkloadInstanceToServiceInstance(wi, services, se)
+
+		if labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
+			// If the workload instance still matches. We take care of the possible events.
+			instances = append(instances, currInstance...)
+			if addressToDelete != "" {
+				for _, i := range currInstance {
+					di := i.DeepCopy()
+					di.Endpoint.Address = addressToDelete
+					instancesDeleted = append(instancesDeleted, di)
 				}
-			} else if oldWi != nil {
-				// If the labels don't match and there was an oldWi (not iterating the instance for the first time)
-				// then we see if we need to remove this instance
-				// Check if the old labels matched. If they did and the current labels don't. Then we need to remove this instance
-				if reflect.DeepEqual(se.WorkloadSelector.Labels, oldWi.Endpoint.Labels) || labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
-					seNamespacedName := config.NamespacedName(cfg)
-					services := s.services.getServices(seNamespacedName)
-					instance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
-					instancesDeleted = append(instancesDeleted, instance...)
-					s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
+				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
+			} else if event == model.EventDelete {
+				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
+			} else {
+				s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, currInstance)
+			}
+			// If serviceentry's resolution is DNS, make a full push
+			// TODO: maybe cds?
+			if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
+				se.WorkloadSelector != nil {
+
+				fullPush = true
+				for _, inst := range currInstance {
+					configsUpdated[model.ConfigKey{
+						Kind:      kind.ServiceEntry,
+						Name:      string(inst.Service.Hostname),
+						Namespace: cfg.Namespace,
+					}] = struct{}{}
 				}
+			}
+		} else {
+			// If we're here. It means that the labels changed and the new labels don't match the SE anymore.
+			// But that doesn't mean that the old labels did match. We only care about the cases where the oldWi matched and the new one does not.
+			if labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
+				oldInstance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
+				unSelected := diff(oldInstance, currInstance)
+				instancesDeleted = append(instancesDeleted, unSelected...)
+				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 			}
 		}
 	}
+
 	if len(instancesDeleted) > 0 {
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
 	}
