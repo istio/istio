@@ -19,6 +19,7 @@ package ambient
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -96,6 +97,7 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = ControlPlaneValues
+			cfg.Values["sidecarInjectorWebhook.enableNamespacesByDefault"] = fmt.Sprintf("%t", true)
 		})).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
