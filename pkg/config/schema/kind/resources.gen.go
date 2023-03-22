@@ -11,6 +11,7 @@ import (
 const (
 	Address Kind = iota
 	AuthorizationPolicy
+	CertificateSigningRequest
 	ConfigMap
 	CustomResourceDefinition
 	Deployment
@@ -56,6 +57,8 @@ func (k Kind) String() string {
 		return "Address"
 	case AuthorizationPolicy:
 		return "AuthorizationPolicy"
+	case CertificateSigningRequest:
+		return "CertificateSigningRequest"
 	case ConfigMap:
 		return "ConfigMap"
 	case CustomResourceDefinition:
@@ -139,6 +142,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 	switch g {
 	case gvk.AuthorizationPolicy:
 		return AuthorizationPolicy
+	case gvk.CertificateSigningRequest:
+		return CertificateSigningRequest
 	case gvk.ConfigMap:
 		return ConfigMap
 	case gvk.CustomResourceDefinition:

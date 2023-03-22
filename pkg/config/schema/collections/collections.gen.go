@@ -11,6 +11,7 @@ import (
 
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
@@ -47,6 +48,21 @@ var (
 		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateAuthorizationPolicy,
+	}.MustBuild()
+
+	CertificateSigningRequest = resource.Builder{
+		Identifier: "CertificateSigningRequest",
+		Group:      "certificates.k8s.io",
+		Kind:       "CertificateSigningRequest",
+		Plural:     "certificatesigningrequests",
+		Version:    "v1",
+		Proto:      "k8s.io.api.certificates.v1.CertificateSigningRequestSpec", StatusProto: "k8s.io.api.certificates.v1.CertificateSigningRequestStatus",
+		ReflectType: reflect.TypeOf(&k8sioapicertificatesv1.CertificateSigningRequestSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapicertificatesv1.CertificateSigningRequestStatus{}).Elem(),
+		ProtoPackage: "k8s.io/api/certificates/v1", StatusPackage: "k8s.io/api/certificates/v1",
+		ClusterScoped: true,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	ConfigMap = resource.Builder{
@@ -640,6 +656,7 @@ var (
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
+		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
 		MustAdd(Deployment).
@@ -681,6 +698,7 @@ var (
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
+		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
 		MustAdd(Deployment).

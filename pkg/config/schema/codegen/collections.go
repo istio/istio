@@ -92,6 +92,22 @@ func MustFromGVR(g schema.GroupVersionResource) config.GroupVersionKind {
 }
 `
 
+const gvrTemplate = `
+// GENERATED FILE -- DO NOT EDIT
+//
+
+package {{.PackageName}}
+
+import (
+)
+
+var (
+{{- range .Entries }}
+	{{.Resource.Identifier}} = schema.GroupVersionResource{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Resource: "{{.Resource.Plural}}"}
+{{- end }}
+)
+`
+
 // nolint: lll
 const crdclientTemplate = `
 // GENERATED FILE -- DO NOT EDIT

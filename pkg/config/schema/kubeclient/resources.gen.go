@@ -10,6 +10,7 @@ import (
 
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
@@ -76,6 +77,8 @@ func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteA
 	switch any(ptr.Empty[T]()).(type) {
 	case *istioioapisecurityv1beta1.AuthorizationPolicy:
 		return c.Istio().SecurityV1beta1().AuthorizationPolicies(namespace).(ktypes.WriteAPI[T])
+	case *k8sioapicertificatesv1.CertificateSigningRequest:
+		return c.Kube().CertificatesV1().CertificateSigningRequests().(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.ConfigMap:
 		return c.Kube().CoreV1().ConfigMaps(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition:
@@ -162,6 +165,13 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().SecurityV1beta1().AuthorizationPolicies("").Watch(context.Background(), options)
+		}
+	case *k8sioapicertificatesv1.CertificateSigningRequest:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CertificatesV1().CertificateSigningRequests().List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CertificatesV1().CertificateSigningRequests().Watch(context.Background(), options)
 		}
 	case *k8sioapicorev1.ConfigMap:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
@@ -436,6 +446,8 @@ func GetInformer[T runtime.Object](c ClientGetter) cache.SharedIndexInformer {
 	switch any(ptr.Empty[T]()).(type) {
 	case *istioioapisecurityv1beta1.AuthorizationPolicy:
 		return c.IstioInformer().Security().V1beta1().AuthorizationPolicies().Informer()
+	case *k8sioapicertificatesv1.CertificateSigningRequest:
+		return c.KubeInformer().Certificates().V1().CertificateSigningRequests().Informer()
 	case *k8sioapicorev1.ConfigMap:
 		return c.KubeInformer().Core().V1().ConfigMaps().Informer()
 	case *k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition:
