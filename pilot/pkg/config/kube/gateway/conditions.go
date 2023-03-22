@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sort"
 
+	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -138,10 +139,18 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 				Message: gw.DeniedReason.Message,
 			}
 		}
+
+		var currentConditions []metav1.Condition
+		idx := slices.IndexFunc(current, func(s k8sbeta.RouteParentStatus) bool {
+			return parentRefString(s.ParentRef) == parentRefString(gw.OriginalReference)
+		})
+		if idx != -1 {
+			currentConditions = current[idx].Conditions
+		}
 		gws = append(gws, k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
 			ControllerName: constants.ManagedGatewayController,
-			Conditions:     setConditions(obj.Generation, nil, conds),
+			Conditions:     setConditions(obj.Generation, currentConditions, conds),
 		})
 	}
 	// Ensure output is deterministic.
