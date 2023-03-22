@@ -51,6 +51,10 @@ func Run() error {
 			"Entries":     inp.Entries,
 			"PackageName": "gvk",
 		}),
+		writeTemplate("pkg/config/schema/gvr/resources.gen.go", gvrTemplate, map[string]any{
+			"Entries":     inp.Entries,
+			"PackageName": "gvr",
+		}),
 		writeTemplate("pilot/pkg/config/kube/crdclient/types.gen.go", crdclientTemplate, map[string]any{
 			"Entries":     inp.Entries,
 			"Packages":    inp.Packages,
