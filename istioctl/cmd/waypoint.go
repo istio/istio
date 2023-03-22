@@ -132,17 +132,41 @@ func waypointCmd() *cobra.Command {
 		Use:   "delete",
 		Short: "Delete a waypoint configuration",
 		Long:  "Delete a waypoint configuration from the cluster",
-		Example: `  # Delete a waypoint from the current namespace
+		Example: `  # Delete a waypoint from the default namespace
   istioctl x waypoint delete
   
   # Delete a waypoint from a specific namespace for a specific service account
-  istioctl x waypoint delete --service-account something --namespace default`,
+  istioctl x waypoint delete --service-account something --namespace default
+
+  # Delete a waypoint by name, which can obtain from istioctl x waypoint list 
+  istioctl x waypoint delete waypoint-name --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			gw := makeGateway(true)
+			if len(args) > 1 {
+				return fmt.Errorf("too many arguments, expected 0 or 1")
+			}
 			client, err := kubeClient(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
+			if args != nil && len(args) == 1 {
+				name := args[0]
+				ns := handlers.HandleNamespace(namespace, defaultNamespace)
+				gw, err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", ns, name)
+						return nil
+					}
+					return err
+				}
+				if err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).
+					Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v deleted\n", ns, name)
+				return nil
+			}
+			gw := makeGateway(true)
 			if err = client.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
 				Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
 				return err
@@ -154,7 +178,7 @@ func waypointCmd() *cobra.Command {
 	waypointListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List managed waypoint configurations",
-		Long:  "List managed waypoint configurations in the cluster created by istioctl",
+		Long:  "List managed waypoint configurations in the cluster",
 		Example: `  # List all waypoints in the cluster
   # List all waypoints in a specific namespace
   istioctl x waypoint list --namespace default
@@ -194,8 +218,7 @@ func waypointCmd() *cobra.Command {
 			})
 			filteredGws := make([]gateway.Gateway, 0)
 			for _, gw := range gws.Items {
-				expectedName := makeGatewayName(gw.Annotations[constants.WaypointServiceAccount])
-				if gw.Name != expectedName {
+				if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
 					continue
 				}
 				filteredGws = append(filteredGws, gw)

@@ -1,3 +1,17 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cmd
 
 import (
@@ -33,8 +47,8 @@ func TestWaypointList(t *testing.T) {
 			name: "default namespace gateway",
 			args: strings.Split("x waypoint list  -n default", " "),
 			gateways: []*gateway.Gateway{
-				makeGateway("namespace", "default", "", true, true),
-				makeGateway("namespace", "fake", "", true, true),
+				makeGateway("namespace", "default", "", true, true, true),
+				makeGateway("namespace", "fake", "", true, true, true),
 			},
 			expectedOutFile: "default-gateway",
 		},
@@ -42,8 +56,8 @@ func TestWaypointList(t *testing.T) {
 			name: "all namespaces gateways",
 			args: strings.Split("x waypoint list -A", " "),
 			gateways: []*gateway.Gateway{
-				makeGateway("namespace", "default", "", true, true),
-				makeGateway("namespace", "fake", "", true, true),
+				makeGateway("namespace", "default", "", true, true, true),
+				makeGateway("namespace", "fake", "", true, true, true),
 			},
 			expectedOutFile: "all-gateway",
 		},
@@ -51,10 +65,11 @@ func TestWaypointList(t *testing.T) {
 			name: "have both managed and unmanaged gateways",
 			args: strings.Split("x waypoint list -A", " "),
 			gateways: []*gateway.Gateway{
-				makeGateway("bookinfo", "default", "bookinfo", false, false),
-				makeGateway("bookinfo-invalid", "fake", "bookinfo", true, true),
-				makeGateway("namespace", "default", "", false, true),
-				makeGateway("bookinfo-valid", "bookinfo", "bookinfo-valid", true, true),
+				makeGateway("bookinfo", "default", "bookinfo", false, false, true),
+				makeGateway("bookinfo-invalid", "fake", "bookinfo", true, true, false),
+				makeGateway("namespace", "default", "", false, true, true),
+				makeGateway("bookinfo-valid", "bookinfo", "bookinfo-valid", true, true, true),
+				makeGateway("no-name-convention", "default", "sa", true, true, true),
 			},
 			expectedOutFile: "combined-gateway",
 		},
@@ -94,7 +109,7 @@ func TestWaypointList(t *testing.T) {
 	}
 }
 
-func makeGateway(name, namespace, sa string, programmed, ready bool) *gateway.Gateway {
+func makeGateway(name, namespace, sa string, programmed, ready, isWaypoint bool) *gateway.Gateway {
 	conditions := make([]metav1.Condition, 0)
 	if programmed {
 		conditions = append(conditions, metav1.Condition{
@@ -118,6 +133,10 @@ func makeGateway(name, namespace, sa string, programmed, ready bool) *gateway.Ga
 			Status: kstatus.StatusFalse,
 		})
 	}
+	className := "other"
+	if isWaypoint {
+		className = constants.WaypointGatewayClassName
+	}
 	return &gateway.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -125,6 +144,9 @@ func makeGateway(name, namespace, sa string, programmed, ready bool) *gateway.Ga
 			Annotations: map[string]string{
 				constants.WaypointServiceAccount: sa,
 			},
+		},
+		Spec: gateway.GatewaySpec{
+			GatewayClassName: gateway.ObjectName(className),
 		},
 		Status: gateway.GatewayStatus{
 			Conditions: conditions,
