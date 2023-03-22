@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -78,6 +79,10 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		return true
 	}))
 	c.namespaces.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+		if features.InformerWatchNamespace != "" && features.InformerWatchNamespace != o.GetName() {
+			// We are only watching one namespace, and its not this one
+			return false
+		}
 		if inject.IgnoredNamespaces.Contains(o.GetName()) {
 			// skip special kubernetes system namespaces
 			return false
