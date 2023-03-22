@@ -29,12 +29,11 @@ import (
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	label2 "istio.io/api/label"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/proxy"
@@ -60,12 +59,6 @@ var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
 	bugReportDefaultExclude        = []string{strings.Join(sets.SortedList(inject.IgnoredNamespaces), ",")}
-
-	istioOperatorGVR = schema.GroupVersionResource{
-		Group:    iopv1alpha1.SchemeGroupVersion.Group,
-		Version:  iopv1alpha1.SchemeGroupVersion.Version,
-		Resource: "istiooperators",
-	}
 )
 
 // Cmd returns a cobra command for bug-report.
@@ -218,7 +211,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 }
 
 func isDistroless(ctx context.Context, client kube.CLIClient, brConfig *config.BugReportConfig) (bool, error) {
-	iops, err := client.Dynamic().Resource(istioOperatorGVR).
+	iops, err := client.Dynamic().Resource(constants.IstioOperatorGVR).
 		Namespace(brConfig.IstioNamespace).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {

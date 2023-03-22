@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
@@ -42,14 +41,9 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/constants"
 	"istio.io/istio/pkg/kube"
 )
-
-var istioOperatorGVR = apimachinery_schema.GroupVersionResource{
-	Group:    v1alpha1.SchemeGroupVersion.Group,
-	Version:  v1alpha1.SchemeGroupVersion.Version,
-	Resource: "istiooperators",
-}
 
 // StatusVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.
@@ -462,7 +456,7 @@ func fixTimestampRelatedUnmarshalIssues(un *unstructured.Unstructured) {
 // Find all IstioOperator in the cluster.
 func AllOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator, error) {
 	ul, err := client.
-		Resource(istioOperatorGVR).
+		Resource(constants.IstioOperatorGVR).
 		List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err

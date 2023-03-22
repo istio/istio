@@ -28,7 +28,6 @@ import (
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/yaml"
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/constants"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -87,15 +87,7 @@ var (
 	}
 )
 
-var (
-	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
-		Group:    iopv1alpha1.SchemeGroupVersion.Group,
-		Version:  iopv1alpha1.SchemeGroupVersion.Version,
-		Resource: "istiooperators",
-	}
-
-	revArgs = revisionArgs{}
-)
+var revArgs = revisionArgs{}
 
 func revisionCommand() *cobra.Command {
 	revisionCmd := &cobra.Command{
@@ -466,7 +458,7 @@ func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*tag
 }
 
 func getAllMergedIstioOperatorCRs(client kube.CLIClient, logger clog.Logger) ([]*iopv1alpha1.IstioOperator, error) {
-	ucrs, err := client.Dynamic().Resource(istioOperatorGVR).
+	ucrs, err := client.Dynamic().Resource(constants.IstioOperatorGVR).
 		List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return []*iopv1alpha1.IstioOperator{}, fmt.Errorf("cannot retrieve IstioOperator CRs: %v", err)
