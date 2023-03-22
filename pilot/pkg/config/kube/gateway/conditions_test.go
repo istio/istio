@@ -22,6 +22,7 @@ import (
 	k8s "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -31,7 +32,7 @@ func TestCreateRouteStatus(t *testing.T) {
 	parentStatus := []k8s.RouteParentStatus{
 		{
 			ParentRef:      parentRef,
-			ControllerName: ControllerName,
+			ControllerName: constants.ManagedGatewayController,
 			Conditions: []metav1.Condition{
 				{
 					Type:               string(k8s.RouteReasonAccepted),
