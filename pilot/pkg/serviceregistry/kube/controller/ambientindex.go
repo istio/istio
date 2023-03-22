@@ -64,24 +64,29 @@ type AmbientIndex struct {
 }
 
 // Lookup finds a given IP address.
-func (a *AmbientIndex) Lookup(ip string) []*model.WorkloadInfo {
+func (a *AmbientIndex) Lookup(name string) []*model.WorkloadInfo {
+	// the format of the name now matches ResourceName(), i.e. <network>/<IP>
+	id := name
+	if strings.ContainsAny(id, "/") {
+		id = strings.Split(name, "/")[1]
+	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	// First look at pod...
-	if p, f := a.byPod[ip]; f {
+	if p, f := a.byPod[id]; f {
 		return []*model.WorkloadInfo{p}
 	}
 	// Fallback to service. Note: these IP ranges should be non-overlapping
-	return a.byService[ip]
+	return a.byService[id]
 }
 
-func (a *AmbientIndex) dropWorkloadFromService(svcAddress, workloadAddress string) {
+func (a *AmbientIndex) dropWorkloadFromService(svcAddress, workloadResourceName string) {
 	wls := a.byService[svcAddress]
 	// TODO: this is inefficient, but basically we are trying to update a keyed element in a list
 	// Probably we want a Map? But the list is nice for fast lookups
 	filtered := make([]*model.WorkloadInfo, 0, len(wls))
 	for _, inc := range wls {
-		if inc.ResourceName() != workloadAddress {
+		if inc.ResourceName() != workloadResourceName {
 			filtered = append(filtered, inc)
 		}
 	}
@@ -737,11 +742,11 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 		if oldWl != nil {
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
 			for vip := range oldWl.VirtualIps {
-				a.dropWorkloadFromService(vip, p.Status.PodIP)
+				a.dropWorkloadFromService(vip, oldWl.ResourceName())
 			}
 			log.Debugf("%v: workload removed, pushing", p.Status.PodIP)
 			// TODO: namespace for network?
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: p.Status.PodIP})
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: oldWl.ResourceName()})
 			return updates
 		}
 		// It was a 'delete' for a resource we didn't know yet, no need to send an event
@@ -764,7 +769,7 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	}
 
 	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
-	updates.Insert(model.ConfigKey{Kind: kind.Address, Name: p.Status.PodIP})
+	updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 	return updates
 }
 

@@ -107,8 +107,14 @@ func TestAmbientIndex(t *testing.T) {
 		for attempts < 10 {
 			attempts++
 			ev := fx.WaitOrFail(t, "xds")
-			if ev.ID != want {
-				t.Logf("skip event %v, wanted %v", ev.ID, want)
+			// trim the resource name to just the IP
+			resourceNames := strings.Split(ev.ID, ",")
+			eventIPs := []string{}
+			for _, r := range resourceNames {
+				eventIPs = append(eventIPs, strings.Split(r, "/")[0])
+			}
+			if strings.Join(eventIPs, ",") != want {
+				t.Logf("skip event %v, wanted %v", eventIPs, want)
 			} else {
 				return
 			}
@@ -378,7 +384,13 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 		for attempts < 10 {
 			attempts++
 			ev := fx.WaitOrFail(t, "xds")
-			if ev.ID != want {
+			// trim the resource name to just the IP
+			resourceNames := strings.Split(ev.ID, ",")
+			eventIPs := []string{}
+			for _, r := range resourceNames {
+				eventIPs = append(eventIPs, strings.Split(r, "/")[0])
+			}
+			if strings.Join(eventIPs, ",") != want {
 				t.Logf("skip event %v, wanted %v", ev.ID, want)
 			} else {
 				return

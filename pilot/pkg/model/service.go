@@ -848,7 +848,7 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 
 func (i WorkloadInfo) ResourceName() string {
 	ii, _ := netip.AddrFromSlice(i.Address)
-	return ii.String()
+	return fmt.Sprintf("%s/%s", i.Network, ii.String())
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
