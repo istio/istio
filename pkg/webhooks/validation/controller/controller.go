@@ -59,6 +59,7 @@ type Options struct {
 	// Name of the service running the webhook server.
 	ServiceName string
 	Backoff     time.Duration
+	Retries     int
 }
 
 // Validate the options that exposed to end users
@@ -116,7 +117,7 @@ func newController(o Options, client kube.Client) *Controller {
 
 	c.queue = controllers.NewQueue("validation",
 		controllers.WithReconciler(c.Reconcile),
-		controllers.WithMaxAttempts(5),
+		controllers.WithMaxAttempts(o.Retries),
 		controllers.WithRateLimiter(workqueue.NewItemExponentialFailureRateLimiter(o.Backoff, 5*time.Minute)))
 
 	c.webhooks = kclient.NewFiltered[*kubeApiAdmission.ValidatingWebhookConfiguration](client, kclient.Filter{
