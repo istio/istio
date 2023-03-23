@@ -23,20 +23,26 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-type TestCached[T controllers.Object] struct {
-	c kclient.Client[T]
+type TestClient[T controllers.Object] struct {
+	c kclient.ReadWriter[T]
+	t test.Failer
+	TestWriter[T]
+}
+
+type TestWriter[T controllers.Object] struct {
+	c kclient.Writer[T]
 	t test.Failer
 }
 
-func (t TestCached[T]) Get(name, namespace string) T {
+func (t TestClient[T]) Get(name, namespace string) T {
 	return t.c.Get(name, namespace)
 }
 
-func (t TestCached[T]) List(namespace string, selector klabels.Selector) []T {
+func (t TestClient[T]) List(namespace string, selector klabels.Selector) []T {
 	return t.c.List(namespace, selector)
 }
 
-func (t TestCached[T]) Create(object T) T {
+func (t TestWriter[T]) Create(object T) T {
 	res, err := t.c.Create(object)
 	if err != nil {
 		t.t.Fatalf("create %v/%v: %v", object.GetNamespace(), object.GetName(), err)
@@ -44,7 +50,7 @@ func (t TestCached[T]) Create(object T) T {
 	return res
 }
 
-func (t TestCached[T]) Update(object T) T {
+func (t TestWriter[T]) Update(object T) T {
 	res, err := t.c.Update(object)
 	if err != nil {
 		t.t.Fatalf("update %v/%v: %v", object.GetNamespace(), object.GetName(), err)
@@ -52,27 +58,44 @@ func (t TestCached[T]) Update(object T) T {
 	return res
 }
 
-func (t TestCached[T]) CreateOrUpdate(object T) T {
-	res, err := kclient.CreateOrUpdate(t.c, object)
+func (t TestWriter[T]) UpdateStatus(object T) T {
+	res, err := t.c.UpdateStatus(object)
+	if err != nil {
+		t.t.Fatalf("update status %v/%v: %v", object.GetNamespace(), object.GetName(), err)
+	}
+	return res
+}
+
+func (t TestWriter[T]) CreateOrUpdate(object T) T {
+	res, err := kclient.CreateOrUpdate[T](t.c, object)
 	if err != nil {
 		t.t.Fatalf("createOrUpdate %v/%v: %v", object.GetNamespace(), object.GetName(), err)
 	}
 	return res
 }
 
-func (t TestCached[T]) Delete(name, namespace string) {
+func (t TestWriter[T]) Delete(name, namespace string) {
 	err := t.c.Delete(name, namespace)
 	if err != nil {
 		t.t.Fatalf("delete %v/%v: %v", namespace, name, err)
 	}
 }
 
-// Wrap returns a kclient.Client that calls t.Fatal on errors
-func Wrap[T controllers.Object](t test.Failer, c kclient.Client[T]) TestCached[T] {
-	return TestCached[T]{
+// WrapReadWriter returns a client that calls t.Fatal on errors.
+// Reads may be cached or uncached, depending on the input client.
+func WrapReadWriter[T controllers.Object](t test.Failer, c kclient.ReadWriter[T]) TestClient[T] {
+	return TestClient[T]{
 		c: c,
 		t: t,
 	}
+}
+
+// Wrap returns a client that calls t.Fatal on errors.
+// Reads may be cached or uncached, depending on the input client.
+// Note: this is identical to WrapReadWriter but works around Go limitations, allowing calling w/o specifying
+// generic parameters in the common case.
+func Wrap[T controllers.Object](t test.Failer, c kclient.Client[T]) TestClient[T] {
+	return WrapReadWriter[T](t, c)
 }
 
 // TrackerHandler returns an object handler that records each event
