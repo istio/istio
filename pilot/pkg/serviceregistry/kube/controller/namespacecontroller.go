@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -78,6 +79,10 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		return true
 	}))
 	c.namespaces.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+		if features.InformerWatchNamespace != "" && features.InformerWatchNamespace != o.GetName() {
+			// We are only watching one namespace, and its not this one
+			return false
+		}
 		if inject.IgnoredNamespaces.Contains(o.GetName()) {
 			// skip special kubernetes system namespaces
 			return false
