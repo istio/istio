@@ -22,29 +22,20 @@ import (
 	"istio.io/istio/pkg/test"
 )
 
-type TestCached[T controllers.Object] interface {
-	Get(name, namespace string) T
-	List(namespace string, selector klabels.Selector) []T
-	Create(object T) T
-	Update(object T) T
-	CreateOrUpdate(object T) T
-	Delete(name, namespace string)
-}
-
-type testCached[T controllers.Object] struct {
+type TestCached[T controllers.Object] struct {
 	c kclient.Client[T]
 	t test.Failer
 }
 
-func (t testCached[T]) Get(name, namespace string) T {
+func (t TestCached[T]) Get(name, namespace string) T {
 	return t.c.Get(name, namespace)
 }
 
-func (t testCached[T]) List(namespace string, selector klabels.Selector) []T {
+func (t TestCached[T]) List(namespace string, selector klabels.Selector) []T {
 	return t.c.List(namespace, selector)
 }
 
-func (t testCached[T]) Create(object T) T {
+func (t TestCached[T]) Create(object T) T {
 	res, err := t.c.Create(object)
 	if err != nil {
 		t.t.Fatalf("create %v/%v: %v", object.GetNamespace(), object.GetName(), err)
@@ -52,7 +43,7 @@ func (t testCached[T]) Create(object T) T {
 	return res
 }
 
-func (t testCached[T]) Update(object T) T {
+func (t TestCached[T]) Update(object T) T {
 	res, err := t.c.Update(object)
 	if err != nil {
 		t.t.Fatalf("update %v/%v: %v", object.GetNamespace(), object.GetName(), err)
@@ -60,7 +51,7 @@ func (t testCached[T]) Update(object T) T {
 	return res
 }
 
-func (t testCached[T]) CreateOrUpdate(object T) T {
+func (t TestCached[T]) CreateOrUpdate(object T) T {
 	res, err := kclient.CreateOrUpdate(t.c, object)
 	if err != nil {
 		t.t.Fatalf("createOrUpdate %v/%v: %v", object.GetNamespace(), object.GetName(), err)
@@ -68,7 +59,7 @@ func (t testCached[T]) CreateOrUpdate(object T) T {
 	return res
 }
 
-func (t testCached[T]) Delete(name, namespace string) {
+func (t TestCached[T]) Delete(name, namespace string) {
 	err := t.c.Delete(name, namespace)
 	if err != nil {
 		t.t.Fatalf("delete %v/%v: %v", namespace, name, err)
@@ -77,7 +68,7 @@ func (t testCached[T]) Delete(name, namespace string) {
 
 // Wrap returns a kclient.Client that calls t.Fatal on errors
 func Wrap[T controllers.Object](t test.Failer, c kclient.Client[T]) TestCached[T] {
-	return testCached[T]{
+	return TestCached[T]{
 		c: c,
 		t: t,
 	}
