@@ -326,3 +326,14 @@ func (e EventHandler[T]) OnDelete(obj interface{}) {
 }
 
 var _ cache.ResourceEventHandler = EventHandler[Object]{}
+
+type Shutdowner interface {
+	ShutdownHandlers()
+}
+
+// ShutdownAll is a simple helper to shutdown all informers
+func ShutdownAll(s ...Shutdowner) {
+	for _, h := range s {
+		h.ShutdownHandlers()
+	}
+}
