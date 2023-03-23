@@ -141,6 +141,8 @@ func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteA
 		return c.Istio().TelemetryV1alpha1().Telemetries(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).(ktypes.WriteAPI[T])
+	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
+		return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1alpha3.VirtualService:
 		return c.Istio().NetworkingV1alpha3().VirtualServices(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapiextensionsv1alpha1.WasmPlugin:
@@ -390,6 +392,13 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.GatewayAPI().GatewayV1alpha2().UDPRoutes("").Watch(context.Background(), options)
 		}
+	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.Background(), options)
+		}
 	case *apiistioioapinetworkingv1alpha3.VirtualService:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().NetworkingV1alpha3().VirtualServices("").List(context.Background(), options)
@@ -510,6 +519,8 @@ func GetInformer[T runtime.Object](c ClientGetter) cache.SharedIndexInformer {
 		return c.IstioInformer().Telemetry().V1alpha1().Telemetries().Informer()
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return c.GatewayAPIInformer().Gateway().V1alpha2().UDPRoutes().Informer()
+	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
+		return c.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations().Informer()
 	case *apiistioioapinetworkingv1alpha3.VirtualService:
 		return c.IstioInformer().Networking().V1alpha3().VirtualServices().Informer()
 	case *apiistioioapiextensionsv1alpha1.WasmPlugin:
