@@ -31,7 +31,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1443,14 +1442,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 				if len(svc.ServiceAccounts) > 0 {
 					accounts = accounts.Copy().InsertAll(svc.ServiceAccounts...)
 				}
-				var sa []string
-				// Skip external services as service accounts for them (SANs in Service Entry)
-				// may not be in SPIFFE format.
-				if svc.Attributes.ServiceRegistry == provider.External {
-					sa = svc.ServiceAccounts
-				} else {
-					sa = sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
-				}
+				sa := sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
 				key := serviceAccountKey{
 					hostname:  svc.Hostname,
 					namespace: svc.Attributes.Namespace,
