@@ -102,6 +102,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	// Now we can run the queue. This will block until `stop` is closed.
 	c.queue.Run(stop)
+	// Unregister our handler. This ensures it does not continue to run if the informer is still running
+	// after the controller exits.
+	// This is typically only needed for leader election controllers, as otherwise the controller lifecycle
+	// is typically the same as the informer.
+	c.pods.ShutdownHandlers()
 }
 
 // HasSynced asserts we have "synced", meaning we have processed the initial state.
