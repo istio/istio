@@ -65,19 +65,14 @@ type AmbientIndex struct {
 
 // Lookup finds a given IP address.
 func (a *AmbientIndex) Lookup(name string) []*model.WorkloadInfo {
-	// the format of the name now matches ResourceName(), i.e. <network>/<IP>
-	id := name
-	if strings.ContainsAny(id, "/") {
-		id = strings.Split(name, "/")[1]
-	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	// First look at pod...
-	if p, f := a.byPod[id]; f {
+	if p, f := a.byPod[name]; f {
 		return []*model.WorkloadInfo{p}
 	}
 	// Fallback to service. Note: these IP ranges should be non-overlapping
-	return a.byService[id]
+	return a.byService[name]
 }
 
 func (a *AmbientIndex) dropWorkloadFromService(svcAddress, workloadResourceName string) {
@@ -316,12 +311,12 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 	}
 
 	updates := map[model.ConfigKey]struct{}{}
-	for ip, pod := range pods {
+	for _, pod := range pods {
 		newWl := c.extractWorkload(pod)
 		if newWl != nil {
 			// Update the pod, since it now has new VIP info
 			c.ambientIndex.mu.Lock()
-			c.ambientIndex.byPod[ip] = newWl
+			c.ambientIndex.byPod[newWl.ResourceName()] = newWl
 			c.ambientIndex.mu.Unlock()
 			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
 		}
@@ -738,8 +733,9 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	oldWl := a.byPod[p.Status.PodIP]
 	if wl == nil {
 		// This is an explicit delete event, or there is no longer a Workload to create (pod NotReady, etc)
-		delete(a.byPod, p.Status.PodIP)
+		//delete(a.byPod, p.Status.PodIP)
 		if oldWl != nil {
+			delete(a.byPod, oldWl.ResourceName())
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
 			for vip := range oldWl.VirtualIps {
 				a.dropWorkloadFromService(vip, oldWl.ResourceName())
@@ -756,7 +752,7 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 		log.Debugf("%v: no change, skipping", wl.ResourceName())
 		return updates
 	}
-	a.byPod[p.Status.PodIP] = wl
+	a.byPod[wl.ResourceName()] = wl
 	if oldWl != nil {
 		// For updates, we will drop the VIPs and then add the new ones back. This could be optimized
 		for vip := range oldWl.VirtualIps {
@@ -797,7 +793,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[
 		wl := c.extractWorkload(p)
 		if wl != nil {
 			// Update the pod, since it now has new VIP info
-			a.byPod[p.Status.PodIP] = wl
+			a.byPod[wl.ResourceName()] = wl
 			wls = append(wls, wl)
 		}
 
@@ -880,7 +876,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 		Name:                  pod.Name,
 		Namespace:             pod.Namespace,
 		Address:               parseIP(pod.Status.PodIP),
-		Network:               c.network.String(),
+		Network:               c.Network(pod.Status.PodIP, pod.Labels).String(),
 		ServiceAccount:        pod.Spec.ServiceAccountName,
 		Node:                  pod.Spec.NodeName,
 		VirtualIps:            vips,
