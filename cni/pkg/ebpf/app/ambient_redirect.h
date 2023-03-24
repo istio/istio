@@ -19,11 +19,8 @@
 
 enum {
     LOG_NONE = 0,
-    LOG_FATAL = 1,
-    LOG_ERROR = 2,
-    LOG_WARN = 3,
-    LOG_INFO = 4,
-    LOG_DEBUG = 5,
+    LOG_INFO = 1,
+    LOG_DEBUG = 2,
 };
 
 #define OUTBOUND_CB (4321)
