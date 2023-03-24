@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/test"
@@ -506,16 +507,9 @@ func (ic *serviceImportCacheImpl) isImported(name types.NamespacedName) bool {
 	return ic.serviceImports.Get(name.Name, name.Namespace) != nil
 }
 
-func (ic *serviceImportCacheImpl) checkXDS(t test.Failer) error {
+func (ic *serviceImportCacheImpl) checkXDS(t test.Failer) {
 	t.Helper()
-	event := ic.opts.XDSUpdater.(*FakeXdsUpdater).WaitOrFail(t, "service")
-
-	// The name of the event will be the cluster-local hostname.
-	eventID := serviceImportClusterSetHost.String()
-	if event.ID != eventID {
-		return fmt.Errorf("waitForXDS failed: expected event id=%s, but found %s", eventID, event.ID)
-	}
-	return nil
+	ic.opts.XDSUpdater.(*xdsfake.Updater).MatchOrFail(t, xdsfake.Event{Type: "service", ID: serviceImportClusterSetHost.String()})
 }
 
 func (ic *serviceImportCacheImpl) clusterLocalHost() host.Name {
