@@ -217,6 +217,9 @@ spec:
           - name: {{ $key }}
             value: "{{ $val }}"
           {{- end }}
+          {{- with $gateway.envSources }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
           - name: {{ $key }}
             value: "{{ $value }}"
