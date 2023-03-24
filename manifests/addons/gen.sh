@@ -91,4 +91,4 @@ function compressDashboard() {
     --version "${LOKI_VERSION}" \
     --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-loki.yaml"
-} | yq -I2 > "${ADDONS}/loki.yaml" # TODO: Remove yq after fix lint error from upstream
+} > "${ADDONS}/loki.yaml"

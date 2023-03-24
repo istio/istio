@@ -83,7 +83,8 @@ metadata:
     app.kubernetes.io/version: "2.7.3"
     app.kubernetes.io/managed-by: Helm
 data:
-  runtime-config.yaml: |2
+  runtime-config.yaml: |
+    
     {}
 ---
 # Source: loki/templates/service-memberlist.yaml
@@ -183,6 +184,7 @@ spec:
       partition: 0
   serviceName: loki-headless
   revisionHistoryLimit: 10
+  
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Delete
     whenScaled: Delete
@@ -204,6 +206,7 @@ spec:
       serviceAccountName: loki
       automountServiceAccountToken: true
       enableServiceLinks: true
+      
       securityContext:
         fsGroup: 10001
         runAsGroup: 10001
@@ -231,7 +234,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-                - ALL
+              - ALL
             readOnlyRootFilesystem: true
           readinessProbe:
             httpGet:
@@ -248,7 +251,8 @@ spec:
               mountPath: /etc/loki/runtime-config
             - name: storage
               mountPath: /var/loki
-          resources: {}
+          resources:
+            {}
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -258,6 +262,7 @@ spec:
                   app.kubernetes.io/instance: loki
                   app.kubernetes.io/component: single-binary
               topologyKey: kubernetes.io/hostname
+        
       volumes:
         - name: tmp
           emptyDir: {}
