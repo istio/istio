@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
@@ -161,11 +162,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	var xdsUpdater model.XDSUpdater = s
 	if opts.EnableFakeXDSUpdater {
-		evChan := make(chan FakeXdsEvent, 1000)
-		xdsUpdater = &FakeXdsUpdater{
-			Events:   evChan,
-			Delegate: s,
-		}
+		xdsUpdater = xdsfake.NewWithDelegate(s)
 	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
@@ -521,100 +518,6 @@ func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 		objects = append(objects, o)
 	}
 	return objects, nil
-}
-
-type FakeXdsEvent struct {
-	Kind      string
-	Host      string
-	Namespace string
-	Endpoints int
-	PushReq   *model.PushRequest
-}
-
-type FakeXdsUpdater struct {
-	// Events tracks notifications received by the updater
-	Events   chan FakeXdsEvent
-	Delegate model.XDSUpdater
-}
-
-var _ model.XDSUpdater = &FakeXdsUpdater{}
-
-func (fx *FakeXdsUpdater) EDSUpdate(s model.ShardKey, hostname string, namespace string, entry []*model.IstioEndpoint) {
-	fx.Events <- FakeXdsEvent{Kind: "eds", Host: hostname, Namespace: namespace, Endpoints: len(entry)}
-	if fx.Delegate != nil {
-		fx.Delegate.EDSUpdate(s, hostname, namespace, entry)
-	}
-}
-
-func (fx *FakeXdsUpdater) EDSCacheUpdate(s model.ShardKey, hostname string, namespace string, entry []*model.IstioEndpoint) {
-	fx.Events <- FakeXdsEvent{Kind: "edscache", Host: hostname, Namespace: namespace, Endpoints: len(entry)}
-	if fx.Delegate != nil {
-		fx.Delegate.EDSCacheUpdate(s, hostname, namespace, entry)
-	}
-}
-
-func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
-	fx.Events <- FakeXdsEvent{Kind: "xds", PushReq: req}
-	if fx.Delegate != nil {
-		fx.Delegate.ConfigUpdate(req)
-	}
-}
-
-func (fx *FakeXdsUpdater) ProxyUpdate(c cluster.ID, p string) {
-	fx.Events <- FakeXdsEvent{Kind: "proxy update"}
-	if fx.Delegate != nil {
-		fx.Delegate.ProxyUpdate(c, p)
-	}
-}
-
-func (fx *FakeXdsUpdater) SvcUpdate(s model.ShardKey, hostname string, namespace string, e model.Event) {
-	fx.Events <- FakeXdsEvent{Kind: "svcupdate", Host: hostname, Namespace: namespace}
-	if fx.Delegate != nil {
-		fx.Delegate.SvcUpdate(s, hostname, namespace, e)
-	}
-}
-
-func (fx *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {
-	fx.Events <- FakeXdsEvent{Kind: "removeshard"}
-	fx.ConfigUpdate(&model.PushRequest{Full: true})
-}
-
-func (fx *FakeXdsUpdater) WaitDurationOrFail(t test.Failer, duration time.Duration, types ...string) *FakeXdsEvent {
-	t.Helper()
-	got := fx.WaitDuration(duration, types...)
-	if got == nil {
-		t.Fatal("missing event")
-	}
-	return got
-}
-
-func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, types ...string) *FakeXdsEvent {
-	t.Helper()
-	got := fx.Wait(types...)
-	if got == nil {
-		t.Fatal("missing event")
-	}
-	return got
-}
-
-func (fx *FakeXdsUpdater) WaitDuration(duration time.Duration, types ...string) *FakeXdsEvent {
-	for {
-		select {
-		case e := <-fx.Events:
-			for _, et := range types {
-				if e.Kind == et {
-					return &e
-				}
-			}
-			continue
-		case <-time.After(duration):
-			return nil
-		}
-	}
-}
-
-func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
-	return fx.WaitDuration(1*time.Second, types...)
 }
 
 // disableAuthorizationForSecret makes the authorization check always pass. Should be used only for tests.
