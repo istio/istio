@@ -91,7 +91,7 @@ func TestGetLocalIP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			LocalIPAddrs = tt.lipas
-			DualStackEnv = tt.isDS
+			DualStack = tt.isDS
 			result := constructConfig()
 			if result.EnableInboundIPv6 != tt.expected {
 				t.Errorf("unexpected EnableInboundIPv6 result, expected: %t got: %t", tt.expected, result.EnableInboundIPv6)
