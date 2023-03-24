@@ -389,7 +389,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 				// using Cluster_ALL to enable Happy Eyeballsfor upstream connections
 				ipFamily := networkutil.CheckIPFamilyTypeForFirstIPs(cb.proxyIPAddresses)
 				if ipFamily == networkutil.IPv6 {
-					c.DnsLookupFamily = cluster.Cluster_AUTO
+					c.DnsLookupFamily = cluster.Cluster_ALL
 				} else {
 					c.DnsLookupFamily = cluster.Cluster_V4_PREFERRED
 				}

@@ -108,7 +108,7 @@ func TestConvertIOPMapValues(t *testing.T) {
 			name:         "convention_boolean",
 			convertPaths: defaultSetFlagConvertPaths,
 			inputFlags: []string{
-				"meshConfig.defaultConfig.proxyMetadata.ISTIO_AGENT_DUAL_STACK=false",
+				"meshConfig.defaultConfig.proxyMetadata.ISTIO_DUAL_STACK=false",
 				"meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_VIA_AGENT=false",
 			},
 		}, {

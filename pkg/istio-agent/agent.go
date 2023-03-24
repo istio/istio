@@ -186,6 +186,9 @@ type AgentOptions struct {
 	IstiodSAN string
 
 	WASMOptions wasm.Options
+
+	// Is the proxy in Dual Stack environment
+	DualStack bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -280,6 +283,8 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	// This is a mode used for permission-less docker, where iptables can't be
 	// used.
 	a.envoyOpts.AgentIsRoot = os.Getuid() == 0 && strings.HasSuffix(a.cfg.DNSAddr, ":53")
+
+	a.envoyOpts.DualStack = a.cfg.DualStack
 
 	envoyProxy := envoy.NewProxy(a.envoyOpts)
 

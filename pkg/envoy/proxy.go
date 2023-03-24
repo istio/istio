@@ -28,11 +28,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	istioBootstrapOverrideVar = env.Register("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
-	DualStackEnv              = env.RegisterBoolVar("ISTIO_AGENT_DUAL_STACK", false, "Enable pilot-agent to work in dual-stack clusters").Get()
-)
-
 type envoy struct {
 	ProxyConfig
 	extraArgs []string
@@ -58,6 +53,9 @@ type ProxyConfig struct {
 	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
 	TestOnly    bool
 	AgentIsRoot bool
+
+	// Is the proxy in Dual Stack environment
+	DualStack bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -119,7 +117,7 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 	proxyLocalAddressType := "v4"
 	if network.AllIPv6(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
-	} else if DualStackEnv {
+	} else if e.ProxyConfig.DualStack {
 		// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
 		// So let the first ip family policy to decide its DNSLookupFamilyIP policy
 		ipFamily := network.CheckIPFamilyTypeForFirstIPs(e.NodeIPs)
@@ -170,6 +168,8 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 
 	return startupArgs
 }
+
+var istioBootstrapOverrideVar = env.Register("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
 
 func (e *envoy) Run(abort <-chan error) error {
 	// spin up a new Envoy process

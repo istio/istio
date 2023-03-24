@@ -70,10 +70,7 @@ const (
 	v2Suffix   = ",component,istio"
 )
 
-var (
-	StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
-	DualStackEnv  = env.RegisterBoolVar("ISTIO_AGENT_DUAL_STACK", false, "Enable pilot-agent to work in dual-stack clusters").Get()
-)
+var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
 // Config for creating a bootstrap file.
 type Config struct {
@@ -145,7 +142,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
 	} else {
 		// Dual Stack
-		if DualStackEnv {
+		if features.EnableDualStack {
 			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
 			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
 			ipFamily := network.CheckIPFamilyTypeForFirstIPs(cfg.Metadata.InstanceIPs)

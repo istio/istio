@@ -152,4 +152,7 @@ var (
 	exitOnZeroActiveConnectionsEnv = env.Register("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",
 		false,
 		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
+
+	DualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
+		"Enable pilot-agent to work in dual-stack clusters").Get()
 )
