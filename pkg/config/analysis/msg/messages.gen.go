@@ -239,7 +239,7 @@ var (
 
 	// InvalidGatewayCredential defines a diag.MessageType for message "InvalidGatewayCredential".
 	// Description: The credential provided for the Gateway resource is invalid
-	InvalidGatewayCredential = diag.NewMessageType(diag.Error, "IST0162", "The credential referenced by the Gateway %s in namespace %s is invalid, which can cause the traffic not to work as expected.")
+	InvalidGatewayCredential = diag.NewMessageType(diag.Error, "IST0161", "The credential referenced by the Gateway %s in namespace %s is invalid, which can cause the traffic not to work as expected.")
 )
 
 // All returns a list of all known message types.
