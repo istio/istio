@@ -449,7 +449,7 @@ type IstioEndpoint struct {
 
 	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
 	// avoid recomputation
-	EnvoyEndpoint *endpoint.LbEndpoint
+	EnvoyEndpoint *endpoint.LbEndpoint `json:"-"`
 
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string
