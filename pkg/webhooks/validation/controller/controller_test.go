@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	admission "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -149,7 +150,7 @@ const (
 
 var webhookName = fmt.Sprintf("istio-validator-revision-%s", namespace)
 
-func createTestController(t *testing.T) *Controller {
+func createTestController(t *testing.T) (*Controller, *atomic.Pointer[error]) {
 	c := kube.NewFakeClient()
 	revision := "default"
 	ns := "default"
@@ -168,11 +169,20 @@ func createTestController(t *testing.T) *Controller {
 	go control.Run(stop)
 	kube.WaitForCacheSync(stop, control.queue.HasSynced)
 
-	return control
+	gatewayError := atomic.NewPointer[error](nil)
+	c.Istio().(*istiofake.Clientset).PrependReactor("*", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {
+		e := gatewayError.Load()
+		if e == nil {
+			return true, &v1alpha3.Gateway{}, nil
+		}
+		return true, &v1alpha3.Gateway{}, *e
+	})
+
+	return control, gatewayError
 }
 
 func TestGreenfield(t *testing.T) {
-	c := createTestController(t)
+	c, gatewayError := createTestController(t)
 	webhooks := clienttest.Wrap(t, c.webhooks)
 	fetch := func(name string) func() *admission.ValidatingWebhookConfiguration {
 		return func() *admission.ValidatingWebhookConfiguration {
@@ -190,11 +200,8 @@ func TestGreenfield(t *testing.T) {
 	)
 	webhooks.Delete(unpatchedWebhookConfig.Name, "")
 
-	fake := c.client.Istio().(*istiofake.Clientset)
 	// verify the webhook is updated after the controller can confirm invalid config is rejected.
-	fake.PrependReactor("*", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, &v1alpha3.Gateway{}, kerrors.NewInternalError(errors.New("unknown error"))
-	})
+	gatewayError.Store(ptr.Of[error](kerrors.NewInternalError(errors.New("unknown error"))))
 	webhooks.Create(unpatchedWebhookConfig)
 	assert.EventuallyEqual(
 		t,
@@ -204,9 +211,7 @@ func TestGreenfield(t *testing.T) {
 	)
 
 	// verify the webhook is updated after the controller can confirm invalid config is rejected.
-	fake.PrependReactor("*", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, &v1alpha3.Gateway{}, kerrors.NewInternalError(errors.New(deniedRequestMessageFragment))
-	})
+	gatewayError.Store(ptr.Of[error](kerrors.NewInternalError(errors.New(deniedRequestMessageFragment))))
 	c.syncAll()
 	assert.EventuallyEqual(
 		t,
@@ -219,11 +224,8 @@ func TestGreenfield(t *testing.T) {
 
 // TestCABundleChange ensures that we create request to update all webhooks when CA bundle changes.
 func TestCABundleChange(t *testing.T) {
-	c := createTestController(t)
-	fake := c.client.Istio().(*istiofake.Clientset)
-	fake.PrependReactor("*", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {
-		return true, &v1alpha3.Gateway{}, kerrors.NewInternalError(errors.New(deniedRequestMessageFragment))
-	})
+	c, gatewayError := createTestController(t)
+	gatewayError.Store(ptr.Of[error](kerrors.NewInternalError(errors.New(deniedRequestMessageFragment))))
 	webhooks := clienttest.Wrap(t, c.webhooks)
 	fetch := func(name string) func() *admission.ValidatingWebhookConfiguration {
 		return func() *admission.ValidatingWebhookConfiguration {

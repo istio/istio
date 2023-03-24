@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -58,8 +59,6 @@ type Options struct {
 
 	// Name of the service running the webhook server.
 	ServiceName string
-	Backoff     time.Duration
-	Retries     int
 }
 
 // Validate the options that exposed to end users
@@ -104,8 +103,6 @@ func NewValidatingWebhookController(client kube.Client,
 		CABundleWatcher:  caBundleWatcher,
 		Revision:         revision,
 		ServiceName:      "istiod",
-		Backoff:          time.Second,
-		Retries:          5,
 	}
 	return newController(o, client)
 }
@@ -118,8 +115,12 @@ func newController(o Options, client kube.Client) *Controller {
 
 	c.queue = controllers.NewQueue("validation",
 		controllers.WithReconciler(c.Reconcile),
-		controllers.WithMaxAttempts(o.Retries),
-		controllers.WithRateLimiter(workqueue.NewItemExponentialFailureRateLimiter(o.Backoff, 5*time.Minute)))
+		// Webhook patching has to be retried forever. But the retries would be rate limited.
+		controllers.WithMaxAttempts(math.MaxInt),
+		// Try first few(5) retries quickly so that we can detect true conflicts by multiple Istiod instances fast.
+		// If there is a conflict beyond this, it means Istiods are seeing different ca certs and are in inconsistent
+		// state for longer duration. Slowdown the retries, so that we do not overload kube api server and etcd.
+		controllers.WithRateLimiter(workqueue.NewItemFastSlowRateLimiter(100*time.Millisecond, 1*time.Minute, 5)))
 
 	c.webhooks = kclient.NewFiltered[*kubeApiAdmission.ValidatingWebhookConfiguration](client, kclient.Filter{
 		LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision),
