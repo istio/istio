@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/mcs"
 	istiotest "istio.io/istio/pkg/test"
@@ -201,7 +202,7 @@ func (ec *serviceExportCacheImpl) unExport(t *testing.T) {
 func (ec *serviceExportCacheImpl) waitForXDS(t *testing.T, exported bool) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		event := ec.opts.XDSUpdater.(*FakeXdsUpdater).WaitOrFail(t, "eds")
+		event := ec.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "eds")
 		if len(event.Endpoints) != 1 {
 			return fmt.Errorf("waitForXDS failed: expected 1 endpoint, found %d", len(event.Endpoints))
 		}

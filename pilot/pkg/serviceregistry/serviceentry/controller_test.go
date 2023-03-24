@@ -26,19 +26,17 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/util/sets"
 )
 
 func createConfigs(configs []*config.Config, store model.ConfigStore, t testing.TB) {
@@ -73,73 +71,14 @@ func deleteConfigs(configs []*config.Config, store model.ConfigStore, t testing.
 	}
 }
 
-type Event struct {
-	kind      string
-	host      string
-	namespace string
-	proxyIP   string
-	endpoints int
-	pushReq   *model.PushRequest
-}
+type Event = xdsfake.Event
 
-type FakeXdsUpdater struct {
-	// Events tracks notifications received by the updater
-	Events chan Event
-}
-
-var _ model.XDSUpdater = &FakeXdsUpdater{}
-
-func (fx *FakeXdsUpdater) EDSUpdate(_ model.ShardKey, hostname string, namespace string, entry []*model.IstioEndpoint) {
-	fx.Events <- Event{kind: "eds", host: hostname, namespace: namespace, endpoints: len(entry)}
-}
-
-func (fx *FakeXdsUpdater) EDSCacheUpdate(_ model.ShardKey, hostname, namespace string, _ []*model.IstioEndpoint) {
-	fx.Events <- Event{kind: "edscache", host: hostname, namespace: namespace}
-}
-
-func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
-	fx.Events <- Event{kind: "xds", pushReq: req}
-}
-
-func (fx *FakeXdsUpdater) ProxyUpdate(_ cluster.ID, ip string) {
-	fx.Events <- Event{kind: "xds", proxyIP: ip}
-}
-
-func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, namespace string, _ model.Event) {
-	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
-}
-
-func (fx *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {
-	fx.Events <- Event{kind: "removeshard"}
-}
-
-func waitUntilEvent(t testing.TB, ch chan Event, event Event) {
+func waitUntilEvent(t testing.TB, fx *xdsfake.Updater, event Event) {
 	t.Helper()
-	for {
-		select {
-		case e := <-ch:
-			if e == event {
-				return
-			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("timed out waiting for event %v", event)
-			return
-		}
-	}
+	fx.MatchOrFail(t, event)
 }
 
-func waitForEvent(t testing.TB, ch chan Event) Event {
-	t.Helper()
-	select {
-	case e := <-ch:
-		return e
-	case <-time.After(2 * time.Second):
-		t.Fatalf("timed out waiting for event")
-		return Event{}
-	}
-}
-
-func initServiceDiscovery(t test.Failer) (model.ConfigStore, *Controller, chan Event) {
+func initServiceDiscovery(t test.Failer) (model.ConfigStore, *Controller, *xdsfake.Updater) {
 	return initServiceDiscoveryWithOpts(t, false)
 }
 
@@ -151,36 +90,29 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 
 	stop := test.NewStop(t)
 	go configController.Run(stop)
-
-	eventch := make(chan Event, 100)
-	xdsUpdater := &FakeXdsUpdater{
-		Events: eventch,
-	}
+	fx := xdsfake.NewFakeXDS()
 	go func() {
 		for {
 			select {
 			case <-stop:
 				return
-			case <-eventch: // drain
+			case <-fx.Events: // drain
 			}
 		}
 	}()
 
-	serviceController := NewController(configController, xdsUpdater)
+	serviceController := NewController(configController, fx)
 	return configController, serviceController
 }
 
-func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Option) (model.ConfigStore, *Controller, chan Event) {
+func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Option) (model.ConfigStore, *Controller, *xdsfake.Updater) {
 	store := memory.Make(collections.Pilot)
 	configController := memory.NewSyncController(store)
 
 	stop := test.NewStop(t)
 	go configController.Run(stop)
 
-	eventch := make(chan Event, 100)
-	xdsUpdater := &FakeXdsUpdater{
-		Events: eventch,
-	}
+	xdsUpdater := xdsfake.NewFakeXDS()
 
 	istioStore := configController
 	var controller *Controller
@@ -190,11 +122,11 @@ func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Opti
 		controller = NewWorkloadEntryController(configController, xdsUpdater, opts...)
 	}
 	go controller.Run(stop)
-	return istioStore, controller, eventch
+	return istioStore, controller, xdsUpdater
 }
 
 func TestServiceDiscoveryServices(t *testing.T) {
-	store, sd, eventCh := initServiceDiscovery(t)
+	store, sd, fx := initServiceDiscovery(t)
 	expectedServices := []*model.Service{
 		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSRoundRobinLB),
 		makeService("*.google.com", "httpDNS", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
@@ -203,22 +135,22 @@ func TestServiceDiscoveryServices(t *testing.T) {
 
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
 
-	waitUntilEvent(t, eventCh, Event{
-		kind:      "svcupdate",
-		host:      "*.google.com",
-		namespace: httpDNS.Namespace,
+	waitUntilEvent(t, fx, Event{
+		Type:      "service",
+		ID:        "*.google.com",
+		Namespace: httpDNS.Namespace,
 	})
 
-	waitUntilEvent(t, eventCh, Event{
-		kind:      "svcupdate",
-		host:      "*.istio.io",
-		namespace: httpDNSRR.Namespace,
+	waitUntilEvent(t, fx, Event{
+		Type:      "service",
+		ID:        "*.istio.io",
+		Namespace: httpDNSRR.Namespace,
 	})
 
-	waitUntilEvent(t, eventCh, Event{
-		kind:      "svcupdate",
-		host:      "tcpstatic.com",
-		namespace: tcpStatic.Namespace,
+	waitUntilEvent(t, fx, Event{
+		Type:      "service",
+		ID:        "tcpstatic.com",
+		Namespace: tcpStatic.Namespace,
 	})
 
 	services := sd.Services()
@@ -233,11 +165,11 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	hostname := "*.google.com"
 	hostDNE := "does.not.exist.local"
 
-	store, sd, eventCh := initServiceDiscovery(t)
+	store, sd, fx := initServiceDiscovery(t)
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
-	waitForEvent(t, eventCh)
-	waitForEvent(t, eventCh)
+	fx.WaitOrFail(t, "xds full")
+	fx.WaitOrFail(t, "xds full")
 	service := sd.GetService(host.Name(hostDNE))
 	if service != nil {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
@@ -310,9 +242,9 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		instances := baseInstances
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStatic.Namespace},
-			Event{kind: "edscache", host: "*.google.com", namespace: httpStatic.Namespace},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStatic.Namespace})}})
+			Event{Type: "service", ID: "*.google.com", Namespace: httpStatic.Namespace},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStatic.Namespace},
+			Event{Type: "xds full", ID: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0]})
 	})
 
 	t.Run("add entry", func(t *testing.T) {
@@ -322,9 +254,9 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
-			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: httpStaticOverlay.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStaticOverlay.Namespace})}})
+			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "xds full", ID: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0]})
 	})
 
 	t.Run("add endpoint", func(t *testing.T) {
@@ -334,13 +266,13 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)})
+		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 
 		// Make a NOP change, expect that there are no changes
 		createConfigs([]*config.Config{httpStaticOverlayUpdatedNop}, store, t)
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNop, 0, instances)
 		// TODO this could trigger no changes
-		expectEvents(t, events, Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)})
+		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 	})
 
 	t.Run("overlapping address", func(t *testing.T) {
@@ -357,7 +289,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
 		// TODO 45 is wrong
-		expectEvents(t, events, Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)})
+		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 
 		// Remove the additional endpoint
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
@@ -369,7 +301,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 		}
 		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
-		expectEvents(t, events, Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)})
+		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 	})
 
 	t.Run("update removes endpoint", func(t *testing.T) {
@@ -379,7 +311,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStaticOverlay, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)})
+			Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 	})
 
 	t.Run("different namespace", func(t *testing.T) {
@@ -393,9 +325,9 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNs, 0, instances)
 		// Expect a full push, as the Service has changed
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "*.google.com", namespace: "other"},
-			Event{kind: "edscache", host: "*.google.com", namespace: "other"},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStaticOverlayUpdatedNs.Namespace})}})
+			Event{Type: "service", ID: "*.google.com", Namespace: "other"},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: "other"},
+			Event{Type: "xds full", ID: httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Hosts[0]})
 	})
 
 	t.Run("delete entry", func(t *testing.T) {
@@ -411,8 +343,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// svcUpdate is not triggered since `httpStatic` is there and has instances, so we should
 		// not delete the endpoints shards of "*.google.com". We xpect a full push as the service has changed.
 		expectEvents(t, events,
-			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlayUpdated.Namespace},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace})}},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
+			Event{Type: "xds full", ID: "*.google.com"},
 		)
 
 		// delete httpStatic, no "*.google.com" service exists now.
@@ -420,8 +352,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// svcUpdate is triggered since "*.google.com" in same namespace is deleted and
 		// we need to delete endpoint shards. We expect a full push as the service has changed.
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStatic.Namespace},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace})}},
+			Event{Type: "service", ID: "*.google.com", Namespace: httpStatic.Namespace},
+			Event{Type: "xds full", ID: "*.google.com"},
 		)
 
 		// add back httpStatic
@@ -429,9 +361,9 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		instances = baseInstances
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStatic.Namespace},
-			Event{kind: "edscache", host: "*.google.com", namespace: httpStatic.Namespace},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStatic.Namespace})}})
+			Event{Type: "service", ID: "*.google.com", Namespace: httpStatic.Namespace},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStatic.Namespace},
+			Event{Type: "xds full", ID: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0]})
 
 		// Add back the ServiceEntry, expect these instances to get added
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
@@ -441,9 +373,9 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		// Service change, so we need a full push
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
-			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace})}})
+			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "xds full", ID: "*.google.com"})
 	})
 
 	t.Run("change host", func(t *testing.T) {
@@ -472,17 +404,17 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, httpStaticHost, 0, instances, instances2)
 		// Service change, so we need a full push
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "other.com", namespace: httpStaticOverlayUpdated.Namespace},
-			Event{kind: "edscache", host: "other.com", namespace: httpStaticOverlayUpdated.Namespace},
-			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlayUpdated.Namespace},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace})}}) // service added
+			Event{Type: "service", ID: "other.com", Namespace: httpStaticOverlayUpdated.Namespace},
+			Event{Type: "eds cache", ID: "other.com", Namespace: httpStaticOverlayUpdated.Namespace},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
+			Event{Type: "xds full", ID: "other.com"}) // service added
 
 		// restore this config and remove the added host.
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "other.com", namespace: httpStatic.Namespace},
-			Event{kind: "edscache", host: "*.google.com", namespace: httpStatic.Namespace},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "other.com", Namespace: httpStaticOverlayUpdated.Namespace})}}) // service deleted
+			Event{Type: "service", ID: "other.com", Namespace: httpStatic.Namespace},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStatic.Namespace},
+			Event{Type: "xds full", ID: "other.com"}) // service deleted
 	})
 
 	t.Run("change dns endpoints", func(t *testing.T) {
@@ -516,13 +448,13 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, tcpDNS, 0, instances1)
 		// Service change, so we need a full push
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "tcpdns.com", namespace: tcpDNS.Namespace},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "tcpdns.com", Namespace: tcpDNS.Namespace})}}) // service added
+			Event{Type: "service", ID: "tcpdns.com", Namespace: tcpDNS.Namespace},
+			Event{Type: "xds full", ID: "tcpdns.com"}) // service added
 
 		// now update the config
 		createConfigs([]*config.Config{tcpDNSUpdated}, store, t)
 		expectEvents(t, events,
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "tcpdns.com", Namespace: tcpDNSUpdated.Namespace})}}) // service deleted
+			Event{Type: "xds full", ID: "tcpdns.com"}) // service deleted
 		expectServiceInstances(t, sd, tcpDNS, 0, instances2)
 	})
 
@@ -541,14 +473,10 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		createConfigs([]*config.Config{selector1}, store, t)
 		// Service change, so we need a full push
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
-			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
-			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
-
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(
-				model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace},
-				model.ConfigKey{Kind: kind.ServiceEntry, Name: "selector1.com", Namespace: selector1.Namespace},
-			)}}) // service added
+			Event{Type: "service", ID: "selector1.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "xds full", ID: "*.google.com,selector1.com"}) // service added
 
 		selector1Updated := func() *config.Config {
 			c := selector1.DeepCopy()
@@ -560,14 +488,10 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		}()
 		createConfigs([]*config.Config{selector1Updated}, store, t)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
-			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
-			Event{kind: "edscache", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
-
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: sets.New(
-				model.ConfigKey{Kind: kind.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace},
-				model.ConfigKey{Kind: kind.ServiceEntry, Name: "selector1.com", Namespace: selector1.Namespace},
-			)}}) // service updated
+			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "service", ID: "selector1.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "eds cache", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
+			Event{Type: "xds full", ID: "*.google.com,selector1.com"}) // service updated
 	})
 }
 
@@ -607,9 +531,9 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
-			Event{kind: "edscache", host: "selector.com", namespace: selector.Namespace},
-			Event{kind: "xds"})
+			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "eds cache", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "xds full", ID: "selector.com"})
 	})
 
 	t.Run("add workload", func(t *testing.T) {
@@ -631,8 +555,8 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "xds", proxyIP: "2.2.2.2"},
-			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2},
+			Event{Type: "proxy", ID: "2.2.2.2"},
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
 		)
 	})
 
@@ -662,10 +586,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, []*model.ServiceInstance{})
 		expectServiceInstances(t, sd, updated, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "updated.com", namespace: selector.Namespace},
-			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
-			Event{kind: "edscache", host: "updated.com", namespace: selector.Namespace},
-			Event{kind: "xds"},
+			Event{Type: "service", ID: "updated.com", Namespace: selector.Namespace},
+			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "eds cache", ID: "updated.com", Namespace: selector.Namespace},
+			Event{Type: "xds full", ID: "selector.com,updated.com"},
 		)
 	})
 
@@ -694,10 +618,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectServiceInstances(t, sd, updated, 0, []*model.ServiceInstance{})
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
-			Event{kind: "svcupdate", host: "updated.com", namespace: selector.Namespace},
-			Event{kind: "edscache", host: "selector.com", namespace: selector.Namespace},
-			Event{kind: "xds"},
+			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "service", ID: "updated.com", Namespace: selector.Namespace},
+			Event{Type: "eds cache", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "xds full", ID: "selector.com,updated.com"},
 		)
 	})
 
@@ -708,8 +632,8 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "4.4.4.4")
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "dns.selector.com", namespace: dnsSelector.Namespace},
-			Event{kind: "xds"})
+			Event{Type: "service", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
+			Event{Type: "xds full", ID: "dns.selector.com"})
 	})
 
 	t.Run("add dns workload", func(t *testing.T) {
@@ -730,8 +654,8 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "4.4.4.4")
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "edscache", host: "dns.selector.com", namespace: dnsSelector.Namespace},
-			Event{kind: "xds"})
+			Event{Type: "eds cache", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
+			Event{Type: "xds full", ID: "dns.selector.com"})
 	})
 
 	t.Run("another workload", func(t *testing.T) {
@@ -759,8 +683,8 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "xds", proxyIP: "3.3.3.3"},
-			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4},
+			Event{Type: "proxy", ID: "3.3.3.3"},
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 4},
 		)
 	})
 
@@ -789,7 +713,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "xds", proxyIP: "abc.def"},
+			Event{Type: "proxy", ID: "abc.def"},
 		)
 	})
 
@@ -808,14 +732,14 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
 
 		// Delete the other config
 		deleteConfigs([]*config.Config{wle}, store, t)
 		instances = []*model.ServiceInstance{}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0})
 
 		// Add the config back
 		createConfigs([]*config.Config{wle}, store, t)
@@ -832,8 +756,8 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "xds", proxyIP: "2.2.2.2"},
-			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2},
+			Event{Type: "proxy", ID: "2.2.2.2"},
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
 		)
 	})
 }
@@ -868,9 +792,9 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
-			Event{kind: "edscache", host: "selector.com", namespace: selector.Namespace},
-			Event{kind: "xds"})
+			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "eds cache", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "xds full", ID: "selector.com"})
 	})
 
 	t.Run("change label removing all", func(t *testing.T) {
@@ -891,23 +815,25 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "xds", proxyIP: "2.2.2.2"},
-			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2},
+			Event{Type: "proxy", ID: "2.2.2.2"},
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
 		)
 
 		createConfigs([]*config.Config{wle2}, store, t)
 		instances = []*model.ServiceInstance{}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
-		expectEvents(t, events, Event{kind: "xds", proxyIP: "2.2.2.2"},
-			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+		expectEvents(t, events,
+			Event{Type: "proxy", ID: "2.2.2.2"},
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0})
 	})
 
 	t.Run("change label removing one", func(t *testing.T) {
 		// Add a WLE, we expect this to update
 		createConfigs([]*config.Config{wle}, store, t)
-		expectEvents(t, events, Event{kind: "xds", proxyIP: "2.2.2.2"},
-			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2},
+		expectEvents(t, events,
+			Event{Type: "proxy", ID: "2.2.2.2"},
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
 		)
 		// add a wle, expect this to be an add
 		createConfigs([]*config.Config{wle3}, store, t)
@@ -937,8 +863,8 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		expectProxyInstances(t, sd, instances[2:], "3.3.3.3")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "xds", proxyIP: "3.3.3.3"},
-			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4},
+			Event{Type: "proxy", ID: "3.3.3.3"},
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 4},
 		)
 
 		createConfigs([]*config.Config{wle2}, store, t)
@@ -956,8 +882,9 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "3.3.3.3")
-		expectEvents(t, events, Event{kind: "xds", proxyIP: "2.2.2.2"},
-			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+		expectEvents(t, events,
+			Event{Type: "proxy", ID: "2.2.2.2"},
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
 	})
 }
 
@@ -1001,8 +928,8 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "4.4.4.4")
 		expectServiceInstances(t, sd, selectorDNS, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "selector.com", namespace: selectorDNS.Namespace},
-			Event{kind: "xds"})
+			Event{Type: "service", ID: "selector.com", Namespace: selectorDNS.Namespace},
+			Event{Type: "xds full", ID: "selector.com"})
 	})
 
 	t.Run("add workload", func(t *testing.T) {
@@ -1024,8 +951,8 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "postman-echo.com")
 		expectServiceInstances(t, sd, selectorDNS, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "edscache", host: "selector.com", namespace: selectorDNS.Namespace},
-			Event{kind: "xds"},
+			Event{Type: "eds cache", ID: "selector.com", Namespace: selectorDNS.Namespace},
+			Event{Type: "xds full", ID: "selector.com"},
 		)
 	})
 
@@ -1051,15 +978,15 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectProxyInstances(t, sd, instances[2:], "postman-echo.com")
 		expectServiceInstances(t, sd, selectorDNS, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "eds", host: "selector.com", namespace: selectorDNS.Namespace, endpoints: len(instances)},
-			Event{kind: "xds"})
+			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: len(instances)},
+			Event{Type: "xds full", ID: "selector.com"})
 	})
 
 	t.Run("full push for another new workload instance", func(t *testing.T) {
 		callInstanceHandlers([]*model.WorkloadInstance{fi2}, sd, model.EventAdd, t)
 		expectEvents(t, events,
-			Event{kind: "eds", host: "selector.com", namespace: selectorDNS.Namespace, endpoints: 6},
-			Event{kind: "xds"})
+			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: 6},
+			Event{Type: "xds full", ID: "selector.com"})
 	})
 
 	t.Run("full push on delete workload instance", func(t *testing.T) {
@@ -1085,8 +1012,8 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectServiceInstances(t, sd, selectorDNS, 0, instances)
 
 		expectEvents(t, events,
-			Event{kind: "eds", host: "selector.com", namespace: selectorDNS.Namespace, endpoints: len(instances)},
-			Event{kind: "xds"})
+			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: len(instances)},
+			Event{Type: "xds full", ID: "selector.com"})
 	})
 }
 
@@ -1134,9 +1061,9 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
-			Event{kind: "edscache", host: "selector.com", namespace: selector.Namespace},
-			Event{kind: "xds"})
+			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "eds cache", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "xds full", ID: "selector.com"})
 	})
 
 	t.Run("add another service entry", func(t *testing.T) {
@@ -1145,8 +1072,8 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "dns.selector.com", namespace: dnsSelector.Namespace},
-			Event{kind: "xds"})
+			Event{Type: "service", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
+			Event{Type: "xds full", ID: "dns.selector.com"})
 	})
 
 	t.Run("add workload instance", func(t *testing.T) {
@@ -1160,7 +1087,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
 	})
 
 	t.Run("another workload instance", func(t *testing.T) {
@@ -1179,7 +1106,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 			makeInstanceWithServiceAccount(selector, "3.3.3.3", 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"))
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4})
+		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 4})
 	})
 
 	t.Run("delete workload instance", func(t *testing.T) {
@@ -1193,7 +1120,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
 
 		key := instancesKey{namespace: selector.Namespace, hostname: "selector.com"}
 		namespacedName := config.NamespacedName(selector)
@@ -1221,7 +1148,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		instances = []*model.ServiceInstance{}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0})
 
 		if len(sd.serviceInstances.ip2instance) != 0 {
 			t.Fatalf("service instances store `ip2instance` memory leak, expect 0, got %d", len(sd.serviceInstances.ip2instance))
@@ -1243,7 +1170,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "dns.selector.com", namespace: dnsSelector.Namespace, endpoints: 2})
+		expectEvents(t, events, Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace, EndpointCount: 2})
 	})
 }
 
@@ -1261,56 +1188,9 @@ func expectProxyInstances(t testing.TB, sd *Controller, expected []*model.Servic
 	}, retry.Converge(2), retry.Timeout(time.Second*5))
 }
 
-func expectEvents(t testing.TB, ch chan Event, events ...Event) {
-	cmpPushRequest := func(expectReq, gotReq *model.PushRequest) bool {
-		var expectConfigs, gotConfigs sets.Set[model.ConfigKey]
-		if expectReq != nil {
-			expectConfigs = expectReq.ConfigsUpdated
-		}
-		if gotReq != nil {
-			gotConfigs = gotReq.ConfigsUpdated
-		}
-
-		return reflect.DeepEqual(expectConfigs, gotConfigs)
-	}
-
+func expectEvents(t testing.TB, ch *xdsfake.Updater, events ...Event) {
 	t.Helper()
-	edsCacheExpectedEvents := map[Event]bool{}
-	edsCacheGotEvents := map[Event]bool{}
-	for _, event := range events {
-		got := waitForEvent(t, ch)
-		if event.pushReq != nil {
-			if !cmpPushRequest(event.pushReq, got.pushReq) {
-				t.Fatalf("expected event %+v %+v, got %+v %+v", event, event.pushReq, got, got.pushReq)
-			}
-		}
-		// since edscache events could come in non-deterministic order, compare them at the end
-		if event.kind == "edscache" && got.kind == "edscache" {
-			edsCacheExpectedEvents[event] = true
-			edsCacheGotEvents[got] = true
-			continue
-		}
-
-		event.pushReq, got.pushReq = nil, nil
-		if event != got {
-			t.Fatalf("expected event %+v, got %+v", event, got)
-		}
-	}
-	if !reflect.DeepEqual(edsCacheExpectedEvents, edsCacheGotEvents) {
-		t.Fatalf("expected eds cache events %+v, got %+v", edsCacheExpectedEvents, edsCacheGotEvents)
-	}
-	// Drain events
-	for {
-		select {
-		case e := <-ch:
-			t.Logf("ignoring event %+v", e)
-			if len(events) == 0 {
-				t.Fatalf("got unexpected event %+v", e)
-			}
-		default:
-			return
-		}
-	}
+	ch.MatchOrFail(t, events...)
 }
 
 func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
