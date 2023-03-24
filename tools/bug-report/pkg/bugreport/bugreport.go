@@ -55,6 +55,8 @@ import (
 
 const (
 	bugReportDefaultTimeout = 30 * time.Minute
+	istiodDeployment        = "istiod"
+	owningResourceLabel     = "install.operator.istio.io/owning-resource"
 )
 
 var (
@@ -214,7 +216,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 
 func isDistroless(ctx context.Context, client kube.CLIClient, clientset *kubernetes.Clientset, brConfig *config.BugReportConfig) (bool, error) {
 	// Get istiod deployment
-	deploy, err := clientset.AppsV1().Deployments(brConfig.IstioNamespace).Get(ctx, "istiod", metav1.GetOptions{})
+	deploy, err := clientset.AppsV1().Deployments(brConfig.IstioNamespace).Get(ctx, istiodDeployment, metav1.GetOptions{})
 	if err != nil {
 		return false, fmt.Errorf("error while retrieving to Istiod deployment - %v", err)
 	}
@@ -223,7 +225,7 @@ func isDistroless(ctx context.Context, client kube.CLIClient, clientset *kuberne
 	}
 
 	// owning resource is iop
-	owningRes := deploy.Labels["install.operator.istio.io/owning-resource"]
+	owningRes := deploy.Labels[owningResourceLabel]
 	iops, err := client.Dynamic().Resource(constants.IstioOperatorGVR).
 		Namespace(brConfig.IstioNamespace).
 		List(ctx, metav1.ListOptions{})
