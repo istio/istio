@@ -581,7 +581,9 @@ message IngressGatewayConfig {
 
   ServiceAccount serviceAccount = 47;
 
-  // Next available 48.
+  repeated google.protobuf.Struct envSources = 48;
+
+  // Next available 49.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
