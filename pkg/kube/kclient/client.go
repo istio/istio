@@ -203,7 +203,7 @@ type Filter = kubetypes.Filter
 
 // New returns a Client for the given type.
 // Internally, this uses a shared informer, so calling this multiple times will share the same internals.
-func New[T controllers.Object](c kube.Client) Client[T] {
+func New[T controllers.ComparableObject](c kube.Client) Client[T] {
 	return NewFiltered[T](c, Filter{})
 }
 
@@ -213,7 +213,7 @@ func New[T controllers.Object](c kube.Client) Client[T] {
 // Warning: currently, if filter.LabelSelector or filter.FieldSelector are set, the same informer will still be used
 // This means there must only be one filter configuration for a given type using the same kube.Client (generally, this means the whole program).
 // Use with caution.
-func NewFiltered[T controllers.Object](c kube.Client, filter Filter) Client[T] {
+func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) Client[T] {
 	var inf cache.SharedIndexInformer
 	if filter.LabelSelector == "" && filter.FieldSelector == "" {
 		inf = kubeclient.GetInformer[T](c)

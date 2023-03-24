@@ -15,11 +15,9 @@
 package telemetry
 
 import (
-	"istio.io/api/mesh/v1alpha1"
 	telemetryapi "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
-	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -33,7 +31,7 @@ var _ analysis.Analyzer = &ProdiverAnalyzer{}
 func (a *ProdiverAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "telemetry.ProviderAnalyzer",
-		Description: "Validates that providers in telemery resource is valid",
+		Description: "Validates that providers in telemetry resource is valid",
 		Inputs: []config.GroupVersionKind{
 			gvk.Telemetry,
 			gvk.MeshConfig,
@@ -59,14 +57,4 @@ func (a *ProdiverAnalyzer) Analyze(c analysis.Context) {
 			return true
 		})
 	}
-}
-
-func fetchMeshConfig(c analysis.Context) *v1alpha1.MeshConfig {
-	var meshConfig *v1alpha1.MeshConfig
-	c.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
-		meshConfig = r.Message.(*v1alpha1.MeshConfig)
-		return r.Metadata.FullName.Name != util.MeshConfigName
-	})
-
-	return meshConfig
 }

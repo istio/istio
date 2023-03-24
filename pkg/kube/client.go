@@ -87,6 +87,7 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 	"istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kubetypes"
@@ -410,37 +411,41 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 	if err != nil {
 		return nil, err
 	}
-	c.kubeInformer = informers.NewSharedInformerFactory(c.kube, resyncInterval)
+	c.kubeInformer = informers.NewSharedInformerFactoryWithOptions(c.kube, resyncInterval, informers.WithNamespace(features.InformerWatchNamespace))
 
 	c.metadata, err = metadata.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
+	c.metadataInformer = metadatainformer.NewFilteredSharedInformerFactory(c.metadata, resyncInterval, features.InformerWatchNamespace, nil)
 
 	c.dynamic, err = dynamic.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
+	c.dynamicInformer = dynamicinformer.NewFilteredDynamicSharedInformerFactory(c.dynamic, resyncInterval, features.InformerWatchNamespace, nil)
 
 	c.istio, err = istioclient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.istioInformer = istioinformer.NewSharedInformerFactory(c.istio, resyncInterval)
+	c.istioInformer = istioinformer.NewSharedInformerFactoryWithOptions(c.istio, resyncInterval, istioinformer.WithNamespace(features.InformerWatchNamespace))
 
 	c.gatewayapi, err = gatewayapiclient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
+	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactoryWithOptions(
+		c.gatewayapi,
+		resyncInterval,
+		gatewayapiinformer.WithNamespace(features.InformerWatchNamespace),
+	)
 
 	c.extSet, err = kubeExtClient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.extInformer = kubeExtInformers.NewSharedInformerFactory(c.extSet, resyncInterval)
+	c.extInformer = kubeExtInformers.NewSharedInformerFactoryWithOptions(c.extSet, resyncInterval, kubeExtInformers.WithNamespace(features.InformerWatchNamespace))
 
 	c.portManager = defaultAvailablePort
 

@@ -39,6 +39,17 @@ type Object interface {
 	runtime.Object
 }
 
+type ComparableObject interface {
+	comparable
+	Object
+}
+
+// IsNil works around comparing generic types
+func IsNil[O ComparableObject](o O) bool {
+	var t O
+	return o == t
+}
+
 // UnstructuredToGVR extracts the GVR of an unstructured resource. This is useful when using dynamic
 // clients.
 func UnstructuredToGVR(u unstructured.Unstructured) (schema.GroupVersionResource, error) {
@@ -315,3 +326,14 @@ func (e EventHandler[T]) OnDelete(obj interface{}) {
 }
 
 var _ cache.ResourceEventHandler = EventHandler[Object]{}
+
+type Shutdowner interface {
+	ShutdownHandlers()
+}
+
+// ShutdownAll is a simple helper to shutdown all informers
+func ShutdownAll(s ...Shutdowner) {
+	for _, h := range s {
+		h.ShutdownHandlers()
+	}
+}

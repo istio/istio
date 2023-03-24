@@ -429,7 +429,7 @@ spec:
 									mtlsString = "plaintext"
 								}
 								testName := fmt.Sprintf("%s/%s(%s)", mtlsString, p.Name, allow)
-								t.NewSubTest(testName).RunParallel(func(t framework.TestContext) {
+								t.NewSubTest(testName).Run(func(t framework.TestContext) {
 									from.CallOrFail(t, opts)
 								})
 							}

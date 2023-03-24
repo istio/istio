@@ -12,23 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package kclient
 
 import (
 	"sync"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // Index maintains a simple index over an informer
-type Index[O runtime.Object, K comparable] struct {
-	mu       sync.RWMutex
-	objects  map[K]sets.String
-	informer cache.SharedIndexInformer
+type Index[O controllers.ComparableObject, K comparable] struct {
+	mu      sync.RWMutex
+	objects map[K]sets.Set[types.NamespacedName]
+	client  Reader[O]
 }
 
 // Lookup finds all objects matching a given key
@@ -37,39 +38,39 @@ func (i *Index[O, K]) Lookup(k K) []O {
 	defer i.mu.RUnlock()
 	res := make([]O, 0)
 	for obj := range i.objects[k] {
-		item, f, err := i.informer.GetStore().GetByKey(obj)
-		if !f || err != nil {
+		item := i.client.Get(obj.Name, obj.Namespace)
+		if controllers.IsNil(item) {
 			// This should be extremely rare, maybe impossible due to the mutex.
 			continue
 		}
-		res = append(res, item.(O))
+		res = append(res, item)
 	}
 	return res
 }
 
 // CreateIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
-func CreateIndex[O runtime.Object, K comparable](
-	informer cache.SharedIndexInformer,
+func CreateIndex[O controllers.ComparableObject, K comparable](
+	client Reader[O],
 	extract func(o O) []K,
 ) *Index[O, K] {
 	idx := Index[O, K]{
-		objects:  make(map[K]sets.String),
-		informer: informer,
-		mu:       sync.RWMutex{},
+		objects: make(map[K]sets.Set[types.NamespacedName]),
+		client:  client,
+		mu:      sync.RWMutex{},
 	}
 	addObj := func(obj any) {
-		ro := ExtractObject(obj)
+		ro := controllers.ExtractObject(obj)
 		o := ro.(O)
-		objectKey := kube.KeyFunc(ro.GetName(), ro.GetNamespace())
+		objectKey := config.NamespacedName(o)
 		for _, indexKey := range extract(o) {
 			sets.InsertOrNew(idx.objects, indexKey, objectKey)
 		}
 	}
 	deleteObj := func(obj any) {
-		ro := ExtractObject(obj)
+		ro := controllers.ExtractObject(obj)
 		o := ro.(O)
-		objectKey := kube.KeyFunc(ro.GetName(), ro.GetNamespace())
+		objectKey := config.NamespacedName(o)
 		for _, indexKey := range extract(o) {
 			sets.DeleteCleanupLast(idx.objects, indexKey, objectKey)
 		}
@@ -92,6 +93,6 @@ func CreateIndex[O runtime.Object, K comparable](
 			deleteObj(obj)
 		},
 	}
-	_, _ = informer.AddEventHandler(handler)
+	client.AddEventHandler(handler)
 	return &idx
 }

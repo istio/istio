@@ -120,7 +120,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 func (c *controller) Run(stop <-chan struct{}) {
 	kube.WaitForCacheSync(stop, c.ingress.HasSynced, c.services.HasSynced, c.classes.HasSynced)
 	c.queue.Run(stop)
-	c.ingress.ShutdownHandlers()
+	controllers.ShutdownAll(c.ingress, c.services, c.classes)
 }
 
 func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetworking.Ingress) (bool, error) {
