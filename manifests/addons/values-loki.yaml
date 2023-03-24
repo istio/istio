@@ -1,4 +1,5 @@
-# use single binary for test, do not use in production
+# use single binary and filesystem storage for test
+# do not use in production
 loki:
   auth_enabled: false
   commonConfig:
