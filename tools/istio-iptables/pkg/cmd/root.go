@@ -45,7 +45,7 @@ var (
 	InvalidDropByIptables = env.Register("INVALID_DROP", false,
 		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
 	DualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
-		"Enable pilot-agent to work in dual-stack clusters").Get()
+		"If true, Istio will enable the Dual Stack feature.").Get()
 )
 
 // mock net.InterfaceAddrs to make its unit test become available
