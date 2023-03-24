@@ -40,7 +40,7 @@ import (
 
 var (
 	gatewayClassSpec = &k8s.GatewayClassSpec{
-		ControllerName: ControllerName,
+		ControllerName: constants.ManagedGatewayController,
 	}
 	gatewaySpec = &k8s.GatewaySpec{
 		GatewayClassName: "gwclass",

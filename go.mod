@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.19
+go 1.20
 
 // https://github.com/containerd/containerd/issues/5781
 exclude k8s.io/kubernetes v1.13.0
@@ -88,8 +88,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.11.2
-	istio.io/api v0.0.0-20230316155820-2516db52690d
-	istio.io/client-go v1.18.0-alpha.0.0.20230317130440-7b6637c2a8d9
+	istio.io/api v0.0.0-20230323183659-6eff78243ee1
+	istio.io/client-go v1.18.0-alpha.0.0.20230323184059-3413c7662259
 	istio.io/pkg v0.0.0-20230313170827-f8c589fa0294
 	k8s.io/api v0.27.0-alpha.3
 	k8s.io/apiextensions-apiserver v0.26.2

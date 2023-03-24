@@ -27,6 +27,8 @@ import (
 	"istio.io/pkg/log"
 )
 
+type DiscoveryFilter func(obj any) bool
+
 // DiscoveryNamespacesFilter tracks the set of namespaces selected for discovery, which are updated by the discovery namespace controller.
 // It exposes a filter function used for filtering out objects that don't reside in namespaces selected for discovery.
 type DiscoveryNamespacesFilter interface {

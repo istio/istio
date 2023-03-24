@@ -184,30 +184,25 @@ spec:
           name: istio-ca-root-cert
         name: istiod-ca-cert
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
+apiVersion: v1
+kind: Service
 metadata:
-  creationTimestamp: null
-  name: namespace
+  annotations: {}
+  labels:
+    gateway.istio.io/managed: istio.io-mesh-controller
+  name: namespace-istio-waypoint
   namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: namespace
+    uid: ""
 spec:
-  gatewayClassName: ""
-  listeners: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Deployed waypoint proxy to "default" namespace
-    reason: Accepted
-    status: "True"
-    type: Accepted
-  - lastTransitionTime: fake
-    message: Deployed waypoint proxy to "default" namespace
-    reason: Programmed
-    status: "True"
-    type: Programmed
-  - lastTransitionTime: fake
-    message: Deployed waypoint proxy to "default" namespace
-    reason: Ready
-    status: "True"
-    type: Ready
+  ports:
+  - appProtocol: https
+    name: https-hbone
+    port: 15008
+    protocol: TCP
+  selector:
+    istio.io/gateway-name: namespace
 ---

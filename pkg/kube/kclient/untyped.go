@@ -34,7 +34,7 @@ func NewUntyped(c kube.Client, inf cache.SharedIndexInformer, filter Filter) Unt
 	return ptr.Of(newReadClient[controllers.Object](c, inf, filter))
 }
 
-func newReadClient[T controllers.Object](c kube.Client, inf cache.SharedIndexInformer, filter Filter) readClient[T] {
+func newReadClient[T controllers.ComparableObject](c kube.Client, inf cache.SharedIndexInformer, filter Filter) readClient[T] {
 	i := *new(T)
 	t := reflect.TypeOf(i)
 	if err := c.RegisterFilter(t, filter); err != nil {

@@ -1539,6 +1539,30 @@ data:
                 - name: {{ . }}
                 {{- end }}
               {{- end }}
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          annotations:
+            {{ toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
+          labels:
+            {{ toJsonMap .Labels | nindent 4}}
+          name: {{.DeploymentName | quote}}
+          namespace: {{.Namespace | quote}}
+          ownerReferences:
+          - apiVersion: gateway.networking.k8s.io/v1beta1
+            kind: Gateway
+            name: "{{.Name}}"
+            uid: "{{.UID}}"
+        spec:
+          ports:
+          - name: https-hbone
+            port: 15008
+            protocol: TCP
+            appProtocol: https
+          selector:
+            istio.io/gateway-name: "{{.Name}}"
+        ---
       kube-gateway: |
         apiVersion: v1
         kind: ServiceAccount
@@ -1832,7 +1856,7 @@ data:
           name: {{.DeploymentName | quote}}
           namespace: {{.Namespace | quote}}
           ownerReferences:
-          - apiVersion: gateway.networking.k8s.io/v1alpha2
+          - apiVersion: gateway.networking.k8s.io/v1beta1
             kind: Gateway
             name: {{.Name}}
             uid: {{.UID}}
@@ -1911,18 +1935,6 @@ rules:
     verbs: ["create", "get", "list", "watch", "update"]
 
   # Istiod and bootstrap.
-  - apiGroups: ["certificates.k8s.io"]
-    resources:
-      - "certificatesigningrequests"
-      - "certificatesigningrequests/approval"
-      - "certificatesigningrequests/status"
-    verbs: ["update", "create", "get", "delete", "watch"]
-  - apiGroups: ["certificates.k8s.io"]
-    resources:
-      - "signers"
-    resourceNames:
-    - "kubernetes.io/legacy-unknown"
-    verbs: ["approve"]
 
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]

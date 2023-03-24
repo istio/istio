@@ -237,10 +237,6 @@ var (
 	// Description: More than one telemetry resource in a namespace has no workload selector
 	MultipleTelemetriesWithoutWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0160", "The Telemetries %v in namespace %q have no workload selector, which can lead to undefined behavior.")
 
-	// DeprecatedLightstepProvider defines a diag.MessageType for message "DeprecatedLightstepProvider".
-	// Description: Lightstep provider is still being used
-	DeprecatedLightstepProvider = diag.NewMessageType(diag.Warning, "IST0161", "The Lightstep provider %s is deprecated, please migrate to OpenTelemetry provider.")
-
 	// InvalidGatewayCredential defines a diag.MessageType for message "InvalidGatewayCredential".
 	// Description: The credential provided for the Gateway resource is invalid
 	InvalidGatewayCredential = diag.NewMessageType(diag.Error, "IST0162", "The credential referenced by the Gateway %s in namespace %s is invalid, which can cause the traffic not to work as expected.")
@@ -306,7 +302,6 @@ func All() []*diag.MessageType {
 		PodsIstioProxyImageMismatchInNamespace,
 		ConflictingTelemetryWorkloadSelectors,
 		MultipleTelemetriesWithoutWorkloadSelectors,
-		DeprecatedLightstepProvider,
 		InvalidGatewayCredential,
 	}
 }
@@ -868,15 +863,6 @@ func NewMultipleTelemetriesWithoutWorkloadSelectors(r *resource.Instance, confli
 		r,
 		conflictingTelemetries,
 		namespace,
-	)
-}
-
-// NewDeprecatedLightstepProvider returns a new diag.Message based on DeprecatedLightstepProvider.
-func NewDeprecatedLightstepProvider(r *resource.Instance, providerName string) diag.Message {
-	return diag.NewMessage(
-		DeprecatedLightstepProvider,
-		r,
-		providerName,
 	)
 }
 

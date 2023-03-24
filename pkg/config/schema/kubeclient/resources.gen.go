@@ -10,6 +10,7 @@ import (
 
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
@@ -29,11 +30,11 @@ import (
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 
-	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
-	istioioapinetworkingv1alpha3 "istio.io/api/networking/v1alpha3"
-	istioioapinetworkingv1beta1 "istio.io/api/networking/v1beta1"
-	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
-	istioioapitelemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
+	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	apiistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
+	apiistioioapisecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
+	apiistioioapitelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 	ktypes "istio.io/istio/pkg/kube/kubetypes"
@@ -74,25 +75,27 @@ type ClientGetter interface {
 
 func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
 	switch any(ptr.Empty[T]()).(type) {
-	case *istioioapisecurityv1beta1.AuthorizationPolicy:
+	case *apiistioioapisecurityv1beta1.AuthorizationPolicy:
 		return c.Istio().SecurityV1beta1().AuthorizationPolicies(namespace).(ktypes.WriteAPI[T])
+	case *k8sioapicertificatesv1.CertificateSigningRequest:
+		return c.Kube().CertificatesV1().CertificateSigningRequests().(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.ConfigMap:
 		return c.Kube().CoreV1().ConfigMaps(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition:
 		return c.Ext().ApiextensionsV1().CustomResourceDefinitions().(ktypes.WriteAPI[T])
 	case *k8sioapiappsv1.Deployment:
 		return c.Kube().AppsV1().Deployments(namespace).(ktypes.WriteAPI[T])
-	case *istioioapinetworkingv1alpha3.DestinationRule:
+	case *apiistioioapinetworkingv1alpha3.DestinationRule:
 		return c.Istio().NetworkingV1alpha3().DestinationRules(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapidiscoveryv1.EndpointSlice:
 		return c.Kube().DiscoveryV1().EndpointSlices(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.Endpoints:
 		return c.Kube().CoreV1().Endpoints(namespace).(ktypes.WriteAPI[T])
-	case *istioioapinetworkingv1alpha3.EnvoyFilter:
+	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.GRPCRoute:
 		return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(namespace).(ktypes.WriteAPI[T])
-	case *istioioapinetworkingv1alpha3.Gateway:
+	case *apiistioioapinetworkingv1alpha3.Gateway:
 		return c.Istio().NetworkingV1alpha3().Gateways(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
 		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().(ktypes.WriteAPI[T])
@@ -110,15 +113,15 @@ func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteA
 		return c.Kube().CoreV1().Namespaces().(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.Node:
 		return c.Kube().CoreV1().Nodes().(ktypes.WriteAPI[T])
-	case *istioioapisecurityv1beta1.PeerAuthentication:
+	case *apiistioioapisecurityv1beta1.PeerAuthentication:
 		return c.Istio().SecurityV1beta1().PeerAuthentications(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.Pod:
 		return c.Kube().CoreV1().Pods(namespace).(ktypes.WriteAPI[T])
-	case *istioioapinetworkingv1beta1.ProxyConfig:
+	case *apiistioioapinetworkingv1beta1.ProxyConfig:
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.ReferenceGrant:
 		return c.GatewayAPI().GatewayV1alpha2().ReferenceGrants(namespace).(ktypes.WriteAPI[T])
-	case *istioioapisecurityv1beta1.RequestAuthentication:
+	case *apiistioioapisecurityv1beta1.RequestAuthentication:
 		return c.Istio().SecurityV1beta1().RequestAuthentications(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.Secret:
 		return c.Kube().CoreV1().Secrets(namespace).(ktypes.WriteAPI[T])
@@ -126,25 +129,25 @@ func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteA
 		return c.Kube().CoreV1().Services(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.ServiceAccount:
 		return c.Kube().CoreV1().ServiceAccounts(namespace).(ktypes.WriteAPI[T])
-	case *istioioapinetworkingv1alpha3.ServiceEntry:
+	case *apiistioioapinetworkingv1alpha3.ServiceEntry:
 		return c.Istio().NetworkingV1alpha3().ServiceEntries(namespace).(ktypes.WriteAPI[T])
-	case *istioioapinetworkingv1alpha3.Sidecar:
+	case *apiistioioapinetworkingv1alpha3.Sidecar:
 		return c.Istio().NetworkingV1alpha3().Sidecars(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.TLSRoute:
 		return c.GatewayAPI().GatewayV1alpha2().TLSRoutes(namespace).(ktypes.WriteAPI[T])
-	case *istioioapitelemetryv1alpha1.Telemetry:
+	case *apiistioioapitelemetryv1alpha1.Telemetry:
 		return c.Istio().TelemetryV1alpha1().Telemetries(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).(ktypes.WriteAPI[T])
-	case *istioioapinetworkingv1alpha3.VirtualService:
+	case *apiistioioapinetworkingv1alpha3.VirtualService:
 		return c.Istio().NetworkingV1alpha3().VirtualServices(namespace).(ktypes.WriteAPI[T])
-	case *istioioapiextensionsv1alpha1.WasmPlugin:
+	case *apiistioioapiextensionsv1alpha1.WasmPlugin:
 		return c.Istio().ExtensionsV1alpha1().WasmPlugins(namespace).(ktypes.WriteAPI[T])
-	case *istioioapinetworkingv1alpha3.WorkloadEntry:
+	case *apiistioioapinetworkingv1alpha3.WorkloadEntry:
 		return c.Istio().NetworkingV1alpha3().WorkloadEntries(namespace).(ktypes.WriteAPI[T])
-	case *istioioapinetworkingv1alpha3.WorkloadGroup:
+	case *apiistioioapinetworkingv1alpha3.WorkloadGroup:
 		return c.Istio().NetworkingV1alpha3().WorkloadGroups(namespace).(ktypes.WriteAPI[T])
 	default:
 		panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
@@ -156,12 +159,19 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 	var w func(options metav1.ListOptions) (watch.Interface, error)
 
 	switch any(ptr.Empty[T]()).(type) {
-	case *istioioapisecurityv1beta1.AuthorizationPolicy:
+	case *apiistioioapisecurityv1beta1.AuthorizationPolicy:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().SecurityV1beta1().AuthorizationPolicies("").List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().SecurityV1beta1().AuthorizationPolicies("").Watch(context.Background(), options)
+		}
+	case *k8sioapicertificatesv1.CertificateSigningRequest:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CertificatesV1().CertificateSigningRequests().List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CertificatesV1().CertificateSigningRequests().Watch(context.Background(), options)
 		}
 	case *k8sioapicorev1.ConfigMap:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
@@ -184,7 +194,7 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().AppsV1().Deployments("").Watch(context.Background(), options)
 		}
-	case *istioioapinetworkingv1alpha3.DestinationRule:
+	case *apiistioioapinetworkingv1alpha3.DestinationRule:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().NetworkingV1alpha3().DestinationRules("").List(context.Background(), options)
 		}
@@ -205,7 +215,7 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().CoreV1().Endpoints("").Watch(context.Background(), options)
 		}
-	case *istioioapinetworkingv1alpha3.EnvoyFilter:
+	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().NetworkingV1alpha3().EnvoyFilters("").List(context.Background(), options)
 		}
@@ -219,7 +229,7 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes("").Watch(context.Background(), options)
 		}
-	case *istioioapinetworkingv1alpha3.Gateway:
+	case *apiistioioapinetworkingv1alpha3.Gateway:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().NetworkingV1alpha3().Gateways("").List(context.Background(), options)
 		}
@@ -282,7 +292,7 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().CoreV1().Nodes().Watch(context.Background(), options)
 		}
-	case *istioioapisecurityv1beta1.PeerAuthentication:
+	case *apiistioioapisecurityv1beta1.PeerAuthentication:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().SecurityV1beta1().PeerAuthentications("").List(context.Background(), options)
 		}
@@ -296,7 +306,7 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().CoreV1().Pods("").Watch(context.Background(), options)
 		}
-	case *istioioapinetworkingv1beta1.ProxyConfig:
+	case *apiistioioapinetworkingv1beta1.ProxyConfig:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().NetworkingV1beta1().ProxyConfigs("").List(context.Background(), options)
 		}
@@ -310,7 +320,7 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.GatewayAPI().GatewayV1alpha2().ReferenceGrants("").Watch(context.Background(), options)
 		}
-	case *istioioapisecurityv1beta1.RequestAuthentication:
+	case *apiistioioapisecurityv1beta1.RequestAuthentication:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().SecurityV1beta1().RequestAuthentications("").List(context.Background(), options)
 		}
@@ -338,14 +348,14 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().CoreV1().ServiceAccounts("").Watch(context.Background(), options)
 		}
-	case *istioioapinetworkingv1alpha3.ServiceEntry:
+	case *apiistioioapinetworkingv1alpha3.ServiceEntry:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().NetworkingV1alpha3().ServiceEntries("").List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().NetworkingV1alpha3().ServiceEntries("").Watch(context.Background(), options)
 		}
-	case *istioioapinetworkingv1alpha3.Sidecar:
+	case *apiistioioapinetworkingv1alpha3.Sidecar:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().NetworkingV1alpha3().Sidecars("").List(context.Background(), options)
 		}
@@ -366,7 +376,7 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.GatewayAPI().GatewayV1alpha2().TLSRoutes("").Watch(context.Background(), options)
 		}
-	case *istioioapitelemetryv1alpha1.Telemetry:
+	case *apiistioioapitelemetryv1alpha1.Telemetry:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().TelemetryV1alpha1().Telemetries("").List(context.Background(), options)
 		}
@@ -380,28 +390,28 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.GatewayAPI().GatewayV1alpha2().UDPRoutes("").Watch(context.Background(), options)
 		}
-	case *istioioapinetworkingv1alpha3.VirtualService:
+	case *apiistioioapinetworkingv1alpha3.VirtualService:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().NetworkingV1alpha3().VirtualServices("").List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().NetworkingV1alpha3().VirtualServices("").Watch(context.Background(), options)
 		}
-	case *istioioapiextensionsv1alpha1.WasmPlugin:
+	case *apiistioioapiextensionsv1alpha1.WasmPlugin:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().ExtensionsV1alpha1().WasmPlugins("").List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().ExtensionsV1alpha1().WasmPlugins("").Watch(context.Background(), options)
 		}
-	case *istioioapinetworkingv1alpha3.WorkloadEntry:
+	case *apiistioioapinetworkingv1alpha3.WorkloadEntry:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().NetworkingV1alpha3().WorkloadEntries("").List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().NetworkingV1alpha3().WorkloadEntries("").Watch(context.Background(), options)
 		}
-	case *istioioapinetworkingv1alpha3.WorkloadGroup:
+	case *apiistioioapinetworkingv1alpha3.WorkloadGroup:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().NetworkingV1alpha3().WorkloadGroups("").List(context.Background(), options)
 		}
@@ -434,25 +444,27 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 
 func GetInformer[T runtime.Object](c ClientGetter) cache.SharedIndexInformer {
 	switch any(ptr.Empty[T]()).(type) {
-	case *istioioapisecurityv1beta1.AuthorizationPolicy:
+	case *apiistioioapisecurityv1beta1.AuthorizationPolicy:
 		return c.IstioInformer().Security().V1beta1().AuthorizationPolicies().Informer()
+	case *k8sioapicertificatesv1.CertificateSigningRequest:
+		return c.KubeInformer().Certificates().V1().CertificateSigningRequests().Informer()
 	case *k8sioapicorev1.ConfigMap:
 		return c.KubeInformer().Core().V1().ConfigMaps().Informer()
 	case *k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition:
 		return c.ExtInformer().Apiextensions().V1().CustomResourceDefinitions().Informer()
 	case *k8sioapiappsv1.Deployment:
 		return c.KubeInformer().Apps().V1().Deployments().Informer()
-	case *istioioapinetworkingv1alpha3.DestinationRule:
+	case *apiistioioapinetworkingv1alpha3.DestinationRule:
 		return c.IstioInformer().Networking().V1alpha3().DestinationRules().Informer()
 	case *k8sioapidiscoveryv1.EndpointSlice:
 		return c.KubeInformer().Discovery().V1().EndpointSlices().Informer()
 	case *k8sioapicorev1.Endpoints:
 		return c.KubeInformer().Core().V1().Endpoints().Informer()
-	case *istioioapinetworkingv1alpha3.EnvoyFilter:
+	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
 		return c.IstioInformer().Networking().V1alpha3().EnvoyFilters().Informer()
 	case *sigsk8siogatewayapiapisv1alpha2.GRPCRoute:
 		return c.GatewayAPIInformer().Gateway().V1alpha2().GRPCRoutes().Informer()
-	case *istioioapinetworkingv1alpha3.Gateway:
+	case *apiistioioapinetworkingv1alpha3.Gateway:
 		return c.IstioInformer().Networking().V1alpha3().Gateways().Informer()
 	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
 		return c.GatewayAPIInformer().Gateway().V1beta1().GatewayClasses().Informer()
@@ -470,15 +482,15 @@ func GetInformer[T runtime.Object](c ClientGetter) cache.SharedIndexInformer {
 		return c.KubeInformer().Core().V1().Namespaces().Informer()
 	case *k8sioapicorev1.Node:
 		return c.KubeInformer().Core().V1().Nodes().Informer()
-	case *istioioapisecurityv1beta1.PeerAuthentication:
+	case *apiistioioapisecurityv1beta1.PeerAuthentication:
 		return c.IstioInformer().Security().V1beta1().PeerAuthentications().Informer()
 	case *k8sioapicorev1.Pod:
 		return c.KubeInformer().Core().V1().Pods().Informer()
-	case *istioioapinetworkingv1beta1.ProxyConfig:
+	case *apiistioioapinetworkingv1beta1.ProxyConfig:
 		return c.IstioInformer().Networking().V1beta1().ProxyConfigs().Informer()
 	case *sigsk8siogatewayapiapisv1alpha2.ReferenceGrant:
 		return c.GatewayAPIInformer().Gateway().V1alpha2().ReferenceGrants().Informer()
-	case *istioioapisecurityv1beta1.RequestAuthentication:
+	case *apiistioioapisecurityv1beta1.RequestAuthentication:
 		return c.IstioInformer().Security().V1beta1().RequestAuthentications().Informer()
 	case *k8sioapicorev1.Secret:
 		return c.KubeInformer().Core().V1().Secrets().Informer()
@@ -486,25 +498,25 @@ func GetInformer[T runtime.Object](c ClientGetter) cache.SharedIndexInformer {
 		return c.KubeInformer().Core().V1().Services().Informer()
 	case *k8sioapicorev1.ServiceAccount:
 		return c.KubeInformer().Core().V1().ServiceAccounts().Informer()
-	case *istioioapinetworkingv1alpha3.ServiceEntry:
+	case *apiistioioapinetworkingv1alpha3.ServiceEntry:
 		return c.IstioInformer().Networking().V1alpha3().ServiceEntries().Informer()
-	case *istioioapinetworkingv1alpha3.Sidecar:
+	case *apiistioioapinetworkingv1alpha3.Sidecar:
 		return c.IstioInformer().Networking().V1alpha3().Sidecars().Informer()
 	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
 		return c.GatewayAPIInformer().Gateway().V1alpha2().TCPRoutes().Informer()
 	case *sigsk8siogatewayapiapisv1alpha2.TLSRoute:
 		return c.GatewayAPIInformer().Gateway().V1alpha2().TLSRoutes().Informer()
-	case *istioioapitelemetryv1alpha1.Telemetry:
+	case *apiistioioapitelemetryv1alpha1.Telemetry:
 		return c.IstioInformer().Telemetry().V1alpha1().Telemetries().Informer()
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return c.GatewayAPIInformer().Gateway().V1alpha2().UDPRoutes().Informer()
-	case *istioioapinetworkingv1alpha3.VirtualService:
+	case *apiistioioapinetworkingv1alpha3.VirtualService:
 		return c.IstioInformer().Networking().V1alpha3().VirtualServices().Informer()
-	case *istioioapiextensionsv1alpha1.WasmPlugin:
+	case *apiistioioapiextensionsv1alpha1.WasmPlugin:
 		return c.IstioInformer().Extensions().V1alpha1().WasmPlugins().Informer()
-	case *istioioapinetworkingv1alpha3.WorkloadEntry:
+	case *apiistioioapinetworkingv1alpha3.WorkloadEntry:
 		return c.IstioInformer().Networking().V1alpha3().WorkloadEntries().Informer()
-	case *istioioapinetworkingv1alpha3.WorkloadGroup:
+	case *apiistioioapinetworkingv1alpha3.WorkloadGroup:
 		return c.IstioInformer().Networking().V1alpha3().WorkloadGroups().Informer()
 	default:
 		panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))

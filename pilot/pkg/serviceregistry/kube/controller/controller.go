@@ -17,7 +17,6 @@ package controller
 import (
 	"fmt"
 	"net"
-	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -154,7 +153,7 @@ type Options struct {
 	ConfigController model.ConfigStoreController
 }
 
-func (o *Options) GetFilter() func(t any) bool {
+func (o *Options) GetFilter() namespace.DiscoveryFilter {
 	if o.DiscoveryNamespacesFilter != nil {
 		return o.DiscoveryNamespacesFilter.Filter
 	}
@@ -634,13 +633,13 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 // FilterOutFunc func for filtering out objects during update callback
 type FilterOutFunc[T controllers.Object] func(old, cur T) bool
 
-func registerHandlers[T controllers.Object](c *Controller,
+func registerHandlers[T controllers.ComparableObject](c *Controller,
 	informer kclient.Reader[T], otype string,
 	handler func(T, T, model.Event) error, filter FilterOutFunc[T],
 ) {
 	wrappedHandler := func(prev, curr T, event model.Event) error {
 		curr = informer.Get(curr.GetName(), curr.GetNamespace())
-		if reflect.ValueOf(curr).IsNil() {
+		if controllers.IsNil(curr) {
 			// this can happen when an immediate delete after update
 			// the delete event can be handled later
 			return nil
