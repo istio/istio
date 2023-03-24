@@ -26,7 +26,7 @@ ADDONS="${WD}/../../samples/addons"
 DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
 TMP=$(mktemp -d)
-LOKI_VERSION=${LOKI_VERSION:-"2.9.9"}
+LOKI_VERSION=${LOKI_VERSION:-"4.8.0"}
 
 # Set up kiali
 {
@@ -86,7 +86,7 @@ function compressDashboard() {
 
 # Set up loki
 {
-  helm3 template loki loki-stack \
+  helm3 template loki loki \
     --namespace istio-system \
     --version "${LOKI_VERSION}" \
     --repo https://grafana.github.io/helm-charts \

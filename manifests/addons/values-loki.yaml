@@ -1,26 +1,31 @@
-test_pod:
-  enabled: false
-
+# use single binary for test, do not use in production
 loki:
-  enabled: true
-  isDefault: true
-  datasource:
-    jsonData:
-
-promtail:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: 'filesystem'
+test:
   enabled: false
-
-fluent-bit:
+monitoring:
+  dashboards:
+    enabled: false
+  rules:
+    enabled: false
+    alerting: false
+  serviceMonitor:
+    enabled: false
+    metricsInstance:
+      enabled: false
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+      enableConfigReadAPI: false
+  lokiCanary:
+    enabled: false
+singleBinary:
+  replicas: 1
+gateway:
   enabled: false
-
-grafana:
-  enabled: false
-
-prometheus:
-  enabled: false
-
-filebeat:
-  enabled: false
-
-logstash:
-  enabled: false
+  
