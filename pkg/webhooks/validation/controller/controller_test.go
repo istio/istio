@@ -161,8 +161,6 @@ func createTestController(t *testing.T) (*Controller, *atomic.Pointer[error]) {
 		CABundleWatcher:  watcher,
 		Revision:         revision,
 		ServiceName:      "istiod",
-		Backoff:          0,
-		Retries:          0,
 	}, c)
 	stop := test.NewStop(t)
 	c.RunAndWait(stop)
