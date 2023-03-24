@@ -131,7 +131,7 @@ func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, et string) *FakeXdsEvent {
 			log.Infof("skipping event %q want %q", e.Type, et)
 			continue
 		case <-time.After(time.Second * 5):
-			return nil
+			t.Fatalf("timed out waiting for %v", et)
 		}
 	}
 }

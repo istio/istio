@@ -1,0 +1,6 @@
+extensionProviders:
+  - name: lightstep
+    lightstep:
+      service: lightstep.monitoring.svc.cluster.local
+      port: 443
+      accessToken: "fake-token"

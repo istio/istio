@@ -683,7 +683,7 @@ var (
 
 	AutoReloadPluginCerts = env.Register(
 		"AUTO_RELOAD_PLUGIN_CERTS",
-		false,
+		true,
 		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart istiod to pick up certs."+
 			"Istiod picks newly added intermediate plug-in CA certs and updates it. Plug-in new Root-CA not supported.").Get()
 
@@ -753,6 +753,10 @@ var (
 
 	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
 		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
+
+	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
+		"If set, limit Kubernetes watches to a single namespace. "+
+			"Warning: only a single namespace can be set.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

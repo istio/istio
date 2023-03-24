@@ -53,6 +53,7 @@ func TestAmbientIndex(t *testing.T) {
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"}),
+		ClusterID:        "cluster0",
 	})
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
@@ -165,6 +166,7 @@ func TestAmbientIndex(t *testing.T) {
 			CanonicalRevision: "latest",
 			WorkloadType:      workloadapi.WorkloadType_POD,
 			WorkloadName:      "name3",
+			ClusterId:         "cluster0",
 		},
 	}})
 	assertEvent("127.0.0.2")

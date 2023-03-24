@@ -13,7 +13,13 @@
 // limitations under the License.
 package telemetry
 
-import "istio.io/istio/pkg/config/resource"
+import (
+	"istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
+)
 
 func getNames(entries []*resource.Instance) []string {
 	names := make([]string, 0, len(entries))
@@ -21,4 +27,14 @@ func getNames(entries []*resource.Instance) []string {
 		names = append(names, string(rs.Metadata.FullName.Name))
 	}
 	return names
+}
+
+func fetchMeshConfig(c analysis.Context) *v1alpha1.MeshConfig {
+	var meshConfig *v1alpha1.MeshConfig
+	c.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
+		meshConfig = r.Message.(*v1alpha1.MeshConfig)
+		return r.Metadata.FullName.Name != util.MeshConfigName
+	})
+
+	return meshConfig
 }

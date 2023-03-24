@@ -22,7 +22,6 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -378,7 +378,6 @@ func (ic *serviceImportCacheImpl) getServiceImport(t *testing.T) *mcsapi.Service
 
 func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 	t.Helper()
-	g := NewWithT(t)
 
 	si := ic.getServiceImport(t)
 
@@ -392,7 +391,7 @@ func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 	}
 
 	instances := ic.getProxyServiceInstances()
-	g.Expect(instances).To(HaveLen(expectedServiceCount))
+	assert.Equal(t, len(instances), expectedServiceCount)
 
 	for _, inst := range instances {
 		svc := inst.Service
@@ -401,7 +400,7 @@ func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 				t.Fatalf("found ServiceInstance for unimported service %s", serviceImportClusterSetHost)
 			}
 			// Check the ClusterSet IPs.
-			g.Expect(svc.ClusterVIPs.GetAddressesFor(ic.Cluster())).To(Equal(expectedIPs))
+			assert.Equal(t, svc.ClusterVIPs.GetAddressesFor(ic.Cluster()), expectedIPs)
 			return
 		}
 	}
@@ -504,8 +503,7 @@ func (ic *serviceImportCacheImpl) unimportService(t *testing.T) {
 }
 
 func (ic *serviceImportCacheImpl) isImported(name types.NamespacedName) bool {
-	item, _, _ := ic.filteredInformer.GetIndexer().GetByKey(name.String())
-	return item != nil
+	return ic.serviceImports.Get(name.Name, name.Namespace) != nil
 }
 
 func (ic *serviceImportCacheImpl) checkXDS(t test.Failer) error {

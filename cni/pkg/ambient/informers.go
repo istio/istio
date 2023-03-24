@@ -16,20 +16,15 @@ package ambient
 
 import (
 	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	informersv1 "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
-	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/cni/pkg/ambient/ambientpod"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 var ErrLegacyLabel = "Namespace %s has sidecar label istio-injection or istio.io/rev " +
@@ -43,24 +38,14 @@ func (s *Server) setupHandlers() {
 	)
 
 	// We only need to handle pods on our node
-	podInformer := s.kubeClient.KubeInformer().InformerFor(&corev1.Pod{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
-		return informersv1.NewFilteredPodInformer(
-			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
-			func(options *metav1.ListOptions) {
-				options.FieldSelector = "spec.nodeName=" + NodeName
-			},
-		)
-	})
-	_ = podInformer.SetTransform(kube.StripUnusedFields)
-	_, _ = podInformer.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
+	s.pods = kclient.NewFiltered[*corev1.Pod](s.kubeClient, kclient.Filter{FieldSelector: "spec.nodeName=" + NodeName})
+	s.pods.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
 		s.queue.Add(o)
 	}))
-	s.podLister = listerv1.NewPodLister(podInformer.GetIndexer())
 
 	// Namespaces could be anything though, so we watch all of those
-	ns := s.kubeClient.KubeInformer().Core().V1().Namespaces()
-	s.nsLister = ns.Lister()
-	_, _ = ns.Informer().AddEventHandler(controllers.ObjectHandler(s.EnqueueNamespace))
+	s.namespaces = kclient.New[*corev1.Namespace](s.kubeClient)
+	s.namespaces.AddEventHandler(controllers.ObjectHandler(s.EnqueueNamespace))
 }
 
 func (s *Server) Run(stop <-chan struct{}) {
@@ -69,8 +54,7 @@ func (s *Server) Run(stop <-chan struct{}) {
 }
 
 func (s *Server) ReconcileNamespaces() {
-	namespaces, _ := s.nsLister.List(klabels.Everything())
-	for _, ns := range namespaces {
+	for _, ns := range s.namespaces.List(metav1.NamespaceAll, klabels.Everything()) {
 		s.EnqueueNamespace(ns)
 	}
 }
@@ -79,10 +63,9 @@ func (s *Server) ReconcileNamespaces() {
 func (s *Server) EnqueueNamespace(o controllers.Object) {
 	namespace := o.GetName()
 	matchAmbient := o.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient
-	pods, _ := s.podLister.Pods(namespace).List(klabels.Everything())
 	if matchAmbient {
 		log.Infof("Namespace %s is enabled in ambient mesh", namespace)
-		for _, pod := range pods {
+		for _, pod := range s.pods.List(namespace, klabels.Everything()) {
 			s.queue.Add(controllers.Event{
 				New:   pod,
 				Old:   pod,
@@ -91,7 +74,7 @@ func (s *Server) EnqueueNamespace(o controllers.Object) {
 		}
 	} else {
 		log.Infof("Namespace %s is disabled from ambient mesh", namespace)
-		for _, pod := range pods {
+		for _, pod := range s.pods.List(namespace, klabels.Everything()) {
 			s.queue.Add(controllers.Event{
 				New:   pod,
 				Event: controllers.EventDelete,
@@ -113,7 +96,7 @@ func (s *Server) Reconcile(input any) error {
 		// For update, we just need to handle opt outs
 		newPod := event.New.(*corev1.Pod)
 		oldPod := event.Old.(*corev1.Pod)
-		ns, _ := s.nsLister.Get(newPod.Namespace)
+		ns := s.namespaces.Get(newPod.Namespace, "")
 		if ns == nil {
 			return fmt.Errorf("failed to find namespace %v", ns)
 		}

@@ -191,24 +191,48 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		}
 	}
 
-	// Set TLS parameters if they are non-default
-	var ecdhCurves []string
-	if mesh != nil && mesh.TlsDefaults != nil &&
-		(serverTLSSettings.Mode == networking.ServerTLSSettings_MUTUAL || serverTLSSettings.Mode == networking.ServerTLSSettings_SIMPLE) {
-		ecdhCurves = mesh.TlsDefaults.EcdhCurves
+	if isSimpleOrMutual(serverTLSSettings.Mode) {
+		// If Mesh TLSDefaults are set, use them.
+		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
+		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
 	}
-	if len(serverTLSSettings.CipherSuites) > 0 || len(ecdhCurves) > 0 ||
-		serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
-		serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
-		ctx.CommonTlsContext.TlsParams = &auth.TlsParameters{
-			TlsMinimumProtocolVersion: convertTLSProtocol(serverTLSSettings.MinProtocolVersion),
-			TlsMaximumProtocolVersion: convertTLSProtocol(serverTLSSettings.MaxProtocolVersion),
-			CipherSuites:              serverTLSSettings.CipherSuites,
-			EcdhCurves:                ecdhCurves,
-		}
+	return ctx
+}
+
+func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ctx *auth.CommonTlsContext) {
+	if tlsDefaults == nil {
+		return
 	}
 
-	return ctx
+	if len(tlsDefaults.EcdhCurves) > 0 {
+		tlsParamsOrNew(ctx).EcdhCurves = tlsDefaults.EcdhCurves
+	}
+	if tlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(tlsDefaults.MinProtocolVersion)
+	}
+}
+
+func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx *auth.CommonTlsContext) {
+	if serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = convertTLSProtocol(serverTLSSettings.MinProtocolVersion)
+	}
+	if len(serverTLSSettings.CipherSuites) > 0 {
+		tlsParamsOrNew(ctx).CipherSuites = serverTLSSettings.CipherSuites
+	}
+	if serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMaximumProtocolVersion = convertTLSProtocol(serverTLSSettings.MaxProtocolVersion)
+	}
+}
+
+func isSimpleOrMutual(mode networking.ServerTLSSettings_TLSmode) bool {
+	return mode == networking.ServerTLSSettings_SIMPLE || mode == networking.ServerTLSSettings_MUTUAL
+}
+
+func tlsParamsOrNew(tlsContext *auth.CommonTlsContext) *auth.TlsParameters {
+	if tlsContext.TlsParams == nil {
+		tlsContext.TlsParams = &auth.TlsParameters{}
+	}
+	return tlsContext.TlsParams
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies

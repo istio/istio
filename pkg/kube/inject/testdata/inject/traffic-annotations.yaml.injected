@@ -52,8 +52,6 @@ spec:
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info
-        - --concurrency
-        - "4"
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -81,6 +79,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: ISTIO_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              divisor: "0"
+              resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
             {"discoveryAddress":"foo:123","concurrency":0,"proxyMetadata":{"FOO":"bar","ISTIO_META_TLS_CLIENT_KEY":"/etc/identity2/client/keys/client-key.pem"}}

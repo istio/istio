@@ -203,6 +203,10 @@ func initPodLabelsMap(c analysis.Context) map[string][]klabels.Set {
 			podLabelsMap[ns] = append(podLabelsMap[ns], pLabels)
 		}
 
+		if util.PodInAmbientMode(r) {
+			podLabelsMap[ns] = append(podLabelsMap[ns], pLabels)
+		}
+
 		return true
 	})
 

@@ -477,7 +477,7 @@ func TestAuthz_NotHost(t *testing.T) {
 					for _, c := range cases {
 						c := c
 						testName := fmt.Sprintf("%s(%s)/http", c.host, c.allow)
-						t.NewSubTest(testName).RunParallel(func(t framework.TestContext) {
+						t.NewSubTest(testName).Run(func(t framework.TestContext) {
 							wantCode := http.StatusOK
 							if !c.allow {
 								wantCode = http.StatusForbidden
@@ -1125,7 +1125,7 @@ func TestAuthz_IngressGateway(t *testing.T) {
 						if len(c.ip) > 0 {
 							testName = c.ip + "->" + testName
 						}
-						t.NewSubTest(testName).RunParallel(func(t framework.TestContext) {
+						t.NewSubTest(testName).Run(func(t framework.TestContext) {
 							wantCode := http.StatusOK
 							if !c.allow {
 								wantCode = http.StatusForbidden
@@ -1412,7 +1412,7 @@ func TestAuthz_Conditions(t *testing.T) {
 							xfooHeader = "?x-foo=" + c.headers.Get("x-foo")
 						}
 						testName := fmt.Sprintf("%s%s(%s)/http", c.path, xfooHeader, c.allow)
-						t.NewSubTest(testName).RunParallel(func(t framework.TestContext) {
+						t.NewSubTest(testName).Run(func(t framework.TestContext) {
 							if c.skipFn != nil {
 								c.skipFn(t)
 							}
@@ -1507,7 +1507,7 @@ func TestAuthz_PathNormalization(t *testing.T) {
 					for _, c := range cases {
 						c := c
 						testName := fmt.Sprintf("%s(%s)/http", c.path, c.allow)
-						t.NewSubTest(testName).RunParallel(func(t framework.TestContext) {
+						t.NewSubTest(testName).Run(func(t framework.TestContext) {
 							newAuthzTest().
 								From(from).
 								To(to).
@@ -1635,7 +1635,7 @@ func TestAuthz_CustomServer(t *testing.T) {
 										params = fmt.Sprintf("?%s=%s", authz.XExtAuthz, c.headers.Get(authz.XExtAuthz))
 									}
 									testName := fmt.Sprintf("%s%s(%s)/%s", c.path, params, c.allow, tst.opts.Port.Name)
-									t.NewSubTest(testName).RunParallel(func(t framework.TestContext) {
+									t.NewSubTest(testName).Run(func(t framework.TestContext) {
 										if c.path == authzPath {
 											tst.opts.Check = check.And(tst.opts.Check, provider.Check(tst.opts, c.allow.Bool()))
 										}
@@ -1813,7 +1813,7 @@ func (tsts authzTests) RunAll(t framework.TestContext) {
 	if len(tsts) == 1 {
 		// Testing a single port. Just run a single test.
 		testName := fmt.Sprintf("%s%s(%s)/%s", firstTest.prefix, firstTest.opts.HTTP.Path, firstTest.allow, firstTest.opts.Port.Name)
-		t.NewSubTest(testName).RunParallel(func(t framework.TestContext) {
+		t.NewSubTest(testName).Run(func(t framework.TestContext) {
 			firstTest.BuildAndRun(t)
 		})
 		return
@@ -1824,10 +1824,10 @@ func (tsts authzTests) RunAll(t framework.TestContext) {
 	// Testing multiple ports...
 	// Name outer test with constant info. Name inner test with port.
 	outerTestName := fmt.Sprintf("%s%s(%s)", firstTest.prefix, firstTest.opts.HTTP.Path, firstTest.allow)
-	t.NewSubTest(outerTestName).RunParallel(func(t framework.TestContext) {
+	t.NewSubTest(outerTestName).Run(func(t framework.TestContext) {
 		for _, tst := range tsts {
 			tst := tst
-			t.NewSubTest(tst.opts.Port.Name).RunParallel(func(t framework.TestContext) {
+			t.NewSubTest(tst.opts.Port.Name).Run(func(t framework.TestContext) {
 				tst.BuildAndRun(t)
 			})
 		}

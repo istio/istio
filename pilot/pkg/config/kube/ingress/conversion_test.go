@@ -15,13 +15,11 @@
 package ingress
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -29,10 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -42,20 +37,19 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/test"
 )
 
 func TestGoldenConversion(t *testing.T) {
 	cases := []string{"simple", "tls", "overlay", "tls-no-secret"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
 			input, err := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
 			if err != nil {
 				t.Fatal(err)
 			}
-			serviceLister := createFakeLister(ctx)
+			serviceLister := createFakeClient(t)
 			cfgs := map[string]*config.Config{}
 			for _, obj := range input {
 				ingress := obj.(*knetworking.Ingress)
@@ -133,9 +127,6 @@ func readConfig(t *testing.T, filename string) ([]runtime.Object, error) {
 }
 
 func TestConversion(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	prefix := knetworking.PathTypePrefix
 	exact := knetworking.PathTypeExact
 
@@ -259,7 +250,7 @@ func TestConversion(t *testing.T) {
 			},
 		},
 	}
-	serviceLister := createFakeLister(ctx)
+	serviceLister := createFakeClient(t)
 	cfgs := map[string]*config.Config{}
 	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
 	ConvertIngressVirtualService(ingress2, "mydomain", cfgs, serviceLister)
@@ -424,9 +415,6 @@ func TestIngressClass(t *testing.T) {
 }
 
 func TestNamedPortIngressConversion(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	ingress := knetworking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock",
@@ -476,7 +464,7 @@ func TestNamedPortIngressConversion(t *testing.T) {
 			},
 		},
 	}
-	serviceLister := createFakeLister(ctx, service)
+	serviceLister := createFakeClient(t, service)
 	cfgs := map[string]*config.Config{}
 	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
 	if len(cfgs) != 1 {
@@ -499,11 +487,11 @@ func TestNamedPortIngressConversion(t *testing.T) {
 	}
 }
 
-func createFakeLister(ctx context.Context, objects ...runtime.Object) listerv1.ServiceLister {
-	client := fake.NewSimpleClientset(objects...)
-	informerFactory := informers.NewSharedInformerFactory(client, time.Hour)
-	svcInformer := informerFactory.Core().V1().Services().Informer()
-	go svcInformer.Run(ctx.Done())
-	kube.WaitForCacheSync(ctx.Done(), svcInformer.HasSynced)
-	return informerFactory.Core().V1().Services().Lister()
+func createFakeClient(t test.Failer, objects ...runtime.Object) kclient.Client[*corev1.Service] {
+	kc := kube.NewFakeClient(objects...)
+	stop := test.NewStop(t)
+	services := kclient.New[*corev1.Service](kc)
+	kc.RunAndWait(stop)
+	kube.WaitForCacheSync(stop, services.HasSynced)
+	return services
 }

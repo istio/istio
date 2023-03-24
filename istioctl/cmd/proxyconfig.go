@@ -483,7 +483,12 @@ func allConfigCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					dump, err = extractConfigDump(podName, podNamespace, false)
+
+					if isZtunnelPod(podName) {
+						dump, err = extractZtunnelConfigDump(podName, podNamespace)
+					} else {
+						dump, err = extractConfigDump(podName, podNamespace, false)
+					}
 					if err != nil {
 						return err
 					}
@@ -507,6 +512,20 @@ func allConfigCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
+
+					if isZtunnelPod(podName) {
+						w, err := setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
+						if err != nil {
+							return err
+						}
+
+						return w.PrintFullSummary(ztunnelDump.WorkloadFilter{
+							Address: address,
+							Node:    node,
+							Verbose: verboseProxyConfig,
+						})
+					}
+
 					configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, true, c.OutOrStdout())
 					if err != nil {
 						return err
@@ -601,10 +620,10 @@ func workloadConfigCmd() *cobra.Command {
 			var configWriter *ztunnelDump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getComponentPodName(args[0]); err != nil {
 					return err
 				}
-				if !strings.Contains(podName, "ztunnel") {
+				if !isZtunnelPod(podName) {
 					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
@@ -1424,18 +1443,27 @@ func getPodNames(podflag string) ([]string, string, error) {
 }
 
 func getPodName(podflag string) (string, string, error) {
+	return getPodNameWithNamespace(podflag, defaultNamespace)
+}
+
+func getPodNameWithNamespace(podflag, ns string) (string, string, error) {
 	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
 	}
-	var podName, ns string
-	podName, ns, err = handlers.InferPodInfoFromTypedResource(podflag,
-		handlers.HandleNamespace(namespace, defaultNamespace),
+	var podName, podNamespace string
+	podName, podNamespace, err = handlers.InferPodInfoFromTypedResource(podflag,
+		handlers.HandleNamespace(namespace, ns),
 		kubeClient.UtilFactory())
 	if err != nil {
 		return "", "", err
 	}
-	return podName, ns, nil
+	return podName, podNamespace, nil
+}
+
+// getComponentPodName returns the pod name and namespace of the Istio component
+func getComponentPodName(podflag string) (string, string, error) {
+	return getPodNameWithNamespace(podflag, istioNamespace)
 }
 
 func getPodNameBySelector(labelSelector string) ([]string, string, error) {

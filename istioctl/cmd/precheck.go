@@ -143,7 +143,7 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 		return nil, err
 	}
 
-	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), "")
 	if err != nil {
 		return nil, err
 	}

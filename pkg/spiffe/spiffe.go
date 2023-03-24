@@ -139,6 +139,10 @@ func ExpandWithTrustDomains(spiffeIdentities sets.String, trustDomainAliases []s
 	out := sets.New[string]()
 	for id := range spiffeIdentities {
 		out.Insert(id)
+		// Skip if not a SPIFFE identity - This can happen for example if the identity is a DNS name.
+		if !strings.HasPrefix(id, URIPrefix) {
+			continue
+		}
 		// Expand with aliases set.
 		m, err := ParseIdentity(id)
 		if err != nil {

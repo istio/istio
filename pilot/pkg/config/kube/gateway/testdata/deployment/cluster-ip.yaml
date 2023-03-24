@@ -76,6 +76,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: ISTIO_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
             {}
@@ -188,7 +192,7 @@ metadata:
   name: default
   namespace: default
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1alpha2
+  - apiVersion: gateway.networking.k8s.io/v1beta1
     kind: Gateway
     name: default
     uid: null
@@ -205,26 +209,4 @@ spec:
   selector:
     istio.io/gateway-name: default
   type: ClusterIP
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: default
-  namespace: default
-spec:
-  gatewayClassName: ""
-  listeners: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Deployed gateway to the cluster
-    reason: Accepted
-    status: "True"
-    type: Accepted
-  - lastTransitionTime: fake
-    message: Deployed gateway to the cluster
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
 ---
