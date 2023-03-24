@@ -73,11 +73,6 @@ func deleteConfigs(configs []*config.Config, store model.ConfigStore, t testing.
 
 type Event = xdsfake.Event
 
-func waitUntilEvent(t testing.TB, fx *xdsfake.Updater, event Event) {
-	t.Helper()
-	fx.MatchOrFail(t, event)
-}
-
 func initServiceDiscovery(t test.Failer) (model.ConfigStore, *Controller, *xdsfake.Updater) {
 	return initServiceDiscoveryWithOpts(t, false)
 }
@@ -135,24 +130,14 @@ func TestServiceDiscoveryServices(t *testing.T) {
 
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
 
-	waitUntilEvent(t, fx, Event{
-		Type:      "service",
-		ID:        "*.google.com",
-		Namespace: httpDNS.Namespace,
-	})
-
-	waitUntilEvent(t, fx, Event{
-		Type:      "service",
-		ID:        "*.istio.io",
-		Namespace: httpDNSRR.Namespace,
-	})
-
-	waitUntilEvent(t, fx, Event{
-		Type:      "service",
-		ID:        "tcpstatic.com",
-		Namespace: tcpStatic.Namespace,
-	})
-
+	expectEvents(t, fx,
+		Event{Type: "xds full", ID: "*.google.com"},
+		Event{Type: "xds full", ID: "*.istio.io"},
+		Event{Type: "xds full", ID: "tcpstatic.com"},
+		Event{Type: "service", ID: "*.google.com", Namespace: httpDNS.Namespace},
+		Event{Type: "service", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
+		Event{Type: "service", ID: "tcpstatic.com", Namespace: tcpStatic.Namespace},
+		Event{Type: "eds cache", ID: "tcpstatic.com", Namespace: tcpStatic.Namespace})
 	services := sd.Services()
 	sortServices(services)
 	sortServices(expectedServices)
@@ -1190,7 +1175,7 @@ func expectProxyInstances(t testing.TB, sd *Controller, expected []*model.Servic
 
 func expectEvents(t testing.TB, ch *xdsfake.Updater, events ...Event) {
 	t.Helper()
-	ch.MatchOrFail(t, events...)
+	ch.StrictMatchOrFail(t, events...)
 }
 
 func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
