@@ -105,6 +105,7 @@ func NewValidatingWebhookController(client kube.Client,
 		Revision:         revision,
 		ServiceName:      "istiod",
 		Backoff:          time.Second,
+		Retries:          5,
 	}
 	return newController(o, client)
 }

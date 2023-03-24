@@ -188,13 +188,14 @@ func TestGreenfield(t *testing.T) {
 		webhookConfigWithCABundleIgnore,
 		retry.Message("no config update when endpoint not present"),
 	)
+	webhooks.Delete(unpatchedWebhookConfig.Name, "")
 
 	fake := c.client.Istio().(*istiofake.Clientset)
 	// verify the webhook is updated after the controller can confirm invalid config is rejected.
 	fake.PrependReactor("*", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, &v1alpha3.Gateway{}, kerrors.NewInternalError(errors.New("unknown error"))
 	})
-	c.syncAll()
+	webhooks.Create(unpatchedWebhookConfig)
 	assert.EventuallyEqual(
 		t,
 		fetch(unpatchedWebhookConfig.Name),
