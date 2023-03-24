@@ -10,6 +10,14 @@ Run the following script to install `istio` with Open Telemetry ALS provider:
 istioctl install -f iop.yaml -y
 ```
 
+## Setup Loki
+
+Run the following script to install `Loki`:
+
+```bash
+kubectl apply -f ../../addons/loki.yaml -n istio-system
+```
+
 ## Setup otel-collector service
 
 First, create an `otel-collector` backend with simple configuration.
