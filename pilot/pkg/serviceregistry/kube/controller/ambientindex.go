@@ -692,7 +692,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		},
 	}
 	c.services.AddEventHandler(serviceHandler)
-	idx.serviceVipIndex = kclient.CreateIndex[*v1.Service, string](c.services, getVIPs)
+	idx.serviceVipIndex = kclient.CreateIndex[*v1.Service](c.services, getVIPs)
 	return &idx
 }
 
