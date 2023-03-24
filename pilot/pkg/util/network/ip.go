@@ -208,7 +208,10 @@ func CheckIPFamilyTypeForFirstIPs(ipAddrs []string) IPFamilyType {
 		return UNKNOWN
 	}
 
-	netIP, _ := netip.ParseAddr(ipAddrs[0])
+	netIP, err := netip.ParseAddr(ipAddrs[0])
+	if err != nil {
+		return UNKNOWN
+	}
 	if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
 		return IPv6
 	}
