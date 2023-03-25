@@ -37,15 +37,6 @@ func FuzzHeaderMatcher(data []byte) int {
 	return 1
 }
 
-func FuzzHostMatcherWithRegex(data []byte) int {
-	k, v, err := getKandV(data)
-	if err != nil {
-		return 0
-	}
-	_ = matcher.HostMatcherWithRegex(k, v)
-	return 1
-}
-
 func FuzzHostMatcher(data []byte) int {
 	k, v, err := getKandV(data)
 	if err != nil {

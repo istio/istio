@@ -180,8 +180,12 @@ func TestIsCatchAllRoute(t *testing.T) {
 					Headers: []*route.HeaderMatcher{
 						{
 							Name: "Authentication",
-							HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-								ExactMatch: "test",
+							HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+								StringMatch: &matcher.StringMatcher{
+									MatchPattern: &matcher.StringMatcher_Exact{
+										Exact: "test",
+									},
+								},
 							},
 						},
 					},
