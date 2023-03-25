@@ -10,10 +10,12 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: GET
+                    stringMatch:
+                      exact: GET
                     name: :method
                 - header:
-                    exactMatch: POST
+                    stringMatch:
+                      exact: POST
                     name: :method
         principals:
         - andIds:
@@ -156,9 +158,11 @@ typedConfig:
             - orIds:
                 ids:
                 - header:
-                    exactMatch: abc1
+                    stringMatch:
+                      exact: abc1
                     name: X-abc
                 - header:
-                    exactMatch: abc2
+                    stringMatch:
+                      exact: abc2
                     name: X-abc
   shadowRulesStatPrefix: istio_dry_run_allow_

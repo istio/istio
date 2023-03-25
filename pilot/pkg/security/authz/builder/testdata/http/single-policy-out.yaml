@@ -22,10 +22,12 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[0]-to[0]-method[1]
+                    stringMatch:
+                      exact: rule[0]-to[0]-method[1]
                     name: :method
                 - header:
-                    exactMatch: rule[0]-to[0]-method[2]
+                    stringMatch:
+                      exact: rule[0]-to[0]-method[2]
                     name: :method
             - orRules:
                 rules:
@@ -64,10 +66,12 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[0]-to[1]-method[1]
+                    stringMatch:
+                      exact: rule[0]-to[1]-method[1]
                     name: :method
                 - header:
-                    exactMatch: rule[0]-to[1]-method[2]
+                    stringMatch:
+                      exact: rule[0]-to[1]-method[2]
                     name: :method
             - orRules:
                 rules:
@@ -146,14 +150,17 @@ typedConfig:
             - orIds:
                 ids:
                 - header:
-                    exactMatch: header
+                    stringMatch:
+                      exact: header
                     name: X-header
                 - header:
+                    stringMatch:
+                      prefix: header-prefix-
                     name: X-header
-                    prefixMatch: header-prefix-
                 - header:
+                    stringMatch:
+                      suffix: -suffix-header
                     name: X-header
-                    suffixMatch: -suffix-header
                 - header:
                     name: X-header
                     presentMatch: true
@@ -224,14 +231,17 @@ typedConfig:
             - orIds:
                 ids:
                 - header:
-                    exactMatch: header
+                    stringMatch:
+                      exact: header
                     name: X-header
                 - header:
+                    stringMatch:
+                      prefix: header-prefix-
                     name: X-header
-                    prefixMatch: header-prefix-
                 - header:
+                    stringMatch:
+                      suffix: -suffix-header
                     name: X-header
-                    suffixMatch: -suffix-header
                 - header:
                     name: X-header
                     presentMatch: true
@@ -262,10 +272,12 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[1]-to[0]-method[1]
+                    stringMatch:
+                      exact: rule[1]-to[0]-method[1]
                     name: :method
                 - header:
-                    exactMatch: rule[1]-to[0]-method[2]
+                    stringMatch:
+                      exact: rule[1]-to[0]-method[2]
                     name: :method
             - orRules:
                 rules:
@@ -296,10 +308,12 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[1]-to[1]-method[1]
+                    stringMatch:
+                      exact: rule[1]-to[1]-method[1]
                     name: :method
                 - header:
-                    exactMatch: rule[1]-to[1]-method[2]
+                    stringMatch:
+                      exact: rule[1]-to[1]-method[2]
                     name: :method
             - orRules:
                 rules:
