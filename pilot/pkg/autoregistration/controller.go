@@ -248,7 +248,14 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 		log.Infof("updated auto-registered WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
 		return nil
 	}
-
+	// at this point, we list all WorkloadEntries with the same IP and network, and clean them up (they are stale).
+	entries := c.store.List(gvk.WorkloadEntry, proxy.Metadata.Namespace)
+	for _, entryCfg := range entries {
+		entry := entryCfg.Spec.(*v1alpha3.WorkloadEntry)
+		if entry.Address == proxy.IPAddresses[0] {
+			c.cleanupEntry(entryCfg)
+		}
+	}
 	// No WorkloadEntry, create one using fields from the associated WorkloadGroup
 	groupCfg := c.store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
 	if groupCfg == nil {
