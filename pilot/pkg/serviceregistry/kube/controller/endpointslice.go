@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type endpointSliceController struct {
@@ -270,52 +271,19 @@ func (esc *endpointSliceController) getServiceNamespacedName(es any) types.Names
 }
 
 func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
-	esLabelSelector := endpointSliceSelectorForService(svc.Attributes.Name)
-	slices := esc.slices.List(svc.Attributes.Namespace, esLabelSelector)
-	if len(slices) == 0 {
-		return nil
-	}
-
 	// Locate all ports in the actual service
 	svcPort, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
 		return nil
 	}
-
-	discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
-
 	var out []*model.ServiceInstance
-	for _, slice := range slices {
-		if slice.AddressType == v1.AddressTypeFQDN {
-			// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
-			continue
-		}
-		for _, e := range slice.Endpoints {
-			for _, a := range e.Addresses {
-				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
-				if pod == nil && expectedPod {
-					continue
-				}
-
-				builder := NewEndpointBuilder(esc.c, pod)
-				// identify the port by name. K8S EndpointPort uses the service port name
-				for _, port := range slice.Ports {
-					var portNum int32
-					if port.Port != nil {
-						portNum = *port.Port
-					}
-
-					if port.Name == nil ||
-						svcPort.Name == *port.Name {
-						istioEndpoint := builder.buildIstioEndpoint(a, portNum, svcPort.Name, discoverabilityPolicy, model.Healthy)
-						out = append(out, &model.ServiceInstance{
-							Endpoint:    istioEndpoint,
-							ServicePort: svcPort,
-							Service:     svc,
-						})
-					}
-				}
-			}
+	for _, ep := range esc.endpointCache.Get(svc.Hostname) {
+		if svcPort.Name == ep.ServicePortName {
+			out = append(out, &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: svcPort,
+				Endpoint:    ep,
+			})
 		}
 	}
 	return out
@@ -372,16 +340,15 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	var endpoints []*model.IstioEndpoint
-	found := map[endpointKey]struct{}{}
+	found := sets.New[endpointKey]()
 	for _, eps := range e.endpointsByServiceAndSlice[hostname] {
 		for _, ep := range eps {
 			key := endpointKey{ep.Address, ep.ServicePortName}
-			if _, f := found[key]; f {
+			if found.InsertContains(key) {
 				// This a duplicate. Update() already handles conflict resolution, so we don't
 				// need to pick the "right" one here.
 				continue
 			}
-			found[key] = struct{}{}
 			endpoints = append(endpoints, ep)
 		}
 	}

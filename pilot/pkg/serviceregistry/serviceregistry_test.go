@@ -1079,6 +1079,7 @@ func TestEndpointsDeduping(t *testing.T) {
 			LabelSelectors: labels,
 		},
 	}, 80, []ServiceInstanceResponse{})
+	s.AssertEndpointConsistency()
 }
 
 // TestEndpointSlicingServiceUpdate is a regression test to ensure we do not end up with duplicate endpoints when a service changes.
@@ -1202,6 +1203,7 @@ func expectEndpoints(t *testing.T, s *xds.FakeDiscoveryServer, cluster string, e
 		}
 		return nil
 	}, retry.Converge(2), retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
+	s.AssertEndpointConsistency()
 }
 
 // nolint: unparam
