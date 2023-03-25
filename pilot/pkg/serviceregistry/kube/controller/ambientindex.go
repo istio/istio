@@ -225,6 +225,9 @@ func (a *AmbientIndex) matchesScope(scope model.WaypointScope, w *model.Workload
 }
 
 func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
+	if isNil(c.configController) {
+		return []*workloadapi.Authorization{}
+	}
 	cfgs := c.configController.List(gvk.AuthorizationPolicy, metav1.NamespaceAll)
 	l := len(cfgs)
 	if len(requested) > 0 {
