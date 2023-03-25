@@ -205,7 +205,7 @@ func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
 	dInformer := ec.client.DynamicInformer().ForResource(mcs.ServiceExportGVR).Informer()
 	ec.serviceExports = kclient.NewUntyped(ec.client, dInformer, kclient.Filter{ObjectFilter: ec.opts.GetFilter()})
 	// Register callbacks for events.
-	registerHandlers[controllers.Object](ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)
+	registerHandlers(ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)
 	go dInformer.Run(stop)
 	kube.WaitForCacheSync(stop, ec.serviceExports.HasSynced)
 	ec.started.Store(true)
