@@ -38,7 +38,7 @@ func TestIndex(t *testing.T) {
 	c := kube.NewFakeClient()
 	pods := New[*corev1.Pod](c)
 	c.RunAndWait(test.NewStop(t))
-	index := CreateIndex[*corev1.Pod, SaNode](pods, func(pod *corev1.Pod) []SaNode {
+	index := CreateIndex[*corev1.Pod](pods, func(pod *corev1.Pod) []SaNode {
 		if len(pod.Spec.NodeName) == 0 {
 			return nil
 		}

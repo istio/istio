@@ -41,7 +41,6 @@ type Reader[T controllers.Object] interface {
 	List(namespace string, selector klabels.Selector) []T
 	// ListUnfiltered is like List but ignores any *client side* filters previously configured.
 	ListUnfiltered(namespace string, selector klabels.Selector) []T
-
 	// AddEventHandler inserts a handler. The handler will be called for all Create/Update/Removals.
 	// When ShutdownHandlers is called, the handler is removed.
 	AddEventHandler(h cache.ResourceEventHandler)
@@ -51,7 +50,7 @@ type Reader[T controllers.Object] interface {
 	HasSynced() bool
 	// ShutdownHandlers terminates all handlers added by AddEventHandler.
 	// Warning: this only applies to handlers called via AddEventHandler; any handlers directly added
-	// to the underlying informer are not touched
+	// to the underlying informer are not touched.
 	ShutdownHandlers()
 }
 
