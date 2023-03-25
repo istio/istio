@@ -17,7 +17,6 @@ package controller
 import (
 	"bytes"
 	"net/netip"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -225,6 +224,9 @@ func (a *AmbientIndex) matchesScope(scope model.WaypointScope, w *model.Workload
 }
 
 func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
+	if !c.configCluster {
+		return nil
+	}
 	cfgs := c.configController.List(gvk.AuthorizationPolicy, metav1.NamespaceAll)
 	l := len(cfgs)
 	if len(requested) > 0 {
@@ -249,15 +251,7 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadap
 	return res
 }
 
-func isNil(v interface{}) bool {
-	return v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil())
-}
-
 func (c *Controller) selectorAuthorizationPolicies(ns string, lbls map[string]string) []string {
-	// Since this is an interface a normal nil check doesn't work (...)
-	if isNil(c.configController) {
-		return nil
-	}
 	global := c.configController.List(gvk.AuthorizationPolicy, c.meshWatcher.Mesh().GetRootNamespace())
 	local := c.configController.List(gvk.AuthorizationPolicy, ns)
 	res := sets.New[string]()
