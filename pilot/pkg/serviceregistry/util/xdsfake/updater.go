@@ -160,7 +160,19 @@ func (fx *Updater) WaitOrFail(t test.Failer, et string) *Event {
 	}
 }
 
+// MatchOrFail expects the provided events to arrive, skipping unmatched events
 func (fx *Updater) MatchOrFail(t test.Failer, events ...Event) {
+	t.Helper()
+	fx.matchOrFail(t, false, events...)
+}
+
+// StrictMatchOrFail expects the provided events to arrive, and nothing else
+func (fx *Updater) StrictMatchOrFail(t test.Failer, events ...Event) {
+	t.Helper()
+	fx.matchOrFail(t, true, events...)
+}
+
+func (fx *Updater) matchOrFail(t test.Failer, strict bool, events ...Event) {
 	t.Helper()
 
 	for {
@@ -182,7 +194,11 @@ func (fx *Updater) MatchOrFail(t test.Failer, events ...Event) {
 				}
 			}
 			if !found {
-				log.Infof("skipping event %q/%v", e.Type, e.ID)
+				if strict {
+					t.Fatalf("unexpected event %q/%v", e.Type, e.ID)
+				} else {
+					log.Infof("skipping event %q/%v", e.Type, e.ID)
+				}
 			}
 			continue
 		case <-time.After(time.Second * 5):
