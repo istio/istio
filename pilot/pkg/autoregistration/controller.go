@@ -252,7 +252,8 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 	entries := c.store.List(gvk.WorkloadEntry, proxy.Metadata.Namespace)
 	for _, entryCfg := range entries {
 		entry := entryCfg.Spec.(*v1alpha3.WorkloadEntry)
-		if entry.Address == proxy.IPAddresses[0] {
+		log.Infof("entry.Network = %v, proxy.Metadata.Network.String() = %v", entry.Network, proxy.Metadata.Network.String())
+		if entry.Address == proxy.IPAddresses[0] && entry.Network == proxy.Metadata.Network.String() {
 			c.cleanupEntry(entryCfg)
 		}
 	}

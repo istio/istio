@@ -70,6 +70,18 @@ var (
 		Spec:   tmplA,
 		Status: nil,
 	}
+	wgB = config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadGroup,
+			Namespace:        "a",
+			Name:             "wg-b",
+			Labels: map[string]string{
+				"grouplabel": "notonentry",
+			},
+		},
+		Spec:   tmplA,
+		Status: nil,
+	}
 )
 
 func TestNonAutoregisteredWorkloads(t *testing.T) {
@@ -206,22 +218,22 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		}, retry.Timeout(time.Until(time.Now().Add(21*features.WorkloadEntryCleanupGracePeriod))))
 	})
 
-	t.Run("when there are workload entries registered with the same IP Addresses, use most recent", func(t *testing.T) {
-		duplicatedProxy := fakeProxy("1.1.1.1", wgA, "fw1")
-		duplicatedProxy.XdsNode = n
-		duplicatedProxy2 := fakeProxy("1.1.1.1", wgA, "fw2")
-		duplicatedProxy2.XdsNode = n
-		err := c1.RegisterWorkload(duplicatedProxy, time.Now())
+	t.Run("when there are workload entries registered with the same IP Addresses, use most recently connected", func(t *testing.T) {
+		sameNetProxy := fakeProxy("1.1.1.1", wgA, "nw1")
+		sameNetProxy.XdsNode = n
+		sameNetProxy2 := fakeProxy("1.1.1.1", wgB, "nw1")
+		sameNetProxy2.XdsNode = n
+		err := c1.RegisterWorkload(sameNetProxy, time.Now())
 		if err != nil {
 			t.Fatalf("unexpected error registering workload: %v", err)
 		}
-		checkEntryOrFail(t, store, wgA, duplicatedProxy, n, c1.instanceID)
-		err = c1.RegisterWorkload(duplicatedProxy2, time.Now())
+		checkEntryOrFail(t, store, wgA, sameNetProxy, n, c1.instanceID)
+		err = c1.RegisterWorkload(sameNetProxy2, time.Now())
 		if err != nil {
 			t.Fatalf("unexpected error registering workload: %v", err)
 		}
-		checkEntryOrFail(t, store, wgA, duplicatedProxy2, n, c1.instanceID)
-		if err = checkNoEntry(store, wgA, duplicatedProxy); err != nil {
+		checkEntryOrFail(t, store, wgB, sameNetProxy2, n, c1.instanceID)
+		if err = checkNoEntry(store, wgA, sameNetProxy); err != nil {
 			t.Fatalf("expected stale WorkloadEntry to be cleaned up: %v", err)
 		}
 	})
@@ -326,6 +338,7 @@ func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreController)
 	c1 := NewController(store, "pilot-1", keepalive.Infinity)
 	c2 := NewController(store, "pilot-2", keepalive.Infinity)
 	createOrFail(t, store, wgA)
+	createOrFail(t, store, wgB)
 	return c1, c2, store
 }
 

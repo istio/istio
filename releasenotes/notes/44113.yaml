@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 43950
+
+releaseNotes:
+  - |
+    **Fixed** When multiple WorkloadEntries with the same IP exist, prefer the last registered entry instead of
+    accepting all the entries.
+
