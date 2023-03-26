@@ -38,7 +38,7 @@ type PodCache struct {
 	podsByIP map[string]types.NamespacedName
 	// IPByPods is a reverse map of podsByIP. This exists to allow us to prune stale entries in the
 	// pod cache if a pod changes IP.
-	IPByPods map[types.NamespacedName]string
+	IPByPods map[types.NamespacedName][]string
 
 	// needResync is map of IP to endpoint namespace/name. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
@@ -54,7 +54,7 @@ func newPodCache(c *Controller, pods kclient.Client[*v1.Pod], queueEndpointEvent
 		pods:               pods,
 		c:                  c,
 		podsByIP:           make(map[string]types.NamespacedName),
-		IPByPods:           make(map[types.NamespacedName]string),
+		IPByPods:           make(map[types.NamespacedName][]string),
 		needResync:         make(map[string]sets.Set[types.NamespacedName]),
 		queueEndpointEvent: queueEndpointEvent,
 	}
@@ -134,7 +134,15 @@ func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodC
 func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 	// If labels updated, trigger proxy push
 	if cur.Status.PodIP != "" && !reflect.DeepEqual(old.Labels, cur.Labels) {
-		pc.proxyUpdates(cur.Status.PodIP)
+		if len(cur.Status.PodIPs) > 0 {
+			var podIPs []string
+			for _, itemIP := range cur.Status.PodIPs {
+				podIPs = append(podIPs, itemIP.IP)
+			}
+			pc.proxyUpdates(podIPs)
+		} else {
+			pc.proxyUpdates([]string{cur.Status.PodIP})
+		}
 	}
 
 	// always continue calling pc.onEvent
@@ -143,10 +151,16 @@ func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 
 // onEvent updates the IP-based index (pc.podsByIP).
 func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
-	ip := pod.Status.PodIP
-	// PodIP will be empty when pod is just created, but before the IP is assigned
+	var podIPs []string
+	for _, itemIP := range pod.Status.PodIPs {
+		podIPs = append(podIPs, itemIP.IP)
+	}
+	if len(podIPs) == 0 {
+		podIPs = append(podIPs, pod.Status.PodIP)
+	}
+	// PodIP will be empty when pod is just created, but before the IP addresses is assigned
 	// via UpdateStatus.
-	if len(ip) == 0 {
+	if len(podIPs) == 0 {
 		return nil
 	}
 
@@ -154,26 +168,26 @@ func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
 	switch ev {
 	case model.EventAdd:
 		if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
-			pc.update(ip, key)
+			pc.update(podIPs, key)
 		} else {
 			return nil
 		}
 	case model.EventUpdate:
 		if !shouldPodBeInEndpoints(pod) || !IsPodReady(pod) {
 			// delete only if this pod was in the cache
-			if !pc.deleteIP(ip, key) {
+			if !pc.deleteIPs(podIPs, key) {
 				return nil
 			}
 			ev = model.EventDelete
 		} else if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
-			pc.update(ip, key)
+			pc.update(podIPs, key)
 		} else {
 			return nil
 		}
 	case model.EventDelete:
 		// delete only if this pod was in the cache,
 		// in most case it has already been deleted in `UPDATE` with `DeletionTimestamp` set.
-		if !pc.deleteIP(ip, key) {
+		if !pc.deleteIPs(podIPs, key) {
 			return nil
 		}
 	}
@@ -183,20 +197,34 @@ func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
 
 // notifyWorkloadHandlers fire workloadInstance handlers for pod
 func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
-	// if no workload handler registered, skip building WorkloadInstance
+	// if no workload handler registered, skpodIPsip building WorkloadInstance
 	if len(pc.c.handlers.GetWorkloadHandlers()) == 0 {
 		return
 	}
 	// fire instance handles for workload
-	ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable, model.Healthy)
-	workloadInstance := &model.WorkloadInstance{
-		Name:      pod.Name,
-		Namespace: pod.Namespace,
-		Kind:      model.PodKind,
-		Endpoint:  ep,
-		PortMap:   getPortMap(pod),
+	if len(pod.Status.PodIPs) > 0 {
+		for _, itemIP := range pod.Status.PodIPs {
+			ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(itemIP.IP, 0, "", model.AlwaysDiscoverable, model.Healthy)
+			workloadInstance := &model.WorkloadInstance{
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+				Kind:      model.PodKind,
+				Endpoint:  ep,
+				PortMap:   getPortMap(pod),
+			}
+			pc.c.handlers.NotifyWorkloadHandlers(workloadInstance, ev)
+		}
+	} else {
+		ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable, model.Healthy)
+		workloadInstance := &model.WorkloadInstance{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+			Kind:      model.PodKind,
+			Endpoint:  ep,
+			PortMap:   getPortMap(pod),
+		}
+		pc.c.handlers.NotifyWorkloadHandlers(workloadInstance, ev)
 	}
-	pc.c.handlers.NotifyWorkloadHandlers(workloadInstance, ev)
 }
 
 func getPortMap(pod *v1.Pod) map[string]uint32 {
@@ -216,41 +244,54 @@ func getPortMap(pod *v1.Pod) map[string]uint32 {
 }
 
 // deleteIP returns true if the pod and ip are really deleted.
-func (pc *PodCache) deleteIP(ip string, podKey types.NamespacedName) bool {
+func (pc *PodCache) deleteIPs(ips []string, podKey types.NamespacedName) bool {
 	pc.Lock()
 	defer pc.Unlock()
-	if pc.podsByIP[ip] == podKey {
-		delete(pc.podsByIP, ip)
-		delete(pc.IPByPods, podKey)
-		return true
+	var deleteIPFlag bool
+	for _, itemIP := range ips {
+		if pc.podsByIP[itemIP] == podKey {
+			delete(pc.podsByIP, itemIP)
+			if _, ok := pc.IPByPods[podKey]; ok {
+				delete(pc.IPByPods, podKey)
+			}
+			deleteIPFlag = true
+		} else {
+			deleteIPFlag = false
+		}
 	}
-	return false
+	return deleteIPFlag
 }
 
-func (pc *PodCache) update(ip string, key types.NamespacedName) {
+func (pc *PodCache) update(ips []string, key types.NamespacedName) {
 	pc.Lock()
 	// if the pod has been cached, return
-	if key == pc.podsByIP[ip] {
-		pc.Unlock()
-		return
+	for _, itemIP := range ips {
+		if key == pc.podsByIP[itemIP] {
+			pc.Unlock()
+			return
+		}
 	}
 	if current, f := pc.IPByPods[key]; f {
-		// The pod already exists, but with another IP Address. We need to clean up that
-		delete(pc.podsByIP, current)
-	}
-	pc.podsByIP[ip] = key
-	pc.IPByPods[key] = ip
-
-	if endpointsToUpdate, f := pc.needResync[ip]; f {
-		delete(pc.needResync, ip)
-		for epKey := range endpointsToUpdate {
-			pc.queueEndpointEvent(epKey)
+		// The pod already exists, but with another IP Addresses. We need to clean up that
+		for _, itemIP := range current {
+			delete(pc.podsByIP, itemIP)
 		}
-		endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
+	}
+	pc.IPByPods[key] = ips
+
+	for _, itemIP := range ips {
+		pc.podsByIP[itemIP] = key
+		if endpointsToUpdate, f := pc.needResync[itemIP]; f {
+			delete(pc.needResync, itemIP)
+			for epKey := range endpointsToUpdate {
+				pc.queueEndpointEvent(epKey)
+			}
+			endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
+		}
 	}
 	pc.Unlock()
 
-	pc.proxyUpdates(ip)
+	pc.proxyUpdates(ips)
 }
 
 // queueEndpointEventOnPodArrival registers this endpoint and queues endpoint event
@@ -270,9 +311,11 @@ func (pc *PodCache) endpointDeleted(key types.NamespacedName, ip string) {
 	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
-func (pc *PodCache) proxyUpdates(ip string) {
-	if pc.c != nil && pc.c.opts.XDSUpdater != nil {
-		pc.c.opts.XDSUpdater.ProxyUpdate(pc.c.Cluster(), ip)
+func (pc *PodCache) proxyUpdates(ips []string) {
+	for _, itemIP := range ips {
+		if pc.c != nil && pc.c.opts.XDSUpdater != nil {
+			pc.c.opts.XDSUpdater.ProxyUpdate(pc.c.Cluster(), itemIP)
+		}
 	}
 }
 

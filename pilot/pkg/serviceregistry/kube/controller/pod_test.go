@@ -214,15 +214,29 @@ func testPodCache(t *testing.T) {
 		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
 	}
 
+	// add pod.Staus.PodIPs with IPv4 and IPv6
+	pods[0].Status.PodIPs = []v1.PodIP{
+		{IP: "128.0.0.1"},
+		{IP: "fc00:f853:ccd:e793::1"},
+	}
+	pods[1].Status.PodIPs = []v1.PodIP{
+		{IP: "128.0.0.2"},
+		{IP: "fc00:f853:ccd:e793::2"},
+	}
+	pods[2].Status.PodIPs = []v1.PodIP{
+		{IP: "128.0.0.3"},
+		{IP: "fc00:f853:ccd:e793::3"},
+	}
+
 	addPods(t, c, fx, pods...)
 
-	// Verify podCache
-	wantLabels := map[string]labels.Instance{
+	// Verify podCache with IPv4
+	wantLabelsIPv4 := map[string]labels.Instance{
 		"128.0.0.1": {"app": "test-app"},
 		"128.0.0.2": {"app": "prod-app-1"},
 		"128.0.0.3": {"app": "prod-app-2"},
 	}
-	for addr, wantTag := range wantLabels {
+	for addr, wantTag := range wantLabelsIPv4 {
 		pod := c.pods.getPodByIP(addr)
 		if pod == nil {
 			t.Error("Not found ", addr)
@@ -235,14 +249,44 @@ func testPodCache(t *testing.T) {
 
 	// This pod exists, but should not be in the cache because it is in a
 	// namespace not watched by the controller.
-	pod := c.pods.getPodByIP("128.0.0.4")
-	if pod != nil {
+	podIPv4 := c.pods.getPodByIP("128.0.0.4")
+	if podIPv4 != nil {
 		t.Error("Expected not found but was found")
 	}
 
 	// This pod should not be in the cache because it never existed.
-	pod = c.pods.getPodByIP("128.0.0.128")
-	if pod != nil {
+	podIPv4 = c.pods.getPodByIP("128.0.0.128")
+	if podIPv4 != nil {
+		t.Error("Expected not found but was found")
+	}
+
+	// Verify podCache with IPv6
+	wantLabelsIPv6 := map[string]labels.Instance{
+		"fc00:f853:ccd:e793::1": {"app": "test-app"},
+		"fc00:f853:ccd:e793::2": {"app": "prod-app-1"},
+		"fc00:f853:ccd:e793::3": {"app": "prod-app-2"},
+	}
+	for addr, wantTag := range wantLabelsIPv6 {
+		pod := c.pods.getPodByIP(addr)
+		if pod == nil {
+			t.Error("Not found ", addr)
+			continue
+		}
+		if !reflect.DeepEqual(wantTag, labels.Instance(pod.Labels)) {
+			t.Errorf("Expected %v got %v", wantTag, labels.Instance(pod.Labels))
+		}
+	}
+
+	// This pod exists, but should not be in the cache because it is in a
+	// namespace not watched by the controller.
+	podIPv6 := c.pods.getPodByIP("fc00:f853:ccd:e793::4")
+	if podIPv6 != nil {
+		t.Error("Expected not found but was found")
+	}
+
+	// This pod should not be in the cache because it never existed.
+	podIPv6 = c.pods.getPodByIP("fc00:f853:ccd:e793::128")
+	if podIPv6 != nil {
 		t.Error("Expected not found but was found")
 	}
 }
