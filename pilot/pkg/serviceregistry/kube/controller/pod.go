@@ -251,9 +251,7 @@ func (pc *PodCache) deleteIPs(ips []string, podKey types.NamespacedName) bool {
 	for _, itemIP := range ips {
 		if pc.podsByIP[itemIP] == podKey {
 			delete(pc.podsByIP, itemIP)
-			if _, ok := pc.IPByPods[podKey]; ok {
-				delete(pc.IPByPods, podKey)
-			}
+			delete(pc.IPByPods, podKey)
 			deleteIPFlag = true
 		} else {
 			deleteIPFlag = false
