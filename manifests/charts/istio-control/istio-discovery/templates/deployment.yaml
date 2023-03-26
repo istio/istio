@@ -69,6 +69,10 @@ spec:
 {{- with .Values.pilot.tolerations }}
       tolerations:
 {{- toYaml . | nindent 8 }}
+{{- with .Values.pilot.topologySpreadConstraints }}
+      topologySpreadConstraints:
+{{- toYaml . | nindent 8 }}
+{{- end }}
 {{- end }}
       serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- if .Values.global.priorityClassName }}
