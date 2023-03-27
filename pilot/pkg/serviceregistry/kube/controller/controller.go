@@ -151,6 +151,7 @@ type Options struct {
 	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
 
 	ConfigController model.ConfigStoreController
+	ConfigCluster    bool
 }
 
 func (o *Options) GetFilter() namespace.DiscoveryFilter {
@@ -279,6 +280,7 @@ type Controller struct {
 
 	ambientIndex     *AmbientIndex
 	configController model.ConfigStoreController
+	configCluster    bool
 }
 
 // NewController creates a new Kubernetes controller
@@ -296,7 +298,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		beginSync:                  atomic.NewBool(false),
 		initialSync:                atomic.NewBool(false),
 
-		multinetwork: initMultinetwork(),
+		multinetwork:  initMultinetwork(),
+		configCluster: options.ConfigCluster,
 	}
 
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)

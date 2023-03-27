@@ -48,6 +48,7 @@ type FakeControllerOptions struct {
 	Stop                      chan struct{}
 	SkipRun                   bool
 	ConfigController          model.ConfigStoreController
+	ConfigCluster             bool
 }
 
 type FakeController struct {
@@ -83,6 +84,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		ClusterID:                 opts.ClusterID,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 		MeshServiceController:     meshServiceController,
+		ConfigCluster:             opts.ConfigCluster,
 		ConfigController:          opts.ConfigController,
 	}
 	c := NewController(opts.Client, options)
