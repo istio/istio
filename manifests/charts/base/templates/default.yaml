@@ -15,12 +15,8 @@ webhooks:
       url: {{ .Values.base.validationURL }}
       {{- else }}
       service:
-        {{- if (eq .Values.defaultRevision "default") }}
-        name: istiod
-        {{- else }}
-        name: istiod-{{ .Values.defaultRevision }}
-        {{- end }}
-        namespace: {{ .Values.global.istioNamespace }}
+        name: {{ (include "webhookServiceName" .) | quote }}
+        namespace: {{ (include "webhookNamespace" .) | quote }}
         path: "/validate"
       {{- end }}
     rules:

@@ -135,6 +135,11 @@ istiodRemote:
   # Sidecar injector mutating webhook configuration path value for the clientConfig.service field.
   # Override to pass env variables, for example: /inject/cluster/remote/net/network2
   injectionPath: "/inject"
+# When you want to use nginx proxy for webhooks
+istiodWebhookProxy:
+  serviceName: ""
+  namespace: ""
+
 telemetry:
   enabled: true
   v2:

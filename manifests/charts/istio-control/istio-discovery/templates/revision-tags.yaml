@@ -5,7 +5,8 @@
  "revision" .Values.revision
   "injectionPath" .Values.istiodRemote.injectionPath
   "injectionURL" .Values.istiodRemote.injectionURL
-  "namespace" .Release.Namespace }}
+  "serviceName" (include "webhookServiceName" .)
+  "namespace" (include "webhookNamespace" .) }}
 {{- define "core" }}
 {{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
 a unique prefix to each. */}}
@@ -15,8 +16,8 @@ a unique prefix to each. */}}
     url: "{{ .injectionURL }}"
     {{- else }}
     service:
-      name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
-      namespace: {{ .namespace }}
+      name: "{{ .serviceName }}"
+      namespace: "{{ .namespace }}"
       path: "{{ .injectionPath }}"
       port: 443
     {{- end }}

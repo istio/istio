@@ -18,8 +18,8 @@ webhooks:
       url: {{ .Values.base.validationURL }}
       {{- else }}
       service:
-        name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-        namespace: {{ .Values.global.istioNamespace }}
+        name: {{ (include "webhookServiceName" .) | quote }}
+        namespace: {{ ternary .Values.istiodWebhookProxy.namespace .Values.global.istioNamespace (not (eq .Values.istiodWebhookProxy.namespace "")) | quote }}
         path: "/validate"
       {{- end }}
     rules:

@@ -33,3 +33,19 @@
     .Values.telemetry.v2.stackdriver.disableOutbound ))
 }}
 {{- end }}
+
+{{/* For mutating and validating webhook use proxy namespace if set */}}
+{{- define "webhookServiceName" }}
+{{- $serviceName := .Values.istiodWebhookProxy.serviceName }}
+{{- if not (eq $serviceName "") }}
+{{- $serviceName }}
+{{- else }}
+{{- printf "istiod-%s" .Values.revision | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+
+{{/* For mutating and validating webhook use proxy namespace if set */}}
+{{- define "webhookNamespace" }}
+{{- $namespace := .Values.istiodWebhookProxy.namespace }}
+{{- ternary $namespace .Release.Namespace (not (eq $namespace "")) }}
+{{- end }}

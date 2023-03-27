@@ -27,3 +27,7 @@ base:
   enableIstioConfigCRDs: true
 
 defaultRevision: "default"
+
+istiodWebhookProxy:
+  serviceName: ""
+  namespace: ""
