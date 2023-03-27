@@ -62,6 +62,12 @@ const (
 	TcPrioFilter         = 1      // refer to include/uapi/linux/pkt_sched.h TC_PRIO_FILLER
 )
 
+const (
+	EBPFLogLevelNone uint32 = iota
+	EBPFLogLevelInfo
+	EBPFLogLevelDebug
+)
+
 var isBigEndian = native.IsBigEndian
 
 type RedirectServer struct {
@@ -75,6 +81,18 @@ type RedirectServer struct {
 	inboundProgName            string
 	outboundFd                 uint32
 	outboundProgName           string
+}
+
+var stringToLevel = map[string]uint32{
+	"debug": EBPFLogLevelDebug,
+	"info":  EBPFLogLevelInfo,
+	"none":  EBPFLogLevelNone,
+}
+
+func (r *RedirectServer) SetLogLevel(level string) {
+	if err := r.obj.LogLevel.Update(uint32(0), stringToLevel[level], ebpf.UpdateAny); err != nil {
+		log.Errorf("failed to update ebpf log level: %v", err)
+	}
 }
 
 func (r *RedirectServer) UpdateHostIP(ips []string) error {
