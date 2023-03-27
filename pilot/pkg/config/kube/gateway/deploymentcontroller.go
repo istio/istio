@@ -194,11 +194,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 
 func (d *DeploymentController) Run(stop <-chan struct{}) {
 	d.queue.Run(stop)
-	d.deployments.ShutdownHandlers()
-	d.services.ShutdownHandlers()
-	d.serviceAccounts.ShutdownHandlers()
-	d.gateways.ShutdownHandlers()
-	d.gatewayClasses.ShutdownHandlers()
+	controllers.ShutdownAll(d.deployments, d.services, d.serviceAccounts, d.gateways, d.gatewayClasses)
 }
 
 // Reconcile takes in the name of a Gateway and ensures the cluster is in the desired state

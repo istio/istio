@@ -350,9 +350,16 @@ func StripPodUnusedFields(obj any) (any, error) {
 				})
 			}
 		}
-		pod.Spec.Containers = containers
-		pod.Spec.InitContainers = nil
-		pod.Spec.Volumes = nil
+		oldSpec := pod.Spec
+		newSpec := corev1.PodSpec{
+			Containers:         containers,
+			ServiceAccountName: oldSpec.ServiceAccountName,
+			NodeName:           oldSpec.NodeName,
+			HostNetwork:        oldSpec.HostNetwork,
+			Hostname:           oldSpec.Hostname,
+			Subdomain:          oldSpec.Subdomain,
+		}
+		pod.Spec = newSpec
 		pod.Status.InitContainerStatuses = nil
 		pod.Status.ContainerStatuses = nil
 	}

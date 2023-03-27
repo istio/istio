@@ -316,6 +316,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	apiistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
+	apiistioioapisecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
+	apiistioioapitelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 {{- range .Packages}}
 	{{.ImportName}} "{{.PackageName}}"
 {{- end}}
@@ -357,7 +362,7 @@ func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteA
 	switch any(ptr.Empty[T]()).(type) {
 {{- range .Entries }}
 	{{- if not .Resource.Synthetic }}
-	case *{{ .ClientImport }}.{{ .Resource.Kind }}:
+	case *{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}:
 		return  c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}namespace{{end}}).(ktypes.WriteAPI[T])
 	{{- end }}
 {{- end }}
@@ -373,7 +378,7 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 	switch any(ptr.Empty[T]()).(type) {
 {{- range .Entries }}
 	{{- if not .Resource.Synthetic }}
-	case *{{ .ClientImport }}.{{ .Resource.Kind }}:
+	case *{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}""{{end}}).List(context.Background(), options)
 		}
@@ -410,7 +415,7 @@ func GetInformer[T runtime.Object](c ClientGetter) cache.SharedIndexInformer {
 	switch any(ptr.Empty[T]()).(type) {
 {{- range .Entries }}
 	{{- if not .Resource.Synthetic }}
-	case *{{ .ClientImport }}.{{ .Resource.Kind }}:
+	case *{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}:
 		return  c.{{.ClientGetter}}Informer().{{ .InformerGroup }}.{{ .ClientTypePath }}().Informer()
 	{{- end }}
 {{- end }}

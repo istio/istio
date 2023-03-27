@@ -184,3 +184,25 @@ spec:
           name: istio-ca-root-cert
         name: istiod-ca-cert
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations: {}
+  labels:
+    gateway.istio.io/managed: istio.io-mesh-controller
+  name: namespace-istio-waypoint
+  namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: namespace
+    uid: ""
+spec:
+  ports:
+  - appProtocol: https
+    name: https-hbone
+    port: 15008
+    protocol: TCP
+  selector:
+    istio.io/gateway-name: namespace
+---

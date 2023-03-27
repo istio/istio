@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -35,7 +36,7 @@ import (
 // Prepare k8s. This can be used in multiple tests, to
 // avoid duplicating creation, which can be tricky. It can be used with the fake or
 // standalone apiserver.
-func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
+func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *xdsfake.Updater) {
 	cleanup(ki)
 	for _, n := range []string{"nsa", "nsb"} {
 		_, err := ki.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{

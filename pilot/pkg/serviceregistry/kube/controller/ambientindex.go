@@ -57,6 +57,11 @@ type AmbientIndex struct {
 	byPod map[string]*model.WorkloadInfo
 
 	// Map of ServiceAccount -> IP
+	// TODO: currently, this is derived from pods. To be agnostic to the implementation,
+	// we should actually be looking at Gateway.status.addresses.
+	// This may be an external address (possibly even a DNS name we need to resolve), an arbitrary IP,
+	// or a reference to a service.
+	// If its a reference to a Service then we can find the underlying pods in that service, as an optimization.
 	waypoints map[model.WaypointScope]sets.String
 
 	// serviceVipIndex maintains an index of VIP -> Service
@@ -687,7 +692,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		},
 	}
 	c.services.AddEventHandler(serviceHandler)
-	idx.serviceVipIndex = kclient.CreateIndex[*v1.Service, string](c.services, getVIPs)
+	idx.serviceVipIndex = kclient.CreateIndex[*v1.Service](c.services, getVIPs)
 	return &idx
 }
 

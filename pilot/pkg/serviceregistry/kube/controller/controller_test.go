@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
@@ -1358,7 +1359,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		expectedSvcList []*model.Service,
 		expectedNumSvcEvents int,
 		testMeshWatcher *mesh.TestWatcher,
-		fx *FakeXdsUpdater,
+		fx *xdsfake.Updater,
 		controller *FakeController,
 	) {
 		// update meshConfig
@@ -1562,7 +1563,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 		expectedSvcList []*model.Service,
 		expectedNumSvcEvents int,
 		testMeshWatcher *mesh.TestWatcher,
-		fx *FakeXdsUpdater,
+		fx *xdsfake.Updater,
 		controller *FakeController,
 	) {
 		t.Helper()
@@ -1660,7 +1661,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	)
 
 	// namespace nsB, nsC deselected
-	fx.WaitOrFail(t, "xds")
+	fx.WaitOrFail(t, "xds full")
 
 	// create vs1 in nsA
 	createVirtualService(controller, "vs1", nsA, map[string]string{}, t)
@@ -1691,7 +1692,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	)
 
 	// namespace nsB selected
-	fx.WaitOrFail(t, "xds")
+	fx.WaitOrFail(t, "xds full")
 }
 
 func TestInstancesByPort_WorkloadInstances(t *testing.T) {
@@ -1781,7 +1782,7 @@ func TestExternalNameServiceInstances(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: mode})
 			createExternalNameService(controller, "svc5", "nsA",
-				[]int32{1, 2, 3}, "foo.co", t, fx.Events)
+				[]int32{1, 2, 3}, "foo.co", t, fx)
 
 			converted := controller.Services()
 			if len(converted) != 1 {
@@ -1814,13 +1815,13 @@ func TestController_ExternalNameService(t *testing.T) {
 
 			k8sSvcs := []*corev1.Service{
 				createExternalNameService(controller, "svc1", "nsA",
-					[]int32{8080}, "test-app-1.test.svc."+defaultFakeDomainSuffix, t, fx.Events),
+					[]int32{8080}, "test-app-1.test.svc."+defaultFakeDomainSuffix, t, fx),
 				createExternalNameService(controller, "svc2", "nsA",
-					[]int32{8081}, "test-app-2.test.svc."+defaultFakeDomainSuffix, t, fx.Events),
+					[]int32{8081}, "test-app-2.test.svc."+defaultFakeDomainSuffix, t, fx),
 				createExternalNameService(controller, "svc3", "nsA",
-					[]int32{8082}, "test-app-3.test.pod."+defaultFakeDomainSuffix, t, fx.Events),
+					[]int32{8082}, "test-app-3.test.pod."+defaultFakeDomainSuffix, t, fx),
 				createExternalNameService(controller, "svc4", "nsA",
-					[]int32{8083}, "g.co", t, fx.Events),
+					[]int32{8083}, "g.co", t, fx),
 			}
 
 			expectedSvcList := []*model.Service{
@@ -1902,7 +1903,7 @@ func TestController_ExternalNameService(t *testing.T) {
 
 			deleteWg.Add(len(k8sSvcs))
 			for _, s := range k8sSvcs {
-				deleteExternalNameService(controller, s.Name, s.Namespace, t, fx.Events)
+				deleteExternalNameService(controller, s.Name, s.Namespace, t, fx)
 			}
 			deleteWg.Wait()
 
@@ -2060,7 +2061,7 @@ func createServiceWait(controller *FakeController, name, namespace string, annot
 	ports []int32, selector map[string]string, t *testing.T,
 ) {
 	createService(controller, name, namespace, annotations, ports, selector, t)
-	controller.opts.XDSUpdater.(*FakeXdsUpdater).WaitOrFail(t, "service")
+	controller.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "service")
 }
 
 func createService(controller *FakeController, name, namespace string, annotations map[string]string,
@@ -2158,12 +2159,8 @@ func createServiceWithoutClusterIP(controller *FakeController, name, namespace s
 
 // nolint: unparam
 func createExternalNameService(controller *FakeController, name, namespace string,
-	ports []int32, externalName string, t *testing.T, xdsEvents <-chan FakeXdsEvent,
+	ports []int32, externalName string, t *testing.T, xdsEvents *xdsfake.Updater,
 ) *corev1.Service {
-	defer func() {
-		<-xdsEvents
-	}()
-
 	svcPorts := make([]corev1.ServicePort, 0)
 	for _, p := range ports {
 		svcPorts = append(svcPorts, corev1.ServicePort{
@@ -2188,18 +2185,16 @@ func createExternalNameService(controller *FakeController, name, namespace strin
 	if err != nil {
 		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
 	}
+	xdsEvents.WaitOrFail(t, "service")
 	return service
 }
 
-func deleteExternalNameService(controller *FakeController, name, namespace string, t *testing.T, xdsEvents <-chan FakeXdsEvent) {
-	defer func() {
-		<-xdsEvents
-	}()
-
+func deleteExternalNameService(controller *FakeController, name, namespace string, t *testing.T, xdsEvents *xdsfake.Updater) {
 	err := controller.client.Kube().CoreV1().Services(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil {
 		t.Fatalf("Cannot delete service %s in namespace %s (error: %v)", name, namespace, err)
 	}
+	xdsEvents.WaitOrFail(t, "service")
 }
 
 func servicesEqual(svcList, expectedSvcList []*model.Service) bool {
@@ -2220,7 +2215,7 @@ func servicesEqual(svcList, expectedSvcList []*model.Service) bool {
 	return true
 }
 
-func addPods(t *testing.T, controller *FakeController, fx *FakeXdsUpdater, pods ...*corev1.Pod) {
+func addPods(t *testing.T, controller *FakeController, fx *xdsfake.Updater, pods ...*corev1.Pod) {
 	for _, pod := range pods {
 		p, _ := controller.client.Kube().CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
 		var newPod *corev1.Pod
@@ -2357,11 +2352,8 @@ func TestEndpointUpdate(t *testing.T) {
 			// Create 1 endpoint that refers to a pod in the same namespace.
 			svc1Ips = append(svc1Ips, "128.0.0.2")
 			updateEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, t)
-			ev := fx.WaitOrFail(t, "xds")
-			if ev.ID != string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix)) {
-				t.Errorf("Expect service %s updated, but got %s",
-					kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix), ev.ID)
-			}
+			host := string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix))
+			fx.MatchOrFail(t, xdsfake.Event{Type: "xds full", ID: host})
 		})
 	}
 }

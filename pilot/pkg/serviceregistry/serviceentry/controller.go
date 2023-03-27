@@ -783,22 +783,8 @@ func (s *Controller) buildEndpoints(keys map[instancesKey]struct{}) map[instance
 	if len(allInstances) > 0 {
 		endpoints = make(map[instancesKey][]*model.IstioEndpoint)
 		for _, instance := range allInstances {
-			port := instance.ServicePort
 			key := makeInstanceKey(instance)
-			endpoints[key] = append(endpoints[key],
-				&model.IstioEndpoint{
-					Address:         instance.Endpoint.Address,
-					EndpointPort:    instance.Endpoint.EndpointPort,
-					ServicePortName: port.Name,
-					Labels:          instance.Endpoint.Labels,
-					ServiceAccount:  instance.Endpoint.ServiceAccount,
-					Network:         instance.Endpoint.Network,
-					Locality:        instance.Endpoint.Locality,
-					LbWeight:        instance.Endpoint.LbWeight,
-					TLSMode:         instance.Endpoint.TLSMode,
-					WorkloadName:    instance.Endpoint.WorkloadName,
-					Namespace:       instance.Endpoint.Namespace,
-				})
+			endpoints[key] = append(endpoints[key], instance.Endpoint)
 		}
 
 	}
