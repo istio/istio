@@ -1184,9 +1184,9 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{Type: "svcupdate", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "edscache", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "xds"})
+			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "eds cache", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "xds full"})
 	})
 
 	cases := []struct {
