@@ -691,6 +691,14 @@ func (c *Controller) setupIndex() *AmbientIndex {
 	return &idx
 }
 
+func (c *Controller) getServiceNetwork(wl *model.WorkloadInfo, vip string) string {
+	if wl != nil && wl.Network != "" {
+		return wl.Network
+	}
+	// TODO use Service labels?
+	return c.Network(vip, make(labels.Instance, 0)).String()
+}
+
 func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
 	p := controllers.Extract[*v1.Pod](newObj)
 	old := controllers.Extract[*v1.Pod](oldObj)
@@ -730,7 +738,7 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	if !isDelete {
 		wl = c.extractWorkload(p)
 	}
-	oldWl := a.byPod[p.Status.PodIP]
+	oldWl := a.byPod[c.Network(p.Status.PodIP, p.Labels).String()+"/"+p.Status.PodIP]
 	if wl == nil {
 		// This is an explicit delete event, or there is no longer a Workload to create (pod NotReady, etc)
 		//delete(a.byPod, p.Status.PodIP)
@@ -738,7 +746,7 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 			delete(a.byPod, oldWl.ResourceName())
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
 			for vip := range oldWl.VirtualIps {
-				a.dropWorkloadFromService(vip, oldWl.ResourceName())
+				a.dropWorkloadFromService(c.getServiceNetwork(oldWl, vip)+"/"+vip, oldWl.ResourceName())
 			}
 			log.Debugf("%v: workload removed, pushing", p.Status.PodIP)
 			// TODO: namespace for network?
@@ -756,12 +764,12 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	if oldWl != nil {
 		// For updates, we will drop the VIPs and then add the new ones back. This could be optimized
 		for vip := range oldWl.VirtualIps {
-			a.dropWorkloadFromService(vip, wl.ResourceName())
+			a.dropWorkloadFromService(c.getServiceNetwork(oldWl, vip)+"/"+vip, wl.ResourceName())
 		}
 	}
 	// Update the VIP indexes as well, as needed
 	for vip := range wl.VirtualIps {
-		a.insertWorkloadToService(vip, wl)
+		a.insertWorkloadToService(c.getServiceNetwork(wl, vip)+"/"+vip, wl)
 	}
 
 	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
@@ -802,23 +810,24 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[
 	// We send an update for each *workload* IP address previously in the service; they may have changed
 	updates := map[model.ConfigKey]struct{}{}
 	for _, vip := range vips {
-		for _, wl := range a.byService[vip] {
+		svcNetwork := c.getServiceNetwork(nil, vip)
+		for _, wl := range a.byService[svcNetwork+"/"+vip] {
 			updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()}] = struct{}{}
 		}
 	}
 	// Update indexes
 	if isDelete {
 		for _, vip := range vips {
-			delete(a.byService, vip)
+			delete(a.byService, c.getServiceNetwork(nil, vip)+"/"+vip)
 		}
 	} else {
 		for _, vip := range vips {
-			a.byService[vip] = wls
+			a.byService[c.getServiceNetwork(nil, vip)+"/"+vip] = wls
 		}
 	}
 	// Fetch updates again, in case it changed from adding new workloads
 	for _, vip := range vips {
-		for _, wl := range a.byService[vip] {
+		for _, wl := range a.byService[c.getServiceNetwork(nil, vip)+"/"+vip] {
 			updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()}] = struct{}{}
 		}
 	}
