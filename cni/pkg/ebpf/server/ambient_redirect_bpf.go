@@ -93,6 +93,7 @@ type ambient_redirectProgramSpecs struct {
 type ambient_redirectMapSpecs struct {
 	AppInfo     *ebpf.MapSpec `ebpf:"app_info"`
 	HostIpInfo  *ebpf.MapSpec `ebpf:"host_ip_info"`
+	LogLevel    *ebpf.MapSpec `ebpf:"log_level"`
 	ZtunnelInfo *ebpf.MapSpec `ebpf:"ztunnel_info"`
 }
 
@@ -117,6 +118,7 @@ func (o *ambient_redirectObjects) Close() error {
 type ambient_redirectMaps struct {
 	AppInfo     *ebpf.Map `ebpf:"app_info"`
 	HostIpInfo  *ebpf.Map `ebpf:"host_ip_info"`
+	LogLevel    *ebpf.Map `ebpf:"log_level"`
 	ZtunnelInfo *ebpf.Map `ebpf:"ztunnel_info"`
 }
 
@@ -124,6 +126,7 @@ func (m *ambient_redirectMaps) Close() error {
 	return _Ambient_redirectClose(
 		m.AppInfo,
 		m.HostIpInfo,
+		m.LogLevel,
 		m.ZtunnelInfo,
 	)
 }

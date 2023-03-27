@@ -18,11 +18,28 @@
 
 #include "ambient_redirect.h"
 
-#define dbg(fmt, ...)                               \
-    ({                                              \
-        bpf_printk("[Debug]: " fmt, ##__VA_ARGS__); \
+#define dbg(fmt, ...)                                   \
+    ({                                                  \
+        if (log_level && *log_level >= LOG_DEBUG)       \
+            bpf_printk("[Debug]: " fmt, ##__VA_ARGS__); \
     })
 
+
+/* This is an array to store log level
+|-----------------------------------------------------------------|
+|             |                 Val(log level)                    |
+|-----------------------------------------------------------------|
+|  0          | 0:none, 1:fatal, 2:error, 3:warn, 4:info, 5:debug |
+|-----------------------------------------------------------------|
+*/
+
+struct {
+        __uint(type, BPF_MAP_TYPE_ARRAY);
+        __uint(max_entries, 1);
+        __type(key, __u32);
+        __type(value, __u32);
+        __uint(pinning, LIBBPF_PIN_BY_NAME);
+} log_level SEC(".maps");
 
 /* This is an array to store host network(ip) info
 |--------------------------------------------------------------|
@@ -94,6 +111,11 @@ static __inline struct ztunnel_info * get_ztunnel_info()
     return bpf_map_lookup_elem(&ztunnel_info, &key);
 }
 
+static __inline __u32 * get_log_level()
+{
+    uint32_t key = 0;
+    return bpf_map_lookup_elem(&log_level, &key);
+}
 
 // For app pod veth pair(in host ns) ingress hook
 SEC("tc")
@@ -107,6 +129,7 @@ int app_outbound(struct __sk_buff *skb)
     struct ztunnel_info *zi = get_ztunnel_info();
     uint8_t capture_dns = 0;
     struct host_info *host_info = NULL;
+    __u32 *log_level = get_log_level();
 
     if (!zi || zi->ifindex == 0)
         return TC_ACT_OK;
@@ -158,6 +181,7 @@ int app_inbound(struct __sk_buff *skb)
     struct udphdr *udph;
     struct ztunnel_info *zi = NULL;
     struct host_info *host_info = NULL;
+    __u32 *log_level = get_log_level();
 
     if (skb->cb[4] == BYPASS_CB)
         return TC_ACT_OK;
@@ -212,6 +236,7 @@ int ztunnel_host_ingress(struct __sk_buff *skb)
     void *data_end = (void *)(long)skb->data_end;
     struct iphdr *iph = NULL;
     struct app_info *pi = NULL;
+    __u32 *log_level = get_log_level();
 
     if (data + sizeof(*eth) > data_end)
         return TC_ACT_OK;
@@ -253,6 +278,7 @@ int ztunnel_ingress(struct __sk_buff *skb)
     size_t tuple_len;
     struct bpf_sock *sk;
     int skip_mark = 0;
+    __u32 *log_level = get_log_level();
 
     if (data + sizeof(*eth) > data_end)
         return TC_ACT_OK;
