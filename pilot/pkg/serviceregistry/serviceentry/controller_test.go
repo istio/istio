@@ -1272,9 +1272,9 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
-			Event{kind: "edscache", host: "selector.com", namespace: selector.Namespace},
-			Event{kind: "xds"})
+			Event{Type: "svcupdate", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "edscache", ID: "selector.com", Namespace: selector.Namespace},
+			Event{Type: "xds"})
 	})
 
 	cases := []struct {
@@ -1407,7 +1407,7 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 				}
 
 				expectServiceInstances(t, sd, selector, 0, totalInstances)
-				expectEvents(t, events, Event{kind: "eds", host: selector.Spec.(*networking.ServiceEntry).Hosts[0], namespace: selector.Namespace, endpoints: len(totalInstances)})
+				expectEvents(t, events, Event{Type: "eds", ID: selector.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: selector.Namespace, EndpointCount: len(totalInstances)})
 			}
 		})
 	}
