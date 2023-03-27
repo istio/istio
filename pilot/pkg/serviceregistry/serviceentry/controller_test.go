@@ -1296,7 +1296,6 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-
 			for _, instance := range testCase.instances {
 
 				wi := &model.WorkloadInstance{
@@ -1319,7 +1318,8 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 				}
 
 				expectServiceInstances(t, sd, selector, 0, totalInstances)
-				expectEvents(t, events, Event{Type: "eds", ID: selector.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: selector.Namespace, EndpointCount: len(totalInstances)})
+				expectEvents(t, events,
+					Event{Type: "eds", ID: selector.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: selector.Namespace, EndpointCount: len(totalInstances)})
 			}
 		})
 	}
