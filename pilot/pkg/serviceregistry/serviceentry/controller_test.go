@@ -1250,38 +1250,19 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 	store, sd, events := initServiceDiscovery(t)
 
-	// Setup a couple of workload instances for test. These will be selected by the `selector` SE
-	fi1 := &model.WorkloadInstance{
-		Name:      selector.Name,
-		Namespace: selector.Namespace,
-		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
-			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
-			TLSMode:        model.IstioMutualTLSModeLabel,
-		},
+	type expectedProxyInstances struct {
+		instancesWithSA []*model.ServiceInstance
+		address         string
 	}
 
-	fi2 := &model.WorkloadInstance{
-		Name:      selector.Name,
-		Namespace: selector.Namespace,
-		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
-			Labels:         map[string]string{"app": "wle2"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
-			TLSMode:        model.IstioMutualTLSModeLabel,
-		},
-	}
-
-	fi3 := &model.WorkloadInstance{
-		Name:      "another-name",
-		Namespace: selector.Namespace,
-		Endpoint: &model.IstioEndpoint{
-			Address:        "3.3.3.3",
-			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
-			TLSMode:        model.IstioMutualTLSModeLabel,
-		},
+	type testWorkloadInstance struct {
+		name                   string
+		namespace              string
+		address                string
+		labels                 map[string]string
+		serviceAccount         string
+		tlsmode                string
+		expectedProxyInstances []expectedProxyInstances
 	}
 
 	t.Run("service entry", func(t *testing.T) {
@@ -1296,66 +1277,140 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 			Event{kind: "xds"})
 	})
 
-	t.Run("change label removing all", func(t *testing.T) {
-		// Add a workload instances, we expect this to update
-		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventAdd, t)
-		instances := []*model.ServiceInstance{
-			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
-				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
-				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
-		}
-		expectProxyInstances(t, sd, instances, "2.2.2.2")
-		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+	cases := []struct {
+		name      string
+		instances []testWorkloadInstance
+	}{
+		{
+			name: "change label removing all",
+			instances: []testWorkloadInstance{
+				{
+					name:           selector.Name,
+					namespace:      selector.Namespace,
+					address:        "2.2.2.2",
+					labels:         map[string]string{"app": "wle"},
+					serviceAccount: "default",
+					tlsmode:        model.IstioMutualTLSModeLabel,
+					expectedProxyInstances: []expectedProxyInstances{
+						{
+							instancesWithSA: []*model.ServiceInstance{
+								makeInstanceWithServiceAccount(selector, "2.2.2.2", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+								makeInstanceWithServiceAccount(selector, "2.2.2.2", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+							},
+							address: "2.2.2.2",
+						},
+					},
+				},
+				{
+					name:           selector.Name,
+					namespace:      selector.Namespace,
+					address:        "2.2.2.2",
+					labels:         map[string]string{"app": "wle2"},
+					serviceAccount: "default",
+					tlsmode:        model.IstioMutualTLSModeLabel,
+					expectedProxyInstances: []expectedProxyInstances{
+						{
+							instancesWithSA: []*model.ServiceInstance{}, // The instance labels don't match the se anymore, so adding this wi removes 2 instances
+							address:         "2.2.2.2",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "change label removing all",
+			instances: []testWorkloadInstance{
+				{
+					name:           selector.Name,
+					namespace:      selector.Namespace,
+					address:        "2.2.2.2",
+					labels:         map[string]string{"app": "wle"},
+					serviceAccount: "default",
+					tlsmode:        model.IstioMutualTLSModeLabel,
+					expectedProxyInstances: []expectedProxyInstances{
+						{
+							instancesWithSA: []*model.ServiceInstance{
+								makeInstanceWithServiceAccount(selector, "2.2.2.2", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+								makeInstanceWithServiceAccount(selector, "2.2.2.2", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+							},
+							address: "2.2.2.2",
+						},
+					},
+				},
+				{
+					name:           "another-name",
+					namespace:      selector.Namespace,
+					address:        "3.3.3.3",
+					labels:         map[string]string{"app": "wle"},
+					serviceAccount: "default",
+					tlsmode:        model.IstioMutualTLSModeLabel,
+					expectedProxyInstances: []expectedProxyInstances{
+						{
+							instancesWithSA: []*model.ServiceInstance{
+								makeInstanceWithServiceAccount(selector, "2.2.2.2", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+								makeInstanceWithServiceAccount(selector, "2.2.2.2", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+							},
+							address: "2.2.2.2",
+						},
+						{
+							instancesWithSA: []*model.ServiceInstance{
+								makeInstanceWithServiceAccount(selector, "3.3.3.3", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+								makeInstanceWithServiceAccount(selector, "3.3.3.3", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+							},
+							address: "3.3.3.3",
+						},
+					},
+				},
+				{
+					name:           selector.Name,
+					namespace:      selector.Namespace,
+					address:        "2.2.2.2",
+					labels:         map[string]string{"app": "wle2"},
+					serviceAccount: "default",
+					tlsmode:        model.IstioMutualTLSModeLabel,
+					expectedProxyInstances: []expectedProxyInstances{
+						{
+							instancesWithSA: []*model.ServiceInstance{
+								makeInstanceWithServiceAccount(selector, "3.3.3.3", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+								makeInstanceWithServiceAccount(selector, "3.3.3.3", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+							},
+							address: "3.3.3.3",
+						},
+					},
+				},
+			},
+		},
+	}
 
-		callInstanceHandlers([]*model.WorkloadInstance{fi2}, sd, model.EventAdd, t)
-		instances = []*model.ServiceInstance{}
-		expectProxyInstances(t, sd, instances, "2.2.2.2")
-		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
-	})
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
 
-	t.Run("change label removing one", func(t *testing.T) {
-		// Add a workload instances, we expect this to update
-		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventAdd, t)
+			for _, instance := range testCase.instances {
 
-		instances := []*model.ServiceInstance{
-			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
-				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
-				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
-		}
+				wi := &model.WorkloadInstance{
+					Name:      instance.name,
+					Namespace: instance.namespace,
+					Endpoint: &model.IstioEndpoint{
+						Address:        instance.address,
+						Labels:         instance.labels,
+						ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, instance.serviceAccount),
+						TLSMode:        instance.tlsmode,
+					},
+				}
 
-		expectProxyInstances(t, sd, instances, "2.2.2.2")
-		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+				callInstanceHandlers([]*model.WorkloadInstance{wi}, sd, model.EventAdd, t)
 
-		callInstanceHandlers([]*model.WorkloadInstance{fi3}, sd, model.EventAdd, t)
+				totalInstances := []*model.ServiceInstance{}
+				for _, expectedProxyInstance := range instance.expectedProxyInstances {
+					expectProxyInstances(t, sd, expectedProxyInstance.instancesWithSA, expectedProxyInstance.address)
+					totalInstances = append(totalInstances, expectedProxyInstance.instancesWithSA...)
+				}
 
-		instances = append(instances,
-			makeInstanceWithServiceAccount(selector, "3.3.3.3", 444,
-				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "3.3.3.3", 445,
-				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"))
-
-		expectProxyInstances(t, sd, instances[:2], "2.2.2.2")
-		expectProxyInstances(t, sd, instances[2:], "3.3.3.3")
-		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4})
-
-		callInstanceHandlers([]*model.WorkloadInstance{fi2}, sd, model.EventAdd, t)
-		instances = []*model.ServiceInstance{
-			makeInstanceWithServiceAccount(selector, "3.3.3.3", 444,
-				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "3.3.3.3", 445,
-				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
-		}
-
-		expectProxyInstances(t, sd, instances, "3.3.3.3")
-		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
-	})
+				expectServiceInstances(t, sd, selector, 0, totalInstances)
+				expectEvents(t, events, Event{kind: "eds", host: selector.Spec.(*networking.ServiceEntry).Hosts[0], namespace: selector.Namespace, endpoints: len(totalInstances)})
+			}
+		})
+	}
 }
 
 func expectProxyInstances(t testing.TB, sd *Controller, expected []*model.ServiceInstance, ip string) {

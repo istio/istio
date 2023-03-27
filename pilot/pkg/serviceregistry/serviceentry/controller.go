@@ -527,10 +527,16 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			continue
 		}
 
+		// If we are here, then there are 3 possible cases :
+		// Case 1 : The new wi is a subset of se
+		// Case 2 : The labelsChanged and the new wi is still a subset of se
+		// Case 3 : The labelsChanged and the new wi is NOT a subset of se anymore
+
 		seNamespacedName := config.NamespacedName(cfg)
 		services := s.services.getServices(seNamespacedName)
 		currInstance := convertWorkloadInstanceToServiceInstance(wi, services, se)
 
+		// We chech if the wi is still a subset of se. This would cover Case 1 and Case 2 from above.
 		if labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
 			// If the workload instance still matches. We take care of the possible events.
 			instances = append(instances, currInstance...)
@@ -561,7 +567,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 				}
 			}
 		} else if labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
-			// If we're here. It means that the labels changed and the new labels don't match the SE anymore.
+			// If we're here. It means that the labels changed and the new labels don't match the SE anymore (Case 3 from above).
 			// But that doesn't mean that the old labels did match. We only care about the cases where the oldWi matched and the new one does not.
 			oldInstance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
 			unSelected := workloadInstanceDiff(oldInstance, currInstance)
