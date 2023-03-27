@@ -80,7 +80,7 @@ func TestWorkloadReconnect(t *testing.T) {
 
 	// Now subscribe to the pod, should get it back
 	resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
-		ResourceNamesSubscribe: []string{"127.0.0.1"},
+		ResourceNamesSubscribe: []string{"/127.0.0.1"},
 	})
 	expect(resp, "/127.0.0.1")
 	ads.Cleanup()
@@ -91,7 +91,7 @@ func TestWorkloadReconnect(t *testing.T) {
 		ResourceNamesSubscribe:   []string{"*"},
 		ResourceNamesUnsubscribe: []string{"*"},
 		InitialResourceVersions: map[string]string{
-			"127.0.0.1": "",
+			"/127.0.0.1": "",
 		},
 	})
 	expect(ads.ExpectResponse(), "/127.0.0.1")
