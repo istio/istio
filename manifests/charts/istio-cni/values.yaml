@@ -105,7 +105,7 @@ global:
 
   # change cni scope level to control logging out of istio-cni-node DaemonSet
   logging:
-    level: default:info,cni:info,ambient:info,ebpf:info
+    level: default:info,cni:info
 
   logAsJson: false
 
