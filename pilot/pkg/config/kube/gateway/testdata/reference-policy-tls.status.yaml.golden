@@ -23,15 +23,15 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: port 443 not found for
-      hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
-    reason: NoResources
-    status: "False"
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed
-    reason: Programmed
-    status: "True"
+    message: 'Failed to assign to any requested addresses: port 443 not found for
+      hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: Invalid
+    status: "False"
     type: Programmed
   listeners:
   - attachedRoutes: 1
