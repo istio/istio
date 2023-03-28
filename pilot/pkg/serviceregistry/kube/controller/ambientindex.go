@@ -333,15 +333,7 @@ func (c *Controller) getPodsInPolicy(ns string, sel map[string]string) []*v1.Pod
 	if ns == c.meshWatcher.Mesh().GetRootNamespace() {
 		ns = metav1.NamespaceAll
 	}
-	allPods := c.podsClient.List(ns, klabels.Everything())
-	var pods []*v1.Pod
-	for _, pod := range allPods {
-		if labels.Instance(sel).SubsetOf(pod.Labels) {
-			pods = append(pods, pod)
-		}
-	}
-
-	return pods
+	return c.podsClient.List(ns, klabels.ValidatedSetSelector(sel))
 }
 
 func convertAuthorizationPolicy(rootns string, obj config.Config) *workloadapi.Authorization {
@@ -783,8 +775,7 @@ func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
 func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
 	svc := controllers.Extract[*v1.Service](obj)
 	vips := getVIPs(svc)
-	allPods := c.podsClient.List(svc.Namespace, klabels.Everything())
-	pods := getPodsInService(allPods, svc)
+	pods := c.getPodsInService(svc)
 	var wls []*model.WorkloadInfo
 	for _, p := range pods {
 		// Can be nil if it's not ready, hostNetwork, etc
@@ -821,6 +812,14 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[
 		}
 	}
 	return updates
+}
+
+func (c *Controller) getPodsInService(svc *v1.Service) []*v1.Pod {
+	if svc.Spec.Selector == nil {
+		// services with nil selectors match nothing, not everything.
+		return nil
+	}
+	return c.podsClient.List(svc.Namespace, klabels.ValidatedSetSelector(svc.Spec.Selector))
 }
 
 // PodInformation returns all WorkloadInfo's in the cluster.
