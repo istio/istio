@@ -1500,8 +1500,7 @@ func reportGatewayStatus(
 		},
 	}
 	if len(internal) > 0 {
-		gatewayConditions[string(k8sbeta.GatewayReasonProgrammed)].message =
-			fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
+		gatewayConditions[string(k8sbeta.GatewayReasonProgrammed)].message = fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
 	}
 
 	if len(warnings) > 0 {
