@@ -16,6 +16,8 @@ package controller
 
 import (
 	"fmt"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"net"
 	"sort"
 	"sync"
 	"time"
@@ -274,6 +276,8 @@ type Controller struct {
 
 	podsClient kclient.Client[*v1.Pod]
 
+	workloadentries kclient.Client[*v1alpha3.WorkloadEntry]
+
 	ambientIndex     *AmbientIndex
 	configController model.ConfigStoreController
 	configCluster    bool
@@ -346,6 +350,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		})
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
+
+	c.workloadentries = kclient.New[*v1alpha3.WorkloadEntry](kubeClient)
+	registerHandlers[*v1alpha3.WorkloadEntry](c, c.workloadentries, "WorkloadEntries", c.onWorkloadEntryEvent, nil)
 
 	if features.EnableMCSServiceDiscovery || features.EnableMCSHost {
 		c.crdWatcher = crdwatcher.NewController(kubeClient)
@@ -580,6 +587,20 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 			Reason: []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
+	return nil
+}
+
+func (c *Controller) onWorkloadEntryEvent(_, entry *v1alpha3.WorkloadEntry, event model.Event) error {
+	log.Infof("ADITYA: workload entry event: %v", entry.Spec.GetAddress())
+	// if a workloadentry is created with the same IP address & Network as an already existing workloadentry, delete the old workloadentry.
+	if c.workloadInstancesIndex.GetByIP(entry.Spec.GetAddress()) != nil {
+
+	}
+	e := c.workloadInstancesIndex.GetByIP("1.1.1.1")
+	for _, en := range e {
+		log.Infof("entry: %v", en.Name)
+	}
+	//log.Infof("workload instance map: %v", c.workloadInstancesIndex.GetByIP("1.1.1.1")[0].Name)
 	return nil
 }
 
@@ -982,10 +1003,10 @@ func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInst
 func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event model.Event) {
 	// ignore malformed workload entries. And ignore any workload entry that does not have a label
 	// as there is no way for us to select them
+	log.Info("WSGA")
 	if si.Namespace == "" || len(si.Endpoint.Labels) == 0 {
 		return
 	}
-
 	// this is from a workload entry. Store it in separate index so that
 	// the InstancesByPort can use these as well as the k8s pods.
 	switch event {

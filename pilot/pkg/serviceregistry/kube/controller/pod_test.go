@@ -196,6 +196,12 @@ func waitForNode(t test.Failer, c *FakeController, name string) {
 	}, retry.Timeout(time.Second*1), retry.Delay(time.Millisecond*5))
 }
 
+func waitForWorkloadEntry(t test.Failer, c *FakeController, name string) {
+	retry.UntilOrFail(t, func() bool {
+		return c.workloadentries.Get(name, "") != nil
+	}, retry.Timeout(time.Second*1), retry.Delay(time.Millisecond*5))
+}
+
 func testPodCache(t *testing.T) {
 	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		Mode:              EndpointsOnly,
