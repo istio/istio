@@ -274,14 +274,6 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	return existingConditions
 }
 
-func reportGatewayCondition(obj config.Config, conditions map[string]*condition) {
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		gs := s.(*k8s.GatewayStatus)
-		gs.Conditions = setConditions(obj.Generation, gs.Conditions, conditions)
-		return gs
-	})
-}
-
 func reportListenerAttachedRoutes(index int, obj config.Config, i int32) {
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
