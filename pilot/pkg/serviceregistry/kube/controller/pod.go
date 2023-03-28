@@ -131,18 +131,26 @@ func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodC
 	return -1, nil
 }
 
+// GetPodIPs returns the pod's IP addresses of given pod
+// Addresses should be fetched from Status.PodIPs if existing valuse,
+// otherwise, from Status.PodIP
+func GetPodIPs(pod *v1.Pod) []string {
+	var podIPs []string
+	if len(pod.Status.PodIPs) > 0 {
+		for _, itemIP := range pod.Status.PodIPs {
+			podIPs = append(podIPs, itemIP.IP)
+		}
+	} else {
+		podIPs = append(podIPs, pod.Status.PodIP)
+	}
+	return podIPs
+}
+
 func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 	// If labels updated, trigger proxy push
 	if cur.Status.PodIP != "" && !reflect.DeepEqual(old.Labels, cur.Labels) {
-		if len(cur.Status.PodIPs) > 0 {
-			var podIPs []string
-			for _, itemIP := range cur.Status.PodIPs {
-				podIPs = append(podIPs, itemIP.IP)
-			}
-			pc.proxyUpdates(podIPs)
-		} else {
-			pc.proxyUpdates([]string{cur.Status.PodIP})
-		}
+		podIPs := GetPodIPs(cur)
+		pc.proxyUpdates(podIPs)
 	}
 
 	// always continue calling pc.onEvent
@@ -151,13 +159,7 @@ func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 
 // onEvent updates the IP-based index (pc.podsByIP).
 func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
-	var podIPs []string
-	for _, itemIP := range pod.Status.PodIPs {
-		podIPs = append(podIPs, itemIP.IP)
-	}
-	if len(podIPs) == 0 {
-		podIPs = append(podIPs, pod.Status.PodIP)
-	}
+	podIPs := GetPodIPs(pod)
 	// PodIP will be empty when pod is just created, but before the IP addresses is assigned
 	// via UpdateStatus.
 	if len(podIPs) == 0 {
@@ -197,25 +199,14 @@ func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
 
 // notifyWorkloadHandlers fire workloadInstance handlers for pod
 func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
-	// if no workload handler registered, skpodIPsip building WorkloadInstance
+	// if no workload handler registered, skip building WorkloadInstance
 	if len(pc.c.handlers.GetWorkloadHandlers()) == 0 {
 		return
 	}
 	// fire instance handles for workload
-	if len(pod.Status.PodIPs) > 0 {
-		for _, itemIP := range pod.Status.PodIPs {
-			ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(itemIP.IP, 0, "", model.AlwaysDiscoverable, model.Healthy)
-			workloadInstance := &model.WorkloadInstance{
-				Name:      pod.Name,
-				Namespace: pod.Namespace,
-				Kind:      model.PodKind,
-				Endpoint:  ep,
-				PortMap:   getPortMap(pod),
-			}
-			pc.c.handlers.NotifyWorkloadHandlers(workloadInstance, ev)
-		}
-	} else {
-		ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable, model.Healthy)
+	podIPs := GetPodIPs(pod)
+	for _, itemIP := range podIPs {
+		ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(itemIP, 0, "", model.AlwaysDiscoverable, model.Healthy)
 		workloadInstance := &model.WorkloadInstance{
 			Name:      pod.Name,
 			Namespace: pod.Namespace,
@@ -243,31 +234,35 @@ func getPortMap(pod *v1.Pod) map[string]uint32 {
 	return pmap
 }
 
-// deleteIP returns true if the pod and ip are really deleted.
+// deleteIPs returns true if the pod and ip are really deleted.
 func (pc *PodCache) deleteIPs(ips []string, podKey types.NamespacedName) bool {
 	pc.Lock()
 	defer pc.Unlock()
-	var deleteIPFlag bool
+	deleteCounter := 0
 	for _, itemIP := range ips {
 		if pc.podsByIP[itemIP] == podKey {
 			delete(pc.podsByIP, itemIP)
 			delete(pc.IPByPods, podKey)
-			deleteIPFlag = true
-		} else {
-			deleteIPFlag = false
+			deleteCounter++
 		}
 	}
-	return deleteIPFlag
+	return deleteCounter == len(ips)
 }
 
 func (pc *PodCache) update(ips []string, key types.NamespacedName) {
 	pc.Lock()
 	// if the pod has been cached, return
+	var isCachedAll bool
 	for _, itemIP := range ips {
 		if key == pc.podsByIP[itemIP] {
-			pc.Unlock()
-			return
+			isCachedAll = true
+		} else {
+			isCachedAll = false
 		}
+	}
+	if isCachedAll {
+		pc.Unlock()
+		return
 	}
 	if current, f := pc.IPByPods[key]; f {
 		// The pod already exists, but with another IP Addresses. We need to clean up that
