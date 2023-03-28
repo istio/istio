@@ -65,49 +65,15 @@ func TestIngress(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, "k8s-ingress-secret-foo", ingressutil.TLS, ingressutil.IngressCredentialA, false, t.Clusters().Kube()...)
 			ingressutil.CreateIngressKubeSecret(t, "k8s-ingress-secret-bar", ingressutil.TLS, ingressutil.IngressCredentialB, false, t.Clusters().Kube()...)
 
-			apiVersion := "v1beta1"
-			if t.Clusters().Default().MinKubeVersion(19) {
-				apiVersion = "v1"
-			}
-
-			ingressClassConfig := fmt.Sprintf(`
-apiVersion: networking.k8s.io/%s
+			ingressClassConfig := `
+apiVersion: networking.k8s.io/v1
 kind: IngressClass
 metadata:
   name: istio-test
 spec:
-  controller: istio.io/ingress-controller`, apiVersion)
+  controller: istio.io/ingress-controller`
 
 			ingressConfigTemplate := `
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: %s
-spec:
-  ingressClassName: %s
-  tls:
-  - hosts: ["foo.example.com"]
-    secretName: k8s-ingress-secret-foo
-  - hosts: ["bar.example.com"]
-    secretName: k8s-ingress-secret-bar
-  rules:
-    - http:
-        paths:
-          - path: %s/namedport
-            backend:
-              serviceName: b
-              servicePort: http
-          - path: %s
-            backend:
-              serviceName: b
-              servicePort: 80
-          - path: %s
-            pathType: Prefix
-            backend:
-              serviceName: b
-              servicePort: http`
-			if apiVersion == "v1" {
-				ingressConfigTemplate = `
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -144,7 +110,6 @@ spec:
         path: %s
         pathType: Prefix
 `
-			}
 
 			successChecker := check.And(check.OK(), check.ReachedClusters(t.AllClusters(), apps.B.Clusters()))
 			failureChecker := check.Status(http.StatusNotFound)
@@ -356,23 +321,6 @@ spec:
 				host, _ := defaultIngress.HTTPAddress()
 				hostIsIP := net.ParseIP(host).String() != "<nil>"
 				retry.UntilSuccessOrFail(t, func() error {
-					if apiVersion == "v1beta1" {
-						ing, err := t.Clusters().Default().Kube().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
-						if err != nil {
-							return err
-						}
-						if len(ing.Status.LoadBalancer.Ingress) < 1 {
-							return fmt.Errorf("unexpected ingress status, ingress is empty")
-						}
-						got := ing.Status.LoadBalancer.Ingress[0].Hostname
-						if hostIsIP {
-							got = ing.Status.LoadBalancer.Ingress[0].IP
-						}
-						if got != host {
-							return fmt.Errorf("unexpected ingress status, got %+v want %v", got, host)
-						}
-						return nil
-					}
 					ing, err := t.Clusters().Default().Kube().NetworkingV1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
 						return err
@@ -406,6 +354,22 @@ spec:
 				path         string
 				call         echo.CallOptions
 			}{
+				// Ensure we get a 200 initially
+				{
+					name:         "initial state",
+					ingressClass: "istio-test",
+					path:         "/update-test",
+					call: echo.CallOptions{
+						Port: echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						HTTP: echo.HTTP{
+							Path:    "/update-test",
+							Headers: headers.New().WithHost("server").Build(),
+						},
+						Check: check.OK(),
+					},
+				},
 				{
 					name:         "update-class-not-istio",
 					ingressClass: "not-istio",

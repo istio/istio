@@ -18,7 +18,6 @@ package ingress
 
 import (
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -123,25 +122,22 @@ func (c *controller) Run(stop <-chan struct{}) {
 	controllers.ShutdownAll(c.ingress, c.services, c.classes)
 }
 
-func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetworking.Ingress) (bool, error) {
+func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetworking.Ingress) bool {
 	var class *knetworking.IngressClass
 	if i.Spec.IngressClassName != nil {
 		c := c.classes.Get(*i.Spec.IngressClassName, "")
 		if c == nil {
-			return false, fmt.Errorf("failed to get ingress class %v", i.Spec.IngressClassName)
+			return false
 		}
 		class = c
 	}
-	return shouldProcessIngressWithClass(mesh, i, class), nil
+	return shouldProcessIngressWithClass(mesh, i, class)
 }
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
 func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool, error) {
 	// ingress add/update
-	shouldProcess, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
-	if err != nil {
-		return false, err
-	}
+	shouldProcess := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
 	item := config.NamespacedName(ing)
 	if shouldProcess {
 		// record processed ingress
@@ -265,10 +261,7 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) []confi
 	out := make([]config.Config, 0)
 	ingressByHost := map[string]*config.Config{}
 	for _, ingress := range sortIngressByCreationTime(c.ingress.List(namespace, klabels.Everything())) {
-		process, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ingress)
-		if err != nil {
-			continue
-		}
+		process := c.shouldProcessIngress(c.meshWatcher.Mesh(), ingress)
 		if !process {
 			continue
 		}
