@@ -88,7 +88,7 @@ istioctl install --set profile=demo -y
 Or ensure you have the following additional mesh config set in your Istio:
 
 ```yaml
-defaultConfig:
+mesh: |-
   extensionProviders:
   - name: otel-tracing
     opentelemetry:

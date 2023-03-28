@@ -193,6 +193,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Mode:             opts.KubernetesEndpointMode,
 			SkipRun:          true,
 			ConfigController: k8sConfig,
+			ConfigCluster:    k8sCluster == opts.DefaultClusterName,
 			MeshWatcher:      mesh.NewFixedWatcher(m),
 		})
 		stop := test.NewStop(t)

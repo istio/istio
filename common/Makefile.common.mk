@@ -104,6 +104,7 @@ update-common:
 	fi
 	@cp -a $(TMP)/common-files/files/* $(shell pwd)
 	@rm -fr $(TMP)/common-files
+	@$(or $(COMMONFILES_POSTPROCESS), true)
 
 check-clean-repo:
 	@common/scripts/check_clean_repo.sh
