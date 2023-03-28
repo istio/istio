@@ -84,6 +84,7 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	case EbpfMode:
 		s.redirectMode = EbpfMode
 		s.ebpfServer = ebpf.NewRedirectServer()
+		s.ebpfServer.SetLogLevel(args.LogLevel)
 		s.ebpfServer.Start(ctx.Done())
 	}
 
@@ -146,7 +147,7 @@ func (s *Server) UpdateConfig() {
 	log.Debug("Done")
 }
 
-var ztunnelLabels = labels.SelectorFromValidatedSet(labels.Set{"app": "ztunnel"})
+var ztunnelLabels = labels.ValidatedSetSelector(labels.Set{"app": "ztunnel"})
 
 func (s *Server) ReconcileZtunnel() error {
 	pods := s.pods.List(metav1.NamespaceAll, ztunnelLabels)
