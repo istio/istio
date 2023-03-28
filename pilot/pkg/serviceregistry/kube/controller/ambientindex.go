@@ -843,8 +843,14 @@ func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([
 	var wls []*model.WorkloadInfo
 	var removed []string
 	for p := range addresses {
-		cNetwork := c.Network(p.Name, make(labels.Instance, 0)).String()
-		wl := c.ambientIndex.Lookup(cNetwork + "/" + p.Name)
+		wname := p.Name
+		// GenerateDeltas has the formatted wname from the xds request, but not sure if other callers
+		// have the format enforced
+		if found := strings.Count(p.Name, "/"); found == 0 {
+			cNetwork := c.Network(p.Name, make(labels.Instance, 0)).String()
+			wname = cNetwork + "/" + p.Name
+		}
+		wl := c.ambientIndex.Lookup(wname)
 		if len(wl) == 0 {
 			removed = append(removed, p.Name)
 		} else {
