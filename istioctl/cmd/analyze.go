@@ -193,6 +193,7 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				k = kube.EnableCrdWatcher(k)
 				sa.AddRunningKubeSourceWithRevision(k, revisionSpecified)
 			}
 

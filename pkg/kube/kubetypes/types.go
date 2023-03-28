@@ -19,6 +19,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -67,6 +68,18 @@ type Filter struct {
 	// ObjectTransform allows arbitrarily modifying objects stored in the underlying cache.
 	// If unset, a default transform is provided to remove ManagedFields (high cost, low value)
 	ObjectTransform func(obj any) (any, error)
+}
+
+type DelayedFilter interface {
+	HasSynced() bool
+	KnownOrCallback(f func(stop <-chan struct{})) bool
+}
+
+type CrdWatcher interface {
+	HasSynced() bool
+	KnownOrCallback(s schema.GroupVersionResource, f func(stop <-chan struct{})) bool
+	WaitForCRD(s schema.GroupVersionResource, stop <-chan struct{}) bool
+	Run(stop <-chan struct{})
 }
 
 // WriteAPI exposes a generic API for a client go type for write operations.
