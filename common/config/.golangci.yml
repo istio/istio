@@ -4,6 +4,7 @@
 # If you're looking at this file in a different repo and want to make a change, please go to the
 # common-files repo, make the change there and check it in. Then come back to this repo and run
 # "make update-common".
+
 service:
   # When updating this, also update the version stored in docker/build-tools/Dockerfile in the istio/tools repo.
   golangci-lint-version: 1.49.x # use the fixed version to not introduce new linters unexpectedly
