@@ -343,9 +343,15 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
-	authenticators := []security.Authenticator{
-		&authenticate.ClientCertAuthenticator{},
+	authenticators := []security.Authenticator{}
+	// Add XFCC authenticator first in the list if it needs to be used for authentication.
+	// Otherwise, the ClientCertAuthenticator will reject the plain text calls to Istiod when
+	// Istiod is running behind a proxy.
+	if len(features.TrustedGatewayCIDR) > 0 && xds.AuthPlaintext {
+		authenticators = append(authenticators, &authenticate.XfccAuthenticator{})
 	}
+	authenticators = append(authenticators, &authenticate.ClientCertAuthenticator{})
+
 	if args.JwtRule != "" {
 		jwtAuthn, err := initOIDC(args)
 		if err != nil {
@@ -361,9 +367,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if s.kubeClient != nil {
 		authenticators = append(authenticators,
 			kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
-	}
-	if len(features.TrustedGatewayCIDR) > 0 {
-		authenticators = append(authenticators, &authenticate.XfccAuthenticator{})
 	}
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
