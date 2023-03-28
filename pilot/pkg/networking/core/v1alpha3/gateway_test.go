@@ -2136,50 +2136,37 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 	}
 
-	for _, value := range []bool{false, true} {
-		for _, version := range []string{"1.14.0", "1.15.0"} {
-			for _, tt := range cases {
-				t.Run(tt.name, func(t *testing.T) {
-					test.SetForTest(t, &features.StripHostPort, value)
-					cfgs := tt.gateways
-					cfgs = append(cfgs, tt.virtualServices...)
-					cg := NewConfigGenTest(t, TestOptions{
-						Configs: cfgs,
-					})
-					p := cg.SetupProxy(&proxyGateway)
-					p.IstioVersion = pilot_model.ParseIstioVersion(version)
-					r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
-					if r == nil {
-						t.Fatal("got an empty route configuration")
-					}
-					vh := make(map[string][]string)
-					hr := make(map[string]int)
-					for _, h := range r.VirtualHosts {
-						vh[h.Name] = h.Domains
-						hr[h.Name] = len(h.Routes)
-						if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
-							t.Errorf("expected attempt count to be set in virtual host, but not found")
-						}
-						if tt.redirect != (h.RequireTls == route.VirtualHost_ALL) {
-							t.Errorf("expected redirect %v, got %v", tt.redirect, h.RequireTls)
-						}
-					}
-
-					if features.StripHostPort {
-						if !reflect.DeepEqual(tt.expectedVirtualHostsHostPortStrip, vh) {
-							t.Errorf("got unexpected virtual hosts with strip port. Expected: %v, Got: %v", tt.expectedVirtualHostsHostPortStrip, vh)
-						}
-					} else {
-						if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
-							t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
-						}
-					}
-					if !reflect.DeepEqual(tt.expectedHTTPRoutes, hr) {
-						t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHTTPRoutes, hr)
-					}
-				})
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cfgs := tt.gateways
+			cfgs = append(cfgs, tt.virtualServices...)
+			cg := NewConfigGenTest(t, TestOptions{
+				Configs: cfgs,
+			})
+			r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
+			if r == nil {
+				t.Fatal("got an empty route configuration")
 			}
-		}
+			vh := make(map[string][]string)
+			hr := make(map[string]int)
+			for _, h := range r.VirtualHosts {
+				vh[h.Name] = h.Domains
+				hr[h.Name] = len(h.Routes)
+				if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
+					t.Errorf("expected attempt count to be set in virtual host, but not found")
+				}
+				if tt.redirect != (h.RequireTls == route.VirtualHost_ALL) {
+					t.Errorf("expected redirect %v, got %v", tt.redirect, h.RequireTls)
+				}
+			}
+
+			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
+				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
+			}
+			if !reflect.DeepEqual(tt.expectedHTTPRoutes, hr) {
+				t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHTTPRoutes, hr)
+			}
+		})
 	}
 }
 

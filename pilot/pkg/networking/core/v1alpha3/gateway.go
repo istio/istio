@@ -656,11 +656,6 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		}
 	}
 
-	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort
-	if features.StripHostPort {
-		stripPortMode = &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: true}
-	}
-
 	httpConnManager := &hcm.HttpConnectionManager{
 		XffNumTrustedHops: xffNumTrustedHops,
 		// Forward client cert if connection is mTLS
@@ -673,7 +668,6 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		},
 		ServerName:          EnvoyServerName,
 		HttpProtocolOptions: httpProtoOpts,
-		StripPortMode:       stripPortMode,
 	}
 	if http3SupportEnabled {
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
@@ -1049,7 +1043,7 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 
 func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int) []string {
 	domains := []string{hostname}
-	if features.StripHostPort || hostname == "*" || !node.IsProxylessGrpc() {
+	if hostname == "*" || !node.IsProxylessGrpc() {
 		return domains
 	}
 

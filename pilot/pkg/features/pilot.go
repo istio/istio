@@ -616,10 +616,6 @@ var (
 		false,
 		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
 
-	StripHostPort = env.Register("ISTIO_GATEWAY_STRIP_HOST_PORT", false,
-		"If enabled, Gateway will remove any port from host/authority header "+
-			"before any processing of request by HTTP filters or routing.").Get()
-
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
 	EnableUnsafeAssertions = env.Register(
