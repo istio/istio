@@ -16,6 +16,7 @@ package util
 import (
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
@@ -24,6 +25,7 @@ import (
 
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var (
@@ -132,4 +134,61 @@ func TestDetectSupportedJWTPolicy(t *testing.T) {
 			t.Fatalf("unexpected jwt type, expected %s, got %s", ThirdPartyJWT, res)
 		}
 	})
+}
+
+func TestPrometheusPathAndPort(t *testing.T) {
+	cases := []struct {
+		pod  *v1.Pod
+		path string
+		port int
+	}{
+		{
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "case-1",
+					Annotations: map[string]string{
+						"prometheus.io/path": "/metrics",
+						"prometheus.io/port": "15020",
+					},
+				},
+			},
+			path: "/metrics",
+			port: 15020,
+		},
+		{
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "case-2",
+					Annotations: map[string]string{
+						"prometheus.io.path": "/metrics",
+						"prometheus.io.port": "15020",
+					},
+				},
+			},
+			path: "/metrics",
+			port: 15020,
+		},
+		{
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "case-3",
+					Annotations: map[string]string{
+						"prometheus-io/path": "/metrics",
+						"prometheus-io/port": "15020",
+					},
+				},
+			},
+			path: "/metrics",
+			port: 15020,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.pod.Name, func(t *testing.T) {
+			path, port, err := PrometheusPathAndPort(tc.pod)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.path, path)
+			assert.Equal(t, tc.port, port)
+		})
+	}
 }
