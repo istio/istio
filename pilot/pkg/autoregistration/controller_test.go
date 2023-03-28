@@ -70,18 +70,6 @@ var (
 		Spec:   tmplA,
 		Status: nil,
 	}
-	wgB = config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.WorkloadGroup,
-			Namespace:        "a",
-			Name:             "wg-b",
-			Labels: map[string]string{
-				"grouplabel": "notonentry",
-			},
-		},
-		Spec:   tmplA,
-		Status: nil,
-	}
 )
 
 func TestNonAutoregisteredWorkloads(t *testing.T) {
@@ -318,7 +306,6 @@ func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreController)
 	c1 := NewController(store, "pilot-1", keepalive.Infinity)
 	c2 := NewController(store, "pilot-2", keepalive.Infinity)
 	createOrFail(t, store, wgA)
-	createOrFail(t, store, wgB)
 	return c1, c2, store
 }
 
