@@ -5,6 +5,6 @@ issue:
   - 44002
 releaseNotes:
   - |
-    **Fixed** `istioctl x revision describe` error warning output.
+    **Fixed** `istioctl experimental revision describe` warning gateway is not enabled when gateway exists.
   - |
     **Fixed** `istioctl x revision describe` error egressGateways total output.
