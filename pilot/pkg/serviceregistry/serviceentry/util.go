@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 )
@@ -49,19 +48,4 @@ func difference(old, curr map[types.NamespacedName]*config.Config) []types.Names
 	}
 
 	return out
-}
-
-// difference returns the elements in `old` that aren't in `curr`.
-func workloadInstanceDiff(old, curr []*model.ServiceInstance) []*model.ServiceInstance {
-	mb := make(map[*model.ServiceInstance]struct{}, len(curr))
-	for _, x := range curr {
-		mb[x] = struct{}{}
-	}
-	var diff []*model.ServiceInstance
-	for _, x := range old {
-		if _, found := mb[x]; !found {
-			diff = append(diff, x)
-		}
-	}
-	return diff
 }
