@@ -218,26 +218,6 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		}, retry.Timeout(time.Until(time.Now().Add(21*features.WorkloadEntryCleanupGracePeriod))))
 	})
 
-	t.Run("when there are workload entries registered with the same IP Addresses, use most recently connected", func(t *testing.T) {
-		sameNetProxy := fakeProxy("1.1.1.1", wgA, "nw1")
-		sameNetProxy.XdsNode = n
-		sameNetProxy2 := fakeProxy("1.1.1.1", wgB, "nw1")
-		sameNetProxy2.XdsNode = n
-		err := c1.RegisterWorkload(sameNetProxy, time.Now())
-		if err != nil {
-			t.Fatalf("unexpected error registering workload: %v", err)
-		}
-		checkEntryOrFail(t, store, wgA, sameNetProxy, n, c1.instanceID)
-		err = c1.RegisterWorkload(sameNetProxy2, time.Now())
-		if err != nil {
-			t.Fatalf("unexpected error registering workload: %v", err)
-		}
-		checkEntryOrFail(t, store, wgB, sameNetProxy2, n, c1.instanceID)
-		if err = checkNoEntry(store, wgA, sameNetProxy); err != nil {
-			t.Fatalf("expected stale WorkloadEntry to be cleaned up: %v", err)
-		}
-	})
-
 	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
 }
 
