@@ -147,7 +147,7 @@ func (s *Server) UpdateConfig() {
 	log.Debug("Done")
 }
 
-var ztunnelLabels = labels.SelectorFromValidatedSet(labels.Set{"app": "ztunnel"})
+var ztunnelLabels = labels.ValidatedSetSelector(labels.Set{"app": "ztunnel"})
 
 func (s *Server) ReconcileZtunnel() error {
 	pods := s.pods.List(metav1.NamespaceAll, ztunnelLabels)

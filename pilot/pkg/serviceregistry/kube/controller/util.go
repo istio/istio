@@ -137,21 +137,6 @@ func getPodServices(allServices []*v1.Service, pod *v1.Pod) []*v1.Service {
 	return services
 }
 
-func getPodsInService(allPods []*v1.Pod, svc *v1.Service) []*v1.Pod {
-	if svc.Spec.Selector == nil {
-		// services with nil selectors match nothing, not everything.
-		return nil
-	}
-	var pods []*v1.Pod
-	for _, pod := range allPods {
-		if labels.Instance(svc.Spec.Selector).SubsetOf(pod.Labels) {
-			pods = append(pods, pod)
-		}
-	}
-
-	return pods
-}
-
 func portsEqual(a, b []v1.EndpointPort) bool {
 	if len(a) != len(b) {
 		return false
