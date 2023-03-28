@@ -1367,13 +1367,11 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 
 		// Extract the addresses. A gateway will bind to a specific Service
 		gatewayServices, skippedAddresses := extractGatewayServices(r.KubernetesResources, kgw, obj)
-		invalidListeners := []k8s.SectionName{}
 		for i, l := range kgw.Listeners {
 			i := i
 			namespaceLabelReferences.InsertAll(getNamespaceLabelReferences(l.AllowedRoutes)...)
 			server, ok := buildListener(r, obj, l, i, controllerName)
 			if !ok {
-				invalidListeners = append(invalidListeners, l.Name)
 				continue
 			}
 			servers = append(servers, server)
