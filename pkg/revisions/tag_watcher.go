@@ -18,15 +18,14 @@ import (
 	"sync"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/pkg/log"
 )
 
@@ -46,7 +45,7 @@ type tagWatcher struct {
 	handlers []TagHandler
 
 	queue           controllers.Queue
-	webhookInformer cache.SharedIndexInformer
+	webhookInformer kclient.Client[*admissionregistrationv1.MutatingWebhookConfiguration]
 	mu              sync.RWMutex
 	tagsToRevisions map[string]string
 	revisionsToTags map[string][]string
@@ -60,9 +59,11 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 		revisionsToTags: map[string][]string{},
 	}
 	p.queue = controllers.NewQueue("tag", controllers.WithReconciler(p.updateTags))
-	p.webhookInformer = kclient.NewFiltered[admissionregistrationv1.MutatingWebhookConfiguration](isTagWebhook)
-	_ = p.webhookInformer.SetTransform(kube.StripUnusedFields)
-	_, _ = p.webhookInformer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
+	p.webhookInformer = kclient.NewFiltered[*admissionregistrationv1.MutatingWebhookConfiguration](client, kubetypes.Filter{
+		ObjectFilter:    isTagWebhook,
+		ObjectTransform: kube.StripUnusedFields,
+	})
+	p.webhookInformer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
 
 	return p
 }
@@ -97,10 +98,11 @@ func (p *tagWatcher) notifyHandlers() {
 
 func (p *tagWatcher) updateTags(key types.NamespacedName) error {
 	var revision, tagName string
-	wh, _, _ := p.webhookInformer.GetIndexer().GetByKey(key.Name)
+	wh := p.webhookInformer.Get(key.Name, "")
+	p.webhookInformer.Get(key.Name, "")
 	if wh != nil {
-		revision = wh.(metav1.Object).GetLabels()[label.IoIstioRev.Name]
-		tagName = wh.(metav1.Object).GetLabels()[tag.IstioTagLabel]
+		revision = wh.GetLabels()[label.IoIstioRev.Name]
+		tagName = wh.GetLabels()[tag.IstioTagLabel]
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -114,7 +116,11 @@ func (p *tagWatcher) updateTags(key types.NamespacedName) error {
 	return nil
 }
 
-func isTagWebhook(obj controllers.Object) bool {
-	_, ok := obj.GetLabels()[tag.IstioTagLabel]
+func isTagWebhook(uobj any) bool {
+	obj, ok := uobj.(controllers.Object)
+	if !ok {
+		return false
+	}
+	_, ok = obj.GetLabels()[tag.IstioTagLabel]
 	return ok
 }
