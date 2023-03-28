@@ -15,9 +15,9 @@
 package controller
 
 import (
-	"reflect"
 	"sync"
 
+	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -133,7 +133,7 @@ func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodC
 
 func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 	// If labels updated, trigger proxy push
-	if cur.Status.PodIP != "" && !reflect.DeepEqual(old.Labels, cur.Labels) {
+	if cur.Status.PodIP != "" && !maps.Equal(old.Labels, cur.Labels) {
 		pc.proxyUpdates(cur.Status.PodIP)
 	}
 
