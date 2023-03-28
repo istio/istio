@@ -28,11 +28,10 @@ import (
 )
 
 var (
-	pod           = "test"
-	serviceIP     = "1.2.3.4"
-	hostname      = "foo.bar.com"
-	nodeIP        = "10.0.0.2"
-	testNamespace = "test"
+	pod       = "test"
+	serviceIP = "1.2.3.4"
+	hostname  = "foo.bar.com"
+	nodeIP    = "10.0.0.2"
 )
 
 func setupFake(t *testing.T, client kubelib.Client) {
@@ -55,10 +54,10 @@ func setupFake(t *testing.T, client kubelib.Client) {
 		t.Fatal(err)
 	}
 
-	if _, err := client.Kube().CoreV1().Services(testNamespace).Create(context.TODO(), &corev1.Service{
+	if _, err := client.Kube().CoreV1().Services(IngressNamespace).Create(context.TODO(), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "istio-ingress",
-			Namespace: testNamespace,
+			Namespace: IngressNamespace,
 		},
 		Status: corev1.ServiceStatus{
 			LoadBalancer: corev1.LoadBalancerStatus{
@@ -71,10 +70,10 @@ func setupFake(t *testing.T, client kubelib.Client) {
 		t.Fatal(err)
 	}
 
-	if _, err := client.Kube().CoreV1().Services(testNamespace).Create(context.TODO(), &corev1.Service{
+	if _, err := client.Kube().CoreV1().Services(IngressNamespace).Create(context.TODO(), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "istio-ingress-hostname",
-			Namespace: testNamespace,
+			Namespace: IngressNamespace,
 		},
 		Status: corev1.ServiceStatus{
 			LoadBalancer: corev1.LoadBalancerStatus{
@@ -103,19 +102,20 @@ func setupFake(t *testing.T, client kubelib.Client) {
 	}
 }
 
-func fakeMeshHolder(ingressService string) mesh.Holder {
+func fakeMeshHolder(ingressService string) mesh.Watcher {
 	config := mesh.DefaultMeshConfig()
 	config.IngressService = ingressService
 	return mesh.NewFixedWatcher(config)
 }
 
 func makeStatusSyncer(t *testing.T) *StatusSyncer {
-	setEnvs(t, map[string]string{"POD_NAME": pod, "POD_NAMESPACE": testNamespace})
+	setEnvs(t, map[string]string{"POD_NAME": pod, "POD_NAMESPACE": IngressNamespace})
 
 	client := kubelib.NewFakeClient()
 	setupFake(t, client)
 	sync := NewStatusSyncer(fakeMeshHolder("istio-ingress"), client, kubecontroller.Options{})
 	client.RunAndWait(test.NewStop(t))
+	go sync.Run(test.NewStop(t))
 	return sync
 }
 
@@ -133,10 +133,7 @@ func TestRunningAddresses(t *testing.T) {
 
 func testRunningAddressesWithService(t *testing.T) {
 	syncer := makeStatusSyncer(t)
-	address, err := syncer.runningAddresses(testNamespace)
-	if err != nil {
-		t.Fatal(err)
-	}
+	address := syncer.runningAddresses()
 
 	if len(address) != 1 || address[0] != serviceIP {
 		t.Errorf("Address is not correctly set to service ip")
@@ -147,10 +144,7 @@ func testRunningAddressesWithHostname(t *testing.T) {
 	syncer := makeStatusSyncer(t)
 	syncer.meshHolder = fakeMeshHolder("istio-ingress-hostname")
 
-	address, err := syncer.runningAddresses(testNamespace)
-	if err != nil {
-		t.Fatal(err)
-	}
+	address := syncer.runningAddresses()
 
 	if len(address) != 1 || address[0] != hostname {
 		t.Errorf("Address is not correctly set to hostname")
@@ -161,10 +155,7 @@ func TestRunningAddressesWithPod(t *testing.T) {
 	syncer := makeStatusSyncer(t)
 	syncer.meshHolder = fakeMeshHolder("")
 
-	address, err := syncer.runningAddresses(ingressNamespace)
-	if err != nil {
-		t.Fatal(err)
-	}
+	address := syncer.runningAddresses()
 
 	if len(address) != 1 || address[0] != nodeIP {
 		t.Errorf("Address is not correctly set to node ip %v %v", address, nodeIP)
