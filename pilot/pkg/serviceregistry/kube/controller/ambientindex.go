@@ -741,7 +741,6 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	oldWl := a.byPod[c.Network(p.Status.PodIP, p.Labels).String()+"/"+p.Status.PodIP]
 	if wl == nil {
 		// This is an explicit delete event, or there is no longer a Workload to create (pod NotReady, etc)
-		//delete(a.byPod, p.Status.PodIP)
 		if oldWl != nil {
 			delete(a.byPod, oldWl.ResourceName())
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
@@ -844,7 +843,8 @@ func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([
 	var wls []*model.WorkloadInfo
 	var removed []string
 	for p := range addresses {
-		wl := c.ambientIndex.Lookup(p.Name)
+		cNetwork := c.Network(p.Name, make(labels.Instance, 0)).String()
+		wl := c.ambientIndex.Lookup(cNetwork + "/" + p.Name)
 		if len(wl) == 0 {
 			removed = append(removed, p.Name)
 		} else {
@@ -954,7 +954,8 @@ func (c *Controller) AdditionalPodSubscriptions(
 	// The client wouldn't be explicitly subscribed to Pod1, so it would normally ignore it.
 	// Since it is a part of VIP1 which we are subscribe to, add it to the subscriptions
 	for s := range allAddresses {
-		for _, wl := range c.ambientIndex.Lookup(s.Name) {
+		cNetwork := c.Network(s.Name, make(labels.Instance, 0)).String()
+		for _, wl := range c.ambientIndex.Lookup(cNetwork + "/" + s.Name) {
 			// We may have gotten an update for Pod, but are subscribe to a Service.
 			// We need to force a subscription on the Pod as well
 			for addr := range wl.VirtualIps {
