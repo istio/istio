@@ -26,12 +26,12 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
+    message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
     reason: Programmed
     status: "True"
     type: Programmed

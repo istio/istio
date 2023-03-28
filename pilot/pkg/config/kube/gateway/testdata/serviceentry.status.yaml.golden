@@ -8,15 +8,15 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "gateway-istio.istio-system.svc.domain.suffix"
-      not found'
-    reason: NoResources
-    status: "False"
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed
-    reason: Programmed
-    status: "True"
+    message: 'Failed to assign to any requested addresses: hostname "gateway-istio.istio-system.svc.domain.suffix"
+      not found'
+    reason: Invalid
+    status: "False"
     type: Programmed
   listeners:
   - attachedRoutes: 1

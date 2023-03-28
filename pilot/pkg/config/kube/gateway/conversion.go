@@ -1441,7 +1441,7 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 			gwMap[ref] = gwMap[alias]
 		}
 
-		reportGatewayStatus(r, obj, gatewayServices, servers, skippedAddresses, invalidListeners)
+		reportGatewayStatus(r, obj, gatewayServices, servers, skippedAddresses)
 	}
 	// Insert a parent for Mesh references.
 	gwMap[meshParentKey] = []*parentInfo{
@@ -1478,7 +1478,6 @@ func reportGatewayStatus(
 	gatewayServices []string,
 	servers []*istio.Server,
 	skippedAddresses []string,
-	invalidListeners []k8s.SectionName,
 ) {
 	// TODO: we lose address if servers is empty due to an error
 	internal, external, pending, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
@@ -1489,8 +1488,9 @@ func reportGatewayStatus(
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
-	// Accepted: did we get *some* data to the data plane
-	// Programmed: did we get *all* the data to the data plane
+	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
+	// be tied to listeners, so this is always accepted
+	// Programmed: is the data plane "ready" (note: eventually consistent)
 	gatewayConditions := map[string]*condition{
 		string(k8sbeta.GatewayConditionAccepted): {
 			reason:  string(k8sbeta.GatewayReasonAccepted),
@@ -1501,6 +1501,9 @@ func reportGatewayStatus(
 			message: "Resource programmed",
 		},
 	}
+	if len(internal) > 0 {
+		gatewayConditions[string(k8sbeta.GatewayReasonProgrammed)].message = fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
+	}
 
 	if len(warnings) > 0 {
 		var msg string
@@ -1510,18 +1513,12 @@ func reportGatewayStatus(
 		} else {
 			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
 		}
-		// TODO: do we need to report if the deployment is ready?
-		gatewayConditions[string(k8sbeta.GatewayConditionAccepted)].error = &ConfigError{
-			Reason:  string(k8sbeta.GatewayReasonNoResources),
-			Message: msg,
-		}
-	} else if len(internal) > 0 {
-		gatewayConditions[string(k8sbeta.GatewayConditionAccepted)].message = fmt.Sprintf("Gateway valid, assigned to service(s) %s", humanReadableJoin(internal))
-	}
-	if len(invalidListeners) > 0 {
 		gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)].error = &ConfigError{
+			// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/1832#issuecomment-1487167378): Invalid is bad,
+			// this should be AddressNotAssigned
+			// TODO: this only checks Service ready, we should also check Deployment ready?
 			Reason:  string(k8sbeta.GatewayReasonInvalid),
-			Message: fmt.Sprintf("Invalid listeners: %v", invalidListeners),
+			Message: msg,
 		}
 	}
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
@@ -1546,9 +1543,9 @@ func reportGatewayStatus(
 				Value: addr,
 			})
 		}
+		gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 		return gs
 	})
-	reportGatewayCondition(obj, gatewayConditions)
 }
 
 // IsManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
