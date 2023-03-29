@@ -16,6 +16,7 @@ package assert
 
 import (
 	"strings"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -47,5 +48,29 @@ func NoError(t test.Failer, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatalf("expected no error but got: %v", err)
+	}
+}
+
+// ChannelHasItem asserts a channel has an element within 5s and returns the element
+func ChannelHasItem[T any](t test.Failer, c <-chan T) T {
+	t.Helper()
+	select {
+	case r := <-c:
+		return r
+	case <-time.After(time.Second * 5):
+		t.Fatalf("failed to receive event after 5s")
+	}
+	// Not reachable
+	var empty T
+	return empty
+}
+
+// ChannelIsEmpty asserts a channel is empty for at least 20ms
+func ChannelIsEmpty[T any](t test.Failer, c <-chan T) {
+	t.Helper()
+	select {
+	case r := <-c:
+		t.Fatalf("channel had element, expected empty: %v", r)
+	case <-time.After(time.Millisecond * 20):
 	}
 }
