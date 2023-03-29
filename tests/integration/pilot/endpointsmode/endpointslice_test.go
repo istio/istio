@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
-		RequireMinVersion(17).
+		RequireMinVersion(21).
 		Setup(istio.Setup(&i, func(t resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = fmt.Sprintf(`
 values:

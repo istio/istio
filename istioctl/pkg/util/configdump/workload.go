@@ -31,5 +31,20 @@ type ZtunnelWorkload struct {
 }
 
 type ZtunnelDump struct {
-	Workloads map[string]*ZtunnelWorkload
+	Workloads    map[string]*ZtunnelWorkload
+	Certificates []*CertsDump
+}
+
+type CertsDump struct {
+	Identity  string  `json:"identity"`
+	State     string  `json:"state"`
+	CaCert    []*Cert `json:"ca_cert"`
+	CertChain []*Cert `json:"cert_chain"`
+}
+
+type Cert struct {
+	Pem            string `json:"pem"`
+	SerialNumber   string `json:"serial_number"`
+	ValidFrom      string `json:"valid_from"`
+	ExpirationTime string `json:"expiration_time"`
 }

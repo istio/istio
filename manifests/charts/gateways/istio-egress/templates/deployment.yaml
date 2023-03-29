@@ -186,6 +186,10 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.hostIP
+          - name: ISTIO_CPU_LIMIT
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.cpu
           - name: SERVICE_ACCOUNT
             valueFrom:
               fieldRef:

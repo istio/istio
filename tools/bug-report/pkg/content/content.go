@@ -96,7 +96,7 @@ func retMap(filename, text string, err error) (map[string]string, error) {
 // GetK8sResources returns all k8s cluster resources.
 func GetK8sResources(p *Params) (map[string]string, error) {
 	out, err := p.Runner.RunCmd("get --all-namespaces "+
-		"all,namespaces,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,events,"+
+		"all,namespaces,jobs,ingresses,endpoints,endpointslices,customresourcedefinitions,configmaps,events,"+
 		"mutatingwebhookconfigurations,validatingwebhookconfigurations "+
 		"-o yaml", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	return retMap("k8s-resources", out, err)
@@ -230,7 +230,7 @@ func GetAnalyze(p *Params, timeout time.Duration) (map[string]string, error) {
 	out := make(map[string]string)
 	sa := local.NewSourceAnalyzer(analyzers.AllCombined(), resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil)
 
-	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(p.Runner.Client.RESTConfig()))
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(p.Runner.Client.RESTConfig()), "")
 	if err != nil {
 		return nil, err
 	}

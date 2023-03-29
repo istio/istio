@@ -319,7 +319,7 @@ func analyzeWebhook(name, wh, revision string, config *rest.Config) error {
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err
 	}
-	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(config))
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(config), "")
 	if err != nil {
 		return err
 	}

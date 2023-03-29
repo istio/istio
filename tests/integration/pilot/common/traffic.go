@@ -208,9 +208,16 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 				t.SkipNow()
 			}
 		}
+		// we only apply to config clusters
 		if len(c.config) > 0 {
-			cfg := yml.MustApplyNamespace(t, c.config, namespace)
-			// we only apply to config clusters
+			tmplData := map[string]any{}
+			if c.templateVars != nil {
+				// we don't have echo instances so just pass nil
+				for k, v := range c.templateVars(nil, nil) {
+					tmplData[k] = v
+				}
+			}
+			cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t, apply.CleanupConditionally)
 		}
 

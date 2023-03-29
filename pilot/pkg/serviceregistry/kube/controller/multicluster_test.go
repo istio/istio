@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -85,7 +86,7 @@ func initController(client kube.CLIClient, ns string, stop <-chan struct{}, mc *
 }
 
 func Test_KubeSecretController(t *testing.T) {
-	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
 	clientset := kube.NewFakeClient()
@@ -131,7 +132,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	test.SetForTest(t, &features.ExternalIstiod, true)
 	test.SetForTest(t, &features.InjectionWebhookConfigName, "")
 	clientset := kube.NewFakeClient()
-	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
 	stop := test.NewStop(t)

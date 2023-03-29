@@ -26,6 +26,7 @@ import (
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/pki/ca"
 	caerror "istio.io/istio/security/pkg/pki/error"
@@ -168,7 +169,13 @@ func (s *Server) Register(grpcServer *grpc.Server) {
 }
 
 // New creates a new instance of `IstioCAServiceServer`
-func New(ca CertificateAuthority, ttl time.Duration, authenticators []security.Authenticator, client kube.Client) (*Server, error) {
+func New(
+	ca CertificateAuthority,
+	ttl time.Duration,
+	authenticators []security.Authenticator,
+	client kube.Client,
+	filter namespace.DiscoveryFilter,
+) (*Server, error) {
 	certBundle := ca.GetCAKeyCertBundle()
 	if len(certBundle.GetRootCertPem()) != 0 {
 		recordCertsExpiry(certBundle)
@@ -184,7 +191,7 @@ func New(ca CertificateAuthority, ttl time.Duration, authenticators []security.A
 	if len(features.CATrustedNodeAccounts) > 0 && client != nil {
 		// TODO: do we need some way to delayed readiness until this is synced? Probably
 		// Worst case is we deny some requests though which are retried
-		na, err := NewNodeAuthorizer(client, features.CATrustedNodeAccounts)
+		na, err := NewNodeAuthorizer(client, filter, features.CATrustedNodeAccounts)
 		if err != nil {
 			return nil, err
 		}

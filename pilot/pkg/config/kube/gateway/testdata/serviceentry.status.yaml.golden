@@ -8,9 +8,9 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Resources not yet deployed to the cluster
-    reason: NoResources
-    status: "False"
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
     type: Accepted
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "gateway-istio.istio-system.svc.domain.suffix"
@@ -18,17 +18,6 @@ status:
     reason: Invalid
     status: "False"
     type: Programmed
-  - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "gateway-istio.istio-system.svc.domain.suffix"
-      not found'
-    reason: AddressNotAssigned
-    status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources not yet deployed to the cluster
-    reason: ResourcesPending
-    status: "False"
-    type: Scheduled
   listeners:
   - attachedRoutes: 1
     conditions:
@@ -44,19 +33,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs

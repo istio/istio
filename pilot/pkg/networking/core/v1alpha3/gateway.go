@@ -207,8 +207,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	newFilterChains := make([]istionetworking.FilterChain, 0)
 	if p.IsHTTP() {
 		// We have a list of HTTP servers on this port. Build a single listener for the server port.
-		// We only need to look at the first server in the list as the merge logic
-		// ensures that all servers are of same type.
 		port := &networking.Port{Number: port.Number, Protocol: port.Protocol}
 		opts.filterChainOpts = []*filterChainOpts{
 			configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, serversForPort.RouteName,
@@ -658,11 +656,6 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		}
 	}
 
-	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort
-	if features.StripHostPort {
-		stripPortMode = &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: true}
-	}
-
 	httpConnManager := &hcm.HttpConnectionManager{
 		XffNumTrustedHops: xffNumTrustedHops,
 		// Forward client cert if connection is mTLS
@@ -675,7 +668,6 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		},
 		ServerName:          EnvoyServerName,
 		HttpProtocolOptions: httpProtoOpts,
-		StripPortMode:       stripPortMode,
 	}
 	if http3SupportEnabled {
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
@@ -1051,7 +1043,7 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 
 func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int) []string {
 	domains := []string{hostname}
-	if features.StripHostPort || hostname == "*" || !node.IsProxylessGrpc() {
+	if hostname == "*" || !node.IsProxylessGrpc() {
 		return domains
 	}
 

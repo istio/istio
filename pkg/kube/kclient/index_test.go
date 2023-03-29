@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package kclient
 
 import (
 	"context"
@@ -36,9 +36,9 @@ type SaNode struct {
 
 func TestIndex(t *testing.T) {
 	c := kube.NewFakeClient()
-	informer := c.KubeInformer().Core().V1().Pods().Informer()
+	pods := New[*corev1.Pod](c)
 	c.RunAndWait(test.NewStop(t))
-	index := CreateIndex[*corev1.Pod, SaNode](informer, func(pod *corev1.Pod) []SaNode {
+	index := CreateIndex[*corev1.Pod](pods, func(pod *corev1.Pod) []SaNode {
 		if len(pod.Spec.NodeName) == 0 {
 			return nil
 		}

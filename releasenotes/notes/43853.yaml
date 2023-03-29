@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 43853
+releaseNotes:
+  - |
+    **Fixed** an issue with service entry deletion not deleting the corresponding endpoints in some cases. Fixes (#43853)[https://github.com/istio/istio/issues/43853)

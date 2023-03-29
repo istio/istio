@@ -587,7 +587,7 @@ func checkIfVM(pod corev1.Pod) bool {
 	return false
 }
 
-func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint string) {
+func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir, endpoint, namespace string) {
 	ik, err := istioctl.New(ctx, istioctl.Config{Cluster: c})
 	if err != nil {
 		scopes.Framework.Warnf("failed dumping %s (cluster %s): %v", endpoint, c.Name(), err)
@@ -596,6 +596,9 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint
 	args := []string{"x", "internal-debug", "--all", endpoint}
 	if ctx.Settings().Revisions.Default() != "" {
 		args = append(args, "--revision", ctx.Settings().Revisions.Default())
+	}
+	if namespace != "" && namespace != "istio-system" {
+		args = append(args, "--istioNamespace", namespace)
 	}
 	scopes.Framework.Debugf("dump %s (cluster %s): %v", endpoint, c.Name(), args)
 	stdout, _, err := ik.Invoke(args)

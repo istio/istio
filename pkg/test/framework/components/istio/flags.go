@@ -21,7 +21,7 @@ import (
 // init registers the command-line flags that we can exposed for "go test".
 func init() {
 	flag.StringVar(&settingsFromCommandline.SystemNamespace, "istio.test.kube.systemNamespace", settingsFromCommandline.SystemNamespace,
-		"Deprecated, specifies the namespace where the Istio components (<=1.1) reside in a typical deployment.")
+		"Specifies the namespace where the istiod resides in a typical deployment. Defaults to istio-system")
 	flag.StringVar(&settingsFromCommandline.TelemetryNamespace, "istio.test.kube.telemetryNamespace", settingsFromCommandline.TelemetryNamespace,
 		"Specifies the namespace in which kiali, tracing providers, graphana, prometheus are deployed.")
 	flag.BoolVar(&settingsFromCommandline.DeployIstio, "istio.test.kube.deploy", settingsFromCommandline.DeployIstio,
@@ -41,4 +41,8 @@ func init() {
 		e.g. components.cni.enabled=true,components.cni.namespace=kube-system`)
 	flag.BoolVar(&settingsFromCommandline.EnableCNI, "istio.test.istio.enableCNI", settingsFromCommandline.EnableCNI,
 		"Deploy Istio with CNI enabled.")
+	flag.StringVar(&settingsFromCommandline.IngressGatewayServiceName, "istio.test.kube.ingressGatewayServiceName",
+		settingsFromCommandline.IngressGatewayServiceName,
+		`Specifies the name of the ingressgateway service to use when running tests in a preinstalled istio installation.
+		Should only be set when istio.test.kube.deploy=false`)
 }

@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	"github.com/hashicorp/go-multierror"
+	"golang.org/x/exp/maps"
 )
 
 const (
@@ -74,16 +75,7 @@ func (i Instance) SubsetOf(that Instance) bool {
 
 // Equals returns true if the labels are equal.
 func (i Instance) Equals(that Instance) bool {
-	if i == nil {
-		return that == nil
-	}
-	if that == nil {
-		return i == nil
-	}
-	if len(i) != len(that) {
-		return false
-	}
-	return i.SubsetOf(that)
+	return maps.Equal(i, that)
 }
 
 // Validate ensures tag is well-formed

@@ -704,6 +704,12 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "EnvoyFilterFilterChainMatch",
+		inputFiles: []string{"testdata/envoy-filter-filterchain.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "EnvoyFilterUsesAbsoluteOperation",
 		inputFiles: []string{"testdata/absolute-envoy-filter-operation.yaml"},
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
@@ -779,6 +785,15 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-2"},
 			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-1"},
+		},
+	},
+	{
+		name:           "Telemetry Lightstep",
+		inputFiles:     []string{"testdata/telemetry-lightstep.yaml"},
+		analyzer:       &telemetry.LightstepAnalyzer{},
+		meshConfigFile: "testdata/telemetry-lightstep-meshconfig.yaml",
+		expected: []message{
+			{msg.Deprecated, "Telemetry istio-system/mesh-default"},
 		},
 	},
 }

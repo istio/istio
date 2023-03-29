@@ -266,10 +266,9 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 			Value: config.IncludeAdditionalHeadersInCheck[k],
 		})
 	}
-	if allowedHeaders != nil || len(headersToAdd) != 0 {
+	if len(headersToAdd) != 0 {
 		service.AuthorizationRequest = &extauthzhttp.AuthorizationRequest{
-			AllowedHeaders: allowedHeaders,
-			HeadersToAdd:   headersToAdd,
+			HeadersToAdd: headersToAdd,
 		}
 	}
 
@@ -290,6 +289,9 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		},
 		FilterEnabledMetadata: generateFilterMatcher(wellknown.HTTPRoleBasedAccessControl),
 		WithRequestBody:       withBodyRequest(config.IncludeRequestBodyInCheck),
+	}
+	if allowedHeaders != nil {
+		http.AllowedHeaders = allowedHeaders
 	}
 	return &builtExtAuthz{http: http}
 }

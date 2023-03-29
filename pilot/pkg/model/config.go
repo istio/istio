@@ -20,7 +20,6 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -209,14 +208,9 @@ type ConfigStoreController interface {
 	// configuration type
 	RegisterEventHandler(kind config.GroupVersionKind, handler EventHandler)
 
-	// Run until a signal is received
+	// Run until a signal is received.
+	// Run *should* block, so callers should typically call `go controller.Run(stop)`
 	Run(stop <-chan struct{})
-
-	// SetWatchErrorHandler should be call if store has started
-	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
-
-	// HasStarted return ture after store started.
-	HasStarted() bool
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool

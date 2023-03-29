@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -40,7 +41,7 @@ import (
 
 var (
 	gatewayClassSpec = &k8s.GatewayClassSpec{
-		ControllerName: ControllerName,
+		ControllerName: constants.ManagedGatewayController,
 	}
 	gatewaySpec = &k8s.GatewaySpec{
 		GatewayClassName: "gwclass",
@@ -193,7 +194,7 @@ func TestNamespaceEvent(t *testing.T) {
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
 	c := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
-	s := controller.NewFakeXDS()
+	s := xdsfake.NewFakeXDS()
 
 	c.RegisterEventHandler(gvk.Namespace, func(_, cfg config.Config, _ model.Event) {
 		s.ConfigUpdate(&model.PushRequest{
@@ -225,7 +226,7 @@ func TestNamespaceEvent(t *testing.T) {
 	s.AssertEmpty(t, time.Millisecond*10)
 
 	clientSet.Kube().CoreV1().Namespaces().Create(ctx, &ns2, metav1.CreateOptions{})
-	s.WaitOrFail(t, "xds")
+	s.WaitOrFail(t, "xds full")
 
 	ns1.Annotations = map[string]string{"foo": "bar"}
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
@@ -241,13 +242,13 @@ func TestNamespaceEvent(t *testing.T) {
 
 	ns2.Labels["foo"] = "bar"
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
-	s.WaitOrFail(t, "xds")
+	s.WaitOrFail(t, "xds full")
 
 	ns1.Labels["allowed"] = "true"
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
-	s.WaitOrFail(t, "xds")
+	s.WaitOrFail(t, "xds full")
 
 	ns2.Labels["allowed"] = "false"
 	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
-	s.WaitOrFail(t, "xds")
+	s.WaitOrFail(t, "xds full")
 }

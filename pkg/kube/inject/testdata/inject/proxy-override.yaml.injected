@@ -16,7 +16,7 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        proxy.istio.io/overrides: '{"containers":[{"name":"istio-proxy","resources":{"requests":{"cpu":"123m"}},"volumeMounts":[{"name":"certs","mountPath":"/etc/certs"}],"livenessProbe":{"httpGet":{"path":"/healthz/ready","port":15021},"initialDelaySeconds":10,"timeoutSeconds":3,"periodSeconds":2,"failureThreshold":30},"lifecycle":{"preStop":{"exec":{"command":["sleep","10"]}}},"terminationMessagePath":"/foo/bar","securityContext":{"readOnlyRootFilesystem":false,"allowPrivilegeEscalation":true},"tty":true}],"initContainers":[{"name":"istio-init","image":"fake/custom-image","args":["my","custom","args"],"resources":{}}]}'
+        proxy.istio.io/overrides: '{"containers":[{"name":"istio-proxy","resources":{"limits":{"cpu":"3"},"requests":{"cpu":"123m"}},"volumeMounts":[{"name":"certs","mountPath":"/etc/certs"}],"livenessProbe":{"httpGet":{"path":"/healthz/ready","port":15021},"initialDelaySeconds":10,"timeoutSeconds":3,"periodSeconds":2,"failureThreshold":30},"lifecycle":{"preStop":{"exec":{"command":["sleep","10"]}}},"terminationMessagePath":"/foo/bar","securityContext":{"readOnlyRootFilesystem":false,"allowPrivilegeEscalation":true},"tty":true}],"initContainers":[{"name":"istio-init","image":"fake/custom-image","args":["my","custom","args"],"resources":{}}]}'
         sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
@@ -37,8 +37,6 @@ spec:
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info
-        - --concurrency
-        - "2"
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -66,6 +64,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: ISTIO_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              divisor: "0"
+              resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
             {}
@@ -121,7 +124,7 @@ spec:
           timeoutSeconds: 3
         resources:
           limits:
-            cpu: "2"
+            cpu: "3"
             memory: 1Gi
           requests:
             cpu: 123m

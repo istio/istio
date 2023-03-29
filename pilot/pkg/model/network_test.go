@@ -27,7 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
@@ -55,7 +55,7 @@ func TestGatewayHostnames(t *testing.T) {
 	})
 
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
-	xdsUpdater := &xds.FakeXdsUpdater{Events: make(chan xds.FakeXdsEvent, 10)}
+	xdsUpdater := xdsfake.NewFakeXDS()
 	env := &model.Environment{NetworksWatcher: meshNetworks, ServiceDiscovery: memory.NewServiceDiscovery()}
 	if err := env.InitNetworksManager(xdsUpdater); err != nil {
 		t.Fatal(err)
@@ -71,7 +71,7 @@ func TestGatewayHostnames(t *testing.T) {
 				Port: 15443,
 			}}},
 		}})
-		xdsUpdater.WaitDurationOrFail(t, model.MinGatewayTTL+5*time.Second, "xds")
+		xdsUpdater.WaitOrFail(t, "xds full")
 		gws := env.NetworkManager.AllGateways()
 		// A and AAAA
 		if len(gws) != 2 {
@@ -94,7 +94,7 @@ func TestGatewayHostnames(t *testing.T) {
 	})
 	t.Run("forget", func(t *testing.T) {
 		meshNetworks.SetNetworks(nil)
-		xdsUpdater.WaitDurationOrFail(t, 5*time.Second, "xds")
+		xdsUpdater.WaitOrFail(t, "xds full")
 		if len(env.NetworkManager.AllGateways()) > 0 {
 			t.Fatalf("expected no gateways")
 		}

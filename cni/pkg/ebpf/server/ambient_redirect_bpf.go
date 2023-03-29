@@ -25,6 +25,21 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type ambient_redirectAppInfo struct {
+	Ifindex uint32
+	MacAddr [6]uint8
+	Pads    [2]uint8
+}
+
+type ambient_redirectHostInfo struct{ Addr [4]uint32 }
+
+type ambient_redirectZtunnelInfo struct {
+	Ifindex uint32
+	MacAddr [6]uint8
+	Flag    uint8
+	Pad     uint8
+}
+
 // loadAmbient_redirect returns the embedded CollectionSpec for ambient_redirect.
 func loadAmbient_redirect() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_Ambient_redirectBytes)
@@ -78,6 +93,7 @@ type ambient_redirectProgramSpecs struct {
 type ambient_redirectMapSpecs struct {
 	AppInfo     *ebpf.MapSpec `ebpf:"app_info"`
 	HostIpInfo  *ebpf.MapSpec `ebpf:"host_ip_info"`
+	LogLevel    *ebpf.MapSpec `ebpf:"log_level"`
 	ZtunnelInfo *ebpf.MapSpec `ebpf:"ztunnel_info"`
 }
 
@@ -102,6 +118,7 @@ func (o *ambient_redirectObjects) Close() error {
 type ambient_redirectMaps struct {
 	AppInfo     *ebpf.Map `ebpf:"app_info"`
 	HostIpInfo  *ebpf.Map `ebpf:"host_ip_info"`
+	LogLevel    *ebpf.Map `ebpf:"log_level"`
 	ZtunnelInfo *ebpf.Map `ebpf:"ztunnel_info"`
 }
 
@@ -109,6 +126,7 @@ func (m *ambient_redirectMaps) Close() error {
 	return _Ambient_redirectClose(
 		m.AppInfo,
 		m.HostIpInfo,
+		m.LogLevel,
 		m.ZtunnelInfo,
 	)
 }
