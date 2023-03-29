@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
@@ -36,15 +35,11 @@ import (
 	"istio.io/pkg/log"
 )
 
-const (
-	updateInterval = 60 * time.Second
-)
-
 var statusLog = log.RegisterScope("ingress status", "", 0)
 
 // StatusSyncer keeps the status IP in each Ingress resource updated
 type StatusSyncer struct {
-	meshHolder mesh.Watcher
+	meshConfig mesh.Watcher
 
 	queue          controllers.Queue
 	ingresses      kclient.Client[*knetworking.Ingress]
@@ -63,7 +58,7 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 // NewStatusSyncer creates a new instance
 func NewStatusSyncer(meshHolder mesh.Watcher, kc kubelib.Client, options kubecontroller.Options) *StatusSyncer {
 	c := &StatusSyncer{
-		meshHolder:     meshHolder,
+		meshConfig:     meshHolder,
 		ingresses:      kclient.NewFiltered[*knetworking.Ingress](kc, kclient.Filter{ObjectFilter: options.GetFilter()}),
 		ingressClasses: kclient.New[*knetworking.IngressClass](kc),
 		pods: kclient.NewFiltered[*corev1.Pod](kc, kclient.Filter{
@@ -88,17 +83,17 @@ func NewStatusSyncer(meshHolder mesh.Watcher, kc kubelib.Client, options kubecon
 	}))
 	// For services, we queue all Ingress if its the ingress service
 	c.services.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-		if o.GetName() == c.meshHolder.Mesh().IngressService && o.GetNamespace() == IngressNamespace {
+		if o.GetName() == c.meshConfig.Mesh().IngressService && o.GetNamespace() == IngressNamespace {
 			c.enqueueAll()
 		}
 	}))
 	// For pods, we enqueue all Ingress if its part of the ingress service
 	c.pods.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-		if c.meshHolder.Mesh().IngressService != "" {
+		if c.meshConfig.Mesh().IngressService != "" {
 			// Ingress Service takes precedence
 			return
 		}
-		ingressSelector := c.meshHolder.Mesh().IngressSelector
+		ingressSelector := c.meshConfig.Mesh().IngressSelector
 
 		// get all pods acting as ingress gateways
 		igSelector := getIngressGatewaySelector(ingressSelector, "")
@@ -108,7 +103,7 @@ func NewStatusSyncer(meshHolder mesh.Watcher, kc kubelib.Client, options kubecon
 		}
 	}))
 	// Mesh may have changed ingress fields, enqueu everything
-	c.meshHolder.AddMeshHandler(c.enqueueAll)
+	c.meshConfig.AddMeshHandler(c.enqueueAll)
 	return c
 }
 
@@ -116,8 +111,8 @@ func NewStatusSyncer(meshHolder mesh.Watcher, kc kubelib.Client, options kubecon
 // where the ingress controller is currently running
 func (s *StatusSyncer) runningAddresses() []string {
 	addrs := make([]string, 0)
-	ingressService := s.meshHolder.Mesh().IngressService
-	ingressSelector := s.meshHolder.Mesh().IngressSelector
+	ingressService := s.meshConfig.Mesh().IngressService
+	ingressSelector := s.meshConfig.Mesh().IngressSelector
 
 	if ingressService != "" {
 		svc := s.services.Get(ingressService, IngressNamespace)
@@ -230,7 +225,7 @@ func (s *StatusSyncer) shouldTargetIngress(ingress *knetworking.Ingress) bool {
 	if ingress.Spec.IngressClassName != nil {
 		ingressClass = s.ingressClasses.Get(*ingress.Spec.IngressClassName, "")
 	}
-	return shouldProcessIngressWithClass(s.meshHolder.Mesh(), ingress, ingressClass)
+	return shouldProcessIngressWithClass(s.meshConfig.Mesh(), ingress, ingressClass)
 }
 
 func (s *StatusSyncer) enqueueAll() {
@@ -262,6 +257,8 @@ func (s *StatusSyncer) Reconcile(key types.NamespacedName) error {
 		return nil
 	}
 
+	log.Infof("updating IPs (%v)", wantIPs)
+	ing = ing.DeepCopy()
 	ing.Status.LoadBalancer.Ingress = wantIPs
 	_, err := s.ingresses.UpdateStatus(ing)
 	if err != nil {

@@ -88,7 +88,6 @@ type controller struct {
 	services kclient.Client[*corev1.Service]
 }
 
-// TODO: move to features ( and remove in 1.2 )
 var IngressNamespace = env.Register("K8S_INGRESS_NS", constants.IstioIngressNamespace, "").Get()
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
@@ -135,7 +134,7 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetwo
 }
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
-func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool, error) {
+func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) bool {
 	// ingress add/update
 	shouldProcess := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
 	item := config.NamespacedName(ing)
@@ -144,7 +143,7 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool,
 		c.mutex.Lock()
 		c.ingresses[item] = ing
 		c.mutex.Unlock()
-		return true, nil
+		return true
 	}
 
 	c.mutex.Lock()
@@ -157,7 +156,7 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool,
 	}
 	c.mutex.Unlock()
 
-	return preProcessed, nil
+	return preProcessed
 }
 
 func (c *controller) onEvent(item types.NamespacedName) error {
@@ -178,10 +177,7 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 	// we should check need process only when event is not delete,
 	// if it is delete event, and previously processed, we need to process too.
 	if event != model.EventDelete {
-		shouldProcess, err := c.shouldProcessIngressUpdate(ing)
-		if err != nil {
-			return err
-		}
+		shouldProcess := c.shouldProcessIngressUpdate(ing)
 		if !shouldProcess {
 			return nil
 		}
