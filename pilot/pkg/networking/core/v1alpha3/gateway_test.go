@@ -1030,7 +1030,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 	cg := NewConfigGenTest(t, TestOptions{})
-	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort
 	testCases := []struct {
 		name              string
 		node              *pilot_model.Proxy
@@ -1071,7 +1070,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{
 							AcceptHttp_10: true,
 						},
-						StripPortMode: stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTP,
@@ -1163,7 +1161,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTPS,
@@ -1255,7 +1252,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTPS,
@@ -1347,7 +1343,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTPS,
@@ -1386,7 +1381,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTP,
@@ -1483,7 +1477,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTPS,
@@ -1581,7 +1574,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					statPrefix: "server1",
 					class:      istionetworking.ListenerClassGateway,
@@ -1662,7 +1654,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions:  &core.Http1ProtocolOptions{},
 						Http3ProtocolOptions: &core.Http3ProtocolOptions{},
 						CodecType:            hcm.HttpConnectionManager_HTTP3,
-						StripPortMode:        stripPortMode,
 					},
 					useRemoteAddress: true,
 					statPrefix:       "server1",
