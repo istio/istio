@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -31,10 +32,13 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 	istiolog "istio.io/pkg/log"
 )
@@ -147,6 +151,111 @@ func TestConfigureIstioGateway(t *testing.T) {
 			},
 		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := &bytes.Buffer{}
+			d := &DeploymentController{
+				client: kube.NewFakeClient(
+					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}},
+					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}},
+				),
+				clusterID:    cluster.ID(features.ClusterName),
+				injectConfig: testInjectionConfig(t),
+				patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+					b, err := yaml.JSONToYAML(data)
+					if err != nil {
+						return err
+					}
+					buf.Write(b)
+					buf.Write([]byte("---\n"))
+					return nil
+				},
+			}
+			err := d.configureIstioGateway(istiolog.FindScope(istiolog.DefaultScopeName), tt.gw)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			resp := timestampRegex.ReplaceAll(buf.Bytes(), []byte("lastTransitionTime: fake"))
+			util.CompareContent(t, resp, filepath.Join("testdata", "deployment", tt.name+".yaml"))
+		})
+	}
+}
+
+func TestVersionManagement(t *testing.T) {
+	log.SetOutputLevel(istiolog.DebugLevel)
+	writes := make(chan string, 10)
+	c := kube.NewFakeClient()
+	d := NewDeploymentController(c, "", testInjectionConfig(t), func(fn func()) {})
+	d.patcher = func(g schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+		if g == gvr.KubernetesGateway {
+			b, err := yaml.JSONToYAML(data)
+			if err != nil {
+				return err
+			}
+			writes <- string(b)
+		}
+		return nil
+	}
+	stop := test.NewStop(t)
+	gws := clienttest.Wrap(t, d.gateways)
+	go d.Run(stop)
+	c.RunAndWait(stop)
+
+	// Create a gateway, we should mark our ownership
+	defaultGateway := &v1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gw",
+			Namespace: "default",
+		},
+		Spec: v1beta1.GatewaySpec{GatewayClassName: DefaultClassName},
+	}
+	gws.Create(defaultGateway)
+	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
+	assert.ChannelIsEmpty(t, writes)
+
+	// Test fake doesn't actual do Apply, so manually do this
+	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(ControllerVersion)}
+	gws.Update(defaultGateway)
+	// We shouldn't write in response to our write.
+	assert.ChannelIsEmpty(t, writes)
+
+	gw := gws.Get("gw", "default")
+	gw.Annotations["foo"] = "bar"
+	gws.Update(gw)
+	// We should not be updating the version, its already set. Setting it introduces a possible race condition
+	// since we use SSA so there is no conflict checks.
+	assert.ChannelIsEmpty(t, writes)
+
+	// Somehow the annotation is removed - it should be added back
+	defaultGateway.Annotations = map[string]string{}
+	gws.Update(defaultGateway)
+	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
+	assert.ChannelIsEmpty(t, writes)
+	// Test fake doesn't actual do Apply, so manually do this
+	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(ControllerVersion)}
+	gws.Update(defaultGateway)
+	// We shouldn't write in response to our write.
+	assert.ChannelIsEmpty(t, writes)
+
+	// Somehow the annotation is set to an older version - it should be added back
+	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(1)}
+	gws.Update(defaultGateway)
+	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
+	assert.ChannelIsEmpty(t, writes)
+	// Test fake doesn't actual do Apply, so manually do this
+	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(ControllerVersion)}
+	gws.Update(defaultGateway)
+	// We shouldn't write in response to our write.
+	assert.ChannelIsEmpty(t, writes)
+
+	// Somehow the annotation is set to an new version - we should do nothing
+	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(10)}
+	gws.Update(defaultGateway)
+	assert.ChannelIsEmpty(t, writes)
+}
+
+func testInjectionConfig(t test.Failer) func() inject.WebhookConfig {
 	vc, err := inject.NewValuesConfig(`
 global:
   hub: test
@@ -168,33 +277,14 @@ global:
 			MeshConfig: mesh.DefaultMeshConfig(),
 		}
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			buf := &bytes.Buffer{}
-			d := &DeploymentController{
-				client: kube.NewFakeClient(
-					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}},
-					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}},
-				),
-				clusterID:    cluster.ID(features.ClusterName),
-				injectConfig: injConfig,
-				patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
-					b, err := yaml.JSONToYAML(data)
-					if err != nil {
-						return err
-					}
-					buf.Write(b)
-					buf.Write([]byte("---\n"))
-					return nil
-				},
-			}
-			err := d.configureIstioGateway(istiolog.FindScope(istiolog.DefaultScopeName), tt.gw)
-			if err != nil {
-				t.Fatal(err)
-			}
+	return injConfig
+}
 
-			resp := timestampRegex.ReplaceAll(buf.Bytes(), []byte("lastTransitionTime: fake"))
-			util.CompareContent(t, resp, filepath.Join("testdata", "deployment", tt.name+".yaml"))
-		})
-	}
+func buildPatch(version int) string {
+	return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.istio.io/controller-version: "%d"
+`, version)
 }
