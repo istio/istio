@@ -69,10 +69,6 @@
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
       },
       {
-        "regex": "(response_code=\\.=(.+?);\\.;)",
-        "tag_name": "response_code"
-      },
-      {
         "regex": "_rq(_(\\d{3}))$",
         "tag_name": "response_code"
       },
@@ -96,12 +92,6 @@
         "tag_name": "mongo_prefix",
         "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
       },
-      {{- range $a, $tag := .extraStatTags }}
-      {
-        "regex": "({{ $tag }}=\\.=(.*?);\\.;)",
-        "tag_name": "{{ $tag }}"
-      },
-      {{- end }}
       {
         "regex": "(cache\\.(.+?)\\.)",
         "tag_name": "cache"
