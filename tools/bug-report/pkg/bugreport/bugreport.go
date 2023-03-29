@@ -28,6 +28,7 @@ import (
 
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/cmd"
 
 	label2 "istio.io/api/label"
 	"istio.io/istio/operator/pkg/util"
@@ -299,13 +300,13 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 		cp := params.SetNamespace(namespace).SetPod(pod).SetContainer(container)
 		proxyDir := archive.ProxyOutputPath(tempDir, namespace, pod)
 		switch {
-		case common.IsProxyContainer(params.ClusterVersion, container) && !isZtunnelPod(pod):
+		case common.IsProxyContainer(params.ClusterVersion, container) && !cmd.IsZtunnelPod(pod):
 			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
 			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
 			getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 			getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 
-		case isZtunnelPod(pod):
+		case cmd.IsZtunnelPod(pod):
 			getFromCluster(content.GetZtunnelInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 			getZtunnelLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
@@ -334,10 +335,6 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 
 	// Analyze runs many queries internally, so run these queries sequentially and after everything else has finished.
 	runAnalyze(config, params, analyzeTimeout)
-}
-
-func isZtunnelPod(podName string) bool {
-	return strings.HasPrefix(podName, "ztunnel")
 }
 
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.

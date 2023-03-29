@@ -961,7 +961,7 @@ func logCmd() *cobra.Command {
 	return logCmd
 }
 
-func isZtunnelPod(podName string) bool {
+func IsZtunnelPod(podName string) bool {
 	return strings.HasPrefix(podName, "ztunnel")
 }
 
