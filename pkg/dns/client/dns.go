@@ -470,6 +470,7 @@ func (h *LocalDNSServer) queryUpstreamParallel(upstreamClient *dns.Client, req *
 }
 
 func serverFailure(req *dns.Msg) *dns.Msg {
+	failures.Increment()
 	response := new(dns.Msg)
 	response.SetReply(req)
 	response.Rcode = dns.RcodeServerFailure
