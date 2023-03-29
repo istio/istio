@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** operator skip reconcile for iop resources named starting with `installed-state`, and now it only relies on annotation `install.istio.io/ignoreReconcile`.
+    This won't affect the behavior of `istioctl install`.
