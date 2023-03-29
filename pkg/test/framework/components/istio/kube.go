@@ -127,11 +127,19 @@ func (i *istioImpl) Ingresses() ingress.Instances {
 
 func (i *istioImpl) IngressFor(c cluster.Cluster) ingress.Instance {
 	ingressServiceName := defaultIngressServiceName
+	ingressServiceNamespace := i.cfg.SystemNamespace
+	ingressServiceLabel := defaultIngressIstioLabel
 	if serviceNameOverride := i.cfg.IngressGatewayServiceName; serviceNameOverride != "" {
 		ingressServiceName = serviceNameOverride
 	}
-	name := types.NamespacedName{Name: ingressServiceName, Namespace: i.cfg.SystemNamespace}
-	return i.CustomIngressFor(c, name, defaultIngressIstioLabel)
+	if serviceNamespaceOverride := i.cfg.IngressGatewayServiceNamespace; serviceNamespaceOverride != "" {
+		ingressServiceNamespace = serviceNamespaceOverride
+	}
+	if serviceLabelOverride := i.cfg.IngressGatewayIstioLabel; serviceLabelOverride != "" {
+		ingressServiceLabel = fmt.Sprintf("istio=%s", serviceLabelOverride)
+	}
+	name := types.NamespacedName{Name: ingressServiceName, Namespace: ingressServiceNamespace}
+	return i.CustomIngressFor(c, name, ingressServiceLabel)
 }
 
 func (i *istioImpl) EastWestGatewayFor(c cluster.Cluster) ingress.Instance {
