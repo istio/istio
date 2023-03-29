@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 
+	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
@@ -846,7 +847,7 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if isZtunnelPod(pod) {
+				if ambientutil.IsZtunnelPod(pod) {
 					loggerNames[name] = Ztunnel
 				} else {
 					loggerNames[name] = Envoy
@@ -900,7 +901,7 @@ func logCmd() *cobra.Command {
 			var resp string
 			var errs *multierror.Error
 			for _, podName := range podNames {
-				if isZtunnelPod(podName) {
+				if ambientutil.IsZtunnelPod(podName) {
 					q := "level=" + ztunnelLogLevel(loggerLevelString)
 					if reset {
 						q += "&reset"
@@ -959,10 +960,6 @@ func logCmd() *cobra.Command {
 			s, levelListString))
 
 	return logCmd
-}
-
-func IsZtunnelPod(podName string) bool {
-	return strings.HasPrefix(podName, "ztunnel")
 }
 
 func routeConfigCmd() *cobra.Command {

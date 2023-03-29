@@ -28,7 +28,7 @@ import (
 
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/cmd"
+	"istio.io/istio/istioctl/pkg/util/ambient"
 
 	label2 "istio.io/api/label"
 	"istio.io/istio/operator/pkg/util"
@@ -300,14 +300,17 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 		cp := params.SetNamespace(namespace).SetPod(pod).SetContainer(container)
 		proxyDir := archive.ProxyOutputPath(tempDir, namespace, pod)
 		switch {
-		case common.IsProxyContainer(params.ClusterVersion, container) && !cmd.IsZtunnelPod(pod):
+		case common.IsProxyContainer(params.ClusterVersion, container) && !ambient.IsZtunnelPod(pod):
 			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
 			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
 			getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 			getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 
-		case cmd.IsZtunnelPod(pod):
+		case ambient.IsZtunnelPod(pod):
+			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
 			getFromCluster(content.GetZtunnelInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+			// TODO Remove this custom processing once ztunnel logs are matched with the Istio standard log format.
+			// After https://github.com/istio/ztunnel/issues/453 is done, can use getProxyLogs() instead.
 			getZtunnelLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
 			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)

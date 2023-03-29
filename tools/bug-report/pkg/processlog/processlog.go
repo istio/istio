@@ -33,8 +33,6 @@ const (
 )
 
 var (
-	matchEscape = regexp.MustCompile(`\x1b\[[0-9;]*[mK]`)
-
 	matchZtunnelLog = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(\S+)\s+`)
 )
 
@@ -91,21 +89,16 @@ func ProcessZtunnel(config *config.BugReportConfig, logStr string) (string, *Sta
 	return sb.String(), stats
 }
 
-func removeColor(s string) string {
-	return matchEscape.ReplaceAllString(s, "")
-}
-
 func processZtunnelLogLine(l string) (timestamp *time.Time, level string, text string, valid bool) {
-	line := removeColor(l)
-	match := matchZtunnelLog.FindStringSubmatch(line)
+	match := matchZtunnelLog.FindStringSubmatch(l)
 	if match == nil {
-		return nil, "", line, false
+		return nil, "", l, false
 	}
 	t, err := time.Parse(time.RFC3339Nano, match[1])
 	if err != nil {
-		return nil, "", line, false
+		return nil, "", l, false
 	}
-	return &t, match[2], line, true
+	return &t, match[2], l, true
 }
 
 // getTimeRange returns the log lines that fall inside the start to end time range, inclusive.
