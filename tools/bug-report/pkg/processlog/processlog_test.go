@@ -101,13 +101,13 @@ func TestProcessZtunnel(t *testing.T) {
 		},
 		{
 			name:  "range_equals_ztunnel",
-			start: "2023-03-08T06:40:11.080935Z",
-			end:   "2023-03-08T06:40:11.080935Z",
+			start: "2023-03-29T07:13:11.826893Z",
+			end:   "2023-03-29T07:13:54.823903Z",
 		},
 		{
 			name:  "range_not_equals_ztunnel",
-			start: "2023-03-08T06:40:05.959283Z",
-			end:   "2023-03-08T06:40:26.471154Z",
+			start: "2023-03-29T07:13:11.826893Z",
+			end:   "2023-03-29T07:13:41.764122Z",
 		},
 	}
 	for _, tt := range tests {
