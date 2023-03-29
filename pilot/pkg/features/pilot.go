@@ -161,13 +161,6 @@ var (
 		"EnableMongoFilter enables injection of `envoy.filters.network.mongo_proxy` in the filter chain.",
 	).Get()
 
-	AlwaysEnbleGrpcStatsFilter = env.Register(
-		"ALWAYS_ENABLE_GRPC_STATS_FILTER",
-		false,
-		"If set, GRPC stats filter will be enabled for all HTTP services. But the filter will only produce stats"+
-			" if the request is a GRPC request. Enabling this flag may have a minor performance hit for all HTTP services.",
-	).Get()
-
 	// UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners so that it picks up the localhost
 	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
 	UseRemoteAddress = env.Register(

@@ -677,9 +677,12 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 				listenertest.VerifyListener(t, l, listenertest.ListenerTest{
 					FilterChains: []listenertest.FilterChainTest{
 						{
-							TotalMatch:  true,
-							Port:        8080,
-							HTTPFilters: []string{xdsfilters.MxFilterName, xdsfilters.Fault.Name, xdsfilters.Cors.Name, xdsfilters.Router.Name},
+							TotalMatch: true,
+							Port:       8080,
+							HTTPFilters: []string{
+								xdsfilters.MxFilterName, xdsfilters.GrpcStats.Name, xdsfilters.Fault.Name,
+								xdsfilters.Cors.Name, xdsfilters.Router.Name,
+							},
 							ValidateHCM: func(t test.Failer, hcm *hcm.HttpConnectionManager) {
 								assert.Equal(t, "istio-envoy", hcm.GetServerName(), "server name")
 								if len(tt.cfg) == 0 {
@@ -2554,6 +2557,7 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *listener.Listener, hostn
 func verifyFilterChainMatch(t *testing.T, listener *listener.Listener) {
 	httpFilters := []string{
 		xdsfilters.MxFilterName,
+		xdsfilters.GrpcStats.Name,
 		xdsfilters.Fault.Name,
 		xdsfilters.Cors.Name,
 		xdsfilters.Router.Name,
