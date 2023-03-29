@@ -290,6 +290,9 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
+		if len(chunk) == 0 {
+			continue
+		}
 		chunkResources, err := s.parseChunk(r, name, lineNum, chunk)
 		if err != nil {
 			var uerr *unknownSchemaError
