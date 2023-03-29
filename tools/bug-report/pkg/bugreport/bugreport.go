@@ -28,9 +28,9 @@ import (
 
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/util/ambient"
 
 	label2 "istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"

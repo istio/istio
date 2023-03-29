@@ -32,9 +32,7 @@ const (
 	levelTrace = "trace"
 )
 
-var (
-	matchZtunnelLog = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(\S+)\s+`)
-)
+var matchZtunnelLog = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(\S+)\s+`)
 
 // Stats represents log statistics.
 type Stats struct {
