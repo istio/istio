@@ -29,6 +29,8 @@ spec:
       - image: docker.io/istio/proxy_debug:unittest
         name: istio-proxy
         resources: {}
+        securityContext:
+          runAsUser: 1337
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         name: hello
         ports:

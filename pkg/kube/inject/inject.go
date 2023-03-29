@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
@@ -50,6 +51,13 @@ import (
 // InjectionPolicy determines the policy for injecting the
 // sidecar proxy into the watched namespace(s).
 type InjectionPolicy string
+
+// Defaults values for injecting istio proxy into kubernetes
+// resources.
+const (
+	DefaultSidecarProxyUID = int64(1337)
+	DefaultSidecarProxyGID = int64(1337)
+)
 
 const (
 	// InjectionPolicyDisabled specifies that the sidecar injector
@@ -103,6 +111,8 @@ type SidecarTemplateData struct {
 	Values         map[string]any
 	Revision       string
 	ProxyImage     string
+	ProxyUID       *int64
+	ProxyGID       *int64
 }
 
 type (
@@ -147,6 +157,9 @@ type Config struct {
 	// InjectedAnnotations are additional annotations that will be added to the pod spec after injection
 	// This is primarily to support PSP annotations.
 	InjectedAnnotations map[string]string `json:"injectedAnnotations"`
+
+	// Increment the runAsUID of the proxy by 1
+	IncrementUID bool `json:"incrementUID"`
 
 	// Templates is a pre-parsed copy of RawTemplates
 	Templates Templates `json:"-"`
@@ -403,6 +416,8 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		Values:         params.valuesConfig.asMap,
 		Revision:       params.revision,
 		ProxyImage:     ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		ProxyUID:       params.proxyUID,
+		ProxyGID:       params.proxyGID,
 	}
 
 	mergedPod = params.pod
@@ -754,6 +769,8 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			revision:            revision,
 			proxyEnvs:           map[string]string{},
 			injectedAnnotations: nil,
+			proxyUID:            pointer.Int64Ptr(DefaultSidecarProxyUID),
+			proxyGID:            pointer.Int64Ptr(DefaultSidecarProxyGID),
 		}
 		patchBytes, err = injectPod(params)
 	}

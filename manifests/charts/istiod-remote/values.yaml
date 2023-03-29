@@ -104,6 +104,9 @@ sidecarInjectorWebhook:
   #
   # defaultTemplates: ["sidecar", "hello"]
   defaultTemplates: []
+  # Enable sidecar to auto-increment the runAsUID used by the proxy.
+  # Used by the Openshift profile to avoid the need to manually apply the anyuid policy.
+  incrementUID: false
 istiodRemote:
   # Sidecar injector mutating webhook configuration clientConfig.url value.
   # For example: https://$remotePilotAddress:15017/inject

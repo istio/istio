@@ -321,6 +321,11 @@ func TestInjection(t *testing.T) {
 				m.DefaultConfig.Tracing = &meshapi.Tracing{}
 			},
 		},
+		{
+			// Verifies securityContext.runAsUser is respected in proxy
+			in:   "hello-sc-runas.yaml",
+			want: "hello-sc-runas.yaml.injected",
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
@@ -587,6 +592,8 @@ spec:
     - name: hello
       image: fake.docker.io/google-samples/hello-go-gke:1.0
     - name: istio-proxy
+      securityContext:
+        runAsUser: 1337
       image: proxy
 `
 	runWebhook(t, webhook, []byte(input), []byte(fmt.Sprintf(expected, "sidecar,init")), false)

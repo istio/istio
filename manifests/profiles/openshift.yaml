@@ -5,6 +5,49 @@ spec:
     cni:
       enabled: true
       namespace: kube-system
+      k8s:
+        overlays:
+          - kind: DaemonSet
+            name: istio-cni-node
+            patches:
+              - path: spec.template.spec.securityContext
+          - kind: ClusterRole
+            name: istio-cni
+            patches:
+              - path: rules[-1] # [-1] works like an array push
+                value:
+                  apiGroups:
+                    - security.openshift.io
+                  resources:
+                    - securitycontextconstraints
+                  resourceNames:
+                    - privileged
+                  verbs:
+                    - 'use'
+    pilot:
+      k8s:
+        overlays:
+          - kind: Deployment
+            name: istiod
+            patches:
+              - path: spec.template.spec.containers.[name:discovery].securityContext
+              - path: spec.template.spec.securityContext
+    ingressGateways:
+      - name: istio-ingressgateway
+        k8s:
+          overlays:
+            - kind: Deployment
+              name: istio-ingressgateway
+              patches:
+                - path: spec.template.spec.securityContext
+    egressGateways:
+      - name: istio-egressgateway
+        k8s:
+          overlays:
+            - kind: Deployment
+              name: istio-egressgateway
+              patches:
+                - path: spec.template.spec.securityContext
   values:
     cni:
       cniBinDir: /var/lib/cni/bin
@@ -17,5 +60,6 @@ spec:
       logLevel: info
       privileged: true
     sidecarInjectorWebhook:
+      incrementUID: true
       injectedAnnotations:
         k8s.v1.cni.cncf.io/networks: istio-cni

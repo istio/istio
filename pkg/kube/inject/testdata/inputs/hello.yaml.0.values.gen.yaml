@@ -114,6 +114,7 @@
     "alwaysInjectSelector": [],
     "defaultTemplates": [],
     "enableNamespacesByDefault": false,
+    "incrementUID": false,
     "injectedAnnotations": {},
     "neverInjectSelector": [],
     "rewriteAppHTTPProbe": true,

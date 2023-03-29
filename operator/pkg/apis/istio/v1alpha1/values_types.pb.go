@@ -4306,6 +4306,9 @@ type SidecarInjectorConfig struct {
 	Templates *structpb.Struct `protobuf:"bytes,23,opt,name=templates,proto3" json:"templates,omitempty"`
 	// defaultTemplates: ["sidecar", "hello"]
 	DefaultTemplates []string `protobuf:"bytes,24,rep,name=defaultTemplates,proto3" json:"defaultTemplates,omitempty"`
+	// Enable sidecar to auto-increment the runAsUID used by the proxy.
+	// Used by the Openshift profile to avoid the need to manually apply the anyuid policy.
+	IncrementUID *wrapperspb.BoolValue `protobuf:"bytes,25,opt,name=incrementUID,proto3" json:"incrementUID,omitempty"`
 	// If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
 	// requests in Istiod, rather than at the webhook selection level.
 	// This is option is intended for migration purposes only and will be removed in Istio 1.10.
@@ -4405,6 +4408,13 @@ func (x *SidecarInjectorConfig) GetTemplates() *structpb.Struct {
 func (x *SidecarInjectorConfig) GetDefaultTemplates() []string {
 	if x != nil {
 		return x.DefaultTemplates
+	}
+	return nil
+}
+
+func (x *SidecarInjectorConfig) GetIncrementUID() *wrapperspb.BoolValue {
+	if x != nil {
+		return x.IncrementUID
 	}
 	return nil
 }
@@ -6162,7 +6172,7 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_rawDesc = []byte{
 	0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0c, 0x65, 0x78, 0x74, 0x65, 0x72, 0x6e, 0x61,
 	0x6c, 0x50, 0x6f, 0x72, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x03, 0x20,
 	0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x79, 0x70,
-	0x65, 0x18, 0x12, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x22, 0xba, 0x05,
+	0x65, 0x18, 0x12, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x22, 0xfa, 0x05,
 	0x0a, 0x15, 0x53, 0x69, 0x64, 0x65, 0x63, 0x61, 0x72, 0x49, 0x6e, 0x6a, 0x65, 0x63, 0x74, 0x6f,
 	0x72, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x58, 0x0a, 0x19, 0x65, 0x6e, 0x61, 0x62, 0x6c,
 	0x65, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x42, 0x79, 0x44, 0x65, 0x66,
@@ -6201,7 +6211,11 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_rawDesc = []byte{
 	0x75, 0x63, 0x74, 0x52, 0x09, 0x74, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x73, 0x12, 0x2a,
 	0x0a, 0x10, 0x64, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74,
 	0x65, 0x73, 0x18, 0x18, 0x20, 0x03, 0x28, 0x09, 0x52, 0x10, 0x64, 0x65, 0x66, 0x61, 0x75, 0x6c,
-	0x74, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x73, 0x12, 0x4e, 0x0a, 0x12, 0x75, 0x73,
+	0x74, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x73, 0x12, 0x3e, 0x0a, 0x0c, 0x69, 0x6e,
+	0x63, 0x72, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x55, 0x49, 0x44, 0x18, 0x19, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62,
+	0x75, 0x66, 0x2e, 0x42, 0x6f, 0x6f, 0x6c, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52, 0x0c, 0x69, 0x6e,
+	0x63, 0x72, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x55, 0x49, 0x44, 0x12, 0x4e, 0x0a, 0x12, 0x75, 0x73,
 	0x65, 0x4c, 0x65, 0x67, 0x61, 0x63, 0x79, 0x53, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x73,
 	0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x42, 0x6f, 0x6f, 0x6c, 0x56, 0x61, 0x6c,
@@ -6593,37 +6607,38 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
 	60,  // 157: v1alpha1.SidecarInjectorConfig.injectedAnnotations:type_name -> google.protobuf.Struct
 	60,  // 158: v1alpha1.SidecarInjectorConfig.objectSelector:type_name -> google.protobuf.Struct
 	60,  // 159: v1alpha1.SidecarInjectorConfig.templates:type_name -> google.protobuf.Struct
-	58,  // 160: v1alpha1.SidecarInjectorConfig.useLegacySelectors:type_name -> google.protobuf.BoolValue
-	44,  // 161: v1alpha1.TracerConfig.datadog:type_name -> v1alpha1.TracerDatadogConfig
-	45,  // 162: v1alpha1.TracerConfig.lightstep:type_name -> v1alpha1.TracerLightStepConfig
-	46,  // 163: v1alpha1.TracerConfig.zipkin:type_name -> v1alpha1.TracerZipkinConfig
-	47,  // 164: v1alpha1.TracerConfig.stackdriver:type_name -> v1alpha1.TracerStackdriverConfig
-	58,  // 165: v1alpha1.TracerStackdriverConfig.debug:type_name -> google.protobuf.BoolValue
-	58,  // 166: v1alpha1.BaseConfig.enableCRDTemplates:type_name -> google.protobuf.BoolValue
-	58,  // 167: v1alpha1.BaseConfig.enableIstioConfigCRDs:type_name -> google.protobuf.BoolValue
-	58,  // 168: v1alpha1.BaseConfig.validateGateway:type_name -> google.protobuf.BoolValue
-	5,   // 169: v1alpha1.Values.cni:type_name -> v1alpha1.CNIConfig
-	16,  // 170: v1alpha1.Values.gateways:type_name -> v1alpha1.GatewaysConfig
-	17,  // 171: v1alpha1.Values.global:type_name -> v1alpha1.GlobalConfig
-	25,  // 172: v1alpha1.Values.pilot:type_name -> v1alpha1.PilotConfig
-	59,  // 173: v1alpha1.Values.ztunnel:type_name -> google.protobuf.Value
-	28,  // 174: v1alpha1.Values.telemetry:type_name -> v1alpha1.TelemetryConfig
-	42,  // 175: v1alpha1.Values.sidecarInjectorWebhook:type_name -> v1alpha1.SidecarInjectorConfig
-	5,   // 176: v1alpha1.Values.istio_cni:type_name -> v1alpha1.CNIConfig
-	59,  // 177: v1alpha1.Values.meshConfig:type_name -> google.protobuf.Value
-	48,  // 178: v1alpha1.Values.base:type_name -> v1alpha1.BaseConfig
-	49,  // 179: v1alpha1.Values.istiodRemote:type_name -> v1alpha1.IstiodRemoteConfig
-	58,  // 180: v1alpha1.ZeroVPNConfig.enabled:type_name -> google.protobuf.BoolValue
-	62,  // 181: v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
-	63,  // 182: v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
-	60,  // 183: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.gateway:type_name -> google.protobuf.Struct
-	60,  // 184: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.inboundSidecar:type_name -> google.protobuf.Struct
-	60,  // 185: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.outboundSidecar:type_name -> google.protobuf.Struct
-	186, // [186:186] is the sub-list for method output_type
-	186, // [186:186] is the sub-list for method input_type
-	186, // [186:186] is the sub-list for extension type_name
-	186, // [186:186] is the sub-list for extension extendee
-	0,   // [0:186] is the sub-list for field type_name
+	58,  // 160: v1alpha1.SidecarInjectorConfig.incrementUID:type_name -> google.protobuf.BoolValue
+	58,  // 161: v1alpha1.SidecarInjectorConfig.useLegacySelectors:type_name -> google.protobuf.BoolValue
+	44,  // 162: v1alpha1.TracerConfig.datadog:type_name -> v1alpha1.TracerDatadogConfig
+	45,  // 163: v1alpha1.TracerConfig.lightstep:type_name -> v1alpha1.TracerLightStepConfig
+	46,  // 164: v1alpha1.TracerConfig.zipkin:type_name -> v1alpha1.TracerZipkinConfig
+	47,  // 165: v1alpha1.TracerConfig.stackdriver:type_name -> v1alpha1.TracerStackdriverConfig
+	58,  // 166: v1alpha1.TracerStackdriverConfig.debug:type_name -> google.protobuf.BoolValue
+	58,  // 167: v1alpha1.BaseConfig.enableCRDTemplates:type_name -> google.protobuf.BoolValue
+	58,  // 168: v1alpha1.BaseConfig.enableIstioConfigCRDs:type_name -> google.protobuf.BoolValue
+	58,  // 169: v1alpha1.BaseConfig.validateGateway:type_name -> google.protobuf.BoolValue
+	5,   // 170: v1alpha1.Values.cni:type_name -> v1alpha1.CNIConfig
+	16,  // 171: v1alpha1.Values.gateways:type_name -> v1alpha1.GatewaysConfig
+	17,  // 172: v1alpha1.Values.global:type_name -> v1alpha1.GlobalConfig
+	25,  // 173: v1alpha1.Values.pilot:type_name -> v1alpha1.PilotConfig
+	59,  // 174: v1alpha1.Values.ztunnel:type_name -> google.protobuf.Value
+	28,  // 175: v1alpha1.Values.telemetry:type_name -> v1alpha1.TelemetryConfig
+	42,  // 176: v1alpha1.Values.sidecarInjectorWebhook:type_name -> v1alpha1.SidecarInjectorConfig
+	5,   // 177: v1alpha1.Values.istio_cni:type_name -> v1alpha1.CNIConfig
+	59,  // 178: v1alpha1.Values.meshConfig:type_name -> google.protobuf.Value
+	48,  // 179: v1alpha1.Values.base:type_name -> v1alpha1.BaseConfig
+	49,  // 180: v1alpha1.Values.istiodRemote:type_name -> v1alpha1.IstiodRemoteConfig
+	58,  // 181: v1alpha1.ZeroVPNConfig.enabled:type_name -> google.protobuf.BoolValue
+	62,  // 182: v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
+	63,  // 183: v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
+	60,  // 184: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.gateway:type_name -> google.protobuf.Struct
+	60,  // 185: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.inboundSidecar:type_name -> google.protobuf.Struct
+	60,  // 186: v1alpha1.TelemetryV2PrometheusConfig.ConfigOverride.outboundSidecar:type_name -> google.protobuf.Struct
+	187, // [187:187] is the sub-list for method output_type
+	187, // [187:187] is the sub-list for method input_type
+	187, // [187:187] is the sub-list for extension type_name
+	187, // [187:187] is the sub-list for extension extendee
+	0,   // [0:187] is the sub-list for field type_name
 }
 
 func init() { file_pkg_apis_istio_v1alpha1_values_types_proto_init() }

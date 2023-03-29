@@ -34,6 +34,8 @@ spec:
       - image: docker.io/istio/proxy_debug:unittest
         name: istio-proxy
         resources: {}
+        securityContext:
+          runAsUser: 1337
       initContainers:
       - image: docker.io/istio/proxy_init:unittest-testiop
         name: istio-init

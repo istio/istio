@@ -1,4 +1,5 @@
 # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
+incrementUID: false
 defaultTemplates: [sidecar]
 policy: enabled
 alwaysInjectSelector:

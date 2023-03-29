@@ -1075,6 +1075,10 @@ message SidecarInjectorConfig {
   // defaultTemplates: ["sidecar", "hello"]
   repeated string defaultTemplates = 24;
 
+  // Enable sidecar to auto-increment the runAsUID used by the proxy.
+  // Used by the Openshift profile to avoid the need to manually apply the anyuid policy.
+  google.protobuf.BoolValue incrementUID = 25;
+
   // If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
   // requests in Istiod, rather than at the webhook selection level.
   // This is option is intended for migration purposes only and will be removed in Istio 1.10.

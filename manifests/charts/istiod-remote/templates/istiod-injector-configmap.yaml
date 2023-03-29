@@ -27,6 +27,7 @@ data:
     - {{ . }}
 {{- end }}
     {{- else }}
+    incrementUID: {{ $.Values.sidecarInjectorWebhook.incrementUID  | default `false` }}
     defaultTemplates: [sidecar]
     {{- end }}
     policy: {{ .Values.global.proxy.autoInject }}

@@ -134,7 +134,7 @@ spec:
           readOnlyRootFilesystem: true
           runAsGroup: 1337
           runAsNonRoot: false
-          runAsUser: 0
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket

@@ -104,6 +104,8 @@ spec:
           periodSeconds: 2
           timeoutSeconds: 3
         resources: {}
+        securityContext:
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket

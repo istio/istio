@@ -38,6 +38,7 @@ import (
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
@@ -52,6 +53,8 @@ import (
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
+
+const ProxyUIDAnnotation = "sidecar.istio.io/proxyUID"
 
 var (
 	runtimeScheme     = runtime.NewScheme()
@@ -343,6 +346,8 @@ type InjectionParameters struct {
 	revision            string
 	proxyEnvs           map[string]string
 	injectedAnnotations map[string]string
+	proxyUID            *int64
+	proxyGID            *int64
 }
 
 func checkPreconditions(params InjectionParameters) {
@@ -623,6 +628,8 @@ func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParame
 	if err := reorderPod(pod, req); err != nil {
 		return err
 	}
+
+	replaceProxyRunAsUserID(pod, req.proxyUID)
 
 	return nil
 }
@@ -994,6 +1001,77 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 			proxyConfig = generatedProxyConfig
 		}
 	}
+
+	var err error
+	var proxyUID *int64
+	var proxyGID *int64
+
+	tproxyInterceptionMode := pod.Annotations != nil && pod.Annotations["sidecar.istio.io/interceptionMode"] == string(model.InterceptionTproxy)
+	if wh.Config.IncrementUID {
+		if len(pod.Spec.Containers) == 1 && pod.Spec.Containers[0].Name == ProxyContainerName {
+			// we're injecting a gateway pod
+			// we set proxyUID/GID to whatever UID/GID is specified in securityContext.RunAsUser/RunAsGroup
+			if pod.Spec.SecurityContext != nil {
+				if pod.Spec.SecurityContext.RunAsUser != nil {
+					proxyUID = pointer.Int64Ptr(*pod.Spec.SecurityContext.RunAsUser)
+					proxyGID = pointer.Int64Ptr(*proxyUID)
+				}
+				if pod.Spec.SecurityContext.RunAsGroup != nil {
+					proxyGID = pointer.Int64(*pod.Spec.SecurityContext.RunAsGroup)
+				}
+			}
+			container := pod.Spec.Containers[0]
+			if container.SecurityContext != nil {
+				if container.SecurityContext.RunAsUser != nil {
+					proxyUID = pointer.Int64Ptr(*container.SecurityContext.RunAsUser)
+					if proxyGID == nil {
+						proxyGID = pointer.Int64Ptr(*proxyUID)
+					}
+				}
+				if container.SecurityContext.RunAsGroup != nil {
+					proxyGID = pointer.Int64Ptr(*container.SecurityContext.RunAsGroup)
+				}
+			}
+		} else if !tproxyInterceptionMode {
+			// we're injecting a normal pod (with app container and optional sidecar container)
+			// we set proxyUID to the main app container's UID incremented by 1 (require unique uid for iptables routes)
+			// we set proxyGID to the main app container's UID
+			proxyUID, err = getProxyUIDFromAnnotation(pod)
+			if err != nil {
+				log.Infof("Could not get proxyUID from annotation: %v", err)
+			}
+			if proxyUID == nil {
+				if pod.Spec.SecurityContext != nil && pod.Spec.SecurityContext.RunAsUser != nil {
+					proxyUID = pointer.Int64Ptr(*pod.Spec.SecurityContext.RunAsUser + 1)
+					// valid GID for fsGroup defaults to first int in UID range in OCP's restricted SCC
+					proxyGID = pod.Spec.SecurityContext.RunAsUser
+				}
+				for _, c := range pod.Spec.Containers {
+					if c.Name != ProxyContainerName && c.SecurityContext != nil && c.SecurityContext.RunAsUser != nil {
+						uid := *c.SecurityContext.RunAsUser + 1
+						if proxyUID == nil || uid > *proxyUID {
+							proxyUID = &uid
+						}
+						if proxyGID == nil {
+							proxyGID = c.SecurityContext.RunAsUser
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// We need to set the UID/GID to something, or the injected manifest will fail to parse (this happens because
+	// {{ .ProxyUID/GID }} in the charts get resolved to "nil" (with quotes), which can't be parsed as a float).
+	if !tproxyInterceptionMode { // because the proxy must run as root in TPROXY mode, we must leave the proxyUID unset
+		if proxyUID == nil {
+			proxyUID = pointer.Int64Ptr(DefaultSidecarProxyUID)
+		}
+		if proxyGID == nil {
+			proxyGID = pointer.Int64Ptr(DefaultSidecarProxyUID)
+		}
+	}
+
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
 	params := InjectionParameters{
 		pod:                 &pod,
@@ -1008,6 +1086,8 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
+		proxyUID:            proxyUID,
+		proxyGID:            proxyGID,
 	}
 	wh.mu.RUnlock()
 
@@ -1162,4 +1242,51 @@ func parseInjectEnvs(path string) map[string]string {
 func handleError(message string) {
 	log.Errorf(message)
 	totalFailedInjections.Increment()
+}
+
+// modifies the pod to ensure that the proxy runs with the given proxyUID instead of 1337
+func replaceProxyRunAsUserID(pod *corev1.Pod, proxyUID *int64) {
+	if proxyUID == nil {
+		return
+	}
+	for i, c := range pod.Spec.InitContainers {
+		if c.Name == InitContainerName || c.Name == ValidationContainerName {
+			for j, arg := range c.Args {
+				if arg == "-u" {
+					pod.Spec.InitContainers[i].Args[j+1] = strconv.FormatInt(*proxyUID, 10)
+					break
+				}
+			}
+			if c.Name == ValidationContainerName {
+				if c.SecurityContext == nil {
+					securityContext := corev1.SecurityContext{}
+					pod.Spec.InitContainers[i].SecurityContext = &securityContext
+				}
+				pod.Spec.InitContainers[i].SecurityContext.RunAsUser = proxyUID
+			}
+		}
+	}
+	for i, c := range pod.Spec.Containers {
+		if c.Name == ProxyContainerName {
+			if c.SecurityContext == nil {
+				securityContext := corev1.SecurityContext{}
+				pod.Spec.Containers[i].SecurityContext = &securityContext
+			}
+			pod.Spec.Containers[i].SecurityContext.RunAsUser = proxyUID
+			break
+		}
+	}
+}
+
+func getProxyUIDFromAnnotation(pod corev1.Pod) (*int64, error) {
+	if pod.Annotations != nil {
+		if annotationValue, found := pod.Annotations[ProxyUIDAnnotation]; found {
+			proxyUID, err := strconv.ParseInt(annotationValue, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			return &proxyUID, nil
+		}
+	}
+	return nil, nil
 }

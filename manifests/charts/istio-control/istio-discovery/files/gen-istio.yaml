@@ -164,6 +164,7 @@ data:
         "alwaysInjectSelector": [],
         "defaultTemplates": [],
         "enableNamespacesByDefault": false,
+        "incrementUID": false,
         "injectedAnnotations": {},
         "neverInjectSelector": [],
         "rewriteAppHTTPProbe": true,
@@ -178,6 +179,7 @@ data:
   # to fine tune it or use it with kube-inject.
   config: |-
     # defaultTemplates defines the default template to use for pods that do not explicitly specify a template
+    incrementUID: false
     defaultTemplates: [sidecar]
     policy: enabled
     alwaysInjectSelector:
