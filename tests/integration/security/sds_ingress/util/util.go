@@ -417,6 +417,7 @@ type TestConfig struct {
 	CredentialName string
 	Host           string
 	ServiceName    string
+	GatewayLabel   string
 }
 
 const vsTemplate = `
@@ -447,7 +448,7 @@ metadata:
   name: {{.CredentialName}}
 spec:
   selector:
-    istio: ingressgateway # use istio default ingress gateway
+    istio: {{.GatewayLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 443
@@ -484,6 +485,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ns
 					CredentialName: cred,
 					Host:           fmt.Sprintf("runtestmultimtlsgateways%d.example.com", i),
 					ServiceName:    to.Config().Service,
+					GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
 				})
 				credNames = append(credNames, cred)
 			}
@@ -531,6 +533,7 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, ns na
 					CredentialName: cred,
 					Host:           fmt.Sprintf("runtestmultitlsgateways%d.example.com", i),
 					ServiceName:    to.Config().Service,
+					GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
 				})
 				credNames = append(credNames, cred)
 			}
@@ -582,6 +585,7 @@ func RunTestMultiQUICGateways(t framework.TestContext, inst istio.Instance, call
 						CredentialName: cred,
 						Host:           fmt.Sprintf("runtestmultitlsgateways%d.example.com", i),
 						ServiceName:    to.Config().Service,
+						GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
 					})
 					credNames = append(credNames, cred)
 				}
