@@ -184,8 +184,8 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 							// basically lazy loading the informer, if we stop it when we lose the lock we will never
 							// recreate it again.
 							s.kubeClient.RunAndWait(stop)
-							controller.Run(leaderStop)
-							tagWatcher.Run(leaderStop)
+							go tagWatcher.Run(leaderStop)
+							controller.Run(leaderStop, tagWatcher.HasSynced)
 						}
 					}).
 					Run(stop)

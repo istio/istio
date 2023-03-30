@@ -206,7 +206,8 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 	return dc
 }
 
-func (d *DeploymentController) Run(stop <-chan struct{}) {
+func (d *DeploymentController) Run(stop <-chan struct{}, hasSynced func() bool) {
+	kube.WaitForCacheSync(stop, hasSynced)
 	d.queue.Run(stop)
 	controllers.ShutdownAll(d.deployments, d.services, d.serviceAccounts, d.gateways, d.gatewayClasses)
 }
@@ -230,7 +231,6 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 			return nil
 		}
 		// find the tag or revision indicated by the object
-		// TODO: handle default tag
 		selectedTag, ok := gw.Labels[label.IoIstioRev.Name]
 		if !ok {
 			ns := d.namespaces.Get(gw.Namespace, "")
@@ -239,7 +239,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 			}
 			selectedTag = ns.Labels[label.IoIstioRev.Name]
 		}
-		if !d.myTags.Contains(selectedTag) {
+		if !d.myTags.Contains(selectedTag) && !(selectedTag == "" && d.myTags.Contains("default")) {
 			return nil
 		}
 	} else {
