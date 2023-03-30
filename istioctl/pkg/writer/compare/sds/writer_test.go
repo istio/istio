@@ -82,7 +82,7 @@ func TestSDSWriterSecretItems(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &bytes.Buffer{}
-			mockWriter := NewSDSWriter(w, tt.format, false)
+			mockWriter := NewSDSWriter(w, tt.format)
 			err := mockWriter.PrintSecretItems(tt.items)
 			if err != nil {
 				t.Errorf("error printing secret items: %v", err)
@@ -162,7 +162,7 @@ func TestSDSWriterSecretDiff(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &bytes.Buffer{}
-			mockWriter := NewSDSWriter(w, tt.format, true)
+			mockWriter := NewSDSWriter(w, tt.format)
 			err := mockWriter.PrintDiffs(tt.diffs)
 			if err != nil {
 				t.Errorf("error printing secret items: %v", err)

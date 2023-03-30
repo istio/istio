@@ -32,8 +32,17 @@ import (
 type ConfigWriter struct {
 	Stdout     io.Writer
 	configDump *configdump.Wrapper
-	// IncludeConfigType indicates whether to include the config type in the output
-	IncludeConfigType bool
+}
+
+// includeConfigType is a flag to indicate whether to include the config type in the output
+var includeConfigType bool
+
+func SetPrintConfigTypeInSummary(p bool) {
+	includeConfigType = p
+}
+
+func PrintConfigTypeInSummary() bool {
+	return includeConfigType
 }
 
 // Prime loads the config dump into the writer ready for printing
@@ -113,7 +122,7 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 		return err
 	}
 
-	secretWriter := sdscompare.NewSDSWriter(c.Stdout, sdscompare.TABULAR, c.IncludeConfigType)
+	secretWriter := sdscompare.NewSDSWriter(c.Stdout, sdscompare.TABULAR)
 	return secretWriter.PrintSecretItems(secretItems)
 }
 

@@ -292,7 +292,7 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 	})
 
 	printStr := "ADDRESS\tPORT"
-	if c.IncludeConfigType {
+	if includeConfigType {
 		printStr = "NAME\t" + printStr
 	}
 	if filter.Verbose {
@@ -311,7 +311,7 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 				return matches[i].destination > matches[j].destination
 			})
 			for _, match := range matches {
-				if c.IncludeConfigType {
+				if includeConfigType {
 					l.Name = fmt.Sprintf("listener/%s", l.Name)
 					fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", l.Name, address, port, match.match, match.destination)
 				} else {
@@ -320,7 +320,7 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 			}
 		} else {
 			listenerType := retrieveListenerType(l)
-			if c.IncludeConfigType {
+			if includeConfigType {
 				l.Name = fmt.Sprintf("listener/%s", l.Name)
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", l.Name, address, port, listenerType)
 			} else {

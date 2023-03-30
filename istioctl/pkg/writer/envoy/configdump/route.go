@@ -59,7 +59,7 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 	}
 	for _, route := range routes {
 		if filter.Verify(route) {
-			if c.IncludeConfigType {
+			if includeConfigType {
 				route.Name = fmt.Sprintf("route/%s", route.Name)
 			}
 			if filter.Verbose {

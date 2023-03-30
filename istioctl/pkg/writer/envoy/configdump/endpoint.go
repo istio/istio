@@ -121,7 +121,7 @@ func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 		for _, llb := range eds.Endpoints {
 			for _, ep := range llb.LbEndpoints {
 				addr := retrieveEndpointAddress(ep)
-				if c.IncludeConfigType {
+				if includeConfigType {
 					addr = fmt.Sprintf("endpoint/%s", addr)
 				}
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",

@@ -68,7 +68,6 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
-	includeConfigType := c.IncludeConfigType
 	if includeConfigType {
 		_, _ = fmt.Fprintln(w, "NAME\tSERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE\tDESTINATION RULE")
 	} else {

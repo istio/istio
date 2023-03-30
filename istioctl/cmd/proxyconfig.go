@@ -25,6 +25,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -518,7 +519,8 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 				}
-				configWriter.IncludeConfigType = true
+				configdump.SetPrintConfigTypeInSummary(true)
+				sdscompare.SetPrintConfigTypeInSummary(true)
 				return configWriter.PrintFullSummary(
 					configdump.ClusterFilter{
 						FQDN:      host.Name(fqdn),
