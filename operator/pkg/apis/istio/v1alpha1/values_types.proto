@@ -276,7 +276,9 @@ message EgressGatewayConfig {
 
   ServiceAccount serviceAccount = 28;
 
-  // Next available 29.
+  repeated google.protobuf.Struct envSources = 29;
+
+  // Next available 30.
 }
 
 // Configuration for gateways.
