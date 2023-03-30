@@ -66,6 +66,18 @@
         "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
       },
       {
+        "regex": "(dlp_success=\\.=(.*?);\\.;)",
+        "tag_name": "dlp_success"
+      },
+      {
+        "regex": "(dlp_status=\\.=(.*?);\\.;)",
+        "tag_name": "dlp_status"
+      },
+      {
+        "regex": "(dlp_error=\\.=(.*?);\\.;)",
+        "tag_name": "dlp_error"
+      },
+      {
         "regex": "(cache\\.(.+?)\\.)",
         "tag_name": "cache"
       },
