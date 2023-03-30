@@ -32,7 +32,7 @@ const (
 	levelTrace = "trace"
 )
 
-var matchZtunnelLog = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(\S+)\s+`)
+var ztunnelLogPattern = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(?:\w+\s+)?(\w+)\s+([\w\.:]+)(.*)`)
 
 // Stats represents log statistics.
 type Stats struct {
@@ -54,49 +54,6 @@ func (s *Stats) Importance() int {
 func Process(config *config.BugReportConfig, logStr string) (string, *Stats) {
 	out := getTimeRange(logStr, config.StartTime, config.EndTime)
 	return out, getStats(config, out)
-}
-
-func ProcessZtunnel(config *config.BugReportConfig, logStr string) (string, *Stats) {
-	var sb strings.Builder
-	stats := &Stats{}
-	start := config.StartTime
-	end := config.EndTime
-	for _, l := range strings.Split(logStr, "\n") {
-		t, level, line, valid := processZtunnelLogLine(l)
-		if len(level) != 0 {
-			switch strings.ToLower(level) {
-			case levelFatal:
-				stats.numFatals++
-			case levelError:
-				stats.numErrors++
-			case levelWarn:
-				stats.numWarnings++
-			}
-		}
-		if !valid {
-			// This maybe some configs or other logs, just append it.
-			sb.WriteString(line)
-			sb.WriteString("\n")
-			continue
-		}
-		if (t.Equal(start) || t.After(start)) && (t.Equal(end) || t.Before(end)) {
-			sb.WriteString(line)
-			sb.WriteString("\n")
-		}
-	}
-	return sb.String(), stats
-}
-
-func processZtunnelLogLine(l string) (timestamp *time.Time, level string, text string, valid bool) {
-	match := matchZtunnelLog.FindStringSubmatch(l)
-	if match == nil {
-		return nil, "", l, false
-	}
-	t, err := time.Parse(time.RFC3339Nano, match[1])
-	if err != nil {
-		return nil, "", l, false
-	}
-	return &t, match[2], l, true
 }
 
 // getTimeRange returns the log lines that fall inside the start to end time range, inclusive.
@@ -150,14 +107,20 @@ func getStats(config *config.BugReportConfig, logStr string) *Stats {
 func processLogLine(line string) (timeStamp *time.Time, level string, text string, valid bool) {
 	lv := strings.Split(line, "\t")
 	if len(lv) < 3 {
-		return nil, "", "", false
+		// maybe ztunnel logs
+		// TODO remove this when https://github.com/istio/ztunnel/issues/453 is fixed
+		matches := ztunnelLogPattern.FindStringSubmatch(line)
+		if len(matches) < 5 {
+			return nil, "", "", false
+		}
+		lv = matches[1:]
 	}
 	ts, err := time.Parse(time.RFC3339Nano, lv[0])
 	if err != nil {
 		return nil, "", "", false
 	}
 	timeStamp = &ts
-	switch lv[1] {
+	switch strings.ToLower(lv[1]) {
 	case levelFatal, levelError, levelWarn, levelInfo, levelDebug, levelTrace:
 		level = lv[1]
 	default:
