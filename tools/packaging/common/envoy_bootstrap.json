@@ -92,6 +92,12 @@
         "tag_name": "mongo_prefix",
         "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
       },
+      {{- range $a, $tag := .extraStatTags }}
+      {
+        "regex": "({{ $tag }}=\\.=(.*?);\\.;)",
+        "tag_name": "{{ $tag }}"
+      },
+      {{- end }}
       {
         "regex": "(cache\\.(.+?)\\.)",
         "tag_name": "cache"
