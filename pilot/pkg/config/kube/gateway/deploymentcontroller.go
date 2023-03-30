@@ -34,7 +34,6 @@ import (
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -267,9 +266,12 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 
 	if overwriteControllerVersion {
+		log.Debugf("write controller version, existing=%v", existingControllerVersion)
 		if err := d.setGatewayControllerVersion(gw); err != nil {
 			return fmt.Errorf("update gateway annotation: %v", err)
 		}
+	} else {
+		log.Debugf("controller version existing=%v, no action needed", existingControllerVersion)
 	}
 	rendered, err := d.render(gi.templates, input)
 	if err != nil {
@@ -372,6 +374,8 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 func (d *DeploymentController) setGatewayControllerVersion(gws gateway.Gateway) error {
 	patch := fmt.Sprintf(`{"apiVersion":"gateway.networking.k8s.io/v1beta1","kind":"Gateway","metadata":{"annotations":{"%s":"%d"}}}`,
 		ControllerVersionAnnotation, ControllerVersion)
+
+	log.Debugf("applying %v", string(patch))
 	return d.patcher(gvr.KubernetesGateway, gws.GetName(), gws.GetNamespace(), []byte(patch))
 }
 
@@ -403,22 +407,6 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 		return fmt.Errorf("patch %v/%v/%v: %v", us.GroupVersionKind(), us.GetNamespace(), us.GetName(), err)
 	}
 	return nil
-}
-
-// ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
-func (d *DeploymentController) ApplyObject(obj controllers.Object, subresources ...string) error {
-	j, err := config.ToJSON(obj)
-	if err != nil {
-		return err
-	}
-
-	gvr, err := controllers.ObjectToGVR(obj)
-	if err != nil {
-		return err
-	}
-	log.Debugf("applying %v", string(j))
-
-	return d.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
 
 type TemplateInput struct {
