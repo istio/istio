@@ -12,10 +12,14 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM python:3-onbuild
+FROM python:3.9-slim
 
 WORKDIR /opt/microservices
 COPY app.py ./
+COPY requirements.txt ./
+
+# install the dependencies and packages in the requirements file
+RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 5000
 

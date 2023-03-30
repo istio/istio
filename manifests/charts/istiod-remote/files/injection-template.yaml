@@ -81,7 +81,7 @@ spec:
     - "-p"
     - {{ .MeshConfig.ProxyListenPort | default "15001" | quote }}
     - "-z"
-    - "15006"
+    - {{ .MeshConfig.ProxyInboundListenPort | default "15006" | quote }}
     - "-u"
     - "1337"
     - "-m"
@@ -209,10 +209,6 @@ spec:
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
-  {{- if gt .EstimatedConcurrency 0 }}
-    - --concurrency
-    - "{{ .EstimatedConcurrency }}"
-  {{- end -}}
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}
@@ -259,6 +255,10 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
+    - name: ISTIO_CPU_LIMIT
+      valueFrom:
+        resourceFieldRef:
+          resource: limits.cpu
     - name: PROXY_CONFIG
       value: |
              {{ protoToJSON .ProxyConfig }}

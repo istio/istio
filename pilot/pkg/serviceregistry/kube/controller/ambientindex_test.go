@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -53,6 +54,7 @@ func TestAmbientIndex(t *testing.T) {
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"}),
+		ClusterID:        "cluster0",
 	})
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
@@ -102,17 +104,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertEvent := func(ip ...string) {
 		t.Helper()
 		want := strings.Join(ip, ",")
-		attempts := 0
-		for attempts < 10 {
-			attempts++
-			ev := fx.WaitOrFail(t, "xds")
-			if ev.ID != want {
-				t.Logf("skip event %v, wanted %v", ev.ID, want)
-			} else {
-				return
-			}
-		}
-		t.Fatalf("didn't find event for %v", ip)
+		fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: want})
 	}
 	deletePod := func(name string) {
 		t.Helper()
@@ -165,6 +157,7 @@ func TestAmbientIndex(t *testing.T) {
 			CanonicalRevision: "latest",
 			WorkloadType:      workloadapi.WorkloadType_POD,
 			WorkloadName:      "name3",
+			ClusterId:         "cluster0",
 		},
 	}})
 	assertEvent("127.0.0.2")
@@ -372,17 +365,7 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 	assertEvent := func(ip ...string) {
 		t.Helper()
 		want := strings.Join(ip, ",")
-		attempts := 0
-		for attempts < 10 {
-			attempts++
-			ev := fx.WaitOrFail(t, "xds")
-			if ev.ID != want {
-				t.Logf("skip event %v, wanted %v", ev.ID, want)
-			} else {
-				return
-			}
-		}
-		t.Fatalf("didn't find event for %v", ip)
+		fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: want})
 	}
 	addPods := func(ip string, name, sa string, labels map[string]string, markReady bool, phase corev1.PodPhase) {
 		t.Helper()

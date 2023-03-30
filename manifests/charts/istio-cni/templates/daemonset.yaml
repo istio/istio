@@ -140,6 +140,8 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            - name: LOG_LEVEL
+              value: {{ .Values.cni.logLevel | quote }}
             {{- if .Values.cni.ambient.enabled }}
             - name: AMBIENT_ENABLED
               value: "true"
@@ -161,9 +163,11 @@ spec:
             - mountPath: /var/run/netns
               mountPropagation: HostToContainer
               name: cni-netns-dir
+            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
             - mountPath: /sys/fs/bpf
               mountPropagation: Bidirectional
               name: cni-bpffs-dir
+            {{- end }}
             {{ end }}
           resources:
 {{- if .Values.cni.resources }}
@@ -218,6 +222,8 @@ spec:
         - name: cni-netns-dir
           hostPath:
             path: /var/run/netns
+        {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
         - name: cni-bpffs-dir
           hostPath:
             path: /sys/fs/bpf
+        {{- end }}

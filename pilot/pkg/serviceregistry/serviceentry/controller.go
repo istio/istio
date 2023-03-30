@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
-	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -142,7 +141,6 @@ func NewController(configController model.ConfigStoreController, xdsUpdater mode
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
-		_ = configController.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(s.clusterID))
 	}
 	return s
 }
@@ -160,7 +158,6 @@ func NewWorkloadEntryController(configController model.ConfigStoreController, xd
 
 	if configController != nil {
 		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
-		_ = configController.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(s.clusterID))
 	}
 	return s
 }
@@ -408,6 +405,9 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 		// Delete endpoint shards only if there are no service instances.
 		if len(s.serviceInstances.getByKey(instanceKey)) == 0 {
 			s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
+		} else {
+			// If there are some endpoints remaining for the host, add svc to updatedSvcs to trigger eds cache update
+			updatedSvcs = append(updatedSvcs, svc)
 		}
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
@@ -754,22 +754,8 @@ func (s *Controller) buildEndpoints(keys map[instancesKey]struct{}) map[instance
 	if len(allInstances) > 0 {
 		endpoints = make(map[instancesKey][]*model.IstioEndpoint)
 		for _, instance := range allInstances {
-			port := instance.ServicePort
 			key := makeInstanceKey(instance)
-			endpoints[key] = append(endpoints[key],
-				&model.IstioEndpoint{
-					Address:         instance.Endpoint.Address,
-					EndpointPort:    instance.Endpoint.EndpointPort,
-					ServicePortName: port.Name,
-					Labels:          instance.Endpoint.Labels,
-					ServiceAccount:  instance.Endpoint.ServiceAccount,
-					Network:         instance.Endpoint.Network,
-					Locality:        instance.Endpoint.Locality,
-					LbWeight:        instance.Endpoint.LbWeight,
-					TLSMode:         instance.Endpoint.TLSMode,
-					WorkloadName:    instance.Endpoint.WorkloadName,
-					Namespace:       instance.Endpoint.Namespace,
-				})
+			endpoints[key] = append(endpoints[key], instance.Endpoint)
 		}
 
 	}
@@ -890,7 +876,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
-			hash.Write([]byte(svc.Attributes.Namespace + "/" + svc.Hostname.String()))
+			hash.Write([]byte(makeServiceKey(svc)))
 			// First hash is calculated by
 			s := hash.Sum32()
 			firstHash := s % uint32(maxIPs)
@@ -933,7 +919,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			}
 			continue
 		}
-		n := svc.Hostname.String()
+		n := makeServiceKey(svc)
 		if v, ok := hnMap[n]; ok {
 			log.Debugf("Reuse IP for domain %s", n)
 			setAutoAllocatedIPs(svc, v)
@@ -953,6 +939,10 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		}
 	}
 	return services
+}
+
+func makeServiceKey(svc *model.Service) string {
+	return svc.Attributes.Namespace + "/" + svc.Hostname.String()
 }
 
 func setAutoAllocatedIPs(svc *model.Service, octets octetPair) {

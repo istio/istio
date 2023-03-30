@@ -54,6 +54,8 @@ while [[ $# -gt 0 ]]; do
       IPSPACE="$2"; shift 2;;
     -i|--ip-family)
       IPFAMILY="${2,,}";shift 2;;
+    -m|--mode)
+      MODE="$2"; shift 2;;
     *) # unknown option
       echo "parameter $1 is not supported"; printHelp; exit 1;;
   esac
@@ -109,6 +111,23 @@ if [[ "${isValid}" == "false" ]]; then
   exit 1
 fi
 
+if [[ "${MODE}" == "ambient" ]]; then
+NODES=$(cat << EOF
+nodes:
+- role: control-plane
+- role: worker
+- role: worker
+EOF
+)
+else
+NODES=$(cat << EOF
+nodes:
+- role: control-plane
+EOF
+)
+fi
+
+
 # Create k8s cluster using the giving release and name
 if [[ -z "${K8SRELEASE}" ]]; then
   cat << EOF | kind create cluster --config -
@@ -116,6 +135,7 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 ${FEATURES}
 name: ${CLUSTERNAME}
+${NODES}
 networking:
   ipFamily: ${IPFAMILY}
 EOF
@@ -125,6 +145,7 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 ${FEATURES}
 name: ${CLUSTERNAME}
+${NODES}
 networking:
   ipFamily: ${IPFAMILY}
 EOF

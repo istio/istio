@@ -19,6 +19,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestKubeUninject(t *testing.T) {
@@ -110,4 +112,31 @@ func TestKubeUninject(t *testing.T) {
 			verifyOutput(t, c)
 		})
 	}
+}
+
+func TestRemoveDNSConfig(t *testing.T) {
+	// create a PodDNSConfig with sample data
+	pd := corev1.PodDNSConfig{
+		Searches: []string{
+			"foo",
+			"bar",
+			"global",
+			"baz",
+		},
+	}
+	removeDNSConfig(&pd)
+
+	// check that the 'global' element was removed
+	if len(pd.Searches) != 3 {
+		t.Errorf("Expected %d searches, got %d", 3, len(pd.Searches))
+	}
+	for _, s := range pd.Searches {
+		if strings.Contains(s, "global") {
+			t.Errorf("Found 'global' element when it should be removed")
+		}
+	}
+
+	// check that a nil pointer doesn't cause a panic
+	var npd *corev1.PodDNSConfig
+	removeDNSConfig(npd)
 }

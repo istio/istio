@@ -73,6 +73,9 @@ message Workload {
   repeated string authorization_policies = 16;
 
   WorkloadStatus status = 17;
+
+  // The cluster ID that the workload instance belongs to
+  string cluster_id = 18;
 }
 
 enum WorkloadStatus {

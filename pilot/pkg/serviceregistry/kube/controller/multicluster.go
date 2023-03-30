@@ -214,10 +214,9 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*kubeControlle
 	if !configCluster {
 		options.DiscoveryNamespacesFilter = nil
 	}
-	if configCluster {
-		options.ConfigController = m.configController
-	}
+	options.ConfigController = m.configController
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
+	options.ConfigCluster = configCluster
 	kubeRegistry := NewController(client, options)
 	kubeController := &kubeController{
 		Controller: kubeRegistry,
