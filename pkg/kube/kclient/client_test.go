@@ -59,7 +59,7 @@ func TestClient(t *testing.T) {
 	tracker := newTracker(t)
 	c := kube.NewFakeClient()
 	deployments := kclient.NewFiltered[*appsv1.Deployment](c, kclient.Filter{ObjectFilter: func(t any) bool {
-		return t.(*appsv1.Deployment).Namespace == "default"
+		return t.(*appsv1.Deployment).Spec.MinReadySeconds < 100
 	}})
 	deployments.AddEventHandler(controllers.EventHandler[*appsv1.Deployment]{
 		AddFunc: func(obj *appsv1.Deployment) {
@@ -84,7 +84,7 @@ func TestClient(t *testing.T) {
 		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 10},
 	}
 	obj3 := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: "3", Namespace: "not-default"},
+		ObjectMeta: metav1.ObjectMeta{Name: "3", Namespace: "default"},
 		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 100},
 	}
 
@@ -122,6 +122,24 @@ func TestClient(t *testing.T) {
 	tracker.Wait("delete/2")
 	tracker.Wait("delete/1")
 	assert.Equal(t, tester.List(obj1.Namespace, klabels.Everything()), nil)
+
+	// Create some more objects again
+	tester.Create(obj3)
+	tester.Create(obj2)
+	tracker.Wait("add/2")
+	assert.Equal(t, tester.Get(obj2.Name, obj2.Namespace), obj2)
+
+	// Was filtered, now its not. Should get an Add
+	obj3.Spec.MinReadySeconds = 5
+	tester.Update(obj3)
+	tracker.Wait("add/3")
+	assert.Equal(t, tester.Get(obj3.Name, obj3.Namespace), obj3)
+
+	// Was allowed, now its not. Should get a Delete
+	obj3.Spec.MinReadySeconds = 150
+	tester.Update(obj3)
+	tracker.Wait("delete/3")
+	assert.Equal(t, tester.Get(obj3.Name, obj3.Namespace), nil)
 }
 
 type tracker struct {
