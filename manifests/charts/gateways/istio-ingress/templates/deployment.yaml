@@ -213,12 +213,15 @@ spec:
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
           {{- end }}
+          {{- if $gateway.envSources }}
+          {{- with $gateway.envSources }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- else }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
             value: "{{ $val }}"
           {{- end }}
-          {{- with $gateway.envSources }}
-          {{- toYaml . | nindent 10 }}
           {{- end }}
           {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
           - name: {{ $key }}
