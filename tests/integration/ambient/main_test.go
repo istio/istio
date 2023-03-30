@@ -19,7 +19,6 @@ package ambient
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -97,7 +96,6 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = ControlPlaneValues
-			cfg.Values["sidecarInjectorWebhook.enableNamespacesByDefault"] = fmt.Sprintf("%t", true)
 		})).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
@@ -127,9 +125,8 @@ var inMesh = match.Matcher(func(instance echo.Instance) bool {
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
 	var err error
 	apps.Namespace, err = namespace.New(t, namespace.Config{
-		Prefix:   "echo",
-		Inject:   false,
-		Revision: string(t.Settings().Revisions.Maximum()),
+		Prefix: "echo",
+		Inject: false,
 		Labels: map[string]string{
 			constants.DataplaneMode: "ambient",
 		},
