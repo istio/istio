@@ -231,9 +231,12 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 
 	if overwriteControllerVersion {
+		log.Debugf("write controller version, existing=%v", existingControllerVersion)
 		if err := d.setGatewayControllerVersion(&gw); err != nil {
 			return fmt.Errorf("update gateway annotation: %v", err)
 		}
+	} else {
+		log.Debugf("controller version existing=%v, no action needed", existingControllerVersion)
 	}
 	ingressSa := d.RenderServiceAccountApply(input)
 	_, err := d.client.Kube().
@@ -396,6 +399,7 @@ func (d *DeploymentController) setGatewayControllerVersion(gws *gateway.Gateway)
 	patch := fmt.Sprintf(`{"apiVersion":"gateway.networking.k8s.io/v1beta1","kind":"Gateway","metadata":{"annotations":{"%s":"%d"}}}`,
 		ControllerVersionAnnotation, ControllerVersion)
 	gvr := collections.K8SGatewayApiV1Beta1Gateways.Resource().GroupVersionResource()
+	log.Debugf("applying %v", patch)
 	return d.patcher(gvr, gws.GetName(), gws.GetNamespace(), []byte(patch))
 }
 

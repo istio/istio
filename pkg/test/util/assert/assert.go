@@ -15,6 +15,7 @@
 package assert
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Equal
@@ -72,5 +74,22 @@ func ChannelIsEmpty[T any](t test.Failer, c <-chan T) {
 	case r := <-c:
 		t.Fatalf("channel had element, expected empty: %v", r)
 	case <-time.After(time.Millisecond * 20):
+	}
+}
+
+var cmpOpts = []cmp.Option{protocmp.Transform(), cmpopts.EquateEmpty()}
+
+func EventuallyEqual[T any](t test.Failer, fetchA func() T, b T, opts ...retry.Option) {
+	t.Helper()
+	var a T
+	err := retry.UntilSuccess(func() error {
+		a = fetchA()
+		if !cmp.Equal(a, b, cmpOpts...) {
+			return fmt.Errorf("not equal")
+		}
+		return nil
+	}, opts...)
+	if err != nil {
+		t.Fatalf("found diff: %v\nLeft: %v\nRight: %v", cmp.Diff(a, b, cmpOpts...), a, b)
 	}
 }
