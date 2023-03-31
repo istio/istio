@@ -16,7 +16,6 @@ package controller
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"sync"
 	"time"
@@ -115,7 +114,7 @@ type Options struct {
 
 	DomainSuffix string
 
-	// ClusterID identifies the remote cluster in a multicluster env.
+	// ClusterID identifies the cluster which the controller communicate with.
 	ClusterID cluster.ID
 
 	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
@@ -128,8 +127,8 @@ type Options struct {
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
-	// NetworksWatcher observes changes to the mesh networks config.
-	NetworksWatcher mesh.NetworksWatcher
+	// MeshNetworksWatcher observes changes to the mesh networks config.
+	MeshNetworksWatcher mesh.NetworksWatcher
 
 	// MeshWatcher observes changes to the mesh config
 	MeshWatcher mesh.Watcher
@@ -267,7 +266,7 @@ type Controller struct {
 	// index over workload instances from workload entries
 	workloadInstancesIndex workloadinstances.Index
 
-	multinetwork
+	networkManager
 
 	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
 	beginSync *atomic.Bool
@@ -297,8 +296,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		beginSync:                  atomic.NewBool(false),
 		initialSync:                atomic.NewBool(false),
 
-		multinetwork:  initMultinetwork(),
-		configCluster: options.ConfigCluster,
+		networkManager: initNetworkManager(),
+		configCluster:  options.ConfigCluster,
 	}
 
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
@@ -365,6 +364,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.imports = newServiceImportCache(c)
 
 	c.meshWatcher = options.MeshWatcher
+	if c.opts.MeshNetworksWatcher != nil {
+		c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
+			c.reloadMeshNetworks()
+			c.onNetworkChange()
+		})
+		c.reloadMeshNetworks()
+	}
 
 	return c
 }
@@ -414,39 +420,6 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 	}
 
 	return out
-}
-
-func (c *Controller) networkFromMeshNetworks(endpointIP string) network.ID {
-	c.RLock()
-	defer c.RUnlock()
-	if c.networkForRegistry != "" {
-		return c.networkForRegistry
-	}
-
-	if c.ranger != nil {
-		ip := net.ParseIP(endpointIP)
-		if ip == nil {
-			return ""
-		}
-		entries, err := c.ranger.ContainingNetworks(ip)
-		if err != nil {
-			log.Errorf("error getting cidr ranger entry from endpoint ip %s", endpointIP)
-			return ""
-		}
-		if len(entries) > 1 {
-			log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
-		}
-		if len(entries) > 0 {
-			return (entries[0].(namedRangerEntry)).name
-		}
-	}
-	return ""
-}
-
-func (c *Controller) networkFromSystemNamespace() network.ID {
-	c.RLock()
-	defer c.RUnlock()
-	return c.network
 }
 
 func (c *Controller) Network(endpointIP string, labels labels.Instance) network.ID {
@@ -775,11 +748,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		})
 	}
 	st := time.Now()
-	if c.opts.NetworksWatcher != nil {
-		c.opts.NetworksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
-		c.reloadMeshNetworks()
-		c.reloadNetworkGateways()
-	}
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
@@ -1138,15 +1106,10 @@ func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event)
 	if ev == model.EventDelete {
 		return nil
 	}
-	nw := ns.Labels[label.TopologyNetwork.Name]
-	c.Lock()
-	oldDefaultNetwork := c.network
-	c.network = network.ID(nw)
-	c.Unlock()
-	// network changed, rarely happen
-	if oldDefaultNetwork != c.network {
+	if c.setNetworkFromNamespace(ns) {
+		// network changed, rarely happen
 		// refresh pods/endpoints/services
-		c.onDefaultNetworkChange()
+		c.onNetworkChange()
 	}
 	return nil
 }

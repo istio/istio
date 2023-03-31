@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/xds"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -917,7 +916,7 @@ func (s *DiscoveryServer) pushStatusHandler(w http.ResponseWriter, req *http.Req
 // PushContextDebug holds debug information for push context.
 type PushContextDebug struct {
 	AuthorizationPolicies *model.AuthorizationPolicies
-	NetworkGateways       map[network.ID][]model.NetworkGateway
+	NetworkGateways       []model.NetworkGateway
 }
 
 // pushContextHandler dumps the current PushContext
@@ -929,7 +928,7 @@ func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Re
 	}
 	push.AuthorizationPolicies = pc.AuthzPolicies
 	if pc.NetworkManager() != nil {
-		push.NetworkGateways = pc.NetworkManager().GatewaysByNetwork()
+		push.NetworkGateways = pc.NetworkManager().AllGateways()
 	}
 
 	writeJSON(w, push, req)

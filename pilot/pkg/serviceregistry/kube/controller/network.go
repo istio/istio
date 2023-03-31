@@ -17,8 +17,10 @@ package controller
 import (
 	"net"
 	"strconv"
+	"sync"
 
 	"github.com/yl2chen/cidranger"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -28,7 +30,8 @@ import (
 	"istio.io/istio/pkg/network"
 )
 
-type multinetwork struct {
+type networkManager struct {
+	sync.RWMutex
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
 
@@ -36,7 +39,7 @@ type multinetwork struct {
 	// This is defined by a topology.istio.io/network label on the system namespace.
 	network network.ID
 	// Network name for the registry as specified by the MeshNetworks configmap
-	networkForRegistry network.ID
+	networkFromMeshConfig network.ID
 	// map of svc fqdn to partially built network gateways; the actual gateways will be built from these into networkGatewaysBySvc
 	// this map just enumerates which networks/ports each Service is a gateway for
 	registryServiceNameGateways map[host.Name][]model.NetworkGateway
@@ -46,15 +49,58 @@ type multinetwork struct {
 	model.NetworkGatewaysHandler
 }
 
-func initMultinetwork() multinetwork {
-	return multinetwork{
+func initNetworkManager() networkManager {
+	return networkManager{
 		// zero values are a workaround structcheck issue: https://github.com/golangci/golangci-lint/issues/826
 		ranger:                      nil,
 		network:                     "",
-		networkForRegistry:          "",
+		networkFromMeshConfig:       "",
 		registryServiceNameGateways: make(map[host.Name][]model.NetworkGateway),
 		networkGatewaysBySvc:        make(map[host.Name]model.NetworkGatewaySet),
 	}
+}
+
+// setNetworkFromNamespace sets network got from system namespace, returns whether it has changed
+func (n *networkManager) setNetworkFromNamespace(ns *v1.Namespace) bool {
+	nw := ns.Labels[label.TopologyNetwork.Name]
+	n.Lock()
+	defer n.Unlock()
+	oldDefaultNetwork := n.network
+	n.network = network.ID(nw)
+	return oldDefaultNetwork != n.network
+}
+
+func (n *networkManager) networkFromSystemNamespace() network.ID {
+	n.RLock()
+	defer n.RUnlock()
+	return n.network
+}
+
+func (n *networkManager) networkFromMeshNetworks(endpointIP string) network.ID {
+	n.RLock()
+	defer n.RUnlock()
+	if n.networkFromMeshConfig != "" {
+		return n.networkFromMeshConfig
+	}
+
+	if n.ranger != nil {
+		ip := net.ParseIP(endpointIP)
+		if ip == nil {
+			return ""
+		}
+		entries, err := n.ranger.ContainingNetworks(ip)
+		if err != nil {
+			log.Errorf("error getting cidr ranger entry from endpoint ip %s", endpointIP)
+			return ""
+		}
+		if len(entries) > 1 {
+			log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
+		}
+		if len(entries) > 0 {
+			return (entries[0].(namedRangerEntry)).name
+		}
+	}
+	return ""
 }
 
 // namedRangerEntry for holding network's CIDR and name
@@ -68,8 +114,8 @@ func (n namedRangerEntry) Network() net.IPNet {
 	return n.network
 }
 
-// onDefaultNetworkChange is fired if the default network is changed either via the namespace label or mesh-networks
-func (c *Controller) onDefaultNetworkChange() {
+// onNetworkChange is fired if the default network is changed either via the namespace label or mesh-networks
+func (c *Controller) onNetworkChange() {
 	// the network for endpoints are computed when we process the events; this will fix the cache
 	// NOTE: this must run before the other network watcher handler that creates a force push
 	if err := c.syncPods(); err != nil {
@@ -81,25 +127,18 @@ func (c *Controller) onDefaultNetworkChange() {
 	c.reloadNetworkGateways()
 }
 
-// reloadNetworkLookup refreshes the meshNetworks configuration, network for each endpoint, and
-// recomputes network gateways.
-func (c *Controller) reloadNetworkLookup() {
-	c.reloadMeshNetworks()
-	c.onDefaultNetworkChange()
-}
-
 // reloadMeshNetworks will read the mesh networks configuration to setup
 // fromRegistry and cidr based network lookups for this registry
 func (c *Controller) reloadMeshNetworks() {
-	c.Lock()
-	defer c.Unlock()
-	c.networkForRegistry = ""
+	c.networkManager.Lock()
+	defer c.networkManager.Unlock()
+	c.networkFromMeshConfig = ""
 	ranger := cidranger.NewPCTrieRanger()
 
-	c.networkForRegistry = ""
+	c.networkFromMeshConfig = ""
 	c.registryServiceNameGateways = make(map[host.Name][]model.NetworkGateway)
 
-	meshNetworks := c.opts.NetworksWatcher.Networks()
+	meshNetworks := c.opts.MeshNetworksWatcher.Networks()
 	if meshNetworks == nil || len(meshNetworks.Networks) == 0 {
 		return
 	}
@@ -127,11 +166,11 @@ func (c *Controller) reloadMeshNetworks() {
 		// fromRegistry field specified this cluster
 		if fromRegistry {
 			// treat endpoints in this cluster as part of this network
-			if c.networkForRegistry != "" {
+			if c.networkFromMeshConfig != "" {
 				log.Warnf("multiple networks specify %s in fromRegistry; endpoints from %s will continue to be treated as part of %s",
-					c.Cluster(), c.Cluster(), c.networkForRegistry)
+					c.Cluster(), c.Cluster(), c.networkFromMeshConfig)
 			} else {
-				c.networkForRegistry = network.ID(n)
+				c.networkFromMeshConfig = network.ID(n)
 			}
 
 			// services in this registry matching the registryServiceName and port are part of this network
@@ -152,8 +191,8 @@ func (c *Controller) reloadMeshNetworks() {
 }
 
 func (c *Controller) NetworkGateways() []model.NetworkGateway {
-	c.RLock()
-	defer c.RUnlock()
+	c.networkManager.RLock()
+	defer c.networkManager.RUnlock()
 
 	if len(c.networkGatewaysBySvc) == 0 {
 		return nil
@@ -171,9 +210,7 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 // extractGatewaysFromService checks if the service is a cross-network gateway
 // and if it is, updates the controller's gateways.
 func (c *Controller) extractGatewaysFromService(svc *model.Service) bool {
-	c.Lock()
 	changed := c.extractGatewaysInner(svc)
-	c.Unlock()
 	if changed {
 		c.NotifyGatewayHandlers()
 	}
@@ -181,6 +218,8 @@ func (c *Controller) extractGatewaysFromService(svc *model.Service) bool {
 }
 
 // reloadNetworkGateways performs extractGatewaysFromService for all services registered with the controller.
+// It is called only by `onNetworkChange`.
+// It iterates over all services, because mesh networks can be set with a service name.
 func (c *Controller) reloadNetworkGateways() {
 	c.Lock()
 	gwsChanged := false
@@ -201,8 +240,16 @@ func (c *Controller) reloadNetworkGateways() {
 // extractGatewaysInner performs the logic for extractGatewaysFromService without locking the controller.
 // Returns true if any gateways changed.
 func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
-	newGateways := make(model.NetworkGatewaySet)
+	c.networkManager.Lock()
+	defer c.networkManager.Unlock()
+	previousGateways := c.networkGatewaysBySvc[svc.Hostname]
+	gateways := c.getGatewayDetails(svc)
+	// short circuit for most services.
+	if len(previousGateways) == 0 && len(gateways) == 0 {
+		return false
+	}
 
+	newGateways := make(model.NetworkGatewaySet)
 	// check if we have node port mappings
 	nodePortMap := make(map[uint32]uint32)
 	if svc.Attributes.ClusterExternalPorts != nil {
@@ -210,8 +257,6 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 			nodePortMap = npm
 		}
 	}
-
-	gateways := c.getGatewayDetails(svc)
 
 	for _, addr := range svc.Attributes.ClusterExternalAddresses.GetAddressesFor(c.Cluster()) {
 		for _, gw := range gateways {
@@ -227,9 +272,7 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 		}
 	}
 
-	previousGateways := c.networkGatewaysBySvc[svc.Hostname]
 	gatewaysChanged := !newGateways.Equals(previousGateways)
-
 	if len(newGateways) > 0 {
 		c.networkGatewaysBySvc[svc.Hostname] = newGateways
 	} else {
