@@ -17,6 +17,55 @@ syntax = "proto3";
 package istio.workload;
 option go_package="pkg/workloadapi";
 
+// Address represents a unique address, keyed by IP address and network.
+// An Address can represent a Service or an individual workload.
+// Address is intended to be able to be looked up on-demand, allowing a workload
+// to answer a question like "what is this IP address", similar to a reverse DNS lookup.
+// Keyed by network/IP address. Example: "default/1.2.3.4".
+//
+// In some cases, we do not know the IP address of a Workload. For instance, we may simply know
+// that there is a workload behind a gateway, and rely on the gateway to handle the rest.
+// In this case, the key format will be "network/resource-uid". The resource can be a Pod, WorkloadEntry, etc.
+// These resources cannot be looked up on-demand.
+//
+// In some cases, we do not know the IP address of a Service. These services cannot be used for matching
+// outbound traffic, as we only have L4 attributes to route based on. However,
+// they can be used for Gateways.
+// In this case, the key format will be "network/hostname".
+// These resources cannot be looked up on-demand.
+message Address {
+  oneof type {
+    // Workload represents an individual workload.
+    // This could be a single Pod, a VM instance, etc.
+    Workload workload = 1;
+    // Service represents a service - a group of workloads that can be accessed together.
+    Service service = 2;
+  }
+}
+
+// Service represents a service - a group of workloads that can be accessed together.
+message Service {
+  // Name represents the name for the service.
+  // For Kubernetes, this is the Service name.
+  string name = 1;
+  // Namespace represents the namespace for the service.
+  string namespace = 2;
+  // Hostname represents the FQDN of the service.
+  // For Kubernetes, this would be <name>.<namespace>.svc.<cluster domain>
+  string hostname = 3;
+  // Address represents the IPv4/IPv6 address for the service.
+  // This should be globally unique.
+  // This should not have a port number.
+  // TODO: Add network as discriminator
+  // TODO: Add dual stack support
+  bytes address = 4;
+  // Ports for the service
+  repeated Port ports = 5;
+  // Optional; if set, the SAN to verify for TLS connections.
+  // Typically, this is not set and per-workload identity is used to verfiy
+  repeated string subject_alt_names = 6;
+}
+
 message Workload {
   // Name represents the name for the workload.
   // For Kubernetes, this is the pod name.
@@ -44,8 +93,8 @@ message Workload {
   // ServiceAccount of the workload. May be elided if this is "default"
   string service_account = 7;
 
-  // If present, the waypoint proxy for this workload.
-  repeated bytes waypoint_addresses = 8;
+  // All incoming requests must go through the waypoint.
+  GatewayAddress waypoint = 8;
 
   // Name of the node the workload runs on
   string node = 9;
@@ -76,6 +125,10 @@ message Workload {
 
   // The cluster ID that the workload instance belongs to
   string cluster_id = 18;
+
+  // If present, East West network gateway this workload can be reached through.
+  // Requests from remote networks should traverse this gateway.
+  GatewayAddress network_gateway = 19;
 }
 
 enum WorkloadStatus {
@@ -110,4 +163,15 @@ enum Protocol {
   // HTTP means requests should be tunneled over HTTP.
   // This does not dictate HTTP/1.1 vs HTTP/2; ALPN should be used for that purpose.
   HTTP = 1;
+}
+
+// GatewayAddress represents the address of a gateway
+message GatewayAddress {
+  // address can either a hostname (ex: gateway.example.com) or an IP (ex: 1.2.3.4).
+  oneof address {
+    string hostname = 1;
+    bytes ip = 2;
+  }
+  // port to reach the gateway at
+  uint32 port = 3;
 }

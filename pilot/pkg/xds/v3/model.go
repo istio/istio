@@ -36,7 +36,7 @@ const (
 	// DebugType requests debug info from istio, a secured implementation for istio debug interface.
 	DebugType                 = "istio.io/debug"
 	BootstrapType             = resource.APITypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
-	WorkloadType              = resource.APITypePrefix + "istio.workload.Workload"
+	WorkloadType              = resource.APITypePrefix + "istio.workload.Address"
 	WorkloadAuthorizationType = resource.APITypePrefix + "istio.security.Authorization"
 
 	// nolint

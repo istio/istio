@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 	"istio.io/pkg/log"
 )
 
@@ -89,8 +89,8 @@ func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur se
 	return res
 }
 
-func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
-	res := []*workloadapi.Authorization{}
+func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.Authorization {
+	res := []*security.Authorization{}
 	if !features.EnableAmbientControllers {
 		return res
 	}
@@ -100,8 +100,8 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadap
 	return res
 }
 
-func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
-	i := []*model.WorkloadInfo{}
+func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.AddressInfo, []string) {
+	i := []*model.AddressInfo{}
 	removed := sets.New[string]()
 	if !features.EnableAmbientControllers {
 		return i, []string{}

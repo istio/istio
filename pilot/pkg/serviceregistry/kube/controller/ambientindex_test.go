@@ -88,7 +88,7 @@ func TestAmbientIndex(t *testing.T) {
 		t.Helper()
 		want := sets.New(names...)
 		assert.EventuallyEqual(t, func() sets.String {
-			var workloads []*model.WorkloadInfo
+			var workloads []*model.AddressInfo
 			if lookup == "" {
 				workloads = controller.ambientIndex.All()
 			} else {
@@ -96,7 +96,12 @@ func TestAmbientIndex(t *testing.T) {
 			}
 			have := sets.New[string]()
 			for _, wl := range workloads {
-				have.Insert(wl.Name)
+				switch addr := wl.Address.Type.(type) {
+				case *workloadapi.Address_Workload:
+					have.Insert(addr.Workload.Name)
+				case *workloadapi.Address_Service:
+					have.Insert(addr.Service.Name)
+				}
 			}
 			return have
 		}, want, retry.Timeout(time.Second*3))
@@ -146,20 +151,25 @@ func TestAmbientIndex(t *testing.T) {
 	assertWorkloads("", "name1", "name2", "name3")
 	assertWorkloads("127.0.0.1", "name1")
 	assertWorkloads("127.0.0.2", "name2")
-	assert.Equal(t, controller.ambientIndex.Lookup("127.0.0.3"), []*model.WorkloadInfo{{
-		Workload: &workloadapi.Workload{
-			Name:              "name3",
-			Namespace:         "ns1",
-			Address:           netip.MustParseAddr("127.0.0.3").AsSlice(),
-			ServiceAccount:    "sa1",
-			Node:              "node1",
-			CanonicalName:     "other",
-			CanonicalRevision: "latest",
-			WorkloadType:      workloadapi.WorkloadType_POD,
-			WorkloadName:      "name3",
-			ClusterId:         "cluster0",
-		},
-	}})
+	assert.Equal(t, controller.ambientIndex.Lookup("127.0.0.3"), []*model.AddressInfo{
+		&model.AddressInfo{
+			Address: &workloadapi.Address{
+				Type: &workloadapi.Address_Workload{
+					Workload: &workloadapi.Workload{
+						Name:              "name3",
+						Namespace:         "ns1",
+						Address:           netip.MustParseAddr("127.0.0.3").AsSlice(),
+						ServiceAccount:    "sa1",
+						Node:              "node1",
+						CanonicalName:     "other",
+						CanonicalRevision: "latest",
+						WorkloadType:      workloadapi.WorkloadType_POD,
+						WorkloadName:      "name3",
+						ClusterId:         "cluster0",
+					},
+				},
+			},
+		}})
 	assertEvent("127.0.0.2")
 	assertEvent("127.0.0.3")
 
@@ -227,18 +237,18 @@ func TestAmbientIndex(t *testing.T) {
 	// All these workloads updated, so push them
 	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.200", "127.0.0.3")
 	// We should now see the waypoint IP
-	assert.Equal(t, controller.ambientIndex.Lookup("127.0.0.3")[0].WaypointAddresses, [][]byte{netip.MustParseAddr("127.0.0.200").AsSlice()})
+	assert.Equal(t, controller.ambientIndex.Lookup("127.0.0.3")[0].Waypoint.GetIp(), netip.MustParseAddr("127.0.0.200").AsSlice())
 
 	// Add another one, expect the same result
 	addPods("127.0.0.201", "waypoint2-ns", "namespace-wide", map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel}, nil)
 	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.201", "127.0.0.3")
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("127.0.0.3")[0].WaypointAddresses,
-		[][]byte{netip.MustParseAddr("127.0.0.200").AsSlice(), netip.MustParseAddr("127.0.0.201").AsSlice()})
+		controller.ambientIndex.Lookup("127.0.0.3")[0].Waypoint.GetIp(), netip.MustParseAddr("127.0.0.200").AsSlice())
+	// netip.MustParseAddr("127.0.0.200").AsSlice(), netip.MustParseAddr("127.0.0.201").AsSlice())
 	// Waypoints do not have waypoints
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("127.0.0.200")[0].WaypointAddresses,
-		[][]byte{})
+		controller.ambientIndex.Lookup("127.0.0.200")[0].Waypoint.GetIp(),
+		[]byte{})
 
 	createService(controller, "svc1", "ns1",
 		map[string]string{},
@@ -248,20 +258,20 @@ func TestAmbientIndex(t *testing.T) {
 	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.3")
 	// Make sure Service sees waypoints as well
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("10.0.0.1")[0].WaypointAddresses,
-		[][]byte{netip.MustParseAddr("127.0.0.200").AsSlice(), netip.MustParseAddr("127.0.0.201").AsSlice()})
+		controller.ambientIndex.Lookup("10.0.0.1")[0].Waypoint.GetIp(), netip.MustParseAddr("127.0.0.200").AsSlice())
+	// netip.MustParseAddr("127.0.0.200").AsSlice(), netip.MustParseAddr("127.0.0.201").AsSlice())
 
 	// Delete a waypoint
 	deletePod("waypoint2-ns")
 	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.201", "127.0.0.3", "svc1.ns1.svc.company.com")
 	// Workload should be updated
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("127.0.0.3")[0].WaypointAddresses,
-		[][]byte{netip.MustParseAddr("127.0.0.200").AsSlice()})
+		controller.ambientIndex.Lookup("127.0.0.3")[0].Waypoint.GetIp(),
+		netip.MustParseAddr("127.0.0.200").AsSlice())
 	// As should workload via Service
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("10.0.0.1")[0].WaypointAddresses,
-		[][]byte{netip.MustParseAddr("127.0.0.200").AsSlice()})
+		controller.ambientIndex.Lookup("10.0.0.1")[0].Waypoint.GetIp(),
+		netip.MustParseAddr("127.0.0.200").AsSlice())
 
 	addPods("127.0.0.201", "waypoint2-sa", "waypoint-sa",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
@@ -269,15 +279,15 @@ func TestAmbientIndex(t *testing.T) {
 	assertEvent("127.0.0.201")
 	// Unrelated SA should not change anything
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("127.0.0.3")[0].WaypointAddresses,
-		[][]byte{netip.MustParseAddr("127.0.0.200").AsSlice()})
+		controller.ambientIndex.Lookup("127.0.0.3")[0].Waypoint.GetIp(),
+		netip.MustParseAddr("127.0.0.200").AsSlice())
 
 	// Adding a new pod should also see the waypoint
 	addPods("127.0.0.6", "name6", "sa1", map[string]string{"app": "a"}, nil)
 	assertEvent("127.0.0.6")
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("127.0.0.6")[0].WaypointAddresses,
-		[][]byte{netip.MustParseAddr("127.0.0.200").AsSlice()})
+		controller.ambientIndex.Lookup("127.0.0.6")[0].Waypoint.GetIp(),
+		netip.MustParseAddr("127.0.0.200").AsSlice())
 
 	deletePod("name6")
 	assertEvent("127.0.0.6")
@@ -347,7 +357,7 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 		t.Helper()
 		want := sets.New(names...)
 		assert.EventuallyEqual(t, func() sets.String {
-			var workloads []*model.WorkloadInfo
+			var workloads []*model.AddressInfo
 			if lookup == "" {
 				workloads = controller.ambientIndex.All()
 			} else {
@@ -355,9 +365,13 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 			}
 			have := sets.New[string]()
 			for _, wl := range workloads {
-				if wl.Status == state {
-					have.Insert(wl.Name)
+				switch addr := wl.Address.Type.(type) {
+				case *workloadapi.Address_Workload:
+					if addr.Workload.Status == state {
+						have.Insert(addr.Workload.Name)
+					}
 				}
+				
 			}
 			return have
 		}, want, retry.Timeout(time.Second*3))

@@ -46,7 +46,8 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/sets"
-	workloadapi "istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -793,13 +794,13 @@ type ServiceDiscovery interface {
 }
 
 type AmbientIndexes interface {
-	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
+	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*AddressInfo, []string)
 	AdditionalPodSubscriptions(
 		proxy *Proxy,
 		allAddresses sets.Set[types.NamespacedName],
 		currentSubs sets.Set[types.NamespacedName],
 	) sets.Set[types.NamespacedName]
-	Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization
+	Policies(requested sets.Set[ConfigKey]) []*security.Authorization
 	Waypoint(scope WaypointScope) sets.Set[netip.Addr]
 	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
 }
@@ -807,7 +808,7 @@ type AmbientIndexes interface {
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
 type NoopAmbientIndexes struct{}
 
-func (u NoopAmbientIndexes) PodInformation(sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
+func (u NoopAmbientIndexes) PodInformation(sets.Set[types.NamespacedName]) ([]*AddressInfo, []string) {
 	return nil, nil
 }
 
@@ -819,7 +820,7 @@ func (u NoopAmbientIndexes) AdditionalPodSubscriptions(
 	return nil
 }
 
-func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*workloadapi.Authorization {
+func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*security.Authorization {
 	return nil
 }
 
@@ -832,6 +833,23 @@ func (u NoopAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []*Workloa
 }
 
 var _ AmbientIndexes = NoopAmbientIndexes{}
+
+type AddressInfo struct {
+	*workloadapi.Address
+	// Labels for the workload. Note these are only used internally, not sent over XDS
+	Labels map[string]string
+}
+
+func (i AddressInfo) ResourceName() string {
+	var ii netip.Addr
+	switch addr := i.Type.(type) {
+	case *workloadapi.Address_Workload:
+		ii, _ = netip.AddrFromSlice(addr.Workload.Address)
+	case *workloadapi.Address_Service:
+		ii, _ = netip.AddrFromSlice(addr.Service.Address)
+	}
+	return ii.String()
+}
 
 type WorkloadInfo struct {
 	*workloadapi.Workload
