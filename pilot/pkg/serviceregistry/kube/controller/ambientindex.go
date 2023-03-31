@@ -782,10 +782,10 @@ func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
 	}
 }
 
-func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
+func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
 	svc := controllers.Extract[*v1.Service](obj)
-	// updates := sets.New[model.ConfigKey]()
-	updates := map[model.ConfigKey]struct{}{}
+	updates := sets.New[model.ConfigKey]()
+	//updates := map[model.ConfigKey]struct{}{}
 
 	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		scope := model.WaypointScope{Namespace: svc.Namespace, ServiceAccount: svc.Annotations[constants.WaypointServiceAccount]}
@@ -793,18 +793,14 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[
 		// TODO GregHanson: get the Gateway CRD
 
 		if isDelete {
-			if a.waypoints[scope] != svc.Spec.ClusterIP {
+			if a.waypoints[scope] == svc.Spec.ClusterIP {
 				delete(a.waypoints, scope)
-				for i, j := range a.updateWaypoint(scope, svc.Spec.ClusterIP, int(svc.Spec.Ports[0].Port), true, c) {
-					updates[i] = j
-				}
+				updates.Merge(a.updateWaypoint(scope, svc.Spec.ClusterIP, int(svc.Spec.Ports[0].Port), true, c))
 			}
 		} else {
 			if a.waypoints[scope] != svc.Spec.ClusterIP {
 				a.waypoints[scope] = svc.Spec.ClusterIP
-				for i, j := range a.updateWaypoint(scope, svc.Spec.ClusterIP, int(svc.Spec.Ports[0].Port), false, c) {
-					updates[i] = j
-				}
+				updates.Merge(a.updateWaypoint(scope, svc.Spec.ClusterIP, int(svc.Spec.Ports[0].Port), false, c))
 			}
 		}
 
@@ -827,7 +823,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[
 	// We send an update for each *workload* IP address previously in the service; they may have changed
 	for _, vip := range vips {
 		for _, wl := range a.byService[vip] {
-			updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()}] = struct{}{}
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 		}
 	}
 	// Update indexes
@@ -857,13 +853,13 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[
 				Address: svcIP.AsSlice(),
 				Ports:   ports,
 			}
-			updates[model.ConfigKey{Kind: kind.Address, Name: svcIP.String()}] = struct{}{}
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: svcIP.String()})
 		}
 	}
 	// Fetch updates again, in case it changed from adding new workloads
 	for _, vip := range vips {
 		for _, wl := range a.byService[vip] {
-			updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()}] = struct{}{}
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 		}
 	}
 	return updates

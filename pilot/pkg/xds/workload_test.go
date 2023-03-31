@@ -163,14 +163,14 @@ func TestWorkload(t *testing.T) {
 			ResourceNamesSubscribe: []string{"10.0.0.1"},
 		})
 		// Should get updates for all pods in the service
-		expect(ads.ExpectResponse(), "127.0.0.4")
+		expect(ads.ExpectResponse(), "10.0.0.1", "127.0.0.4")
 		// Adding a pod in the service should trigger an update for that pod, even if we didn't explicitly subscribe
 		createPod(s, "pod5", "not-sa", "127.0.0.5", "not-node")
 		expect(ads.ExpectResponse(), "127.0.0.5")
 
 		// And if the service changes to no longer select them, we should see them *removed* (not updated)
 		createService(s, "svc1", "default", map[string]string{"app": "nothing"})
-		expect(ads.ExpectResponse(), "127.0.0.4", "127.0.0.5")
+		expect(ads.ExpectResponse(), "10.0.0.1", "127.0.0.4", "127.0.0.5")
 	})
 	t.Run("wildcard", func(t *testing.T) {
 		expect := buildExpect(t)
@@ -197,14 +197,14 @@ func TestWorkload(t *testing.T) {
 
 		// Add service: we should not get any new resources, but updates to existing ones
 		createService(s, "svc1", "default", map[string]string{"app": "sa"})
-		expect(ads.ExpectResponse(), "127.0.0.2")
+		expect(ads.ExpectResponse(), "10.0.0.1", "127.0.0.2")
 		// Creating a pod in the service should send an update as usual
 		createPod(s, "pod", "sa", "127.0.0.3", "node")
 		expect(ads.ExpectResponse(), "127.0.0.3")
 
 		// Make service not select workload should also update things
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "127.0.0.2", "127.0.0.3")
+		expect(ads.ExpectResponse(), "10.0.0.1", "127.0.0.2", "127.0.0.3")
 	})
 }
 
