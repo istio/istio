@@ -131,26 +131,16 @@ func (n *readClient[T]) ShutdownHandlers() {
 }
 
 func (n *readClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
-	reg, _ := n.informer.AddEventHandler(cache.ResourceEventHandlerDetailedFuncs{
-		AddFunc: func(obj any, isInInitialList bool) {
-			if n.filter != nil && !n.filter(obj) {
-				return
+	fh := cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			if n.filter == nil {
+				return true
 			}
-			h.OnAdd(obj, isInInitialList)
+			return n.filter(obj)
 		},
-		UpdateFunc: func(old, new any) {
-			if n.filter != nil && !n.filter(new) {
-				return
-			}
-			h.OnUpdate(old, new)
-		},
-		DeleteFunc: func(obj any) {
-			if n.filter != nil && !n.filter(obj) {
-				return
-			}
-			h.OnDelete(obj)
-		},
-	})
+		Handler: h,
+	}
+	reg, _ := n.informer.AddEventHandler(fh)
 	n.registeredHandlers = append(n.registeredHandlers, reg)
 }
 
