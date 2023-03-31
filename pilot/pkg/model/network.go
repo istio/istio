@@ -171,6 +171,7 @@ func (mgr *NetworkManager) reload() NetworkGatewaySet {
 		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
 		gatewaySet[gw] = struct{}{}
 	}
+	mgr.multiNetworkEnabled = len(gatewaySet) > 0
 
 	mgr.resolveHostnameGateways(gatewaySet)
 
@@ -233,7 +234,7 @@ func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet map[NetworkGateway
 	for host, addrs := range mgr.NameCache.Resolve(names) {
 		gwsForHost := hostnameGateways[host]
 		if len(addrs) == 0 {
-			log.Warnf("could not resolve hostname %q for %d gateways", host, len(gwsForHost))
+			log.Warnf("could not resolve hostname %q for %d gateways, retry after %v", host, len(gwsForHost), DNSRetryPeriod)
 		}
 		// expand each resolved address into a NetworkGateway
 		for _, gw := range gwsForHost {
@@ -259,6 +260,7 @@ type NetworkManager struct {
 	lcm                 uint32
 	byNetwork           map[network.ID][]NetworkGateway
 	byNetworkAndCluster map[networkAndCluster][]NetworkGateway
+	multiNetworkEnabled bool
 }
 
 func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
@@ -267,7 +269,7 @@ func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
 	}
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	return len(mgr.byNetwork) > 0
+	return mgr.multiNetworkEnabled
 }
 
 // GetLBWeightScaleFactor returns the least common multiple of the number of gateways per network.
@@ -406,8 +408,14 @@ func (s NetworkGatewaySet) ToArray() []NetworkGateway {
 	return gws
 }
 
-// MinGatewayTTL is exported for testing
-var MinGatewayTTL = 30 * time.Second
+var (
+	// MinGatewayTTL is exported for testing
+	MinGatewayTTL = 30 * time.Second
+
+	// DNSRetryPeriod is the retry period if DNS resolution is failed
+	// TODO: make it configurable?
+	DNSRetryPeriod = 5 * time.Second
+)
 
 type networkGatewayNameCache struct {
 	NetworkGatewaysHandler
@@ -472,7 +480,8 @@ func (n *networkGatewayNameCache) resolveFromCache(name string) []string {
 }
 
 func (n *networkGatewayNameCache) resolveAndCache(name string) []string {
-	if entry, ok := n.cache[name]; ok {
+	entry, ok := n.cache[name]
+	if ok {
 		entry.timer.Stop()
 	}
 	delete(n.cache, name)
@@ -482,11 +491,19 @@ func (n *networkGatewayNameCache) resolveAndCache(name string) []string {
 		ttl = MinGatewayTTL
 	}
 	expiry := time.Now().Add(ttl)
+	refreshPeriod := ttl
+	if len(addrs) == 0 {
+		// resolution failed, retry after 5s (by default)
+		// ttl is set to ~136 years
+		refreshPeriod = DNSRetryPeriod
+		// gracefully retain old addresses in case the DNS server is unavailable
+		addrs = entry.value
+	}
 	n.cache[name] = nameCacheEntry{
 		value:  addrs,
 		expiry: expiry,
 		// TTL expires, try to refresh TODO should this be < ttl?
-		timer: time.AfterFunc(ttl, n.refreshAndNotify(name)),
+		timer: time.AfterFunc(refreshPeriod, n.refreshAndNotify(name)),
 	}
 
 	return addrs
