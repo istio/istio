@@ -174,7 +174,7 @@ func getNodeSelectorsForService(svc *v1.Service) labels.Instance {
 	if nodeSelector := svc.Annotations[kube.NodeSelectorAnnotation]; nodeSelector != "" {
 		var nodeSelectorKV map[string]string
 		if err := json.Unmarshal([]byte(nodeSelector), &nodeSelectorKV); err != nil {
-			log.Debugf("failed to unmarshal node selector annotation value for service %s.%s: %v",
+			log.Warnf("failed to unmarshal node selector annotation value for service %s.%s: %v",
 				svc.Name, svc.Namespace, err)
 		}
 		return nodeSelectorKV
