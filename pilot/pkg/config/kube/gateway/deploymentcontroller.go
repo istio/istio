@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/sets"
@@ -86,7 +87,7 @@ type DeploymentController struct {
 	services        kclient.Client[*corev1.Service]
 	serviceAccounts kclient.Client[*corev1.ServiceAccount]
 	namespaces      kclient.Client[*corev1.Namespace]
-	myTags          sets.Set[string]
+	tagWatcher      revisions.TagWatcher
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -137,7 +138,7 @@ var knownControllers = func() sets.String {
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
 func NewDeploymentController(client kube.Client, clusterID cluster.ID,
-	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()),
+	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher,
 ) *DeploymentController {
 	gateways := kclient.New[*gateway.Gateway](client)
 	gatewayClasses := kclient.New[*gateway.GatewayClass](client)
@@ -156,6 +157,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 		gateways:       gateways,
 		gatewayClasses: gatewayClasses,
 		injectConfig:   webhookConfig,
+		tagWatcher:     tw,
 	}
 	dc.queue = controllers.NewQueue("gateway deployment",
 		controllers.WithReconciler(dc.Reconcile),
@@ -203,11 +205,13 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 		}
 	})
 
+	dc.tagWatcher.AddHandler(dc.HandleTagChange)
+
 	return dc
 }
 
-func (d *DeploymentController) Run(stop <-chan struct{}, hasSynced func() bool) {
-	kube.WaitForCacheSync(stop, hasSynced)
+func (d *DeploymentController) Run(stop <-chan struct{}) {
+	kube.WaitForCacheSync(stop, d.tagWatcher.HasSynced)
 	d.queue.Run(stop)
 	controllers.ShutdownAll(d.deployments, d.services, d.serviceAccounts, d.gateways, d.gatewayClasses)
 }
@@ -239,9 +243,11 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 			}
 			selectedTag = ns.Labels[label.IoIstioRev.Name]
 		}
-		if !d.myTags.Contains(selectedTag) && !(selectedTag == "" && d.myTags.Contains("default")) {
+		myTags := d.tagWatcher.GetMyTags()
+		if !myTags.Contains(selectedTag) && !(selectedTag == "" && myTags.Contains("default")) {
 			return nil
 		}
+		// TODO: Here we could check if the tag is set and matches no known tags, and handle that if we are default.
 	} else {
 		// Didn't find gateway class, and it wasn't an implicitly known one
 		if _, f := classInfos[string(gw.Spec.GatewayClassName)]; !f {
@@ -435,12 +441,10 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 	return nil
 }
 
-func (d *DeploymentController) HandleTagChange(newTags []string) {
-	d.myTags = sets.New(newTags...)
+func (d *DeploymentController) HandleTagChange(newTags sets.Set[string]) {
+	log.Warnf("Handling set of tags %v", newTags)
 	for _, gw := range d.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
-		if string(gw.Spec.GatewayClassName) == gw.GetName() {
-			d.queue.AddObject(gw)
-		}
+		d.queue.AddObject(gw)
 	}
 }
 

@@ -176,7 +176,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 						// We can only run this if the Gateway CRD is created
 						if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
 							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
-							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler)
+							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher)
 							tagWatcher.AddHandler(controller.HandleTagChange)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
@@ -185,7 +185,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 							// recreate it again.
 							s.kubeClient.RunAndWait(stop)
 							go tagWatcher.Run(leaderStop)
-							controller.Run(leaderStop, tagWatcher.HasSynced)
+							controller.Run(leaderStop)
 						}
 					}).
 					Run(stop)

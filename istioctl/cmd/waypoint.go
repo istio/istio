@@ -28,6 +28,7 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
@@ -71,6 +72,9 @@ func waypointCmd() *cobra.Command {
 			gw.Annotations = map[string]string{
 				constants.WaypointServiceAccount: waypointServiceAccount,
 			}
+		}
+		if revision != "" {
+			gw.Labels = map[string]string{label.IoIstioRev.Name: revision}
 		}
 		return &gw
 	}
@@ -274,7 +278,9 @@ func waypointCmd() *cobra.Command {
 		},
 	}
 
+	waypointApplyCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointCmd.AddCommand(waypointApplyCmd)
+	waypointGenerateCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointCmd.AddCommand(waypointGenerateCmd)
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)

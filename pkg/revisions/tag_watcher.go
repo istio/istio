@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -35,10 +36,12 @@ type TagWatcher interface {
 	Run(stopCh <-chan struct{})
 	HasSynced() bool
 	AddHandler(handler TagHandler)
+	GetMyTags() sets.Set[string]
+	GetAllTags() sets.Set[string]
 }
 
 // TagHandler is a callback for when the tags revision change.
-type TagHandler func([]string)
+type TagHandler func(sets.Set[string])
 
 type tagWatcher struct {
 	revision string
@@ -88,11 +91,30 @@ func (p *tagWatcher) HasSynced() bool {
 	return p.queue.HasSynced()
 }
 
+func (p *tagWatcher) GetMyTags() sets.Set[string] {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	result := sets.New(p.revisionsToTags[p.revision]...)
+	result.Insert(p.revision)
+	return result
+}
+
+func (p *tagWatcher) GetAllTags() sets.Set[string] {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	result := sets.New[string]()
+	for k, v := range p.tagsToRevisions {
+		result.InsertAll(k, v)
+	}
+	return result
+}
+
 // notifyHandlers notifies all registered handlers on tag change.
 // assumes externally locked.
 func (p *tagWatcher) notifyHandlers() {
+	myTags := p.GetMyTags()
 	for _, handler := range p.handlers {
-		handler(append(p.revisionsToTags[p.revision], p.revision))
+		handler(myTags)
 	}
 }
 
@@ -105,14 +127,16 @@ func (p *tagWatcher) updateTags(key types.NamespacedName) error {
 		tagName = wh.GetLabels()[tag.IstioTagLabel]
 	}
 	p.mu.Lock()
-	defer p.mu.Unlock()
+	defer func() {
+		p.mu.Unlock()
+		p.notifyHandlers()
+	}()
 	p.tagsToRevisions[tagName] = revision
 	reverseMap := map[string][]string{}
 	for key, val := range p.tagsToRevisions {
 		reverseMap[val] = append(reverseMap[val], key)
 	}
 	p.revisionsToTags = reverseMap
-	p.notifyHandlers()
 	return nil
 }
 
