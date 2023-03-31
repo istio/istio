@@ -801,6 +801,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[
 			}
 		} else {
 			if a.waypoints[scope] != svc.Spec.ClusterIP {
+				a.waypoints[scope] = svc.Spec.ClusterIP
 				for i, j := range a.updateWaypoint(scope, svc.Spec.ClusterIP, int(svc.Spec.Ports[0].Port), false, c) {
 					updates[i] = j
 				}
