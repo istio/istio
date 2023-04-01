@@ -63,8 +63,7 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 	}
 	p.queue = controllers.NewQueue("tag", controllers.WithReconciler(p.updateTags))
 	p.webhookInformer = kclient.NewFiltered[*admissionregistrationv1.MutatingWebhookConfiguration](client, kubetypes.Filter{
-		ObjectFilter:    isTagWebhook,
-		ObjectTransform: kube.StripUnusedFields,
+		ObjectFilter: isTagWebhook,
 	})
 	p.webhookInformer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
 
@@ -112,9 +111,11 @@ func (p *tagWatcher) GetAllTags() sets.Set[string] {
 // notifyHandlers notifies all registered handlers on tag change.
 func (p *tagWatcher) notifyHandlers() {
 	myTags := p.GetMyTags()
+	handlers := []TagHandler{}
 	p.mu.RLock()
-	defer p.mu.RUnlock()
-	for _, handler := range p.handlers {
+	handlers = append(handlers, p.handlers...)
+	p.mu.RUnlock()
+	for _, handler := range handlers {
 		handler(myTags)
 	}
 }

@@ -442,7 +442,6 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 }
 
 func (d *DeploymentController) HandleTagChange(newTags sets.Set[string]) {
-	log.Warnf("Handling set of tags %v", newTags)
 	for _, gw := range d.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 		d.queue.AddObject(gw)
 	}
