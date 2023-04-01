@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 44195
+
+releaseNotes:
+- |
+  **Fixed** An issue where a Service Entry with HTTPS protocol configured with partial wildcard hosts is not rejected by validation server.
