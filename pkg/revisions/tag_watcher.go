@@ -110,9 +110,10 @@ func (p *tagWatcher) GetAllTags() sets.Set[string] {
 }
 
 // notifyHandlers notifies all registered handlers on tag change.
-// assumes externally locked.
 func (p *tagWatcher) notifyHandlers() {
 	myTags := p.GetMyTags()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	for _, handler := range p.handlers {
 		handler(myTags)
 	}
@@ -121,7 +122,6 @@ func (p *tagWatcher) notifyHandlers() {
 func (p *tagWatcher) updateTags(key types.NamespacedName) error {
 	var revision, tagName string
 	wh := p.webhookInformer.Get(key.Name, "")
-	p.webhookInformer.Get(key.Name, "")
 	if wh != nil {
 		revision = wh.GetLabels()[label.IoIstioRev.Name]
 		tagName = wh.GetLabels()[tag.IstioTagLabel]
