@@ -56,7 +56,6 @@ gateways:
     ### Advanced options ############
     # TODO: convert to real options, env should not be exposed
     env: {}
-    envSources: []
       # Set this to "external" if and only if you want the egress gateway to
       # act as a transparent SNI gateway that routes mTLS/TLS traffic to
       # external services defined using service entries, where the service

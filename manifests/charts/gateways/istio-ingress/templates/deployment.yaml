@@ -213,24 +213,34 @@ spec:
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
           {{- end }}
-          {{- if $gateway.envSources }}
-          {{- with $gateway.envSources }}
+          {{- if eq (include "isList" $gateway.env) "true" }}
+          {{- $istio_meta_network_exists := false }}
+          {{- range $index, $item := $gateway.env }}
+          {{- if eq $item.name "ISTIO_META_NETWORK" }}
+          {{- $istio_meta_network_exists = true }}
+          {{- end }}
+          {{- end }}
+          {{- with $gateway.env }}
           {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- if and (not $istio_meta_network_exists) .Values.global.network }}
+          - name: ISTIO_META_NETWORK
+            value: "{{ .Values.global.network }}"
           {{- end }}
           {{- else }}
           {{- range $key, $val := $gateway.env }}
           - name: {{ $key }}
-            value: "{{ $val }}"
-          {{- end }}
-          {{- end }}
-          {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
-          - name: {{ $key }}
-            value: "{{ $value }}"
+            value: {{ $val | quote }}
           {{- end }}
           {{- $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
           {{- if and (not $network_set) .Values.global.network }}
           - name: ISTIO_META_NETWORK
             value: "{{ .Values.global.network }}"
+          {{- end }}
+          {{- end }}
+          {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
           {{- end }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"

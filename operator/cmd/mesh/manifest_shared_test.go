@@ -297,6 +297,7 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 		filters = append(filters, fileSelect...)
 		// Everything needs these
 		filters = append(filters, "templates/_affinity.tpl")
+		filters = append(filters, "templates/_helpers.tpl")
 		args += " --filter " + strings.Join(filters, ",")
 	}
 	args += " --set installPackagePath=" + string(chartSource)

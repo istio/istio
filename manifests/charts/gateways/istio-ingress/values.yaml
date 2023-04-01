@@ -78,7 +78,6 @@ gateways:
 
     ### Advanced options ############
     env: {}
-    envSources: []
     nodeSelector: {}
     tolerations: []
 
