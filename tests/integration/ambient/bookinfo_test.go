@@ -288,7 +288,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 					return fmt.Errorf("gateway is not ready: %v", err)
 				}
 				return nil
-			}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
+			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
 			if waypointError == nil {
 				t.Fatal("Waypoint for non-existent tag foo created deployment!")
 			}

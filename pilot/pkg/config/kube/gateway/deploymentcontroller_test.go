@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
@@ -189,7 +190,8 @@ func TestVersionManagement(t *testing.T) {
 	log.SetOutputLevel(istiolog.DebugLevel)
 	writes := make(chan string, 10)
 	c := kube.NewFakeClient()
-	d := NewDeploymentController(c, "", testInjectionConfig(t), func(fn func()) {})
+	tw := revisions.NewTagWatcher(c, "default")
+	d := NewDeploymentController(c, "", testInjectionConfig(t), func(fn func()) {}, tw)
 	reconciles := atomic.NewInt32(0)
 	wantReconcile := int32(0)
 	expectReconciled := func() {
@@ -213,6 +215,7 @@ func TestVersionManagement(t *testing.T) {
 	}
 	stop := test.NewStop(t)
 	gws := clienttest.Wrap(t, d.gateways)
+	go tw.Run(stop)
 	go d.Run(stop)
 	c.RunAndWait(stop)
 
