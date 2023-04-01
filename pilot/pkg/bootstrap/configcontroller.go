@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/incluster"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/pkg/log"
 )
 
@@ -174,7 +175,9 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
 						if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
+							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
 							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler)
+							tagWatcher.AddHandler(controller.HandleTagChange)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
 							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -182,6 +185,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 							// recreate it again.
 							s.kubeClient.RunAndWait(stop)
 							controller.Run(leaderStop)
+							tagWatcher.Run(leaderStop)
 						}
 					}).
 					Run(stop)
