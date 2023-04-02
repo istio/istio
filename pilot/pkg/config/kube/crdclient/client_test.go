@@ -268,6 +268,8 @@ func TestClient(t *testing.T) {
 		if !r.IsClusterScoped() {
 			cfgMeta.Namespace = namespace
 		}
+		cfgMeta.FullName = "/apis/" + r.Group() + "/" + r.Version() + "/namespaces/" + cfgMeta.Namespace + "/" +
+			strcase.CamelCaseToKebabCase(r.Kind()) + "/" + configName
 		pb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 6}}
 		if _, err := store.Create(config.Config{
 			Meta: cfgMeta,
