@@ -269,7 +269,7 @@ func TestClient(t *testing.T) {
 			cfgMeta.Namespace = namespace
 		}
 		cfgMeta.FullName = "/apis/" + r.Group() + "/" + r.Version() + "/namespaces/" + cfgMeta.Namespace + "/" +
-			strcase.CamelCaseToKebabCase(r.Kind()) + "/" + configName
+			strcase.CamelCaseToKebabCase(r.Kind()) + "/" + name
 		pb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 6}}
 		if _, err := store.Create(config.Config{
 			Meta: cfgMeta,
@@ -284,10 +284,10 @@ func TestClient(t *testing.T) {
 				return fmt.Errorf("cfg shouldnt be nil :(")
 			}
 			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
-				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
+				return fmt.Errorf("something is deeply wrong....., got:%v expected:%v", cfg.Meta, cfgMeta)
 			}
 			return nil
-		})
+		}, timeout)
 
 		stat := &v1alpha1.IstioStatus{
 			Conditions: []*v1alpha1.IstioCondition{
@@ -305,7 +305,6 @@ func TestClient(t *testing.T) {
 		}); err != nil {
 			t.Errorf("bad: %v", err)
 		}
-
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
 			if cfg == nil {
@@ -315,7 +314,7 @@ func TestClient(t *testing.T) {
 				return fmt.Errorf("status %v does not match %v", cfg.Status, stat)
 			}
 			return nil
-		})
+		}, timeout)
 	})
 }
 
