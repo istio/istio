@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -42,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/util/strcase"
 )
 
 const (
@@ -447,6 +449,8 @@ func buildHTTPVirtualServices(
 						Annotations:       routeMeta(obj),
 						Namespace:         ns,
 						Domain:            ctx.Domain,
+						FullName: "/apis/" + gvk.VirtualService.Group + "/" + gvk.VirtualService.Version + "/namespaces/" + ns + "/" +
+							strcase.CamelCaseToKebabCase(gvk.VirtualService.Kind) + "/" + name,
 					},
 					Spec: &istio.VirtualService{
 						Hosts:    []string{h},
@@ -724,14 +728,17 @@ func buildTCPVirtualService(ctx ConfigContext, obj config.Config) *config.Config
 	}
 
 	reportError(nil)
+	name := obj.Name + "-tcp-" + constants.KubernetesGatewayName // Format: %s-tcp-%s
 	vsConfig := config.Config{
 		Meta: config.Meta{
 			CreationTimestamp: obj.CreationTimestamp,
 			GroupVersionKind:  gvk.VirtualService,
-			Name:              fmt.Sprintf("%s-tcp-%s", obj.Name, constants.KubernetesGatewayName),
+			Name:              name,
 			Annotations:       routeMeta(obj),
 			Namespace:         obj.Namespace,
 			Domain:            ctx.Domain,
+			FullName: "/apis/" + gvk.VirtualService.Group + "/" + gvk.VirtualService.Version + "/namespaces/" + obj.Namespace + "/" +
+				strcase.CamelCaseToKebabCase(gvk.VirtualService.Kind) + "/" + name,
 		},
 		Spec: &istio.VirtualService{
 			// We can use wildcard here since each listener can have at most one route bound to it, so we have
@@ -782,7 +789,7 @@ func buildTLSVirtualService(ctx ConfigContext, obj config.Config) []config.Confi
 	}
 	configs := make([]config.Config, 0, len(route.Hostnames))
 	for i, host := range hostnameToStringList(route.Hostnames) {
-		name := fmt.Sprintf("%s-tls-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
+		name := obj.Name + "-tls-" + strconv.Itoa(i) + "-" + constants.KubernetesGatewayName // Format: "%s-tls-%d-%s
 		// Create one VS per hostname with a single hostname.
 		// This ensures we can treat each hostname independently, as the spec requires
 		vsConfig := config.Config{
@@ -793,6 +800,8 @@ func buildTLSVirtualService(ctx ConfigContext, obj config.Config) []config.Confi
 				Annotations:       routeMeta(obj),
 				Namespace:         obj.Namespace,
 				Domain:            ctx.Domain,
+				FullName: "/apis/" + gvk.VirtualService.Group + "/" + gvk.VirtualService.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(gvk.VirtualService.Kind) + "/" + name,
 			},
 			Spec: &istio.VirtualService{
 				Hosts:    []string{host},
@@ -1381,15 +1390,18 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 			}
 			meta := parentMeta(obj, &l.Name)
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
+			name := obj.Name + "-" + constants.KubernetesGatewayName + "-" + string(l.Name) // Format: %s-%s-%s
 			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
 			gatewayConfig := config.Config{
 				Meta: config.Meta{
 					CreationTimestamp: obj.CreationTimestamp,
 					GroupVersionKind:  gvk.Gateway,
-					Name:              fmt.Sprintf("%s-%s-%s", obj.Name, constants.KubernetesGatewayName, l.Name),
+					Name:              name,
 					Annotations:       meta,
 					Namespace:         obj.Namespace,
 					Domain:            r.Domain,
+					FullName: "/apis/" + gvk.Gateway.Group + "/" + gvk.Gateway.Version + "/namespaces/" + obj.Namespace + "/" +
+						strcase.CamelCaseToKebabCase(gvk.Gateway.Kind) + "/" + name,
 				},
 				Spec: &istio.Gateway{
 					Servers: []*istio.Server{server},

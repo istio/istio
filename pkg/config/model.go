@@ -91,6 +91,9 @@ type Meta struct {
 
 	// A sequence number representing a specific generation of the desired state. Populated by the system. Read-only.
 	Generation int64 `json:"generation,omitempty"`
+
+	// FullName is the name in resource including namespace and expanded GVK. Typically used for logging and metadata.
+	FullName string
 }
 
 // Config is a configuration unit consisting of the type of configuration, the

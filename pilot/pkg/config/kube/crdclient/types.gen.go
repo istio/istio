@@ -14,6 +14,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/strcase"
 
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
@@ -782,9 +783,10 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.Config{
 	gvk.AuthorizationPolicy: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapisecurityv1beta1.AuthorizationPolicy)
+		configGvk := gvk.AuthorizationPolicy
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.AuthorizationPolicy,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -794,6 +796,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -801,9 +805,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.CertificateSigningRequest: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapicertificatesv1.CertificateSigningRequest)
+		configGvk := gvk.CertificateSigningRequest
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.CertificateSigningRequest,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -813,6 +818,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -820,9 +827,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.ConfigMap: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapicorev1.ConfigMap)
+		configGvk := gvk.ConfigMap
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.ConfigMap,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -832,15 +840,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: obj,
 		}
 	},
 	gvk.CustomResourceDefinition: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition)
+		configGvk := gvk.CustomResourceDefinition
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.CustomResourceDefinition,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -850,15 +861,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: &obj.Spec,
 		}
 	},
 	gvk.Deployment: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapiappsv1.Deployment)
+		configGvk := gvk.Deployment
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Deployment,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -868,15 +882,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: &obj.Spec,
 		}
 	},
 	gvk.DestinationRule: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapinetworkingv1alpha3.DestinationRule)
+		configGvk := gvk.DestinationRule
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.DestinationRule,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -886,6 +903,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -893,9 +912,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.EndpointSlice: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapidiscoveryv1.EndpointSlice)
+		configGvk := gvk.EndpointSlice
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.EndpointSlice,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -905,15 +925,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: obj,
 		}
 	},
 	gvk.Endpoints: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapicorev1.Endpoints)
+		configGvk := gvk.Endpoints
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Endpoints,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -923,15 +946,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: obj,
 		}
 	},
 	gvk.EnvoyFilter: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapinetworkingv1alpha3.EnvoyFilter)
+		configGvk := gvk.EnvoyFilter
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.EnvoyFilter,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -941,6 +967,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -948,9 +976,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.GRPCRoute: func(r runtime.Object) config.Config {
 		obj := r.(*sigsk8siogatewayapiapisv1alpha2.GRPCRoute)
+		configGvk := gvk.GRPCRoute
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.GRPCRoute,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -960,6 +989,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -967,9 +998,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.Gateway: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapinetworkingv1alpha3.Gateway)
+		configGvk := gvk.Gateway
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Gateway,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -979,6 +1011,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -986,9 +1020,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.GatewayClass: func(r runtime.Object) config.Config {
 		obj := r.(*sigsk8siogatewayapiapisv1beta1.GatewayClass)
+		configGvk := gvk.GatewayClass
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.GatewayClass,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -998,6 +1033,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1005,9 +1042,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.HTTPRoute: func(r runtime.Object) config.Config {
 		obj := r.(*sigsk8siogatewayapiapisv1beta1.HTTPRoute)
+		configGvk := gvk.HTTPRoute
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.HTTPRoute,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1017,6 +1055,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1024,9 +1064,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.Ingress: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapinetworkingv1.Ingress)
+		configGvk := gvk.Ingress
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Ingress,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1036,6 +1077,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1043,9 +1086,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.IngressClass: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapinetworkingv1.IngressClass)
+		configGvk := gvk.IngressClass
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.IngressClass,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1055,15 +1099,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: &obj.Spec,
 		}
 	},
 	gvk.KubernetesGateway: func(r runtime.Object) config.Config {
 		obj := r.(*sigsk8siogatewayapiapisv1beta1.Gateway)
+		configGvk := gvk.KubernetesGateway
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.KubernetesGateway,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1073,6 +1120,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1080,9 +1129,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.MutatingWebhookConfiguration: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration)
+		configGvk := gvk.MutatingWebhookConfiguration
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.MutatingWebhookConfiguration,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1092,15 +1142,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: obj,
 		}
 	},
 	gvk.Namespace: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapicorev1.Namespace)
+		configGvk := gvk.Namespace
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Namespace,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1110,15 +1163,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: &obj.Spec,
 		}
 	},
 	gvk.Node: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapicorev1.Node)
+		configGvk := gvk.Node
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Node,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1128,15 +1184,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: &obj.Spec,
 		}
 	},
 	gvk.PeerAuthentication: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapisecurityv1beta1.PeerAuthentication)
+		configGvk := gvk.PeerAuthentication
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.PeerAuthentication,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1146,6 +1205,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1153,9 +1214,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.Pod: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapicorev1.Pod)
+		configGvk := gvk.Pod
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Pod,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1165,15 +1227,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: &obj.Spec,
 		}
 	},
 	gvk.ProxyConfig: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapinetworkingv1beta1.ProxyConfig)
+		configGvk := gvk.ProxyConfig
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.ProxyConfig,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1183,6 +1248,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1190,9 +1257,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.ReferenceGrant: func(r runtime.Object) config.Config {
 		obj := r.(*sigsk8siogatewayapiapisv1alpha2.ReferenceGrant)
+		configGvk := gvk.ReferenceGrant
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.ReferenceGrant,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1202,15 +1270,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: &obj.Spec,
 		}
 	},
 	gvk.RequestAuthentication: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapisecurityv1beta1.RequestAuthentication)
+		configGvk := gvk.RequestAuthentication
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.RequestAuthentication,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1220,6 +1291,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1227,9 +1300,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.Secret: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapicorev1.Secret)
+		configGvk := gvk.Secret
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Secret,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1239,15 +1313,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: obj,
 		}
 	},
 	gvk.Service: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapicorev1.Service)
+		configGvk := gvk.Service
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Service,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1257,15 +1334,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: &obj.Spec,
 		}
 	},
 	gvk.ServiceAccount: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapicorev1.ServiceAccount)
+		configGvk := gvk.ServiceAccount
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.ServiceAccount,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1275,15 +1355,18 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec: obj,
 		}
 	},
 	gvk.ServiceEntry: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapinetworkingv1alpha3.ServiceEntry)
+		configGvk := gvk.ServiceEntry
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.ServiceEntry,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1293,6 +1376,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1300,9 +1385,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.Sidecar: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapinetworkingv1alpha3.Sidecar)
+		configGvk := gvk.Sidecar
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Sidecar,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1312,6 +1398,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1319,9 +1407,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.TCPRoute: func(r runtime.Object) config.Config {
 		obj := r.(*sigsk8siogatewayapiapisv1alpha2.TCPRoute)
+		configGvk := gvk.TCPRoute
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.TCPRoute,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1331,6 +1420,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1338,9 +1429,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.TLSRoute: func(r runtime.Object) config.Config {
 		obj := r.(*sigsk8siogatewayapiapisv1alpha2.TLSRoute)
+		configGvk := gvk.TLSRoute
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.TLSRoute,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1350,6 +1442,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1357,9 +1451,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.Telemetry: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapitelemetryv1alpha1.Telemetry)
+		configGvk := gvk.Telemetry
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.Telemetry,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1369,6 +1464,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1376,9 +1473,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.UDPRoute: func(r runtime.Object) config.Config {
 		obj := r.(*sigsk8siogatewayapiapisv1alpha2.UDPRoute)
+		configGvk := gvk.UDPRoute
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.UDPRoute,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1388,6 +1486,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1395,9 +1495,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.VirtualService: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapinetworkingv1alpha3.VirtualService)
+		configGvk := gvk.VirtualService
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.VirtualService,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1407,6 +1508,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1414,9 +1517,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.WasmPlugin: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapiextensionsv1alpha1.WasmPlugin)
+		configGvk := gvk.WasmPlugin
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.WasmPlugin,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1426,6 +1530,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1433,9 +1539,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.WorkloadEntry: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapinetworkingv1alpha3.WorkloadEntry)
+		configGvk := gvk.WorkloadEntry
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.WorkloadEntry,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1445,6 +1552,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
@@ -1452,9 +1561,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	gvk.WorkloadGroup: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapinetworkingv1alpha3.WorkloadGroup)
+		configGvk := gvk.WorkloadGroup
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  gvk.WorkloadGroup,
+				GroupVersionKind:  configGvk,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1464,6 +1574,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				OwnerReferences:   obj.OwnerReferences,
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
+				FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+					strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,

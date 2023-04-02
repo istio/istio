@@ -121,6 +121,7 @@ import (
 	"context"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/strcase"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 	"k8s.io/client-go/informers"
@@ -245,9 +246,10 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	{{- if and (not .Resource.Synthetic) }}
 	gvk.{{.Resource.Identifier}}: func(r runtime.Object) config.Config {
 		obj := r.(*{{ .IstioAwareClientImport }}.{{.Resource.Kind}})
+		configGvk := gvk.{{.Resource.Identifier}}
 		return config.Config{
 		  Meta: config.Meta{
-		  	GroupVersionKind:  gvk.{{.Resource.Identifier}},
+		  	GroupVersionKind:  configGvk,
 		  	Name:              obj.Name,
 		  	Namespace:         obj.Namespace,
 		  	Labels:            obj.Labels,
@@ -257,6 +259,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		  	OwnerReferences:   obj.OwnerReferences,
 		  	UID:               string(obj.UID),
 		  	Generation:        obj.Generation,
+			FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
+			strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 		  },
 			Spec:   {{ if not .Resource.Specless }}&obj.Spec{{ else }}obj{{ end }},
       {{- if not (eq .StatusType "") }}

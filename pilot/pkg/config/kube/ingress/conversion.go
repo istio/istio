@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
 
@@ -111,12 +112,15 @@ func ConvertIngressV1alpha3(ingress knetworking.Ingress, mesh *meshconfig.MeshCo
 		Hosts: []string{"*"},
 	})
 
+	name := ingress.Name + "-" + constants.IstioIngressGatewayName + "-" + ingress.Namespace
 	gatewayConfig := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Gateway,
-			Name:             ingress.Name + "-" + constants.IstioIngressGatewayName + "-" + ingress.Namespace,
+			Name:             name,
 			Namespace:        IngressNamespace,
 			Domain:           domainSuffix,
+			FullName: "/apis/" + gvk.Gateway.Group + "/" + gvk.Gateway.Version + "/namespaces/" + IngressNamespace + "/" +
+				strcase.CamelCaseToKebabCase(gvk.Gateway.Kind) + "/" + name,
 		},
 		Spec: gateway,
 	}
@@ -180,14 +184,16 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 		}
 
 		virtualService.Http = httpRoutes
-
+		name := namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName
 		virtualServiceConfig := config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             namePrefix + "-" + ingress.Name + "-" + constants.IstioIngressGatewayName,
+				Name:             name,
 				Namespace:        ingress.Namespace,
 				Domain:           domainSuffix,
 				Annotations:      map[string]string{constants.InternalRouteSemantics: constants.RouteSemanticsIngress},
+				FullName: "/apis/" + gvk.VirtualService.Group + "/" + gvk.VirtualService.Version + "/namespaces/" + IngressNamespace + "/" +
+					strcase.CamelCaseToKebabCase(gvk.VirtualService.Kind) + "/" + name,
 			},
 			Spec: virtualService,
 		}
