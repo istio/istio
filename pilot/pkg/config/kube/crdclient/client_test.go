@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/strcase"
 )
 
 func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreController, kube.CLIClient) {
@@ -154,6 +155,9 @@ func TestClient(t *testing.T) {
 				configMeta.Namespace = configNamespace
 			}
 
+			configMeta.FullName = "/apis/" + r.Group() + "/" + r.Version() + "/namespaces/" + configMeta.Namespace + "/" +
+				strcase.CamelCaseToKebabCase(r.Kind()) + "/" + configName
+
 			pb, err := r.NewInstance()
 			if err != nil {
 				t.Fatal(err)
@@ -169,7 +173,7 @@ func TestClient(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
 				if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
-					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
+					return fmt.Errorf("get(%v) => got unexpected object %v, expected %v", name, cfg, configMeta)
 				}
 				return nil
 			}, timeout)

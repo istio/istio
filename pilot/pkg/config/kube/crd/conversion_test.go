@@ -49,6 +49,7 @@ func TestConvert(t *testing.T) {
 					ResourceVersion:  "1234",
 					Labels:           map[string]string{"label": "value"},
 					Annotations:      map[string]string{"annotation": "value"},
+					FullName:         "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/test",
 				},
 				Spec: mock.ExampleVirtualService,
 			},
@@ -64,6 +65,7 @@ func TestConvert(t *testing.T) {
 					ResourceVersion:  "1234",
 					Labels:           map[string]string{"label": "value"},
 					Annotations:      map[string]string{"annotation": "value"},
+					FullName:         "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/test",
 				},
 				Spec: mock.ExampleVirtualService,
 				Status: &v1alpha1.IstioStatus{
@@ -81,6 +83,7 @@ func TestConvert(t *testing.T) {
 					Name:             "test",
 					Namespace:        "default",
 					Domain:           "cluster",
+					FullName:         "/apis/gateway.networking.k8s.io/v1beta1/namespaces/default/http-route/test",
 				},
 				Spec: &gateway.HTTPRouteSpec{
 					Hostnames: []gateway.Hostname{"example.com"},
@@ -95,6 +98,7 @@ func TestConvert(t *testing.T) {
 					Name:             "test",
 					Namespace:        "default",
 					Domain:           "cluster",
+					FullName:         "/apis/gateway.networking.k8s.io/v1beta1/namespaces/default/http-route/test",
 				},
 				Spec: &gateway.HTTPRouteSpec{
 					Hostnames: []gateway.Hostname{"example.com"},
