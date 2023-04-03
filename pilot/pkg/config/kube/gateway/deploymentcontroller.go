@@ -234,26 +234,27 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 		if !knownControllers.Contains(string(gc.Spec.ControllerName)) {
 			return nil
 		}
-		// find the tag or revision indicated by the object
-		selectedTag, ok := gw.Labels[label.IoIstioRev.Name]
-		if !ok {
-			ns := d.namespaces.Get(gw.Namespace, "")
-			if ns == nil {
-				return nil
-			}
-			selectedTag = ns.Labels[label.IoIstioRev.Name]
-		}
-		myTags := d.tagWatcher.GetMyTags()
-		if !myTags.Contains(selectedTag) && !(selectedTag == "" && myTags.Contains("default")) {
-			return nil
-		}
-		// TODO: Here we could check if the tag is set and matches no known tags, and handle that if we are default.
 	} else {
 		// Didn't find gateway class, and it wasn't an implicitly known one
 		if _, f := classInfos[string(gw.Spec.GatewayClassName)]; !f {
 			return nil
 		}
 	}
+
+	// find the tag or revision indicated by the object
+	selectedTag, ok := gw.Labels[label.IoIstioRev.Name]
+	if !ok {
+		ns := d.namespaces.Get(gw.Namespace, "")
+		if ns == nil {
+			return nil
+		}
+		selectedTag = ns.Labels[label.IoIstioRev.Name]
+	}
+	myTags := d.tagWatcher.GetMyTags()
+	if !myTags.Contains(selectedTag) && !(selectedTag == "" && myTags.Contains("default")) {
+		return nil
+	}
+	// TODO: Here we could check if the tag is set and matches no known tags, and handle that if we are default.
 
 	// Matched class, reconcile it
 	return d.configureIstioGateway(log, *gw)
