@@ -93,11 +93,6 @@ type IstioComponentBase struct {
 	*CommonComponentFields
 }
 
-var gatewayComponents = map[name.ComponentName]bool{
-	name.IngressComponentName: true,
-	name.EgressComponentName:  true,
-}
-
 func (c *IstioComponentBase) ComponentName() name.ComponentName {
 	return c.CommonComponentFields.ComponentName
 }
@@ -111,7 +106,7 @@ func (c *IstioComponentBase) Namespace() string {
 }
 
 func (c *IstioComponentBase) Enabled() bool {
-	if gatewayComponents[c.ComponentName()] {
+	if c.CommonComponentFields.ComponentName.IsGateway() {
 		// type assert is guaranteed to work in this context.
 		return c.componentSpec.(*v1alpha1.GatewaySpec).Enabled.GetValue()
 	}
@@ -330,7 +325,7 @@ func renderManifest(cf *IstioComponentBase) (string, error) {
 
 	// Add the k8s resource overlays from IstioOperatorSpec.
 	pathToK8sOverlay := fmt.Sprintf("Components.%s.", cf.CommonComponentFields.ComponentName)
-	if gatewayComponents[cf.CommonComponentFields.ComponentName] {
+	if cf.CommonComponentFields.ComponentName.IsGateway() {
 		pathToK8sOverlay += fmt.Sprintf("%d.", cf.index)
 	}
 
