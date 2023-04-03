@@ -3,4 +3,5 @@ kind: bug-fix
 area: traffic-management
 releaseNotes:
   - |
-    **Fixed** Fixes selector logic of service and endpoint.
+    **Fixed** an issue where ServiceEntry and Service had undefined or empty workload selectors. If the workload selector is undefined or empty, 
+    ServiceEntry and Service should not select any WorkloadEntry or endpoint.
