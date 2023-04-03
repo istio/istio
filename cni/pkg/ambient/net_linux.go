@@ -1218,10 +1218,7 @@ func (s *Server) getEnrolledIPSets() sets.Set[string] {
 			pods.Insert(v.IP.String())
 		}
 	case EbpfMode:
-		m := s.ebpfServer.DumpAppInfo()
-		for ipAddr := range m {
-			pods.Insert(ipAddr.String())
-		}
+		pods = s.ebpfServer.DumpAppIPs()
 	}
 	return pods
 }

@@ -46,6 +46,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"istio.io/istio/pkg/util/istiomultierror"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -165,33 +166,6 @@ func AddPodToMesh(ifIndex uint32, macAddr net.HardwareAddr, ips []netip.Addr) er
 
 	return multiErr.ErrorOrNil()
 }
-
-// func CniDelete(ips []netip.Addr) error {
-// 	r := RedirectServer{}
-
-// 	if err := setLimit(); err != nil {
-// 		return err
-// 	}
-
-// 	if err := r.initBpfObjects(); err != nil {
-// 		return err
-// 	}
-
-// 	defer r.obj.Close()
-
-// 	if len(ips) == 0 {
-// 		return fmt.Errorf("nil ips inputed")
-// 	}
-// 	// TODO: support multiple IPs and IPv6
-// 	ipAddr := ips[0]
-// 	// ip slice is just in network endian
-// 	ip := ipAddr.AsSlice()
-// 	if len(ip) != 4 {
-// 		return fmt.Errorf("invalid ip addr(%s), ipv4 is supported", ipAddr.String())
-// 	}
-
-// 	return r.obj.AppInfo.Delete(ip)
-// }
 
 func (r *RedirectServer) initBpfObjects() error {
 	var options ebpf.CollectionOptions
@@ -608,14 +582,14 @@ func (r *RedirectServer) dumpZtunnelInfo() (*mapInfo, error) {
 	return &info, nil
 }
 
-func (r *RedirectServer) DumpAppInfo() map[netip.Addr]mapInfo {
+func (r *RedirectServer) DumpAppIPs() sets.Set[string] {
 	var keyOut [4]byte
 	var valueOut mapInfo
-	m := map[netip.Addr]mapInfo{}
+	m := sets.New[string]()
 	mapIter := r.obj.AppInfo.Iterate()
 	for mapIter.Next(&keyOut, &valueOut) {
 		ipAddr := netip.AddrFrom4(keyOut)
-		m[ipAddr] = valueOut
+		m.Insert(ipAddr.String())
 	}
 	return m
 }
