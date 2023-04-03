@@ -165,7 +165,7 @@ func TestVersionManagement(t *testing.T) {
 	wantReconcile := int32(0)
 	expectReconciled := func() {
 		t.Helper()
-		wantReconcile += 1
+		wantReconcile++
 		assert.EventuallyEqual(t, reconciles.Load, wantReconcile, retry.Timeout(time.Second), retry.Message("no reconciliation"))
 	}
 	d := NewDeploymentController(c)
