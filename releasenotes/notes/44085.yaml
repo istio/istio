@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 44078
+releaseNotes:
+  - |
+    **Added** support for gateway environment settings, which can be used in either key/value pairs or slice format to provide better control over environment variables.
