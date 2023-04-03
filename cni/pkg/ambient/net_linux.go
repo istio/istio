@@ -33,6 +33,7 @@ import (
 
 	"istio.io/istio/cni/pkg/ambient/constants"
 	ebpf "istio.io/istio/cni/pkg/ebpf/server"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func IsPodInIpset(pod *corev1.Pod) bool {
@@ -1189,9 +1190,6 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 func (s *Server) cleanupNode() {
 	log.Infof("Node-level network rule cleanup started")
 	if s.redirectMode == EbpfMode {
-		if err := s.delZtunnelEbpfOnNode(); err != nil {
-			log.Error(err)
-		}
 		return
 	}
 	s.cleanRules()
@@ -1206,6 +1204,26 @@ func (s *Server) cleanupNode() {
 	if err != nil {
 		log.Warnf("unable to delete IPSet: %v", err)
 	}
+}
+
+func (s *Server) getEnrolledIPSets() sets.Set[string] {
+	pods := sets.New[string]()
+	switch s.redirectMode {
+	case IptablesMode:
+		l, err := Ipset.List()
+		if err != nil {
+			log.Warnf("unable to list IPSet: %v", err)
+		}
+		for _, v := range l {
+			pods.Insert(v.IP.String())
+		}
+	case EbpfMode:
+		m := s.ebpfServer.DumpAppInfo()
+		for ipAddr := range m {
+			pods.Insert(ipAddr.String())
+		}
+	}
+	return pods
 }
 
 func addTProxyMarks() error {

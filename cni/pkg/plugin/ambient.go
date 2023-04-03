@@ -29,10 +29,6 @@ import (
 )
 
 func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName, podNamespace, podIfname, podNetNs string, podIPs []net.IPNet) (bool, error) {
-	if !ambientConfig.ZTunnelReady {
-		return false, fmt.Errorf("ztunnel not ready")
-	}
-
 	client, err := newKubeClient(conf)
 	if err != nil {
 		return false, err
@@ -90,3 +86,39 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 
 	return false, nil
 }
+
+// func cmdDeleteForAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName, podNamespace string) error {
+// 	client, err := newKubeClient(conf)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	if client == nil {
+// 		return nil
+// 	}
+
+// 	pod, err := client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+// 	if err != nil {
+// 		return err
+// 	}
+// 	ns, err := client.CoreV1().Namespaces().Get(context.Background(), podNamespace, metav1.GetOptions{})
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	if !ambientpod.PodZtunnelEnabled(ns, pod) {
+// 		return nil
+// 	}
+// 	if ambientConfig.RedirectMode == ambient.EbpfMode.String() {
+// 		// for cni deletion case, we only need to remove map information
+// 		// eBPF prog attached will vanish with the deletion of interface.
+// 		ips := []netip.Addr{}
+// 		if v, err := netip.ParseAddr(pod.Status.PodIP); err == nil {
+// 			ips = append(ips, v)
+// 		}
+// 		return ebpf.CniDelete(ips)
+// 	}
+
+// 	return nil
+// }
+//

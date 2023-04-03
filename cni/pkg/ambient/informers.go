@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var ErrLegacyLabel = "Namespace %s has sidecar label istio-injection or istio.io/rev " +
@@ -53,16 +54,23 @@ func (s *Server) Run(stop <-chan struct{}) {
 	<-stop
 }
 
-func (s *Server) ReconcileNamespaces() {
+func (s *Server) ReconcileNamespaces() sets.Set[string] {
+	processed := sets.New[string]()
 	for _, ns := range s.namespaces.List(metav1.NamespaceAll, klabels.Everything()) {
-		s.EnqueueNamespace(ns)
+		processed.Merge(s.enqueueNamespace(ns))
 	}
+	return processed
 }
 
 // EnqueueNamespace takes a Namespace and enqueues all Pod objects that make need an update
 func (s *Server) EnqueueNamespace(o controllers.Object) {
+	s.enqueueNamespace(o)
+}
+
+func (s *Server) enqueueNamespace(o controllers.Object) sets.Set[string] {
 	namespace := o.GetName()
 	matchAmbient := o.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient
+	processed := sets.New[string]()
 	if matchAmbient {
 		log.Infof("Namespace %s is enabled in ambient mesh", namespace)
 		for _, pod := range s.pods.List(namespace, klabels.Everything()) {
@@ -71,6 +79,7 @@ func (s *Server) EnqueueNamespace(o controllers.Object) {
 				Old:   pod,
 				Event: controllers.EventUpdate,
 			})
+			processed.Insert(pod.Status.PodIP)
 		}
 	} else {
 		log.Infof("Namespace %s is disabled from ambient mesh", namespace)
@@ -79,8 +88,10 @@ func (s *Server) EnqueueNamespace(o controllers.Object) {
 				New:   pod,
 				Event: controllers.EventDelete,
 			})
+			processed.Insert(pod.Status.PodIP)
 		}
 	}
+	return processed
 }
 
 func (s *Server) Reconcile(input any) error {

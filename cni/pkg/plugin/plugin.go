@@ -220,7 +220,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 
 			log.Debugf("ambientConf.ZTunnelReady: %v", ambientConf.ZTunnelReady)
 			added := false
-			if !excludePod && ambientConf.ZTunnelReady {
+			if !excludePod {
 				podIPs, err := getPodIPs(args.IfName, conf.PrevResult)
 				if err != nil {
 					log.Errorf("istio-cni cmdAdd failed to get pod IPs: %s", err)
@@ -341,6 +341,60 @@ func CmdCheck(args *skel.CmdArgs) (err error) {
 }
 
 func CmdDelete(args *skel.CmdArgs) (err error) {
+	// conf, err := parseConfig(args.StdinData)
+	// if err != nil {
+	// 	log.Errorf("istio-cni cmdDelete failed to parse config %v %v", string(args.StdinData), err)
+	// 	return err
+	// }
+
+	// // only ambient mode need do some cleanup in case
+	// // deleting operation happens within outage period of istio-cni daemonset.
+	// if conf.AmbientEnabled {
+	// 	return nil
+	// }
+
+	// log.FindScope("default").SetOutputLevel(getLogLevel(conf.LogLevel))
+
+	// var loggedPrevResult any
+	// if conf.PrevResult == nil {
+	// 	loggedPrevResult = "none"
+	// } else {
+	// 	loggedPrevResult = conf.PrevResult
+	// }
+	// log.WithLabels("if", args.IfName).Debugf("istio-cni CmdDelete config: %+v", conf)
+	// log.Debugf("istio-cni CmdDelete previous result: %+v", loggedPrevResult)
+
+	// // Determine if running under k8s by checking the CNI args
+	// k8sArgs := K8sArgs{}
+	// if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
+	// 	return err
+	// }
+
+	// // Check if the workload is running under Kubernetes.
+	// podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
+	// podName := string(k8sArgs.K8S_POD_NAME)
+	// if podNamespace == "" || podName == "" {
+	// 	return nil
+	// }
+
+	// for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
+	// 	if podNamespace == excludeNs {
+	// 		return nil
+	// 	}
+	// }
+
+	// ambientConf, err := ambient.ReadAmbientConfig()
+	// if err != nil {
+	// 	log.Errorf("istio-cni CmdDelete failed to read ambient config %v", err)
+	// 	return err
+	// }
+
+	// log.Infof("istio-cni CmdDelete podName: %s", podName)
+	// err = cmdDeleteForAmbient(*conf, *ambientConf, podName, podNamespace)
+	// if err != nil {
+	// 	log.Errorf("istio-cni CmdDelete failed to check ambient: %s", err)
+	// }
+	//
 	return nil
 }
 

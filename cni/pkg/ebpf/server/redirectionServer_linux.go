@@ -166,6 +166,33 @@ func AddPodToMesh(ifIndex uint32, macAddr net.HardwareAddr, ips []netip.Addr) er
 	return multiErr.ErrorOrNil()
 }
 
+// func CniDelete(ips []netip.Addr) error {
+// 	r := RedirectServer{}
+
+// 	if err := setLimit(); err != nil {
+// 		return err
+// 	}
+
+// 	if err := r.initBpfObjects(); err != nil {
+// 		return err
+// 	}
+
+// 	defer r.obj.Close()
+
+// 	if len(ips) == 0 {
+// 		return fmt.Errorf("nil ips inputed")
+// 	}
+// 	// TODO: support multiple IPs and IPv6
+// 	ipAddr := ips[0]
+// 	// ip slice is just in network endian
+// 	ip := ipAddr.AsSlice()
+// 	if len(ip) != 4 {
+// 		return fmt.Errorf("invalid ip addr(%s), ipv4 is supported", ipAddr.String())
+// 	}
+
+// 	return r.obj.AppInfo.Delete(ip)
+// }
+
 func (r *RedirectServer) initBpfObjects() error {
 	var options ebpf.CollectionOptions
 	if _, err := os.Stat(MapsPinpath); err != nil {
@@ -581,19 +608,16 @@ func (r *RedirectServer) dumpZtunnelInfo() (*mapInfo, error) {
 	return &info, nil
 }
 
-//nolint:unused
-func (r *RedirectServer) dumpAppInfo() ([]uint32, []mapInfo) {
-	var keyOut uint32
+func (r *RedirectServer) DumpAppInfo() map[netip.Addr]mapInfo {
+	var keyOut [4]byte
 	var valueOut mapInfo
-	var values []mapInfo
-	var keys []uint32
+	m := map[netip.Addr]mapInfo{}
 	mapIter := r.obj.AppInfo.Iterate()
 	for mapIter.Next(&keyOut, &valueOut) {
-		keys = append(keys, keyOut)
-		values = append(values, valueOut)
-
+		ipAddr := netip.AddrFrom4(keyOut)
+		m[ipAddr] = valueOut
 	}
-	return keys, values
+	return m
 }
 
 func htons(a uint16) uint16 {

@@ -29,6 +29,7 @@ import (
 
 	pconstants "istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -295,4 +296,17 @@ func (s *Server) DelPodFromMesh(pod *corev1.Pod) {
 
 func SetProc(path string, value string) error {
 	return os.WriteFile(path, []byte(value), 0o644)
+}
+
+func (s *Server) cleanStaleIPs(stales sets.Set[string]) {
+	log.Infof("Ambient stale Pod IPs to be cleaned: %s", stales)
+	switch s.redirectMode {
+	case IptablesMode:
+	case EbpfMode:
+		for ip := range stales {
+			if err := s.delPodEbpfOnNode(ip); err != nil {
+				log.Errorf("failed to cleanup POD(%s) ebpf: %v", ip, err)
+			}
+		}
+	}
 }
