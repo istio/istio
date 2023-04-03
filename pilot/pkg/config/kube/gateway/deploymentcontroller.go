@@ -35,7 +35,6 @@ import (
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -446,22 +445,6 @@ func (d *DeploymentController) HandleTagChange(newTags sets.Set[string]) {
 	for _, gw := range d.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 		d.queue.AddObject(gw)
 	}
-}
-
-// ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
-func (d *DeploymentController) ApplyObject(obj controllers.Object, subresources ...string) error {
-	j, err := config.ToJSON(obj)
-	if err != nil {
-		return err
-	}
-
-	gvr, err := controllers.ObjectToGVR(obj)
-	if err != nil {
-		return err
-	}
-	log.Debugf("applying %v", string(j))
-
-	return d.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
 
 type TemplateInput struct {
