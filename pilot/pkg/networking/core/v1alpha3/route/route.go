@@ -600,11 +600,25 @@ func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 				// Envoy doesn't actually support deriving the port from the request dynamically. However,
 				// we always generate routes in the context of a specific request port. As a result, we can just
 				// use that port
-				action.Redirect.PortRedirect = uint32(port)
+				//if port != 80 && port != 443 {
+				//	action.Redirect.PortRedirect = uint32(port)
+				//}
+				switch port {
+				case 80:
+					action.Redirect.SchemeRewriteSpecifier = &route.RedirectAction_SchemeRedirect{SchemeRedirect: "http"}
+					action.Redirect.PortRedirect = uint32(port)
+				case 443:
+					action.Redirect.SchemeRewriteSpecifier = &route.RedirectAction_SchemeRedirect{SchemeRedirect: "https"}
+					action.Redirect.PortRedirect = uint32(port)
+				default:
+					action.Redirect.PortRedirect = uint32(port)
+				}
 			}
 			// Otherwise, no port needed; HTTPRedirect_FROM_PROTOCOL_DEFAULT is Envoy's default behavior
 		case *networking.HTTPRedirect_Port:
-			action.Redirect.PortRedirect = rp.Port
+			if rp.Port != 80 && rp.Port != 443 {
+				action.Redirect.PortRedirect = rp.Port
+			}
 		}
 	}
 

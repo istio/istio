@@ -101,7 +101,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a
 	k8s.io/kubectl v0.26.2
 	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
-	sigs.k8s.io/controller-runtime v0.13.1-0.20230315234915-a26de2d610c3
+	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/gateway-api v0.6.1
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
@@ -222,7 +222,7 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/stoewer/go-strcase v1.2.1
-	github.com/stretchr/testify v1.8.1 // indirect
+	github.com/stretchr/testify v1.8.2 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
@@ -249,3 +249,7 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
+
+replace sigs.k8s.io/gateway-api => ../../sigs.k8s.io/gateway-api
+
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1-0.20230315234915-a26de2d610c3
