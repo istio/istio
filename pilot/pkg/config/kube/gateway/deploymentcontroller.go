@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -40,6 +41,7 @@ import (
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -202,6 +204,11 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		log.Debug("skip unmanaged gateway")
 		return nil
 	}
+	existingControllerVersion, overwriteControllerVersion, shouldHandle := ManagedGatewayControllerVersion(gw)
+	if !shouldHandle {
+		log.Debugf("skipping gateway which is managed by controller version %v", existingControllerVersion)
+		return nil
+	}
 	log.Info("reconciling")
 
 	defaultName := getDefaultName(gw.Name, &gw.Spec)
@@ -223,6 +230,14 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
 	}
 
+	if overwriteControllerVersion {
+		log.Debugf("write controller version, existing=%v", existingControllerVersion)
+		if err := d.setGatewayControllerVersion(&gw); err != nil {
+			return fmt.Errorf("update gateway annotation: %v", err)
+		}
+	} else {
+		log.Debugf("controller version existing=%v, no action needed", existingControllerVersion)
+	}
 	ingressSa := d.RenderServiceAccountApply(input)
 	_, err := d.client.Kube().
 		CoreV1().
@@ -273,6 +288,54 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	log.Info("gateway updated")
 	return nil
+}
+
+const (
+	// ControllerVersionAnnotation is an annotation added to the Gateway by the controller specifying
+	// the "controller version". The original intent of this was to work around
+	// https://github.com/istio/istio/issues/44164, where we needed to transition from a global owner
+	// to a per-revision owner. The newer version number allows forcing ownership, even if the other
+	// version was otherwise expected to control the Gateway.
+	// The version number has no meaning other than "larger numbers win".
+	// Numbers are used to future-proof in case we need to do another migration in the future.
+	ControllerVersionAnnotation = "gateway.istio.io/controller-version"
+	// ControllerVersion is the current version of our controller logic. Known versions are:
+	//
+	// * 1.17 and older: version 1 OR no version at all, depending on patch release
+	// * 1.18+: version 5
+	//
+	// 2, 3, and 4 were intentionally skipped to allow for the (unlikely) event we need to insert
+	// another version between these
+	ControllerVersion = 1
+)
+
+// ManagedGatewayControllerVersion determines the version of the controller managing this Gateway,
+// and if we should manage this.
+// See ControllerVersionAnnotation for motivations.
+func ManagedGatewayControllerVersion(gw gateway.Gateway) (existing string, takeOver bool, manage bool) {
+	cur, f := gw.Annotations[ControllerVersionAnnotation]
+	if !f {
+		// No current owner, we should take it over.
+		return "", true, true
+	}
+	curNum, err := strconv.Atoi(cur)
+	if err != nil {
+		// We cannot parse it - must be some new schema we don't know about. We should assume we do not manage it.
+		// In theory, this should never happen, unless we decide a number was a bad idea in the future.
+		return cur, false, false
+	}
+	if curNum > ControllerVersion {
+		// A newer version owns this gateway, let them handle it
+		return cur, false, false
+	}
+	if curNum == ControllerVersion {
+		// We already manage this at this version
+		// We will manage it, but no need to attempt to apply the version annotation, which could race with newer versions
+		return cur, false, true
+	}
+	// We are either newer or the same version of the last owner - we can take over. We need to actually
+	// re-apply the annotation
+	return cur, true, true
 }
 
 func (d *DeploymentController) RenderServiceAccountApply(input MergedInput) *corev1ac.ServiceAccountApplyConfiguration {
@@ -330,6 +393,14 @@ func (d *DeploymentController) ApplyObject(obj controllers.Object, subresources 
 	log.Debugf("applying %v", string(j))
 
 	return d.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
+}
+
+func (d *DeploymentController) setGatewayControllerVersion(gws *gateway.Gateway) error {
+	patch := fmt.Sprintf(`{"apiVersion":"gateway.networking.k8s.io/v1beta1","kind":"Gateway","metadata":{"annotations":{"%s":"%d"}}}`,
+		ControllerVersionAnnotation, ControllerVersion)
+	gvr := collections.K8SGatewayApiV1Beta1Gateways.Resource().GroupVersionResource()
+	log.Debugf("applying %v", patch)
+	return d.patcher(gvr, gws.GetName(), gws.GetNamespace(), []byte(patch))
 }
 
 // Merge maps merges multiple maps. Latter maps take precedence over previous maps on overlapping fields

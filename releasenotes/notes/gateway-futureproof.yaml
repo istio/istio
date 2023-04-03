@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 44164
+
+releaseNotes:
+- |
+  **Fixed** an issue with forward compatibility with Istio 1.18+ [Kubernetes Gateway Automated Deployment](https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment).
+  To have a seamless upgrade to 1.18+, users of this feature should first adopt this patch release.
