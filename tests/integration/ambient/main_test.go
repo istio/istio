@@ -71,6 +71,10 @@ type EchoDeployments struct {
 
 var ControlPlaneValues = `
 profile: ambient
+components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: true
 values:
   meshConfig:
     defaultConfig:
