@@ -61,7 +61,7 @@ func TestGatewayHostnames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var firstIP string
+	var gateways []model.NetworkGateway
 	t.Run("initial resolution", func(t *testing.T) {
 		meshNetworks.SetNetworks(&meshconfig.MeshNetworks{Networks: map[string]*meshconfig.Network{
 			"nw0": {Gateways: []*meshconfig.Network_IstioNetworkGateway{{
@@ -72,15 +72,14 @@ func TestGatewayHostnames(t *testing.T) {
 			}}},
 		}})
 		xdsUpdater.WaitOrFail(t, "xds full")
-		gws := env.NetworkManager.AllGateways()
+		gateways = env.NetworkManager.AllGateways()
 		// A and AAAA
-		if len(gws) != 2 {
+		if len(gateways) != 2 {
 			t.Fatalf("expected 2 IPs")
 		}
-		if gws[0].Network != "nw0" {
-			t.Fatalf("unexpected network: %v", gws)
+		if gateways[0].Network != "nw0" || gateways[1].Network != "nw0" {
+			t.Fatalf("unexpected network: %v", gateways)
 		}
-		firstIP = gws[0].Addr
 	})
 	t.Run("re-resolve after TTL", func(t *testing.T) {
 		if testing.Short() {
@@ -89,9 +88,33 @@ func TestGatewayHostnames(t *testing.T) {
 		// after the update, we should see the next gateway. Since TTL is low we don't know the exact IP, but we know it should change from
 		// the original
 		retry.UntilOrFail(t, func() bool {
-			return !reflect.DeepEqual(env.NetworkManager.AllGateways(), []model.NetworkGateway{{Network: "nw0", Addr: firstIP, Port: 15443}})
+			return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
 		})
+		xdsUpdater.WaitOrFail(t, "xds full")
 	})
+
+	workingDNSServer.setHosts(make(sets.Set[string]))
+	gateways = env.NetworkManager.AllGateways()
+	t.Run("resolution failed", func(t *testing.T) {
+		// the gateways should remain
+		retry.Until(func() bool {
+			currentGateways := env.NetworkManager.AllGateways()
+			if len(currentGateways) == 0 || !reflect.DeepEqual(currentGateways, gateways) {
+				t.Fatalf("unexpected network: %v", gateways)
+			}
+			return false
+		}, retry.Timeout(time.Second))
+		xdsUpdater.AssertEmpty(t, time.Second)
+	})
+
+	workingDNSServer.setHosts(sets.New(gwHost))
+	t.Run("resolution recovered", func(t *testing.T) {
+		retry.UntilOrFail(t, func() bool {
+			return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
+		})
+		xdsUpdater.WaitOrFail(t, "xds full")
+	})
+
 	t.Run("forget", func(t *testing.T) {
 		meshNetworks.SetNetworks(nil)
 		xdsUpdater.WaitOrFail(t, "xds full")
@@ -164,5 +187,14 @@ func (s *fakeDNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}
 	if err := w.WriteMsg(msg); err != nil {
 		scopes.Framework.Errorf("failed writing fake DNS response: %v", err)
+	}
+}
+
+func (s *fakeDNSServer) setHosts(hosts sets.String) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.hosts = make(map[string]int, len(hosts))
+	for k := range hosts {
+		s.hosts[dns.Fqdn(k)] = 0
 	}
 }
