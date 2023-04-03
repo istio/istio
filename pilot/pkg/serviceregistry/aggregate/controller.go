@@ -16,6 +16,7 @@ package aggregate
 
 import (
 	"net/netip"
+	"sort"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -366,7 +367,15 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	clusterID := nodeClusterID(proxy)
-	for _, r := range c.GetRegistries() {
+
+	// Labels will be returned from the first registry that has a workload with a matching address.
+	// Sorting the registries so that non-external will get preference.
+	registries := c.GetRegistries()
+	sort.Slice(registries, func(i, j int) bool {
+		return registries[i].Provider() != provider.External
+	})
+
+	for _, r := range registries {
 		// If proxy clusterID unset, we may find incorrect workload label.
 		// This can not happen in k8s env.
 		if clusterID == "" {
