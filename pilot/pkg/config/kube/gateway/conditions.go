@@ -277,6 +277,7 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 func reportListenerAttachedRoutes(index int, obj config.Config, i int32) {
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
+		log.Errorf("howardjohn: report listener attached %v/%v", index, len(gs.Listeners))
 		for index >= len(gs.Listeners) {
 			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
 		}
@@ -290,6 +291,7 @@ func reportListenerAttachedRoutes(index int, obj config.Config, i int32) {
 func reportListenerCondition(index int, l k8s.Listener, obj config.Config, conditions map[string]*condition) {
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
+		log.Errorf("howardjohn: report listener %v/%v %v", index, len(gs.Listeners), l.Name)
 		for index >= len(gs.Listeners) {
 			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
 		}

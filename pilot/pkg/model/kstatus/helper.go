@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -63,7 +64,10 @@ func (w *WrappedStatus) Mutate(f func(s config.Status) config.Status) {
 	// TODO: change this to be more efficient. Likely we allow modifications via WrappedStatus that
 	// modify specific things (ie conditions).
 	if !reflect.DeepEqual(old, w.Status) {
+		log.Errorf("howardjohn: dirty")
 		w.Dirty = true
+	} else {
+		log.Errorf("howardjohn: clean")
 	}
 }
 
