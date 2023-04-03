@@ -87,6 +87,7 @@ type DeploymentController struct {
 	serviceAccounts kclient.Client[*corev1.ServiceAccount]
 	namespaces      kclient.Client[*corev1.Namespace]
 	tagWatcher      revisions.TagWatcher
+	revision        string
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -137,7 +138,7 @@ var knownControllers = func() sets.String {
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
 func NewDeploymentController(client kube.Client, clusterID cluster.ID,
-	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher,
+	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher, revision string,
 ) *DeploymentController {
 	gateways := kclient.New[*gateway.Gateway](client)
 	gatewayClasses := kclient.New[*gateway.GatewayClass](client)
@@ -157,6 +158,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 		gatewayClasses: gatewayClasses,
 		injectConfig:   webhookConfig,
 		tagWatcher:     tw,
+		revision:       revision,
 	}
 	dc.queue = controllers.NewQueue("gateway deployment",
 		controllers.WithReconciler(dc.Reconcile),
@@ -295,6 +297,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		Ports:          extractServicePorts(gw),
 		ClusterID:      d.clusterID.String(),
 		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
+		Revision:       d.revision,
 	}
 
 	if overwriteControllerVersion {
@@ -454,6 +457,7 @@ type TemplateInput struct {
 	Ports          []corev1.ServicePort
 	ClusterID      string
 	KubeVersion122 bool
+	Revision       string
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {

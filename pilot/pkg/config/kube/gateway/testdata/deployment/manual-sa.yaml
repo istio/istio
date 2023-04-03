@@ -32,6 +32,7 @@ spec:
   template:
     metadata:
       annotations:
+        istio.io/rev: ""
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
