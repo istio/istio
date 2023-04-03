@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test"
@@ -218,6 +219,13 @@ func TestVersionManagement(t *testing.T) {
 	go tw.Run(stop)
 	go d.Run(stop)
 	c.RunAndWait(stop)
+	defautlNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+	}
+	nsClient := clienttest.Wrap(t, kclient.New[*corev1.Namespace](c))
+	nsClient.Create(defautlNS)
 
 	// Create a gateway, we should mark our ownership
 	defaultGateway := &v1beta1.Gateway{
