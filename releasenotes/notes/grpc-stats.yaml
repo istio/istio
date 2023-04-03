@@ -3,6 +3,7 @@ kind: bug-fix
 area: telemetry
 issue:
   - 43908
+  - 44144
 releaseNotes:
   - |
-    **Fixed** an issue that grpc stats are absent.
+    **Fixed** an issue where grpc stats are absent.
