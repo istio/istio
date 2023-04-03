@@ -584,6 +584,21 @@ var (
 		ValidateProto: validation.ValidateUDPRoute,
 	}.MustBuild()
 
+	ValidatingWebhookConfiguration = resource.Builder{
+		Identifier:    "ValidatingWebhookConfiguration",
+		Group:         "admissionregistration.k8s.io",
+		Kind:          "ValidatingWebhookConfiguration",
+		Plural:        "validatingwebhookconfigurations",
+		Version:       "v1",
+		Proto:         "k8s.io.api.admissionregistration.v1.ValidatingWebhookConfiguration",
+		ReflectType:   reflect.TypeOf(&k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration{}).Elem(),
+		ProtoPackage:  "k8s.io/api/admissionregistration/v1",
+		ClusterScoped: true,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	VirtualService = resource.Builder{
 		Identifier: "VirtualService",
 		Group:      "networking.istio.io",
@@ -690,6 +705,7 @@ var (
 		MustAdd(TLSRoute).
 		MustAdd(Telemetry).
 		MustAdd(UDPRoute).
+		MustAdd(ValidatingWebhookConfiguration).
 		MustAdd(VirtualService).
 		MustAdd(WasmPlugin).
 		MustAdd(WorkloadEntry).
@@ -721,6 +737,7 @@ var (
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).
 		MustAdd(UDPRoute).
+		MustAdd(ValidatingWebhookConfiguration).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
