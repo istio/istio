@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
+	"golang.org/x/exp/slices"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -99,7 +100,9 @@ func TestGatewayHostnames(t *testing.T) {
 		// the gateways should remain
 		retry.Until(func() bool {
 			currentGateways := env.NetworkManager.AllGateways()
-			if len(currentGateways) == 0 || !reflect.DeepEqual(currentGateways, gateways) {
+			if len(currentGateways) == 0 ||
+				!reflect.DeepEqual(currentGateways, gateways) ||
+				slices.ContainsFunc(currentGateways, func(gw model.NetworkGateway) bool { return len(gw.Addr) == 0 }) {
 				t.Fatalf("unexpected network: %v", gateways)
 			}
 			return false
