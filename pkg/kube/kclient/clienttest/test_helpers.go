@@ -87,6 +87,10 @@ func WrapReadWriter[T controllers.Object](t test.Failer, c kclient.ReadWriter[T]
 	return TestClient[T]{
 		c: c,
 		t: t,
+		TestWriter: TestWriter[T]{
+			c: c,
+			t: t,
+		},
 	}
 }
 
