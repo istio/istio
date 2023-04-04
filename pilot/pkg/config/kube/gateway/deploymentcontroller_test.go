@@ -192,7 +192,7 @@ func TestVersionManagement(t *testing.T) {
 	writes := make(chan string, 10)
 	c := kube.NewFakeClient()
 	tw := revisions.NewTagWatcher(c, "default")
-	d := NewDeploymentController(c, "", testInjectionConfig(t), func(fn func()) {}, tw, "")
+	d := NewDeploymentController(c, "", testInjectionConfig(t), func(fn func()) {}, tw, "", "")
 	reconciles := atomic.NewInt32(0)
 	wantReconcile := int32(0)
 	expectReconciled := func() {

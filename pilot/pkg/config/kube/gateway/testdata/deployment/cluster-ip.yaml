@@ -33,6 +33,7 @@ spec:
   template:
     metadata:
       annotations:
+        istio.io/meshID: default
         istio.io/rev: default
         networking.istio.io/service-type: ClusterIP
         prometheus.io/path: /stats/prometheus

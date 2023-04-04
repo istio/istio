@@ -33,6 +33,7 @@ spec:
   template:
     metadata:
       annotations:
+        istio.io/meshID: default
         istio.io/rev: default
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
