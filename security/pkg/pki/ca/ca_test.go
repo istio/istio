@@ -159,7 +159,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	signingKeyPem := []byte(key1Pem)
 
 	client := fake.NewSimpleClientset()
-	initSecret := buildSecret(CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
+	initSecret := buildSecret("default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
 	_, err := client.CoreV1().Secrets("default").Create(context.TODO(), initSecret, metav1.CreateOptions{})
 	if err != nil {
 		t.Errorf("Failed to create secret (error: %s)", err)
@@ -725,9 +725,8 @@ func TestBuildSecret(t *testing.T) {
 	KeyPem := []byte(key1Pem)
 	namespace := "default"
 	secretType := "secret-type"
-	scrtName := "istio-ca-secret"
 
-	caSecret := buildSecret(scrtName, namespace, nil, nil, nil, CertPem, KeyPem, v1.SecretType(secretType))
+	caSecret := buildSecret(namespace, nil, nil, nil, CertPem, KeyPem, v1.SecretType(secretType))
 	if caSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", caSecret)
 	}
@@ -743,7 +742,7 @@ func TestBuildSecret(t *testing.T) {
 	if !bytes.Equal(caSecret.Data[CAPrivateKeyFile], KeyPem) {
 		t.Fatalf("CA cert does not match, want %v got %v", KeyPem, caSecret.Data[CAPrivateKeyFile])
 	}
-	serverSecret := buildSecret(scrtName, namespace, CertPem, KeyPem, nil, nil, nil, v1.SecretType(secretType))
+	serverSecret := buildSecret(namespace, CertPem, KeyPem, nil, nil, nil, v1.SecretType(secretType))
 	if serverSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", serverSecret)
 	}
