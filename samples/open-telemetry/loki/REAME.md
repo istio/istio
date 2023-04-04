@@ -20,7 +20,7 @@ kubectl apply -f ../../addons/loki.yaml -n istio-system
 
 ## Setup otel-collector service
 
-First, create an `otel-collector` backend with simple configuration.
+First, create an `otel-collector` backend with a simple configuration.
 
 ```bash
 kubectl apply -f otel.yaml -n istio-system
