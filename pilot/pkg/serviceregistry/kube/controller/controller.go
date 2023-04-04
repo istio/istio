@@ -578,7 +578,14 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 
 func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 	var updatedNeeded bool
-	if event == model.EventDelete {
+
+	// Delete the node from nodeInfoMap, in case the node is marked unschedulable.
+	// A Node is marked unschedulable when cloud providers downscale the kubernetes Node pool,
+	// as part of cordoning/draining the Node. During Node draining, Pods in the Node are
+	// safely terminated and restarted on a separate schedulable Node.
+	// With gateway service of type NodePort, such Nodes' addresses can be safely excluded
+	// in the service instance istio endpoints.
+	if event == model.EventDelete || node.Spec.Unschedulable {
 		updatedNeeded = true
 		c.Lock()
 		delete(c.nodeInfoMap, node.Name)
