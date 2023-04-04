@@ -5077,7 +5077,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			warning: false,
 		},
 		{
-			name: "partial wildcard hosts with HTTPS protocol", in: &networking.ServiceEntry{
+			name: "partial wildcard hosts", in: &networking.ServiceEntry{
 				Hosts:     []string{"*.nytimes.com", "*washingtonpost.com"},
 				Addresses: []string{},
 				Ports: []*networking.ServicePort{
@@ -5087,20 +5087,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				Resolution: networking.ServiceEntry_NONE,
 			},
 			valid:   false,
-			warning: false,
-		},
-		{
-			name: "partial wildcard hosts with non HTTPS protocol", in: &networking.ServiceEntry{
-				Hosts:     []string{"*.nytimes.com", "*washingtonpost.com"},
-				Addresses: []string{},
-				Ports: []*networking.ServicePort{
-					{Number: 443, Protocol: "HTTP", Name: "http-nytimes"},
-				},
-				Endpoints:  []*networking.WorkloadEntry{},
-				Resolution: networking.ServiceEntry_NONE,
-			},
-			valid:   true,
-			warning: false,
+			warning: true,
 		},
 	}
 

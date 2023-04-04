@@ -3321,13 +3321,8 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				errs = appendValidation(errs, fmt.Errorf("invalid host %s", hostname))
 			} else {
 				errs = appendValidation(errs, ValidateWildcardDomain(hostname))
-				for _, port := range serviceEntry.Ports {
-					if port.Protocol == string(protocol.HTTPS) {
-						// Partial wildcard is not allowed in Service Entry with HTTPS protocol.
-						errs = appendValidation(errs, validatePartialWildCard(hostname))
-						break
-					}
-				}
+				errs = appendValidation(errs, validatePartialWildCard(hostname))
+				errs = appendValidation(errs, WrapWarning(validatePartialWildCard(hostname)))
 			}
 		}
 
