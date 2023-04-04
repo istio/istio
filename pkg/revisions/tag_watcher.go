@@ -60,13 +60,14 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 	p.webhooks = kclient.NewFiltered[*admissionregistrationv1.MutatingWebhookConfiguration](client, kubetypes.Filter{
 		ObjectFilter: isTagWebhook,
 	})
-	p.index = kclient.CreateIndexWithDelegate[*admissionregistrationv1.MutatingWebhookConfiguration, string](p.webhooks, func(o *admissionregistrationv1.MutatingWebhookConfiguration) []string {
-		rev := o.GetLabels()[label.IoIstioRev.Name]
-		if rev == "" {
-			return nil
-		}
-		return []string{rev}
-	}, controllers.ObjectHandler(p.queue.AddObject))
+	p.index = kclient.CreateIndexWithDelegate[*admissionregistrationv1.MutatingWebhookConfiguration](p.webhooks,
+		func(o *admissionregistrationv1.MutatingWebhookConfiguration) []string {
+			rev := o.GetLabels()[label.IoIstioRev.Name]
+			if rev == "" {
+				return nil
+			}
+			return []string{rev}
+		}, controllers.ObjectHandler(p.queue.AddObject))
 	return p
 }
 
