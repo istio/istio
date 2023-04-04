@@ -12,6 +12,7 @@ spec:
   template:
     metadata:
       annotations:
+        istio.io/meshID: default
         istio.io/rev: default
         kubectl.kubernetes.io/default-container: hello
         kubectl.kubernetes.io/default-logs-container: hello

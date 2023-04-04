@@ -47,6 +47,7 @@ templates:
         service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
       annotations: {
         istio.io/rev: {{ .Revision | default "default" | quote }},
+        istio.io/meshID: {{ .MeshID | default "default" | quote }},
         {{- if ge (len $containers) 1 }}
         {{- if not (isset .ObjectMeta.Annotations `kubectl.kubernetes.io/default-logs-container`) }}
         kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
@@ -534,6 +535,7 @@ templates:
         service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
       annotations: {
         istio.io/rev: {{ .Revision | default "default" | quote }},
+        istio.io/meshID: {{ .MeshID | default "default" | quote }},
         {{- if eq (len $containers) 1 }}
         kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
         kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
@@ -864,6 +866,7 @@ templates:
         service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
       annotations: {
         istio.io/rev: {{ .Revision | default "default" }},
+        istio.io/meshID: {{ .MeshID | default "default" }},
         {{- if ge (len $containers) 1 }}
         {{- if not (isset .ObjectMeta.Annotations `kubectl.kubernetes.io/default-logs-container`) }}
         kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
