@@ -368,7 +368,7 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 		if p == nil {
 			// Apiserver doesn't allow Create to modify the pod status; in real world its a 2 part process
 			pod.Status = corev1.PodStatus{}
-			newPod := pc.Create(p)
+			newPod := pc.Create(pod)
 			if markReady {
 				setPodReady(newPod)
 			}
