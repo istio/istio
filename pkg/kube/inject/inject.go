@@ -103,6 +103,7 @@ type SidecarTemplateData struct {
 	Values         map[string]any
 	Revision       string
 	ProxyImage     string
+	MeshID         string
 }
 
 type (
@@ -403,6 +404,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		Values:         params.valuesConfig.asMap,
 		Revision:       params.revision,
 		ProxyImage:     ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		MeshID:         params.meshID,
 	}
 
 	mergedPod = params.pod

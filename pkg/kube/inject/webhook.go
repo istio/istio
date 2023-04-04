@@ -108,6 +108,7 @@ type Webhook struct {
 
 	env      *model.Environment
 	revision string
+	meshID   string
 }
 
 func (wh *Webhook) GetConfig() WebhookConfig {
@@ -176,6 +177,9 @@ type WebhookParameters struct {
 
 	// The istio.io/rev this injector is responsible for
 	Revision string
+
+	// MeshID is used to inject istio.io/meshID
+	MeshID string
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -189,6 +193,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		meshConfig: p.Env.Mesh(),
 		env:        p.Env,
 		revision:   p.Revision,
+		meshID:     p.MeshID,
 	}
 
 	mc := NewMulticast(p.Watcher, wh.GetConfig)
@@ -343,6 +348,7 @@ type InjectionParameters struct {
 	revision            string
 	proxyEnvs           map[string]string
 	injectedAnnotations map[string]string
+	meshID              string
 }
 
 func checkPreconditions(params InjectionParameters) {
@@ -1008,6 +1014,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
+		meshID:              wh.meshID,
 	}
 	wh.mu.RUnlock()
 

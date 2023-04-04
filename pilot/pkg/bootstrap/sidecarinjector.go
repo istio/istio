@@ -80,6 +80,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		Env:      s.environment,
 		Mux:      s.httpsMux,
 		Revision: args.Revision,
+		MeshID:   args.MeshID,
 	}
 
 	wh, err := inject.NewWebhook(parameters)

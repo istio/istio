@@ -63,6 +63,7 @@ type PilotArgs struct {
 	KeepaliveOptions   *keepalive.Options
 	ShutdownDuration   time.Duration
 	JwtRule            string
+	MeshID             string
 }
 
 // DiscoveryServerOptions contains options for create a new discovery server instance.
@@ -115,6 +116,7 @@ var (
 	PodName      = env.Register("POD_NAME", "", "").Get()
 	JwtRule      = env.Register("JWT_RULE", "",
 		"The JWT rule used by istiod authentication").Get()
+	MeshID = env.Register("MESH_ID", "", "").Get()
 )
 
 // Revision is the value of the Istio control plane revision, e.g. "canary",
@@ -142,6 +144,7 @@ func (p *PilotArgs) applyDefaults() {
 	p.PodName = PodName
 	p.Revision = Revision
 	p.JwtRule = JwtRule
+	p.MeshID = MeshID
 	p.KeepaliveOptions = keepalive.DefaultOption()
 	p.RegistryOptions.DistributionTrackingEnabled = features.EnableDistributionTracking
 	p.RegistryOptions.DistributionCacheRetention = features.DistributionHistoryRetention

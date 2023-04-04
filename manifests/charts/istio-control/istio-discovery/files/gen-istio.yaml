@@ -2275,6 +2275,8 @@ spec:
             valueFrom:
               resourceFieldRef:
                 resource: limits.memory
+          - name: MESH_ID
+            value: "default"
           resources:
             requests:
               cpu: 500m

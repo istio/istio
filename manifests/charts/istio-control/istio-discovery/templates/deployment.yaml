@@ -172,6 +172,8 @@ spec:
             valueFrom:
               resourceFieldRef:
                 resource: limits.memory
+          - name: MESH_ID
+            value: "{{ .Values.global.meshID | default `default` }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
