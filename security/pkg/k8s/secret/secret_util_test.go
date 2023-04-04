@@ -80,9 +80,21 @@ func TestBuildSecret(t *testing.T) {
 	namespace := "default"
 	secretType := "secret-type"
 	scrtName := "istio-ca-secret"
-
-	caSecret := BuildSecret(scrtName, namespace,
-		nil, nil, nil, CertPem, KeyPem, v1.SecretType(secretType))
+	var (
+		caCertID       = "ca-cert.pem"
+		caPrivateKeyID = "ca-key.pem"
+		certChainID    = "cert-chain.pem"
+		privateKeyID   = "key.pem"
+		rootCertID     = "root-cert.pem"
+	)
+	secretData := map[string][]byte{
+		certChainID:    nil,
+		privateKeyID:   nil,
+		rootCertID:     nil,
+		caCertID:       CertPem,
+		caPrivateKeyID: KeyPem,
+	}
+	caSecret := BuildSecret(scrtName, namespace, secretData, v1.SecretType(secretType))
 	if caSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", caSecret)
 	}
@@ -98,9 +110,14 @@ func TestBuildSecret(t *testing.T) {
 	if !bytes.Equal(caSecret.Data[caPrivateKeyID], KeyPem) {
 		t.Fatalf("CA cert does not match, want %v got %v", KeyPem, caSecret.Data[caPrivateKeyID])
 	}
-
-	serverSecret := BuildSecret(scrtName, namespace,
-		CertPem, KeyPem, nil, nil, nil, v1.SecretType(secretType))
+	secretData2 := map[string][]byte{
+		certChainID:    CertPem,
+		privateKeyID:   KeyPem,
+		rootCertID:     nil,
+		caCertID:       nil,
+		caPrivateKeyID: nil,
+	}
+	serverSecret := BuildSecret(scrtName, namespace, secretData2, v1.SecretType(secretType))
 	if serverSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", serverSecret)
 	}

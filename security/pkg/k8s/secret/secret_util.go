@@ -19,33 +19,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// TODO: reuse that defined in security/pkg/pki/ca/ca.go
-
-	// caCertID is the CA certificate chain file.
-	caCertID = "ca-cert.pem"
-	// caPrivateKeyID is the private key file of CA.
-	caPrivateKeyID = "ca-key.pem"
-	// certChainID is the ID/name for the certificate chain file.
-	certChainID = "cert-chain.pem"
-	// privateKeyID is the ID/name for the private key file.
-	privateKeyID = "key.pem"
-	// rootCertID is the ID/name for the CA root certificate file.
-	rootCertID = "root-cert.pem"
-)
-
 // BuildSecret returns a secret struct, contents of which are filled with parameters passed in.
-func BuildSecret(scrtName, namespace string, certChain, privateKey, rootCert, caCert, caPrivateKey []byte, secretType v1.SecretType) *v1.Secret {
+func BuildSecret(name, namespace string, data map[string][]byte, secretType v1.SecretType) *v1.Secret {
 	return &v1.Secret{
-		Data: map[string][]byte{
-			certChainID:    certChain,
-			privateKeyID:   privateKey,
-			rootCertID:     rootCert,
-			caCertID:       caCert,
-			caPrivateKeyID: caPrivateKey,
-		},
+		Data: data,
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      scrtName,
+			Name:      name,
 			Namespace: namespace,
 		},
 		Type: secretType,

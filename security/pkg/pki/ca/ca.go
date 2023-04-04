@@ -179,9 +179,15 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
 				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 			}
-
-			// Write the key/cert back to secret so they will be persistent when CA restarts.
-			secret := k8ssecret.BuildSecret(CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
+			secretData := map[string][]byte{
+				CertChainFile:    nil,
+				PrivateKeyFile:   nil,
+				RootCertFile:     nil,
+				CACertFile:       pemCert,
+				CAPrivateKeyFile: pemKey,
+			}
+			// Write the key/cert back to secret, so they will be persistent when CA restarts.
+			secret := k8ssecret.BuildSecret(CASecret, namespace, secretData, istioCASecretType)
 			if _, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 				pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 				return fmt.Errorf("failed to create CA due to secret write error")

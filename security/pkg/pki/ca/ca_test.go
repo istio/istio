@@ -159,8 +159,14 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	signingKeyPem := []byte(key1Pem)
 
 	client := fake.NewSimpleClientset()
-	initSecret := k8ssecret.BuildSecret(CASecret, "default",
-		nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
+	secretData := map[string][]byte{
+		CertChainFile:    nil,
+		PrivateKeyFile:   nil,
+		RootCertFile:     nil,
+		CACertFile:       signingCertPem,
+		CAPrivateKeyFile: signingKeyPem,
+	}
+	initSecret := k8ssecret.BuildSecret(CASecret, "default", secretData, istioCASecretType)
 	_, err := client.CoreV1().Secrets("default").Create(context.TODO(), initSecret, metav1.CreateOptions{})
 	if err != nil {
 		t.Errorf("Failed to create secret (error: %s)", err)
