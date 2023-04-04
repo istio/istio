@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 type TestCached[T controllers.Object] struct {
@@ -71,5 +72,20 @@ func Wrap[T controllers.Object](t test.Failer, c kclient.Client[T]) TestCached[T
 	return TestCached[T]{
 		c: c,
 		t: t,
+	}
+}
+
+// TrackerHandler returns an object handler that records each event
+func TrackerHandler(tracker *assert.Tracker[string]) controllers.EventHandler[controllers.Object] {
+	return controllers.EventHandler[controllers.Object]{
+		AddFunc: func(obj controllers.Object) {
+			tracker.Record("add/" + obj.GetName())
+		},
+		UpdateFunc: func(oldObj, newObj controllers.Object) {
+			tracker.Record("update/" + newObj.GetName())
+		},
+		DeleteFunc: func(obj controllers.Object) {
+			tracker.Record("delete/" + obj.GetName())
+		},
 	}
 }

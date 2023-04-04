@@ -60,13 +60,16 @@ func Equal[T any](t test.Failer, a, b T, context ...string) {
 func EventuallyEqual[T any](t test.Failer, fetchA func() T, b T, opts ...retry.Option) {
 	t.Helper()
 	var a T
+	// Unit tests typically need shorter default; opts can override though
+	ro := []retry.Option{retry.Timeout(time.Second * 2)}
+	ro = append(ro, opts...)
 	err := retry.UntilSuccess(func() error {
 		a = fetchA()
 		if !cmp.Equal(a, b, cmpOpts...) {
 			return fmt.Errorf("not equal")
 		}
 		return nil
-	}, opts...)
+	}, ro...)
 	if err != nil {
 		t.Fatalf("found diff: %v\nLeft: %v\nRight: %v", cmp.Diff(a, b, cmpOpts...), a, b)
 	}
