@@ -25,13 +25,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
 	ebpf "istio.io/istio/cni/pkg/ebpf/server"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/lazy"
 )
 
@@ -40,8 +40,8 @@ type Server struct {
 	ctx        context.Context
 	queue      controllers.Queue
 
-	nsLister  listerv1.NamespaceLister
-	podLister listerv1.PodLister
+	namespaces kclient.Client[*corev1.Namespace]
+	pods       kclient.Client[*corev1.Pod]
 
 	mu         sync.Mutex
 	ztunnelPod *corev1.Pod
@@ -67,12 +67,13 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		kubeClient: client,
 	}
 
+	s.iptablesCommand = lazy.New(func() (string, error) {
+		return s.detectIptablesCommand(), nil
+	})
+
 	switch args.RedirectMode {
 	case IptablesMode:
 		s.redirectMode = IptablesMode
-		s.iptablesCommand = lazy.New(func() (string, error) {
-			return s.detectIptablesCommand(), nil
-		})
 		// We need to find our Host IP -- is there a better way to do this?
 		h, err := GetHostIP(s.kubeClient.Kube())
 		if err != nil || h == "" {
@@ -83,6 +84,7 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	case EbpfMode:
 		s.redirectMode = EbpfMode
 		s.ebpfServer = ebpf.NewRedirectServer()
+		s.ebpfServer.SetLogLevel(args.LogLevel)
 		s.ebpfServer.Start(ctx.Done())
 	}
 
@@ -110,7 +112,7 @@ func buildKubeClient(kubeConfig string) (kube.Client, error) {
 		return nil, fmt.Errorf("failed creating kube config: %v", err)
 	}
 
-	client, err := kube.NewClient(kube.NewClientConfigForRestConfig(kubeRestConfig))
+	client, err := kube.NewClient(kube.NewClientConfigForRestConfig(kubeRestConfig), "")
 	if err != nil {
 		return nil, fmt.Errorf("failed creating kube client: %v", err)
 	}
@@ -145,13 +147,10 @@ func (s *Server) UpdateConfig() {
 	log.Debug("Done")
 }
 
-var ztunnelLabels = labels.SelectorFromValidatedSet(labels.Set{"app": "ztunnel"})
+var ztunnelLabels = labels.ValidatedSetSelector(labels.Set{"app": "ztunnel"})
 
 func (s *Server) ReconcileZtunnel() error {
-	pods, err := s.podLister.Pods(metav1.NamespaceAll).List(ztunnelLabels)
-	if err != nil {
-		return err
-	}
+	pods := s.pods.List(metav1.NamespaceAll, ztunnelLabels)
 	var activePod *corev1.Pod
 	for _, p := range pods {
 		ready := kube.CheckPodReady(p) == nil
@@ -215,7 +214,7 @@ func (s *Server) ReconcileZtunnel() error {
 		if err != nil {
 			return fmt.Errorf("failed to get ns name: %v", err)
 		}
-		hostIP, err := GetHostIPByRoute(s.podLister)
+		hostIP, err := GetHostIPByRoute(s.pods)
 		if err != nil || hostIP == "" {
 			log.Warnf("failed to getting host IP: %v", err)
 		}
@@ -229,7 +228,7 @@ func (s *Server) ReconcileZtunnel() error {
 			return fmt.Errorf("failed to configure node for ztunnel: %v", err)
 		}
 	case EbpfMode:
-		h, err := GetHostIPByRoute(s.podLister)
+		h, err := GetHostIPByRoute(s.pods)
 		if err != nil || h == "" {
 			log.Warnf("failed to getting host IP: %v", err)
 		} else if HostIP != h {

@@ -30,6 +30,7 @@ import (
 	"golang.org/x/exp/slices"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -120,7 +121,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
-	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
+	proxy *model.Proxy, mesh *meshconfig.MeshConfig, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
 ) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
@@ -191,18 +192,48 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		}
 	}
 
-	// Set TLS parameters if they are non-default
-	if len(serverTLSSettings.CipherSuites) > 0 ||
-		serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
-		serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
-		ctx.CommonTlsContext.TlsParams = &auth.TlsParameters{
-			TlsMinimumProtocolVersion: convertTLSProtocol(serverTLSSettings.MinProtocolVersion),
-			TlsMaximumProtocolVersion: convertTLSProtocol(serverTLSSettings.MaxProtocolVersion),
-			CipherSuites:              serverTLSSettings.CipherSuites,
-		}
+	if isSimpleOrMutual(serverTLSSettings.Mode) {
+		// If Mesh TLSDefaults are set, use them.
+		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
+		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
+	}
+	return ctx
+}
+
+func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ctx *auth.CommonTlsContext) {
+	if tlsDefaults == nil {
+		return
 	}
 
-	return ctx
+	if len(tlsDefaults.EcdhCurves) > 0 {
+		tlsParamsOrNew(ctx).EcdhCurves = tlsDefaults.EcdhCurves
+	}
+	if tlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(tlsDefaults.MinProtocolVersion)
+	}
+}
+
+func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx *auth.CommonTlsContext) {
+	if serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = convertTLSProtocol(serverTLSSettings.MinProtocolVersion)
+	}
+	if len(serverTLSSettings.CipherSuites) > 0 {
+		tlsParamsOrNew(ctx).CipherSuites = serverTLSSettings.CipherSuites
+	}
+	if serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMaximumProtocolVersion = convertTLSProtocol(serverTLSSettings.MaxProtocolVersion)
+	}
+}
+
+func isSimpleOrMutual(mode networking.ServerTLSSettings_TLSmode) bool {
+	return mode == networking.ServerTLSSettings_SIMPLE || mode == networking.ServerTLSSettings_MUTUAL
+}
+
+func tlsParamsOrNew(tlsContext *auth.CommonTlsContext) *auth.TlsParameters {
+	if tlsContext.TlsParams == nil {
+		tlsContext.TlsParams = &auth.TlsParameters{}
+	}
+	return tlsContext.TlsParams
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies

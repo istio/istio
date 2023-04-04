@@ -20,7 +20,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -421,6 +420,7 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-ns"},
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-not-ns"},
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-not-ns"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy test-ambient/no-workload"},
 		},
 	},
 	{
@@ -704,6 +704,12 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "EnvoyFilterFilterChainMatch",
+		inputFiles: []string{"testdata/envoy-filter-filterchain.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "EnvoyFilterUsesAbsoluteOperation",
 		inputFiles: []string{"testdata/absolute-envoy-filter-operation.yaml"},
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
@@ -779,6 +785,15 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-2"},
 			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-1"},
+		},
+	},
+	{
+		name:           "Telemetry Lightstep",
+		inputFiles:     []string{"testdata/telemetry-lightstep.yaml"},
+		analyzer:       &telemetry.LightstepAnalyzer{},
+		meshConfigFile: "testdata/telemetry-lightstep-meshconfig.yaml",
+		expected: []message{
+			{msg.Deprecated, "Telemetry istio-system/mesh-default"},
 		},
 	},
 }
@@ -899,7 +914,7 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 }
 
 func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.IstiodAnalyzer, error) {
-	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
+	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr)
 
 	// If a mesh config file is specified, use it instead of the defaults
 	if tc.meshConfigFile != "" {

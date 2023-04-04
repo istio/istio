@@ -30,7 +30,18 @@ resources:
     version: "v1"
     clusterScoped: true
     builtin: true
+    specless: true
     proto: "k8s.io.api.admissionregistration.v1.MutatingWebhookConfiguration"
+    protoPackage: "k8s.io/api/admissionregistration/v1"
+
+  - kind: "ValidatingWebhookConfiguration"
+    plural: "validatingwebhookconfigurations"
+    group: "admissionregistration.k8s.io"
+    version: "v1"
+    clusterScoped: true
+    builtin: true
+    specless: true
+    proto: "k8s.io.api.admissionregistration.v1.ValidatingWebhookConfiguration"
     protoPackage: "k8s.io/api/admissionregistration/v1"
 
   - kind: "Deployment"
@@ -45,8 +56,17 @@ resources:
     plural: "endpoints"
     version: "v1"
     builtin: true
+    specless: true
     proto: "k8s.io.api.core.v1.Endpoints"
     protoPackage: "k8s.io/api/core/v1"
+
+  - kind: "EndpointSlice"
+    plural: "endpointslices"
+    version: "v1"
+    builtin: true
+    specless: true
+    proto: "k8s.io.api.discovery.v1.EndpointSlice"
+    protoPackage: "k8s.io/api/discovery/v1"
 
   - kind: "Namespace"
     plural: "namespaces"
@@ -75,6 +95,7 @@ resources:
     plural: "secrets"
     version: "v1"
     builtin: true
+    specless: true
     proto: "k8s.io.api.core.v1.Secret"
     protoPackage: "k8s.io/api/core/v1"
 
@@ -89,6 +110,7 @@ resources:
     plural: "configmaps"
     version: "v1"
     builtin: true
+    specless: true
     proto: "k8s.io.api.core.v1.ConfigMap"
     protoPackage: "k8s.io/api/core/v1"
 
@@ -96,8 +118,20 @@ resources:
     plural: "serviceaccounts"
     version: "v1"
     builtin: true
+    specless: true
     proto: "k8s.io.api.core.v1.ServiceAccount"
     protoPackage: "k8s.io/api/core/v1"
+
+  - kind: "CertificateSigningRequest"
+    plural: "certificatesigningrequests"
+    group: "certificates.k8s.io"
+    version: "v1"
+    builtin: true
+    clusterScoped: true
+    proto: "k8s.io.api.certificates.v1.CertificateSigningRequestSpec"
+    protoPackage: "k8s.io/api/certificates/v1"
+    statusProto: "k8s.io.api.certificates.v1.CertificateSigningRequestStatus"
+    statusProtoPackage: "k8s.io/api/certificates/v1"
 
   - kind: "Ingress"
     plural: "ingresses"
@@ -108,6 +142,15 @@ resources:
     protoPackage: "k8s.io/api/networking/v1"
     statusProto: "k8s.io.api.networking.v1.IngressStatus"
     statusProtoPackage: "k8s.io/api/networking/v1"
+
+  - kind: "IngressClass"
+    plural: "ingressclasses"
+    group: "networking.k8s.io"
+    version: "v1"
+    builtin: true
+    clusterScoped: true
+    proto: "k8s.io.api.networking.v1.IngressClassSpec"
+    protoPackage: "k8s.io/api/networking/v1"
 
   - kind: "GatewayClass"
     plural: "gatewayclasses"
@@ -290,6 +333,7 @@ resources:
     version: "v1alpha1"
     proto: "istio.mesh.v1alpha1.MeshConfig"
     protoPackage: "istio.io/api/mesh/v1alpha1"
+    synthetic: true
 
   - kind: "MeshNetworks"
     plural: "meshnetworks"
@@ -297,6 +341,7 @@ resources:
     version: "v1alpha1"
     proto: "istio.mesh.v1alpha1.MeshNetworks"
     protoPackage: "istio.io/api/mesh/v1alpha1"
+    synthetic: true
 
   - kind: AuthorizationPolicy
     plural: "authorizationpolicies"

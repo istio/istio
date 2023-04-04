@@ -44,6 +44,7 @@ spec:
         operator.istio.io/component: "EgressGateways"
         sidecar.istio.io/inject: "false"
       annotations:
+        istio.io/rev: {{ .Values.revision | default "default" }}
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
@@ -186,6 +187,10 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.hostIP
+          - name: ISTIO_CPU_LIMIT
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.cpu
           - name: SERVICE_ACCOUNT
             valueFrom:
               fieldRef:

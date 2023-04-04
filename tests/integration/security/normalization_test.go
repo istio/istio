@@ -234,7 +234,7 @@ pathNormalization:
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							for _, expected := range tt.expectations {
 								expected := expected
-								t.NewSubTest(expected.in).RunParallel(func(t framework.TestContext) {
+								t.NewSubTest(expected.in).Run(func(t framework.TestContext) {
 									checker := check.URL(expected.out)
 									if expected.out == "400" {
 										checker = check.Status(http.StatusBadRequest)

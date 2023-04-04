@@ -15,16 +15,14 @@
 package k8s
 
 import (
-	"context"
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 // InsertDataToConfigMap inserts a data to a configmap in a namespace.
@@ -32,12 +30,9 @@ import (
 // lister: the configmap lister.
 // meta: the metadata of configmap.
 // caBundle: ca cert data bytes.
-func InsertDataToConfigMap(client corev1.ConfigMapsGetter, lister listerv1.ConfigMapLister, meta metav1.ObjectMeta, caBundle []byte) error {
-	configmap, err := lister.ConfigMaps(meta.Namespace).Get(meta.Name)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("error when getting configmap %v: %v", meta.Name, err)
-	}
-	if errors.IsNotFound(err) {
+func InsertDataToConfigMap(client kclient.Client[*v1.ConfigMap], meta metav1.ObjectMeta, caBundle []byte) error {
+	configmap := client.Get(meta.Name, meta.Namespace)
+	if configmap == nil {
 		// Create a new ConfigMap.
 		configmap = &v1.ConfigMap{
 			ObjectMeta: meta,
@@ -45,7 +40,7 @@ func InsertDataToConfigMap(client corev1.ConfigMapsGetter, lister listerv1.Confi
 				constants.CACertNamespaceConfigMapDataName: string(caBundle),
 			},
 		}
-		if _, err = client.ConfigMaps(meta.Namespace).Create(context.TODO(), configmap, metav1.CreateOptions{}); err != nil {
+		if _, err := client.Create(configmap); err != nil {
 			// Namespace may be deleted between now... and our previous check. Just skip this, we cannot create into deleted ns
 			// And don't retry a create if the namespace is terminating
 			if errors.IsAlreadyExists(err) || errors.HasStatusCause(err, v1.NamespaceTerminatingCause) {
@@ -79,7 +74,7 @@ func insertData(cm *v1.ConfigMap, data map[string]string) bool {
 	return needsUpdate
 }
 
-func updateDataInConfigMap(client corev1.ConfigMapsGetter, cm *v1.ConfigMap, caBundle []byte) error {
+func updateDataInConfigMap(c kclient.Client[*v1.ConfigMap], cm *v1.ConfigMap, caBundle []byte) error {
 	if cm == nil {
 		return fmt.Errorf("cannot update nil configmap")
 	}
@@ -90,7 +85,7 @@ func updateDataInConfigMap(client corev1.ConfigMapsGetter, cm *v1.ConfigMap, caB
 	if needsUpdate := insertData(newCm, data); !needsUpdate {
 		return nil
 	}
-	if _, err := client.ConfigMaps(newCm.Namespace).Update(context.TODO(), newCm, metav1.UpdateOptions{}); err != nil {
+	if _, err := c.Update(newCm); err != nil {
 		return fmt.Errorf("error when updating configmap %v: %v", cm.Name, err)
 	}
 	return nil

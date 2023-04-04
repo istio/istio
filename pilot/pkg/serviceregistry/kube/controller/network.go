@@ -19,6 +19,7 @@ import (
 	"strconv"
 
 	"github.com/yl2chen/cidranger"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
@@ -74,7 +75,7 @@ func (c *Controller) onDefaultNetworkChange() {
 	if err := c.syncPods(); err != nil {
 		log.Errorf("one or more errors force-syncing pods: %v", err)
 	}
-	if err := c.syncEndpoints(); err != nil {
+	if err := c.endpoints.sync("", metav1.NamespaceAll, model.EventAdd, true); err != nil {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
 	c.reloadNetworkGateways()

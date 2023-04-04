@@ -499,7 +499,7 @@ var (
 
 	SpiffeBundleEndpoints = env.Register("SPIFFE_BUNDLE_ENDPOINTS", "",
 		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+
-			"bundle endpoint and uses it to verify client certifiates from that trust domain. The endpoint must be "+
+			"bundle endpoint and uses it to verify client certificates from that trust domain. The endpoint must be "+
 			"compliant to the SPIFFE Bundle Endpoint standard. For details, please refer to "+
 			"https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md . "+
 			"No need to configure this for root certificates issued via Istiod or web-PKI based root certificates. "+
@@ -622,10 +622,6 @@ var (
 		false,
 		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
 
-	StripHostPort = env.Register("ISTIO_GATEWAY_STRIP_HOST_PORT", false,
-		"If enabled, Gateway will remove any port from host/authority header "+
-			"before any processing of request by HTTP filters or routing. Deprecated: in Istio 1.15+ port is ignored in domain matching.").Get()
-
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
 	EnableUnsafeAssertions = env.Register(
@@ -689,7 +685,7 @@ var (
 
 	AutoReloadPluginCerts = env.Register(
 		"AUTO_RELOAD_PLUGIN_CERTS",
-		false,
+		true,
 		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart istiod to pick up certs."+
 			"Istiod picks newly added intermediate plug-in CA certs and updates it. Plug-in new Root-CA not supported.").Get()
 
@@ -759,6 +755,10 @@ var (
 
 	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
 		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
+
+	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
+		"If set, limit Kubernetes watches to a single namespace. "+
+			"Warning: only a single namespace can be set.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

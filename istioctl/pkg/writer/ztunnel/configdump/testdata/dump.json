@@ -1,0 +1,397 @@
+{
+  "workloads": {
+    "10.244.2.2": {
+      "workloadIp": "10.244.2.2",
+      "waypointAddresses": [],
+      "gatewayAddress": null,
+      "protocol": "TCP",
+      "name": "ztunnel-g6wcv",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "ztunnel",
+      "workloadName": "ztunnel-g6wcv",
+      "workloadType": "pod",
+      "canonicalName": "ztunnel",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
+      "nativeHbone": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "10.244.0.5": {
+      "workloadIp": "10.244.0.5",
+      "waypointAddresses": [],
+      "gatewayAddress": null,
+      "protocol": "TCP",
+      "name": "ztunnel-5wdpw",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "ztunnel",
+      "workloadName": "ztunnel-5wdpw",
+      "workloadType": "pod",
+      "canonicalName": "ztunnel",
+      "canonicalRevision": "latest",
+      "node": "ambient-control-plane",
+      "nativeHbone": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "10.244.0.2": {
+      "workloadIp": "10.244.0.2",
+      "waypointAddresses": [],
+      "gatewayAddress": null,
+      "protocol": "TCP",
+      "name": "local-path-provisioner-684f458cdd-nj6mr",
+      "namespace": "local-path-storage",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "local-path-provisioner-service-account",
+      "workloadName": "local-path-provisioner",
+      "workloadType": "deployment",
+      "canonicalName": "local-path-provisioner",
+      "canonicalRevision": "latest",
+      "node": "ambient-control-plane",
+      "nativeHbone": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "10.244.1.2": {
+      "workloadIp": "10.244.1.2",
+      "waypointAddresses": [],
+      "gatewayAddress": null,
+      "protocol": "TCP",
+      "name": "istiod-cb5bccc75-rgq7p",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "istiod",
+      "workloadName": "istiod",
+      "workloadType": "deployment",
+      "canonicalName": "istiod",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker",
+      "nativeHbone": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "10.244.2.4": {
+      "workloadIp": "10.244.2.4",
+      "waypointAddresses": [],
+      "gatewayAddress": null,
+      "protocol": "HBONE",
+      "name": "httpbin-797587ddc5-r54l8",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "httpbin",
+      "workloadName": "httpbin",
+      "workloadType": "deployment",
+      "canonicalName": "httpbin",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeHbone": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "10.244.0.4": {
+      "workloadIp": "10.244.0.4",
+      "waypointAddresses": [],
+      "gatewayAddress": null,
+      "protocol": "TCP",
+      "name": "coredns-565d847f94-jmf7c",
+      "namespace": "kube-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "coredns",
+      "workloadName": "coredns",
+      "workloadType": "deployment",
+      "canonicalName": "coredns",
+      "canonicalRevision": "latest",
+      "node": "ambient-control-plane",
+      "nativeHbone": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "10.244.2.3": {
+      "workloadIp": "10.244.2.3",
+      "waypointAddresses": [],
+      "gatewayAddress": null,
+      "protocol": "TCP",
+      "name": "istio-ingressgateway-7fd97bd49-gzplk",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "istio-ingressgateway-service-account",
+      "workloadName": "istio-ingressgateway",
+      "workloadType": "deployment",
+      "canonicalName": "istio-ingressgateway",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
+      "nativeHbone": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "10.244.0.3": {
+      "workloadIp": "10.244.0.3",
+      "waypointAddresses": [],
+      "gatewayAddress": null,
+      "protocol": "TCP",
+      "name": "coredns-565d847f94-6x4ms",
+      "namespace": "kube-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "coredns",
+      "workloadName": "coredns",
+      "workloadType": "deployment",
+      "canonicalName": "coredns",
+      "canonicalRevision": "latest",
+      "node": "ambient-control-plane",
+      "nativeHbone": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "10.244.1.3": {
+      "workloadIp": "10.244.1.3",
+      "waypointAddresses": [],
+      "gatewayAddress": null,
+      "protocol": "TCP",
+      "name": "ztunnel-57zcs",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "ztunnel",
+      "workloadName": "ztunnel-57zcs",
+      "workloadType": "pod",
+      "canonicalName": "ztunnel",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker",
+      "nativeHbone": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    }
+  },
+  "workload_to_vip": {
+    "10.244.2.3": [
+      [
+        "10.96.73.38:80",
+        8080
+      ],
+      [
+        "10.96.73.38:443",
+        8443
+      ],
+      [
+        "10.96.73.38:15021",
+        15021
+      ]
+    ],
+    "10.244.0.4": [
+      [
+        "10.96.0.10:53",
+        53
+      ],
+      [
+        "10.96.0.10:9153",
+        9153
+      ]
+    ],
+    "10.244.2.4": [
+      [
+        "10.96.131.224:8000",
+        80
+      ]
+    ],
+    "10.244.0.3": [
+      [
+        "10.96.0.10:53",
+        53
+      ],
+      [
+        "10.96.0.10:9153",
+        9153
+      ]
+    ],
+    "10.244.1.2": [
+      [
+        "10.96.227.54:15012",
+        15012
+      ],
+      [
+        "10.96.227.54:443",
+        15017
+      ],
+      [
+        "10.96.227.54:15010",
+        15010
+      ],
+      [
+        "10.96.227.54:15014",
+        15014
+      ]
+    ]
+  },
+  "vips": {
+    "10.96.73.38:443": [
+      [
+        "10.244.2.3",
+        8443
+      ]
+    ],
+    "10.96.73.38:15021": [
+      [
+        "10.244.2.3",
+        15021
+      ]
+    ],
+    "10.96.227.54:15010": [
+      [
+        "10.244.1.2",
+        15010
+      ]
+    ],
+    "10.96.131.224:8000": [
+      [
+        "10.244.2.4",
+        80
+      ]
+    ],
+    "10.96.227.54:15014": [
+      [
+        "10.244.1.2",
+        15014
+      ]
+    ],
+    "10.96.0.10:53": [
+      [
+        "10.244.0.4",
+        53
+      ],
+      [
+        "10.244.0.3",
+        53
+      ]
+    ],
+    "10.96.227.54:15012": [
+      [
+        "10.244.1.2",
+        15012
+      ]
+    ],
+    "10.96.227.54:443": [
+      [
+        "10.244.1.2",
+        15017
+      ]
+    ],
+    "10.96.73.38:80": [
+      [
+        "10.244.2.3",
+        8080
+      ]
+    ],
+    "10.96.0.10:9153": [
+      [
+        "10.244.0.3",
+        9153
+      ],
+      [
+        "10.244.0.4",
+        9153
+      ]
+    ]
+  },
+  "policies": {},
+  "policies_by_namespace": {},
+  "proxy_mode": "Shared",
+  "local_node": "ambient-worker",
+  "static_config": {
+    "workloads": [],
+    "policies": []
+  },
+  "version": {
+    "version": "dc75c58af9dfd7620e2413875d6bc423607c2c80-dirty",
+    "git_revision": "dc75c58af9dfd7620e2413875d6bc423607c2c80-dirty",
+    "rust_version": "1.66.0",
+    "build_status": "Modified",
+    "git_tag": "dc75c58",
+    "istio_version": "unknown"
+  },
+  "config": {
+    "window_size": 4194304,
+    "connection_window_size": 4194304,
+    "frame_size": 1048576,
+    "socks5_addr": "127.0.0.1:15080",
+    "admin_addr": "127.0.0.1:15000",
+    "stats_addr": "[::]:15020",
+    "readiness_addr": "[::]:15021",
+    "inbound_addr": "[::]:15008",
+    "inbound_plaintext_addr": "[::]:15006",
+    "outbound_addr": "[::]:15001",
+    "local_node": "ambient-worker",
+    "proxy_mode": "Shared",
+    "local_ip": "10.244.1.3",
+    "cluster_id": "Kubernetes",
+    "ca_address": "https://istiod.istio-system.svc:15012",
+    "ca_root_cert": {
+      "File": "./var/run/secrets/istio/root-cert.pem"
+    },
+    "xds_address": "https://istiod.istio-system.svc:15012",
+    "xds_root_cert": {
+      "File": "./var/run/secrets/istio/root-cert.pem"
+    },
+    "xds_on_demand": false,
+    "fake_ca": false,
+    "termination_grace_period": {
+      "secs": 5,
+      "nanos": 0
+    },
+    "proxy_metadata": {
+      "ISTIO_VERSION": "1.18-dev"
+    },
+    "num_worker_threads": 2,
+    "enable_original_source": null,
+    "proxy_args": "proxy ztunnel"
+  },
+  "certificates": [
+    {
+      "identity": "spiffe://cluster.local/ns/istio-system/sa/istiod",
+      "state": "Available",
+      "ca_cert": [
+        {
+          "pem": "-----BEGIN CERTIFICATE-----\nMIICejCCAWKgAwIBAgIRAOXftZFQsrp/EI2T3OxaphMwDQYJKoZIhvcNAQELBQAw\nGDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0yMzAzMjExMzAyNTdaFw0yMzAz\nMjIxMzA0NTdaMAAwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATYcNh2oplaXXcU\n775emfKiA5Ki9wyLTn/6ksy+PXvLvIcDwnf0XX/3bJ4CBxmFO8vBpFEhnklQUNzQ\nhrU5sj+8o4GhMIGeMA4GA1UdDwEB/wQEAwIFoDAdBgNVHSUEFjAUBggrBgEFBQcD\nAQYIKwYBBQUHAwIwDAYDVR0TAQH/BAIwADAfBgNVHSMEGDAWgBTHJv/TQ6E5U30B\nesYpAA6B2CXKcTA+BgNVHREBAf8ENDAyhjBzcGlmZmU6Ly9jbHVzdGVyLmxvY2Fs\nL25zL2lzdGlvLXN5c3RlbS9zYS9pc3Rpb2QwDQYJKoZIhvcNAQELBQADggEBAFmw\nUn8mk9cNs+qxMHZN6qdljeGAcm4kp0vdY7rFGeAvtSc5lOSwFtNZC9K8bDayJAVo\n9DFy1iVH41052lcJ6VOZHQkbpVHHD38Kxi6wb1Fn7JpOhf/AR31qURIGzPHl6YFS\nwpd29DlZ8pyaHNR+zj5LcKmsFiKV5bRBbYn+sRoqtput+0tFaK+0EMkRsQk8GkEP\nVI5xMlIS5HRJwZGxqqYOh/aDm1ldKUazL0ipGg+3YTzP2fYDgp0bCgtFxiUdQJca\nRvTRMp33vNQygdouKAzlmT1p8yAV9/LSL12dF1Ac/rot6kh/Ieo+5Wlg4ydijCTF\nYWFM1Eyc7UwLHP2Gkfk=\n-----END CERTIFICATE-----\n",
+          "serial_number": "305554775863395697262503895661564044819",
+          "valid_from": "2023-03-21T13:02:57Z",
+          "expiration_time": "2033-03-22T13:04:57Z"
+        }
+      ],
+      "cert_chain": [
+        {
+          "pem": "-----BEGIN CERTIFICATE-----\nMIIC/TCCAeWgAwIBAgIRAIpRZkXEDOdsLA0nq04kYcEwDQYJKoZIhvcNAQELBQAw\nGDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0yMzAzMjExMzA0NDlaFw0zMzAz\nMTgxMzA0NDlaMBgxFjAUBgNVBAoTDWNsdXN0ZXIubG9jYWwwggEiMA0GCSqGSIb3\nDQEBAQUAA4IBDwAwggEKAoIBAQC+DjsoK3KwPpPalDMYf5RlIwMoeX2nhWdqYLWW\nrRfXO9pyEySputmqoD8lqnqssJYvi3nerqJdXRjtZnJ6zYZ6Fc+QxldSpaHm4t56\nYxz0K22USMkSfEgu6PP/a5RZpPH9/LpJaSRPICXOP2GkAfF4djSUAFmRkC9XYgjX\nmk8ls01qKencIruEfSy3cTof8Uds2kyCiMOTqOvhyNKjAU3xeYJU8ztMA8k2AS0Z\nDSaf+qei6iVPTQkhqX8msBMaS1Y9kC8mYL5RchiYoknjL1xx3IxrmaIsD8qU1+In\n3GTvCD5w7+MgDKl58dHInPcFyGQSEo0nTokcWZ0p6KFvej3zAgMBAAGjQjBAMA4G\nA1UdDwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBTHJv/TQ6E5\nU30BesYpAA6B2CXKcTANBgkqhkiG9w0BAQsFAAOCAQEAh0tDT/aF0Z0GrGzshJUQ\nxtplY24pKnjcaZVyn9xfQP3S/907eNov+l4QiCV7J9ruH2ns9MJhxr88ilVfNKcl\nvPiAHBx+OnxnMYOupQQbEZ+F7uepfoRFKkQCOuh9YKoUNqd59RMl2N9mwIy1T18f\nh/7Ys6vTemPywiUYQ+USNKUfGS7Vuyi0br1XN0LzTmzk9aMaKQkpNnt5GYKwIDoC\nkxS1z5RNf9yOQVZuC1l3CajWvJS9XEm6N85tkFnSSkx+vJGljbR1NcIkhZfP9tA6\nqVGI7QfvPgIjeNsQWhlBqGRozHujMo1ekJVNN+cdbF7fUG2mIsrCx/707ZVKXSMj\nqg==\n-----END CERTIFICATE-----\n",
+          "serial_number": "183856113797057159350158029893417591233",
+          "valid_from": "2022-03-21T13:04:49Z",
+          "expiration_time": "2022-03-18T13:04:49Z"
+        }
+      ]
+    },
+    {
+      "identity": "spiffe://cluster.local/ns/istio-system/sa/ztunnel",
+      "state": "Initializing",
+      "ca_cert": [],
+      "cert_chain": []
+    },
+    {
+      "identity": "spiffe://cluster.local/ns/istio-system/sa/another-sa",
+      "state": "Unavailable: the identity is no longer needed",
+      "ca_cert": [],
+      "cert_chain": []
+    },
+    {
+      "identity": "spiffe://cluster.local/ns/istio-system/sa/istiod",
+      "state": "Unavailable: signing gRPC error (The service is currently unavailable): error trying to connect: TLS handshake failed: cert verification failed - unable to get local issuer certificate [CERTIFICATE_VERIFY_FAILED]",
+      "ca_cert": [],
+      "cert_chain": []
+    }
+  ]
+}

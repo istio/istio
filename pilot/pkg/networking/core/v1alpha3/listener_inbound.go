@@ -160,7 +160,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		},
 		Action: &route.Route_Route{Route: &route.RouteAction{
 			UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
-				UpgradeType:   "CONNECT",
+				UpgradeType:   ConnectUpgradeType,
 				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 			}},
 
@@ -225,7 +225,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 			cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
 			opts = getTLSFilterChainMatchOptions(lp)
-			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, istionetworking.TransportProtocolTCP, false)
+			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, lb.push.Mesh, istionetworking.TransportProtocolTCP, false)
 			mtls.HTTP = mtls.TCP
 		} else {
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
@@ -260,7 +260,7 @@ func (lb *ListenerBuilder) inboundVirtualListener(chains []*listener.FilterChain
 	// * Service filter chains. These will either be for each Port exposed by a Service OR Sidecar.Ingress configuration.
 	allChains := buildInboundPassthroughChains(lb)
 	allChains = append(allChains, chains...)
-	l := lb.buildInboundListener(model.VirtualInboundListenerName, actualWildcards, model.ProxyInboundListenPort, false, allChains)
+	l := lb.buildInboundListener(model.VirtualInboundListenerName, actualWildcards, uint32(lb.push.Mesh.ProxyInboundListenPort), false, allChains)
 	return l
 }
 
@@ -751,7 +751,7 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	return &listener.FilterChain{
 		Name: model.VirtualInboundBlackholeFilterChainName,
 		FilterChainMatch: &listener.FilterChainMatch{
-			DestinationPort: &wrappers.UInt32Value{Value: model.ProxyInboundListenPort},
+			DestinationPort: &wrappers.UInt32Value{Value: uint32(lb.push.Mesh.ProxyInboundListenPort)},
 		},
 		Filters: filters,
 	}

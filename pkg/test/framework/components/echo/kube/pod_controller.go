@@ -83,12 +83,12 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 
 func (c *podController) Run(stop <-chan struct{}) {
 	go c.informer.Run(stop)
-	kube.WaitForCacheSync(stop, c.HasSynced)
-	go c.q.Run(stop)
+	kube.WaitForCacheSync(stop, c.informer.HasSynced)
+	c.q.Run(stop)
 }
 
 func (c *podController) HasSynced() bool {
-	return c.informer.HasSynced()
+	return c.q.HasSynced()
 }
 
 func (c *podController) WaitForSync(stopCh <-chan struct{}) bool {

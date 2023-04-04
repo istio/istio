@@ -1114,6 +1114,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
+		applyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
+
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
@@ -1167,12 +1169,24 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
+		applyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
+
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 	}
 	return tlsContext, nil
+}
+
+// applyTLSDefaults applies tls default settings from mesh config to UpstreamTlsContext.
+func applyTLSDefaults(tlsContext *auth.UpstreamTlsContext, tlsDefaults *meshconfig.MeshConfig_TLSConfig) {
+	if tlsDefaults == nil {
+		return
+	}
+	if len(tlsDefaults.EcdhCurves) > 0 {
+		tlsContext.CommonTlsContext.TlsParams.EcdhCurves = tlsDefaults.EcdhCurves
+	}
 }
 
 // Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.

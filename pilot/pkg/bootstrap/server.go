@@ -67,7 +67,6 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
@@ -147,9 +146,8 @@ type Server struct {
 	cacertsWatcher *fsnotify.Watcher
 	dnsNames       []string
 
-	certController *chiron.WebhookController
-	CA             *ca.IstioCA
-	RA             ra.RegistrationAuthority
+	CA *ca.IstioCA
+	RA ra.RegistrationAuthority
 
 	// TrustAnchors for workload to workload mTLS
 	workloadTrustBundle     *tb.TrustBundle
@@ -281,6 +279,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	caOpts := &caOptions{
 		TrustDomain:      s.environment.Mesh().TrustDomain,
 		Namespace:        args.Namespace,
+		DiscoveryFilter:  args.RegistryOptions.KubeOptions.GetFilter(),
 		ExternalCAType:   ra.CaExternalType(externalCaType),
 		CertSignerDomain: features.CertSignerDomain,
 	}
@@ -565,7 +564,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(kubeRestConfig))
+		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(kubeRestConfig), args.RegistryOptions.KubeOptions.ClusterID)
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
@@ -620,6 +619,10 @@ func (s *Server) initServers(args *PilotArgs) {
 		ReadTimeout: 30 * time.Second,
 	}
 	if multiplexGRPC {
+		// To allow the gRPC handler to make per-request decision,
+		// use ReadHeaderTimeout instead of ReadTimeout.
+		s.httpServer.ReadTimeout = 0
+		s.httpServer.ReadHeaderTimeout = 30 * time.Second
 		s.httpServer.Handler = multiplexHandler
 	}
 
@@ -1138,11 +1141,6 @@ func (s *Server) initControllers(args *PilotArgs) error {
 
 	s.initSDSServer()
 
-	// Certificate controller is created before MCP controller in case MCP server pod
-	// waits to mount a certificate to be provisioned by the certificate controller.
-	if err := s.initCertController(args); err != nil {
-		return fmt.Errorf("error initializing certificate controller: %v", err)
-	}
 	if features.EnableEnhancedResourceScoping {
 		// setup namespace filter
 		args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter = s.multiclusterController.DiscoveryNamespacesFilter

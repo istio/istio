@@ -96,3 +96,59 @@ func TestReadLayeredYAMLs(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertIOPMapValues(t *testing.T) {
+	testDataDir := filepath.Join(env.IstioSrc, "operator/pkg/util/testdata/yaml")
+	tests := []struct {
+		name         string
+		inputFlags   []string
+		convertPaths []string
+	}{
+		{
+			name:         "convention_boolean",
+			convertPaths: defaultSetFlagConvertPaths,
+			inputFlags: []string{
+				"meshConfig.defaultConfig.proxyMetadata.ISTIO_AGENT_DUAL_STACK=false",
+				"meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_VIA_AGENT=false",
+			},
+		}, {
+			name:         "convention_integer",
+			convertPaths: defaultSetFlagConvertPaths,
+			inputFlags: []string{
+				"meshConfig.defaultConfig.proxyMetadata.ISTIO_MULTI_CLUSTERS=10",
+				"meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_LISTENERS=20",
+			},
+		}, {
+			name:         "convention_float",
+			convertPaths: defaultSetFlagConvertPaths,
+			inputFlags: []string{
+				"meshConfig.defaultConfig.proxyMetadata.PROXY_UPSTREAM_WEIGHT=0.85",
+				"meshConfig.defaultConfig.proxyMetadata.PROXY_DOWNSTREAM_WEIGHT=0.15",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inPath := filepath.Join(testDataDir, "input", tt.name+".yaml")
+			outPath := filepath.Join(testDataDir, "output", tt.name+".yaml")
+			input, err := os.ReadFile(inPath)
+			if err != nil {
+				t.Fatalf(err.Error())
+			}
+			actualOutput, err := convertIOPMapValues(string(input), tt.inputFlags, tt.convertPaths)
+			if err != nil {
+				t.Fatalf(err.Error())
+			}
+			expectOutput, err := os.ReadFile(outPath)
+			if err != nil {
+				t.Fatalf(err.Error())
+			}
+
+			diff := util.YAMLDiff(actualOutput, string(expectOutput))
+			if diff != "" {
+				t.Errorf("convertIOPMapValues() got:\n%s\nwant:\n%s\ndiff:\n%s", actualOutput, string(expectOutput), diff)
+			}
+		})
+	}
+}

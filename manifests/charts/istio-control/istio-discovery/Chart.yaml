@@ -11,6 +11,6 @@ keywords:
   - istiod
   - istio-discovery
 sources:
-  - http://github.com/istio/istio
+  - https://github.com/istio/istio
 engine: gotpl
 icon: https://istio.io/latest/favicons/android-192x192.png

@@ -38,7 +38,7 @@ SHELL := /bin/bash -o pipefail
 export VERSION ?= 1.18-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2023-02-28T19-01-32
+BASE_VERSION ?= master-2023-03-21T19-01-24
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -331,6 +331,7 @@ copy-templates:
 	cp manifests/charts/istio-control/istio-discovery/files/gateway-injection-template.yaml manifests/charts/istiod-remote/files
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/_helpers.tpl manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_*.yaml manifests/charts/istiod-remote/templates
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-all.gen.yaml > manifests/charts/istiod-remote/templates/crd-all.gen.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-operator.yaml > manifests/charts/istiod-remote/templates/crd-operator.yaml

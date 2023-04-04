@@ -97,7 +97,7 @@ type AuthenticationPolicies struct {
 
 // initAuthenticationPolicies creates a new AuthenticationPolicies struct and populates with the
 // authentication policies in the mesh environment.
-func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, error) {
+func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
 	policy := &AuthenticationPolicies{
 		requestAuthentications: map[string][]config.Config{},
 		peerAuthentications:    map[string][]config.Config{},
@@ -105,22 +105,10 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 		rootNamespace:          env.Mesh().GetRootNamespace(),
 	}
 
-	if configs, err := env.List(
-		gvk.RequestAuthentication, NamespaceAll); err == nil {
-		sortConfigByCreationTime(configs)
-		policy.addRequestAuthentication(configs)
-	} else {
-		return nil, err
-	}
+	policy.addRequestAuthentication(sortConfigByCreationTime(env.List(gvk.RequestAuthentication, NamespaceAll)))
+	policy.addPeerAuthentication(sortConfigByCreationTime(env.List(gvk.PeerAuthentication, NamespaceAll)))
 
-	if configs, err := env.List(
-		gvk.PeerAuthentication, NamespaceAll); err == nil {
-		policy.addPeerAuthentication(configs)
-	} else {
-		return nil, err
-	}
-
-	return policy, nil
+	return policy
 }
 
 func (policy *AuthenticationPolicies) addRequestAuthentication(configs []config.Config) {

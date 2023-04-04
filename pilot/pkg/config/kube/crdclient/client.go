@@ -24,14 +24,11 @@ package crdclient
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	jsonmerge "github.com/evanphx/json-patch/v5"
-	"github.com/hashicorp/go-multierror"
-	"go.uber.org/atomic"
 	"gomodules.xyz/jsonpatch/v3"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -43,10 +40,7 @@ import (
 	"k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
-	"k8s.io/client-go/tools/cache"
-	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -83,16 +77,6 @@ type Client struct {
 	// handlers defines a list of event handlers per-type
 	handlers map[config.GroupVersionKind][]model.EventHandler
 
-	// The istio/client-go client we will use to access objects
-	istioClient istioclient.Interface
-
-	// The gateway-api client we will use to access objects
-	gatewayAPIClient gatewayapiclient.Interface
-
-	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
-	beginSync *atomic.Bool
-	// initialSync is set to true after performing an initial processing of all objects.
-	initialSync      *atomic.Bool
 	schemasByCRDName map[string]resource.Schema
 	client           kube.Client
 	crdWatcher       *crdwatcher.Controller
@@ -168,11 +152,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
 		client:           client,
-		istioClient:      client.Istio(),
-		gatewayAPIClient: client.GatewayAPI(),
 		crdWatcher:       crdwatcher.NewController(client),
-		beginSync:        atomic.NewBool(false),
-		initialSync:      atomic.NewBool(false),
 		logger:           scope.WithLabels("controller", opts.Identifier),
 		namespacesFilter: opts.NamespacesFilter,
 		crdWatches: map[config.GroupVersionKind]*waiter{
@@ -204,30 +184,8 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 	return out, nil
 }
 
-// Validate we are ready to handle events. Until the informers are synced, we will block the queue
-func (cl *Client) checkReadyForEvents(curr any) error {
-	if !cl.informerSynced() {
-		return errors.New("waiting till full synchronization")
-	}
-	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
-	if err != nil {
-		cl.logger.Infof("Error retrieving key: %v", err)
-	}
-	return nil
-}
-
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
 	cl.handlers[kind] = append(cl.handlers[kind], handler)
-}
-
-func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
-	var errs error
-	for _, h := range cl.allKinds() {
-		if err := h.informer.SetWatchErrorHandler(handler); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-	return errs
 }
 
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
@@ -241,8 +199,6 @@ func (cl *Client) Run(stop <-chan struct{}) {
 		cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
 		return
 	}
-	cl.SyncAll()
-	cl.initialSync.Store(true)
 	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
 
 	cl.queue.Run(stop)
@@ -259,44 +215,8 @@ func (cl *Client) informerSynced() bool {
 	return true
 }
 
-func (cl *Client) HasStarted() bool {
-	return cl.client.HasStarted()
-}
-
 func (cl *Client) HasSynced() bool {
-	return cl.initialSync.Load()
-}
-
-// SyncAll syncs all the objects during bootstrap to make the configs updated to caches
-func (cl *Client) SyncAll() {
-	cl.beginSync.Store(true)
-	wg := sync.WaitGroup{}
-	for _, h := range cl.allKinds() {
-		handlers := cl.handlers[h.schema.GroupVersionKind()]
-		if len(handlers) == 0 {
-			continue
-		}
-		h := h
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			objects := h.informer.GetIndexer().List()
-			for _, object := range objects {
-				currItem, ok := object.(runtime.Object)
-				if !ok {
-					cl.logger.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
-					continue
-				}
-				currConfig := TranslateObject(currItem, h.schema.GroupVersionKind(), h.client.domainSuffix)
-				if cl.objectInRevision(&currConfig) {
-					for _, f := range handlers {
-						f(config.Config{}, currConfig, model.EventAdd)
-					}
-				}
-			}
-		}()
-	}
-	wg.Wait()
+	return cl.queue.HasSynced()
 }
 
 // Schemas for the store
@@ -311,10 +231,9 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 		cl.logger.Warnf("unknown type: %s", typ)
 		return nil
 	}
-	obj, err := h.lister(namespace).Get(name)
-	if err != nil {
-		// TODO we should be returning errors not logging
-		cl.logger.Warnf("couldn't find %s/%s in informer index", namespace, name)
+	obj := h.informer.Get(name, namespace)
+	if obj == nil {
+		cl.logger.Debugf("couldn't find %s/%s in informer index", namespace, name)
 		return nil
 	}
 
@@ -331,7 +250,7 @@ func (cl *Client) Create(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := create(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
+	meta, err := create(cl.client, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
@@ -344,7 +263,7 @@ func (cl *Client) Update(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := update(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
+	meta, err := update(cl.client, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
@@ -356,7 +275,7 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("nil status for %v/%v on updateStatus()", cfg.Name, cfg.Namespace)
 	}
 
-	meta, err := updateStatus(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
+	meta, err := updateStatus(cl.client, cfg, getObjectMetadata(cfg))
 	if err != nil {
 		return "", err
 	}
@@ -368,7 +287,7 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	modified, patchType := patchFn(orig.DeepCopy())
 
-	meta, err := patch(cl.istioClient, cl.gatewayAPIClient, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified), patchType)
+	meta, err := patch(cl.client, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified), patchType)
 	if err != nil {
 		return "", err
 	}
@@ -378,20 +297,17 @@ func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, e
 // Delete implements store interface
 // `resourceVersion` must be matched before deletion is carried out. If not possible, a 409 Conflict status will be
 func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
-	return delete(cl.istioClient, cl.gatewayAPIClient, typ, name, namespace, resourceVersion)
+	return delete(cl.client, typ, name, namespace, resourceVersion)
 }
 
 // List implements store interface
-func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (cl *Client) List(kind config.GroupVersionKind, namespace string) []config.Config {
 	h, f := cl.kind(kind)
 	if !f {
-		return nil, nil
+		return nil
 	}
 
-	list, err := h.lister(namespace).List(klabels.Everything())
-	if err != nil {
-		return nil, err
-	}
+	list := h.informer.List(namespace, klabels.Everything())
 
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
@@ -401,7 +317,7 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 		}
 	}
 
-	return out, nil
+	return out
 }
 
 func (cl *Client) objectInRevision(o *config.Config) bool {

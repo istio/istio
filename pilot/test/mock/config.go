@@ -208,7 +208,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	// check for missing type
-	if l, _ := r.List(config2.GroupVersionKind{}, namespace); len(l) > 0 {
+	if l := r.List(config2.GroupVersionKind{}, namespace); len(l) > 0 {
 		t.Errorf("unexpected objects for missing type")
 	}
 
@@ -236,10 +236,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	// list elements
-	l, err := r.List(mockGvk, namespace)
-	if err != nil {
-		t.Errorf("List error %#v, %v", l, err)
-	}
+	l := r.List(mockGvk, namespace)
 	if len(l) != n {
 		t.Errorf("wanted %d element(s), got %d in %v", n, len(l), l)
 	}
@@ -250,7 +247,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 		elt.Spec.(*config.MockConfig).Pairs[0].Value += "(updated)"
 		elt.ResourceVersion = revs[i]
 		elts[i] = elt
-		if _, err = r.Update(elt); err != nil {
+		if _, err := r.Update(elt); err != nil {
 			t.Error(err)
 		}
 	}
@@ -265,16 +262,13 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	// delete all elements
 	for i := range elts {
-		if err = r.Delete(mockGvk, elts[i].Name, elts[i].Namespace, nil); err != nil {
+		if err := r.Delete(mockGvk, elts[i].Name, elts[i].Namespace, nil); err != nil {
 			t.Error(err)
 		}
 	}
 	log.Info("Delete elements")
 
-	l, err = r.List(mockGvk, namespace)
-	if err != nil {
-		t.Error(err)
-	}
+	l = r.List(mockGvk, namespace)
 	if len(l) != 0 {
 		t.Errorf("wanted 0 element(s), got %d in %v", len(l), l)
 	}
@@ -362,7 +356,7 @@ func CheckCacheFreshness(cache model.ConfigStoreController, namespace string, t 
 
 	// validate cache consistency
 	cache.RegisterEventHandler(mockGvk, func(_, config config2.Config, ev model.Event) {
-		elts, _ := cache.List(mockGvk, namespace)
+		elts := cache.List(mockGvk, namespace)
 		elt := cache.Get(o.GroupVersionKind, o.Name, o.Namespace)
 		switch ev {
 		case model.EventAdd:
@@ -440,7 +434,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreController, 
 	defer close(stop)
 	go cache.Run(stop)
 	retry.UntilOrFail(t, cache.HasSynced, retry.Message("HasSynced"))
-	os, _ := cache.List(mockGvk, namespace)
+	os := cache.List(mockGvk, namespace)
 	if len(os) != n {
 		t.Errorf("cache.List => Got %d, expected %d", len(os), n)
 	}
@@ -454,7 +448,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreController, 
 
 	// check again in the controller cache
 	retry.UntilOrFail(t, func() bool {
-		os, _ = cache.List(mockGvk, namespace)
+		os = cache.List(mockGvk, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
 	}, retry.Message("no elements in cache"))
@@ -468,8 +462,8 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreController, 
 
 	// check directly through the client
 	retry.UntilOrFail(t, func() bool {
-		cs, _ := cache.List(mockGvk, namespace)
-		os, _ := store.List(mockGvk, namespace)
+		cs := cache.List(mockGvk, namespace)
+		os := store.List(mockGvk, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(cs), n)
 		log.Infof("store.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n

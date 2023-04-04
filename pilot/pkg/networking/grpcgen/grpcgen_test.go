@@ -501,7 +501,6 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 			log.Error(err)
 		}
 	}()
-	time.Sleep(3 * time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 

@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/incluster"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/pkg/log"
 )
 
@@ -97,7 +98,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
+					ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient, args.RegistryOptions.KubeOptions)
 					// Start informers again. This fixes the case where informers for namespace do not start,
 					// as we create them only after acquiring the leader lock
 					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -174,13 +175,16 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
 						if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
-							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler)
+							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
+							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID,
+								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
 							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
 							// basically lazy loading the informer, if we stop it when we lose the lock we will never
 							// recreate it again.
 							s.kubeClient.RunAndWait(stop)
+							go tagWatcher.Run(leaderStop)
 							controller.Run(leaderStop)
 						}
 					}).
@@ -224,6 +228,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				return err
 			}
 			s.ConfigStores = append(s.ConfigStores, configController)
+			log.Infof("Started File configSource %s", configSource.Address)
 		case XDS:
 			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.Config{
 				Namespace: args.Namespace,
@@ -257,15 +262,15 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				return fmt.Errorf("MCP: failed running %v", err)
 			}
 			s.ConfigStores = append(s.ConfigStores, configController)
-			log.Warn("Started XDS config ", s.ConfigStores)
+			log.Infof("Started XDS configSource %s", configSource.Address)
 		case Kubernetes:
 			if srcAddress.Path == "" || srcAddress.Path == "/" {
 				err2 := s.initK8SConfigStore(args)
 				if err2 != nil {
-					log.Warn("Error loading k8s ", err2)
+					log.Warnf("Error loading k8s: %v", err2)
 					return err2
 				}
-				log.Warn("Started K8S config")
+				log.Infof("Started Kubernetes configSource %s", configSource.Address)
 			} else {
 				log.Warnf("Not implemented, ignore: %v", configSource.Address)
 				// TODO: handle k8s:// scheme for remote cluster. Use same mechanism as service registry,

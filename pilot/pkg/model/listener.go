@@ -37,9 +37,6 @@ const (
 )
 
 const (
-	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
-	// TODO: allow configuration through mesh config
-	ProxyInboundListenPort = 15006
 
 	// HBoneInboundListenPort is the port on which incoming HBone traffic will be captured.
 	HBoneInboundListenPort = 15008

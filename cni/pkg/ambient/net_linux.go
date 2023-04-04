@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -332,7 +333,7 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	log.Debugf("CreateRulesOnNode: ztunnelVeth=%s, ztunnelIP=%s", ztunnelVeth, ztunnelIP)
 
 	// Check if chain exists, if it exists flush.. otherwise initialize
-	err = execute(s.IptablesCmd(), "-t", "mangle", "-C", "output", "-j", constants.ChainZTunnelOutput)
+	err = execute(s.IptablesCmd(), "-t", "mangle", "-C", "OUTPUT", "-j", constants.ChainZTunnelOutput)
 	if err == nil {
 		log.Debugf("Chain %s already exists, flushing", constants.ChainOutput)
 		s.flushLists()
@@ -776,9 +777,12 @@ func (s *Server) CreateEBPFRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP,
 	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
 		// Make sure we flush table 100 before continuing - it should be empty in a new namespace
 		// but better to ensure that.
-		_ = routeFlushTable(constants.RouteTableInbound)
+		if err := routeFlushTable(constants.RouteTableInbound); err != nil {
+			log.Error(err)
+		}
 
-		// Check if chain exists, if it exists flush.. otherwise initialize
+		// Flush rules before initializing within 'addTProxyMarks'
+		deleteIPRules([]string{strconv.Itoa(constants.TProxyMarkPriority), strconv.Itoa(constants.OrgSrcPriority)}, false)
 
 		// Set up tproxy marks
 		err := addTProxyMarks()
@@ -1299,6 +1303,15 @@ func routeFlushTable(table int) error {
 	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{Table: table}, netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return err
+	}
+	// default route is not handled proper in netlink
+	// https://github.com/vishvananda/netlink/issues/670
+	// https://github.com/vishvananda/netlink/issues/611
+	for i, route := range routes {
+		if (route.Dst == nil || route.Dst.IP == nil) && route.Src == nil && route.Gw == nil && route.MPLSDst == nil {
+			_, defaultDst, _ := net.ParseCIDR("0.0.0.0/0")
+			routes[i].Dst = defaultDst
+		}
 	}
 	err = routesDelete(routes)
 	if err != nil {

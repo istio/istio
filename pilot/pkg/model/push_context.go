@@ -1199,57 +1199,27 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 }
 
 func (ps *PushContext) createNewContext(env *Environment) error {
-	if err := ps.initServiceRegistry(env); err != nil {
-		return err
-	}
+	ps.initServiceRegistry(env)
 
 	if err := ps.initKubernetesGateways(env); err != nil {
 		return err
 	}
 
-	if err := ps.initVirtualServices(env); err != nil {
-		return err
-	}
+	ps.initVirtualServices(env)
 
-	if err := ps.initDestinationRules(env); err != nil {
-		return err
-	}
+	ps.initDestinationRules(env)
+	ps.initAuthnPolicies(env)
 
-	if err := ps.initAuthnPolicies(env); err != nil {
-		return err
-	}
-
-	if err := ps.initAuthorizationPolicies(env); err != nil {
-		authzLog.Errorf("failed to initialize authorization policies: %v", err)
-		return err
-	}
-
-	if err := ps.initTelemetry(env); err != nil {
-		return err
-	}
-
-	if err := ps.initProxyConfigs(env); err != nil {
-		return err
-	}
-
-	if err := ps.initWasmPlugins(env); err != nil {
-		return err
-	}
-
-	if err := ps.initEnvoyFilters(env); err != nil {
-		return err
-	}
-
-	if err := ps.initGateways(env); err != nil {
-		return err
-	}
-
+	ps.initAuthorizationPolicies(env)
+	ps.initTelemetry(env)
+	ps.initProxyConfigs(env)
+	ps.initWasmPlugins(env)
+	ps.initEnvoyFilters(env)
+	ps.initGateways(env)
 	ps.initAmbient(env)
 
 	// Must be initialized in the end
-	if err := ps.initSidecarScopes(env); err != nil {
-		return err
-	}
+	ps.initSidecarScopes(env)
 	return nil
 }
 
@@ -1297,9 +1267,7 @@ func (ps *PushContext) updateContext(
 
 	if servicesChanged {
 		// Services have changed. initialize service registry
-		if err := ps.initServiceRegistry(env); err != nil {
-			return err
-		}
+		ps.initServiceRegistry(env)
 	} else {
 		// make sure we copy over things that would be generated in initServiceRegistry
 		ps.ServiceIndex = oldPushContext.ServiceIndex
@@ -1314,74 +1282,55 @@ func (ps *PushContext) updateContext(
 	}
 
 	if virtualServicesChanged {
-		if err := ps.initVirtualServices(env); err != nil {
-			return err
-		}
+		ps.initVirtualServices(env)
 	} else {
 		ps.virtualServiceIndex = oldPushContext.virtualServiceIndex
 	}
 
 	if destinationRulesChanged {
-		if err := ps.initDestinationRules(env); err != nil {
-			return err
-		}
+		ps.initDestinationRules(env)
 	} else {
 		ps.destinationRuleIndex = oldPushContext.destinationRuleIndex
 	}
 
 	if authnChanged {
-		if err := ps.initAuthnPolicies(env); err != nil {
-			return err
-		}
+		ps.initAuthnPolicies(env)
 	} else {
 		ps.AuthnPolicies = oldPushContext.AuthnPolicies
 	}
 
 	if authzChanged {
-		if err := ps.initAuthorizationPolicies(env); err != nil {
-			authzLog.Errorf("failed to initialize authorization policies: %v", err)
-			return err
-		}
+		ps.initAuthorizationPolicies(env)
 	} else {
 		ps.AuthzPolicies = oldPushContext.AuthzPolicies
 	}
 
 	if telemetryChanged {
-		if err := ps.initTelemetry(env); err != nil {
-			return err
-		}
+		ps.initTelemetry(env)
 	} else {
 		ps.Telemetry = oldPushContext.Telemetry
 	}
 
 	if proxyConfigsChanged {
-		if err := ps.initProxyConfigs(env); err != nil {
-			return err
-		}
+		ps.initProxyConfigs(env)
 	} else {
 		ps.ProxyConfigs = oldPushContext.ProxyConfigs
 	}
 
 	if wasmPluginsChanged {
-		if err := ps.initWasmPlugins(env); err != nil {
-			return err
-		}
+		ps.initWasmPlugins(env)
 	} else {
 		ps.wasmPluginsByNamespace = oldPushContext.wasmPluginsByNamespace
 	}
 
 	if envoyFiltersChanged {
-		if err := ps.initEnvoyFilters(env); err != nil {
-			return err
-		}
+		ps.initEnvoyFilters(env)
 	} else {
 		ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
 	}
 
 	if gatewayChanged {
-		if err := ps.initGateways(env); err != nil {
-			return err
-		}
+		ps.initGateways(env)
 	} else {
 		ps.gatewayIndex = oldPushContext.gatewayIndex
 	}
@@ -1391,9 +1340,7 @@ func (ps *PushContext) updateContext(
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
 	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
-		if err := ps.initSidecarScopes(env); err != nil {
-			return err
-		}
+		ps.initSidecarScopes(env)
 	} else {
 		// new ADS connection may insert new entry to computedSidecarsByNamespace/gatewayDefaultSidecarsByNamespace.
 		oldPushContext.sidecarIndex.derivedSidecarMutex.RLock()
@@ -1406,7 +1353,7 @@ func (ps *PushContext) updateContext(
 
 // Caches list of services in the registry, and creates a map
 // of hostname to service
-func (ps *PushContext) initServiceRegistry(env *Environment) error {
+func (ps *PushContext) initServiceRegistry(env *Environment) {
 	// Sort the services in order of creation.
 	allServices := SortServicesByCreationTime(env.Services())
 	for _, s := range allServices {
@@ -1458,8 +1405,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	}
 
 	ps.initServiceAccounts(env, allServices)
-
-	return nil
 }
 
 // SortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
@@ -1510,15 +1455,12 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 }
 
 // Caches list of authentication policies
-func (ps *PushContext) initAuthnPolicies(env *Environment) error {
-	// Init beta policy.
-	var err error
-	ps.AuthnPolicies, err = initAuthenticationPolicies(env)
-	return err
+func (ps *PushContext) initAuthnPolicies(env *Environment) {
+	ps.AuthnPolicies = initAuthenticationPolicies(env)
 }
 
 // Caches list of virtual services
-func (ps *PushContext) initVirtualServices(env *Environment) error {
+func (ps *PushContext) initVirtualServices(env *Environment) {
 	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[types.NamespacedName][]config.Config{}
 	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[types.NamespacedName][]config.Config{}
 	ps.virtualServiceIndex.publicByGateway = map[string][]config.Config{}
@@ -1528,10 +1470,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
 	}
 
-	virtualServices, err := env.List(gvk.VirtualService, NamespaceAll)
-	if err != nil {
-		return err
-	}
+	virtualServices := env.List(gvk.VirtualService, NamespaceAll)
 
 	// values returned from ConfigStore.List are immutable.
 	// Therefore, we make a copy
@@ -1636,8 +1575,6 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			}
 		}
 	}
-
-	return nil
 }
 
 var meshGateways = []string{constants.IstioMeshGateway}
@@ -1693,11 +1630,8 @@ func (ps *PushContext) initDefaultExportMaps() {
 // When proxies connect to Pilot, we identify the sidecar scope associated
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
-func (ps *PushContext) initSidecarScopes(env *Environment) error {
-	sidecarConfigs, err := env.List(gvk.Sidecar, NamespaceAll)
-	if err != nil {
-		return err
-	}
+func (ps *PushContext) initSidecarScopes(env *Environment) {
+	sidecarConfigs := env.List(gvk.Sidecar, NamespaceAll)
 
 	sortConfigByCreationTime(sidecarConfigs)
 
@@ -1732,16 +1666,11 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 		}
 	}
 	ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
-
-	return nil
 }
 
 // Split out of DestinationRule expensive conversions - once per push.
-func (ps *PushContext) initDestinationRules(env *Environment) error {
-	configs, err := env.List(gvk.DestinationRule, NamespaceAll)
-	if err != nil {
-		return err
-	}
+func (ps *PushContext) initDestinationRules(env *Environment) {
+	configs := env.List(gvk.DestinationRule, NamespaceAll)
 
 	// values returned from ConfigStore.List are immutable.
 	// Therefore, we make a copy
@@ -1751,7 +1680,6 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	}
 
 	ps.setDestinationRules(destRules)
-	return nil
 }
 
 func newConsolidatedDestRules() *consolidatedDestRules {
@@ -1871,38 +1799,21 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	ps.destinationRuleIndex.inheritedByNamespace = inheritedConfigs
 }
 
-func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
-	var err error
-	if ps.AuthzPolicies, err = GetAuthorizationPolicies(env); err != nil {
-		authzLog.Errorf("failed to initialize authorization policies: %v", err)
-		return err
-	}
-	return nil
+func (ps *PushContext) initAuthorizationPolicies(env *Environment) {
+	ps.AuthzPolicies = GetAuthorizationPolicies(env)
 }
 
-func (ps *PushContext) initTelemetry(env *Environment) (err error) {
-	if ps.Telemetry, err = getTelemetries(env); err != nil {
-		telemetryLog.Errorf("failed to initialize telemetry: %v", err)
-		return
-	}
-	return
+func (ps *PushContext) initTelemetry(env *Environment) {
+	ps.Telemetry = getTelemetries(env)
 }
 
-func (ps *PushContext) initProxyConfigs(env *Environment) error {
-	var err error
-	if ps.ProxyConfigs, err = GetProxyConfigs(env.ConfigStore, env.Mesh()); err != nil {
-		pclog.Errorf("failed to initialize proxy configs: %v", err)
-		return err
-	}
-	return nil
+func (ps *PushContext) initProxyConfigs(env *Environment) {
+	ps.ProxyConfigs = GetProxyConfigs(env.ConfigStore, env.Mesh())
 }
 
 // pre computes WasmPlugins per namespace
-func (ps *PushContext) initWasmPlugins(env *Environment) error {
-	wasmplugins, err := env.List(gvk.WasmPlugin, NamespaceAll)
-	if err != nil {
-		return err
-	}
+func (ps *PushContext) initWasmPlugins(env *Environment) {
+	wasmplugins := env.List(gvk.WasmPlugin, NamespaceAll)
 
 	sortConfigByCreationTime(wasmplugins)
 	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
@@ -1911,8 +1822,6 @@ func (ps *PushContext) initWasmPlugins(env *Environment) error {
 			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
 		}
 	}
-
-	return nil
 }
 
 // WasmPlugins return the WasmPluginWrappers of a proxy.
@@ -1967,11 +1876,8 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 }
 
 // pre computes envoy filters per namespace
-func (ps *PushContext) initEnvoyFilters(env *Environment) error {
-	envoyFilterConfigs, err := env.List(gvk.EnvoyFilter, NamespaceAll)
-	if err != nil {
-		return err
-	}
+func (ps *PushContext) initEnvoyFilters(env *Environment) {
+	envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
 
 	sort.Slice(envoyFilterConfigs, func(i, j int) bool {
 		ifilter := envoyFilterConfigs[i].Spec.(*networking.EnvoyFilter)
@@ -1999,7 +1905,6 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 		}
 		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
 	}
-	return nil
 }
 
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
@@ -2066,11 +1971,8 @@ func (ps *PushContext) HasEnvoyFilters(name, namespace string) bool {
 }
 
 // pre computes gateways per namespace
-func (ps *PushContext) initGateways(env *Environment) error {
-	gatewayConfigs, err := env.List(gvk.Gateway, NamespaceAll)
-	if err != nil {
-		return err
-	}
+func (ps *PushContext) initGateways(env *Environment) {
+	gatewayConfigs := env.List(gvk.Gateway, NamespaceAll)
 
 	sortConfigByCreationTime(gatewayConfigs)
 
@@ -2085,7 +1987,6 @@ func (ps *PushContext) initGateways(env *Environment) error {
 	} else {
 		ps.gatewayIndex.all = gatewayConfigs
 	}
-	return nil
 }
 
 func (ps *PushContext) initAmbient(env *Environment) {

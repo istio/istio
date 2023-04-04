@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/pkg/log"
 )
 
@@ -114,7 +115,7 @@ func ConvertIngressV1alpha3(ingress knetworking.Ingress, mesh *meshconfig.MeshCo
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Gateway,
 			Name:             ingress.Name + "-" + constants.IstioIngressGatewayName + "-" + ingress.Namespace,
-			Namespace:        ingressNamespace,
+			Namespace:        IngressNamespace,
 			Domain:           domainSuffix,
 		},
 		Spec: gateway,
@@ -125,16 +126,12 @@ func ConvertIngressV1alpha3(ingress knetworking.Ingress, mesh *meshconfig.MeshCo
 
 // ConvertIngressVirtualService converts from ingress spec to Istio VirtualServices
 func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix string,
-	ingressByHost map[string]*config.Config, serviceLister listerv1.ServiceLister,
+	ingressByHost map[string]*config.Config, services kclient.Client[*corev1.Service],
 ) {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each
 	// host.
-	if ingressNamespace == "" {
-		ingressNamespace = constants.IstioIngressNamespace
-	}
-
 	for _, rule := range ingress.Spec.Rules {
 		if rule.HTTP == nil {
 			log.Infof("invalid ingress rule %s:%s for host %q, no paths defined", ingress.Namespace, ingress.Name, rule.Host)
@@ -148,7 +145,7 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 		}
 		virtualService := &networking.VirtualService{
 			Hosts:    []string{host},
-			Gateways: []string{fmt.Sprintf("%s/%s-%s-%s", ingressNamespace, ingress.Name, constants.IstioIngressGatewayName, ingress.Namespace)},
+			Gateways: []string{fmt.Sprintf("%s/%s-%s-%s", IngressNamespace, ingress.Name, constants.IstioIngressGatewayName, ingress.Namespace)},
 		}
 
 		httpRoutes := make([]*networking.HTTPRoute, 0, len(rule.HTTP.Paths))
@@ -173,7 +170,7 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 				httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
 			}
 
-			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix, serviceLister)
+			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix, services)
 			if httpRoute == nil {
 				log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
 				continue
@@ -253,8 +250,8 @@ func getMatchURILength(match *networking.HTTPMatchRequest) (length int, exact bo
 	return -1, false
 }
 
-func ingressBackendToHTTPRoute(backend *knetworking.IngressBackend, namespace string, domainSuffix string,
-	serviceLister listerv1.ServiceLister,
+func ingressBackendToHTTPRoute(backend *knetworking.IngressBackend, namespace string,
+	domainSuffix string, services kclient.Client[*corev1.Service],
 ) *networking.HTTPRoute {
 	if backend == nil {
 		return nil
@@ -269,7 +266,7 @@ func ingressBackendToHTTPRoute(backend *knetworking.IngressBackend, namespace st
 	if backend.Service.Port.Number > 0 {
 		port.Number = uint32(backend.Service.Port.Number)
 	} else {
-		resolvedPort, err := resolveNamedPort(backend, namespace, serviceLister)
+		resolvedPort, err := resolveNamedPort(backend, namespace, services)
 		if err != nil {
 			log.Infof("failed to resolve named port %s, error: %v", backend.Service.Port.Name, err)
 			return nil
@@ -290,10 +287,10 @@ func ingressBackendToHTTPRoute(backend *knetworking.IngressBackend, namespace st
 	}
 }
 
-func resolveNamedPort(backend *knetworking.IngressBackend, namespace string, serviceLister listerv1.ServiceLister) (int32, error) {
-	svc, err := serviceLister.Services(namespace).Get(backend.Service.Name)
-	if err != nil {
-		return 0, err
+func resolveNamedPort(backend *knetworking.IngressBackend, namespace string, services kclient.Client[*corev1.Service]) (int32, error) {
+	svc := services.Get(backend.Service.Name, namespace)
+	if svc == nil {
+		return 0, errNotFound
 	}
 	for _, port := range svc.Spec.Ports {
 		if port.Name == backend.Service.Port.Name {

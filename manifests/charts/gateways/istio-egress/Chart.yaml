@@ -4,13 +4,12 @@ name: istio-egress
 # with the appropriate version
 version: 1.0.0
 appVersion: 1.0.0
-tillerVersion: ">=2.7.2"
 description: Helm chart for deploying Istio gateways
 keywords:
   - istio
   - egressgateway
   - gateways
 sources:
-  - http://github.com/istio/istio
+  - https://github.com/istio/istio
 engine: gotpl
 icon: https://istio.io/latest/favicons/android-192x192.png

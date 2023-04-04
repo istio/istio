@@ -177,10 +177,16 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		log.Errorf("using ./ to write archive: %s", err.Error())
 		outDir = "."
 	}
+	if outputDir != "" {
+		outDir = outputDir
+	}
 	outPath := filepath.Join(outDir, "bug-report.tar.gz")
 	common.LogAndPrintf("Creating an archive at %s.\n", outPath)
 
 	archiveDir := archive.DirToArchive(tempDir)
+	if tempDir != "" {
+		archiveDir = tempDir
+	}
 	if err := archive.Create(archiveDir, outPath); err != nil {
 		return err
 	}

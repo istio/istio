@@ -36,3 +36,9 @@ func OrDefault[T any](t *T, def T) T {
 	}
 	return def
 }
+
+// Empty returns an empty T type
+func Empty[T any]() T {
+	var empty T
+	return empty
+}

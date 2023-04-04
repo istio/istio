@@ -116,20 +116,21 @@ type AdsClients struct {
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
-	ClusterID            string `json:"cluster_id,omitempty"`
-	ProxyID              string `json:"proxy,omitempty"`
-	ProxyVersion         string `json:"proxy_version,omitempty"`
-	IstioVersion         string `json:"istio_version,omitempty"`
-	ClusterSent          string `json:"cluster_sent,omitempty"`
-	ClusterAcked         string `json:"cluster_acked,omitempty"`
-	ListenerSent         string `json:"listener_sent,omitempty"`
-	ListenerAcked        string `json:"listener_acked,omitempty"`
-	RouteSent            string `json:"route_sent,omitempty"`
-	RouteAcked           string `json:"route_acked,omitempty"`
-	EndpointSent         string `json:"endpoint_sent,omitempty"`
-	EndpointAcked        string `json:"endpoint_acked,omitempty"`
-	ExtensionConfigSent  string `json:"extensionconfig_sent,omitempty"`
-	ExtensionConfigAcked string `json:"extensionconfig_acked,omitempty"`
+	ClusterID            string         `json:"cluster_id,omitempty"`
+	ProxyID              string         `json:"proxy,omitempty"`
+	ProxyType            model.NodeType `json:"proxy_type,omitempty"`
+	ProxyVersion         string         `json:"proxy_version,omitempty"`
+	IstioVersion         string         `json:"istio_version,omitempty"`
+	ClusterSent          string         `json:"cluster_sent,omitempty"`
+	ClusterAcked         string         `json:"cluster_acked,omitempty"`
+	ListenerSent         string         `json:"listener_sent,omitempty"`
+	ListenerAcked        string         `json:"listener_acked,omitempty"`
+	RouteSent            string         `json:"route_sent,omitempty"`
+	RouteAcked           string         `json:"route_acked,omitempty"`
+	EndpointSent         string         `json:"endpoint_sent,omitempty"`
+	EndpointAcked        string         `json:"endpoint_acked,omitempty"`
+	ExtensionConfigSent  string         `json:"extensionconfig_sent,omitempty"`
+	ExtensionConfigAcked string         `json:"extensionconfig_acked,omitempty"`
 }
 
 // SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
@@ -271,6 +272,7 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, req *http.Request) {
 		if node != nil {
 			syncz = append(syncz, SyncStatus{
 				ProxyID:              node.ID,
+				ProxyType:            node.Type,
 				ClusterID:            node.Metadata.ClusterID.String(),
 				IstioVersion:         node.Metadata.IstioVersion,
 				ClusterSent:          con.NonceSent(v3.ClusterType),
@@ -379,11 +381,13 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, resp, req)
 }
 
+const DistributionTrackingDisabledMessage = "Pilot Version tracking is disabled. It may be enabled by setting the " +
+	"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING environment variable to true."
+
 func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
 	if !features.EnableDistributionTracking {
 		w.WriteHeader(http.StatusConflict)
-		_, _ = fmt.Fprint(w, "Pilot Version tracking is disabled.  Please set the "+
-			"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING environment variable to true to enable.")
+		_, _ = fmt.Fprint(w, DistributionTrackingDisabledMessage)
 		return
 	}
 	if resourceID := req.URL.Query().Get("resource"); resourceID != "" {
@@ -462,7 +466,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	s.Env.ConfigStore.Schemas().ForEach(func(schema resource.Schema) bool {
-		cfg, _ := s.Env.ConfigStore.List(schema.GroupVersionKind(), "")
+		cfg := s.Env.ConfigStore.List(schema.GroupVersionKind(), "")
 		for _, c := range cfg {
 			configs = append(configs, kubernetesConfig{c})
 		}

@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/tools/cache"
 
 	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -80,11 +79,8 @@ func (s *KubeSource) Get(typ config.GroupVersionKind, name, namespace string) *c
 	return s.inner.Get(typ, name, namespace)
 }
 
-func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	configs, err := s.inner.List(typ, namespace)
-	if err != nil {
-		return nil, err
-	}
+func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) []config.Config {
+	configs := s.inner.List(typ, namespace)
 	if s.namespacesFilter != nil {
 		var out []config.Config
 		for _, config := range configs {
@@ -92,9 +88,9 @@ func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) ([]conf
 				out = append(out, config)
 			}
 		}
-		return out, err
+		return out
 	}
-	return configs, nil
+	return configs
 }
 
 func (s *KubeSource) Create(config config.Config) (revision string, err error) {
@@ -122,14 +118,6 @@ func (s *KubeSource) RegisterEventHandler(kind config.GroupVersionKind, handler 
 }
 
 func (s *KubeSource) Run(stop <-chan struct{}) {
-}
-
-func (s *KubeSource) SetWatchErrorHandler(f func(r *cache.Reflector, err error)) error {
-	panic("implement me")
-}
-
-func (s *KubeSource) HasStarted() bool {
-	return true
 }
 
 func (s *KubeSource) HasSynced() bool {
@@ -302,6 +290,9 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
+		if len(chunk) == 0 {
+			continue
+		}
 		chunkResources, err := s.parseChunk(r, name, lineNum, chunk)
 		if err != nil {
 			var uerr *unknownSchemaError

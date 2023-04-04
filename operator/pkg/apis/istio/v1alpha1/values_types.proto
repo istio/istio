@@ -799,7 +799,7 @@ message TelemetryV2MetadataExchangeConfig {
   google.protobuf.BoolValue wasmEnabled = 2;
 }
 
-// Conrols telemetry v2 prometheus settings.
+// Controls telemetry v2 prometheus settings.
 message TelemetryV2PrometheusConfig {
   // Controls whether stats envoyfilter would be enabled or not.
   google.protobuf.BoolValue enabled = 1;
@@ -822,7 +822,7 @@ message TelemetryV2PrometheusConfig {
   ConfigOverride config_override = 3;
 }
 
-// Conrols telemetry v2 stackdriver settings.
+// TelemetryV2StackDriverConfig controls telemetry v2 stackdriver settings.
 message TelemetryV2StackDriverConfig {
 // Types of Access logs to export.
   enum AccessLogging {
@@ -853,7 +853,7 @@ message TelemetryV2StackDriverConfig {
   AccessLogging inboundAccessLogging = 8;
 }
 
-// Conrols telemetry v2 access log policy filter settings.
+// TelemetryV2AccessLogPolicyFilterConfig controls telemetry v2 access log policy filter settings.
 message TelemetryV2AccessLogPolicyFilterConfig {
   google.protobuf.BoolValue enabled = 1;
 

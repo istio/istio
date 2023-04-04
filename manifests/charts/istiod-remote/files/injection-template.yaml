@@ -35,6 +35,7 @@ metadata:
     service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
     service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
   annotations: {
+    istio.io/rev: {{ .Revision | default "default" | quote }},
     {{- if ge (len $containers) 1 }}
     {{- if not (isset .ObjectMeta.Annotations `kubectl.kubernetes.io/default-logs-container`) }}
     kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
@@ -81,7 +82,7 @@ spec:
     - "-p"
     - {{ .MeshConfig.ProxyListenPort | default "15001" | quote }}
     - "-z"
-    - "15006"
+    - {{ .MeshConfig.ProxyInboundListenPort | default "15006" | quote }}
     - "-u"
     - "1337"
     - "-m"
@@ -209,10 +210,6 @@ spec:
   {{- if .Values.global.logAsJson }}
     - --log_as_json
   {{- end }}
-  {{- if gt .EstimatedConcurrency 0 }}
-    - --concurrency
-    - "{{ .EstimatedConcurrency }}"
-  {{- end -}}
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}
@@ -259,6 +256,10 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
+    - name: ISTIO_CPU_LIMIT
+      valueFrom:
+        resourceFieldRef:
+          resource: limits.cpu
     - name: PROXY_CONFIG
       value: |
              {{ protoToJSON .ProxyConfig }}

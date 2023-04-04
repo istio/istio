@@ -559,6 +559,16 @@ func TestExpandWithTrustDomains(t *testing.T) {
 				"spiffe://cluster.local/custom-suffix": {},
 			},
 		},
+		{
+			name:      "Non SPIFFE URI",
+			spiffeURI: []string{"testdns.com"},
+			trustDomains: []string{
+				"foo",
+			},
+			want: map[string]struct{}{
+				"testdns.com": {},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

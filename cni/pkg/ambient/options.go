@@ -54,4 +54,5 @@ type AmbientArgs struct {
 	Revision        string
 	KubeConfig      string
 	RedirectMode    RedirectMode
+	LogLevel        string
 }

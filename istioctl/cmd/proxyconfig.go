@@ -25,12 +25,15 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/istioctl/pkg/writer"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/pkg/log"
@@ -297,8 +300,17 @@ func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat stri
 	} else if outputFormat == prometheusOutput {
 		path += "/prometheus"
 	} else if outputFormat == prometheusMergedOutput {
-		path += "/prometheus"
-		port = 15020
+		pod, err := kubeClient.Kube().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve Pod %s/%s: %v", podNamespace, podName, err)
+		}
+
+		promPath, promPort, err := util.PrometheusPathAndPort(pod)
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve prometheus path and port from Pod %s/%s: %v", podNamespace, podName, err)
+		}
+		path = promPath
+		port = promPort
 	}
 
 	result, err := kubeClient.EnvoyDoWithPort(context.Background(), podName, podNamespace, "GET", path, port)
@@ -483,7 +495,12 @@ func allConfigCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					dump, err = extractConfigDump(podName, podNamespace, false)
+
+					if isZtunnelPod(podName) {
+						dump, err = extractZtunnelConfigDump(podName, podNamespace)
+					} else {
+						dump, err = extractConfigDump(podName, podNamespace, false)
+					}
 					if err != nil {
 						return err
 					}
@@ -507,6 +524,20 @@ func allConfigCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
+
+					if isZtunnelPod(podName) {
+						w, err := setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
+						if err != nil {
+							return err
+						}
+
+						return w.PrintFullSummary(ztunnelDump.WorkloadFilter{
+							Address: address,
+							Node:    node,
+							Verbose: verboseProxyConfig,
+						})
+					}
+
 					configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, true, c.OutOrStdout())
 					if err != nil {
 						return err
@@ -601,10 +632,10 @@ func workloadConfigCmd() *cobra.Command {
 			var configWriter *ztunnelDump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getComponentPodName(args[0]); err != nil {
 					return err
 				}
-				if !strings.Contains(podName, "ztunnel") {
+				if !isZtunnelPod(podName) {
 					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
@@ -790,6 +821,13 @@ func statsConfigCmd() *cobra.Command {
 	return statsConfigCmd
 }
 
+type proxyType int
+
+const (
+	Envoy proxyType = iota
+	Ztunnel
+)
+
 func logCmd() *cobra.Command {
 	var podNamespace string
 	var podNames []string
@@ -824,28 +862,25 @@ func logCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var err error
-			var loggerNames []string
+			loggerNames := map[string]proxyType{}
 			if labelSelector != "" {
 				if podNames, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
-					return err
-				}
-				for _, pod := range podNames {
-					name, err = setupEnvoyLogConfig("", pod, podNamespace)
-					loggerNames = append(loggerNames, name)
-				}
-				if err != nil {
 					return err
 				}
 			} else {
 				if podNames, podNamespace, err = getPodNames(args[0]); err != nil {
 					return err
 				}
-				for _, podName := range podNames {
-					name, err := setupEnvoyLogConfig("", podName, podNamespace)
-					loggerNames = append(loggerNames, name)
-					if err != nil {
-						return err
-					}
+			}
+			for _, pod := range podNames {
+				name, err = setupEnvoyLogConfig("", pod, podNamespace)
+				if err != nil {
+					return err
+				}
+				if isZtunnelPod(pod) {
+					loggerNames[name] = Ztunnel
+				} else {
+					loggerNames[name] = Envoy
 				}
 			}
 
@@ -875,7 +910,11 @@ func logCmd() *cobra.Command {
 						}
 					} else {
 						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
-						for _, logName := range loggerNames {
+						for logName, typ := range loggerNames {
+							if typ == Ztunnel {
+								// TODO validate ztunnel logger name when available: https://github.com/istio/ztunnel/issues/426
+								continue
+							}
 							if !strings.Contains(logName, loggerLevel[0]) {
 								return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
 							}
@@ -892,7 +931,7 @@ func logCmd() *cobra.Command {
 			var resp string
 			var errs *multierror.Error
 			for _, podName := range podNames {
-				if strings.HasPrefix(podName, "ztunnel") {
+				if isZtunnelPod(podName) {
 					q := "level=" + ztunnelLogLevel(loggerLevelString)
 					if reset {
 						q += "&reset"
@@ -951,6 +990,10 @@ func logCmd() *cobra.Command {
 			s, levelListString))
 
 	return logCmd
+}
+
+func isZtunnelPod(podName string) bool {
+	return strings.HasPrefix(podName, "ztunnel")
 }
 
 func routeConfigCmd() *cobra.Command {
@@ -1265,24 +1308,37 @@ func secretConfigCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			var configWriter *configdump.ConfigWriter
+			var newWriter writer.ConfigDumpWriter
 			var err error
 			if len(args) == 1 {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
+				if isZtunnelPod(podName) {
+					newWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
+				} else {
+					newWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
+				}
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				newWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				if err != nil {
+					envoyError := err
+					newWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
+					if err != nil {
+						// failed to parse envoy and ztunnel formats
+						log.Warnf("couldn't parse envoy secrets dump: %v", envoyError)
+						log.Warnf("couldn't parse ztunnel secrets dump %v", err)
+					}
+				}
 			}
 			if err != nil {
 				return err
 			}
 			switch outputFormat {
 			case summaryOutput:
-				return configWriter.PrintSecretSummary()
+				return newWriter.PrintSecretSummary()
 			case jsonOutput, yamlOutput:
-				return configWriter.PrintSecretDump(outputFormat)
+				return newWriter.PrintSecretDump(outputFormat)
 			default:
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
@@ -1412,18 +1468,27 @@ func getPodNames(podflag string) ([]string, string, error) {
 }
 
 func getPodName(podflag string) (string, string, error) {
+	return getPodNameWithNamespace(podflag, defaultNamespace)
+}
+
+func getPodNameWithNamespace(podflag, ns string) (string, string, error) {
 	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
 	}
-	var podName, ns string
-	podName, ns, err = handlers.InferPodInfoFromTypedResource(podflag,
-		handlers.HandleNamespace(namespace, defaultNamespace),
+	var podName, podNamespace string
+	podName, podNamespace, err = handlers.InferPodInfoFromTypedResource(podflag,
+		handlers.HandleNamespace(namespace, ns),
 		kubeClient.UtilFactory())
 	if err != nil {
 		return "", "", err
 	}
-	return podName, ns, nil
+	return podName, podNamespace, nil
+}
+
+// getComponentPodName returns the pod name and namespace of the Istio component
+func getComponentPodName(podflag string) (string, string, error) {
+	return getPodNameWithNamespace(podflag, istioNamespace)
 }
 
 func getPodNameBySelector(labelSelector string) ([]string, string, error) {

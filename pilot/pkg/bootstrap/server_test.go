@@ -684,7 +684,6 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 			var certRotated bool
 			var rotatedCertBytes []byte
 			err := retry.Until(func() bool {
-				time.Sleep(time.Second)
 				rotatedCertBytes = s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem
 				st := string(rotatedCertBytes)
 				certRotated = st != string(tt.certToWatch)

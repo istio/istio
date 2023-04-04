@@ -55,6 +55,26 @@ func Run() error {
 			"Entries":     inp.Entries,
 			"PackageName": "gvr",
 		}),
+		writeTemplate("pilot/pkg/config/kube/crdclient/types.gen.go", crdclientTemplate, map[string]any{
+			"Entries":     inp.Entries,
+			"Packages":    inp.Packages,
+			"PackageName": "crdclient",
+		}),
+		writeTemplate("pkg/config/schema/kubetypes/resources.gen.go", typesTemplate, map[string]any{
+			"Entries":     inp.Entries,
+			"Packages":    inp.Packages,
+			"PackageName": "kubetypes",
+		}),
+		writeTemplate("pkg/config/schema/kubeclient/resources.gen.go", clientsTemplate, map[string]any{
+			"Entries":     inp.Entries,
+			"Packages":    inp.Packages,
+			"PackageName": "kubeclient",
+		}),
+		writeTemplate("pilot/pkg/config/kube/crdclient/types.gen.go", crdclientTemplate, map[string]any{
+			"Entries":     inp.Entries,
+			"Packages":    inp.Packages,
+			"PackageName": "crdclient",
+		}),
 		writeTemplate("pkg/config/schema/kind/resources.gen.go", kindTemplate, map[string]any{
 			"Entries":     kindEntries,
 			"PackageName": "kind",
