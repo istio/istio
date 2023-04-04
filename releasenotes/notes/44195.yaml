@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** An issue where a Service Entry with HTTPS protocol configured with partial wildcard hosts is not rejected by validation server.
+  **Fixed** An issue where a Service Entry configured with partial wildcard hosts generates a warning during validation as the config can some times generate invalid server name match.
