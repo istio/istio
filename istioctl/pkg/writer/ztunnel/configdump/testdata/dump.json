@@ -386,6 +386,12 @@
       "state": "Unavailable: the identity is no longer needed",
       "ca_cert": [],
       "cert_chain": []
+    },
+    {
+      "identity": "spiffe://cluster.local/ns/istio-system/sa/istiod",
+      "state": "Unavailable: signing gRPC error (The service is currently unavailable): error trying to connect: TLS handshake failed: cert verification failed - unable to get local issuer certificate [CERTIFICATE_VERIFY_FAILED]",
+      "ca_cert": [],
+      "cert_chain": []
     }
   ]
 }
