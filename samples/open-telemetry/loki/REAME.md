@@ -88,7 +88,7 @@ You can also check logs from Grafana:
 istioctl dashboard grafana
 ```
 
-Learn how to use Loki with Grafana from [here](https://grafana.com/docs/grafana/v8.4/datasources/loki/).
+Learn how to use Loki with Grafana [here](https://grafana.com/docs/grafana/v8.4/datasources/loki/).
 
 ## Cleanup
 
