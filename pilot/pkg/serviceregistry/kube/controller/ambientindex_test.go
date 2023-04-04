@@ -120,7 +120,7 @@ func TestAmbientIndex(t *testing.T) {
 		if p == nil {
 			// Apiserver doesn't allow Create to modify the pod status; in real world its a 2 part process
 			pod.Status = corev1.PodStatus{}
-			newPod := pc.Create(p)
+			newPod := pc.Create(pod)
 			setPodReady(newPod)
 			newPod.Status.PodIP = ip
 			newPod.Status.Phase = corev1.PodRunning
@@ -373,7 +373,7 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 				setPodReady(newPod)
 			}
 			newPod.Status.PodIP = ip
-			newPod.Status.Phase = corev1.PodRunning
+			newPod.Status.Phase = phase
 			pc.UpdateStatus(newPod)
 		} else {
 			pc.Update(pod)

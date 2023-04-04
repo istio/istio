@@ -53,7 +53,6 @@ func TestRemoteCerts(t *testing.T) {
 
 	// Should load remote cacerts successfully.
 	createCASecret(t, s.kubeClient)
-	g.Expect(err).Should(BeNil())
 
 	err = s.loadCACerts(caOpts, dir)
 	g.Expect(err).Should(BeNil())
