@@ -26,7 +26,7 @@ First, create an `otel-collector` backend with a simple configuration.
 kubectl apply -f otel.yaml -n istio-system
 ```
 
-With following configuration, otel-collector-contrib will create a grpc receiver on port `4317`, and output to stdout. You can find more details from [here](https://github.com/open-telemetry/opentelemetry-collector-contrib).
+With the following configuration, otel-collector-contrib will create a grpc receiver on port `4317`, and output to stdout. You can find more details [here](https://github.com/open-telemetry/opentelemetry-collector-contrib).
 
 ```yaml
     receivers:
