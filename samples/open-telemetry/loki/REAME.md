@@ -4,7 +4,7 @@ This sample demonstrates Istio's Open Telemetry [ALS(Access Log Service)](https:
 
 ## Install Istio
 
-Run the following script to install `istio` with Open Telemetry ALS provider:
+Run the following script to install Istio with an Open Telemetry ALS provider:
 
 ```bash
 istioctl install -f iop.yaml -y
