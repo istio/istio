@@ -1,6 +1,6 @@
 # Open Telemetry with Loki
 
-This sample demonstrates Istio's Open Telemetry [ALS(Access Log Service)](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/access_loggers/grpc/v3/als.proto) and send logs to [Loki](https://github.com/grafana/loki).
+This sample demonstrates Istio's Open Telemetry [ALS(Access Log Service)](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/access_loggers/grpc/v3/als.proto) and sending logs to [Loki](https://github.com/grafana/loki).
 
 ## Install Istio
 
