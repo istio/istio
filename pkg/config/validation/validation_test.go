@@ -5086,7 +5086,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				Endpoints:  []*networking.WorkloadEntry{},
 				Resolution: networking.ServiceEntry_NONE,
 			},
-			valid:   false,
+			valid:   true,
 			warning: true,
 		},
 	}
