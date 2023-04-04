@@ -609,14 +609,6 @@ var (
 		"Required for enabling HBONE tunneling support in xDS. "+
 			"Note: proxies must opt in on a per-proxy basis to listen and request forwarding to the tunneling port, in addition to this flag.").Get()
 
-	// EnableQBONE provides a global Pilot flag for enabling QBONE.
-	// Warning: do not enable by default until endpoint_builder.go caching is fixed (and possibly other locations).
-	EnableQBONE = env.Register(
-		"PILOT_ENABLE_QBONE",
-		false,
-		"Required for enabling QBONE tunneling support in xDS. "+
-			"Note: proxies must opt in on a per-proxy basis to listen and request forwarding to the tunneling port, in addition to this flag.").Get()
-
 	EnableAmbientControllers = env.Register(
 		"PILOT_ENABLE_AMBIENT_CONTROLLERS",
 		false,

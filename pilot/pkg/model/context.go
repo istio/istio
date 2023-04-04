@@ -628,10 +628,6 @@ type NodeMetadata struct {
 	// Note: this only impacts sidecars; ztunnel and waypoint proxy unconditionally use HBONE.
 	ListenHBONE StringBool `json:"LISTEN_HBONE,omitempty"`
 
-	// ListenQBONE, if set, the proxy will listen on QBONE port.
-	// Note: this only impacts sidecars.
-	ListenQBONE StringBool `json:"LISTEN_QBONE,omitempty"`
-
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
 
