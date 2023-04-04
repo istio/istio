@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	v1 "k8s.io/api/core/v1"
 	"os"
 	"reflect"
 	"sync"
@@ -28,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -159,14 +159,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	signingKeyPem := []byte(key1Pem)
 
 	client := fake.NewSimpleClientset()
-	secretData := map[string][]byte{
-		CertChainFile:    nil,
-		PrivateKeyFile:   nil,
-		RootCertFile:     nil,
-		CACertFile:       signingCertPem,
-		CAPrivateKeyFile: signingKeyPem,
-	}
-	initSecret := k8ssecret.BuildSecret(CASecret, "default", secretData, istioCASecretType)
+	initSecret := buildSecret(CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
 	_, err := client.CoreV1().Secrets("default").Create(context.TODO(), initSecret, metav1.CreateOptions{})
 	if err != nil {
 		t.Errorf("Failed to create secret (error: %s)", err)
@@ -723,6 +716,48 @@ func TestGenKeyCert(t *testing.T) {
 		if len(cert.Certificate) != 3 {
 			t.Fatalf("[%s] unexpected number of certificates returned: %d (expected 3)", id, len(cert.Certificate))
 		}
+	}
+}
+
+// TestBuildSecret verifies that BuildSecret returns expected secret.
+func TestBuildSecret(t *testing.T) {
+	CertPem := []byte(cert1Pem)
+	KeyPem := []byte(key1Pem)
+	namespace := "default"
+	secretType := "secret-type"
+	scrtName := "istio-ca-secret"
+
+	caSecret := buildSecret(scrtName, namespace, nil, nil, nil, CertPem, KeyPem, v1.SecretType(secretType))
+	if caSecret.ObjectMeta.Annotations != nil {
+		t.Fatalf("Annotation should be nil but got %v", caSecret)
+	}
+	if caSecret.Data[CertChainFile] != nil {
+		t.Fatalf("Cert chain should be nil but got %v", caSecret.Data[CertChainFile])
+	}
+	if caSecret.Data[PrivateKeyFile] != nil {
+		t.Fatalf("Private key should be nil but got %v", caSecret.Data[PrivateKeyFile])
+	}
+	if !bytes.Equal(caSecret.Data[CACertFile], CertPem) {
+		t.Fatalf("CA cert does not match, want %v got %v", CertPem, caSecret.Data[CACertFile])
+	}
+	if !bytes.Equal(caSecret.Data[CAPrivateKeyFile], KeyPem) {
+		t.Fatalf("CA cert does not match, want %v got %v", KeyPem, caSecret.Data[CAPrivateKeyFile])
+	}
+	serverSecret := buildSecret(scrtName, namespace, CertPem, KeyPem, nil, nil, nil, v1.SecretType(secretType))
+	if serverSecret.ObjectMeta.Annotations != nil {
+		t.Fatalf("Annotation should be nil but got %v", serverSecret)
+	}
+	if serverSecret.Data[CACertFile] != nil {
+		t.Fatalf("CA Cert should be nil but got %v", serverSecret.Data[CACertFile])
+	}
+	if serverSecret.Data[CAPrivateKeyFile] != nil {
+		t.Fatalf("CA private key should be nil but got %v", serverSecret.Data[CAPrivateKeyFile])
+	}
+	if !bytes.Equal(serverSecret.Data[CertChainFile], CertPem) {
+		t.Fatalf("Cert chain does not match, want %v got %v", CertPem, serverSecret.Data[CertChainFile])
+	}
+	if !bytes.Equal(serverSecret.Data[PrivateKeyFile], KeyPem) {
+		t.Fatalf("Private key does not match, want %v got %v", KeyPem, serverSecret.Data[PrivateKeyFile])
 	}
 }
 
