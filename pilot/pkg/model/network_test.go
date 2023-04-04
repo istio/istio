@@ -103,6 +103,9 @@ func TestGatewayHostnames(t *testing.T) {
 		if len(currentGateways) == 0 || !reflect.DeepEqual(currentGateways, gateways) {
 			t.Fatalf("unexpected network: %v", currentGateways)
 		}
+		if !env.NetworkManager.IsMultiNetworkEnabled() {
+			t.Fatalf("multi network is not enabled")
+		}
 	})
 
 	workingDNSServer.setHosts(sets.New(gwHost))
