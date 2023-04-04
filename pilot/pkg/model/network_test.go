@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
-	"golang.org/x/exp/slices"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -98,17 +97,12 @@ func TestGatewayHostnames(t *testing.T) {
 	workingDNSServer.setHosts(make(sets.Set[string]))
 	gateways = env.NetworkManager.AllGateways()
 	t.Run("resolution failed", func(t *testing.T) {
+		xdsUpdater.AssertEmpty(t, 50*time.Millisecond)
 		// the gateways should remain
-		retry.Until(func() bool {
-			currentGateways := env.NetworkManager.AllGateways()
-			if len(currentGateways) == 0 ||
-				!reflect.DeepEqual(currentGateways, gateways) ||
-				slices.ContainsFunc(currentGateways, func(gw model.NetworkGateway) bool { return len(gw.Addr) == 0 }) {
-				t.Fatalf("unexpected network: %v", gateways)
-			}
-			return false
-		}, retry.Timeout(time.Second))
-		xdsUpdater.AssertEmpty(t, time.Second)
+		currentGateways := env.NetworkManager.AllGateways()
+		if len(currentGateways) == 0 || !reflect.DeepEqual(currentGateways, gateways) {
+			t.Fatalf("unexpected network: %v", currentGateways)
+		}
 	})
 
 	workingDNSServer.setHosts(sets.New(gwHost))
