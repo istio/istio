@@ -5076,6 +5076,19 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid:   true,
 			warning: false,
 		},
+		{
+			name: "partial wildcard hosts", in: &networking.ServiceEntry{
+				Hosts:     []string{"*.nytimes.com", "*washingtonpost.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 443, Protocol: "HTTPS", Name: "https-nytimes"},
+				},
+				Endpoints:  []*networking.WorkloadEntry{},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
 	}
 
 	for _, c := range cases {

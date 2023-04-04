@@ -3321,6 +3321,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				errs = appendValidation(errs, fmt.Errorf("invalid host %s", hostname))
 			} else {
 				errs = appendValidation(errs, ValidateWildcardDomain(hostname))
+				errs = appendValidation(errs, WrapWarning(validatePartialWildCard(hostname)))
 			}
 		}
 
