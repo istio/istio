@@ -125,7 +125,7 @@ func (a *AmbientIndex) insertWorkloadToService(svcAddress string, workload *mode
 	a.byService[svcAddress] = append(a.byService[svcAddress], workload)
 }
 
-func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, port int, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
+func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, port uint32, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
 	addr := netip.MustParseAddr(ipStr).AsSlice()
 	updates := sets.New[model.ConfigKey]()
 	if isDelete {
@@ -137,7 +137,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, p
 				continue
 			}
 
-			if wl.Waypoint != nil && bytes.Equal(wl.Waypoint.GetIp(), addr) {
+			if wl.Waypoint != nil && (bytes.Equal(wl.Waypoint.GetIp(), addr) && wl.Waypoint.Port == port) {
 				wl.Waypoint = nil
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -158,6 +158,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, p
 					Address: &workloadapi.GatewayAddress_Ip{
 						Ip: addr,
 					},
+					Port: port,
 				}
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -785,22 +786,22 @@ func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
 func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
 	svc := controllers.Extract[*v1.Service](obj)
 	updates := sets.New[model.ConfigKey]()
-	//updates := map[model.ConfigKey]struct{}{}
 
 	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		scope := model.WaypointScope{Namespace: svc.Namespace, ServiceAccount: svc.Annotations[constants.WaypointServiceAccount]}
 
-		// TODO GregHanson: get the Gateway CRD
+		// TODO get IP+Port from the Gateway CRD
+		// https://github.com/istio/istio/issues/44230
 
 		if isDelete {
 			if a.waypoints[scope] == svc.Spec.ClusterIP {
 				delete(a.waypoints, scope)
-				updates.Merge(a.updateWaypoint(scope, svc.Spec.ClusterIP, int(svc.Spec.Ports[0].Port), true, c))
+				updates.Merge(a.updateWaypoint(scope, svc.Spec.ClusterIP, uint32(svc.Spec.Ports[0].Port), true, c))
 			}
 		} else {
 			if a.waypoints[scope] != svc.Spec.ClusterIP {
 				a.waypoints[scope] = svc.Spec.ClusterIP
-				updates.Merge(a.updateWaypoint(scope, svc.Spec.ClusterIP, int(svc.Spec.Ports[0].Port), false, c))
+				updates.Merge(a.updateWaypoint(scope, svc.Spec.ClusterIP, uint32(svc.Spec.Ports[0].Port), false, c))
 			}
 		}
 
