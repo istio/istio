@@ -76,7 +76,7 @@ Run the following script to request `httpbin` from `fortio`.
 kubectl exec -it deploy/fortio -- fortio curl httpbin:8000/ip
 ```
 
-Run the following script to checkout ALS output.
+Run the following script to view ALS output.
 
 ```bash
 kubectl logs -l app=opentelemetry-collector -n istio-system --tail=-1
