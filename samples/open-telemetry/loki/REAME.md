@@ -82,7 +82,7 @@ Run the following script to checkout ALS output.
 kubectl logs -l app=opentelemetry-collector -n istio-system --tail=-1
 ```
 
-You can also check logs from Grafana:
+You can also check the Grafana logs:
 
 ```bash
 istioctl dashboard grafana
