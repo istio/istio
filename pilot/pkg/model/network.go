@@ -414,7 +414,7 @@ var (
 
 	// DNSRetryPeriod is the retry period if DNS resolution is failed
 	// TODO: make it configurable?
-	DNSRetryPeriod = 5 * time.Second
+	DNSRetryPeriod = 30 * time.Second
 )
 
 type networkGatewayNameCache struct {
@@ -493,7 +493,7 @@ func (n *networkGatewayNameCache) resolveAndCache(name string) []string {
 	expiry := time.Now().Add(ttl)
 	refreshPeriod := ttl
 	if len(addrs) == 0 {
-		// resolution failed, retry after 5s (by default)
+		// resolution failed, retry after 30s (by default)
 		// ttl is set to ~136 years
 		refreshPeriod = DNSRetryPeriod
 		// gracefully retain old addresses in case the DNS server is unavailable
