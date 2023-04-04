@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -82,6 +83,9 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 	fmt.Fprintln(w, "NAME\tTYPE\tSTATUS\tVALID CERT\tSERIAL NUMBER\tNOT AFTER\tNOT BEFORE")
 
 	for _, secret := range secretDump {
+		if strings.Contains(secret.State, "Unavailable") {
+			secret.State = "Unavailable"
+		}
 		if len(secret.CaCert) == 0 && len(secret.CertChain) == 0 {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 				secret.Identity, valueOrNA(""), secret.State, false, valueOrNA(""), valueOrNA(""), valueOrNA(""))
