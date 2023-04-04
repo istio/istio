@@ -254,6 +254,47 @@ func TestBookinfo(t *testing.T) {
 		})
 }
 
+func TestOtherRevisionIgnored(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ambient").
+		Run(func(t framework.TestContext) {
+			// This is a negative test, ensuring gateways with tags other
+			// than my tags do not get controlled by me.
+			nsConfig, err := namespace.New(t, namespace.Config{
+				Prefix: "badgateway",
+				Inject: false,
+				Labels: map[string]string{
+					constants.DataplaneMode: "ambient",
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+				"x",
+				"waypoint",
+				"apply",
+				"--namespace",
+				nsConfig.Name(),
+				"--service-account",
+				"sa",
+				"--revision",
+				"foo",
+			})
+			waypointError := retry.UntilSuccess(func() error {
+				fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"sa")
+				if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
+					return fmt.Errorf("gateway is not ready: %v", err)
+				}
+				return nil
+			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
+			if waypointError == nil {
+				t.Fatal("Waypoint for non-existent tag foo created deployment!")
+			}
+		})
+}
+
 func applyDefaultRouting(t framework.TestContext, nsConfig namespace.Instance) {
 	applyFileOrFail(t, nsConfig.Name(), defaultDestRule)
 	applyFileOrFail(t, nsConfig.Name(), bookinfoGateway)
