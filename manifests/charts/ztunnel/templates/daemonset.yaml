@@ -22,6 +22,7 @@ spec:
         app: ztunnel
 {{ with .Values.podLabels -}}{{ toYaml . | indent 8 }}{{ end }}
       annotations:
+        cni.projectcalico.org/allowedSourcePrefixes: "[\"0.0.0.0/0\"]"
         ambient.istio.io/redirection: disabled
         sidecar.istio.io/inject: "false"
 {{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
@@ -47,12 +48,22 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           privileged: false
+  {{- if eq .Values.variant "debug"}}
           capabilities:
             drop:
-            - ALL
+              - ALL
             add:
-            - NET_ADMIN
+              - NET_ADMIN
+              - NET_RAW
+          readOnlyRootFilesystem: false
+  {{- else }}
+          capabilities:
+            drop:
+              - ALL
+            add:
+              - NET_ADMIN
           readOnlyRootFilesystem: true
+  {{- end }}
           runAsGroup: 1337
           runAsNonRoot: false
           runAsUser: 0
