@@ -56,7 +56,7 @@ require (
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/buildkit v0.11.4
-	github.com/onsi/gomega v1.27.6
+	github.com/onsi/gomega v1.27.4
 	github.com/openshift/api v0.0.0-20200713203337-b2494ecb17dd
 	github.com/pires/go-proxyproto v0.6.2
 	github.com/pmezard/go-difflib v1.0.0
@@ -92,31 +92,27 @@ require (
 	istio.io/client-go v1.18.0-alpha.0.0.20230403174533-c2b7365b164a
 	istio.io/pkg v0.0.0-20230327211253-afbd3d24c68e
 	k8s.io/api v0.27.0-alpha.3
-	k8s.io/apiextensions-apiserver v0.26.3
+	k8s.io/apiextensions-apiserver v0.26.2
 	k8s.io/apimachinery v0.27.0-alpha.3
-	k8s.io/apiserver v0.26.3
+	k8s.io/apiserver v0.26.2
 	k8s.io/cli-runtime v0.26.2
 	k8s.io/client-go v0.27.0-alpha.3
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a
 	k8s.io/kubectl v0.26.2
 	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
-	sigs.k8s.io/controller-runtime v0.14.6
-	sigs.k8s.io/gateway-api v0.6.0-rc2.0.20230403165553-8dde50805b80
+	sigs.k8s.io/controller-runtime v0.13.1-0.20230315234915-a26de2d610c3
+	sigs.k8s.io/gateway-api v0.6.1
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )
-
-replace sigs.k8s.io/gateway-api => github.com/gauravkghildiyal/gateway-api v0.0.0-20230405100529-4cde659ecbfe
-
-replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1-0.20230401042149-c52016dae81f
 
 require (
 	cloud.google.com/go/compute v1.18.0 // indirect
 	cloud.google.com/go/iam v0.12.0 // indirect
 	cloud.google.com/go/longrunning v0.4.1 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
-	github.com/onsi/ginkgo/v2 v2.9.2 // indirect
+	github.com/onsi/ginkgo/v2 v2.9.1 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
 	github.com/quic-go/qtls-go1-20 v0.1.1 // indirect
@@ -163,7 +159,7 @@ require (
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.1 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
-	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
+	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -226,7 +222,7 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/stoewer/go-strcase v1.2.1
-	github.com/stretchr/testify v1.8.2 // indirect
+	github.com/stretchr/testify v1.8.1 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
@@ -247,7 +243,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	k8s.io/component-base v0.26.3 // indirect
+	k8s.io/component-base v0.26.2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect
