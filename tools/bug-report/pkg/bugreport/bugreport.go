@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	label2 "istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -305,12 +306,16 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 		cp := params.SetNamespace(namespace).SetPod(pod).SetContainer(container)
 		proxyDir := archive.ProxyOutputPath(tempDir, namespace, pod)
 		switch {
-		case common.IsProxyContainer(params.ClusterVersion, container):
+		case common.IsProxyContainer(params.ClusterVersion, container) && !ambient.IsZtunnelPod(pod):
 			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
 			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
 			getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 			getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 
+		case ambient.IsZtunnelPod(pod):
+			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+			getFromCluster(content.GetZtunnelInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+			getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
 			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
 			getIstiodLogs(runner, config, resources, namespace, pod, &mandatoryWg)
