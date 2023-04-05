@@ -15,8 +15,6 @@
 package revisions
 
 import (
-	"sync"
-
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -37,7 +35,6 @@ type TagWatcher interface {
 	HasSynced() bool
 	AddHandler(handler TagHandler)
 	GetMyTags() sets.Set[string]
-	GetAllTags() sets.Set[string]
 }
 
 // TagHandler is a callback for when the tags revision change.
@@ -47,42 +44,45 @@ type tagWatcher struct {
 	revision string
 	handlers []TagHandler
 
-	queue           controllers.Queue
-	webhookInformer kclient.Client[*admissionregistrationv1.MutatingWebhookConfiguration]
-	mu              sync.RWMutex
-	tagsToRevisions map[string]string
-	revisionsToTags map[string][]string
+	queue    controllers.Queue
+	webhooks kclient.Client[*admissionregistrationv1.MutatingWebhookConfiguration]
+	index    *kclient.Index[*admissionregistrationv1.MutatingWebhookConfiguration, string]
 }
 
 func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 	p := &tagWatcher{
-		revision:        revision,
-		mu:              sync.RWMutex{},
-		tagsToRevisions: map[string]string{},
-		revisionsToTags: map[string][]string{},
+		revision: revision,
 	}
-	p.queue = controllers.NewQueue("tag", controllers.WithReconciler(p.updateTags))
-	p.webhookInformer = kclient.NewFiltered[*admissionregistrationv1.MutatingWebhookConfiguration](client, kubetypes.Filter{
+	p.queue = controllers.NewQueue("tag", controllers.WithReconciler(func(key types.NamespacedName) error {
+		p.notifyHandlers()
+		return nil
+	}))
+	p.webhooks = kclient.NewFiltered[*admissionregistrationv1.MutatingWebhookConfiguration](client, kubetypes.Filter{
 		ObjectFilter: isTagWebhook,
 	})
-	p.webhookInformer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
-
+	p.index = kclient.CreateIndexWithDelegate[*admissionregistrationv1.MutatingWebhookConfiguration](p.webhooks,
+		func(o *admissionregistrationv1.MutatingWebhookConfiguration) []string {
+			rev := o.GetLabels()[label.IoIstioRev.Name]
+			if rev == "" {
+				return nil
+			}
+			return []string{rev}
+		}, controllers.ObjectHandler(p.queue.AddObject))
 	return p
 }
 
 func (p *tagWatcher) Run(stopCh <-chan struct{}) {
-	if !kube.WaitForCacheSync(stopCh, p.webhookInformer.HasSynced) {
+	if !kube.WaitForCacheSync(stopCh, p.webhooks.HasSynced) {
 		log.Errorf("failed to sync tag watcher")
 		return
 	}
-
+	// Notify handlers of initial state
+	p.notifyHandlers()
 	p.queue.Run(stopCh)
 }
 
 // AddHandler registers a new handler for updates to tag changes.
 func (p *tagWatcher) AddHandler(handler TagHandler) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.handlers = append(p.handlers, handler)
 }
 
@@ -90,55 +90,20 @@ func (p *tagWatcher) HasSynced() bool {
 	return p.queue.HasSynced()
 }
 
-func (p *tagWatcher) GetMyTags() sets.Set[string] {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	result := sets.New(p.revisionsToTags[p.revision]...)
-	result.Insert(p.revision)
-	return result
-}
-
-func (p *tagWatcher) GetAllTags() sets.Set[string] {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	result := sets.New[string]()
-	for k, v := range p.tagsToRevisions {
-		result.InsertAll(k, v)
+func (p *tagWatcher) GetMyTags() sets.String {
+	res := sets.New(p.revision)
+	for _, wh := range p.index.Lookup(p.revision) {
+		res.Insert(wh.GetLabels()[tag.IstioTagLabel])
 	}
-	return result
+	return res
 }
 
 // notifyHandlers notifies all registered handlers on tag change.
 func (p *tagWatcher) notifyHandlers() {
 	myTags := p.GetMyTags()
-	handlers := []TagHandler{}
-	p.mu.RLock()
-	handlers = append(handlers, p.handlers...)
-	p.mu.RUnlock()
-	for _, handler := range handlers {
+	for _, handler := range p.handlers {
 		handler(myTags)
 	}
-}
-
-func (p *tagWatcher) updateTags(key types.NamespacedName) error {
-	var revision, tagName string
-	wh := p.webhookInformer.Get(key.Name, "")
-	if wh != nil {
-		revision = wh.GetLabels()[label.IoIstioRev.Name]
-		tagName = wh.GetLabels()[tag.IstioTagLabel]
-	}
-	p.mu.Lock()
-	defer func() {
-		p.mu.Unlock()
-		p.notifyHandlers()
-	}()
-	p.tagsToRevisions[tagName] = revision
-	reverseMap := map[string][]string{}
-	for key, val := range p.tagsToRevisions {
-		reverseMap[val] = append(reverseMap[val], key)
-	}
-	p.revisionsToTags = reverseMap
-	return nil
 }
 
 func isTagWebhook(uobj any) bool {
