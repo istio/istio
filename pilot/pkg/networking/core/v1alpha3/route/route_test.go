@@ -87,7 +87,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{IsHTTP3AltSvcHeaderNeeded: true})
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{IsHTTP3AltSvcHeaderNeeded: true})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(routes[0].GetResponseHeadersToAdd()).To(gomega.Equal([]*core.HeaderValueOption{
