@@ -102,7 +102,7 @@ update-common:
 	@if [ "$(CONTRIB_OVERRIDE)" != "CONTRIBUTING.md" ]; then\
 		rm $(TMP)/common-files/files/CONTRIBUTING.md;\
 	fi
-	@cp -a $(TMP)/common-files/files/* $(shell pwd)
+	@cp -a $(TMP)/common-files/files/* $(TMP)/common-files/files/.* $(shell pwd)
 	@rm -fr $(TMP)/common-files
 	@$(or $(COMMONFILES_POSTPROCESS), true)
 

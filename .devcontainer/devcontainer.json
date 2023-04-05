@@ -1,0 +1,15 @@
+{
+  "name": "istio build-tools",
+  "image": "gcr.io/istio-testing/build-tools:master-8c6fd99f50a8acae83a260340848097c002d2e0b",
+  "privileged": true,
+  "remoteEnv": {
+    "USE_GKE_GCLOUD_AUTH_PLUGIN": "True",
+    "BUILD_WITH_CONTAINER":"0",
+    "CARGO_HOME":"/home/.cargo",
+    "RUSTUP_HOME":"/home/.rustup"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/mpriscella/features/kind:1": {}
+  }
+}
