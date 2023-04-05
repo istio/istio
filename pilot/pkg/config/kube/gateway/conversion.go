@@ -1577,19 +1577,14 @@ func reportGatewayStatus(
 		}
 		// Prune listeners that have been removed
 		haveListeners := getListenerNames(obj)
-		log.Errorf("howardjohn: have listeners %v gen %v: %v", obj.Name, obj.Generation, haveListeners.UnsortedList())
 		listeners := make([]k8s.ListenerStatus, 0, len(gs.Listeners))
 		for _, l := range gs.Listeners {
 			if haveListeners.Contains(l.Name) {
 				haveListeners.Delete(l.Name)
-				log.Errorf("howardjohn: add %v", l.Name)
 				listeners = append(listeners, l)
-			} else {
-				log.Errorf("howardjohn: skip %v", l.Name)
 			}
 		}
 		gs.Listeners = listeners
-		log.Errorf("howardjohn: update status to %v %v", len(gs.Listeners), gs.Listeners)
 		gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 		return gs
 	})
