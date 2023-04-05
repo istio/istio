@@ -1094,17 +1094,15 @@ func (c *client) UtilFactory() util.Factory {
 func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error {
 	// Create the options.
 	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
-	flags := apply.NewApplyFlags(c.clientFactory, streams)
+	flags := apply.NewApplyFlags(streams)
 	flags.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
 
 	cmd := apply.NewCmdApply("", c.clientFactory, streams)
-	opts, err := flags.ToOptions(cmd, "", nil)
+	opts, err := flags.ToOptions(c.clientFactory, cmd, "", nil)
 	if err != nil {
 		return err
 	}
 	opts.DynamicClient = c.dynamic
-	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamDryRun)
-	opts.FieldValidationVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamFieldValidation)
 	opts.FieldManager = fieldManager
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer
@@ -1139,7 +1137,7 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 
 	opts.OpenAPISchema, _ = c.clientFactory.OpenAPISchema()
 
-	opts.Validator, err = c.clientFactory.Validator(metav1.FieldValidationStrict, opts.FieldValidationVerifier)
+	opts.Validator, err = c.clientFactory.Validator(metav1.FieldValidationStrict)
 	if err != nil {
 		return err
 	}
@@ -1239,7 +1237,6 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 	opts.WaitForDeletion = true
 	opts.WarnClusterScope = enforceNamespace
 	opts.DynamicClient = c.dynamic
-	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamDryRun)
 
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer
