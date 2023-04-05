@@ -15,8 +15,6 @@
 package kclient_test
 
 import (
-	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -56,22 +54,12 @@ func TestHasSynced(t *testing.T) {
 }
 
 func TestClient(t *testing.T) {
-	tracker := newTracker(t)
+	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
 	deployments := kclient.NewFiltered[*appsv1.Deployment](c, kclient.Filter{ObjectFilter: func(t any) bool {
 		return t.(*appsv1.Deployment).Spec.MinReadySeconds < 100
 	}})
-	deployments.AddEventHandler(controllers.EventHandler[*appsv1.Deployment]{
-		AddFunc: func(obj *appsv1.Deployment) {
-			tracker.Record("add/" + obj.Name)
-		},
-		UpdateFunc: func(oldObj, newObj *appsv1.Deployment) {
-			tracker.Record("update/" + newObj.Name)
-		},
-		DeleteFunc: func(obj *appsv1.Deployment) {
-			tracker.Record("delete/" + obj.Name)
-		},
-	})
+	deployments.AddEventHandler(clienttest.TrackerHandler(tracker))
 	tester := clienttest.Wrap(t, deployments)
 
 	c.RunAndWait(test.NewStop(t))
@@ -91,7 +79,7 @@ func TestClient(t *testing.T) {
 	// Create object, make sure we can see it
 	tester.Create(obj1)
 	// Client is cached, so its only eventually consistent
-	tracker.Wait("add/1")
+	tracker.WaitOrdered("add/1")
 	assert.Equal(t, tester.Get(obj1.Name, obj1.Namespace), obj1)
 	assert.Equal(t, tester.List("", klabels.Everything()), []*appsv1.Deployment{obj1})
 	assert.Equal(t, tester.List(obj1.Namespace, klabels.Everything()), []*appsv1.Deployment{obj1})
@@ -99,13 +87,13 @@ func TestClient(t *testing.T) {
 	// Update object, should see the update...
 	obj1.Spec.MinReadySeconds = 2
 	tester.Update(obj1)
-	tracker.Wait("update/1")
+	tracker.WaitOrdered("update/1")
 	assert.Equal(t, tester.Get(obj1.Name, obj1.Namespace), obj1)
 
 	// Create some more objects
 	tester.Create(obj3)
 	tester.Create(obj2)
-	tracker.Wait("add/2")
+	tracker.WaitOrdered("add/2")
 	assert.Equal(t, tester.Get(obj2.Name, obj2.Namespace), obj2)
 	// We should not see obj3, it is filtered
 
@@ -119,58 +107,25 @@ func TestClient(t *testing.T) {
 	tester.Delete(obj3.Name, obj3.Namespace)
 	tester.Delete(obj2.Name, obj2.Namespace)
 	tester.Delete(obj1.Name, obj1.Namespace)
-	tracker.Wait("delete/2")
-	tracker.Wait("delete/1")
+	tracker.WaitOrdered("delete/2")
+	tracker.WaitOrdered("delete/1")
 	assert.Equal(t, tester.List(obj1.Namespace, klabels.Everything()), nil)
 
 	// Create some more objects again
 	tester.Create(obj3)
 	tester.Create(obj2)
-	tracker.Wait("add/2")
+	tracker.WaitOrdered("add/2")
 	assert.Equal(t, tester.Get(obj2.Name, obj2.Namespace), obj2)
 
 	// Was filtered, now its not. Should get an Add
 	obj3.Spec.MinReadySeconds = 5
 	tester.Update(obj3)
-	tracker.Wait("add/3")
+	tracker.WaitOrdered("add/3")
 	assert.Equal(t, tester.Get(obj3.Name, obj3.Namespace), obj3)
 
 	// Was allowed, now its not. Should get a Delete
 	obj3.Spec.MinReadySeconds = 150
 	tester.Update(obj3)
-	tracker.Wait("delete/3")
+	tracker.WaitOrdered("delete/3")
 	assert.Equal(t, tester.Get(obj3.Name, obj3.Namespace), nil)
-}
-
-type tracker struct {
-	t      test.Failer
-	mu     sync.Mutex
-	events []string
-}
-
-func newTracker(t test.Failer) *tracker {
-	return &tracker{t: t}
-}
-
-func (t *tracker) Record(event string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.events = append(t.events, event)
-}
-
-func (t *tracker) Wait(event string) {
-	t.t.Helper()
-	retry.UntilSuccessOrFail(t.t, func() error {
-		t.mu.Lock()
-		defer t.mu.Unlock()
-		if len(t.events) == 0 {
-			return fmt.Errorf("no events")
-		}
-		if t.events[0] != event {
-			return fmt.Errorf("got events %v, want %v", t.events, event)
-		}
-		// clear the event
-		t.events = t.events[1:]
-		return nil
-	}, retry.Timeout(time.Second*5))
 }

@@ -212,9 +212,18 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 }
 
 func (d *DeploymentController) Run(stop <-chan struct{}) {
-	kube.WaitForCacheSync(stop, d.tagWatcher.HasSynced)
+	kube.WaitForCacheSync(
+		stop,
+		d.namespaces.HasSynced,
+		d.deployments.HasSynced,
+		d.services.HasSynced,
+		d.serviceAccounts.HasSynced,
+		d.gateways.HasSynced,
+		d.gatewayClasses.HasSynced,
+		d.tagWatcher.HasSynced,
+	)
 	d.queue.Run(stop)
-	controllers.ShutdownAll(d.deployments, d.services, d.serviceAccounts, d.gateways, d.gatewayClasses)
+	controllers.ShutdownAll(d.namespaces, d.deployments, d.services, d.serviceAccounts, d.gateways, d.gatewayClasses)
 }
 
 // Reconcile takes in the name of a Gateway and ensures the cluster is in the desired state
