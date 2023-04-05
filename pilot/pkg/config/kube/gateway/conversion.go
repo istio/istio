@@ -1163,11 +1163,11 @@ func createQueryParamsMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringM
 		}
 		switch tp {
 		case k8sbeta.QueryParamMatchExact:
-			res[string(qp.Name)] = &istio.StringMatch{
+			res[qp.Name] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: qp.Value},
 			}
 		case k8sbeta.QueryParamMatchRegularExpression:
-			res[string(qp.Name)] = &istio.StringMatch{
+			res[qp.Name] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Regex{Regex: qp.Value},
 			}
 		default:
