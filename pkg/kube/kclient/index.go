@@ -113,7 +113,7 @@ func CreateIndexWithDelegate[O controllers.ComparableObject, K comparable](
 // CreateIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
 func CreateIndex[O controllers.ComparableObject, K comparable](
-	client Reader[O],
+	client Informer[O],
 	extract func(o O) []K,
 ) *Index[O, K] {
 	return CreateIndexWithDelegate(client, extract, nil)
