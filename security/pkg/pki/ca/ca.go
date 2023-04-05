@@ -180,7 +180,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 			}
 			// Write the key/cert back to secret, so they will be persistent when CA restarts.
-			secret := buildSecret(namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
+			secret := BuildSecret(CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
 			if _, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 				pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 				return fmt.Errorf("failed to create CA due to secret write error")
@@ -269,8 +269,8 @@ func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 	return caOpts, nil
 }
 
-// buildSecret returns a secret struct, contents of which are filled with parameters passed in.
-func buildSecret(namespace string, certChain, privateKey, rootCert, caCert, caPrivateKey []byte, secretType v1.SecretType) *v1.Secret {
+// BuildSecret returns a secret struct, contents of which are filled with parameters passed in.
+func BuildSecret(scrtName, namespace string, certChain, privateKey, rootCert, caCert, caPrivateKey []byte, secretType v1.SecretType) *v1.Secret {
 	return &v1.Secret{
 		Data: map[string][]byte{
 			CertChainFile:    certChain,
@@ -280,7 +280,7 @@ func buildSecret(namespace string, certChain, privateKey, rootCert, caCert, caPr
 			CAPrivateKeyFile: caPrivateKey,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      CASecret,
+			Name:      scrtName,
 			Namespace: namespace,
 		},
 		Type: secretType,
