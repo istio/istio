@@ -16,9 +16,13 @@ package gateway
 
 import (
 	"bytes"
+	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,6 +32,9 @@ import (
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -121,4 +128,106 @@ func TestConfigureIstioGateway(t *testing.T) {
 			util.CompareContent(t, resp, filepath.Join("testdata", "deployment", tt.name+".yaml"))
 		})
 	}
+}
+
+func TestVersionManagement(t *testing.T) {
+	log.SetOutputLevel(istiolog.DebugLevel)
+	writes := make(chan string, 10)
+	c := kube.NewFakeClient(
+		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "gw-istio", Namespace: "default"}})
+	reconciles := atomic.NewInt32(0)
+	wantReconcile := int32(0)
+	expectReconciled := func() {
+		t.Helper()
+		wantReconcile++
+		assert.EventuallyEqual(t, reconciles.Load, wantReconcile, retry.Timeout(time.Second), retry.Message("no reconciliation"))
+	}
+	d := NewDeploymentController(c)
+	d.patcher = func(g schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+		if g.Resource == "deployments" {
+			reconciles.Inc()
+		}
+		if g.Resource == "gateways" && len(subresources) == 0 {
+			b, err := yaml.JSONToYAML(data)
+			if err != nil {
+				return err
+			}
+			writes <- string(b)
+		}
+		return nil
+	}
+	stop := test.NewStop(t)
+	go d.Run(stop)
+	c.RunAndWait(stop)
+
+	gws := c.GatewayAPI().GatewayV1beta1().Gateways("default")
+	ctx := context.Background()
+	// Create a gateway, we should mark our ownership
+	defaultGateway := &v1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gw",
+			Namespace: "default",
+		},
+		Spec: v1beta1.GatewaySpec{GatewayClassName: DefaultClassName},
+	}
+	gws.Create(ctx, defaultGateway, metav1.CreateOptions{})
+	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
+	expectReconciled()
+	assert.ChannelIsEmpty(t, writes)
+
+	// Test fake doesn't actual do Apply, so manually do this
+	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(ControllerVersion)}
+	gws.Update(ctx, defaultGateway, metav1.UpdateOptions{})
+	// We shouldn't write in response to our write.
+	assert.ChannelIsEmpty(t, writes)
+
+	defaultGateway.Annotations["foo"] = "bar"
+	gws.Update(ctx, defaultGateway, metav1.UpdateOptions{})
+	expectReconciled()
+	expectReconciled() // There is a bug in the SSA setup causing us to write twice. Fixed in 1.18+
+	// We should not be updating the version, its already set. Setting it introduces a possible race condition
+	// since we use SSA so there is no conflict checks.
+	assert.ChannelIsEmpty(t, writes)
+
+	// Somehow the annotation is removed - it should be added back
+	defaultGateway.Annotations = map[string]string{}
+	gws.Update(ctx, defaultGateway, metav1.UpdateOptions{})
+	expectReconciled()
+	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
+	assert.ChannelIsEmpty(t, writes)
+	// Test fake doesn't actual do Apply, so manually do this
+	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(ControllerVersion)}
+	gws.Update(ctx, defaultGateway, metav1.UpdateOptions{})
+	expectReconciled()
+	// We shouldn't write in response to our write.
+	assert.ChannelIsEmpty(t, writes)
+
+	// Somehow the annotation is set to an older version - it should be added back
+	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(0)}
+	gws.Update(ctx, defaultGateway, metav1.UpdateOptions{})
+	expectReconciled()
+	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
+	assert.ChannelIsEmpty(t, writes)
+	// Test fake doesn't actual do Apply, so manually do this
+	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(ControllerVersion)}
+	gws.Update(ctx, defaultGateway, metav1.UpdateOptions{})
+	expectReconciled()
+	// We shouldn't write in response to our write.
+	assert.ChannelIsEmpty(t, writes)
+
+	// Somehow the annotation is set to an new version - we should do nothing
+	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(3)}
+	gws.Update(ctx, defaultGateway, metav1.UpdateOptions{})
+	assert.ChannelIsEmpty(t, writes)
+	// Do not expect reconcile
+	assert.Equal(t, reconciles.Load(), wantReconcile)
+}
+
+func buildPatch(version int) string {
+	return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.istio.io/controller-version: "%d"
+`, version)
 }
