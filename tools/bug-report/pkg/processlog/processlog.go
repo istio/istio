@@ -15,6 +15,7 @@
 package processlog
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -30,6 +31,8 @@ const (
 	levelDebug = "debug"
 	levelTrace = "trace"
 )
+
+var ztunnelLogPattern = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(?:\w+\s+)?(\w+)\s+([\w\.:]+)(.*)`)
 
 // Stats represents log statistics.
 type Stats struct {
@@ -104,14 +107,20 @@ func getStats(config *config.BugReportConfig, logStr string) *Stats {
 func processLogLine(line string) (timeStamp *time.Time, level string, text string, valid bool) {
 	lv := strings.Split(line, "\t")
 	if len(lv) < 3 {
-		return nil, "", "", false
+		// maybe ztunnel logs
+		// TODO remove this when https://github.com/istio/ztunnel/issues/453 is fixed
+		matches := ztunnelLogPattern.FindStringSubmatch(line)
+		if len(matches) < 5 {
+			return nil, "", "", false
+		}
+		lv = matches[1:]
 	}
 	ts, err := time.Parse(time.RFC3339Nano, lv[0])
 	if err != nil {
 		return nil, "", "", false
 	}
 	timeStamp = &ts
-	switch lv[1] {
+	switch strings.ToLower(lv[1]) {
 	case levelFatal, levelError, levelWarn, levelInfo, levelDebug, levelTrace:
 		level = lv[1]
 	default:
