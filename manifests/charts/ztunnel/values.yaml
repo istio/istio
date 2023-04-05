@@ -3,7 +3,7 @@ hub: gcr.io/istio-testing
 # Tag to pull from. Image will be `Hub/Image:Tag-Variant`
 tag: latest
 # Variant to pull. Options are "debug" or "distroless". Unset will use the default for the given version.
-# Setting variant to "debug" will also run with
+# Setting variant to "debug" will also run with higher permissions to allow tcpdump.
 variant: ""
 
 # Image name to pull from. Image will be `Hub/Image:Tag-Variant`
