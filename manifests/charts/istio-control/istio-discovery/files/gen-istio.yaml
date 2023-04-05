@@ -2207,6 +2207,7 @@ spec:
         operator.istio.io/component: "Pilot"
         istio: pilot
       annotations:
+        istio.io/meshID: "default"
         prometheus.io/port: "15014"
         prometheus.io/scrape: "true"
         ambient.istio.io/redirection: disabled

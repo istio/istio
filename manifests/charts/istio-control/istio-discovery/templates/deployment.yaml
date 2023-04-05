@@ -48,6 +48,7 @@ spec:
         {{ $key }}: "{{ $val }}"
         {{- end }}
       annotations:
+        istio.io/meshID: "{{ .Values.global.meshID | default `default` }}"
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15014"
         prometheus.io/scrape: "true"
