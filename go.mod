@@ -107,6 +107,8 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
+replace sigs.k8s.io/gateway-api => github.com/gauravkghildiyal/gateway-api v0.0.0-20230405100529-4cde659ecbfe
+
 replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1-0.20230401042149-c52016dae81f
 
 require (

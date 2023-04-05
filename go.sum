@@ -300,6 +300,8 @@ github.com/fsnotify/fsnotify v1.6.0 h1:n+5WquG0fcWoWp6xPWfHdbskMCQaFnG6PfBrh1Ky4
 github.com/fsnotify/fsnotify v1.6.0/go.mod h1:sl3t1tCWJFWoRz9R8WJCbQihKKwmorjAbSClcnxKAGw=
 github.com/fvbommel/sortorder v1.0.2 h1:mV4o8B2hKboCdkJm+a7uX/SIpZob4JzUpc5GGnM45eo=
 github.com/fvbommel/sortorder v1.0.2/go.mod h1:uk88iVf1ovNn1iLfgUVU2F9o5eO30ui720w+kxuqRs0=
+github.com/gauravkghildiyal/gateway-api v0.0.0-20230405100529-4cde659ecbfe h1:biD5I7WdPNsdhtNA7qk9grcKZbJdNBO8gbQG6Lq8PCk=
+github.com/gauravkghildiyal/gateway-api v0.0.0-20230405100529-4cde659ecbfe/go.mod h1:fBKnl7S8j7g4WuBJF7CXVWjp7qoMJrnvH4QlgEZfEO0=
 github.com/getsentry/raven-go v0.2.0/go.mod h1:KungGk8q33+aIAZUIVWZDr2OfAEBsO49PX4NzFV5kcQ=
 github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
@@ -1753,8 +1755,6 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.35/go.mod h1:WxjusM
 sigs.k8s.io/controller-runtime v0.13.1-0.20230401042149-c52016dae81f h1:udJJX/ZIPIQlhh5Eu3xu1Ga/TAcGKvHIU/7Yc2G4twc=
 sigs.k8s.io/controller-runtime v0.13.1-0.20230401042149-c52016dae81f/go.mod h1:4H9EyO3RqJRkt3mPvTIJ7GDHkvjkU2YkpKBLsOF1aIw=
 sigs.k8s.io/controller-tools v0.3.0/go.mod h1:enhtKGfxZD1GFEoMgP8Fdbu+uKQ/cq1/WGJhdVChfvI=
-sigs.k8s.io/gateway-api v0.6.0-rc2.0.20230403165553-8dde50805b80 h1:COAykhSMRTFc3+0NVhzEl8ZJQdgdKGoKazOJD0rR0TI=
-sigs.k8s.io/gateway-api v0.6.0-rc2.0.20230403165553-8dde50805b80/go.mod h1:/b8eY1B/lLF61ATZfsEBApPZcBfq0dBWP+O/HVOESCI=
 sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2/go.mod h1:B8JuhiUyNFVKdsE8h686QcCxMaH6HrOAZj4vswFpcB0=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd h1:EDPBXCAspyGV4jQlpZSudPeMmr1bNJefnuqLsRAsHZo=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h686QcCxMaH6HrOAZj4vswFpcB0=

@@ -466,18 +466,110 @@ spec:
 			Count: 1,
 			Check: check.And(
 				check.Status(http.StatusMovedPermanently),
-				check.Each(
-					func(r echoClient.Response) error {
-						originalHostname, err := url.Parse(r.RequestURL)
-						if err != nil {
-							return err
-						}
-						return ExpectString(r.ResponseHeaders.Get("Location"),
-							fmt.Sprintf("https://%s:%d/foo", originalHostname.Hostname(), ports.HTTP.ServicePort),
-							"Location")
-					})),
+				LocationHeader("https://{{.Hostname}}:80/foo")),
 		},
 		workloadAgnostic: true,
+	})
+	t.RunTraffic(TrafficTestCase{
+		name: "redirect request port",
+		config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - b
+  http:
+  - match:
+    - uri:
+        exact: /foo
+    redirect:
+      derivePort: FROM_REQUEST_PORT
+`,
+		children: []TrafficCall{
+			{
+				name: "to default",
+				call: t.Apps.A[0].CallOrFail,
+				opts: echo.CallOptions{
+					To: t.Apps.B,
+					Port: echo.Port{
+						Name: "http",
+					},
+					HTTP: echo.HTTP{
+						Path:            "/foo",
+						Headers:         HostHeader("b"),
+						FollowRedirects: false,
+					},
+
+					Count: 1,
+					Check: check.And(
+						check.Status(http.StatusMovedPermanently),
+						// Note: there is no "80" added, as its already the protocol default
+						LocationHeader("http://b/foo")),
+				},
+			},
+			{
+				name: "to default with host port",
+				call: t.Apps.A[0].CallOrFail,
+				opts: echo.CallOptions{
+					To: t.Apps.B,
+					Port: echo.Port{
+						Name: "http",
+					},
+					HTTP: echo.HTTP{
+						Path:            "/foo",
+						Headers:         HostHeader("b:80"),
+						FollowRedirects: false,
+					},
+					Count: 1,
+					Check: check.And(
+						check.Status(http.StatusMovedPermanently),
+						// Note: 80 is set as it was explicit in the host header
+						LocationHeader("http://b:80/foo")),
+				},
+			},
+			{
+				name: "non-default",
+				call: t.Apps.A[0].CallOrFail,
+				opts: echo.CallOptions{
+					To: t.Apps.B,
+					Port: echo.Port{
+						Name: "http2",
+					},
+					HTTP: echo.HTTP{
+						Path:            "/foo",
+						Headers:         HostHeader("b"),
+						FollowRedirects: false,
+					},
+					Count: 1,
+					Check: check.And(
+						check.Status(http.StatusMovedPermanently),
+						// Note: there is "85" added, as its already NOT the protocol default
+						LocationHeader("http://b:85/foo")),
+				},
+			},
+			{
+				name: "non-default with host port",
+				call: t.Apps.A[0].CallOrFail,
+				opts: echo.CallOptions{
+					To: t.Apps.B,
+					Port: echo.Port{
+						Name: "http2",
+					},
+					HTTP: echo.HTTP{
+						Path:            "/foo",
+						Headers:         HostHeader("b:85"),
+						FollowRedirects: false,
+					},
+					Count: 1,
+					Check: check.And(
+						check.Status(http.StatusMovedPermanently),
+						// Note: there is "85" added, as its already NOT the protocol default
+						LocationHeader("http://b:85/foo")),
+				},
+			},
+		},
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "rewrite uri",
@@ -3705,4 +3797,20 @@ spec:
 			Check: check.Status(http.StatusNotFound),
 		},
 	})
+}
+
+func LocationHeader(expected string) echo.Checker {
+	return check.Each(
+		func(r echoClient.Response) error {
+			originalHostname, err := url.Parse(r.RequestURL)
+			if err != nil {
+				return err
+			}
+			exp := tmpl.MustEvaluate(expected, map[string]string{
+				"Hostname": originalHostname.Hostname(),
+			})
+			return ExpectString(r.ResponseHeaders.Get("Location"),
+				exp,
+				"Location")
+		})
 }
