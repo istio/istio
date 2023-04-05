@@ -166,6 +166,7 @@ features:
       multimaster:
       remote:
       centralremotekubeconfig:
+    multiplecontrolplanes:
     istiodremote:
     helm:
       default:
