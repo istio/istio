@@ -110,7 +110,7 @@ values:
 				userGroup2NS.Name(), userGroup2NS.Name())
 		})).
 		SetupParallel(
-			// application namespaces are labelled according to the required control plane ownership.
+			// application namespaces are labeled according to the required control plane ownership.
 			namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true, Revision: "usergroup-1", Labels: map[string]string{"usergroup": "usergroup-1"}}),
 			namespace.Setup(&echo2NS, namespace.Config{Prefix: "echo2", Inject: true, Revision: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}}),
 			namespace.Setup(&echo3NS, namespace.Config{Prefix: "echo3", Inject: true, Revision: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}})).
