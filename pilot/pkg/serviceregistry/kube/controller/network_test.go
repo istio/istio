@@ -106,6 +106,10 @@ func addLabeledServiceGateway(t *testing.T, c *FakeController, nw string) {
 			Type:  corev1.ServiceTypeLoadBalancer,
 			Ports: []corev1.ServicePort{{Port: 15443, Protocol: corev1.ProtocolTCP}},
 		},
+		Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{
+			IP:    "2.3.4.6",
+			Ports: []corev1.PortStatus{{Port: 15443, Protocol: corev1.ProtocolTCP}},
+		}}}},
 	}
 	clienttest.Wrap(t, c.services).CreateOrUpdate(svc)
 }
@@ -121,6 +125,10 @@ func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher
 			Type:  corev1.ServiceTypeLoadBalancer,
 			Ports: []corev1.ServicePort{{Port: 15443, Protocol: corev1.ProtocolTCP}},
 		},
+		Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{
+			IP:    "1.2.3.4",
+			Ports: []corev1.PortStatus{{Port: 15443, Protocol: corev1.ProtocolTCP}},
+		}}}},
 	})
 	watcher.SetNetworks(&meshconfig.MeshNetworks{Networks: map[string]*meshconfig.Network{
 		"nw0": {
