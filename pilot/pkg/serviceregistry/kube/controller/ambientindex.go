@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"bytes"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -64,7 +63,7 @@ type AmbientIndex struct {
 	// This may be an external address (possibly even a DNS name we need to resolve), an arbitrary IP,
 	// or a reference to a service.
 	// If its a reference to a Service then we can find the underlying pods in that service, as an optimization.
-	waypoints map[model.WaypointScope]string
+	waypoints map[model.WaypointScope]*workloadapi.GatewayAddress
 
 	// serviceVipIndex maintains an index of VIP -> Service
 	serviceVipIndex *kclient.Index[*v1.Service, string]
@@ -125,8 +124,7 @@ func (a *AmbientIndex) insertWorkloadToService(svcAddress string, workload *mode
 	a.byService[svcAddress] = append(a.byService[svcAddress], workload)
 }
 
-func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, port uint32, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
-	addr := netip.MustParseAddr(ipStr).AsSlice()
+func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloadapi.GatewayAddress, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
 	updates := sets.New[model.ConfigKey]()
 	if isDelete {
 		for _, wl := range a.byPod {
@@ -137,7 +135,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, p
 				continue
 			}
 
-			if wl.Waypoint != nil && (bytes.Equal(wl.Waypoint.GetIp(), addr) && wl.Waypoint.Port == port) {
+			if wl.Waypoint != nil && compareGatewayAddress(wl.Waypoint, addr) {
 				wl.Waypoint = nil
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -153,13 +151,8 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, p
 				continue
 			}
 
-			if wl.Waypoint == nil || (wl.Waypoint != nil && !bytes.Equal(wl.Waypoint.GetIp(), addr)) {
-				wl.Waypoint = &workloadapi.GatewayAddress{
-					Address: &workloadapi.GatewayAddress_Ip{
-						Ip: addr,
-					},
-					Port: port,
-				}
+			if wl.Waypoint == nil || (wl.Waypoint != nil && !compareGatewayAddress(wl.Waypoint, addr)) {
+				wl.Waypoint = addr
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 			}
@@ -215,12 +208,12 @@ func (c *Controller) Waypoint(scope model.WaypointScope) sets.Set[netip.Addr] {
 	defer a.mu.RUnlock()
 	res := sets.New[netip.Addr]()
 	if ip, f := a.waypoints[scope]; f {
-		return res.Insert(netip.MustParseAddr(ip))
+		return res.Insert(netip.MustParseAddr(string(ip.GetIp())))
 	}
 	// Now look for namespace-wide
 	scope.ServiceAccount = ""
 	if ip, f := a.waypoints[scope]; f {
-		return res.Insert(netip.MustParseAddr(ip))
+		return res.Insert(netip.MustParseAddr(string(ip.GetIp())))
 	}
 
 	return res
@@ -575,10 +568,10 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	if p == nil || !IsPodRunning(p) || p.Spec.HostNetwork {
 		return nil
 	}
-	waypoint := ""
+	var waypoint *workloadapi.GatewayAddress
 	if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		// Waypoints do not have waypoints
-		waypoint = ""
+		waypoint = nil
 	} else {
 		// First check for a waypoint for our SA explicit
 		// TODO: this is not robust against temporary waypoint downtime. We also need the users intent (Gateway).
@@ -623,7 +616,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 	idx := AmbientIndex{
 		byService: map[string][]*model.WorkloadInfo{},
 		byPod:     map[string]*model.WorkloadInfo{},
-		waypoints: map[model.WaypointScope]string{},
+		waypoints: map[model.WaypointScope]*workloadapi.GatewayAddress{},
 		services:  map[string]*workloadapi.Service{},
 	}
 
@@ -786,6 +779,7 @@ func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
 func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
 	svc := controllers.Extract[*v1.Service](obj)
 	updates := sets.New[model.ConfigKey]()
+	svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
 
 	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		scope := model.WaypointScope{Namespace: svc.Namespace, ServiceAccount: svc.Annotations[constants.WaypointServiceAccount]}
@@ -793,15 +787,22 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		// TODO get IP+Port from the Gateway CRD
 		// https://github.com/istio/istio/issues/44230
 
+		addr := &workloadapi.GatewayAddress{
+			Address: &workloadapi.GatewayAddress_Ip{
+				Ip: svcIP.AsSlice(),
+			},
+			Port: uint32(svc.Spec.Ports[0].Port),
+		}
+
 		if isDelete {
-			if a.waypoints[scope] == svc.Spec.ClusterIP {
+			if compareGatewayAddress(a.waypoints[scope], addr) {
 				delete(a.waypoints, scope)
-				updates.Merge(a.updateWaypoint(scope, svc.Spec.ClusterIP, uint32(svc.Spec.Ports[0].Port), true, c))
+				updates.Merge(a.updateWaypoint(scope, addr, true, c))
 			}
 		} else {
-			if a.waypoints[scope] != svc.Spec.ClusterIP {
-				a.waypoints[scope] = svc.Spec.ClusterIP
-				updates.Merge(a.updateWaypoint(scope, svc.Spec.ClusterIP, uint32(svc.Spec.Ports[0].Port), false, c))
+			if !compareGatewayAddress(a.waypoints[scope], addr) {
+				a.waypoints[scope] = addr
+				updates.Merge(a.updateWaypoint(scope, addr, false, c))
 			}
 		}
 
@@ -841,7 +842,6 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 				TargetPort:  uint32(p.TargetPort.IntVal),
 			})
 		}
-		svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
 		for _, vip := range vips {
 			a.byService[vip] = wls
 			a.services[vip] = &workloadapi.Service{
@@ -864,6 +864,28 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		}
 	}
 	return updates
+}
+
+func compareGatewayAddress(a1, a2 *workloadapi.GatewayAddress) bool {
+	if a1 == nil && a2 == nil {
+		return true
+	}
+	if (a1 == nil && a2 != nil) || (a1 != nil && a2 == nil) {
+		return false
+	}
+
+	if a1.Port != a2.Port {
+		return false
+	}
+
+	if string(a1.GetIp()) != string(a2.GetIp()) {
+		return false
+	}
+
+	if a2.GetHostname() != a2.GetHostname() {
+		return false
+	}
+	return true
 }
 
 func (c *Controller) getPodsInService(svc *v1.Service) []*v1.Pod {
@@ -894,7 +916,7 @@ func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([
 	return wls, removed
 }
 
-func (c *Controller) constructWorkload(pod *v1.Pod, waypoint string, policies []string) *workloadapi.Workload {
+func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.GatewayAddress, policies []string) *workloadapi.Workload {
 	vips := map[string]*workloadapi.PortList{}
 	allServices := c.services.List(pod.Namespace, klabels.Everything())
 	if services := getPodServices(allServices, pod); len(services) > 0 {
@@ -943,12 +965,8 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoint string, policies []
 	wl.WorkloadName, wl.WorkloadType = workloadNameAndType(pod)
 	wl.CanonicalName, wl.CanonicalRevision = kubelabels.CanonicalService(pod.Labels, wl.WorkloadName)
 	// If we have a remote proxy, configure it
-	if waypoint != "" {
-		wl.Waypoint = &workloadapi.GatewayAddress{
-			Address: &workloadapi.GatewayAddress_Ip{
-				Ip: netip.MustParseAddr(waypoint).AsSlice(),
-			},
-		}
+	if waypoint != nil {
+		wl.Waypoint = waypoint
 	}
 
 	if pod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
