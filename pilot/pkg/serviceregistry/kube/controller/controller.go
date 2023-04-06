@@ -986,6 +986,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	if si.Namespace == "" || len(si.Endpoint.Labels) == 0 {
 		return
 	}
+
 	// this is from a workload entry. Store it in separate index so that
 	// the InstancesByPort can use these as well as the k8s pods.
 	switch event {

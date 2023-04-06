@@ -17,7 +17,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	"net"
 	"reflect"
 	"sort"
@@ -2273,32 +2272,10 @@ func generateNode(name string, labels map[string]string) *corev1.Node {
 	}
 }
 
-func generateWorkloadEntry(name string, ip string) *v1alpha3.WorkloadEntry {
-	return &v1alpha3.WorkloadEntry{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "WorkloadEntry",
-			APIVersion: "networking.istio.io/v1beta1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: networkingv1alpha3.WorkloadEntry{
-			Address: ip,
-		},
-	}
-}
-
 func addNodes(t *testing.T, controller *FakeController, nodes ...*corev1.Node) {
 	for _, node := range nodes {
 		clienttest.Wrap(t, controller.nodes).CreateOrUpdate(node)
 		waitForNode(t, controller, node.Name)
-	}
-}
-
-func addWorkloadEntries(t *testing.T, controller *FakeController, workloadEntries ...*v1alpha3.WorkloadEntry) {
-	for _, we := range workloadEntries {
-		clienttest.Wrap(t, controller.workloadentries).CreateOrUpdate(we)
-		waitForWorkloadEntry(t, controller, we.Name)
 	}
 }
 
@@ -2490,12 +2467,6 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			assertPendingResync(0)
 		})
 	}
-}
-
-func TestWorkloadEntryTriggers(t *testing.T) {
-	controller, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{})
-	we1 := generateWorkloadEntry("we1", "1.1.1.1")
-	addWorkloadEntries(t, controller, we1)
 }
 
 func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
