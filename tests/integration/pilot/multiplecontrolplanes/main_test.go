@@ -58,7 +58,11 @@ func TestMain(m *testing.M) {
 		SetupParallel(
 			namespace.Setup(&userGroup1NS, namespace.Config{Prefix: "usergroup-1", Labels: map[string]string{"usergroup": "usergroup-1"}}),
 			namespace.Setup(&userGroup2NS, namespace.Config{Prefix: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}})).
-		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
+		Setup(istio.Setup(nil, func(ctx resource.Context, cfg *istio.Config) {
+			s := ctx.Settings()
+			// TODO test framework has to be enhanced to use istioNamespace in istioctl commands used for VM config
+			s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, echo.VM)
+
 			cfg.Values["global.istioNamespace"] = userGroup1NS.Name()
 			cfg.SystemNamespace = userGroup1NS.Name()
 			cfg.EastWestGatewayValues = fmt.Sprintf(`
@@ -85,7 +89,11 @@ values:
       ENABLE_ENHANCED_RESOURCE_SCOPING: true`,
 				userGroup1NS.Name(), userGroup1NS.Name())
 		})).
-		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
+		Setup(istio.Setup(nil, func(ctx resource.Context, cfg *istio.Config) {
+			s := ctx.Settings()
+			// TODO test framework has to be enhanced to use istioNamespace in istioctl commands used for VM config
+			s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, echo.VM)
+
 			cfg.Values["global.istioNamespace"] = userGroup2NS.Name()
 			cfg.SystemNamespace = userGroup2NS.Name()
 			cfg.EastWestGatewayValues = fmt.Sprintf(`
