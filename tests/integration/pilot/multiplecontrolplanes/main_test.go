@@ -53,6 +53,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		RequireSingleCluster().
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
 		SetupParallel(
