@@ -15,6 +15,7 @@
 package taint
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -143,7 +144,7 @@ func (tc *Controller) Run(stopCh <-chan struct{}) {
 	for _, podController := range tc.podController {
 		go podController.Run(stopCh)
 		// wait for cache sync up
-		err := wait.Poll(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		err := wait.PollUntilContextTimeout(context.Background(), 100*time.Millisecond, 60*time.Second, false, func(context.Context) (bool, error) {
 			return podController.HasSynced(), nil
 		})
 		if err != nil || !podController.HasSynced() {
@@ -153,7 +154,7 @@ func (tc *Controller) Run(stopCh <-chan struct{}) {
 	}
 	go tc.nodeController.Run(stopCh)
 	// wait for cache sync up
-	err := wait.Poll(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 100*time.Millisecond, 60*time.Second, false, func(context.Context) (bool, error) {
 		return tc.nodeController.HasSynced(), nil
 	})
 	if err != nil || !tc.nodeController.HasSynced() {

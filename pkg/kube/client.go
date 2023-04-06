@@ -557,7 +557,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		fastWaitForCacheSync(stop, c.istioInformer)
 		fastWaitForCacheSync(stop, c.gatewayapiInformer)
 		fastWaitForCacheSync(stop, c.extInformer)
-		_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+		_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
 			select {
 			case <-stop:
 				return false, fmt.Errorf("channel closed")
@@ -639,7 +639,7 @@ type dynamicInformerSync interface {
 func fastWaitForCacheSync(stop <-chan struct{}, informerFactory reflectInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
-	_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+	_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
 		select {
 		case <-stop:
 			return false, fmt.Errorf("channel closed")
@@ -710,7 +710,7 @@ func (c *client) WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.Info
 func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
-	_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+	_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
 		select {
 		case <-stop:
 			return false, fmt.Errorf("channel closed")
