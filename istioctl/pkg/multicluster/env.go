@@ -15,9 +15,6 @@
 package multicluster
 
 import (
-	"io"
-
-	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pkg/kube"
@@ -32,8 +29,6 @@ type Environment interface {
 
 type KubeEnvironment struct {
 	config     *api.Config
-	stdout     io.Writer
-	stderr     io.Writer
 	kubeconfig string
 }
 
@@ -49,7 +44,7 @@ func (e *KubeEnvironment) GetConfig() *api.Config { return e.config }
 
 var _ Environment = (*KubeEnvironment)(nil)
 
-func NewEnvironment(kubeconfig, context string, stdout, stderr io.Writer) (*KubeEnvironment, error) {
+func NewEnvironment(kubeconfig, context string) (*KubeEnvironment, error) {
 	config, err := kube.BuildClientCmd(kubeconfig, context).ConfigAccess().GetStartingConfig()
 	if err != nil {
 		return nil, err
@@ -57,12 +52,6 @@ func NewEnvironment(kubeconfig, context string, stdout, stderr io.Writer) (*Kube
 
 	return &KubeEnvironment{
 		config:     config,
-		stdout:     stdout,
-		stderr:     stderr,
 		kubeconfig: kubeconfig,
 	}, nil
-}
-
-func NewEnvironmentFromCobra(kubeconfig, context string, cmd *cobra.Command) (Environment, error) {
-	return NewEnvironment(kubeconfig, context, cmd.OutOrStdout(), cmd.OutOrStderr())
 }
