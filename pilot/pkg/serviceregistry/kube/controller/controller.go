@@ -16,8 +16,6 @@ package controller
 
 import (
 	"fmt"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"net"
 	"sort"
 	"sync"
@@ -210,13 +208,6 @@ type kubernetesNode struct {
 	labels  labels.Instance
 }
 
-// workloadentryinfo just represents the name/namespace of a workloadentry, the minimum information required
-// for a delete
-type workloadentryinfo struct {
-	name      string
-	namespace string
-}
-
 // controllerInterface is a simplified interface for the Controller used for testing.
 type controllerInterface interface {
 	getPodLocality(pod *v1.Pod) string
@@ -284,10 +275,6 @@ type Controller struct {
 
 	podsClient kclient.Client[*v1.Pod]
 
-	workloadentries kclient.Client[*v1alpha3.WorkloadEntry]
-	// map from ip/network -> we name
-	workloadEntryStatus map[string]workloadentryinfo
-
 	ambientIndex     *AmbientIndex
 	configController model.ConfigStoreController
 	configCluster    bool
@@ -304,7 +291,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
 		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
-		workloadEntryStatus:        make(map[string]workloadentryinfo),
 		workloadInstancesIndex:     workloadinstances.NewIndex(),
 		initialSyncTimedout:        atomic.NewBool(false),
 		networkManager:             initNetworkManager(options),
@@ -361,9 +347,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		})
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
-
-	c.workloadentries = kclient.New[*v1alpha3.WorkloadEntry](kubeClient)
-	registerHandlers[*v1alpha3.WorkloadEntry](c, c.workloadentries, "WorkloadEntries", c.onWorkloadEntryEvent, nil)
 
 	if features.EnableMCSServiceDiscovery || features.EnableMCSHost {
 		c.crdWatcher = crdwatcher.NewController(kubeClient)
@@ -598,28 +581,6 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 			Reason: []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
-	return nil
-}
-
-func makeWEkey(entry *v1alpha3.WorkloadEntry) string {
-	return entry.Spec.Address + "/" + entry.Spec.Network
-}
-
-func (c *Controller) onWorkloadEntryEvent(_, entry *v1alpha3.WorkloadEntry, event model.Event) error {
-	// if a workloadentry is created with the same IP address & Network as an already existing workloadentry, delete the old workloadentry.
-	if event == model.EventDelete {
-		// only delete if it is not a delete caused by stale WLE
-		deleteEntryValue := workloadentryinfo{entry.Name, entry.Namespace}
-		if pe, ok := c.workloadEntryStatus[makeWEkey(entry)]; ok && pe == deleteEntryValue {
-			delete(c.workloadEntryStatus, makeWEkey(entry))
-		}
-	} else if prevEntry, ok := c.workloadEntryStatus[makeWEkey(entry)]; ok && prevEntry.name != entry.Name {
-		// delete stale WLE
-		if err := c.workloadentries.Delete(prevEntry.name, prevEntry.namespace); err != nil && !errors.IsNotFound(err) {
-			log.Warnf("could not clean up stale workloadentry with duplicate IP/network: %s/%s: %v", prevEntry.name, prevEntry.name, err)
-		}
-	}
-	c.workloadEntryStatus[makeWEkey(entry)] = workloadentryinfo{entry.Name, entry.Namespace}
 	return nil
 }
 
@@ -1022,7 +983,6 @@ func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInst
 func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event model.Event) {
 	// ignore malformed workload entries. And ignore any workload entry that does not have a label
 	// as there is no way for us to select them
-	log.Info("WSGA")
 	if si.Namespace == "" || len(si.Endpoint.Labels) == 0 {
 		return
 	}

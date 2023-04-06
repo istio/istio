@@ -17,6 +17,7 @@ package autoregistration
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"math"
 	"strings"
 	"sync"
@@ -144,6 +145,9 @@ type Controller struct {
 
 	// healthCondition is a fifo queue used for updating health check status
 	healthCondition controllers.Queue
+
+	// tracks existence of WorkloadEntries keyed by IP/network to the minimal info required for a delete.
+	workloadEntryStatus map[string]workloadentryinfo
 }
 
 type HealthStatus = v1alpha1.IstioCondition
@@ -157,12 +161,13 @@ func NewController(store model.ConfigStoreController, instanceID string, maxConn
 			maxConnAge = time.Duration(math.MaxInt64)
 		}
 		c := &Controller{
-			instanceID:       instanceID,
-			store:            store,
-			cleanupLimit:     rate.NewLimiter(rate.Limit(20), 1),
-			cleanupQueue:     queue.NewDelayed(),
-			adsConnections:   map[string]uint8{},
-			maxConnectionAge: maxConnAge,
+			instanceID:          instanceID,
+			store:               store,
+			cleanupLimit:        rate.NewLimiter(rate.Limit(20), 1),
+			cleanupQueue:        queue.NewDelayed(),
+			adsConnections:      map[string]uint8{},
+			maxConnectionAge:    maxConnAge,
+			workloadEntryStatus: make(map[string]workloadentryinfo),
 		}
 		c.queue = controllers.NewQueue("unregister_workloadentry",
 			controllers.WithMaxAttempts(maxRetries),
@@ -170,6 +175,7 @@ func NewController(store model.ConfigStoreController, instanceID string, maxConn
 		c.healthCondition = controllers.NewQueue("healthcheck",
 			controllers.WithMaxAttempts(maxRetries),
 			controllers.WithGenericReconciler(c.updateWorkloadEntryHealth))
+		c.store.RegisterEventHandler(gvk.WorkloadEntry, c.onWorkloadEntryEvent)
 		return c
 	}
 	return nil
@@ -518,6 +524,43 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 // sanitizeIP ensures an IP address (IPv6) can be used in Kubernetes resource name
 func sanitizeIP(s string) string {
 	return strings.ReplaceAll(s, ":", "-")
+}
+
+// workloadentryinfo just represents the name/namespace of a workloadentry, the minimum information required
+// for a delete
+type workloadentryinfo struct {
+	name      string
+	namespace string
+}
+
+func (c *Controller) onWorkloadEntryEvent(_, curr config.Config, event model.Event) {
+	log.Infof("Handling event %s for workload entry %s/%s", event, curr.Namespace, curr.Name)
+	// if a workloadentry is created with the same IP address & Network as an already existing workloadentry, delete the old workloadentry.
+	entry := serviceentry.ConvertWorkloadEntry(curr)
+
+	if event == model.EventDelete {
+		// only delete if it is not a delete caused by stale WLE
+		deleteEntryValue := workloadentryinfo{curr.Name, curr.Namespace}
+		if pe, ok := c.workloadEntryStatus[makeWEkey(entry)]; ok && pe == deleteEntryValue {
+			delete(c.workloadEntryStatus, makeWEkey(entry))
+		}
+		return
+	} else if prevEntry, ok := c.workloadEntryStatus[makeWEkey(entry)]; ok && prevEntry.name != curr.Name {
+		// delete stale WLE
+		if err := c.store.Delete(gvk.WorkloadEntry, prevEntry.name, prevEntry.namespace, nil); err != nil && !errors.IsNotFound(err) {
+			log.Warnf("could not clean up stale workloadentry with duplicate IP/network: %s/%s: %v", prevEntry.name, prevEntry.name, err)
+		}
+	}
+	// only add to map if WorkloadEntry was auto-registered
+	if _, ok := curr.Meta.Annotations[AutoRegistrationGroupAnnotation]; ok {
+		c.workloadEntryStatus[makeWEkey(entry)] = workloadentryinfo{
+			curr.Name, curr.Namespace,
+		}
+	}
+}
+
+func makeWEkey(entry *v1alpha3.WorkloadEntry) string {
+	return entry.Address + "/" + entry.Network
 }
 
 func transformHealthEvent(proxy *model.Proxy, entryName string, event HealthEvent) HealthCondition {
