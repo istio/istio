@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -108,7 +107,7 @@ func TestServices(t *testing.T) {
 
 			var sds model.ServiceDiscovery = ctl
 			// "test", ports: http-example on 80
-			makeService(testService, ns, ctl.client.Kube(), t)
+			makeService(testService, ns, ctl, t)
 			<-fx.Events
 
 			eventually(t, func() bool {
@@ -165,9 +164,9 @@ func TestServices(t *testing.T) {
 	}
 }
 
-func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
-	_, err := cl.CoreV1().Services(ns).Create(context.TODO(), &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: n},
+func makeService(n, ns string, cl *FakeController, t *testing.T) {
+	clienttest.Wrap(t, cl.services).Create(&corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: n, Namespace: ns},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
@@ -177,10 +176,7 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 				},
 			},
 		},
-	}, metav1.CreateOptions{})
-	if err != nil {
-		t.Log("Service already created (rerunning test)")
-	}
+	})
 	log.Infof("Created service %s", n)
 }
 
@@ -1955,7 +1951,7 @@ func createEndpoints(t *testing.T, controller *FakeController, name, namespace s
 			Ports:     eps,
 		}},
 	}
-	clienttest.Wrap(t, kclient.New[*corev1.Endpoints](controller.client)).CreateOrUpdate(endpoint)
+	clienttest.NewWriter[*corev1.Endpoints](t, controller.client).CreateOrUpdate(endpoint)
 
 	// Create endpoint slice as well
 	esps := make([]discovery.EndpointPort, 0)
@@ -1980,7 +1976,7 @@ func createEndpoints(t *testing.T, controller *FakeController, name, namespace s
 		Endpoints: sliceEndpoint,
 		Ports:     esps,
 	}
-	clienttest.Wrap(t, kclient.New[*discovery.EndpointSlice](controller.client)).CreateOrUpdate(endpointSlice)
+	clienttest.NewWriter[*discovery.EndpointSlice](t, controller.client).CreateOrUpdate(endpointSlice)
 }
 
 func updateEndpoints(controller *FakeController, name, namespace string, portNames, ips []string, t *testing.T) {
@@ -2051,10 +2047,7 @@ func createServiceWithTargetPorts(controller *FakeController, name, namespace st
 		},
 	}
 
-	_, err := controller.client.Kube().CoreV1().Services(namespace).Create(context.TODO(), service, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
-	}
+	clienttest.Wrap(t, controller.services).Create(service)
 }
 
 func createServiceWait(controller *FakeController, name, namespace string, annotations map[string]string,
@@ -2104,10 +2097,7 @@ func createVirtualService(controller *FakeController, name, namespace string,
 		},
 	}
 
-	_, err := controller.client.Istio().NetworkingV1alpha3().VirtualServices(namespace).Create(context.TODO(), vs, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
-	}
+	clienttest.NewWriter[*v1alpha3.VirtualService](t, controller.client).Create(vs)
 }
 
 func getService(controller *FakeController, name, namespace string, t *testing.T) *corev1.Service {
@@ -2151,10 +2141,7 @@ func createServiceWithoutClusterIP(controller *FakeController, name, namespace s
 		},
 	}
 
-	_, err := controller.client.Kube().CoreV1().Services(namespace).Create(context.TODO(), service, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
-	}
+	clienttest.Wrap(t, controller.services).Create(service)
 }
 
 // nolint: unparam
@@ -2181,19 +2168,13 @@ func createExternalNameService(controller *FakeController, name, namespace strin
 		},
 	}
 
-	_, err := controller.client.Kube().CoreV1().Services(namespace).Create(context.TODO(), service, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
-	}
+	clienttest.Wrap(t, controller.services).Create(service)
 	xdsEvents.WaitOrFail(t, "service")
 	return service
 }
 
 func deleteExternalNameService(controller *FakeController, name, namespace string, t *testing.T, xdsEvents *xdsfake.Updater) {
-	err := controller.client.Kube().CoreV1().Services(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
-	if err != nil {
-		t.Fatalf("Cannot delete service %s in namespace %s (error: %v)", name, namespace, err)
-	}
+	clienttest.Wrap(t, controller.services).Delete(name, namespace)
 	xdsEvents.WaitOrFail(t, "service")
 }
 
@@ -2216,28 +2197,15 @@ func servicesEqual(svcList, expectedSvcList []*model.Service) bool {
 }
 
 func addPods(t *testing.T, controller *FakeController, fx *xdsfake.Updater, pods ...*corev1.Pod) {
+	pc := clienttest.Wrap(t, controller.podsClient)
 	for _, pod := range pods {
-		p, _ := controller.client.Kube().CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
-		var newPod *corev1.Pod
-		var err error
-		if p == nil {
-			newPod, err = controller.client.Kube().CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
-			if err != nil {
-				t.Fatalf("Cannot create %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
-			}
-		} else {
-			newPod, err = controller.client.Kube().CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
-			if err != nil {
-				t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
-			}
-		}
-
+		newPod := pc.CreateOrUpdate(pod)
 		setPodReady(newPod)
 		// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
 		// events - since PodIP will be "".
 		newPod.Status.PodIP = pod.Status.PodIP
 		newPod.Status.Phase = corev1.PodRunning
-		_, _ = controller.client.Kube().CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metav1.UpdateOptions{})
+		pc.UpdateStatus(newPod)
 		if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 			t.Fatal(err)
 		}
@@ -2336,10 +2304,7 @@ func TestEndpointUpdate(t *testing.T) {
 			fx.WaitOrFail(t, "eds")
 
 			// delete normal service
-			err := controller.client.Kube().CoreV1().Services("nsa").Delete(context.TODO(), "svc1", metav1.DeleteOptions{})
-			if err != nil {
-				t.Fatalf("Cannot delete service (error: %v)", err)
-			}
+			clienttest.Wrap(t, controller.services).Delete("svc1", "nsa")
 			fx.WaitOrFail(t, "service")
 
 			// 2. full xds push request for headless service endpoint update
@@ -2734,7 +2699,7 @@ func TestDiscoverySelector(t *testing.T) {
 
 			var sds model.ServiceDiscovery = ctl
 			// "test", ports: http-example on 80
-			makeService(testService, ns, ctl.client.Kube(), t)
+			makeService(testService, ns, ctl, t)
 			<-fx.Events
 
 			eventually(t, func() bool {

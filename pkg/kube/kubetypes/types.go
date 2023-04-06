@@ -68,6 +68,12 @@ type ReadAPI[T runtime.Object, TL runtime.Object] interface {
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
 
+// ReadWriteAPI exposes a generic API for read and write operations.
+type ReadWriteAPI[T runtime.Object, TL runtime.Object] interface {
+	ReadAPI[T, TL]
+	WriteAPI[T]
+}
+
 // ApplyAPI exposes a generic API for a client go type for apply operations.
 type ApplyAPI[T runtime.Object, TA runtime.Object] interface {
 	Apply(ctx context.Context, secret TA, opts metav1.ApplyOptions) (result T, err error)
