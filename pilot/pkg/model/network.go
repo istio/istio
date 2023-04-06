@@ -15,6 +15,7 @@
 package model
 
 import (
+	"fmt"
 	"math"
 	"net"
 	"reflect"
@@ -23,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/miekg/dns"
 	"golang.org/x/exp/slices"
 
@@ -30,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/istiomultierror"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -485,7 +488,7 @@ func (n *networkGatewayNameCache) resolveAndCache(name string) []string {
 		entry.timer.Stop()
 	}
 	delete(n.cache, name)
-	addrs, ttl := n.resolve(name)
+	addrs, ttl, err := n.resolve(name)
 	// avoid excessive pushes due to small TTL
 	if ttl < MinGatewayTTL {
 		ttl = MinGatewayTTL
@@ -493,11 +496,13 @@ func (n *networkGatewayNameCache) resolveAndCache(name string) []string {
 	expiry := time.Now().Add(ttl)
 	refreshPeriod := ttl
 	if len(addrs) == 0 {
-		// resolution failed, retry after 30s (by default)
+		// no answer, retry after 30s (by default)
 		// ttl is set to ~136 years
 		refreshPeriod = DNSRetryPeriod
-		// gracefully retain old addresses in case the DNS server is unavailable
-		addrs = entry.value
+		if err != nil {
+			// gracefully retain old addresses in case the DNS server is unavailable
+			addrs = entry.value
+		}
 	}
 	n.cache[name] = nameCacheEntry{
 		value:  addrs,
@@ -527,9 +532,10 @@ func (n *networkGatewayNameCache) refreshAndNotify(name string) func() {
 }
 
 // resolve gets all the A and AAAA records for the given name
-func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration) {
+func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration, error) {
 	ttl := uint32(math.MaxUint32)
 	var out []string
+	errs := istiomultierror.New()
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -537,12 +543,12 @@ func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration)
 		defer wg.Done()
 
 		res := n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dnsType))
-		if len(res.Answer) == 0 {
-			return
-		}
 
 		mu.Lock()
 		defer mu.Unlock()
+		if res.Rcode == dns.RcodeServerFailure {
+			errs = multierror.Append(errs, fmt.Errorf("upstream dns failure, qtype: %v", dnsType))
+		}
 		for _, rr := range res.Answer {
 			switch dnsType {
 			case dns.TypeA:
@@ -562,7 +568,7 @@ func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration)
 	wg.Wait()
 
 	sort.Strings(out)
-	return out, time.Duration(ttl) * time.Second
+	return out, time.Duration(ttl) * time.Second, errs.ErrorOrNil()
 }
 
 // TODO share code with pkg/dns
@@ -614,17 +620,22 @@ func (c *dnsClient) Query(req *dns.Msg) *dns.Msg {
 	var response *dns.Msg
 	for _, upstream := range c.resolvConfServers {
 		cResponse, _, err := c.Exchange(req, upstream)
-		if err == nil {
-			response = cResponse
-			code := response.MsgHdr.Rcode
-			if code == dns.RcodeSuccess {
-				break
-			}
-			codeString := dns.RcodeToString[code]
-			log.Debugf("upstream dns error: %v: %v: %v", upstream, getReqNames(req), codeString)
-		} else {
-			log.Infof("upstream dns failure: %v: %v: %v", upstream, getReqNames(req), err)
+		rcode := dns.RcodeServerFailure
+		if err == nil && cResponse != nil {
+			rcode = cResponse.Rcode
 		}
+		if rcode == dns.RcodeServerFailure {
+			// RcodeServerFailure means the upstream cannot serve the request
+			// https://github.com/coredns/coredns/blob/v1.10.1/plugin/forward/forward.go#L193
+			log.Infof("upstream dns failure: %v: %v: %v", upstream, getReqNames(req), err)
+			continue
+		}
+		response = cResponse
+		if rcode == dns.RcodeSuccess {
+			break
+		}
+		codeString := dns.RcodeToString[rcode]
+		log.Debugf("upstream dns error: %v: %v: %v", upstream, getReqNames(req), codeString)
 	}
 	if response == nil {
 		response = new(dns.Msg)
