@@ -492,7 +492,7 @@ func applyHTTPRouteDestination(
 		if fullURI, isFullPathRewrite := cutPrefix(uri, "%FULLREPLACE()%"); isFullPathRewrite && model.UseGatewaySemantics(vs) {
 			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
 				Pattern: &matcher.RegexMatcher{
-					Regex: "/.+",
+					Regex: "/.*",
 				},
 				Substitution: fullURI,
 			}
