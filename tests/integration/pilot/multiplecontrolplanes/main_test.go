@@ -53,7 +53,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
+		SkipExternalControlPlaneTopology().
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
 		SetupParallel(
@@ -66,10 +66,6 @@ func TestMain(m *testing.M) {
 
 			cfg.Values["global.istioNamespace"] = userGroup1NS.Name()
 			cfg.SystemNamespace = userGroup1NS.Name()
-			cfg.EastWestGatewayValues = fmt.Sprintf(`
-values:
-  global:
-    istioNamespace: %s`, userGroup1NS.Name())
 			cfg.ControlPlaneValues = fmt.Sprintf(`
 namespace: %s
 revision: usergroup-1
@@ -97,10 +93,6 @@ values:
 
 			cfg.Values["global.istioNamespace"] = userGroup2NS.Name()
 			cfg.SystemNamespace = userGroup2NS.Name()
-			cfg.EastWestGatewayValues = fmt.Sprintf(`
-values:
-  global:
-    istioNamespace: %s`, userGroup2NS.Name())
 			cfg.ControlPlaneValues = fmt.Sprintf(`
 namespace: %s
 revision: usergroup-2
