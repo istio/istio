@@ -45,11 +45,8 @@ const (
 	// this was formally "istio-gateway-leader"; because they are a different API group we need a different
 	// election to ensure we do not only handle one or the other.
 	GatewayStatusController = "istio-gateway-status-leader"
-	// GatewayDeploymentController controls the Deployment/Service generation from Gateways. This is
-	// separate from GatewayStatusController to allow running in a separate process (for low priv).
-	GatewayDeploymentController = "istio-gateway-deployment-leader"
-	StatusController            = "istio-status-leader"
-	AnalyzeController           = "istio-analyze-leader"
+	StatusController        = "istio-status-leader"
+	AnalyzeController       = "istio-analyze-leader"
 )
 
 // Leader election key prefix for remote istiod managed clusters
