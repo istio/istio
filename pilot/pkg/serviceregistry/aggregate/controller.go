@@ -100,14 +100,14 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 	return res
 }
 
-func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.AddressInfo, []string) {
+func (c *Controller) AddressInformation(addresses sets.Set[types.NamespacedName]) ([]*model.AddressInfo, []string) {
 	i := []*model.AddressInfo{}
 	removed := sets.New[string]()
 	if !features.EnableAmbientControllers {
 		return i, []string{}
 	}
 	for _, p := range c.GetRegistries() {
-		wis, r := p.PodInformation(addresses)
+		wis, r := p.AddressInformation(addresses)
 		i = append(i, wis...)
 		removed.InsertAll(r...)
 	}

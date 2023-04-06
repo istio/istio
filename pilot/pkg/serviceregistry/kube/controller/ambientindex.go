@@ -207,13 +207,17 @@ func (c *Controller) Waypoint(scope model.WaypointScope) sets.Set[netip.Addr] {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	res := sets.New[netip.Addr]()
-	if ip, f := a.waypoints[scope]; f {
-		return res.Insert(netip.MustParseAddr(string(ip.GetIp())))
+	if addr, f := a.waypoints[scope]; f {
+		if ip, ok := netip.AddrFromSlice(addr.GetIp()); ok {
+			return res.Insert(ip)
+		}
 	}
 	// Now look for namespace-wide
 	scope.ServiceAccount = ""
-	if ip, f := a.waypoints[scope]; f {
-		return res.Insert(netip.MustParseAddr(string(ip.GetIp())))
+	if addr, f := a.waypoints[scope]; f {
+		if ip, ok := netip.AddrFromSlice(addr.GetIp()); ok {
+			return res.Insert(ip)
+		}
 	}
 
 	return res
@@ -716,10 +720,6 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	updates := sets.New[model.ConfigKey]()
-	// This is a waypoint update
-	if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-		// TODO handled in byService
-	}
 
 	var wl *model.WorkloadInfo
 	if !isDelete {
@@ -805,7 +805,6 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 				updates.Merge(a.updateWaypoint(scope, addr, false, c))
 			}
 		}
-
 	}
 
 	vips := getVIPs(svc)
@@ -896,9 +895,9 @@ func (c *Controller) getPodsInService(svc *v1.Service) []*v1.Pod {
 	return c.podsClient.List(svc.Namespace, klabels.ValidatedSetSelector(svc.Spec.Selector))
 }
 
-// PodInformation returns all WorkloadInfo's in the cluster.
+// AddressInformation returns all AddressInfo's in the cluster.
 // This may be scoped to specific subsets by specifying a non-empty addresses field
-func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.AddressInfo, []string) {
+func (c *Controller) AddressInformation(addresses sets.Set[types.NamespacedName]) ([]*model.AddressInfo, []string) {
 	if len(addresses) == 0 {
 		// Full update
 		return c.ambientIndex.All(), nil

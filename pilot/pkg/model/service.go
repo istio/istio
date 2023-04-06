@@ -794,7 +794,7 @@ type ServiceDiscovery interface {
 }
 
 type AmbientIndexes interface {
-	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*AddressInfo, []string)
+	AddressInformation(addresses sets.Set[types.NamespacedName]) ([]*AddressInfo, []string)
 	AdditionalPodSubscriptions(
 		proxy *Proxy,
 		allAddresses sets.Set[types.NamespacedName],
@@ -808,7 +808,7 @@ type AmbientIndexes interface {
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
 type NoopAmbientIndexes struct{}
 
-func (u NoopAmbientIndexes) PodInformation(sets.Set[types.NamespacedName]) ([]*AddressInfo, []string) {
+func (u NoopAmbientIndexes) AddressInformation(sets.Set[types.NamespacedName]) ([]*AddressInfo, []string) {
 	return nil, nil
 }
 
@@ -836,8 +836,6 @@ var _ AmbientIndexes = NoopAmbientIndexes{}
 
 type AddressInfo struct {
 	*workloadapi.Address
-	// Labels for the workload. Note these are only used internally, not sent over XDS
-	Labels map[string]string
 }
 
 func (i AddressInfo) ResourceName() string {
