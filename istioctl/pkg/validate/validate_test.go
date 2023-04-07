@@ -535,8 +535,7 @@ func createTestDirectory(t *testing.T, files map[string]string) string {
 
 	for name, content := range files {
 		filePath := filepath.Join(tempDir, name)
-		err := os.WriteFile(filePath, []byte(content), 0644)
-		if err != nil {
+		if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
