@@ -125,11 +125,7 @@ func findServiceTargetPort(servicePort *model.Port, k8sService *v1.Service) serv
 func getPodServices(allServices []*v1.Service, pod *v1.Pod) []*v1.Service {
 	var services []*v1.Service
 	for _, service := range allServices {
-		if service.Spec.Selector == nil {
-			// services with nil selectors match nothing, not everything.
-			continue
-		}
-		if labels.Instance(service.Spec.Selector).SubsetOf(pod.Labels) {
+		if labels.Instance(service.Spec.Selector).Match(pod.Labels) {
 			services = append(services, service)
 		}
 	}

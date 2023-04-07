@@ -512,7 +512,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if se.WorkloadSelector == nil || !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
+		if se.WorkloadSelector == nil || !labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels) {
 			// Not a match, skip this one
 			continue
 		}
