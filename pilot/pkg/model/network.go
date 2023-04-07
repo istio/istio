@@ -15,7 +15,7 @@
 package model
 
 import (
-	"math"
+	"fmt"
 	"net"
 	"reflect"
 	"sort"
@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/miekg/dns"
 	"golang.org/x/exp/slices"
 
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/istiomultierror"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -171,6 +173,7 @@ func (mgr *NetworkManager) reload() NetworkGatewaySet {
 		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
 		gatewaySet[gw] = struct{}{}
 	}
+	mgr.multiNetworkEnabled = len(gatewaySet) > 0
 
 	mgr.resolveHostnameGateways(gatewaySet)
 
@@ -259,6 +262,7 @@ type NetworkManager struct {
 	lcm                 uint32
 	byNetwork           map[network.ID][]NetworkGateway
 	byNetworkAndCluster map[networkAndCluster][]NetworkGateway
+	multiNetworkEnabled bool
 }
 
 func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
@@ -267,7 +271,7 @@ func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
 	}
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	return len(mgr.byNetwork) > 0
+	return mgr.multiNetworkEnabled
 }
 
 // GetLBWeightScaleFactor returns the least common multiple of the number of gateways per network.
@@ -406,8 +410,13 @@ func (s NetworkGatewaySet) ToArray() []NetworkGateway {
 	return gws
 }
 
-// MinGatewayTTL is exported for testing
-var MinGatewayTTL = 30 * time.Second
+var (
+	// MinGatewayTTL is exported for testing
+	MinGatewayTTL = 30 * time.Second
+
+	// https://github.com/coredns/coredns/blob/v1.10.1/plugin/pkg/dnsutil/ttl.go#L51
+	MaxGatewayTTL = 1 * time.Hour
+)
 
 type networkGatewayNameCache struct {
 	NetworkGatewaysHandler
@@ -472,16 +481,21 @@ func (n *networkGatewayNameCache) resolveFromCache(name string) []string {
 }
 
 func (n *networkGatewayNameCache) resolveAndCache(name string) []string {
-	if entry, ok := n.cache[name]; ok {
+	entry, ok := n.cache[name]
+	if ok {
 		entry.timer.Stop()
 	}
 	delete(n.cache, name)
-	addrs, ttl := n.resolve(name)
+	addrs, ttl, err := n.resolve(name)
 	// avoid excessive pushes due to small TTL
 	if ttl < MinGatewayTTL {
 		ttl = MinGatewayTTL
 	}
 	expiry := time.Now().Add(ttl)
+	if err != nil {
+		// gracefully retain old addresses in case the DNS server is unavailable
+		addrs = entry.value
+	}
 	n.cache[name] = nameCacheEntry{
 		value:  addrs,
 		expiry: expiry,
@@ -510,9 +524,10 @@ func (n *networkGatewayNameCache) refreshAndNotify(name string) func() {
 }
 
 // resolve gets all the A and AAAA records for the given name
-func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration) {
-	ttl := uint32(math.MaxUint32)
+func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration, error) {
+	ttl := MinGatewayTTL
 	var out []string
+	errs := istiomultierror.New()
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -520,23 +535,22 @@ func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration)
 		defer wg.Done()
 
 		res := n.client.Query(new(dns.Msg).SetQuestion(dns.Fqdn(name), dnsType))
-		if len(res.Answer) == 0 {
-			return
-		}
 
 		mu.Lock()
 		defer mu.Unlock()
+		if res.Rcode == dns.RcodeServerFailure {
+			errs = multierror.Append(errs, fmt.Errorf("upstream dns failure, qtype: %v", dnsType))
+			return
+		}
 		for _, rr := range res.Answer {
-			switch dnsType {
-			case dns.TypeA:
-				out = append(out, rr.(*dns.A).A.String())
-			case dns.TypeAAAA:
-				out = append(out, rr.(*dns.AAAA).AAAA.String())
-			}
-			if nextTTL := rr.Header().Ttl; nextTTL < ttl {
-				ttl = nextTTL
+			switch record := rr.(type) {
+			case *dns.A:
+				out = append(out, record.A.String())
+			case *dns.AAAA:
+				out = append(out, record.AAAA.String())
 			}
 		}
+		ttl = minimalTTL(res)
 	}
 
 	wg.Add(2)
@@ -545,7 +559,43 @@ func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration)
 	wg.Wait()
 
 	sort.Strings(out)
-	return out, time.Duration(ttl) * time.Second
+	if errs.Len() == 2 {
+		// return error only if all requests are failed
+		return out, ttl, errs
+	}
+	return out, ttl, nil
+}
+
+// https://github.com/coredns/coredns/blob/v1.10.1/plugin/pkg/dnsutil/ttl.go
+func minimalTTL(m *dns.Msg) time.Duration {
+	// No records or OPT is the only record, return a short ttl as a fail safe.
+	if len(m.Answer)+len(m.Ns) == 0 &&
+		(len(m.Extra) == 0 || (len(m.Extra) == 1 && m.Extra[0].Header().Rrtype == dns.TypeOPT)) {
+		return MinGatewayTTL
+	}
+
+	minTTL := MaxGatewayTTL
+	for _, r := range m.Answer {
+		if r.Header().Ttl < uint32(minTTL.Seconds()) {
+			minTTL = time.Duration(r.Header().Ttl) * time.Second
+		}
+	}
+	for _, r := range m.Ns {
+		if r.Header().Ttl < uint32(minTTL.Seconds()) {
+			minTTL = time.Duration(r.Header().Ttl) * time.Second
+		}
+	}
+
+	for _, r := range m.Extra {
+		if r.Header().Rrtype == dns.TypeOPT {
+			// OPT records use TTL field for extended rcode and flags
+			continue
+		}
+		if r.Header().Ttl < uint32(minTTL.Seconds()) {
+			minTTL = time.Duration(r.Header().Ttl) * time.Second
+		}
+	}
+	return minTTL
 }
 
 // TODO share code with pkg/dns
@@ -597,17 +647,22 @@ func (c *dnsClient) Query(req *dns.Msg) *dns.Msg {
 	var response *dns.Msg
 	for _, upstream := range c.resolvConfServers {
 		cResponse, _, err := c.Exchange(req, upstream)
-		if err == nil {
-			response = cResponse
-			code := response.MsgHdr.Rcode
-			if code == dns.RcodeSuccess {
-				break
-			}
-			codeString := dns.RcodeToString[code]
-			log.Debugf("upstream dns error: %v: %v: %v", upstream, getReqNames(req), codeString)
-		} else {
-			log.Infof("upstream dns failure: %v: %v: %v", upstream, getReqNames(req), err)
+		rcode := dns.RcodeServerFailure
+		if err == nil && cResponse != nil {
+			rcode = cResponse.Rcode
 		}
+		if rcode == dns.RcodeServerFailure {
+			// RcodeServerFailure means the upstream cannot serve the request
+			// https://github.com/coredns/coredns/blob/v1.10.1/plugin/forward/forward.go#L193
+			log.Infof("upstream dns failure: %v: %v: %v", upstream, getReqNames(req), err)
+			continue
+		}
+		response = cResponse
+		if rcode == dns.RcodeSuccess {
+			break
+		}
+		codeString := dns.RcodeToString[rcode]
+		log.Debugf("upstream dns error: %v: %v: %v", upstream, getReqNames(req), codeString)
 	}
 	if response == nil {
 		response = new(dns.Msg)
