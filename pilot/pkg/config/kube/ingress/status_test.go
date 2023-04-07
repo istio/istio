@@ -112,7 +112,7 @@ func makeStatusSyncer(t *testing.T, name string) *StatusSyncer {
 }
 
 // nolint: unparam
-func getIPs(ing clienttest.TestCached[*knetworking.Ingress], name string, ns string) func() []string {
+func getIPs(ing clienttest.TestClient[*knetworking.Ingress], name string, ns string) func() []string {
 	return func() []string {
 		i := ing.Get(name, ns)
 		if i == nil {

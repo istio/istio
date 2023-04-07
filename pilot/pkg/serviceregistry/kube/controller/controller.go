@@ -620,7 +620,7 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 type FilterOutFunc[T controllers.Object] func(old, cur T) bool
 
 func registerHandlers[T controllers.ComparableObject](c *Controller,
-	informer kclient.Reader[T], otype string,
+	informer kclient.Informer[T], otype string,
 	handler func(T, T, model.Event) error, filter FilterOutFunc[T],
 ) {
 	wrappedHandler := func(prev, curr T, event model.Event) error {
@@ -632,8 +632,6 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 		}
 		return handler(prev, curr, event)
 	}
-	// TODO
-	//_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.Cluster()))
 	informer.AddEventHandler(
 		controllers.EventHandler[T]{
 			AddFunc: func(obj T) {
@@ -930,7 +928,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 		if wi.Namespace != svc.Attributes.Namespace {
 			return
 		}
-		if selector.SubsetOf(wi.Endpoint.Labels) {
+		if selector.Match(wi.Endpoint.Labels) {
 			instance := serviceInstanceFromWorkloadInstance(svc, servicePort, targetPort, wi)
 			if instance != nil {
 				out = append(out, instance)

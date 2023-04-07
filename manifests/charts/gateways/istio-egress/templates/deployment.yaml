@@ -44,6 +44,7 @@ spec:
         operator.istio.io/component: "EgressGateways"
         sidecar.istio.io/inject: "false"
       annotations:
+        istio.io/rev: {{ .Values.revision | default "default" }}
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"

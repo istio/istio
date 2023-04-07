@@ -48,7 +48,10 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
-var skippedTests = map[string]string{}
+var skippedTests = map[string]string{
+	"HTTPRouteRedirectPath":          "redirects are changed in 0.7; we support the 0.7 tests but not 0.6",
+	"HTTPRouteRedirectHostAndStatus": "redirects are changed in 0.7; we support the 0.7 tests but not 0.6",
+}
 
 func TestGatewayConformance(t *testing.T) {
 	// nolint: staticcheck

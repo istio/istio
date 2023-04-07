@@ -15,7 +15,6 @@
 package crdclient
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -344,9 +344,8 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 			},
 			Spec: v1alpha3.ServiceEntry{},
 		}
-		_, err := fake.Istio().NetworkingV1alpha3().ServiceEntries(obj.Namespace).Create(
-			context.TODO(), obj, metav1.CreateOptions{})
-		assert.NoError(t, err)
+
+		clienttest.NewWriter[*clientnetworkingv1alpha3.ServiceEntry](t, fake).Create(obj)
 		// Only SEs from the default revision should generate events.
 		if selectedLabels == nil {
 			expectedCfgs = append(expectedCfgs, TranslateObject(obj, gvk.ServiceEntry, ""))
@@ -391,9 +390,7 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 			Name: fmt.Sprintf("%s.%s", r.Plural(), r.Group()),
 		},
 	}
-	if _, err := client.Ext().ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{}); err != nil {
-		t.Fatal(err)
-	}
+	clienttest.NewWriter[*v1.CustomResourceDefinition](t, client).Create(crd)
 
 	// Metadata client fake is not kept in sync, so if using a fake client update that as well
 	fmc, ok := client.Metadata().(*metadatafake.FakeMetadataClient)
@@ -422,7 +419,7 @@ func TestClientSync(t *testing.T) {
 		Spec: v1alpha3.ServiceEntry{},
 	}
 	fake := kube.NewFakeClient()
-	fake.Istio().NetworkingV1alpha3().ServiceEntries("test").Create(context.Background(), obj, metav1.CreateOptions{})
+	clienttest.NewWriter[*clientnetworkingv1alpha3.ServiceEntry](t, fake).Create(obj)
 	for _, s := range collections.Pilot.All() {
 		createCRD(t, fake, s)
 	}

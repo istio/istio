@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/incluster"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/pkg/log"
 )
 
@@ -169,22 +170,17 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		})
 		if features.EnableGatewayAPIDeploymentController {
 			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-				leaderelection.
-					NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, args.Revision, s.kubeClient).
-					AddRunFunction(func(leaderStop <-chan struct{}) {
-						// We can only run this if the Gateway CRD is created
-						if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
-							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler)
-							// Start informers again. This fixes the case where informers for namespace do not start,
-							// as we create them only after acquiring the leader lock
-							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-							// basically lazy loading the informer, if we stop it when we lose the lock we will never
-							// recreate it again.
-							s.kubeClient.RunAndWait(stop)
-							controller.Run(leaderStop)
-						}
-					}).
-					Run(stop)
+				// We can only run this if the Gateway CRD is created
+				if configController.WaitForCRD(gvk.KubernetesGateway, stop) {
+					tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
+					controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID,
+						s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision)
+					// Start informers again. This fixes the case where informers for namespace do not start,
+					// as we create them only after the CRD is created.
+					s.kubeClient.RunAndWait(stop)
+					go tagWatcher.Run(stop)
+					controller.Run(stop)
+				}
 				return nil
 			})
 		}

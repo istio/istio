@@ -1493,6 +1493,24 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
+	gvk.ValidatingWebhookConfiguration: func(r runtime.Object) config.Config {
+		obj := r.(*k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.ValidatingWebhookConfiguration,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: obj,
+		}
+	},
 	gvk.VirtualService: func(r runtime.Object) config.Config {
 		obj := r.(*apiistioioapinetworkingv1alpha3.VirtualService)
 		configGvk := gvk.VirtualService
