@@ -974,7 +974,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		g.Expect(routeAction.Route.RegexRewrite).To(gomega.Equal(&matcher.RegexMatchAndSubstitute{
 			Pattern: &matcher.RegexMatcher{
-				Regex: "/.+",
+				Regex: "/.*",
 			},
 			Substitution: "/replace-full",
 		}))
@@ -1013,7 +1013,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}))
 		g.Expect(routeAction.Route.RegexRewrite).To(gomega.Equal(&matcher.RegexMatchAndSubstitute{
 			Pattern: &matcher.RegexMatcher{
-				Regex: "/.+",
+				Regex: "/.*",
 			},
 			Substitution: "/replace-full",
 		}))
