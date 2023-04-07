@@ -26,12 +26,12 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
     status: "True"
     type: Programmed
@@ -73,15 +73,15 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
-      not found'
-    reason: NoResources
-    status: "False"
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed
-    reason: Programmed
-    status: "True"
+    message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
+      not found'
+    reason: Invalid
+    status: "False"
     type: Programmed
   listeners:
   - attachedRoutes: 0
@@ -121,17 +121,17 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: port 8080 not found for
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
       port should be specified, not the workload port. Did you mean one of these ports:
       [80]?)'
-    reason: NoResources
+    reason: Invalid
     status: "False"
-    type: Accepted
-  - lastTransitionTime: fake
-    message: Resource programmed
-    reason: Programmed
-    status: "True"
     type: Programmed
   listeners:
   - attachedRoutes: 0
@@ -171,15 +171,15 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: Only Hostname is supported,
-      ignoring [1.2.3.4]'
-    reason: NoResources
-    status: "False"
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed
-    reason: Programmed
-    status: "True"
+    message: 'Failed to assign to any requested addresses: Only Hostname is supported,
+      ignoring [1.2.3.4]'
+    reason: Invalid
+    status: "False"
     type: Programmed
   listeners:
   - attachedRoutes: 0
@@ -224,9 +224,9 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Invalid listeners: [default]'
-    reason: Invalid
-    status: "False"
+    message: Resource programmed
+    reason: Programmed
+    status: "True"
     type: Programmed
   listeners:
   - attachedRoutes: 0
@@ -272,9 +272,9 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Invalid listeners: [default]'
-    reason: Invalid
-    status: "False"
+    message: Resource programmed
+    reason: Programmed
+    status: "True"
     type: Programmed
   listeners:
   - attachedRoutes: 0
@@ -320,9 +320,9 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Invalid listeners: [default]'
-    reason: Invalid
-    status: "False"
+    message: Resource programmed
+    reason: Programmed
+    status: "True"
     type: Programmed
   listeners:
   - attachedRoutes: 0

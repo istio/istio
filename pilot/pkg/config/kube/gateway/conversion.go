@@ -488,15 +488,36 @@ func sortHTTPRoutes(routes []*istio.HTTPRoute) {
 			return true
 		}
 		m1, m2 := routes[i].Match[0], routes[j].Match[0]
+		r1, r2 := getURIRank(m1), getURIRank(m2)
 		len1, len2 := getURILength(m1), getURILength(m2)
-		if len1 == len2 {
-			if len(m1.Headers) == len(m2.Headers) {
-				return len(m1.QueryParams) > len(m2.QueryParams)
+		if r1 == r2 {
+			if len1 == len2 {
+				if len(m1.Headers) == len(m2.Headers) {
+					return len(m1.QueryParams) > len(m2.QueryParams)
+				}
+				return len(m1.Headers) > len(m2.Headers)
 			}
-			return len(m1.Headers) > len(m2.Headers)
+			return len1 > len2
 		}
-		return len1 > len2
+		return r1 > r2
 	})
+}
+
+// getURIRank ranks a URI match type. Exact > Prefix > Regex
+func getURIRank(match *istio.HTTPMatchRequest) int {
+	if match.Uri == nil {
+		return -1
+	}
+	switch match.Uri.MatchType.(type) {
+	case *istio.StringMatch_Exact:
+		return 3
+	case *istio.StringMatch_Prefix:
+		return 2
+	case *istio.StringMatch_Regex:
+		return 1
+	}
+	// should not happen
+	return -1
 }
 
 func getURILength(match *istio.HTTPMatchRequest) int {
@@ -1200,6 +1221,10 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 	}
 	switch tp {
 	case k8sbeta.PathMatchPathPrefix:
+		// "When specified, a trailing `/` is ignored."
+		if dest != "/" {
+			dest = strings.TrimSuffix(dest, "/")
+		}
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Prefix{Prefix: dest},
 		}, nil
@@ -1367,13 +1392,11 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 
 		// Extract the addresses. A gateway will bind to a specific Service
 		gatewayServices, skippedAddresses := extractGatewayServices(r.KubernetesResources, kgw, obj)
-		invalidListeners := []k8s.SectionName{}
 		for i, l := range kgw.Listeners {
 			i := i
 			namespaceLabelReferences.InsertAll(getNamespaceLabelReferences(l.AllowedRoutes)...)
 			server, ok := buildListener(r, obj, l, i, controllerName)
 			if !ok {
-				invalidListeners = append(invalidListeners, l.Name)
 				continue
 			}
 			servers = append(servers, server)
@@ -1441,7 +1464,7 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 			gwMap[ref] = gwMap[alias]
 		}
 
-		reportGatewayStatus(r, obj, gatewayServices, servers, skippedAddresses, invalidListeners)
+		reportGatewayStatus(r, obj, gatewayServices, servers, skippedAddresses)
 	}
 	// Insert a parent for Mesh references.
 	gwMap[meshParentKey] = []*parentInfo{
@@ -1472,13 +1495,20 @@ func unexpectedWaypointListener(l k8s.Listener) bool {
 	return false
 }
 
+func getListenerNames(obj config.Config) sets.Set[k8s.SectionName] {
+	res := sets.New[k8s.SectionName]()
+	for _, l := range obj.Spec.(*k8s.GatewaySpec).Listeners {
+		res.Insert(l.Name)
+	}
+	return res
+}
+
 func reportGatewayStatus(
 	r ConfigContext,
 	obj config.Config,
 	gatewayServices []string,
 	servers []*istio.Server,
 	skippedAddresses []string,
-	invalidListeners []k8s.SectionName,
 ) {
 	// TODO: we lose address if servers is empty due to an error
 	internal, external, pending, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
@@ -1489,8 +1519,9 @@ func reportGatewayStatus(
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
-	// Accepted: did we get *some* data to the data plane
-	// Programmed: did we get *all* the data to the data plane
+	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
+	// be tied to listeners, so this is always accepted
+	// Programmed: is the data plane "ready" (note: eventually consistent)
 	gatewayConditions := map[string]*condition{
 		string(k8sbeta.GatewayConditionAccepted): {
 			reason:  string(k8sbeta.GatewayReasonAccepted),
@@ -1501,6 +1532,10 @@ func reportGatewayStatus(
 			message: "Resource programmed",
 		},
 	}
+	if len(internal) > 0 {
+		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
+		gatewayConditions[string(k8sbeta.GatewayReasonProgrammed)].message = msg
+	}
 
 	if len(warnings) > 0 {
 		var msg string
@@ -1510,18 +1545,12 @@ func reportGatewayStatus(
 		} else {
 			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
 		}
-		// TODO: do we need to report if the deployment is ready?
-		gatewayConditions[string(k8sbeta.GatewayConditionAccepted)].error = &ConfigError{
-			Reason:  string(k8sbeta.GatewayReasonNoResources),
-			Message: msg,
-		}
-	} else if len(internal) > 0 {
-		gatewayConditions[string(k8sbeta.GatewayConditionAccepted)].message = fmt.Sprintf("Gateway valid, assigned to service(s) %s", humanReadableJoin(internal))
-	}
-	if len(invalidListeners) > 0 {
 		gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)].error = &ConfigError{
+			// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/1832#issuecomment-1487167378): Invalid is bad,
+			// this should be AddressNotAssigned
+			// TODO: this only checks Service ready, we should also check Deployment ready?
 			Reason:  string(k8sbeta.GatewayReasonInvalid),
-			Message: fmt.Sprintf("Invalid listeners: %v", invalidListeners),
+			Message: msg,
 		}
 	}
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
@@ -1546,9 +1575,19 @@ func reportGatewayStatus(
 				Value: addr,
 			})
 		}
+		// Prune listeners that have been removed
+		haveListeners := getListenerNames(obj)
+		listeners := make([]k8s.ListenerStatus, 0, len(gs.Listeners))
+		for _, l := range gs.Listeners {
+			if haveListeners.Contains(l.Name) {
+				haveListeners.Delete(l.Name)
+				listeners = append(listeners, l)
+			}
+		}
+		gs.Listeners = listeners
+		gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 		return gs
 	})
-	reportGatewayCondition(obj, gatewayConditions)
 }
 
 // IsManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.

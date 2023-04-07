@@ -25,13 +25,16 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/pkg/log"
@@ -298,8 +301,17 @@ func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat stri
 	} else if outputFormat == prometheusOutput {
 		path += "/prometheus"
 	} else if outputFormat == prometheusMergedOutput {
-		path += "/prometheus"
-		port = 15020
+		pod, err := kubeClient.Kube().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve Pod %s/%s: %v", podNamespace, podName, err)
+		}
+
+		promPath, promPort, err := util.PrometheusPathAndPort(pod)
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve prometheus path and port from Pod %s/%s: %v", podNamespace, podName, err)
+		}
+		path = promPath
+		port = promPort
 	}
 
 	result, err := kubeClient.EnvoyDoWithPort(context.Background(), podName, podNamespace, "GET", path, port)
@@ -485,7 +497,7 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 
-					if isZtunnelPod(podName) {
+					if ambientutil.IsZtunnelPod(podName) {
 						dump, err = extractZtunnelConfigDump(podName, podNamespace)
 					} else {
 						dump, err = extractConfigDump(podName, podNamespace, false)
@@ -514,7 +526,7 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 
-					if isZtunnelPod(podName) {
+					if ambientutil.IsZtunnelPod(podName) {
 						w, err := setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
 						if err != nil {
 							return err
@@ -624,7 +636,7 @@ func workloadConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getComponentPodName(args[0]); err != nil {
 					return err
 				}
-				if !isZtunnelPod(podName) {
+				if !ambientutil.IsZtunnelPod(podName) {
 					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
@@ -866,7 +878,7 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if isZtunnelPod(pod) {
+				if ambientutil.IsZtunnelPod(pod) {
 					loggerNames[name] = Ztunnel
 				} else {
 					loggerNames[name] = Envoy
@@ -920,7 +932,7 @@ func logCmd() *cobra.Command {
 			var resp string
 			var errs *multierror.Error
 			for _, podName := range podNames {
-				if isZtunnelPod(podName) {
+				if ambientutil.IsZtunnelPod(podName) {
 					q := "level=" + ztunnelLogLevel(loggerLevelString)
 					if reset {
 						q += "&reset"
@@ -979,10 +991,6 @@ func logCmd() *cobra.Command {
 			s, levelListString))
 
 	return logCmd
-}
-
-func isZtunnelPod(podName string) bool {
-	return strings.HasPrefix(podName, "ztunnel")
 }
 
 func routeConfigCmd() *cobra.Command {
@@ -1303,7 +1311,7 @@ func secretConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-				if isZtunnelPod(podName) {
+				if ambientutil.IsZtunnelPod(podName) {
 					newWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
 				} else {
 					newWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())

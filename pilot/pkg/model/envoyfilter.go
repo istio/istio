@@ -50,6 +50,7 @@ type EnvoyFilterConfigPatchWrapper struct {
 	ProxyPrefixMatch string
 	Name             string
 	Namespace        string
+	FullName         string
 }
 
 // wellKnownVersions defines a mapping of well known regex matches to prefix matches
@@ -94,6 +95,7 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		cpw := &EnvoyFilterConfigPatchWrapper{
 			Name:      local.Name,
 			Namespace: local.Namespace,
+			FullName:  genFullName(local.Namespace, local.Name),
 			ApplyTo:   cp.ApplyTo,
 			Match:     cp.Match,
 			Operation: cp.Patch.Operation,
@@ -200,9 +202,19 @@ func (efw *EnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_
 	return sets.SortedList(keys)
 }
 
+func genFullName(namespace, name string) string {
+	b := strings.Builder{}
+	b.Grow(len(namespace) + len(name) + 1)
+
+	b.WriteString(namespace)
+	b.WriteString("/")
+	b.WriteString(name)
+	return b.String()
+}
+
 func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {
 	if cpw == nil {
 		return ""
 	}
-	return cpw.Namespace + "/" + cpw.Name
+	return cpw.FullName
 }

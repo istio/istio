@@ -108,7 +108,7 @@ func NewCreateRemoteSecretCommand() *cobra.Command {
 			if err := opts.prepare(c.Flags()); err != nil {
 				return err
 			}
-			env, err := NewEnvironmentFromCobra(opts.Kubeconfig, opts.Context, c)
+			env, err := NewEnvironment(opts.Kubeconfig, opts.Context)
 			if err != nil {
 				return err
 			}

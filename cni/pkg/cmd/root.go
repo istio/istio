@@ -90,6 +90,7 @@ var rootCmd = &cobra.Command{
 				SystemNamespace: ambient.PodNamespace,
 				Revision:        ambient.Revision,
 				RedirectMode:    redirectMode,
+				LogLevel:        cfg.InstallConfig.LogLevel,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient informer service: %v", err)

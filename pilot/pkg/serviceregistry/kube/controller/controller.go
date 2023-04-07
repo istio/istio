@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -151,6 +150,7 @@ type Options struct {
 	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
 
 	ConfigController model.ConfigStoreController
+	ConfigCluster    bool
 }
 
 func (o *Options) GetFilter() namespace.DiscoveryFilter {
@@ -279,6 +279,7 @@ type Controller struct {
 
 	ambientIndex     *AmbientIndex
 	configController model.ConfigStoreController
+	configCluster    bool
 }
 
 // NewController creates a new Kubernetes controller
@@ -296,26 +297,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		beginSync:                  atomic.NewBool(false),
 		initialSync:                atomic.NewBool(false),
 
-		multinetwork: initMultinetwork(),
+		multinetwork:  initMultinetwork(),
+		configCluster: options.ConfigCluster,
 	}
 
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
-	if features.EnableAmbientControllers {
-		registerHandlers[*v1.Namespace](
-			c,
-			c.namespaces,
-			"Namespaces",
-			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
-				c.handleSelectedNamespace(cur.Name)
-				return nil
-			},
-			func(old, cur *v1.Namespace) bool {
-				oldLabel := old.Labels[constants.DataplaneMode]
-				newLabel := cur.Labels[constants.DataplaneMode]
-				return oldLabel == newLabel
-			},
-		)
-	}
 	if c.opts.SystemNamespace != "" {
 		registerHandlers[*v1.Namespace](
 			c,
@@ -634,7 +620,7 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 type FilterOutFunc[T controllers.Object] func(old, cur T) bool
 
 func registerHandlers[T controllers.ComparableObject](c *Controller,
-	informer kclient.Reader[T], otype string,
+	informer kclient.Informer[T], otype string,
 	handler func(T, T, model.Event) error, filter FilterOutFunc[T],
 ) {
 	wrappedHandler := func(prev, curr T, event model.Event) error {
@@ -646,8 +632,6 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 		}
 		return handler(prev, curr, event)
 	}
-	// TODO
-	//_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.Cluster()))
 	informer.AddEventHandler(
 		controllers.EventHandler[T]{
 			AddFunc: func(obj T) {
@@ -944,7 +928,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 		if wi.Namespace != svc.Attributes.Namespace {
 			return
 		}
-		if selector.SubsetOf(wi.Endpoint.Labels) {
+		if selector.Match(wi.Endpoint.Labels) {
 			instance := serviceInstanceFromWorkloadInstance(svc, servicePort, targetPort, wi)
 			if instance != nil {
 				out = append(out, instance)

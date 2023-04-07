@@ -521,8 +521,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
-
-		if se.WorkloadSelector == nil || (!labelsChanged && !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels)) {
+		if se.WorkloadSelector == nil || (!labelsChanged && !labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels)) {
 			// If the labels didn't change. And the new SE doesn't match then the old didn't match either and we can skip processing it.
 			continue
 		}
@@ -537,7 +536,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		currInstance := convertWorkloadInstanceToServiceInstance(wi, services, se)
 
 		// We chech if the wi is still a subset of se. This would cover Case 1 and Case 2 from above.
-		if labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
+		if labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels) {
 			// If the workload instance still matches. We take care of the possible events.
 			instances = append(instances, currInstance...)
 			if addressToDelete != "" {
@@ -566,7 +565,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 					}] = struct{}{}
 				}
 			}
-		} else if labels.Instance(se.WorkloadSelector.Labels).SubsetOf(oldWi.Endpoint.Labels) {
+		} else if labels.Instance(se.WorkloadSelector.Labels).Match(oldWi.Endpoint.Labels) {
 			// If we're here, it means that the labels changed and the new labels don't match the SE anymore (Case 3 from above) and the oldWi did
 			// match the SE.
 			// Since the instance doesn't match the SE anymore. We remove it from the list.
@@ -805,7 +804,7 @@ func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 	for _, ip := range node.IPAddresses {
 		instances := s.serviceInstances.getByIP(ip)
 		for _, i := range instances {
-			// Insert all instances for this IP for services within the same namespace This ensures we
+			// Insert all instances for this IP for services within the same namespace. This ensures we
 			// match Kubernetes logic where Services do not cross namespace boundaries and avoids
 			// possibility of other namespaces inserting service instances into namespaces they do not
 			// control.
@@ -822,8 +821,15 @@ func (s *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 	defer s.mutex.RUnlock()
 	for _, ip := range proxy.IPAddresses {
 		instances := s.serviceInstances.getByIP(ip)
-		for _, instance := range instances {
-			return instance.Endpoint.Labels
+		for _, i := range instances {
+			// Insert first instances for this IP for services within the same namespace. This ensures we
+			// match Kubernetes logic where Services do not cross namespace boundaries and avoids
+			// possibility of other namespaces inserting service instances into namespaces they do not
+			// control.
+			// All instances should have the same labels so we just return the first
+			if proxy.Metadata.Namespace == "" || i.Service.Attributes.Namespace == proxy.Metadata.Namespace {
+				return i.Endpoint.Labels
+			}
 		}
 	}
 	return nil
