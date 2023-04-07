@@ -63,6 +63,9 @@ const DefaultRouteName = "default"
 
 var Notimeout = durationpb.New(0)
 
+// DefaultMaxDirectResponseBodySizeBytes is 1mb, the same limit the control plane validates via webhook. Set this to increase from envoy default of 4k
+var DefaultMaxDirectResponseBodySizeBytes = wrappers.UInt32(1024 * 1024)
+
 type DestinationHashMap map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB
 
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
