@@ -495,14 +495,10 @@ func (n *networkGatewayNameCache) resolveAndCache(name string) []string {
 	}
 	expiry := time.Now().Add(ttl)
 	refreshPeriod := ttl
-	if len(addrs) == 0 {
-		// no answer, retry after 30s (by default)
-		// ttl is set to ~136 years
+	if err != nil {
+		// gracefully retain old addresses in case the DNS server is unavailable
+		addrs = entry.value
 		refreshPeriod = DNSRetryPeriod
-		if err != nil {
-			// gracefully retain old addresses in case the DNS server is unavailable
-			addrs = entry.value
-		}
 	}
 	n.cache[name] = nameCacheEntry{
 		value:  addrs,
@@ -569,9 +565,9 @@ func (n *networkGatewayNameCache) resolve(name string) (out []string, d time.Dur
 	sort.Strings(out)
 	if errs.Len() == 2 {
 		// return error only if all requests are failed
-		err = errs
+		return out, time.Duration(ttl) * time.Second, errs
 	}
-	return out, time.Duration(ttl) * time.Second, err
+	return out, time.Duration(ttl) * time.Second, nil
 }
 
 // TODO share code with pkg/dns
