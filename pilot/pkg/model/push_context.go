@@ -2165,7 +2165,7 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 }
 
 func (ps *PushContext) SupportsTunnel(ip string) bool {
-	infos, _ := ps.ambientIndex.PodInformation(sets.New(types.NamespacedName{Name: ip}))
+	infos, _ := ps.ambientIndex.AddressInformation(sets.New(types.NamespacedName{Name: ip}))
 	for _, p := range infos {
 		switch addr := p.Address.Type.(type) {
 		case *workloadapi.Address_Workload:

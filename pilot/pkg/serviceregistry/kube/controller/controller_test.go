@@ -360,7 +360,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			canonicalSaOnVM := "acctvm2@gserviceaccount2.com"
 
 			createServiceWait(controller, "svc1", "nsa",
-				map[string]string{},
+				nil,
 				map[string]string{
 					annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
 					annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM,
@@ -379,7 +379,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			for i := 0; i < fakeSvcCounts; i++ {
 				svcName := fmt.Sprintf("svc-fake-%d", i)
 				createServiceWait(controller, svcName, "nsfake",
-					map[string]string{},
+					nil,
 					map[string]string{
 						annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
 						annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM,

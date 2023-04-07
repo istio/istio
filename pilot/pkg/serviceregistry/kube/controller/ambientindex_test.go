@@ -158,7 +158,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertAddresses("127.0.0.1", "name1")
 	assertAddresses("127.0.0.2", "name2")
 	assert.Equal(t, controller.ambientIndex.Lookup("127.0.0.3"), []*model.AddressInfo{
-		&model.AddressInfo{
+		{
 			Address: &workloadapi.Address{
 				Type: &workloadapi.Address_Workload{
 					Workload: &workloadapi.Workload{
@@ -192,7 +192,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertAddresses("127.0.0.1", "name1")
 	// Now we should be able to look up a VIP as well
 	assertAddresses("10.0.0.1", "name1", "name2", "svc1")
-	// We should get an event for the two *Pod* IPs impacted
+	// We should get an event for the new Service and the two *Pod* IPs impacted
 	assertEvent("10.0.0.1", "127.0.0.1", "127.0.0.2")
 
 	// Add a new pod to the service, we should see it
@@ -239,9 +239,10 @@ func TestAmbientIndex(t *testing.T) {
 	assertEvent("127.0.0.2")
 	assert.Equal(t, len(controller.ambientIndex.byService), 0)
 
-	// Add a waypoint proxy for namespace
+	// Add a waypoint proxy pod for namespace
 	addPods("127.0.0.200", "waypoint-ns", "namespace-wide", map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel}, nil)
 	assertAddresses("", "name1", "name2", "name3", "waypoint-ns")
+	assertEvent("127.0.0.200")
 	// create the waypoint service
 	createService(controller, "waypoint-ns", "ns1",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
@@ -250,10 +251,10 @@ func TestAmbientIndex(t *testing.T) {
 	assertAddresses("", "name1", "name2", "name3", "waypoint-ns")
 	// All these workloads updated, so push them
 	assertEvent("10.0.0.1", "127.0.0.1", "127.0.0.2", "127.0.0.200", "127.0.0.3")
-	// We should now see the waypoint IP
+	// We should now see the waypoint service IP
 	assert.Equal(t, controller.ambientIndex.Lookup("127.0.0.3")[0].Address.GetWorkload().Waypoint.GetIp(), netip.MustParseAddr("10.0.0.1").AsSlice())
 
-	// Add another one, expect the same result
+	// Add another waypoint pod, expect no updates for other pods since waypoint address refers to service IP
 	addPods("127.0.0.201", "waypoint2-ns", "namespace-wide", map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel}, nil)
 	assertEvent("127.0.0.201")
 	assert.Equal(t,
@@ -319,7 +320,7 @@ func TestAmbientIndex(t *testing.T) {
 	addPolicy("global", "istio-system", nil)
 	addPolicy("namespace", "default", nil)
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("127.0.0.1")[0].Address.GetWorkload().Waypoint,
+		controller.ambientIndex.Lookup("127.0.0.1")[0].Address.GetWorkload().AuthorizationPolicies,
 		nil)
 	fx.Clear()
 
