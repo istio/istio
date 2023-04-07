@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"reflect"
 	"sort"
@@ -237,7 +236,7 @@ func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet map[NetworkGateway
 	for host, addrs := range mgr.NameCache.Resolve(names) {
 		gwsForHost := hostnameGateways[host]
 		if len(addrs) == 0 {
-			log.Warnf("could not resolve hostname %q for %d gateways, retry after %v", host, len(gwsForHost), DNSRetryPeriod)
+			log.Warnf("could not resolve hostname %q for %d gateways", host, len(gwsForHost))
 		}
 		// expand each resolved address into a NetworkGateway
 		for _, gw := range gwsForHost {
@@ -415,9 +414,8 @@ var (
 	// MinGatewayTTL is exported for testing
 	MinGatewayTTL = 30 * time.Second
 
-	// DNSRetryPeriod is the retry period if DNS resolution is failed
-	// TODO: make it configurable?
-	DNSRetryPeriod = 30 * time.Second
+	// https://github.com/coredns/coredns/blob/v1.10.1/plugin/pkg/dnsutil/ttl.go#L51
+	MaxGatewayTTL = 1 * time.Hour
 )
 
 type networkGatewayNameCache struct {
@@ -494,17 +492,15 @@ func (n *networkGatewayNameCache) resolveAndCache(name string) []string {
 		ttl = MinGatewayTTL
 	}
 	expiry := time.Now().Add(ttl)
-	refreshPeriod := ttl
 	if err != nil {
 		// gracefully retain old addresses in case the DNS server is unavailable
 		addrs = entry.value
-		refreshPeriod = DNSRetryPeriod
 	}
 	n.cache[name] = nameCacheEntry{
 		value:  addrs,
 		expiry: expiry,
 		// TTL expires, try to refresh TODO should this be < ttl?
-		timer: time.AfterFunc(refreshPeriod, n.refreshAndNotify(name)),
+		timer: time.AfterFunc(ttl, n.refreshAndNotify(name)),
 	}
 
 	return addrs
@@ -529,7 +525,7 @@ func (n *networkGatewayNameCache) refreshAndNotify(name string) func() {
 
 // resolve gets all the A and AAAA records for the given name
 func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration, error) {
-	ttl := uint32(math.MaxUint32)
+	ttl := MinGatewayTTL
 	var out []string
 	errs := istiomultierror.New()
 
@@ -544,18 +540,17 @@ func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration,
 		defer mu.Unlock()
 		if res.Rcode == dns.RcodeServerFailure {
 			errs = multierror.Append(errs, fmt.Errorf("upstream dns failure, qtype: %v", dnsType))
+			return
 		}
 		for _, rr := range res.Answer {
-			switch dnsType {
-			case dns.TypeA:
-				out = append(out, rr.(*dns.A).A.String())
-			case dns.TypeAAAA:
-				out = append(out, rr.(*dns.AAAA).AAAA.String())
-			}
-			if nextTTL := rr.Header().Ttl; nextTTL < ttl {
-				ttl = nextTTL
+			switch record := rr.(type) {
+			case *dns.A:
+				out = append(out, record.A.String())
+			case *dns.AAAA:
+				out = append(out, record.AAAA.String())
 			}
 		}
+		ttl = minimalTTL(res)
 	}
 
 	wg.Add(2)
@@ -566,9 +561,41 @@ func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration,
 	sort.Strings(out)
 	if errs.Len() == 2 {
 		// return error only if all requests are failed
-		return out, time.Duration(ttl) * time.Second, errs
+		return out, ttl, errs
 	}
-	return out, time.Duration(ttl) * time.Second, nil
+	return out, ttl, nil
+}
+
+// https://github.com/coredns/coredns/blob/v1.10.1/plugin/pkg/dnsutil/ttl.go
+func minimalTTL(m *dns.Msg) time.Duration {
+	// No records or OPT is the only record, return a short ttl as a fail safe.
+	if len(m.Answer)+len(m.Ns) == 0 &&
+		(len(m.Extra) == 0 || (len(m.Extra) == 1 && m.Extra[0].Header().Rrtype == dns.TypeOPT)) {
+		return MinGatewayTTL
+	}
+
+	minTTL := MaxGatewayTTL
+	for _, r := range m.Answer {
+		if r.Header().Ttl < uint32(minTTL.Seconds()) {
+			minTTL = time.Duration(r.Header().Ttl) * time.Second
+		}
+	}
+	for _, r := range m.Ns {
+		if r.Header().Ttl < uint32(minTTL.Seconds()) {
+			minTTL = time.Duration(r.Header().Ttl) * time.Second
+		}
+	}
+
+	for _, r := range m.Extra {
+		if r.Header().Rrtype == dns.TypeOPT {
+			// OPT records use TTL field for extended rcode and flags
+			continue
+		}
+		if r.Header().Ttl < uint32(minTTL.Seconds()) {
+			minTTL = time.Duration(r.Header().Ttl) * time.Second
+		}
+	}
+	return minTTL
 }
 
 // TODO share code with pkg/dns
