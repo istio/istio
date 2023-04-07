@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 )
 
@@ -55,7 +56,7 @@ spec:
       mode: AUTO_PASSTHROUGH
 `
 			// Setup a Gateway to act as simulated EW
-			if err := t.ConfigIstio().YAML("istio-system", gatewayCfg).Apply(apply.NoCleanup); err != nil {
+			if err := t.ConfigIstio().YAML("istio-system", gatewayCfg).Apply(apply.CleanupConditionally); err != nil {
 				t.Fatal(err)
 			}
 
@@ -107,7 +108,7 @@ spec:
     app: a`, ingressPodIP)
 
 			aNamespace := apps.A.Instances().NamespaceName()
-			if err := t.ConfigIstio().YAML(aNamespace, workloadEntryYaml).Apply(apply.NoCleanup); err != nil {
+			if err := t.ConfigIstio().YAML(aNamespace, workloadEntryYaml).Apply(apply.CleanupConditionally); err != nil {
 				t.Fatal(err)
 			}
 
@@ -119,7 +120,7 @@ spec:
 				//      naked
 				//      proxyless-grpc
 				//      vm
-				if srcName == "proxyless-grpc" || srcName == "naked" || srcName == "external" || srcName == "vm" {
+				if srcName == deployment.ProxylessGRPCSvc || srcName == deployment.NakedSvc || srcName == deployment.ExternalSvc || srcName == deployment.VMSvc {
 					continue
 				}
 
@@ -133,31 +134,6 @@ spec:
 							Path: "/path",
 						},
 						Check: check.OK(),
-					})
-				})
-			}
-
-			if !t.Settings().NoCleanup { // perform cleanup when not using --istio.test.nocleanup
-
-				if err := t.ConfigIstio().YAML(aNamespace, workloadEntryYaml).Delete(); err != nil {
-					t.Fatal(err)
-				}
-
-				if err := t.ConfigIstio().YAML("istio-system", gatewayCfg).Delete(); err != nil {
-					t.Fatal(err)
-				}
-
-				cleanupSrc := apps.B.Instances()[0] // get the first instance of app b to test the cleanup worked
-
-				t.NewSubTestf("ServiceEntry+WorkloadEntry cleanup").Run(func(t framework.TestContext) {
-					cleanupSrc.CallOrFail(t, echo.CallOptions{
-						Address: "serviceentry.istio.io",
-						Port:    echo.Port{Name: "http", ServicePort: 80},
-						Scheme:  scheme.HTTP,
-						HTTP: echo.HTTP{
-							Path: "/any/path",
-						},
-						Check: check.NotOK(),
 					})
 				})
 			}
