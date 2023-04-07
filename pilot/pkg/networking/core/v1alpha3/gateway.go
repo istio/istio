@@ -507,10 +507,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	routeCfg := &route.RouteConfiguration{
 		// Retain the routeName as its used by EnvoyFilter patching logic
-		Name:                     routeName,
-		VirtualHosts:             virtualHosts,
-		ValidateClusters:         proto.BoolFalse,
-		IgnorePortInHostMatching: !node.IsProxylessGrpc(),
+		Name:                           routeName,
+		VirtualHosts:                   virtualHosts,
+		ValidateClusters:               proto.BoolFalse,
+		IgnorePortInHostMatching:       !node.IsProxylessGrpc(),
+		MaxDirectResponseBodySizeBytes: istio_route.DefaultMaxDirectResponseBodySizeBytes,
 	}
 
 	return routeCfg
