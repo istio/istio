@@ -97,23 +97,6 @@ type Meta struct {
 	fullName string
 }
 
-func (m *Meta) FullName() string {
-	if m.fullName != "" {
-		return m.fullName
-	}
-	// This should never happen. We always populate FullName but if it is not populated in some case, build now.
-	return "/apis/" + m.GroupVersionKind.Group + "/" + m.GroupVersionKind.Version + "/namespaces/" + m.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(m.GroupVersionKind.Kind) + "/" + m.Name
-}
-
-func (m *Meta) GenerateFullName() {
-	// Currently we use this for VirtualService and DestinationRule only.
-	if m.GroupVersionKind.Kind == "VirtualService" || m.GroupVersionKind.Kind == "DestinationRule" {
-		m.fullName = "/apis/" + m.GroupVersionKind.Group + "/" + m.GroupVersionKind.Version + "/namespaces/" + m.Namespace + "/" +
-			strcase.CamelCaseToKebabCase(m.GroupVersionKind.Kind) + "/" + m.Name
-	}
-}
-
 // Config is a configuration unit consisting of the type of configuration, the
 // key identifier that is unique per type, and the content represented as a
 // protobuf message.
@@ -344,6 +327,23 @@ func (meta *Meta) ToObjectMeta() metav1.ObjectMeta {
 		Labels:            meta.Labels,
 		Annotations:       meta.Annotations,
 		OwnerReferences:   meta.OwnerReferences,
+	}
+}
+
+func (meta *Meta) FullName() string {
+	if meta.fullName != "" {
+		return meta.fullName
+	}
+	// This should never happen. We always populate FullName but if it is not populated in some case, build now.
+	return "/apis/" + meta.GroupVersionKind.Group + "/" + meta.GroupVersionKind.Version + "/namespaces/" + meta.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(meta.GroupVersionKind.Kind) + "/" + meta.Name
+}
+
+func (meta *Meta) GenerateFullName() {
+	// Currently we use this for VirtualService and DestinationRule only.
+	if meta.GroupVersionKind.Kind == "VirtualService" || meta.GroupVersionKind.Kind == "DestinationRule" {
+		meta.fullName = "/apis/" + meta.GroupVersionKind.Group + "/" + meta.GroupVersionKind.Version + "/namespaces/" + meta.Namespace + "/" +
+			strcase.CamelCaseToKebabCase(meta.GroupVersionKind.Kind) + "/" + meta.Name
 	}
 }
 
