@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
 
@@ -117,8 +116,6 @@ func ConvertObject(schema resource.Schema, object IstioObject, domain string) (*
 			Annotations:       meta.Annotations,
 			ResourceVersion:   meta.ResourceVersion,
 			CreationTimestamp: meta.CreationTimestamp.Time,
-			FullName: "/apis/" + schema.GroupVersionKind().Group + "/" + schema.GroupVersionKind().Version + "/namespaces/" + meta.Namespace + "/" +
-				strcase.CamelCaseToKebabCase(schema.GroupVersionKind().Kind) + "/" + meta.Name,
 		},
 		Spec:   spec,
 		Status: status,

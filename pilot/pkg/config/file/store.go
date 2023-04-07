@@ -46,7 +46,6 @@ import (
 	sresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
 
@@ -542,8 +541,6 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 			OwnerReferences:   m.GetOwnerReferences(),
 			Generation:        m.GetGeneration(),
 			Domain:            domainSuffix,
-			FullName: "/apis/" + schema.GroupVersionKind().Group + "/" + schema.GroupVersionKind().Version + "/namespaces/" + m.GetNamespace() + "/" +
-				strcase.CamelCaseToKebabCase(schema.GroupVersionKind().Kind) + "/" + m.GetName(),
 		},
 		Spec: mv2,
 	}

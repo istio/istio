@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/env"
 )
 
@@ -191,9 +190,8 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 		GroupVersionKind: gvk.VirtualService,
 		// Set this label so that we do not compare configs and just push.
 		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
-		FullName: "/apis/" + gvk.VirtualService.Group + "/" + gvk.VirtualService.Version + "/namespaces/" + item.Namespace + "/" +
-			strcase.CamelCaseToKebabCase(gvk.VirtualService.Kind) + "/" + name,
 	}
+	vsmetadata.GenerateFullName()
 	gwName := item.Name + "-" + "gateway"
 	gatewaymetadata := config.Meta{
 		Name:             gwName,
@@ -201,8 +199,6 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 		GroupVersionKind: gvk.Gateway,
 		// Set this label so that we do not compare configs and just push.
 		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
-		FullName: "/apis/" + gvk.Gateway.Group + "/" + gvk.Gateway.Version + "/namespaces/" + item.Namespace + "/" +
-			strcase.CamelCaseToKebabCase(gvk.Gateway.Kind) + "/" + gwName,
 	}
 
 	// Trigger updates for Gateway and VirtualService

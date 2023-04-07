@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/util/strcase"
 )
 
 const (
@@ -449,8 +448,6 @@ func buildHTTPVirtualServices(
 						Annotations:       routeMeta(obj),
 						Namespace:         ns,
 						Domain:            ctx.Domain,
-						FullName: "/apis/" + gvk.VirtualService.Group + "/" + gvk.VirtualService.Version + "/namespaces/" + ns + "/" +
-							strcase.CamelCaseToKebabCase(gvk.VirtualService.Kind) + "/" + name,
 					},
 					Spec: &istio.VirtualService{
 						Hosts:    []string{h},
@@ -458,6 +455,7 @@ func buildHTTPVirtualServices(
 						Http:     httproutes,
 					},
 				}
+				routeMap[routeKey][h].GenerateFullName()
 				count++
 			}
 		}
@@ -758,8 +756,6 @@ func buildTCPVirtualService(ctx ConfigContext, obj config.Config) *config.Config
 			Annotations:       routeMeta(obj),
 			Namespace:         obj.Namespace,
 			Domain:            ctx.Domain,
-			FullName: "/apis/" + gvk.VirtualService.Group + "/" + gvk.VirtualService.Version + "/namespaces/" + obj.Namespace + "/" +
-				strcase.CamelCaseToKebabCase(gvk.VirtualService.Kind) + "/" + name,
 		},
 		Spec: &istio.VirtualService{
 			// We can use wildcard here since each listener can have at most one route bound to it, so we have
@@ -769,6 +765,7 @@ func buildTCPVirtualService(ctx ConfigContext, obj config.Config) *config.Config
 			Tcp:      routes,
 		},
 	}
+	vsConfig.Meta.GenerateFullName()
 	return &vsConfig
 }
 
@@ -821,8 +818,6 @@ func buildTLSVirtualService(ctx ConfigContext, obj config.Config) []config.Confi
 				Annotations:       routeMeta(obj),
 				Namespace:         obj.Namespace,
 				Domain:            ctx.Domain,
-				FullName: "/apis/" + gvk.VirtualService.Group + "/" + gvk.VirtualService.Version + "/namespaces/" + obj.Namespace + "/" +
-					strcase.CamelCaseToKebabCase(gvk.VirtualService.Kind) + "/" + name,
 			},
 			Spec: &istio.VirtualService{
 				Hosts:    []string{host},
@@ -830,6 +825,7 @@ func buildTLSVirtualService(ctx ConfigContext, obj config.Config) []config.Confi
 				Tls:      routes,
 			},
 		}
+		vsConfig.GenerateFullName()
 		configs = append(configs, vsConfig)
 	}
 	return configs
@@ -1425,8 +1421,6 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 					Annotations:       meta,
 					Namespace:         obj.Namespace,
 					Domain:            r.Domain,
-					FullName: "/apis/" + gvk.Gateway.Group + "/" + gvk.Gateway.Version + "/namespaces/" + obj.Namespace + "/" +
-						strcase.CamelCaseToKebabCase(gvk.Gateway.Kind) + "/" + name,
 				},
 				Spec: &istio.Gateway{
 					Servers: []*istio.Server{server},

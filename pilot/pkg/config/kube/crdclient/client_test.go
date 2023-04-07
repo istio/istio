@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/util/strcase"
 )
 
 func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreController, kube.CLIClient) {
@@ -154,10 +153,7 @@ func TestClient(t *testing.T) {
 			if !r.IsClusterScoped() {
 				configMeta.Namespace = configNamespace
 			}
-
-			configMeta.FullName = "/apis/" + r.Group() + "/" + r.Version() + "/namespaces/" + configMeta.Namespace + "/" +
-				strcase.CamelCaseToKebabCase(r.Kind()) + "/" + configName
-
+			configMeta.GenerateFullName()
 			pb, err := r.NewInstance()
 			if err != nil {
 				t.Fatal(err)
@@ -265,11 +261,10 @@ func TestClient(t *testing.T) {
 			GroupVersionKind: r.GroupVersionKind(),
 			Name:             name,
 		}
+		cfgMeta.GenerateFullName()
 		if !r.IsClusterScoped() {
 			cfgMeta.Namespace = namespace
 		}
-		cfgMeta.FullName = "/apis/" + r.Group() + "/" + r.Version() + "/namespaces/" + cfgMeta.Namespace + "/" +
-			strcase.CamelCaseToKebabCase(r.Kind()) + "/" + name
 		pb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 6}}
 		if _, err := store.Create(config.Config{
 			Meta: cfgMeta,

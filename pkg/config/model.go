@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/strcase"
 )
 
 // Meta is metadata attached to each configuration unit.
@@ -92,8 +93,25 @@ type Meta struct {
 	// A sequence number representing a specific generation of the desired state. Populated by the system. Read-only.
 	Generation int64 `json:"generation,omitempty"`
 
-	// FullName is the name in resource including namespace and expanded GVK. Typically used for logging and metadata.
-	FullName string
+	// fullName is the name in resource including namespace and expanded GVK. Typically used for logging and metadata.
+	fullName string
+}
+
+func (m *Meta) FullName() string {
+	if m.fullName != "" {
+		return m.fullName
+	}
+	// This should never happen. We always populate FullName but if it is not populated in some case, build now.
+	return "/apis/" + m.GroupVersionKind.Group + "/" + m.GroupVersionKind.Version + "/namespaces/" + m.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(m.GroupVersionKind.Kind) + "/" + m.Name
+}
+
+func (m *Meta) GenerateFullName() {
+	// Currently we use this for VirtualService and DestinationRule only.
+	if m.GroupVersionKind.Kind == "VirtualService" || m.GroupVersionKind.Kind == "DestinationRule" {
+		m.fullName = "/apis/" + m.GroupVersionKind.Group + "/" + m.GroupVersionKind.Version + "/namespaces/" + m.Namespace + "/" +
+			strcase.CamelCaseToKebabCase(m.GroupVersionKind.Kind) + "/" + m.Name
+	}
 }
 
 // Config is a configuration unit consisting of the type of configuration, the

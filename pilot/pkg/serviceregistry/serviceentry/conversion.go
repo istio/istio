@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	netutil "istio.io/istio/pkg/util/net"
-	"istio.io/istio/pkg/util/strcase"
 )
 
 func convertPort(port *networking.ServicePort) *model.Port {
@@ -132,8 +131,6 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 			Namespace:         svc.Attributes.Namespace,
 			CreationTimestamp: svc.CreationTime,
 			ResourceVersion:   svc.ResourceVersion,
-			FullName: "/apis/" + gvk.Group + "/" + gvk.Version + "/namespaces/" + svc.Attributes.Namespace + "/" +
-				strcase.CamelCaseToKebabCase(gvk.Kind) + "/" + name,
 		},
 		Spec: se,
 	}

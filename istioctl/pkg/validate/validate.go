@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/url"
-	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
 
@@ -445,8 +444,6 @@ func convertObjectFromUnstructured(schema resource.Schema, un *unstructured.Unst
 			Annotations:       un.GetAnnotations(),
 			ResourceVersion:   un.GetResourceVersion(),
 			CreationTimestamp: un.GetCreationTimestamp().Time,
-			FullName: "/apis/" + schema.GroupVersionKind().Group + "/" + schema.GroupVersionKind().Version + "/namespaces/" + un.GetNamespace() + "/" +
-				strcase.CamelCaseToKebabCase(schema.GroupVersionKind().Kind) + "/" + un.GetName(),
 		},
 		Spec: data,
 	}, nil

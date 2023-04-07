@@ -50,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/proto/merge"
-	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
 
@@ -406,15 +405,6 @@ func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) *core.Me
 			FilterMetadata: map[string]*structpb.Struct{},
 		}
 	}
-	var s string
-	if config.FullName != "" {
-		s = config.FullName
-	} else {
-		// This should never happen. We always populate FullName but if it is not populated in some case, build now.
-		s = "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
-			strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
-	}
-
 	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
 		metadata.FilterMetadata[IstioMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{},
@@ -422,7 +412,7 @@ func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) *core.Me
 	}
 	metadata.FilterMetadata[IstioMetadataKey].Fields["config"] = &structpb.Value{
 		Kind: &structpb.Value_StringValue{
-			StringValue: s,
+			StringValue: config.FullName(),
 		},
 	}
 	return metadata

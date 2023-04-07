@@ -247,7 +247,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	gvk.{{.Resource.Identifier}}: func(r runtime.Object) config.Config {
 		obj := r.(*{{ .IstioAwareClientImport }}.{{.Resource.Kind}})
 		configGvk := gvk.{{.Resource.Identifier}}
-		return config.Config{
+		config:= config.Config{
 		  Meta: config.Meta{
 		  	GroupVersionKind:  configGvk,
 		  	Name:              obj.Name,
@@ -259,14 +259,14 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		  	OwnerReferences:   obj.OwnerReferences,
 		  	UID:               string(obj.UID),
 		  	Generation:        obj.Generation,
-			FullName: "/apis/" + configGvk.Group + "/" + configGvk.Version + "/namespaces/" + obj.Namespace + "/" +
-			strcase.CamelCaseToKebabCase(configGvk.Kind) + "/" + obj.Name,
 		  },
 			Spec:   {{ if not .Resource.Specless }}&obj.Spec{{ else }}obj{{ end }},
       {{- if not (eq .StatusType "") }}
 		  Status: &obj.Status,
       {{- end }}
 		}
+		config.GenerateFullName()
+		return config
 	},
 	{{- end }}
 {{- end }}

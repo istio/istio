@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
 
@@ -119,12 +118,9 @@ func ConvertIngressV1alpha3(ingress knetworking.Ingress, mesh *meshconfig.MeshCo
 			Name:             name,
 			Namespace:        IngressNamespace,
 			Domain:           domainSuffix,
-			FullName: "/apis/" + gvk.Gateway.Group + "/" + gvk.Gateway.Version + "/namespaces/" + IngressNamespace + "/" +
-				strcase.CamelCaseToKebabCase(gvk.Gateway.Kind) + "/" + name,
 		},
 		Spec: gateway,
 	}
-
 	return gatewayConfig
 }
 
@@ -192,11 +188,10 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 				Namespace:        ingress.Namespace,
 				Domain:           domainSuffix,
 				Annotations:      map[string]string{constants.InternalRouteSemantics: constants.RouteSemanticsIngress},
-				FullName: "/apis/" + gvk.VirtualService.Group + "/" + gvk.VirtualService.Version + "/namespaces/" + IngressNamespace + "/" +
-					strcase.CamelCaseToKebabCase(gvk.VirtualService.Kind) + "/" + name,
 			},
 			Spec: virtualService,
 		}
+		virtualServiceConfig.GenerateFullName()
 
 		old, f := ingressByHost[host]
 		if f {

@@ -57,6 +57,19 @@ func Equal[T any](t test.Failer, a, b T, context ...string) {
 	}
 }
 
+// ExportedEqual compares only exported fields.
+func ExportedEqual[T any](t test.Failer, a, b T, typs interface{}, context ...string) {
+	t.Helper()
+	cmpOpts := []cmp.Option{protocmp.Transform(), cmpopts.EquateEmpty(), cmpopts.IgnoreUnexported(typs), compareErrors}
+	if !cmp.Equal(a, b, cmpOpts...) {
+		cs := ""
+		if len(context) > 0 {
+			cs = " " + strings.Join(context, ", ") + ":"
+		}
+		t.Fatalf("found diff:%s %v\nLeft: %v\nRight: %v", cs, cmp.Diff(a, b, cmpOpts...), a, b)
+	}
+}
+
 func EventuallyEqual[T any](t test.Failer, fetchA func() T, b T, opts ...retry.Option) {
 	t.Helper()
 	var a T
