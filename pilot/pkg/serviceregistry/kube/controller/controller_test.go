@@ -2206,9 +2206,7 @@ func addPods(t *testing.T, controller *FakeController, fx *xdsfake.Updater, pods
 		newPod.Status.PodIP = pod.Status.PodIP
 		newPod.Status.Phase = corev1.PodRunning
 		pc.UpdateStatus(newPod)
-		if err := waitForPod(controller, pod.Status.PodIP); err != nil {
-			t.Fatal(err)
-		}
+		waitForPod(t, controller, pod.Status.PodIP)
 		// pod first time occur will trigger proxy push
 		fx.WaitOrFail(t, "proxy")
 	}
