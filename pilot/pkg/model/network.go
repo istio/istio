@@ -528,8 +528,9 @@ func (n *networkGatewayNameCache) refreshAndNotify(name string) func() {
 }
 
 // resolve gets all the A and AAAA records for the given name
-func (n *networkGatewayNameCache) resolve(name string) (out []string, d time.Duration, err error) {
+func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration, error) {
 	ttl := uint32(math.MaxUint32)
+	var out []string
 	errs := istiomultierror.New()
 
 	var mu sync.Mutex
