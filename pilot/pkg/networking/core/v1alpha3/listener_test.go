@@ -2882,7 +2882,9 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 			l := &listener.Listener{}
-			appendListenerFallthroughRouteForCompleteListener(l, tt.node, cg.PushContext())
+
+			fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(cg.PushContext(), tt.node)
+			appendListenerFallthroughRouteForCompleteListener(l, fallthroughNetworkFilters)
 			if len(l.FilterChains) != 0 {
 				t.Errorf("Expected exactly 0 filter chain")
 			}

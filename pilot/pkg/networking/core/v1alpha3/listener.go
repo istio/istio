@@ -550,9 +550,11 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 		}
 	}
 	tcpListeners = append(tcpListeners, httpListeners...)
+
 	// Build pass through filter chains now that all the non-passthrough filter chains are ready.
+	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 	for _, l := range tcpListeners {
-		appendListenerFallthroughRouteForCompleteListener(l, node, push)
+		appendListenerFallthroughRouteForCompleteListener(l, fallthroughNetworkFilters)
 	}
 	removeListenerFilterTimeout(tcpListeners)
 	return tcpListeners
@@ -1345,10 +1347,8 @@ func getMatchAllFilterChain(l *listener.Listener) (int, *listener.FilterChain) {
 // Create pass through filter chain for the listener assuming all the other filter chains are ready.
 // The match member of pass through filter chain depends on the existing non-passthrough filter chain.
 // TODO(lambdai): Calculate the filter chain match to replace the wildcard and replace appendListenerFallthroughRoute.
-func appendListenerFallthroughRouteForCompleteListener(l *listener.Listener, node *model.Proxy, push *model.PushContext) {
+func appendListenerFallthroughRouteForCompleteListener(l *listener.Listener, fallthroughNetworkFilters []*listener.Filter) {
 	matchIndex, matchAll := getMatchAllFilterChain(l)
-
-	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 
 	outboundPassThroughFilterChain := &listener.FilterChain{
 		FilterChainMatch: &listener.FilterChainMatch{},
