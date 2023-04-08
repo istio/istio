@@ -296,7 +296,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		beginSync:                  atomic.NewBool(false),
 		initialSync:                atomic.NewBool(false),
 
-		networkManager: initNetworkManager(),
+		networkManager: initNetworkManager(options),
 		configCluster:  options.ConfigCluster,
 	}
 
