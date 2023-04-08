@@ -27,7 +27,6 @@ import (
 	"github.com/miekg/dns"
 	"golang.org/x/exp/slices"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
@@ -68,6 +67,21 @@ func (ngh *NetworkGatewaysHandler) NotifyGatewayHandlers() {
 	}
 }
 
+// NetworkManager provides gateway details for accessing remote networks.
+type NetworkManager struct {
+	env *Environment
+	// exported for test
+	NameCache  *networkGatewayNameCache
+	xdsUpdater XDSUpdater
+
+	// least common multiple of gateway number of {per network, per cluster}
+	mu                  sync.RWMutex
+	lcm                 uint32
+	byNetwork           map[network.ID][]NetworkGateway
+	byNetworkAndCluster map[networkAndCluster][]NetworkGateway
+	multiNetworkEnabled bool
+}
+
 // NewNetworkManager creates a new NetworkManager from the Environment by merging
 // together the MeshNetworks and ServiceRegistry-specific gateways.
 func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager, error) {
@@ -77,16 +91,14 @@ func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager
 	}
 	mgr := &NetworkManager{env: env, NameCache: nameCache, xdsUpdater: xdsUpdater}
 	env.AddNetworksHandler(mgr.reloadGateways)
-	if features.EnableHCMInternalNetworks {
-		env.AddNetworksHandler(mgr.reloadNetworkEndpoints)
-	}
+	// register to per registry, will be called when gateway service changed
 	env.AppendNetworkGatewayHandler(mgr.reloadGateways)
 	nameCache.AppendNetworkGatewayHandler(mgr.reloadGateways)
 	mgr.reload()
 	return mgr, nil
 }
 
-// reloadGaeways reloads NetworkGateways and triggers a push if they change.
+// reloadGateways reloads NetworkGateways and triggers a push if they change.
 func (mgr *NetworkManager) reloadGateways() {
 	mgr.mu.Lock()
 	oldGateways := make(NetworkGatewaySet)
@@ -99,42 +111,6 @@ func (mgr *NetworkManager) reloadGateways() {
 
 	if changed && mgr.xdsUpdater != nil {
 		log.Infof("gateways changed, triggering push")
-		mgr.xdsUpdater.ConfigUpdate(&PushRequest{Full: true, Reason: []TriggerReason{NetworksTrigger}})
-	}
-}
-
-// reloadNetworkEndpoints reloads NetworkEndpoints and triggers a push if they change.
-func (mgr *NetworkManager) reloadNetworkEndpoints() {
-	oldNetworks := mgr.env.NetworksWatcher.PrevNetworks()
-	currNetworks := mgr.env.NetworksWatcher.Networks()
-	// There are no network endpoints - no need to push.
-	if oldNetworks == nil && currNetworks == nil {
-		return
-	}
-
-	oldEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
-	newEndpoints := make([]*meshconfig.Network_NetworkEndpoints, 0)
-	if currNetworks != nil {
-		for _, networkconf := range currNetworks.Networks {
-			for _, ne := range networkconf.Endpoints {
-				if len(ne.GetFromCidr()) > 0 {
-					newEndpoints = append(newEndpoints, ne)
-				}
-			}
-		}
-	}
-	if oldNetworks != nil {
-		for _, networkconf := range oldNetworks.Networks {
-			for _, oe := range networkconf.Endpoints {
-				if len(oe.GetFromCidr()) > 0 {
-					oldEndpoints = append(oldEndpoints, oe)
-				}
-			}
-		}
-	}
-
-	if !reflect.DeepEqual(newEndpoints, oldEndpoints) && mgr.xdsUpdater != nil {
-		log.Infof("endpoints changed, triggering push")
 		mgr.xdsUpdater.ConfigUpdate(&PushRequest{Full: true, Reason: []TriggerReason{NetworksTrigger}})
 	}
 }
@@ -232,6 +208,9 @@ func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet map[NetworkGateway
 		names.Insert(gw.Addr)
 	}
 
+	if !features.ResolveHostnameGateways {
+		return
+	}
 	// resolve each hostname
 	for host, addrs := range mgr.NameCache.Resolve(names) {
 		gwsForHost := hostnameGateways[host]
@@ -248,21 +227,6 @@ func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet map[NetworkGateway
 			}
 		}
 	}
-}
-
-// NetworkManager provides gateway details for accessing remote networks.
-type NetworkManager struct {
-	env *Environment
-	// exported for test
-	NameCache  *networkGatewayNameCache
-	xdsUpdater XDSUpdater
-
-	// least common multiple of gateway number of {per network, per cluster}
-	mu                  sync.RWMutex
-	lcm                 uint32
-	byNetwork           map[network.ID][]NetworkGateway
-	byNetworkAndCluster map[networkAndCluster][]NetworkGateway
-	multiNetworkEnabled bool
 }
 
 func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
@@ -296,19 +260,6 @@ func (mgr *NetworkManager) allGateways() []NetworkGateway {
 		out = append(out, gateways...)
 	}
 	return SortGateways(out)
-}
-
-func (mgr *NetworkManager) GatewaysByNetwork() map[network.ID][]NetworkGateway {
-	mgr.mu.RLock()
-	defer mgr.mu.RUnlock()
-	if mgr.byNetwork == nil {
-		return nil
-	}
-	out := make(map[network.ID][]NetworkGateway)
-	for k, v := range mgr.byNetwork {
-		out[k] = append(make([]NetworkGateway, 0, len(v)), v...)
-	}
-	return out
 }
 
 func (mgr *NetworkManager) GatewaysForNetwork(nw network.ID) []NetworkGateway {
