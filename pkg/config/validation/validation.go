@@ -3965,6 +3965,9 @@ func validateWasmPluginMatch(selectors []*extensions.WasmPlugin_TrafficSelector)
 		return nil
 	}
 	for selIdx, sel := range selectors {
+		if sel == nil {
+			return fmt.Errorf("spec.Match[%d] is nil", selIdx)
+		}
 		for portIdx, port := range sel.Ports {
 			if port == nil {
 				return fmt.Errorf("spec.Match[%d].Ports[%d] is nil", selIdx, portIdx)
