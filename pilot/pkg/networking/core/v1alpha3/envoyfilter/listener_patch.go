@@ -142,18 +142,18 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 			IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, false)
 			continue
 		}
-		applied := false
+
 		if lp.Operation == networking.EnvoyFilter_Patch_ADD {
 			lis.ListenerFilters = append(lis.ListenerFilters, proto.Clone(lp.Value).(*listener.ListenerFilter))
-			applied = true
+			IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, true)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
 			lis.ListenerFilters = append([]*listener.ListenerFilter{proto.Clone(lp.Value).(*listener.ListenerFilter)}, lis.ListenerFilters...)
-			applied = true
+			IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, true)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
 			// Insert after without a filter match is same as ADD in the end
 			if !hasListenerFilterMatch(lp) {
 				lis.ListenerFilters = append(lis.ListenerFilters, proto.Clone(lp.Value).(*listener.ListenerFilter))
-				applied = true
+				IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, true)
 				continue
 			}
 
@@ -167,19 +167,22 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 			}
 
 			if insertPosition == -1 {
+				IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, false)
 				continue
 			}
-			applied = true
+
 			clonedVal := proto.Clone(lp.Value).(*listener.ListenerFilter)
 			lis.ListenerFilters = append(lis.ListenerFilters, clonedVal)
 			if insertPosition < len(lis.ListenerFilters)-1 {
 				copy(lis.ListenerFilters[insertPosition+1:], lis.ListenerFilters[insertPosition:])
 				lis.ListenerFilters[insertPosition] = clonedVal
 			}
+			IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, true)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
 			if !hasListenerFilterMatch(lp) {
 				lis.ListenerFilters = append([]*listener.ListenerFilter{proto.Clone(lp.Value).(*listener.ListenerFilter)}, lis.ListenerFilters...)
+				IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, true)
 				continue
 			}
 			// find the matching filter first
@@ -193,15 +196,18 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 
 			// If matching filter is not found, then don't insert and continue.
 			if insertPosition == -1 {
+				IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, false)
 				continue
 			}
-			applied = true
+
 			clonedVal := proto.Clone(lp.Value).(*listener.ListenerFilter)
 			lis.ListenerFilters = append(lis.ListenerFilters, clonedVal)
 			copy(lis.ListenerFilters[insertPosition+1:], lis.ListenerFilters[insertPosition:])
 			lis.ListenerFilters[insertPosition] = clonedVal
+			IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, true)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 			if !hasListenerFilterMatch(lp) {
+				IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, false)
 				continue
 			}
 			// find the matching filter first
@@ -213,23 +219,26 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 				}
 			}
 			if replacePosition == -1 {
+				IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, false)
 				continue
 			}
-			applied = true
 			lis.ListenerFilters[replacePosition] = proto.Clone(lp.Value).(*listener.ListenerFilter)
+			IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, true)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 			if !hasListenerFilterMatch(lp) {
+				IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, false)
 				continue
 			}
 			for i := 0; i < len(lis.ListenerFilters); i++ {
 				if listenerFilterMatch(lis.ListenerFilters[i], lp) {
 					removedFilters.Insert(lis.ListenerFilters[i].Name)
+					IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, true)
 					break
 				}
 			}
 		}
-		IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, applied)
 	}
+
 	if removedFilters.Len() > 0 {
 		tempArray := make([]*listener.ListenerFilter, 0, len(lis.ListenerFilters)-removedFilters.Len())
 		for _, filter := range lis.ListenerFilters {
