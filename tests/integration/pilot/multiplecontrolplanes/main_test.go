@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -42,10 +43,11 @@ var (
 
 	// Application Namespaces.
 	// echo1NS is under userGroup1NS controlplane and echo2NS and echo3NS are under userGroup2NS controlplane
-	echo1NS namespace.Instance
-	echo2NS namespace.Instance
-	echo3NS namespace.Instance
-	apps    deployment.Echos
+	echo1NS    namespace.Instance
+	echo2NS    namespace.Instance
+	echo3NS    namespace.Instance
+	externalNS namespace.Instance
+	apps       deployment.Echos
 )
 
 // TestMain defines the entrypoint for multiple controlplane tests using revisions and discoverySelectors.
@@ -63,6 +65,7 @@ func TestMain(m *testing.M) {
 			s := ctx.Settings()
 			// TODO test framework has to be enhanced to use istioNamespace in istioctl commands used for VM config
 			s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, echo.VM)
+			s.DisableDefaultExternalServiceConnectivity = true
 
 			cfg.Values["global.istioNamespace"] = userGroup1NS.Name()
 			cfg.SystemNamespace = userGroup1NS.Name()
@@ -70,7 +73,7 @@ func TestMain(m *testing.M) {
 namespace: %s
 revision: usergroup-1
 meshConfig:
-  # REGISTRY_ONLY is used to verify custom resources scoping
+  # REGISTRY_ONLY on one control plane is used to verify custom resources scoping
   outboundTrafficPolicy:
     mode: REGISTRY_ONLY
   # CR scoping requires discoverySelectors to be configured
@@ -97,9 +100,6 @@ values:
 namespace: %s
 revision: usergroup-2
 meshConfig:
-  # REGISTRY_ONLY is used to verify custom resources scoping
-  outboundTrafficPolicy:
-    mode: REGISTRY_ONLY
   # CR scoping requires discoverySelectors to be configured
   discoverySelectors:
     - matchLabels:
@@ -117,7 +117,8 @@ values:
 			// application namespaces are labeled according to the required control plane ownership.
 			namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true, Revision: "usergroup-1", Labels: map[string]string{"usergroup": "usergroup-1"}}),
 			namespace.Setup(&echo2NS, namespace.Config{Prefix: "echo2", Inject: true, Revision: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}}),
-			namespace.Setup(&echo3NS, namespace.Config{Prefix: "echo3", Inject: true, Revision: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}})).
+			namespace.Setup(&echo3NS, namespace.Config{Prefix: "echo3", Inject: true, Revision: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}}),
+			namespace.Setup(&externalNS, namespace.Config{Prefix: "external", Inject: false})).
 		SetupParallel(
 			deployment.Setup(&apps, deployment.Config{
 				Namespaces: []namespace.Getter{
@@ -125,6 +126,7 @@ values:
 					namespace.Future(&echo2NS),
 					namespace.Future(&echo3NS),
 				},
+				ExternalNamespace: namespace.Future(&externalNS),
 			})).
 		Run()
 }
@@ -156,10 +158,16 @@ func TestMultiControlPlane(t *testing.T) {
 					to:         apps.NS[2].B,
 				},
 				{
-					name:       "workloads within different usergroups cannot communicate",
+					name:       "workloads within different usergroups cannot communicate, registry only",
 					statusCode: http.StatusBadGateway,
 					from:       apps.NS[0].A,
 					to:         apps.NS[1].B,
+				},
+				{
+					name:       "workloads within different usergroups cannot communicate, default passthrough",
+					statusCode: http.StatusServiceUnavailable,
+					from:       apps.NS[2].B,
+					to:         apps.NS[0].B,
 				},
 			}
 
@@ -186,7 +194,7 @@ func TestCustomResourceScoping(t *testing.T) {
 		Features("installation.multiplecontrolplanes").
 		Run(func(t framework.TestContext) {
 			// allow access to external service only for app-ns-2 namespace which is under usergroup-2
-			allowSpecificExternalService(t, apps.NS[1].Namespace.Name())
+			allowExternalService(t, apps.NS[1].Namespace.Name(), externalNS.Name())
 
 			testCases := []struct {
 				name       string
@@ -212,12 +220,12 @@ func TestCustomResourceScoping(t *testing.T) {
 			for _, tc := range testCases {
 				t.NewSubTestf(tc.name).Run(func(t framework.TestContext) {
 					tc.from[0].CallOrFail(t, echo.CallOptions{
-						Address: "httpbin.org",
-						Port:    echo.Port{Name: "http", ServicePort: 80},
-						Scheme:  scheme.HTTP,
+						Address: apps.External.All[0].Address(),
 						HTTP: echo.HTTP{
-							Path: "/headers",
+							Headers: HostHeader(apps.External.All[0].Config().DefaultHostHeader),
 						},
+						Port:   echo.Port{Name: "http", ServicePort: 80},
+						Scheme: scheme.HTTP,
 						Check: check.And(
 							check.ErrorOrStatus(tc.statusCode),
 						),
@@ -225,6 +233,10 @@ func TestCustomResourceScoping(t *testing.T) {
 				})
 			}
 		})
+}
+
+func HostHeader(header string) http.Header {
+	return headers.New().WithHost(header).Build()
 }
 
 func restrictUserGroups(t framework.TestContext) {
@@ -243,22 +255,23 @@ spec:
 	}
 }
 
-func allowSpecificExternalService(t framework.TestContext, ns string) {
+func allowExternalService(t framework.TestContext, ns string, externalNs string) {
 	t.ConfigIstio().Eval(ns, map[string]any{
-		"Namespace": ns,
+		"Namespace": externalNs,
 	}, `apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: httpbin-ext
-  namespace: {{ .Namespace }}
+  name: external-service
 spec:
   hosts:
-  - httpbin.org
-  ports:
-  - number: 80
-    name: http
-    protocol: HTTP
-  resolution: DNS
+  - "fake.external.com"
   location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: external.{{.Namespace}}.svc.cluster.local
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
 `).ApplyOrFail(t, apply.NoCleanup)
 }

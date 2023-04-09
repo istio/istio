@@ -171,6 +171,8 @@ type Settings struct {
 
 	// Helm repo to be used for tests
 	HelmRepo string
+
+	DisableDefaultExternalServiceConnectivity bool
 }
 
 func (s Settings) Skip(class string) bool {
