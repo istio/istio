@@ -594,10 +594,10 @@ func buildGRPCQuery(metric string) (destinationQuery prometheus.Query) {
 	ns := GetAppNamespace()
 
 	labels := map[string]string{
-		"destination_app":                "server",
+		"destination_app":                "b",
 		"destination_version":            "v1",
-		"destination_service":            "server." + ns.Name() + ".svc.cluster.local",
-		"destination_service_name":       "server",
+		"destination_service":            "b." + ns.Name() + ".svc.cluster.local",
+		"destination_service_name":       "b",
 		"destination_workload_namespace": ns.Name(),
 		"destination_service_namespace":  ns.Name(),
 	}
