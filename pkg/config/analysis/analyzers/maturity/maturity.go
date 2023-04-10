@@ -51,11 +51,19 @@ func (*AlphaAnalyzer) Metadata() analysis.Metadata {
 	}
 }
 
-var ignoredAnnotations = map[string]bool{
+var conditionallyIgnoredAnnotations = map[string]bool{
 	annotation.SidecarInterceptionMode.Name:               true,
 	annotation.SidecarTrafficIncludeInboundPorts.Name:     true,
 	annotation.SidecarTrafficExcludeInboundPorts.Name:     true,
 	annotation.SidecarTrafficIncludeOutboundIPRanges.Name: true,
+}
+
+var alwaysIgnoredAnnotations = map[string]bool{
+	// this annotation is set by default in istiod, don't alert on it.
+	annotation.SidecarStatus.Name: true,
+
+	// this annotation is set by controller, don't alert on it.
+	annotation.GatewayControllerVersion.Name: true,
 }
 
 // Analyze implements analysis.Analyzer
@@ -96,12 +104,11 @@ func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Contex
 
 		if annotationDef := lookupAnnotation(ann); annotationDef != nil {
 			if annotationDef.FeatureStatus == annotation.Alpha {
-				// this annotation is set by default in istiod, don't alert on it.
-				if annotationDef.Name == annotation.SidecarStatus.Name {
+				if alwaysIgnoredAnnotations[annotationDef.Name] {
 					continue
 				}
 				// some annotations are set by default in istiod, don't alert on it.
-				if shouldSkipDefault && ignoredAnnotations[annotationDef.Name] {
+				if shouldSkipDefault && conditionallyIgnoredAnnotations[annotationDef.Name] {
 					continue
 				}
 				m := msg.NewAlphaAnnotation(r, ann)
