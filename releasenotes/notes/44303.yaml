@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
-kind: feature
-area: installation
+kind: bug-fix
+area: telemetry
 releaseNotes:
   - |
     **Fixed** pilot has an additional invalid gateway metric that was not created by the user.
