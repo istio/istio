@@ -291,7 +291,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		workloadInstancesIndex:     workloadinstances.NewIndex(),
-		initialSync:                atomic.NewBool(false),
+		initialSyncTimedout:        atomic.NewBool(false),
 		networkManager:             initNetworkManager(options),
 		configCluster:              options.ConfigCluster,
 	}
@@ -683,12 +683,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		})
 	}
 	st := time.Now()
-
-	if c.meshNetworksWatcher != nil {
-		c.meshNetworksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
-		c.reloadNetworkLookup()
-	}
-	c.onDefaultNetworkChange()
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
