@@ -195,39 +195,6 @@ func substituteValues(patterns []string, varName string, values []string) []stri
 	return ret
 }
 
-// DefaultStatTags for telemetry v2 tag extraction.
-var DefaultStatTags = []string{
-	"reporter",
-	"source_namespace",
-	"source_workload",
-	"source_workload_namespace",
-	"source_principal",
-	"source_app",
-	"source_version",
-	"source_cluster",
-	"destination_namespace",
-	"destination_workload",
-	"destination_workload_namespace",
-	"destination_principal",
-	"destination_app",
-	"destination_version",
-	"destination_service",
-	"destination_service_name",
-	"destination_service_namespace",
-	"destination_port",
-	"destination_cluster",
-	"request_protocol",
-	"request_operation",
-	"request_host",
-	"response_flags",
-	"grpc_response_status",
-	"connection_security_policy",
-	"source_canonical_service",
-	"destination_canonical_service",
-	"source_canonical_revision",
-	"destination_canonical_revision",
-}
-
 func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	nodeIPs := meta.InstanceIPs
 	config := meta.ProxyConfig
@@ -258,9 +225,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		return substituteValues(inclusionOption, "{pod_ip}", nodeIPs)
 	}
 
-	extraStatTags := make([]string, 0, len(DefaultStatTags))
-	extraStatTags = append(extraStatTags,
-		DefaultStatTags...)
+	extraStatTags := make([]string, 0, len(config.ExtraStatTags))
 	for _, tag := range config.ExtraStatTags {
 		if tag != "" {
 			extraStatTags = append(extraStatTags, tag)

@@ -512,7 +512,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if se.WorkloadSelector == nil || !labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wi.Endpoint.Labels) {
+		if se.WorkloadSelector == nil || !labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels) {
 			// Not a match, skip this one
 			continue
 		}
@@ -776,7 +776,7 @@ func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 	for _, ip := range node.IPAddresses {
 		instances := s.serviceInstances.getByIP(ip)
 		for _, i := range instances {
-			// Insert all instances for this IP for services within the same namespace This ensures we
+			// Insert all instances for this IP for services within the same namespace. This ensures we
 			// match Kubernetes logic where Services do not cross namespace boundaries and avoids
 			// possibility of other namespaces inserting service instances into namespaces they do not
 			// control.
@@ -793,8 +793,15 @@ func (s *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 	defer s.mutex.RUnlock()
 	for _, ip := range proxy.IPAddresses {
 		instances := s.serviceInstances.getByIP(ip)
-		for _, instance := range instances {
-			return instance.Endpoint.Labels
+		for _, i := range instances {
+			// Insert first instances for this IP for services within the same namespace. This ensures we
+			// match Kubernetes logic where Services do not cross namespace boundaries and avoids
+			// possibility of other namespaces inserting service instances into namespaces they do not
+			// control.
+			// All instances should have the same labels so we just return the first
+			if proxy.Metadata.Namespace == "" || i.Service.Attributes.Namespace == proxy.Metadata.Namespace {
+				return i.Endpoint.Labels
+			}
 		}
 	}
 	return nil

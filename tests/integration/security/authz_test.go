@@ -452,7 +452,9 @@ func TestAuthz_NotHost(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/authz/not-host.yaml.tmpl")).
+				Source(config.File("testdata/authz/not-host.yaml.tmpl").WithParams(param.Params{
+					"GatewayIstioLabel": i.Settings().IngressGatewayIstioLabel,
+				})).
 				BuildAll(nil, to).
 				Apply()
 
@@ -989,6 +991,7 @@ func TestAuthz_IngressGateway(t *testing.T) {
 				Source(config.File("testdata/authz/ingress-gateway.yaml.tmpl").WithParams(param.Params{
 					// The namespaces for each resource are specified in the file. Use "" as the ns to apply to.
 					param.Namespace.String(): "",
+					"GatewayIstioLabel":      i.Settings().IngressGatewayIstioLabel,
 				})).
 				BuildAll(nil, to).
 				Apply()

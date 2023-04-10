@@ -100,6 +100,8 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 		return gvk.Telemetry
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return gvk.UDPRoute
+	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
+		return gvk.ValidatingWebhookConfiguration
 	case *istioioapinetworkingv1alpha3.VirtualService:
 		return gvk.VirtualService
 	case *istioioapiextensionsv1alpha1.WasmPlugin:

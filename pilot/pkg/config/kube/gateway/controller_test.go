@@ -15,7 +15,6 @@
 package gateway
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -36,6 +35,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -203,52 +204,52 @@ func TestNamespaceEvent(t *testing.T) {
 		})
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
-	c.Run(ctx.Done())
+	stop := test.NewStop(t)
+	c.Run(stop)
+	kube.WaitForCacheSync(stop, c.HasSynced)
 	c.state.ReferencedNamespaceKeys = sets.String{"allowed": struct{}{}}
 
-	ns1 := v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+	ns1 := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 		Name: "ns1",
 		Labels: map[string]string{
 			"foo": "bar",
 		},
 	}}
-	ns2 := v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+	ns2 := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 		Name: "ns2",
 		Labels: map[string]string{
 			"allowed": "true",
 		},
 	}}
+	ns := clienttest.Wrap(t, c.namespaces)
 
-	clientSet.Kube().CoreV1().Namespaces().Create(ctx, &ns1, metav1.CreateOptions{})
+	ns.Create(ns1)
 	s.AssertEmpty(t, time.Millisecond*10)
 
-	clientSet.Kube().CoreV1().Namespaces().Create(ctx, &ns2, metav1.CreateOptions{})
+	ns.Create(ns2)
 	s.WaitOrFail(t, "xds full")
 
 	ns1.Annotations = map[string]string{"foo": "bar"}
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
+	ns.Update(ns1)
 	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns2.Annotations = map[string]string{"foo": "bar"}
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
+	ns.Update(ns2)
 	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns1.Labels["bar"] = "foo"
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
+	ns.Update(ns1)
 	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns2.Labels["foo"] = "bar"
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
+	ns.Update(ns2)
 	s.WaitOrFail(t, "xds full")
 
 	ns1.Labels["allowed"] = "true"
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
+	ns.Update(ns1)
 	s.WaitOrFail(t, "xds full")
 
 	ns2.Labels["allowed"] = "false"
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
+	ns.Update(ns2)
 	s.WaitOrFail(t, "xds full")
 }

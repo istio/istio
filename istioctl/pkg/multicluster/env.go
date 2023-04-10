@@ -15,13 +15,6 @@
 package multicluster
 
 import (
-	"fmt"
-	"io"
-	"os"
-	"time"
-
-	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pkg/kube"
@@ -32,18 +25,10 @@ type ConditionFunc func() (done bool, err error)
 type Environment interface {
 	GetConfig() *api.Config
 	CreateClient(context string) (kube.CLIClient, error)
-	Stdout() io.Writer
-	Stderr() io.Writer
-	ReadFile(filename string) ([]byte, error)
-	Printf(format string, a ...any)
-	Errorf(format string, a ...any)
-	Poll(interval, timeout time.Duration, condition ConditionFunc) error
 }
 
 type KubeEnvironment struct {
 	config     *api.Config
-	stdout     io.Writer
-	stderr     io.Writer
 	kubeconfig string
 }
 
@@ -55,27 +40,11 @@ func (e *KubeEnvironment) CreateClient(context string) (kube.CLIClient, error) {
 	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(cfg), "")
 }
 
-func (e *KubeEnvironment) Printf(format string, a ...any) {
-	_, _ = fmt.Fprintf(e.stdout, format, a...)
-}
-
-func (e *KubeEnvironment) Errorf(format string, a ...any) {
-	_, _ = fmt.Fprintf(e.stderr, format, a...)
-}
-
-func (e *KubeEnvironment) GetConfig() *api.Config                   { return e.config }
-func (e *KubeEnvironment) Stdout() io.Writer                        { return e.stdout }
-func (e *KubeEnvironment) Stderr() io.Writer                        { return e.stderr }
-func (e *KubeEnvironment) ReadFile(filename string) ([]byte, error) { return os.ReadFile(filename) }
-func (e *KubeEnvironment) Poll(interval, timeout time.Duration, condition ConditionFunc) error {
-	return wait.Poll(interval, timeout, func() (bool, error) {
-		return condition()
-	})
-}
+func (e *KubeEnvironment) GetConfig() *api.Config { return e.config }
 
 var _ Environment = (*KubeEnvironment)(nil)
 
-func NewEnvironment(kubeconfig, context string, stdout, stderr io.Writer) (*KubeEnvironment, error) {
+func NewEnvironment(kubeconfig, context string) (*KubeEnvironment, error) {
 	config, err := kube.BuildClientCmd(kubeconfig, context).ConfigAccess().GetStartingConfig()
 	if err != nil {
 		return nil, err
@@ -83,12 +52,6 @@ func NewEnvironment(kubeconfig, context string, stdout, stderr io.Writer) (*Kube
 
 	return &KubeEnvironment{
 		config:     config,
-		stdout:     stdout,
-		stderr:     stderr,
 		kubeconfig: kubeconfig,
 	}, nil
-}
-
-func NewEnvironmentFromCobra(kubeconfig, context string, cmd *cobra.Command) (Environment, error) {
-	return NewEnvironment(kubeconfig, context, cmd.OutOrStdout(), cmd.OutOrStderr())
 }

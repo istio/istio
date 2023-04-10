@@ -31,6 +31,7 @@ import (
 	authzmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestIsCatchAllMatch(t *testing.T) {
@@ -438,7 +439,7 @@ func TestSourceMatchHTTP(t *testing.T) {
 	type args struct {
 		match          *networking.HTTPMatchRequest
 		proxyLabels    labels.Instance
-		gatewayNames   map[string]bool
+		gatewayNames   sets.String
 		proxyNamespace string
 	}
 	tests := []struct {

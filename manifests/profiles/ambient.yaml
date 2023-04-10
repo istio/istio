@@ -19,6 +19,9 @@ spec:
       enabled: true
     ztunnel:
       enabled: true
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
 
   values:
     pilot:

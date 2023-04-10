@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/grpc"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -61,6 +62,9 @@ const (
 const DefaultRouteName = "default"
 
 var Notimeout = durationpb.New(0)
+
+// DefaultMaxDirectResponseBodySizeBytes is 1mb, the same limit the control plane validates via webhook. Set this to increase from envoy default of 4k
+var DefaultMaxDirectResponseBodySizeBytes = wrappers.UInt32(1024 * 1024)
 
 type DestinationHashMap map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB
 
@@ -195,9 +199,16 @@ func buildSidecarVirtualHostsForVirtualService(
 	listenPort int,
 	mesh *meshconfig.MeshConfig,
 ) []VirtualHostWrapper {
-	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
+	meshGateway := sets.New(constants.IstioMeshGateway)
+	opts := RouteOptions{
+		// Sidecar is never terminating TLS
+		IsTLS: false,
+		// Sidecar is never doing H3 (yet)
+		IsHTTP3AltSvcHeaderNeeded: false,
+		Mesh:                      mesh,
+	}
 	routes, err := BuildHTTPRoutesForVirtualService(node, virtualService, serviceRegistry, hashByDestination,
-		listenPort, meshGateway, false /* isH3DiscoveryNeeded */, mesh)
+		listenPort, meshGateway, opts)
 	if err != nil || len(routes) == 0 {
 		return nil
 	}
@@ -283,6 +294,14 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port)
 }
 
+type RouteOptions struct {
+	// IsTLS indicates if the route is intended for a TLS listener
+	IsTLS bool
+	// IsHTTP3AltSvcHeaderNeeded indicates if HTTP3 alt-svc header needs to be inserted
+	IsHTTP3AltSvcHeaderNeeded bool
+	Mesh                      *meshconfig.MeshConfig
+}
+
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
@@ -297,9 +316,8 @@ func BuildHTTPRoutesForVirtualService(
 	serviceRegistry map[host.Name]*model.Service,
 	hashByDestination DestinationHashMap,
 	listenPort int,
-	gatewayNames map[string]bool,
-	isHTTP3AltSvcHeaderNeeded bool,
-	mesh *meshconfig.MeshConfig,
+	gatewayNames sets.String,
+	opts RouteOptions,
 ) ([]*route.Route, error) {
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
@@ -312,14 +330,14 @@ func BuildHTTPRoutesForVirtualService(
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry,
-				hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh); r != nil {
+				hashByDestination, gatewayNames, opts); r != nil {
 				out = append(out, r)
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
 				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry,
-					hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh); r != nil {
+					hashByDestination, gatewayNames, opts); r != nil {
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
@@ -343,7 +361,7 @@ func BuildHTTPRoutesForVirtualService(
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
 // labels for the proxy or the gateway name for which we are generating a route
-func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Instance, gatewayNames map[string]bool, proxyNamespace string) bool {
+func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Instance, gatewayNames sets.String, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
@@ -351,7 +369,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Inst
 	// Trim by source labels or mesh gateway
 	if len(match.Gateways) > 0 {
 		for _, g := range match.Gateways {
-			if gatewayNames[g] {
+			if gatewayNames.Contains(g) {
 				return true
 			}
 		}
@@ -371,9 +389,8 @@ func translateRoute(
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	hashByDestination DestinationHashMap,
-	gatewayNames map[string]bool,
-	isHTTP3AltSvcHeaderNeeded bool,
-	mesh *meshconfig.MeshConfig,
+	gatewayNames sets.String,
+	opts RouteOptions,
 ) *route.Route {
 	// When building routes, it's okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
@@ -413,11 +430,11 @@ func translateRoute(
 	}
 
 	if in.Redirect != nil {
-		ApplyRedirect(out, in.Redirect, listenPort, model.UseGatewaySemantics(virtualService))
+		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
 		ApplyDirectResponse(out, in.DirectResponse)
 	} else {
-		applyHTTPRouteDestination(out, node, virtualService, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		applyHTTPRouteDestination(out, node, virtualService, in, opts.Mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -428,7 +445,7 @@ func translateRoute(
 		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(TranslateFault(in.Fault))
 	}
 
-	if isHTTP3AltSvcHeaderNeeded {
+	if opts.IsHTTP3AltSvcHeaderNeeded {
 		http3AltSvcHeader := buildHTTP3AltSvcHeader(listenPort, util.ALPNHttp3OverQUIC)
 		if out.ResponseHeadersToAdd == nil {
 			out.ResponseHeadersToAdd = make([]*core.HeaderValueOption, 0)
@@ -478,7 +495,7 @@ func applyHTTPRouteDestination(
 		if fullURI, isFullPathRewrite := cutPrefix(uri, "%FULLREPLACE()%"); isFullPathRewrite && model.UseGatewaySemantics(vs) {
 			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
 				Pattern: &matcher.RegexMatcher{
-					Regex: "/.+",
+					Regex: "/.*",
 				},
 				Substitution: fullURI,
 			}
@@ -571,7 +588,7 @@ func applyHTTPRouteDestination(
 	}
 }
 
-func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, useGatewaySemantics bool) {
+func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, isTLS bool, useGatewaySemantics bool) {
 	action := &route.Route_Redirect{
 		Redirect: &route.RedirectAction{
 			HostRedirect: redirect.Authority,
@@ -605,6 +622,21 @@ func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int
 			// Otherwise, no port needed; HTTPRedirect_FROM_PROTOCOL_DEFAULT is Envoy's default behavior
 		case *networking.HTTPRedirect_Port:
 			action.Redirect.PortRedirect = rp.Port
+		}
+		scheme := redirect.Scheme
+		if scheme == "" {
+			if isTLS {
+				scheme = "https"
+			} else {
+				scheme = "http"
+			}
+		}
+		// Do not put explicit :80 or :443 when its http/https
+		if action.Redirect.PortRedirect == 80 && scheme == "http" {
+			action.Redirect.PortRedirect = 0
+		}
+		if action.Redirect.PortRedirect == 443 && scheme == "https" {
+			action.Redirect.PortRedirect = 0
 		}
 	}
 

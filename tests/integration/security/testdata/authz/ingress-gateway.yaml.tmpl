@@ -14,7 +14,7 @@ spec:
   action: DENY
   selector:
     matchLabels:
-      app: istio-ingressgateway
+      app: {{.GatewayIstioLabel | default "istio-ingressgateway"}}
   rules:
     - to:
         - operation:

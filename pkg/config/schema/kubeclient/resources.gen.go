@@ -73,7 +73,7 @@ type ClientGetter interface {
 	ExtInformer() kubeextinformer.SharedInformerFactory
 }
 
-func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
+func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
 	switch any(ptr.Empty[T]()).(type) {
 	case *apiistioioapisecurityv1beta1.AuthorizationPolicy:
 		return c.Istio().SecurityV1beta1().AuthorizationPolicies(namespace).(ktypes.WriteAPI[T])
@@ -141,6 +141,8 @@ func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteA
 		return c.Istio().TelemetryV1alpha1().Telemetries(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).(ktypes.WriteAPI[T])
+	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
+		return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1alpha3.VirtualService:
 		return c.Istio().NetworkingV1alpha3().VirtualServices(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapiextensionsv1alpha1.WasmPlugin:
@@ -149,6 +151,89 @@ func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteA
 		return c.Istio().NetworkingV1alpha3().WorkloadEntries(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1alpha3.WorkloadGroup:
 		return c.Istio().NetworkingV1alpha3().WorkloadGroups(namespace).(ktypes.WriteAPI[T])
+	default:
+		panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
+	}
+}
+
+func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.ReadWriteAPI[T, TL] {
+	switch any(ptr.Empty[T]()).(type) {
+	case *apiistioioapisecurityv1beta1.AuthorizationPolicy:
+		return c.Istio().SecurityV1beta1().AuthorizationPolicies(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapicertificatesv1.CertificateSigningRequest:
+		return c.Kube().CertificatesV1().CertificateSigningRequests().(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapicorev1.ConfigMap:
+		return c.Kube().CoreV1().ConfigMaps(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition:
+		return c.Ext().ApiextensionsV1().CustomResourceDefinitions().(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapiappsv1.Deployment:
+		return c.Kube().AppsV1().Deployments(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapinetworkingv1alpha3.DestinationRule:
+		return c.Istio().NetworkingV1alpha3().DestinationRules(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapidiscoveryv1.EndpointSlice:
+		return c.Kube().DiscoveryV1().EndpointSlices(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapicorev1.Endpoints:
+		return c.Kube().CoreV1().Endpoints(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
+		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1alpha2.GRPCRoute:
+		return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapinetworkingv1alpha3.Gateway:
+		return c.Istio().NetworkingV1alpha3().Gateways(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
+		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1beta1.HTTPRoute:
+		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapinetworkingv1.Ingress:
+		return c.Kube().NetworkingV1().Ingresses(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapinetworkingv1.IngressClass:
+		return c.Kube().NetworkingV1().IngressClasses().(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1beta1.Gateway:
+		return c.GatewayAPI().GatewayV1beta1().Gateways(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration:
+		return c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapicorev1.Namespace:
+		return c.Kube().CoreV1().Namespaces().(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapicorev1.Node:
+		return c.Kube().CoreV1().Nodes().(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapisecurityv1beta1.PeerAuthentication:
+		return c.Istio().SecurityV1beta1().PeerAuthentications(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapicorev1.Pod:
+		return c.Kube().CoreV1().Pods(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapinetworkingv1beta1.ProxyConfig:
+		return c.Istio().NetworkingV1beta1().ProxyConfigs(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1alpha2.ReferenceGrant:
+		return c.GatewayAPI().GatewayV1alpha2().ReferenceGrants(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapisecurityv1beta1.RequestAuthentication:
+		return c.Istio().SecurityV1beta1().RequestAuthentications(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapicorev1.Secret:
+		return c.Kube().CoreV1().Secrets(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapicorev1.Service:
+		return c.Kube().CoreV1().Services(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapicorev1.ServiceAccount:
+		return c.Kube().CoreV1().ServiceAccounts(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapinetworkingv1alpha3.ServiceEntry:
+		return c.Istio().NetworkingV1alpha3().ServiceEntries(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapinetworkingv1alpha3.Sidecar:
+		return c.Istio().NetworkingV1alpha3().Sidecars(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
+		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1alpha2.TLSRoute:
+		return c.GatewayAPI().GatewayV1alpha2().TLSRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapitelemetryv1alpha1.Telemetry:
+		return c.Istio().TelemetryV1alpha1().Telemetries(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
+		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
+		return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapinetworkingv1alpha3.VirtualService:
+		return c.Istio().NetworkingV1alpha3().VirtualServices(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapiextensionsv1alpha1.WasmPlugin:
+		return c.Istio().ExtensionsV1alpha1().WasmPlugins(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapinetworkingv1alpha3.WorkloadEntry:
+		return c.Istio().NetworkingV1alpha3().WorkloadEntries(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapinetworkingv1alpha3.WorkloadGroup:
+		return c.Istio().NetworkingV1alpha3().WorkloadGroups(namespace).(ktypes.ReadWriteAPI[T, TL])
 	default:
 		panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
 	}
@@ -390,6 +475,13 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.GatewayAPI().GatewayV1alpha2().UDPRoutes("").Watch(context.Background(), options)
 		}
+	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.Background(), options)
+		}
 	case *apiistioioapinetworkingv1alpha3.VirtualService:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Istio().NetworkingV1alpha3().VirtualServices("").List(context.Background(), options)
@@ -510,6 +602,8 @@ func GetInformer[T runtime.Object](c ClientGetter) cache.SharedIndexInformer {
 		return c.IstioInformer().Telemetry().V1alpha1().Telemetries().Informer()
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return c.GatewayAPIInformer().Gateway().V1alpha2().UDPRoutes().Informer()
+	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
+		return c.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations().Informer()
 	case *apiistioioapinetworkingv1alpha3.VirtualService:
 		return c.IstioInformer().Networking().V1alpha3().VirtualServices().Informer()
 	case *apiistioioapiextensionsv1alpha1.WasmPlugin:

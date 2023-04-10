@@ -34,6 +34,16 @@ resources:
     proto: "k8s.io.api.admissionregistration.v1.MutatingWebhookConfiguration"
     protoPackage: "k8s.io/api/admissionregistration/v1"
 
+  - kind: "ValidatingWebhookConfiguration"
+    plural: "validatingwebhookconfigurations"
+    group: "admissionregistration.k8s.io"
+    version: "v1"
+    clusterScoped: true
+    builtin: true
+    specless: true
+    proto: "k8s.io.api.admissionregistration.v1.ValidatingWebhookConfiguration"
+    protoPackage: "k8s.io/api/admissionregistration/v1"
+
   - kind: "Deployment"
     plural: "deployments"
     group: "apps"

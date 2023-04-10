@@ -129,7 +129,5 @@ func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetwor
 func (w *internalNetworkWatcher) AddNetworksHandler(h func()) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-
-	// hack: prepend handlers; the last to be added will be run first and block other handlers
-	w.handlers = append([]func(){h}, w.handlers...)
+	w.handlers = append(w.handlers, h)
 }

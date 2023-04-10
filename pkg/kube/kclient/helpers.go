@@ -20,7 +20,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 )
 
-func CreateOrUpdate[T controllers.Object](c Client[T], object T) (T, error) {
+func CreateOrUpdate[T controllers.Object](c Writer[T], object T) (T, error) {
 	res, err := c.Create(object)
 	if kerrors.IsAlreadyExists(err) {
 		// Already exist, update

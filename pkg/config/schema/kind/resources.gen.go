@@ -45,6 +45,7 @@ const (
 	TLSRoute
 	Telemetry
 	UDPRoute
+	ValidatingWebhookConfiguration
 	VirtualService
 	WasmPlugin
 	WorkloadEntry
@@ -125,6 +126,8 @@ func (k Kind) String() string {
 		return "Telemetry"
 	case UDPRoute:
 		return "UDPRoute"
+	case ValidatingWebhookConfiguration:
+		return "ValidatingWebhookConfiguration"
 	case VirtualService:
 		return "VirtualService"
 	case WasmPlugin:
@@ -210,6 +213,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return Telemetry
 	case gvk.UDPRoute:
 		return UDPRoute
+	case gvk.ValidatingWebhookConfiguration:
+		return ValidatingWebhookConfiguration
 	case gvk.VirtualService:
 		return VirtualService
 	case gvk.WasmPlugin:

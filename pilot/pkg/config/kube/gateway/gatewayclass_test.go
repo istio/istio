@@ -15,18 +15,16 @@
 package gateway
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -34,6 +32,7 @@ import (
 func TestClassController(t *testing.T) {
 	client := kube.NewFakeClient()
 	cc := NewClassController(client)
+	classes := clienttest.Wrap(t, cc.classes)
 	stop := test.NewStop(t)
 	client.RunAndWait(stop)
 	go cc.Run(stop)
@@ -46,21 +45,15 @@ func TestClassController(t *testing.T) {
 				ControllerName: gateway.GatewayController(controller),
 			},
 		}
-		_, err := client.GatewayAPI().GatewayV1beta1().GatewayClasses().Create(context.Background(), gc, metav1.CreateOptions{})
-		if kerrors.IsAlreadyExists(err) {
-			_, _ = client.GatewayAPI().GatewayV1beta1().GatewayClasses().Update(context.Background(), gc, metav1.UpdateOptions{})
-		}
+		classes.CreateOrUpdate(gc)
 	}
 	deleteClass := func(name string) {
-		client.GatewayAPI().GatewayV1beta1().GatewayClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+		classes.Delete(name, "")
 	}
 	expectClass := func(name, controller string) {
 		t.Helper()
 		retry.UntilSuccessOrFail(t, func() error {
-			gc, err := client.GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), name, metav1.GetOptions{})
-			if controllers.IgnoreNotFound(err) != nil {
-				return err
-			}
+			gc := classes.Get(name, "")
 			if controller == "" {
 				if gc == nil { // Expect none, got none
 					return nil
