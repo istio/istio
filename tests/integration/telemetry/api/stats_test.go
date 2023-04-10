@@ -37,5 +37,5 @@ func TestTelemetryAPITCPStats(t *testing.T) {
 }
 
 func TestTelemetryAPIGRPCStats(t *testing.T) {
-	common.TestGRPCMetrics(t, features.Feature("observability.telemetry.stats.prometheus"))
+	common.TestGRPCCountMetrics(t, "observability.telemetry.stats.prometheus")
 }

@@ -37,7 +37,7 @@ func TestStatsFilter(t *testing.T) {
 }
 
 func TestGRPCStats(t *testing.T) {
-	common.TestGRPCMetrics(t, features.Feature("observability.telemetry.stats.prometheus.grpc.nullvm"))
+	common.TestGRPCCountMetrics(t, features.Feature("observability.telemetry.stats.prometheus.grpc.nullvm"))
 }
 
 func TestMain(m *testing.M) {
