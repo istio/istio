@@ -93,9 +93,11 @@ mirror-licenses: mod-download-go
 TMP := $(shell mktemp -d -u)
 UPDATE_BRANCH ?= "master"
 
+BUILD_TOOLS_ORG ?= "istio"
+
 update-common:
 	@mkdir -p $(TMP)
-	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/istio/common-files $(TMP)/common-files
+	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/$(BUILD_TOOLS_ORG)/common-files $(TMP)/common-files
 	@cd $(TMP)/common-files ; git rev-parse HEAD >files/common/.commonfiles.sha
 	@rm -fr common
 	@CONTRIB_OVERRIDE=$(shell grep -l "istio/community/blob/master/CONTRIBUTING.md" CONTRIBUTING.md)
