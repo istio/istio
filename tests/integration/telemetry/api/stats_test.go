@@ -35,3 +35,5 @@ func TestTelemetryAPIStats(t *testing.T) {
 func TestTelemetryAPITCPStats(t *testing.T) { // nolint:interfacer
 	common.TestStatsTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
 }
+
+// TODO: Test for Istio GRPC Count Metrics 
