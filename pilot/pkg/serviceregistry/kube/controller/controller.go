@@ -268,9 +268,9 @@ type Controller struct {
 
 	networkManager
 
-	// initialSync is set to true after performing an initial in-order processing of all objects.
-	initialSync *atomic.Bool
-	meshWatcher mesh.Watcher
+	// initialSyncTimedout is set to true after performing an initial processing timed out.
+	initialSyncTimedout *atomic.Bool
+	meshWatcher         mesh.Watcher
 
 	podsClient kclient.Client[*v1.Pod]
 
@@ -631,7 +631,7 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	return c.queue.HasSynced() || c.initialSync.Load()
+	return c.queue.HasSynced() || c.initialSyncTimedout.Load()
 }
 
 func (c *Controller) informersSynced() bool {
@@ -678,19 +678,17 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		time.AfterFunc(c.opts.SyncTimeout, func() {
 			if !c.queue.HasSynced() {
 				log.Warnf("kube controller for %s initial sync timed out", c.opts.ClusterID)
-				c.initialSync.Store(true)
+				c.initialSyncTimedout.Store(true)
 			}
 		})
 	}
 	st := time.Now()
-<<<<<<< HEAD
-=======
-	if c.opts.NetworksWatcher != nil {
-		c.opts.NetworksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
+
+	if c.meshNetworksWatcher != nil {
+		c.meshNetworksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadNetworkLookup()
 	}
 	c.onDefaultNetworkChange()
->>>>>>> remove syncall
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
