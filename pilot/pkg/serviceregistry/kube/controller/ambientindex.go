@@ -779,6 +779,10 @@ func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
 func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
 	svc := controllers.Extract[*v1.Service](obj)
 	updates := sets.New[model.ConfigKey]()
+	if svc.Spec.ClusterIP == "None" {
+		// TODO handle headless Service
+		return updates
+	}
 	svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
 
 	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
