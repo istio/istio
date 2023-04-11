@@ -128,17 +128,17 @@ func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
 		gw := r.Message.(*v1alpha3.Gateway)
 		gwName := r.Metadata.FullName.String()
 
-		gwSelector := klabels.SelectorFromSet(gw.Selector)
+		gwSelector := klabels.SelectorFromSet(gw.GetSelector())
 		sGWSelector := gwSelector.String()
-		for _, server := range gw.Servers {
-			sPortNumber := strconv.Itoa(int(server.Port.Number))
+		for _, server := range gw.GetServers() {
+			sPortNumber := strconv.Itoa(int(server.GetPort().GetNumber()))
 			mapKey := genGatewayMapKey(sGWSelector, sPortNumber)
 			if _, exits := gwConflictingMap[mapKey]; !exits {
 				objMap := make(map[string][]string)
-				objMap[gwName] = server.Hosts
+				objMap[gwName] = server.GetHosts()
 				gwConflictingMap[mapKey] = objMap
 			} else {
-				gwConflictingMap[mapKey][gwName] = server.Hosts
+				gwConflictingMap[mapKey][gwName] = server.GetHosts()
 			}
 		}
 		return true
