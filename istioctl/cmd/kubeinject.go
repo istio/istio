@@ -32,7 +32,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	admission "k8s.io/api/admission/v1"
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistration "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -202,7 +201,6 @@ func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, 
 var (
 	runtimeScheme = func() *runtime.Scheme {
 		r := runtime.NewScheme()
-		r.AddKnownTypes(admissionv1beta1.SchemeGroupVersion, &admissionv1beta1.AdmissionReview{})
 		r.AddKnownTypes(admission.SchemeGroupVersion, &admission.AdmissionReview{})
 		return r
 	}()

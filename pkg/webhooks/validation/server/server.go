@@ -23,7 +23,6 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	admissionv1 "k8s.io/api/admission/v1"
-	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -55,7 +54,6 @@ var (
 
 func init() {
 	_ = admissionv1.AddToScheme(runtimeScheme)
-	_ = kubeApiAdmissionv1beta1.AddToScheme(runtimeScheme)
 }
 
 // Options contains the configuration for the Istio Pilot validation

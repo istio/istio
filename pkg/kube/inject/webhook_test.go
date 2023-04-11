@@ -30,7 +30,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	openshiftv1 "github.com/openshift/api/apps/v1"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -841,21 +841,21 @@ func makeTestData(t testing.TB, skip bool, apiVersion string) []byte {
 		t.Fatalf("Could not create test pod: %v", err)
 	}
 
-	review := v1beta1.AdmissionReview{
+	review := admissionv1.AdmissionReview{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "AdmissionReview",
 			APIVersion: fmt.Sprintf("admission.k8s.io/%s", apiVersion),
 		},
-		Request: &v1beta1.AdmissionRequest{
+		Request: &admissionv1.AdmissionRequest{
 			Kind: metav1.GroupVersionKind{
-				Group:   v1beta1.GroupName,
+				Group:   admissionv1.GroupName,
 				Version: apiVersion,
 				Kind:    "AdmissionRequest",
 			},
 			Object: runtime.RawExtension{
 				Raw: raw,
 			},
-			Operation: v1beta1.Create,
+			Operation: admissionv1.Create,
 		},
 	}
 	reviewJSON, err := json.Marshal(review)
@@ -930,9 +930,9 @@ func TestRunAndServe(t *testing.T) {
 	defer func() { close(stop) }()
 	wh.Run(stop)
 
-	validReview := makeTestData(t, false, "v1beta1")
+	validReview := makeTestData(t, false, "v1")
 	validReviewV1 := makeTestData(t, false, "v1")
-	skipReview := makeTestData(t, true, "v1beta1")
+	skipReview := makeTestData(t, true, "v1")
 
 	// nolint: lll
 	validPatch := []byte(`[
@@ -1062,7 +1062,7 @@ func TestRunAndServe(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not read body: %v", err)
 			}
-			var gotReview v1beta1.AdmissionReview
+			var gotReview admissionv1.AdmissionReview
 			if err := json.Unmarshal(gotBody, &gotReview); err != nil {
 				t.Fatalf("could not decode response body: %v", err)
 			}
@@ -1122,7 +1122,7 @@ func benchmarkInjectServe(pcs int, b *testing.B) {
 	defer func() { close(stop) }()
 	wh.Run(stop)
 
-	body := makeTestData(b, false, "v1beta1")
+	body := makeTestData(b, false, "v1")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

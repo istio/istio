@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	admissionv1 "k8s.io/api/admission/v1"
-	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -162,38 +161,6 @@ func AdmissionReviewKubeToAdapter(object runtime.Object) (*AdmissionReview, erro
 	var req *AdmissionRequest
 	var resp *AdmissionResponse
 	switch obj := object.(type) {
-	case *kubeApiAdmissionv1beta1.AdmissionReview:
-		typeMeta = obj.TypeMeta
-		arv1beta1Response := obj.Response
-		arv1beta1Request := obj.Request
-		if arv1beta1Response != nil {
-			resp = &AdmissionResponse{
-				UID:      arv1beta1Response.UID,
-				Allowed:  arv1beta1Response.Allowed,
-				Result:   arv1beta1Response.Result,
-				Patch:    arv1beta1Response.Patch,
-				Warnings: arv1beta1Response.Warnings,
-			}
-			if arv1beta1Response.PatchType != nil {
-				patchType := string(*arv1beta1Response.PatchType)
-				resp.PatchType = &patchType
-			}
-		}
-		if arv1beta1Request != nil {
-			req = &AdmissionRequest{
-				UID:       arv1beta1Request.UID,
-				Kind:      arv1beta1Request.Kind,
-				Resource:  arv1beta1Request.Resource,
-				UserInfo:  arv1beta1Request.UserInfo,
-				Name:      arv1beta1Request.Name,
-				Namespace: arv1beta1Request.Namespace,
-				Operation: string(arv1beta1Request.Operation),
-				Object:    arv1beta1Request.Object,
-				OldObject: arv1beta1Request.OldObject,
-				DryRun:    arv1beta1Request.DryRun,
-			}
-		}
-
 	case *admissionv1.AdmissionReview:
 		typeMeta = obj.TypeMeta
 		arv1Response := obj.Response
@@ -243,47 +210,9 @@ func AdmissionReviewAdapterToKube(ar *AdmissionReview, apiVersion string) runtim
 	arRequest := ar.Request
 	arResponse := ar.Response
 	if apiVersion == "" {
-		apiVersion = admissionAPIV1beta1
+		apiVersion = admissionAPIV1
 	}
 	switch apiVersion {
-	case admissionAPIV1beta1:
-		arv1beta1 := kubeApiAdmissionv1beta1.AdmissionReview{}
-		if arRequest != nil {
-			arv1beta1.Request = &kubeApiAdmissionv1beta1.AdmissionRequest{
-				UID:                arRequest.UID,
-				Kind:               arRequest.Kind,
-				Resource:           arRequest.Resource,
-				SubResource:        arRequest.SubResource,
-				Name:               arRequest.Name,
-				Namespace:          arRequest.Namespace,
-				RequestKind:        arRequest.RequestKind,
-				RequestResource:    arRequest.RequestResource,
-				RequestSubResource: arRequest.RequestSubResource,
-				Operation:          kubeApiAdmissionv1beta1.Operation(arRequest.Operation),
-				UserInfo:           arRequest.UserInfo,
-				Object:             arRequest.Object,
-				OldObject:          arRequest.OldObject,
-				DryRun:             arRequest.DryRun,
-				Options:            arRequest.Options,
-			}
-		}
-		if arResponse != nil {
-			var patchType *kubeApiAdmissionv1beta1.PatchType
-			if arResponse.PatchType != nil {
-				patchType = (*kubeApiAdmissionv1beta1.PatchType)(arResponse.PatchType)
-			}
-			arv1beta1.Response = &kubeApiAdmissionv1beta1.AdmissionResponse{
-				UID:              arResponse.UID,
-				Allowed:          arResponse.Allowed,
-				Result:           arResponse.Result,
-				Patch:            arResponse.Patch,
-				PatchType:        patchType,
-				AuditAnnotations: arResponse.AuditAnnotations,
-				Warnings:         arResponse.Warnings,
-			}
-		}
-		arv1beta1.TypeMeta = ar.TypeMeta
-		res = &arv1beta1
 	case admissionAPIV1:
 		arv1 := admissionv1.AdmissionReview{}
 		if arRequest != nil {
