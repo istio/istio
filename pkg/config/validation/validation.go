@@ -3382,6 +3382,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		case networking.ServiceEntry_STATIC:
 			unixEndpoint := false
 			for _, endpoint := range serviceEntry.Endpoints {
+				if endpoint == nil {
+					errs = appendValidation(errs, errors.New("endpoint cannot be nil"))
+					continue
+				}
 				addr := endpoint.GetAddress()
 				if strings.HasPrefix(addr, UnixAddressPrefix) {
 					unixEndpoint = true
