@@ -65,7 +65,7 @@ var services = []*model.Service{
 		Attributes: model.ServiceAttributes{
 			Name:      "istio-ingressgateway",
 			Namespace: "istio-system",
-			ClusterExternalAddresses: model.AddressMap{
+			ClusterExternalAddresses: &model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					"Kubernetes": {"1.2.3.4"},
 				},
@@ -777,7 +777,7 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 		Attributes: model.ServiceAttributes{
 			Name:      "istio-ingressgateway",
 			Namespace: "istio-system",
-			ClusterExternalAddresses: model.AddressMap{
+			ClusterExternalAddresses: &model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					"Kubernetes": {"1.2.3.4"},
 				},
