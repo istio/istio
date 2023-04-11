@@ -193,18 +193,26 @@ func (wh *Webhook) serveValidate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wh *Webhook) validate(request *kube.AdmissionRequest) *kube.AdmissionResponse {
+	isDryRun := request.DryRun != nil && *request.DryRun
+	addDryRunMessageIfNeeded := func(errStr string) error {
+		err := fmt.Errorf("%s", errStr)
+		if isDryRun {
+			err = fmt.Errorf("%s (dry run)", err)
+		}
+		return err
+	}
 	switch request.Operation {
 	case kube.Create, kube.Update:
 	default:
-		scope.Warnf("Unsupported webhook operation %v", request.Operation)
-		reportValidationFailed(request, reasonUnsupportedOperation)
+		scope.Warnf("Unsupported webhook operation %v", addDryRunMessageIfNeeded(request.Operation))
+		reportValidationFailed(request, reasonUnsupportedOperation, isDryRun)
 		return &kube.AdmissionResponse{Allowed: true}
 	}
 
 	var obj crd.IstioKind
 	if err := json.Unmarshal(request.Object.Raw, &obj); err != nil {
-		scope.Infof("cannot decode configuration: %v", err)
-		reportValidationFailed(request, reasonYamlDecodeError)
+		scope.Infof("cannot decode configuration: %v", addDryRunMessageIfNeeded(err.Error()))
+		reportValidationFailed(request, reasonYamlDecodeError, isDryRun)
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
@@ -212,27 +220,27 @@ func (wh *Webhook) validate(request *kube.AdmissionRequest) *kube.AdmissionRespo
 
 	s, exists := wh.schemas.FindByGroupVersionAliasesKind(resource.FromKubernetesGVK(&gvk))
 	if !exists {
-		scope.Infof("unrecognized type %v", obj.GroupVersionKind())
-		reportValidationFailed(request, reasonUnknownType)
+		scope.Infof("unrecognized type %v", addDryRunMessageIfNeeded(obj.GroupVersionKind().String()))
+		reportValidationFailed(request, reasonUnknownType, isDryRun)
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.GroupVersionKind()))
 	}
 
 	out, err := crd.ConvertObject(s, &obj, wh.domainSuffix)
 	if err != nil {
-		scope.Infof("error decoding configuration: %v", err)
-		reportValidationFailed(request, reasonCRDConversionError)
+		scope.Infof("error decoding configuration: %v", addDryRunMessageIfNeeded(err.Error()))
+		reportValidationFailed(request, reasonCRDConversionError, isDryRun)
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
 	warnings, err := s.ValidateConfig(*out)
 	if err != nil {
-		scope.Infof("configuration is invalid: %v", err)
-		reportValidationFailed(request, reasonInvalidConfig)
+		scope.Infof("configuration is invalid: %v", addDryRunMessageIfNeeded(err.Error()))
+		reportValidationFailed(request, reasonInvalidConfig, isDryRun)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))
 	}
 
 	if reason, err := checkFields(request.Object.Raw, request.Kind.Kind, request.Namespace, obj.Name); err != nil {
-		reportValidationFailed(request, reason)
+		reportValidationFailed(request, reason, isDryRun)
 		return toAdmissionResponse(err)
 	}
 
