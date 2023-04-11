@@ -274,11 +274,12 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 
 	v := &validator{}
 
-	var errs, err error
+	var errs error
 	var reader io.ReadCloser
 	warningsByFilename := map[string]validation.Warning{}
 
 	processFile := func(path string) {
+		var err error
 		if path == "-" {
 			reader = io.NopCloser(os.Stdin)
 		} else {
@@ -287,10 +288,6 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 				errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", path, err))
 				return
 			}
-		}
-		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", path, err))
-			return
 		}
 		warning, err := v.validateFile(istioNamespace, defaultNamespace, reader, writer)
 		if err != nil {
@@ -332,7 +329,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 			processedFiles[filename] = true
 			continue
 		}
-		if err = processDirectory(filename, func(path string) {
+		if err := processDirectory(filename, func(path string) {
 			processFile(path)
 			processedFiles[path] = true
 		}); err != nil {
