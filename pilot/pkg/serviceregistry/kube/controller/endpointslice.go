@@ -108,46 +108,25 @@ func serviceNameForEndpointSlice(labels map[string]string) string {
 
 func (esc *endpointSliceController) sliceServiceInstances(ep *v1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
-	if ep.AddressType == v1.AddressTypeFQDN {
-		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
-		return out
-	}
 	for _, svc := range esc.c.servicesForNamespacedName(getServiceNamespacedName(ep)) {
-		pod := esc.c.pods.getPodByProxy(proxy)
-		builder := NewEndpointBuilder(esc.c, pod)
-
-		discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
-
-		for _, port := range ep.Ports {
-			if port.Name == nil || port.Port == nil {
+		for _, instance := range esc.endpointCache.Get(svc.Hostname) {
+			port, f := svc.Ports.Get(instance.ServicePortName)
+			if !f {
+				log.Warnf("unexpected state, svc %v missing port %v", svc.Hostname, instance.ServicePortName)
 				continue
 			}
-			svcPort, exists := svc.Ports.Get(*port.Name)
-			if !exists {
-				continue
+			si := &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: port,
+				Endpoint:    instance,
 			}
-			// consider multiple IP scenarios
-			for _, ip := range proxy.IPAddresses {
-				for _, ep := range ep.Endpoints {
-					for _, a := range ep.Addresses {
-						if a == ip {
-							istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name, discoverabilityPolicy, model.Healthy)
-							out = append(out, &model.ServiceInstance{
-								Endpoint:    istioEndpoint,
-								ServicePort: svcPort,
-								Service:     svc,
-							})
-							// If the endpoint isn't ready, report this
-							if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && esc.c.opts.Metrics != nil {
-								esc.c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
-							}
-						}
-					}
-				}
+			// If the endpoint isn't ready, report this
+			if instance.HealthStatus == model.UnHealthy && esc.c.opts.Metrics != nil {
+				esc.c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
 			}
+			out = append(out, si)
 		}
 	}
-
 	return out
 }
 
