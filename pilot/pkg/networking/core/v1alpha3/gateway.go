@@ -673,8 +673,9 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 			Uri:     true,
 			Dns:     true,
 		},
-		ServerName:          EnvoyServerName,
-		HttpProtocolOptions: httpProtoOpts,
+		ServerName:            EnvoyServerName,
+		RequestHeadersTimeout: features.DefaultRequestTimeout,
+		HttpProtocolOptions:   httpProtoOpts,
 	}
 	if http3SupportEnabled {
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
