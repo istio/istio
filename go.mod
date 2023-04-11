@@ -91,15 +91,15 @@ require (
 	istio.io/api v0.0.0-20230410230800-a94614182296
 	istio.io/client-go v1.18.0-alpha.0.0.20230411033600-552b02513b4a
 	istio.io/pkg v0.0.0-20230411034200-2c98fd007de2
-	k8s.io/api v0.27.0-rc.0
-	k8s.io/apiextensions-apiserver v0.27.0-rc.0
-	k8s.io/apimachinery v0.27.0-rc.0
-	k8s.io/apiserver v0.27.0-rc.0
-	k8s.io/cli-runtime v0.27.0-rc.0
-	k8s.io/client-go v0.27.0-rc.0
+	k8s.io/api v0.27.0
+	k8s.io/apiextensions-apiserver v0.27.0
+	k8s.io/apimachinery v0.27.0
+	k8s.io/apiserver v0.27.0
+	k8s.io/cli-runtime v0.27.0
+	k8s.io/client-go v0.27.0
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/kube-openapi v0.0.0-20230327201221-f5883ff37f0c
-	k8s.io/kubectl v0.27.0-rc.0
+	k8s.io/kubectl v0.27.0
 	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
 	sigs.k8s.io/controller-runtime v0.13.1-0.20230315234915-a26de2d610c3
 	sigs.k8s.io/gateway-api v0.6.2
@@ -214,7 +214,7 @@ require (
 	github.com/prometheus/prom2json v1.3.2 // indirect
 	github.com/prometheus/statsd_exporter v0.23.0 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
@@ -244,7 +244,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	k8s.io/component-base v0.27.0-rc.0 // indirect
+	k8s.io/component-base v0.27.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.13.2 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.14.1 // indirect
