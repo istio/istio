@@ -25,7 +25,9 @@ features:
           ambient:
           customize-metric:
           merge:
+          grpc:
           http:
+            api:
             nullvm:
             wasm:
           tcp:
