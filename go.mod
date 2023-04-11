@@ -74,14 +74,14 @@ require (
 	go.opencensus.io v0.24.0
 	go.opentelemetry.io/proto/otlp v0.19.0
 	go.uber.org/atomic v1.10.0
-	golang.org/x/net v0.8.0
-	golang.org/x/oauth2 v0.6.0
+	golang.org/x/net v0.9.0
+	golang.org/x/oauth2 v0.7.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.7.0
 	golang.org/x/time v0.3.0
 	gomodules.xyz/jsonpatch/v3 v3.0.1
-	google.golang.org/api v0.116.0
-	google.golang.org/genproto v0.0.0-20230403163135-c38d8f061ccd
+	google.golang.org/api v0.117.0
+	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1
 	google.golang.org/grpc v1.54.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -89,8 +89,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.11.2
 	istio.io/api v0.0.0-20230410230800-a94614182296
-	istio.io/client-go v1.18.0-alpha.0.0.20230410063159-bde4fa0c1352
-	istio.io/pkg v0.0.0-20230410162501-7a8a1efb0878
+	istio.io/client-go v1.18.0-alpha.0.0.20230411033600-552b02513b4a
+	istio.io/pkg v0.0.0-20230411034200-2c98fd007de2
 	k8s.io/api v0.27.0-rc.0
 	k8s.io/apiextensions-apiserver v0.27.0-rc.0
 	k8s.io/apimachinery v0.27.0-rc.0
@@ -113,12 +113,13 @@ require (
 	cloud.google.com/go/longrunning v0.4.1 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
+	github.com/google/s2a-go v0.1.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.2 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
 	github.com/quic-go/qtls-go1-20 v0.1.1 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
 
 require (
@@ -155,7 +156,7 @@ require (
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
-	github.com/go-logr/logr v1.2.3 // indirect
+	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
@@ -235,8 +236,8 @@ require (
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 	golang.org/x/mod v0.9.0 // indirect
-	golang.org/x/term v0.6.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/term v0.7.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/tools v0.7.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	gomodules.xyz/orderedmap v0.1.0 // indirect
