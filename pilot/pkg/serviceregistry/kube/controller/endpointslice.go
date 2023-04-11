@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/discovery/v1"
 	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -39,8 +41,6 @@ type endpointSliceController struct {
 	slices        kclient.Client[*v1.EndpointSlice]
 	c             *Controller
 }
-
-var _ kubeEndpointsController = &endpointSliceController{}
 
 var (
 	endpointSliceRequirement = labelRequirement(mcs.LabelServiceName, selection.DoesNotExist, nil)
@@ -89,7 +89,7 @@ func (esc *endpointSliceController) sync(name, ns string, event model.Event, fil
 func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model.Event) error {
 	esLabels := ep.GetLabels()
 	if endpointSliceSelector.Matches(klabels.Set(esLabels)) {
-		return processEndpointEvent(esc.c, esc, serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
+		return esc.processEndpointEvent(esc.c, serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
 	}
 	return nil
 }
@@ -366,4 +366,62 @@ func endpointSliceSelectorForService(name string) klabels.Selector {
 	return klabels.Set(map[string]string{
 		v1beta1.LabelServiceName: name,
 	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
+}
+
+// processEndpointEvent triggers the config update.
+func (esc *endpointSliceController) processEndpointEvent(c *Controller, name string, namespace string, event model.Event, ep any) error {
+	// Update internal endpoint cache no matter what kind of service, even headless service.
+	// As for gateways, the cluster discovery type is `EDS` for headless service.
+	esc.updateEDS(c, ep, event)
+	if svc := c.services.Get(name, namespace); svc != nil {
+		// if the service is headless service, trigger a full push if EnableHeadlessService is true,
+		// otherwise push endpoint updates - needed for NDS output.
+		if svc.Spec.ClusterIP == corev1.ClusterIPNone {
+			for _, modelSvc := range c.servicesForNamespacedName(config.NamespacedName(svc)) {
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full: features.EnableHeadlessService,
+					// TODO: extend and set service instance type, so no need to re-init push context
+					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
+
+					Reason: []model.TriggerReason{model.HeadlessEndpointUpdate},
+				})
+				return nil
+			}
+		}
+	}
+
+	return nil
+}
+
+func (esc *endpointSliceController) updateEDS(c *Controller, ep any, event model.Event) {
+	namespacedName := esc.getServiceNamespacedName(ep)
+	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
+	var forgottenEndpointsByHost map[host.Name][]*model.IstioEndpoint
+	if event == model.EventDelete {
+		forgottenEndpointsByHost = esc.forgetEndpoint(ep)
+	}
+
+	shard := model.ShardKeyFromRegistry(c)
+
+	for _, hostName := range c.hostNamesForNamespacedName(namespacedName) {
+		var endpoints []*model.IstioEndpoint
+		if forgottenEndpointsByHost != nil {
+			endpoints = forgottenEndpointsByHost[hostName]
+		} else {
+			endpoints = esc.buildIstioEndpoints(ep, hostName)
+		}
+
+		if features.EnableK8SServiceSelectWorkloadEntries {
+			svc := c.GetService(hostName)
+			if svc != nil {
+				fep := c.collectWorkloadInstanceEndpoints(svc)
+				endpoints = append(endpoints, fep...)
+			} else {
+				log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated",
+					namespacedName.Namespace, namespacedName.Name)
+			}
+		}
+
+		c.opts.XDSUpdater.EDSUpdate(shard, string(hostName), namespacedName.Namespace, endpoints)
+	}
 }

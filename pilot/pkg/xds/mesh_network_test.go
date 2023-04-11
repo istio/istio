@@ -22,6 +22,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -517,8 +519,9 @@ func (w *workload) buildPodService() []runtime.Object {
 	baseMeta := metav1.ObjectMeta{
 		Name: w.name,
 		Labels: labels.Instance{
-			"app":                      w.name,
-			label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel,
+			"app":                        w.name,
+			label.SecurityTlsMode.Name:   model.IstioMutualTLSModeLabel,
+			discoveryv1.LabelServiceName: w.name,
 		},
 		Namespace: w.namespace,
 	}
@@ -544,23 +547,27 @@ func (w *workload) buildPodService() []runtime.Object {
 				}},
 			},
 		},
-		&corev1.Endpoints{
+		&discoveryv1.EndpointSlice{
 			ObjectMeta: baseMeta,
-			Subsets: []corev1.EndpointSubset{{
-				Addresses: []corev1.EndpointAddress{{
-					IP: w.ip,
-					TargetRef: &corev1.ObjectReference{
-						APIVersion: "v1",
-						Kind:       "Pod",
-						Name:       podMeta.Name,
-						Namespace:  podMeta.Namespace,
-					},
-				}},
-				Ports: []corev1.EndpointPort{{
-					Name:     "http",
-					Port:     w.port,
-					Protocol: corev1.ProtocolTCP,
-				}},
+			Endpoints: []discoveryv1.Endpoint{{
+				Addresses:  []string{w.ip},
+				Conditions: discoveryv1.EndpointConditions{},
+				Hostname:   nil,
+				TargetRef: &corev1.ObjectReference{
+					APIVersion: "v1",
+					Kind:       "Pod",
+					Name:       podMeta.Name,
+					Namespace:  podMeta.Namespace,
+				},
+				DeprecatedTopology: nil,
+				NodeName:           nil,
+				Zone:               nil,
+				Hints:              nil,
+			}},
+			Ports: []discoveryv1.EndpointPort{{
+				Name:     ptr.Of("http"),
+				Port:     ptr.Of(w.port),
+				Protocol: ptr.Of(corev1.ProtocolTCP),
 			}},
 		},
 	}
