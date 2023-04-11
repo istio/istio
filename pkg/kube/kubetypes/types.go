@@ -55,7 +55,7 @@ type WriteAPI[T runtime.Object] interface {
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 }
 
-// WriteAPI exposes a generic API for a client go type for status operations.
+// WriteStatusAPI exposes a generic API for a client go type for status operations.
 // Not all types have status, so they need to be split out
 type WriteStatusAPI[T runtime.Object] interface {
 	UpdateStatus(ctx context.Context, object T, opts metav1.UpdateOptions) (T, error)

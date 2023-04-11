@@ -81,7 +81,7 @@ type DeploymentController struct {
 	gateways       kclient.Client[*gateway.Gateway]
 	gatewayClasses kclient.Client[*gateway.GatewayClass]
 
-	clients         map[string]kclient.Untyped
+	clients         map[string]kclient.GenericInformer
 	injectConfig    func() inject.WebhookConfig
 	deployments     kclient.Client[*appsv1.Deployment]
 	services        kclient.Client[*corev1.Service]
@@ -146,7 +146,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 	dc := &DeploymentController{
 		client:    client,
 		clusterID: clusterID,
-		clients:   map[string]kclient.Untyped{},
+		clients:   map[string]kclient.GenericInformer{},
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
 			t := true

@@ -188,10 +188,10 @@ func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) C
 	}
 }
 
-// NewUntyped returns an untyped client for a given informer. This is read-only.
+// NewGenericInformer returns an untyped client for a given informer. This is read-only.
 //
 // Warning: because the informer is already created, only client side filters are supported.
-func NewUntyped(c kube.Client, inf cache.SharedIndexInformer, filter Filter) Untyped {
+func NewGenericInformer(c kube.Client, inf cache.SharedIndexInformer, filter Filter) GenericInformer {
 	if filter.LabelSelector != "" {
 		panic("invalid filter supplied, LabelSelector not allowed")
 	}

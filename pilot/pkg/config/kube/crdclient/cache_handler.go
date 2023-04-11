@@ -33,7 +33,7 @@ import (
 // and will be invoked on each informer event.
 type cacheHandler struct {
 	client   *Client
-	informer kclient.Untyped
+	informer kclient.GenericInformer
 	schema   resource.Schema
 }
 
@@ -86,7 +86,7 @@ func createCacheHandler(cl *Client, schema resource.Schema, i informers.GenericI
 	h := &cacheHandler{
 		client:   cl,
 		schema:   schema,
-		informer: kclient.NewUntyped(cl.client, i.Informer(), kclient.Filter{ObjectFilter: cl.namespacesFilter}),
+		informer: kclient.NewGenericInformer(cl.client, i.Informer(), kclient.Filter{ObjectFilter: cl.namespacesFilter}),
 	}
 
 	kind := schema.Kind()

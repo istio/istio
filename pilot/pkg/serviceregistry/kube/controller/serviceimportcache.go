@@ -91,7 +91,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 type serviceImportCacheImpl struct {
 	*Controller
 
-	serviceImports  kclient.Untyped
+	serviceImports  kclient.GenericInformer
 	serviceImportCh chan struct{}
 	started         atomic.Bool
 }
@@ -297,7 +297,7 @@ func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
 	}
 
 	dInformer := ic.client.DynamicInformer().ForResource(mcs.ServiceImportGVR).Informer()
-	ic.serviceImports = kclient.NewUntyped(ic.client, dInformer, kclient.Filter{ObjectFilter: ic.opts.GetFilter()})
+	ic.serviceImports = kclient.NewGenericInformer(ic.client, dInformer, kclient.Filter{ObjectFilter: ic.opts.GetFilter()})
 	// Register callbacks for Service events anywhere in the mesh.
 	ic.opts.MeshServiceController.AppendServiceHandlerForCluster(ic.Cluster(), ic.onServiceEvent)
 	// Register callbacks for ServiceImport events in this cluster only.

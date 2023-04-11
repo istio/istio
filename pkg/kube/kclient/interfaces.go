@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 )
 
-type Untyped = Informer[controllers.Object]
+type GenericInformer = Informer[controllers.Object]
 
 // Reader wraps a Kubernetes client providing cached read access.
 // This is based on informers, so most of the same caveats to informers apply here.

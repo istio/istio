@@ -104,7 +104,7 @@ type discoverabilityPolicySelector func(*model.Service) model.EndpointDiscoverab
 type serviceExportCacheImpl struct {
 	*Controller
 
-	serviceExports kclient.Untyped
+	serviceExports kclient.GenericInformer
 
 	// clusterLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the cluster.local host.
 	clusterLocalPolicySelector discoverabilityPolicySelector
@@ -203,7 +203,7 @@ func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
 		return
 	}
 	dInformer := ec.client.DynamicInformer().ForResource(mcs.ServiceExportGVR).Informer()
-	ec.serviceExports = kclient.NewUntyped(ec.client, dInformer, kclient.Filter{ObjectFilter: ec.opts.GetFilter()})
+	ec.serviceExports = kclient.NewGenericInformer(ec.client, dInformer, kclient.Filter{ObjectFilter: ec.opts.GetFilter()})
 	// Register callbacks for events.
 	registerHandlers(ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)
 	go dInformer.Run(stop)
