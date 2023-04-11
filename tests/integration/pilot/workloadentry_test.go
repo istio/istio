@@ -18,9 +18,7 @@
 package pilot
 
 import (
-	"bytes"
 	"fmt"
-	"os/exec"
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -28,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 )
 
@@ -36,7 +35,12 @@ func TestWorkloadEntry(t *testing.T) {
 	framework.NewTest(t).
 		Features("traffic.reachability").
 		Run(func(t framework.TestContext) {
-			// Define a simulated EW gateway
+			ist, err := istio.Get(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Define an AUTO_PASSTHROUGH EW gateway
 			gatewayCfg := `apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -44,10 +48,10 @@ metadata:
   namespace: istio-system
 spec:
   selector:
-    app: istio-ingressgateway
+    istio: eastwestgateway
   servers:
   - port:
-      number: 8443
+      number: 15443
       name: https
       protocol: TLS
     hosts:
@@ -55,22 +59,13 @@ spec:
     tls:
       mode: AUTO_PASSTHROUGH
 `
-			// Setup a Gateway to act as simulated EW
+			// Configure an AUTO_PASSTHROUGH EW gateway
 			if err := t.ConfigIstio().YAML("istio-system", gatewayCfg).Apply(apply.CleanupConditionally); err != nil {
 				t.Fatal(err)
 			}
 
-			// get pod IP of simulated EW gateway so we can use that IP in as the WorkloadEntry address
-			externalGetPodCommand := exec.Command("kubectl", "get", "pod", "-A", "-l", "app=istio-ingressgateway", "-o", `jsonpath="{.items[0].status.podIP}"`)
-			stdout := &bytes.Buffer{}
-			stderr := &bytes.Buffer{}
-			externalGetPodCommand.Stdout = stdout
-			externalGetPodCommand.Stderr = stderr
-			err := externalGetPodCommand.Run()
-			if err != nil {
-				t.Fatal(err)
-			}
-			ingressPodIP := stdout.String()
+			cfg := t.Clusters().Default()
+			ewGatewayIP, ewGatewayPort := ist.EastWestGatewayFor(cfg).AddressForPort(15443)
 
 			workloadEntryYaml := fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
@@ -101,11 +96,11 @@ metadata:
 spec:
   network: other
   ports:
-    http: 8443
+    http: %v
   address: %s
   labels:
     security.istio.io/tlsMode: istio
-    app: a`, ingressPodIP)
+    app: a`, ewGatewayPort, ewGatewayIP)
 
 			aNamespace := apps.A.Instances().NamespaceName()
 			if err := t.ConfigIstio().YAML(aNamespace, workloadEntryYaml).Apply(apply.CleanupConditionally); err != nil {
