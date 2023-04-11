@@ -334,6 +334,9 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 				nodeAddresses = append(nodeAddresses, n.address)
 			}
 		}
+		if svc.Attributes.ClusterExternalAddresses == nil {
+			svc.Attributes.ClusterExternalAddresses = &model.AddressMap{}
+		}
 		svc.Attributes.ClusterExternalAddresses.SetAddressesFor(c.Cluster(), nodeAddresses)
 		// update gateways that use the service
 		c.extractGatewaysFromService(svc)
