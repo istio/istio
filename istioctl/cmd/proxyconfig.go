@@ -165,10 +165,7 @@ var (
 )
 
 var isZtunnelPod = func(podName, podNamespace string) bool {
-	client, err := kubeClient(kubeconfig, configContext)
-	if err != nil {
-		return ambientutil.IsZtunnelPod(nil, podName, podNamespace)
-	}
+	client, _ := kubeClient(kubeconfig, configContext)
 	return ambientutil.IsZtunnelPod(client, podName, podNamespace)
 }
 
