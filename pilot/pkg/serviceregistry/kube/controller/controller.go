@@ -307,7 +307,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			c.namespaces,
 			"Namespaces",
 			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
-				if cur.Namespace == c.opts.SystemNamespace {
+				if cur.Name == c.opts.SystemNamespace {
 					return c.onSystemNamespaceEvent(old, cur, event)
 				}
 				return nil
