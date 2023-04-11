@@ -822,7 +822,7 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 	}
 
 	for _, c := range testCases {
-		t.Run(fmt.Sprintf("%s", c.name), func(t *testing.T) {
+		t.Run(c.name, func(t *testing.T) {
 			// Setup kube caches
 			controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 
