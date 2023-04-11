@@ -48,8 +48,6 @@ var (
 )
 
 func newEndpointSliceController(c *Controller) *endpointSliceController {
-	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
-	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	slices := kclient.NewFiltered[*v1.EndpointSlice](c.client, kclient.Filter{ObjectFilter: c.opts.GetFilter()})
 	out := &endpointSliceController{
 		c:             c,
@@ -58,10 +56,6 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 	}
 	registerHandlers[*v1.EndpointSlice](c, slices, "EndpointSlice", out.onEvent, nil)
 	return out
-}
-
-func (esc *endpointSliceController) HasSynced() bool {
-	return esc.slices.HasSynced()
 }
 
 func (esc *endpointSliceController) sync(name, ns string, event model.Event, filtered bool) error {
@@ -89,7 +83,7 @@ func (esc *endpointSliceController) sync(name, ns string, event model.Event, fil
 func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model.Event) error {
 	esLabels := ep.GetLabels()
 	if endpointSliceSelector.Matches(klabels.Set(esLabels)) {
-		return esc.processEndpointEvent(esc.c, serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
+		return esc.processEndpointEvent(serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
 	}
 	return nil
 }
@@ -97,11 +91,11 @@ func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
-func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
+func (esc *endpointSliceController) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
 	eps := esc.slices.List(proxy.Metadata.Namespace, endpointSliceSelector)
 	var out []*model.ServiceInstance
 	for _, ep := range eps {
-		instances := esc.sliceServiceInstances(c, ep, proxy)
+		instances := esc.sliceServiceInstances(ep, proxy)
 		out = append(out, instances...)
 	}
 
@@ -112,17 +106,17 @@ func serviceNameForEndpointSlice(labels map[string]string) string {
 	return labels[v1beta1.LabelServiceName]
 }
 
-func (esc *endpointSliceController) sliceServiceInstances(c *Controller, ep *v1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
+func (esc *endpointSliceController) sliceServiceInstances(ep *v1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 	if ep.AddressType == v1.AddressTypeFQDN {
 		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 		return out
 	}
-	for _, svc := range c.servicesForNamespacedName(esc.getServiceNamespacedName(ep)) {
-		pod := c.pods.getPodByProxy(proxy)
-		builder := NewEndpointBuilder(c, pod)
+	for _, svc := range esc.c.servicesForNamespacedName(getServiceNamespacedName(ep)) {
+		pod := esc.c.pods.getPodByProxy(proxy)
+		builder := NewEndpointBuilder(esc.c, pod)
 
-		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
+		discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
 
 		for _, port := range ep.Ports {
 			if port.Name == nil || port.Port == nil {
@@ -144,8 +138,8 @@ func (esc *endpointSliceController) sliceServiceInstances(c *Controller, ep *v1.
 								Service:     svc,
 							})
 							// If the endpoint isn't ready, report this
-							if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.opts.Metrics != nil {
-								c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
+							if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && esc.c.opts.Metrics != nil {
+								esc.c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
 							}
 						}
 					}
@@ -157,8 +151,7 @@ func (esc *endpointSliceController) sliceServiceInstances(c *Controller, ep *v1.
 	return out
 }
 
-func (esc *endpointSliceController) forgetEndpoint(endpoint any) map[host.Name][]*model.IstioEndpoint {
-	slice := endpoint.(*v1.EndpointSlice)
+func (esc *endpointSliceController) forgetEndpoint(slice *v1.EndpointSlice) map[host.Name][]*model.IstioEndpoint {
 	key := config.NamespacedName(slice)
 	for _, e := range slice.Endpoints {
 		for _, a := range e.Addresses {
@@ -167,7 +160,7 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint any) map[host.Name][
 	}
 
 	out := make(map[host.Name][]*model.IstioEndpoint)
-	for _, hostName := range esc.c.hostNamesForNamespacedName(esc.getServiceNamespacedName(slice)) {
+	for _, hostName := range esc.c.hostNamesForNamespacedName(getServiceNamespacedName(slice)) {
 		// endpointSlice cache update
 		if esc.endpointCache.Has(hostName) {
 			esc.endpointCache.Delete(hostName, slice.Name)
@@ -177,7 +170,7 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint any) map[host.Name][
 	return out
 }
 
-func (esc *endpointSliceController) buildIstioEndpoints(es any, hostName host.Name) []*model.IstioEndpoint {
+func (esc *endpointSliceController) buildIstioEndpoints(es *v1.EndpointSlice, hostName host.Name) []*model.IstioEndpoint {
 	esc.updateEndpointCacheForSlice(hostName, es)
 	return esc.endpointCache.Get(hostName)
 }
@@ -198,9 +191,8 @@ func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus 
 	return model.UnHealthy
 }
 
-func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, ep any) {
+func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, slice *v1.EndpointSlice) {
 	var endpoints []*model.IstioEndpoint
-	slice := ep.(*v1.EndpointSlice)
 	if slice.AddressType == v1.AddressTypeFQDN {
 		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 		return
@@ -262,15 +254,14 @@ func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespa
 	return esc.endpointCache.Get(hostName)
 }
 
-func (esc *endpointSliceController) getServiceNamespacedName(es any) types.NamespacedName {
-	slice := es.(metav1.Object)
+func getServiceNamespacedName(slice *v1.EndpointSlice) types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: slice.GetNamespace(),
 		Name:      serviceNameForEndpointSlice(slice.GetLabels()),
 	}
 }
 
-func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
+func (esc *endpointSliceController) InstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// Locate all ports in the actual service
 	svcPort, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
@@ -369,16 +360,16 @@ func endpointSliceSelectorForService(name string) klabels.Selector {
 }
 
 // processEndpointEvent triggers the config update.
-func (esc *endpointSliceController) processEndpointEvent(c *Controller, name string, namespace string, event model.Event, ep any) error {
+func (esc *endpointSliceController) processEndpointEvent(name string, namespace string, event model.Event, ep *v1.EndpointSlice) error {
 	// Update internal endpoint cache no matter what kind of service, even headless service.
 	// As for gateways, the cluster discovery type is `EDS` for headless service.
-	esc.updateEDS(c, ep, event)
-	if svc := c.services.Get(name, namespace); svc != nil {
+	esc.updateEDS(ep, event)
+	if svc := esc.c.services.Get(name, namespace); svc != nil {
 		// if the service is headless service, trigger a full push if EnableHeadlessService is true,
 		// otherwise push endpoint updates - needed for NDS output.
 		if svc.Spec.ClusterIP == corev1.ClusterIPNone {
-			for _, modelSvc := range c.servicesForNamespacedName(config.NamespacedName(svc)) {
-				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
+				esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					Full: features.EnableHeadlessService,
 					// TODO: extend and set service instance type, so no need to re-init push context
 					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
@@ -393,17 +384,17 @@ func (esc *endpointSliceController) processEndpointEvent(c *Controller, name str
 	return nil
 }
 
-func (esc *endpointSliceController) updateEDS(c *Controller, ep any, event model.Event) {
-	namespacedName := esc.getServiceNamespacedName(ep)
+func (esc *endpointSliceController) updateEDS(ep *v1.EndpointSlice, event model.Event) {
+	namespacedName := getServiceNamespacedName(ep)
 	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
 	var forgottenEndpointsByHost map[host.Name][]*model.IstioEndpoint
 	if event == model.EventDelete {
 		forgottenEndpointsByHost = esc.forgetEndpoint(ep)
 	}
 
-	shard := model.ShardKeyFromRegistry(c)
+	shard := model.ShardKeyFromRegistry(esc.c)
 
-	for _, hostName := range c.hostNamesForNamespacedName(namespacedName) {
+	for _, hostName := range esc.c.hostNamesForNamespacedName(namespacedName) {
 		var endpoints []*model.IstioEndpoint
 		if forgottenEndpointsByHost != nil {
 			endpoints = forgottenEndpointsByHost[hostName]
@@ -412,9 +403,9 @@ func (esc *endpointSliceController) updateEDS(c *Controller, ep any, event model
 		}
 
 		if features.EnableK8SServiceSelectWorkloadEntries {
-			svc := c.GetService(hostName)
+			svc := esc.c.GetService(hostName)
 			if svc != nil {
-				fep := c.collectWorkloadInstanceEndpoints(svc)
+				fep := esc.c.collectWorkloadInstanceEndpoints(svc)
 				endpoints = append(endpoints, fep...)
 			} else {
 				log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated",
@@ -422,6 +413,6 @@ func (esc *endpointSliceController) updateEDS(c *Controller, ep any, event model
 			}
 		}
 
-		c.opts.XDSUpdater.EDSUpdate(shard, string(hostName), namespacedName.Namespace, endpoints)
+		esc.c.opts.XDSUpdater.EDSUpdate(shard, string(hostName), namespacedName.Namespace, endpoints)
 	}
 }

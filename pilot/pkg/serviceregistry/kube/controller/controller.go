@@ -599,7 +599,7 @@ func (c *Controller) HasSynced() bool {
 func (c *Controller) informersSynced() bool {
 	if !c.namespaces.HasSynced() ||
 		!c.services.HasSynced() ||
-		!c.endpoints.HasSynced() ||
+		!c.endpoints.slices.HasSynced() ||
 		!c.pods.pods.HasSynced() ||
 		!c.nodes.HasSynced() ||
 		(c.crdWatcher != nil && !c.crdWatcher.HasSynced()) {
@@ -769,7 +769,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// First get k8s standard service instances and the workload entry instances
-	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort)
+	outInstances := c.endpoints.InstancesByPort(svc, reqSvcPort)
 	outInstances = append(outInstances, c.serviceInstancesFromWorkloadInstances(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
@@ -931,7 +931,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 				return out
 			}
 			// 2. Headless service without selector
-			return c.endpoints.GetProxyServiceInstances(c, proxy)
+			return c.endpoints.GetProxyServiceInstances(proxy)
 		}
 
 		// 3. The pod is not present when this is called
