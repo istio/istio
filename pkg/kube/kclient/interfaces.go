@@ -68,7 +68,6 @@ type ReadWriter[T controllers.Object] interface {
 
 // Client wraps a Kubernetes client providing cached read access and direct write access.
 type Client[T controllers.Object] interface {
-	Reader[T]
 	Writer[T]
 	Informer[T]
 }
