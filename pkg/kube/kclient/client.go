@@ -188,7 +188,7 @@ func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) C
 	}
 }
 
-// NewGenericInformer returns an untyped client for a given informer. This is read-only.
+// NewGenericInformer returns a generic client for a given informer. This is read-only.
 //
 // Warning: because the informer is already created, only client side filters are supported.
 func NewGenericInformer(c kube.Client, inf cache.SharedIndexInformer, filter Filter) GenericInformer {
