@@ -201,6 +201,10 @@ func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*r
 		}
 		and = append(and, ret...)
 	}
+	if action == rbacpb.RBAC_DENY {
+		return nil, fmt.Errorf("permission is empty")
+	}
+
 	if len(and) == 0 {
 		and = append(and, permissionAny())
 	}
@@ -216,6 +220,10 @@ func generatePrincipal(rl ruleList, forTCP bool, useAuthenticated bool, action r
 		}
 		and = append(and, ret...)
 	}
+	if action == rbacpb.RBAC_DENY {
+		return nil, fmt.Errorf("principal is empty")
+	}
+
 	if len(and) == 0 {
 		and = append(and, principalAny())
 	}
