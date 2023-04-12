@@ -41,6 +41,10 @@ spec:
 {{- else }}
         image: "{{ .Values.hub }}/{{ .Values.image | default "ztunnel" }}:{{ .Values.tag }}{{with (.Values.variant )}}-{{.}}{{end}}"
 {{- end }}
+        resources:
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | trim | indent 10 }}
+{{- end }}
 {{- with .Values.imagePullPolicy }}
         imagePullPolicy: {{ . }}
 {{- end }}
