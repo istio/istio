@@ -39,6 +39,11 @@ func TestWorkloadEntry(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			clusterCfg := t.Clusters().Default()
+			// Test requires an EW gateway, skip any scenario where one is not present in the default cluster
+			if ist.EastWestGatewayFor(clusterCfg) == nil {
+				t.Skipf("Skipping test, eastwest gateway is not deployed for cluster %s", clusterCfg.Name())
+			}
 
 			// Define an AUTO_PASSTHROUGH EW gateway
 			gatewayCfg := `apiVersion: networking.istio.io/v1alpha3
@@ -64,8 +69,7 @@ spec:
 				t.Fatal(err)
 			}
 
-			cfg := t.Clusters().Default()
-			ewGatewayIP, ewGatewayPort := ist.EastWestGatewayFor(cfg).AddressForPort(15443)
+			ewGatewayIP, ewGatewayPort := ist.EastWestGatewayFor(clusterCfg).AddressForPort(15443)
 
 			workloadEntryYaml := fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
@@ -118,9 +122,9 @@ spec:
 				if srcName == deployment.ProxylessGRPCSvc || srcName == deployment.NakedSvc || srcName == deployment.ExternalSvc || srcName == deployment.VMSvc {
 					continue
 				}
-
+				srcCluster := src.Config().Cluster.Name()
 				// Assert that non-skipped workloads can reach the service which includes our workload entry
-				t.NewSubTestf("%s to ServiceEntry+WorkloadEntry Responds with 200", srcName).Run(func(t framework.TestContext) {
+				t.NewSubTestf("%s in %s to ServiceEntry+WorkloadEntry Responds with 200", srcName, srcCluster).Run(func(t framework.TestContext) {
 					src.CallOrFail(t, echo.CallOptions{
 						Address: "serviceentry.mesh.cluster.local",
 						Port:    echo.Port{Name: "http", ServicePort: 80},
