@@ -40,10 +40,6 @@ func TestWorkloadEntry(t *testing.T) {
 				t.Fatal(err)
 			}
 			clusterCfg := t.Clusters().Default()
-			// Test requires an EW gateway, skip any scenario where one is not present in the default cluster
-			if ist.EastWestGatewayFor(clusterCfg) == nil {
-				t.Skipf("Skipping test, eastwest gateway is not deployed for cluster %s", clusterCfg.Name())
-			}
 
 			// Define an AUTO_PASSTHROUGH EW gateway
 			gatewayCfg := `apiVersion: networking.istio.io/v1alpha3
@@ -70,6 +66,9 @@ spec:
 			}
 
 			ewGatewayIP, ewGatewayPort := ist.EastWestGatewayFor(clusterCfg).AddressForPort(15443)
+			if ewGatewayIP == "" || ewGatewayPort == 0 { // most likely EW gateway is not deployed, skip testing
+				t.Skipf("Skipping test, eastwest gateway is probably not deployed for cluster %s", clusterCfg.Name())
+			}
 
 			workloadEntryYaml := fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
