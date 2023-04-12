@@ -807,6 +807,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 
 	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
 	h := lb.buildHTTPConnectionManager(httpOpts)
+	h.RequestHeadersTimeout = features.DefaultRequestTimeout
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
