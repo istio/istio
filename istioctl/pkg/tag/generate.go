@@ -157,8 +157,8 @@ func fixWhConfig(whConfig *tagWebhookConfig) *tagWebhookConfig {
 }
 
 // Create applies the given tag manifests.
-func Create(client kube.CLIClient, manifests string) error {
-	if err := applyYAML(client, manifests, "istio-system"); err != nil {
+func Create(client kube.CLIClient, manifests, ns string) error {
+	if err := applyYAML(client, manifests, ns); err != nil {
 		return fmt.Errorf("failed to apply tag manifests to cluster: %v", err)
 	}
 	return nil

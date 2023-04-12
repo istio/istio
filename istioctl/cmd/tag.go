@@ -307,7 +307,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 		return nil
 	}
 
-	if err := tag.Create(kubeClient, tagWhYAML); err != nil {
+	if err := tag.Create(kubeClient, tagWhYAML, istioNS); err != nil {
 		return fmt.Errorf("failed to apply tag webhook MutatingWebhookConfiguration to cluster: %v", err)
 	}
 	fmt.Fprintf(w, tagCreatedStr, tagName, revision, tagName)
