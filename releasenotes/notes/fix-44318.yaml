@@ -5,4 +5,4 @@ issue:
   - https://github.com/istio/istio/issues/44318
 releaseNotes:
   - |-
-    **Fixed** `istioctl analyze` to panic when the server port in gateway is nil.
+    **Fixed** `istioctl analyze` to prevent panic when the server port in Gateway is nil.
