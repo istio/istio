@@ -964,15 +964,30 @@ func isCatchAllStringMatch(in *networking.StringMatch) bool {
 // or the header format is invalid for generating metadata matcher.
 //
 // The currently only supported header is @request.auth.claims for JWT claims matching. Claims of type string or list of string
-// are supported and nested claims are also supported using `.` as a separator for claim names.
+// are supported and nested claims are also supported.
 // Examples:
-// - `@request.auth.claims.admin` matches the claim "admin".
-// - `@request.auth.claims.group.id` matches the nested claims "group" and "id".
+// - `@request.auth.claims[admin]` matches the claim "admin".
+// - `@request.auth.claims[group][id]` matches the nested claims "group" and "id".
 func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.MetadataMatcher {
 	if !strings.HasPrefix(strings.ToLower(name), constant.HeaderJWTClaim) {
 		return nil
 	}
-	claims := strings.Split(name[len(constant.HeaderJWTClaim):], ".")
+
+	var claims []string
+	name = name[len(constant.HeaderJWTClaim):]
+	if strings.HasPrefix(name, ".") {
+		// example: request.auth.claims.nested1.nested2
+		// this is for backward compatibility
+		claims = strings.Split(name[1:], ".")
+	} else if strings.HasPrefix(name, "[") && strings.HasSuffix(name, "]") {
+		// example: request.auth.claims[nested1][nested2]
+		name = name[1:]
+		name = name[:len(name)-1]
+		claims = strings.Split(name, "][")
+	} else {
+		return nil
+	}
+
 	return authz.MetadataMatcherForJWTClaims(claims, util.ConvertToEnvoyMatch(in))
 }
 
