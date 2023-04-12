@@ -512,6 +512,15 @@ func TestManifestGenerateGateway(t *testing.T) {
 	})
 }
 
+func TestManifestGenerateZtunnel(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:       "ztunnel",
+			diffSelect: "DaemonSet:*:ztunnel",
+		},
+	})
+}
+
 // TestManifestGenerateHelmValues tests whether enabling components through the values passthrough interface works as
 // expected i.e. without requiring enablement also in IstioOperator API.
 func TestManifestGenerateHelmValues(t *testing.T) {
