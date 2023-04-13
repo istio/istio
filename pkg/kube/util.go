@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	istioversion "istio.io/pkg/version"
 )
@@ -147,7 +148,12 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 		}
 	}
 	if len(config.ContentType) == 0 {
-		config.ContentType = runtime.ContentTypeJSON
+		if features.KubernetesClientContentType == "json" {
+			config.ContentType = runtime.ContentTypeJSON
+		} else {
+			config.ContentType = runtime.ContentTypeProtobuf
+			config.AcceptContentTypes = runtime.ContentTypeProtobuf + "," + runtime.ContentTypeJSON
+		}
 	}
 	if config.NegotiatedSerializer == nil {
 		// This codec factory ensures the resources are not converted. Therefore, resources
