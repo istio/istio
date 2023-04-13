@@ -298,7 +298,10 @@ func (r rule) checkError(action rbacpb.RBAC_Action, err error) error {
 	// https://istio.io/latest/docs/reference/config/security/authorization-policy/#Source
 
 	//Multiple rules under the ruleList are  ANDed together
-	//so if a single rule reports an error, you can return the error directly and not deal with the next one.
+	//so if a single rule reports an error, we can return the error directly and not deal with the next one.
+
+	//If you define some policies that will only work under http context, such as http method or http path,
+	//you need to be aware that this will not work under tcp filter because tcp filter cannot recognize these conditions.
 	return err
 }
 
