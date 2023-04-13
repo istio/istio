@@ -22,6 +22,7 @@ spec:
         app: ztunnel
 {{ with .Values.podLabels -}}{{ toYaml . | indent 8 }}{{ end }}
       annotations:
+        cni.projectcalico.org/allowedSourcePrefixes: "[\"0.0.0.0/0\"]"
         ambient.istio.io/redirection: disabled
         sidecar.istio.io/inject: "false"
 {{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
