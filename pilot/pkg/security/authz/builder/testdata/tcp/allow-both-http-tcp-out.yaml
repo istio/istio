@@ -22,21 +22,20 @@ typedConfig:
                         regex: .*/ns/ns-1/.*
       ns[foo]-policy[httpbin-deny]-rule[4]:
         permissions:
-          - andRules:
-              rules:
-                - orRules:
-                    rules:
-                      - destinationPort: 8080
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - destinationPort: 8080
         principals:
-          - andIds:
-              ids:
-                - orIds:
-                    ids:
-                      - filterState:
-                          key: io.istio.peer_principal
-                          stringMatch:
-                            safeRegex:
-                              regex: .*/ns/ns-1/.*
-
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - filterState:
+                    key: io.istio.peer_principal
+                    stringMatch:
+                      safeRegex:
+                        regex: .*/ns/ns-1/.*
   shadowRulesStatPrefix: istio_dry_run_allow_
   statPrefix: tcp.

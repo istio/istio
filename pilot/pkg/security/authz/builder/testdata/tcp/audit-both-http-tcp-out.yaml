@@ -6,18 +6,18 @@ typedConfig:
     policies:
       ns[foo]-policy[httpbin-audit]-rule[1]:
         permissions:
-          - andRules:
-              rules:
-                - orRules:
-                    rules:
-                      - destinationPort: 80
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - destinationPort: 80
         principals:
-          - andIds:
-              ids:
-                - orIds:
-                    ids:
-                      - directRemoteIp:
-                          addressPrefix: 1.2.3.4
-                          prefixLen: 32
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - directRemoteIp:
+                    addressPrefix: 1.2.3.4
+                    prefixLen: 32
   shadowRulesStatPrefix: istio_dry_run_allow_
   statPrefix: tcp.

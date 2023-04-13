@@ -164,7 +164,7 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 func (m Model) Generate(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) (*rbacpb.Policy, error) {
 	var permissions []*rbacpb.Permission
 	for _, rl := range m.permissions {
-		//one rl(permission) <=> to.Operator
+		// one rl(permission) <=> to.Operator
 		permission, err := generatePermission(rl, forTCP, action)
 		if err != nil {
 			continue
@@ -205,7 +205,7 @@ func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*r
 	}
 
 	if len(and) == 0 && len(rl.rules) == 0 {
-		//if not define any permision, set any for default.
+		// if not define any permision, set any for default.
 		and = append(and, permissionAny())
 	}
 	return permissionAnd(and), nil
@@ -222,7 +222,7 @@ func generatePrincipal(rl ruleList, forTCP bool, useAuthenticated bool, action r
 	}
 
 	if len(and) == 0 && len(rl.rules) == 0 {
-		//if not define any principal, set any for default.
+		// if not define any principal, set any for default.
 		and = append(and, principalAny())
 	}
 	return principalAnd(and), nil
@@ -293,15 +293,15 @@ func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_A
 }
 
 func (r rule) checkError(action rbacpb.RBAC_Action, err error) error {
-	//The rule here corresponds to a single condition under To.Operation or From.Source
+	// The rule here corresponds to a single condition under To.Operation or From.Source
 	// ref: https://istio.io/latest/docs/reference/config/security/authorization-policy/#Operation
 	// https://istio.io/latest/docs/reference/config/security/authorization-policy/#Source
 
-	//Multiple rules under the ruleList are  ANDed together
-	//so if a single rule reports an error, we can return the error directly and not deal with the next one.
+	// Multiple rules under the ruleList are  ANDed together
+	// so if a single rule reports an error, we can return the error directly and not deal with the next one.
 
-	//If you define some policies that will only work under http context, such as http method or http path,
-	//you need to be aware that this will not work under tcp filter because tcp filter cannot recognize these conditions.
+	// If you define some policies that will only work under http context, such as http method or http path,
+	// you need to be aware that this will not work under tcp filter because tcp filter cannot recognize these conditions.
 	return err
 }
 
