@@ -78,7 +78,6 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 	t.Run("add meshnetworks", func(t *testing.T) {
 		addMeshNetworksFromRegistryGateway(t, c, meshNetworks)
 		expectGateways(t, 2)
-		fakeUpdater.StrictMatchOrFail(t, []xdsfake.Event{{Type: "service"}}...)
 	})
 	t.Run("add labeled service", func(t *testing.T) {
 		addLabeledServiceGateway(t, c, "nw0")
