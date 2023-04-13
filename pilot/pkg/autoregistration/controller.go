@@ -147,7 +147,7 @@ type Controller struct {
 	healthCondition controllers.Queue
 
 	// tracks existence of WorkloadEntries keyed by IP/network to the minimal info required for a delete.
-	workloadEntryStatus map[string]workloadentryinfo
+	workloadEntryStatus map[string]kubetypes.NamespacedName
 }
 
 type HealthStatus = v1alpha1.IstioCondition
@@ -167,7 +167,7 @@ func NewController(store model.ConfigStoreController, instanceID string, maxConn
 			cleanupQueue:        queue.NewDelayed(),
 			adsConnections:      map[string]uint8{},
 			maxConnectionAge:    maxConnAge,
-			workloadEntryStatus: make(map[string]workloadentryinfo),
+			workloadEntryStatus: make(map[string]kubetypes.NamespacedName),
 		}
 		c.queue = controllers.NewQueue("unregister_workloadentry",
 			controllers.WithMaxAttempts(maxRetries),
@@ -526,13 +526,6 @@ func sanitizeIP(s string) string {
 	return strings.ReplaceAll(s, ":", "-")
 }
 
-// workloadentryinfo just represents the name/namespace of a workloadentry, the minimum information required
-// for a delete
-type workloadentryinfo struct {
-	name      string
-	namespace string
-}
-
 func (c *Controller) onWorkloadEntryEvent(_, curr config.Config, event model.Event) {
 	log.Infof("Handling event %s for workload entry %s/%s", event, curr.Namespace, curr.Name)
 	// if a workloadentry is created with the same IP address & Network as an already existing workloadentry, delete the old workloadentry.
@@ -540,22 +533,20 @@ func (c *Controller) onWorkloadEntryEvent(_, curr config.Config, event model.Eve
 
 	if event == model.EventDelete {
 		// only delete if it is not a delete caused by stale WLE
-		deleteEntryValue := workloadentryinfo{curr.Name, curr.Namespace}
+		deleteEntryValue := config.NamespacedName(curr)
 		if pe, ok := c.workloadEntryStatus[makeWEkey(entry)]; ok && pe == deleteEntryValue {
 			delete(c.workloadEntryStatus, makeWEkey(entry))
 		}
 		return
-	} else if prevEntry, ok := c.workloadEntryStatus[makeWEkey(entry)]; ok && prevEntry.name != curr.Name {
+	} else if prevEntry, ok := c.workloadEntryStatus[makeWEkey(entry)]; ok && prevEntry.Name != curr.Name {
 		// delete stale WLE
-		if err := c.store.Delete(gvk.WorkloadEntry, prevEntry.name, prevEntry.namespace, nil); err != nil && !errors.IsNotFound(err) {
-			log.Warnf("could not clean up stale workloadentry with duplicate IP/network: %s/%s: %v", prevEntry.name, prevEntry.name, err)
+		if err := c.store.Delete(gvk.WorkloadEntry, prevEntry.Name, prevEntry.Namespace, nil); err != nil && !errors.IsNotFound(err) {
+			log.Warnf("could not clean up stale workloadentry with duplicate IP/network: %s/%s: %v", prevEntry.Name, prevEntry.Name, err)
 		}
 	}
 	// only add to map if WorkloadEntry was auto-registered
 	if _, ok := curr.Meta.Annotations[AutoRegistrationGroupAnnotation]; ok {
-		c.workloadEntryStatus[makeWEkey(entry)] = workloadentryinfo{
-			curr.Name, curr.Namespace,
-		}
+		c.workloadEntryStatus[makeWEkey(entry)] = config.NamespacedName(curr)
 	}
 }
 
