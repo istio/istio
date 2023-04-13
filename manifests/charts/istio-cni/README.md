@@ -28,7 +28,7 @@ Installation in `kube-system` is recommended to ensure the [`system-node-critica
 
 To enable ambient, you need to to add `--set cni.ambient.enabled=true`.
 
-## Calico
+### Calico
 
 For Calico, you must also modify the settings to allow source spoofing:
 
