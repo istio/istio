@@ -32,3 +32,13 @@ spec:
       to:
         - operation:
             ports: ["80"]
+    ##
+    - from:
+        - source:
+            namespaces: [ "ns-1" ]
+      to:
+        - operation:
+            ports: [ "8080" ]
+        - operation:
+            ports: [ "8090" ]
+            methods: ["GET"]
