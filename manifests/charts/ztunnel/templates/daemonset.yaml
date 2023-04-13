@@ -48,22 +48,12 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           privileged: false
-  {{- if eq .Values.variant "debug"}}
-          capabilities:
-            drop:
-              - ALL
-            add:
-              - NET_ADMIN
-              - NET_RAW
-          readOnlyRootFilesystem: false
-  {{- else }}
           capabilities:
             drop:
               - ALL
             add:
               - NET_ADMIN
           readOnlyRootFilesystem: true
-  {{- end }}
           runAsGroup: 1337
           runAsNonRoot: false
           runAsUser: 0
