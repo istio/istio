@@ -20,6 +20,8 @@ import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	proxy_protocolv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
+	raw_bufferv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -190,6 +192,40 @@ func TestClusterPatching(t *testing.T) {
 				},
 			},
 			Patch: &networking.EnvoyFilter_Patch{Operation: networking.EnvoyFilter_Patch_REMOVE},
+		},
+		// Upstream Proxy protocol on gateway enable test
+		{
+			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Service: "proxy-proto.com",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`{
+					"transport_socket_matches": [
+						{
+							"name": "tlsMode-disabled",
+							"transport_socket": {
+								"name": "envoy.transport_sockets.upstream_proxy_protocol",
+								"typed_config": {
+									"@type": "type.googleapis.com/envoy.extensions.transport_sockets.proxy_protocol.v3.ProxyProtocolUpstreamTransport",
+									"config": {
+										"version": "V2"
+									},
+									"transport_socket": {
+										"name": "envoy.transport_sockets.raw_buffer"
+									}
+								}
+							}
+						}
+					]
+				}`),
+			},
 		},
 		{
 			ApplyTo: networking.EnvoyFilter_CLUSTER,
@@ -553,6 +589,20 @@ func TestClusterPatching(t *testing.T) {
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_MAGLEV,
 		},
+		{
+			Name: "outbound|443||proxy-proto.com",
+			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
+				{
+					Name: "tlsMode-disabled",
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.raw_buffer",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: protoconv.MessageToAny(&raw_bufferv3.RawBuffer{}),
+						},
+					},
+				},
+			},
+		},
 		{Name: "outbound|443||gateway.com"},
 	}
 	gatewayOutput := []*cluster.Cluster{
@@ -564,6 +614,30 @@ func TestClusterPatching(t *testing.T) {
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_RING_HASH, DnsLookupFamily: cluster.Cluster_V6_ONLY,
 		},
+		{
+			Name:            "outbound|443||proxy-proto.com",
+			DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			LbPolicy:        cluster.Cluster_RING_HASH,
+			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
+				{
+					Name: "tlsMode-disabled",
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.upstream_proxy_protocol",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: protoconv.MessageToAny(&proxy_protocolv3.ProxyProtocolUpstreamTransport{
+								Config: &core.ProxyProtocolConfig{
+									Version: core.ProxyProtocolConfig_V2,
+								},
+								TransportSocket: &core.TransportSocket{
+									Name: "envoy.transport_sockets.raw_buffer",
+								},
+							}),
+						},
+					},
+				},
+			},
+		},
+		// removed cluster
 	}
 
 	testCases := []struct {
