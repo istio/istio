@@ -801,7 +801,20 @@ func (s *DiscoveryServer) adsClientCount() int {
 	return len(s.adsClients)
 }
 
+// PausePush stops sending xds push request
+func (s *DiscoveryServer) PausePush() {
+	s.pushStopped.Store(true)
+}
+
+// ResumePush resumes sending xds push request
+func (s *DiscoveryServer) ResumePush() {
+	s.pushStopped.Store(false)
+}
+
 func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
+	if s.pushStopped.Load() {
+		return
+	}
 	var connection *Connection
 
 	for _, v := range s.Clients() {

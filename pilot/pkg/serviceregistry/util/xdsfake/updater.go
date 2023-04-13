@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/atomic"
 	"golang.org/x/exp/slices"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -45,13 +46,17 @@ func NewWithDelegate(delegate model.XDSUpdater) *Updater {
 // Updater is used to test the registry.
 type Updater struct {
 	// Events tracks notifications received by the updater
-	Events   chan Event
-	Delegate model.XDSUpdater
+	Events      chan Event
+	Delegate    model.XDSUpdater
+	pushStopped atomic.Bool
 }
 
 var _ model.XDSUpdater = &Updater{}
 
 func (fx *Updater) ConfigUpdate(req *model.PushRequest) {
+	if fx.pushStopped.Load() {
+		return
+	}
 	names := []string{}
 	if req != nil && len(req.ConfigsUpdated) > 0 {
 		for key := range req.ConfigsUpdated {
@@ -74,6 +79,9 @@ func (fx *Updater) ConfigUpdate(req *model.PushRequest) {
 }
 
 func (fx *Updater) ProxyUpdate(c cluster.ID, ip string) {
+	if fx.pushStopped.Load() {
+		return
+	}
 	select {
 	case fx.Events <- Event{Type: "proxy", ID: ip}:
 	default:
@@ -81,6 +89,16 @@ func (fx *Updater) ProxyUpdate(c cluster.ID, ip string) {
 	if fx.Delegate != nil {
 		fx.Delegate.ProxyUpdate(c, ip)
 	}
+}
+
+// PausePush stops sending xds push request
+func (fx *Updater) PausePush() {
+	fx.pushStopped.Store(true)
+}
+
+// ResumePush resumes sending xds push request
+func (fx *Updater) ResumePush() {
+	fx.pushStopped.Store(false)
 }
 
 // Event is used to watch XdsEvents
@@ -101,6 +119,9 @@ type Event struct {
 }
 
 func (fx *Updater) EDSUpdate(c model.ShardKey, hostname string, ns string, entry []*model.IstioEndpoint) {
+	if fx.pushStopped.Load() {
+		return
+	}
 	select {
 	case fx.Events <- Event{Type: "eds", ID: hostname, Endpoints: entry, Namespace: ns}:
 	default:

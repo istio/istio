@@ -79,7 +79,7 @@ func (esc *endpointSliceController) sync(name, ns string, event model.Event, fil
 	} else {
 		endpoints = esc.slices.ListUnfiltered(ns, klabels.Everything())
 	}
-	log.Debugf("initializing %d endpointslices", len(endpoints))
+	log.Infof("initializing %d endpointslices", len(endpoints))
 	for _, s := range endpoints {
 		err = multierror.Append(err, esc.onEvent(nil, s, event))
 	}

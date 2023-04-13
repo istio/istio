@@ -103,6 +103,7 @@ type DiscoveryServer struct {
 	// the push context, which means that the next push to a proxy will receive this configuration.
 	CommittedUpdates *atomic.Int64
 
+	pushStopped atomic.Bool
 	// pushChannel is the buffer used for debouncing.
 	// after debouncing the pushRequest will be sent to pushQueue
 	pushChannel chan *model.PushRequest
@@ -335,6 +336,9 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
+	if s.pushStopped.Load() {
+		return
+	}
 	if len(model.ConfigsOfKind(req.ConfigsUpdated, kind.Address)) > 0 {
 		// This is a bit like clearing EDS cache on EndpointShard update. Because Address
 		// types are fetched dynamically, they are not part of the same protections, so we need to clear

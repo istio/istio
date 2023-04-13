@@ -331,6 +331,12 @@ type XDSUpdater interface {
 	// The requests may be collapsed and throttled.
 	ProxyUpdate(clusterID cluster.ID, ip string)
 
+	// PausePush stops sending xds push request
+	PausePush()
+
+	// ResumePush resumes sending xds push request
+	ResumePush()
+
 	// RemoveShard removes all endpoints for the given shard key
 	RemoveShard(shardKey ShardKey)
 }

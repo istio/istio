@@ -137,7 +137,7 @@ func (e *endpointsController) sync(name, ns string, event model.Event, filtered 
 	} else {
 		endpoints = e.endpoints.ListUnfiltered(ns, klabels.Everything())
 	}
-	log.Debugf("syncing %d endpoints", len(endpoints))
+	log.Infof("syncing %d endpoints", len(endpoints))
 	for _, s := range endpoints {
 		err = multierror.Append(err, e.onEvent(nil, s, event))
 	}

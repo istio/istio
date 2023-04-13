@@ -376,4 +376,12 @@ func (f *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, _, _ string, _ model.Event)
 
 func (f *FakeXdsUpdater) ProxyUpdate(_ cluster2.ID, _ string) {}
 
+// PausePush stops sending xds push request
+func (f *FakeXdsUpdater) PausePush() {
+}
+
+// ResumePush resumes sending xds push request
+func (f *FakeXdsUpdater) ResumePush() {
+}
+
 func (f *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {}

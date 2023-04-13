@@ -27,6 +27,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test/util/retry"
@@ -34,7 +35,7 @@ import (
 
 func TestNetworkUpdateTriggers(t *testing.T) {
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
-	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{ClusterID: "Kubernetes", NetworksWatcher: meshNetworks, DomainSuffix: "cluster.local"})
+	c, fakeUpdater := NewFakeControllerWithOptions(t, FakeControllerOptions{ClusterID: "Kubernetes", NetworksWatcher: meshNetworks, DomainSuffix: "cluster.local"})
 
 	if len(c.NetworkGateways()) != 0 {
 		t.Fatal("did not expect any gateways yet")
@@ -77,8 +78,8 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 	t.Run("add meshnetworks", func(t *testing.T) {
 		addMeshNetworksFromRegistryGateway(t, c, meshNetworks)
 		expectGateways(t, 2)
+		fakeUpdater.StrictMatchOrFail(t, []xdsfake.Event{{Type: "service"}}...)
 	})
-	fmt.Println(c.NetworkGateways())
 	t.Run("add labeled service", func(t *testing.T) {
 		addLabeledServiceGateway(t, c, "nw0")
 		expectGateways(t, 3)
@@ -92,8 +93,15 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 		expectGateways(t, 2)
 	})
 	t.Run("remove meshnetworks", func(t *testing.T) {
+		fakeUpdater.Clear()
+		svc1Ips := []string{"128.0.0.1"}
+		portNames := []string{"tcp-port"}
+		createEndpoints(t, c, "svc1", "nsA", portNames, svc1Ips, nil, nil)
+		fakeUpdater.WaitOrFail(t, "eds")
 		meshNetworks.SetNetworks(nil)
 		expectGateways(t, 0)
+		// test pause push for resync, as we can see no `eds` event after networks reloaded
+		fakeUpdater.StrictMatchOrFail(t, []xdsfake.Event{{Type: "xds full"}}...)
 	})
 }
 

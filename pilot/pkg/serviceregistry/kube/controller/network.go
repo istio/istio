@@ -121,6 +121,12 @@ func (n namedRangerEntry) Network() net.IPNet {
 
 // onNetworkChange is fired if the default network is changed either via the namespace label or mesh-networks
 func (c *Controller) onNetworkChange() {
+	// instead of pushing for each pod/endpoint, trigger push at last
+	c.opts.XDSUpdater.PausePush()
+	defer func() {
+		c.opts.XDSUpdater.ResumePush()
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+	}()
 	// the network for endpoints are computed when we process the events; this will fix the cache
 	// NOTE: this must run before the other network watcher handler that creates a force push
 	if err := c.syncPods(); err != nil {
@@ -237,8 +243,6 @@ func (c *Controller) reloadNetworkGateways() {
 	c.Unlock()
 	if gwsChanged {
 		c.NotifyGatewayHandlers()
-		// TODO ConfigUpdate via gateway handler
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
 	}
 }
 
