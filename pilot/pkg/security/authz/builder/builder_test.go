@@ -355,7 +355,7 @@ func verify(t *testing.T, gots []proto.Message, baseDir string, wants []string, 
 
 		util.RefreshGoldenFile(t, []byte(gotYaml), wantFile)
 		if err := util.Compare([]byte(gotYaml), []byte(wantYaml)); err != nil {
-			t.Errorf("goYaml:%s\n", gotYaml)
+			t.Errorf("gotYaml:%s\n", gotYaml)
 			t.Error(err)
 		}
 	}
