@@ -81,6 +81,7 @@ type DeploymentController struct {
 	gateways       kclient.Client[*gateway.Gateway]
 	gatewayClasses kclient.Client[*gateway.GatewayClass]
 
+	clients         map[string]kclient.Untyped
 	injectConfig    func() inject.WebhookConfig
 	deployments     kclient.Client[*appsv1.Deployment]
 	services        kclient.Client[*corev1.Service]
@@ -145,6 +146,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 	dc := &DeploymentController{
 		client:    client,
 		clusterID: clusterID,
+		clients:   map[string]kclient.Untyped{},
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
 			t := true
@@ -167,19 +169,19 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 	// Set up a handler that will add the parent Gateway object onto the queue.
 	// The queue will only handle Gateway objects; if child resources (Service, etc) are updated we re-add
 	// the Gateway to the queue and reconcile the state of the world.
-	handler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
+	parentHandler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
 
 	// Use the full informer, since we are already fetching all Services for other purposes
 	// If we somehow stop watching Services in the future we can add a label selector like below.
 	dc.services = kclient.New[*corev1.Service](client)
-	dc.services.AddEventHandler(handler)
+	dc.services.AddEventHandler(parentHandler)
 
 	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
 	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, kclient.Filter{LabelSelector: constants.ManagedGatewayLabel})
-	dc.deployments.AddEventHandler(handler)
+	dc.deployments.AddEventHandler(parentHandler)
 
 	dc.serviceAccounts = kclient.New[*corev1.ServiceAccount](client)
-	dc.serviceAccounts.AddEventHandler(handler)
+	dc.serviceAccounts.AddEventHandler(parentHandler)
 
 	dc.namespaces = kclient.New[*corev1.Namespace](client)
 	dc.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
@@ -445,6 +447,13 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 	if err != nil {
 		return err
 	}
+	canManage, resourceVersion := d.canManage(gvr, us.GetName(), us.GetNamespace())
+	if !canManage {
+		log.Debugf("skipping %v/%v/%v, already managed", gvr, us.GetName(), us.GetNamespace())
+		return nil
+	}
+	// Ensure our canManage assertion is not stale
+	us.SetResourceVersion(resourceVersion)
 
 	log.Debugf("applying %v", string(j))
 	if err := d.patcher(gvr, us.GetName(), us.GetNamespace(), j); err != nil {
@@ -457,6 +466,28 @@ func (d *DeploymentController) HandleTagChange(newTags sets.Set[string]) {
 	for _, gw := range d.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 		d.queue.AddObject(gw)
 	}
+}
+
+// canManage checks if a resource we are about to write should be managed by us. If the resource already exists
+// but does not have the ManagedGatewayLabel, we won't overwrite it.
+// This ensures we don't accidentally take over some resource we weren't supposed to, which could cause outages.
+// Note K8s doesn't have a perfect way to "conditionally SSA", but its close enough (https://github.com/kubernetes/kubernetes/issues/116156).
+func (d *DeploymentController) canManage(gvr schema.GroupVersionResource, name, namespace string) (bool, string) {
+	store, f := d.clients[gvr.GroupVersion().String()]
+	if !f {
+		log.Warnf("unknown GVR %v", gvr)
+		// Even though we don't know what it is, allow users to put the resource. We won't be able to
+		// protect against overwrites though.
+		return true, ""
+	}
+	obj := store.Get(name, namespace)
+	if !controllers.IsNil(obj) {
+		_, managed := obj.GetLabels()[constants.ManagedGatewayLabel]
+		// If object already exists, we can only manage it if it has the label
+		return managed, obj.GetResourceVersion()
+	}
+	// no object, we can manage it
+	return true, ""
 }
 
 type TemplateInput struct {

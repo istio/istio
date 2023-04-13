@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/pkg/webhooks/util"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -195,6 +196,7 @@ func TestGreenfield(t *testing.T) {
 		fetch(unpatchedWebhookConfig.Name),
 		webhookConfigWithCABundleIgnore,
 		retry.Message("no config update when endpoint not present"),
+		LongRetry,
 	)
 	webhooks.Delete(unpatchedWebhookConfig.Name, "")
 
@@ -206,6 +208,7 @@ func TestGreenfield(t *testing.T) {
 		fetch(unpatchedWebhookConfig.Name),
 		webhookConfigWithCABundleIgnore,
 		retry.Message("no config update when endpoint invalid config is rejected for an unknown reason"),
+		LongRetry,
 	)
 
 	// verify the webhook is updated after the controller can confirm invalid config is rejected.
@@ -216,12 +219,13 @@ func TestGreenfield(t *testing.T) {
 		fetch(unpatchedWebhookConfig.Name),
 		webhookConfigWithCABundleFail,
 		retry.Message("istiod config created when endpoint is ready and invalid config is denied"),
-		retry.Timeout(time.Second*5),
+		LongRetry,
 	)
 }
 
 // TestCABundleChange ensures that we create request to update all webhooks when CA bundle changes.
 func TestCABundleChange(t *testing.T) {
+	log.FindScope("retry").SetOutputLevel(log.DebugLevel)
 	c, gatewayError := createTestController(t)
 	gatewayError.Store(ptr.Of[error](kerrors.NewInternalError(errors.New(deniedRequestMessageFragment))))
 	webhooks := clienttest.Wrap(t, c.webhooks)
@@ -236,6 +240,7 @@ func TestCABundleChange(t *testing.T) {
 		fetch(unpatchedWebhookConfig.Name),
 		webhookConfigWithCABundleFail,
 		retry.Message("istiod config created when endpoint is ready"),
+		LongRetry,
 	)
 
 	c.o.CABundleWatcher.SetAndNotify(nil, nil, caBundle1)
@@ -247,8 +252,13 @@ func TestCABundleChange(t *testing.T) {
 		fetch(unpatchedWebhookConfig.Name),
 		webhookConfigAfterCAUpdate,
 		retry.Message("webhook should change after cert change"),
+		LongRetry,
 	)
 }
+
+// LongRetry is used when comparing webhook values. Apparently the values are so large that with -race
+// on the comparison can take a few seconds, meaning we never retry with the default settings.
+var LongRetry = retry.Timeout(time.Second * 20)
 
 func TestLoadCaCertPem(t *testing.T) {
 	cases := []struct {

@@ -358,12 +358,25 @@ type ClientGetter interface {
 	ExtInformer() kubeextinformer.SharedInformerFactory
 }
 
-func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
+func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
 	switch any(ptr.Empty[T]()).(type) {
 {{- range .Entries }}
 	{{- if not .Resource.Synthetic }}
 	case *{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}:
 		return  c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}namespace{{end}}).(ktypes.WriteAPI[T])
+	{{- end }}
+{{- end }}
+  default:
+    panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
+	}
+}
+
+func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.ReadWriteAPI[T, TL] {
+	switch any(ptr.Empty[T]()).(type) {
+{{- range .Entries }}
+	{{- if not .Resource.Synthetic }}
+	case *{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}:
+		return  c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}namespace{{end}}).(ktypes.ReadWriteAPI[T, TL])
 	{{- end }}
 {{- end }}
   default:

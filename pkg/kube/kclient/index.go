@@ -29,7 +29,7 @@ import (
 type Index[O controllers.ComparableObject, K comparable] struct {
 	mu      sync.RWMutex
 	objects map[K]sets.Set[types.NamespacedName]
-	client  Reader[O]
+	client  Informer[O]
 }
 
 // Lookup finds all objects matching a given key
@@ -54,7 +54,7 @@ func (i *Index[O, K]) Lookup(k K) []O {
 // This allows the delegate to depend on the contents of the index.
 // TODO(https://github.com/kubernetes/kubernetes/pull/117046) remove this.
 func CreateIndexWithDelegate[O controllers.ComparableObject, K comparable](
-	client Reader[O],
+	client Informer[O],
 	extract func(o O) []K,
 	delegate cache.ResourceEventHandler,
 ) *Index[O, K] {
@@ -113,7 +113,7 @@ func CreateIndexWithDelegate[O controllers.ComparableObject, K comparable](
 // CreateIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
 func CreateIndex[O controllers.ComparableObject, K comparable](
-	client Reader[O],
+	client Informer[O],
 	extract func(o O) []K,
 ) *Index[O, K] {
 	return CreateIndexWithDelegate(client, extract, nil)

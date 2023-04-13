@@ -283,14 +283,15 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 	}
 
 	c.mutex.Lock()
-	num := c.adsConnections[makeProxyKey(proxy)]
+	proxyKey := makeProxyKey(proxy)
+	num := c.adsConnections[proxyKey]
 	// if there is still ads connection, do not unregister.
 	if num > 1 {
-		c.adsConnections[makeProxyKey(proxy)] = num - 1
+		c.adsConnections[proxyKey] = num - 1
 		c.mutex.Unlock()
 		return
 	}
-	delete(c.adsConnections, makeProxyKey(proxy))
+	delete(c.adsConnections, proxyKey)
 	c.mutex.Unlock()
 
 	workload := &workItem{

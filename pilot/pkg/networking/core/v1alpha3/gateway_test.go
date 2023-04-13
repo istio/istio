@@ -37,6 +37,7 @@ import (
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/listenertest"
+	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -2137,6 +2138,10 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
 			if r == nil {
 				t.Fatal("got an empty route configuration")
+			}
+			if r.MaxDirectResponseBodySizeBytes != istio_route.DefaultMaxDirectResponseBodySizeBytes {
+				t.Errorf("expected MaxDirectResponseBodySizeBytes %v, got %v",
+					istio_route.DefaultMaxDirectResponseBodySizeBytes, r.MaxDirectResponseBodySizeBytes)
 			}
 			vh := make(map[string][]string)
 			hr := make(map[string]int)

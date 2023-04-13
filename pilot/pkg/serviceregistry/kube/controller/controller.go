@@ -16,7 +16,6 @@ package controller
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"sync"
 	"time"
@@ -115,7 +114,7 @@ type Options struct {
 
 	DomainSuffix string
 
-	// ClusterID identifies the remote cluster in a multicluster env.
+	// ClusterID identifies the cluster which the controller communicate with.
 	ClusterID cluster.ID
 
 	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
@@ -128,8 +127,8 @@ type Options struct {
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
-	// NetworksWatcher observes changes to the mesh networks config.
-	NetworksWatcher mesh.NetworksWatcher
+	// MeshNetworksWatcher observes changes to the mesh networks config.
+	MeshNetworksWatcher mesh.NetworksWatcher
 
 	// MeshWatcher observes changes to the mesh config
 	MeshWatcher mesh.Watcher
@@ -267,13 +266,11 @@ type Controller struct {
 	// index over workload instances from workload entries
 	workloadInstancesIndex workloadinstances.Index
 
-	multinetwork
+	networkManager
 
-	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
-	beginSync *atomic.Bool
-	// initialSync is set to true after performing an initial in-order processing of all objects.
-	initialSync *atomic.Bool
-	meshWatcher mesh.Watcher
+	// initialSyncTimedout is set to true after performing an initial processing timed out.
+	initialSyncTimedout *atomic.Bool
+	meshWatcher         mesh.Watcher
 
 	podsClient kclient.Client[*v1.Pod]
 
@@ -294,11 +291,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		workloadInstancesIndex:     workloadinstances.NewIndex(),
-		beginSync:                  atomic.NewBool(false),
-		initialSync:                atomic.NewBool(false),
-
-		multinetwork:  initMultinetwork(),
-		configCluster: options.ConfigCluster,
+		initialSyncTimedout:        atomic.NewBool(false),
+		networkManager:             initNetworkManager(options),
+		configCluster:              options.ConfigCluster,
 	}
 
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
@@ -308,7 +303,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			c.namespaces,
 			"Namespaces",
 			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
-				if cur.Namespace == c.opts.SystemNamespace {
+				if cur.Name == c.opts.SystemNamespace {
 					return c.onSystemNamespaceEvent(old, cur, event)
 				}
 				return nil
@@ -346,11 +341,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		ObjectTransform: kubelib.StripPodUnusedFields,
 	})
 	c.pods = newPodCache(c, c.podsClient, func(key types.NamespacedName) {
-		if shouldEnqueue("Pods", c.beginSync) {
-			c.queue.Push(func() error {
-				return c.endpoints.sync(key.Name, key.Namespace, model.EventAdd, true)
-			})
-		}
+		c.queue.Push(func() error {
+			return c.endpoints.sync(key.Name, key.Namespace, model.EventAdd, true)
+		})
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
@@ -365,6 +358,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.imports = newServiceImportCache(c)
 
 	c.meshWatcher = options.MeshWatcher
+	if c.opts.MeshNetworksWatcher != nil {
+		c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
+			c.reloadMeshNetworks()
+			c.onNetworkChange()
+		})
+		c.reloadMeshNetworks()
+	}
 
 	return c
 }
@@ -414,39 +414,6 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 	}
 
 	return out
-}
-
-func (c *Controller) networkFromMeshNetworks(endpointIP string) network.ID {
-	c.RLock()
-	defer c.RUnlock()
-	if c.networkForRegistry != "" {
-		return c.networkForRegistry
-	}
-
-	if c.ranger != nil {
-		ip := net.ParseIP(endpointIP)
-		if ip == nil {
-			return ""
-		}
-		entries, err := c.ranger.ContainingNetworks(ip)
-		if err != nil {
-			log.Errorf("error getting cidr ranger entry from endpoint ip %s", endpointIP)
-			return ""
-		}
-		if len(entries) > 1 {
-			log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
-		}
-		if len(entries) > 0 {
-			return (entries[0].(namedRangerEntry)).name
-		}
-	}
-	return ""
-}
-
-func (c *Controller) networkFromSystemNamespace() network.ID {
-	c.RLock()
-	defer c.RUnlock()
-	return c.network
 }
 
 func (c *Controller) Network(endpointIP string, labels labels.Instance) network.ID {
@@ -620,7 +587,7 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 type FilterOutFunc[T controllers.Object] func(old, cur T) bool
 
 func registerHandlers[T controllers.ComparableObject](c *Controller,
-	informer kclient.Reader[T], otype string,
+	informer kclient.Informer[T], otype string,
 	handler func(T, T, model.Event) error, filter FilterOutFunc[T],
 ) {
 	wrappedHandler := func(prev, curr T, event model.Event) error {
@@ -632,15 +599,10 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 		}
 		return handler(prev, curr, event)
 	}
-	// TODO
-	//_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.Cluster()))
 	informer.AddEventHandler(
 		controllers.EventHandler[T]{
 			AddFunc: func(obj T) {
 				incrementEvent(otype, "add")
-				if !shouldEnqueue(otype, c.beginSync) {
-					return
-				}
 				c.queue.Push(func() error {
 					return wrappedHandler(ptr.Empty[T](), obj, model.EventAdd)
 				})
@@ -654,18 +616,12 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 				}
 
 				incrementEvent(otype, "update")
-				if !shouldEnqueue(otype, c.beginSync) {
-					return
-				}
 				c.queue.Push(func() error {
 					return wrappedHandler(old, cur, model.EventUpdate)
 				})
 			},
 			DeleteFunc: func(obj T) {
 				incrementEvent(otype, "delete")
-				if !shouldEnqueue(otype, c.beginSync) {
-					return
-				}
 				c.queue.Push(func() error {
 					return handler(ptr.Empty[T](), obj, model.EventDelete)
 				})
@@ -675,7 +631,7 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	return c.initialSync.Load()
+	return c.queue.HasSynced() || c.initialSyncTimedout.Load()
 }
 
 func (c *Controller) informersSynced() bool {
@@ -706,56 +662,6 @@ func (c *Controller) informersSynced() bool {
 	return true
 }
 
-// SyncAll syncs all the objects node->service->pod->endpoint in order
-// TODO: sync same kind of objects in parallel
-// This can cause great performance cost in multi clusters scenario.
-// Maybe just sync the cache and trigger one push at last.
-// TODO: process MCS
-func (c *Controller) SyncAll() error {
-	c.beginSync.Store(true)
-	var err *multierror.Error
-	err = multierror.Append(err, c.syncDiscoveryNamespaces())
-	err = multierror.Append(err, c.syncSystemNamespace())
-	err = multierror.Append(err, c.syncNodes())
-	err = multierror.Append(err, c.syncServices())
-	err = multierror.Append(err, c.syncPods())
-	err = multierror.Append(err, c.endpoints.sync("", metav1.NamespaceAll, model.EventAdd, true))
-
-	return multierror.Flatten(err.ErrorOrNil())
-}
-
-func (c *Controller) syncSystemNamespace() error {
-	ns := c.namespaces.Get(c.opts.SystemNamespace, "")
-	if ns != nil {
-		return c.onSystemNamespaceEvent(nil, ns, model.EventAdd)
-	}
-	return nil
-}
-
-func (c *Controller) syncDiscoveryNamespaces() error {
-	return c.opts.DiscoveryNamespacesFilter.SyncNamespaces()
-}
-
-func (c *Controller) syncNodes() error {
-	var err *multierror.Error
-	nodes := c.nodes.List(metav1.NamespaceAll, klabels.Everything())
-	log.Debugf("initializing %d nodes", len(nodes))
-	for _, s := range nodes {
-		err = multierror.Append(err, c.onNodeEvent(nil, s, model.EventAdd))
-	}
-	return err.ErrorOrNil()
-}
-
-func (c *Controller) syncServices() error {
-	var err *multierror.Error
-	services := c.services.List(metav1.NamespaceAll, klabels.Everything())
-	log.Debugf("initializing %d services", len(services))
-	for _, s := range services {
-		err = multierror.Append(err, c.onServiceEvent(nil, s, model.EventAdd))
-	}
-	return err.ErrorOrNil()
-}
-
 func (c *Controller) syncPods() error {
 	var err *multierror.Error
 	pods := c.podsClient.List(metav1.NamespaceAll, klabels.Everything())
@@ -770,28 +676,18 @@ func (c *Controller) syncPods() error {
 func (c *Controller) Run(stop <-chan struct{}) {
 	if c.opts.SyncTimeout != 0 {
 		time.AfterFunc(c.opts.SyncTimeout, func() {
-			if !c.initialSync.Load() {
+			if !c.queue.HasSynced() {
 				log.Warnf("kube controller for %s initial sync timed out", c.opts.ClusterID)
-				c.initialSync.Store(true)
+				c.initialSyncTimedout.Store(true)
 			}
 		})
 	}
 	st := time.Now()
-	if c.opts.NetworksWatcher != nil {
-		c.opts.NetworksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
-		c.reloadMeshNetworks()
-		c.reloadNetworkGateways()
-	}
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
 
 	kubelib.WaitForCacheSync(stop, c.informersSynced)
-	// after informer caches sync the first time, process resources in order
-	if err := c.SyncAll(); err != nil {
-		log.Errorf("one or more errors force-syncing resources: %v", err)
-	}
-	c.initialSync.Store(true)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
@@ -930,7 +826,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 		if wi.Namespace != svc.Attributes.Namespace {
 			return
 		}
-		if selector.SubsetOf(wi.Endpoint.Labels) {
+		if selector.Match(wi.Endpoint.Labels) {
 			instance := serviceInstanceFromWorkloadInstance(svc, servicePort, targetPort, wi)
 			if instance != nil {
 				out = append(out, instance)
@@ -1140,15 +1036,10 @@ func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event)
 	if ev == model.EventDelete {
 		return nil
 	}
-	nw := ns.Labels[label.TopologyNetwork.Name]
-	c.Lock()
-	oldDefaultNetwork := c.network
-	c.network = network.ID(nw)
-	c.Unlock()
-	// network changed, rarely happen
-	if oldDefaultNetwork != c.network {
+	if c.setNetworkFromNamespace(ns) {
+		// network changed, rarely happen
 		// refresh pods/endpoints/services
-		c.onDefaultNetworkChange()
+		c.onNetworkChange()
 	}
 	return nil
 }

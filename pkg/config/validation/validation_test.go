@@ -3496,9 +3496,10 @@ func checkValidationMessage(t *testing.T, gotWarning Warning, gotError error, wa
 
 func TestValidateDestinationRule(t *testing.T) {
 	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
+		name    string
+		in      proto.Message
+		valid   bool
+		warning bool
 	}{
 		{name: "simple destination rule", in: &networking.DestinationRule{
 			Host: "reviews",
@@ -3507,6 +3508,15 @@ func TestValidateDestinationRule(t *testing.T) {
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: true},
+
+		{name: "simple destination rule with empty selector labels", in: &networking.DestinationRule{
+			Host: "reviews",
+			Subsets: []*networking.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+			WorkloadSelector: &api.WorkloadSelector{},
+		}, valid: true, warning: true},
 
 		{name: "missing destination name", in: &networking.DestinationRule{
 			Host: "",
@@ -3649,15 +3659,20 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 	}
 	for _, c := range cases {
-		if _, got := ValidateDestinationRule(config.Config{
+		warn, got := ValidateDestinationRule(config.Config{
 			Meta: config.Meta{
 				Name:      someName,
 				Namespace: someNamespace,
 			},
 			Spec: c.in,
-		}); (got == nil) != c.valid {
+		})
+		if (got == nil) != c.valid {
 			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
+		}
+		if (warn == nil) == c.warning {
+			t.Errorf("ValidateDestinationRule failed on %v: got warn=%v but wanted warn=%v: %v",
+				c.name, warn == nil, c.warning, warn)
 		}
 	}
 }
@@ -5342,6 +5357,14 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "selector-empty-labels",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{},
+			},
+			valid:   true,
+			Warning: true,
+		},
+		{
 			name: "selector-wildcard-value",
 			in: &security_beta.AuthorizationPolicy{
 				Selector: &api.WorkloadSelector{
@@ -6052,9 +6075,10 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			Spec: c.in,
 		})
 		if (got == nil) != c.valid {
-			t.Errorf("error: got: %v\nwant: %v", got, c.valid)
-		} else if (war != nil) != c.Warning {
-			t.Errorf("warning: got: %v\nwant: %v", war, c.valid)
+			t.Errorf("test: %q error: got: %v\nwant: %v", c.name, got, c.valid)
+		}
+		if (war != nil) != c.Warning {
+			t.Errorf("test: %q warning: got: %v\nwant: %v", c.name, war, c.valid)
 		}
 	}
 }
@@ -7255,6 +7279,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		annotations map[string]string
 		in          proto.Message
 		valid       bool
+		warning     bool
 	}{
 		{
 			name:       "empty spec",
@@ -7268,7 +7293,8 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{},
 			},
-			valid: true,
+			valid:   true,
+			warning: true,
 		},
 		{
 			name:       "empty spec with non default name",
@@ -7546,15 +7572,19 @@ func TestValidateRequestAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if _, got := ValidateRequestAuthentication(config.Config{
+			warn, got := ValidateRequestAuthentication(config.Config{
 				Meta: config.Meta{
 					Name:        c.configName,
 					Namespace:   someNamespace,
 					Annotations: c.annotations,
 				},
 				Spec: c.in,
-			}); (got == nil) != c.valid {
-				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
+			})
+			if (got == nil) != c.valid {
+				t.Errorf("test: %q got(%v) != want(%v)\n", c.name, got, c.valid)
+			}
+			if (warn == nil) == c.warning {
+				t.Errorf("test: %q warn(%v) != want(%v)\n", c.name, warn, c.warning)
 			}
 		})
 	}
@@ -7566,6 +7596,7 @@ func TestValidatePeerAuthentication(t *testing.T) {
 		configName string
 		in         proto.Message
 		valid      bool
+		warning    bool
 	}{
 		{
 			name:       "empty spec",
@@ -7574,12 +7605,13 @@ func TestValidatePeerAuthentication(t *testing.T) {
 			valid:      true,
 		},
 		{
-			name:       "empty mtls",
+			name:       "empty mtls with selector of empty labels",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.PeerAuthentication{
 				Selector: &api.WorkloadSelector{},
 			},
-			valid: true,
+			valid:   true,
+			warning: true,
 		},
 		{
 			name:       "empty spec with non default name",
@@ -7667,14 +7699,18 @@ func TestValidatePeerAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if _, got := ValidatePeerAuthentication(config.Config{
+			warn, got := ValidatePeerAuthentication(config.Config{
 				Meta: config.Meta{
 					Name:      c.configName,
 					Namespace: someNamespace,
 				},
 				Spec: c.in,
-			}); (got == nil) != c.valid {
+			})
+			if (got == nil) != c.valid {
 				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
+			}
+			if (warn == nil) == c.warning {
+				t.Errorf("warn(%v) != want(%v)\n", warn, c.warning)
 			}
 		})
 	}
