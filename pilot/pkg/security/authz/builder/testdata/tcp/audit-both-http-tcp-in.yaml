@@ -69,3 +69,10 @@ spec:
       - key: "experimental.envoy.filters.a.b[c]"
         values: ["exact"]
         notValues: ["not-exact"]
+   # rule[1] `from`: TCP field, `to`: TCP field.
+  - from:
+      - source:
+          ipBlocks: ["1.2.3.4"]
+    to:
+      - operation:
+          ports: ["80"]

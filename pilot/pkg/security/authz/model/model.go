@@ -164,9 +164,10 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 func (m Model) Generate(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) (*rbacpb.Policy, error) {
 	var permissions []*rbacpb.Permission
 	for _, rl := range m.permissions {
+		//one rl(permission) <=> to.Operator
 		permission, err := generatePermission(rl, forTCP, action)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		permissions = append(permissions, permission)
 	}
@@ -176,9 +177,10 @@ func (m Model) Generate(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_A
 
 	var principals []*rbacpb.Principal
 	for _, rl := range m.principals {
+		// one rl(principal) <=> from.Source
 		principal, err := generatePrincipal(rl, forTCP, useAuthenticated, action)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		principals = append(principals, principal)
 	}
@@ -202,10 +204,8 @@ func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*r
 		and = append(and, ret...)
 	}
 
-	if len(and) == 0 {
-		if action == rbacpb.RBAC_DENY {
-			return nil, fmt.Errorf("permission is empty")
-		}
+	if len(and) == 0 && len(rl.rules) == 0 {
+		//if not define any permision, set any for default.
 		and = append(and, permissionAny())
 	}
 	return permissionAnd(and), nil
@@ -221,10 +221,8 @@ func generatePrincipal(rl ruleList, forTCP bool, useAuthenticated bool, action r
 		and = append(and, ret...)
 	}
 
-	if len(and) == 0 {
-		if action == rbacpb.RBAC_DENY {
-			return nil, fmt.Errorf("principal is empty")
-		}
+	if len(and) == 0 && len(rl.rules) == 0 {
+		//if not define any principal, set any for default.
 		and = append(and, principalAny())
 	}
 	return principalAnd(and), nil
@@ -295,15 +293,13 @@ func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_A
 }
 
 func (r rule) checkError(action rbacpb.RBAC_Action, err error) error {
-	if action == rbacpb.RBAC_ALLOW {
-		// Return the error as-is for allow policy. This will make all rules in the current permission ignored, effectively
-		// result in a smaller allow policy (i.e. less likely to allow a request).
-		return err
-	}
+	//The rule here corresponds to a single condition under To.Operation or From.Source
+	// ref: https://istio.io/latest/docs/reference/config/security/authorization-policy/#Operation
+	// https://istio.io/latest/docs/reference/config/security/authorization-policy/#Source
 
-	// Ignore the error for a deny or audit policy. This will make the current rule ignored and continue the generation of
-	// the next rule, effectively resulting in a wider deny or audit policy (i.e. more likely to deny or audit a request).
-	return nil
+	//Multiple rules under the ruleList are  ANDed together
+	//so if a single rule reports an error, you can return the error directly and not deal with the next one.
+	return err
 }
 
 func (p *ruleList) copy() ruleList {
