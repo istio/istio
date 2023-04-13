@@ -214,7 +214,6 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
 # These are binaries that require Linux to build, and should
 # be skipped on other platforms. Notably this includes the current Linux-only Istio CNI plugin
 LINUX_AGENT_BINARIES:=./cni/cmd/istio-cni \
-  ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni
 
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES) $(LINUX_AGENT_BINARIES)
