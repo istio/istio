@@ -171,7 +171,7 @@ func (s *Server) updatePodEbpfOnNode(pod *corev1.Pod) error {
 	return nil
 }
 
-func (s *Server) delPodEbpfOnNode(ip string) error {
+func (s *Server) delPodEbpfOnNode(ip string, force bool) error {
 	if s.ebpfServer == nil {
 		return fmt.Errorf("uninitialized ebpf server")
 	}
@@ -193,6 +193,9 @@ func (s *Server) delPodEbpfOnNode(ip string) error {
 		ifIndex = veth.Attrs().Index
 	}
 
+	if force {
+		return s.ebpfServer.RemovePod([]netip.Addr{ipAddr}, uint32(ifIndex))
+	}
 	args := &ebpf.RedirectArgs{
 		IPAddrs:   []netip.Addr{ipAddr},
 		Ifindex:   ifIndex,
@@ -1190,6 +1193,9 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 func (s *Server) cleanupNode() {
 	log.Infof("Node-level network rule cleanup started")
 	if s.redirectMode == EbpfMode {
+		if err := s.cleanupPodsEbpfOnNode(); err != nil {
+			log.Errorf("%v", err)
+		}
 		return
 	}
 	s.cleanRules()

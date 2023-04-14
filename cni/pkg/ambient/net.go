@@ -24,6 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
@@ -285,7 +286,7 @@ func (s *Server) DelPodFromMesh(pod *corev1.Pod) {
 			log.Debugf("pod(%s/%s) is using host network, skip it", pod.Namespace, pod.Name)
 			return
 		}
-		if err := s.delPodEbpfOnNode(pod.Status.PodIP); err != nil {
+		if err := s.delPodEbpfOnNode(pod.Status.PodIP, false); err != nil {
 			log.Errorf("failed to del POD ebpf: %v", err)
 		}
 		if err := AnnotateUnenrollPod(s.kubeClient.Kube(), pod); err != nil {
@@ -304,9 +305,29 @@ func (s *Server) cleanStaleIPs(stales sets.Set[string]) {
 	case IptablesMode:
 	case EbpfMode:
 		for ip := range stales {
-			if err := s.delPodEbpfOnNode(ip); err != nil {
+			if err := s.delPodEbpfOnNode(ip, false); err != nil {
 				log.Errorf("failed to cleanup POD(%s) ebpf: %v", ip, err)
 			}
 		}
 	}
+}
+
+func (s *Server) cleanupPodsEbpfOnNode() error {
+	if s.ebpfServer == nil {
+		return fmt.Errorf("uninitialized ebpf server")
+	}
+	for _, ns := range s.namespaces.List(
+		metav1.NamespaceAll, klabels.Set{pconstants.DataplaneMode: pconstants.DataplaneModeAmbient}.AsSelector()) {
+		namespace := ns.GetName()
+		for _, pod := range s.pods.List(namespace, klabels.Everything()) {
+			log.Infof("cleanup Pod %s in %s", pod.Name, namespace)
+			if err := s.delPodEbpfOnNode(pod.Status.PodIP, true); err != nil {
+				log.Errorf("failed to cleanup pod ebpf: %v", err)
+			}
+			if err := AnnotateUnenrollPod(s.kubeClient.Kube(), pod); err != nil {
+				log.Errorf("failed to annotate pod unenrollment: %v", err)
+			}
+		}
+	}
+	return nil
 }

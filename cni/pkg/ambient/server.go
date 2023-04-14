@@ -189,12 +189,13 @@ func (s *Server) ReconcileZtunnel() error {
 	s.UpdateConfig()
 	if activePod == nil {
 		log.Infof("active ztunnel updated, no ztunnel running on the node")
-		s.cleanupNode()
 		if s.redirectMode == EbpfMode {
 			if err := s.delZtunnelEbpfOnNode(); err != nil {
 				log.Error(err)
 			}
+			return nil
 		}
+		s.cleanupNode()
 		return nil
 	}
 	log.Infof("active ztunnel updated to %v", activePod.Name)
