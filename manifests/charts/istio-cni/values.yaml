@@ -72,10 +72,6 @@ cni:
       cpu: 100m
       memory: 100Mi
 
-  # Experimental taint controller for further race condition mitigation
-  taint:
-    enabled: false
-
   resourceQuotas:
     enabled: false
     pods: 5000
