@@ -3248,6 +3248,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			})
 			proxy := cg.SetupProxy(&proxyGateway)
 			proxy.Metadata = &proxyGatewayMetadata
+			proxy.IstioVersion = nil // to ensure `util.IsIstioVersionGE117(proxy.IstioVersion) == true``
 
 			builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
 			listenertest.VerifyListeners(t, builder.gatewayListeners, listenertest.ListenersTest{
