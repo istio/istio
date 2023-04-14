@@ -2971,11 +2971,10 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 func TestBuildGatewayListenersFilters(t *testing.T) {
 	cases := []struct {
-		name                   string
-		gateways               []config.Config
-		virtualServices        []config.Config
-		expectedHTTPFilters    []string
-		expectedNetworkFilters []string
+		name             string
+		gateways         []config.Config
+		virtualServices  []config.Config
+		expectedListener listenertest.ListenerTest
 	}{
 		{
 			name: "http server",
@@ -2992,12 +2991,16 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				},
 			},
 			virtualServices: nil,
-			expectedHTTPFilters: []string{
-				xdsfilters.MxFilterName,
-				xdsfilters.Alpn.GetName(),
-				xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
-			},
-			expectedNetworkFilters: []string{wellknown.HTTPConnectionManager},
+			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
+				{
+					NetworkFilters: []string{wellknown.HTTPConnectionManager},
+					HTTPFilters: []string{
+						xdsfilters.MxFilterName,
+						xdsfilters.Alpn.GetName(),
+						xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
+					},
+				},
+			}},
 		},
 		{
 			name: "passthrough server",
@@ -3041,8 +3044,12 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 			},
-			expectedHTTPFilters:    []string{},
-			expectedNetworkFilters: []string{wellknown.TCPProxy},
+			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
+				{
+					NetworkFilters: []string{wellknown.TCPProxy},
+					HTTPFilters:    []string{},
+				},
+			}},
 		},
 		{
 			name: "terminated-tls server",
@@ -3085,8 +3092,12 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 			},
-			expectedHTTPFilters:    []string{},
-			expectedNetworkFilters: []string{wellknown.TCPProxy},
+			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
+				{
+					NetworkFilters: []string{wellknown.TCPProxy},
+					HTTPFilters:    []string{},
+				},
+			}},
 		},
 		{
 			name: "non-http istio-mtls server",
@@ -3129,8 +3140,102 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 			},
-			expectedHTTPFilters:    []string{},
-			expectedNetworkFilters: []string{xdsfilters.TCPListenerMx.GetName(), wellknown.TCPProxy},
+			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
+				{
+					NetworkFilters: []string{xdsfilters.TCPListenerMx.GetName(), wellknown.TCPProxy},
+					HTTPFilters:    []string{},
+				},
+			}},
+		},
+		{
+			name: "http and tcp istio-mtls server",
+			gateways: []config.Config{
+				{
+					Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "mtls", Number: 15443, Protocol: "HTTPS"},
+								Hosts: []string{"www.example.com"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+							},
+							{
+								Port:  &networking.Port{Name: "mtls", Number: 15443, Protocol: "TLS"},
+								Hosts: []string{"tcp.example.com"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+							},
+						},
+					},
+				},
+			},
+			virtualServices: []config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway"},
+						Hosts:    []string{"www.example.com"},
+						Http: []*networking.HTTPRoute{
+							{
+								Match: []*networking.HTTPMatchRequest{
+									{
+										Port: 15443,
+									},
+								},
+								Route: []*networking.HTTPRouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "http.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway"},
+						Hosts:    []string{"tcp.example.com"},
+						Tcp: []*networking.TCPRoute{
+							{
+								Match: []*networking.L4MatchAttributes{
+									{
+										Port: 15443,
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "tcp.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedListener: listenertest.ListenerTest{
+				TotalMatch: true,
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						TotalMatch:     true, // there must be only 1 `istio_authn` network filter
+						NetworkFilters: []string{xdsfilters.IstioNetworkAuthenticationFilter.GetName(), wellknown.HTTPConnectionManager},
+						HTTPFilters: []string{
+							xdsfilters.MxFilterName,
+							xdsfilters.GrpcStats.GetName(),
+							xdsfilters.Alpn.GetName(),
+							xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
+						},
+					},
+					{
+						TotalMatch:     true, // there must be only 1 `istio_authn` network filter
+						NetworkFilters: []string{xdsfilters.TCPListenerMx.GetName(), xdsfilters.IstioNetworkAuthenticationFilter.GetName(), wellknown.TCPProxy},
+						HTTPFilters:    []string{},
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range cases {
@@ -3143,15 +3248,11 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			})
 			proxy := cg.SetupProxy(&proxyGateway)
 			proxy.Metadata = &proxyGatewayMetadata
+			proxy.IstioVersion = nil // to ensure `util.IsIstioVersionGE117(node.IstioVersion) == true`
 
 			builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
 			listenertest.VerifyListeners(t, builder.gatewayListeners, listenertest.ListenersTest{
-				Listener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
-					{
-						NetworkFilters: tt.expectedNetworkFilters,
-						HTTPFilters:    tt.expectedHTTPFilters,
-					},
-				}},
+				Listener: tt.expectedListener,
 			})
 		})
 	}
