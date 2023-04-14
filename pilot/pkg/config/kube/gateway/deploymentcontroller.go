@@ -39,6 +39,7 @@ import (
 	lister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -212,20 +213,11 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	log.Info("reconciling")
 
 	defaultName := getDefaultName(gw.Name, &gw.Spec)
-	gatewayName := defaultName
-	if nameOverride, exists := gw.Annotations[gatewayNameOverride]; exists {
-		gatewayName = nameOverride
-	}
-
-	gatewaySA := defaultName
-	if saOverride, exists := gw.Annotations[gatewaySAOverride]; exists {
-		gatewaySA = saOverride
-	}
 
 	input := MergedInput{
 		Gateway:        &gw,
-		GatewayName:    gatewayName,
-		ServiceAccount: gatewaySA,
+		GatewayName:    model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
+		ServiceAccount: model.GetOrDefault(gw.Annotations[gatewaySAOverride], defaultName),
 		Ports:          extractServicePorts(gw),
 		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
 	}
