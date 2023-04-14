@@ -20,19 +20,23 @@ package pilot
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestWorkloadEntry(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
+		RequiresMinClusters(2).
 		Features("traffic.reachability").
 		Run(func(t framework.TestContext) {
 			ist, err := istio.Get(t)
@@ -40,6 +44,7 @@ func TestWorkloadEntry(t *testing.T) {
 				t.Fatal(err)
 			}
 			clusterCfg := t.Clusters().Default()
+			localNetName := clusterCfg.NetworkName()
 
 			// Define an AUTO_PASSTHROUGH EW gateway
 			gatewayCfg := `apiVersion: networking.istio.io/v1alpha3
@@ -111,6 +116,7 @@ spec:
 			}
 
 			srcs := apps.All.Instances()
+			localClusterNames := t.Clusters().Remotes().ForNetworks(localNetName).Names() // test isn't particularly meaninful on the primary cluster
 			for _, src := range srcs {
 				srcName := src.Config().NamespacedName().Name
 				// Skipping tests for these workloads:
@@ -121,9 +127,21 @@ spec:
 				if srcName == deployment.ProxylessGRPCSvc || srcName == deployment.NakedSvc || srcName == deployment.ExternalSvc || srcName == deployment.VMSvc {
 					continue
 				}
+				var skip bool
 				srcCluster := src.Config().Cluster.Name()
+				for _, localClusterName := range localClusterNames {
+					if srcCluster != localClusterName {
+						skip = true //TODO: bad form to need local network, test should be updated to be multi-network
+						t.Logf("Skipping %s on %s", srcName, srcCluster)
+					}
+				}
+				if skip {
+					// continue
+				}
+				expected := cluster.Clusters{t.AllClusters().ForNetworks(localNetName).Default()}
 				// Assert that non-skipped workloads can reach the service which includes our workload entry
 				t.NewSubTestf("%s in %s to ServiceEntry+WorkloadEntry Responds with 200", srcName, srcCluster).Run(func(t framework.TestContext) {
+					// src.Clusters().Remotes().ForNetworks(localNetName).
 					src.CallOrFail(t, echo.CallOptions{
 						Address: "serviceentry.mesh.cluster.local",
 						Port:    echo.Port{Name: "http", ServicePort: 80},
@@ -131,7 +149,11 @@ spec:
 						HTTP: echo.HTTP{
 							Path: "/path",
 						},
-						Check: check.OK(),
+						Check:                   check.And(check.OK(), check.ReachedClusters(t.AllClusters(), expected)),
+						NewConnectionPerRequest: true,
+						Retry: echo.Retry{
+							Options: []retry.Option{multiclusterRetryDelay, retry.Timeout(2 * time.Minute)},
+						},
 					})
 				})
 			}
