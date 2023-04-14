@@ -150,9 +150,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				}
 			}
 
-			var mutable *MutableListener
 			if mopts, exists := mutableopts[lname]; !exists {
-				mutable = &MutableListener{
+				mutable := &MutableListener{
 					MutableObjects: istionetworking.MutableObjects{
 						// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
 						// this is for.
@@ -163,7 +162,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			} else {
 				mopts.opts.filterChainOpts = append(mopts.opts.filterChainOpts, opts.filterChainOpts...)
 				mopts.mutable.MutableObjects.FilterChains = append(mopts.mutable.MutableObjects.FilterChains, newFilterChains...)
-				mutable = mopts.mutable
 			}
 		}
 	}
