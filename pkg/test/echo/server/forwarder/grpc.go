@@ -135,7 +135,7 @@ func (c *grpcCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 	}
 	for k, v := range header {
 		for _, vv := range v {
-			echo.WriteBodyLine(&outBuffer, requestID, fmt.Sprintf("ResponseHeader=%s:%s", k, vv))
+			echo.ResponseHeaderField.WriteKeyValueForRequest(&outBuffer, requestID, k, vv)
 		}
 	}
 	return outBuffer.String(), nil
