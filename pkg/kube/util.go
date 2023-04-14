@@ -151,8 +151,12 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 		if features.KubernetesClientContentType == "json" {
 			config.ContentType = runtime.ContentTypeJSON
 		} else {
-			config.ContentType = runtime.ContentTypeProtobuf
+			// Prefer to accept protobuf, but send JSON. This is due to some types (CRDs)
+			// not accepting protobuf.
+			// If we end up writing many core types in the future we may want to set ContentType to
+			// ContentTypeProtobuf only for the core client.
 			config.AcceptContentTypes = runtime.ContentTypeProtobuf + "," + runtime.ContentTypeJSON
+			config.ContentType = runtime.ContentTypeJSON
 		}
 	}
 	if config.NegotiatedSerializer == nil {
