@@ -139,6 +139,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				// we will support more cases)
 				newFilterChains = configgen.buildGatewayHTTP3FilterChains(builder, serversForPort, mergedGateway, proxyConfig, opts)
 			}
+
+			for cnum := range newFilterChains {
+				if util.IsIstioVersionGE117(builder.node.IstioVersion) {
+					newFilterChains[cnum].TCP = append(newFilterChains[cnum].TCP, xdsfilters.IstioNetworkAuthenticationFilter)
+				}
+				if newFilterChains[cnum].ListenerProtocol == istionetworking.ListenerProtocolTCP {
+					newFilterChains[cnum].TCP = append(newFilterChains[cnum].TCP, builder.authzCustomBuilder.BuildTCP()...)
+					newFilterChains[cnum].TCP = append(newFilterChains[cnum].TCP, builder.authzBuilder.BuildTCP()...)
+				}
+			}
+
 			var mutable *MutableListener
 			if mopts, exists := mutableopts[lname]; !exists {
 				mutable = &MutableListener{
@@ -153,16 +164,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				mopts.opts.filterChainOpts = append(mopts.opts.filterChainOpts, opts.filterChainOpts...)
 				mopts.mutable.MutableObjects.FilterChains = append(mopts.mutable.MutableObjects.FilterChains, newFilterChains...)
 				mutable = mopts.mutable
-			}
-
-			for cnum := range mutable.FilterChains {
-				if util.IsIstioVersionGE117(builder.node.IstioVersion) {
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, xdsfilters.IstioNetworkAuthenticationFilter)
-				}
-				if mutable.FilterChains[cnum].ListenerProtocol == istionetworking.ListenerProtocolTCP {
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, builder.authzCustomBuilder.BuildTCP()...)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, builder.authzBuilder.BuildTCP()...)
-				}
 			}
 		}
 	}
