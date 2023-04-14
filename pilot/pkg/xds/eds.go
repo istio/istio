@@ -65,9 +65,6 @@ func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, names
 func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint,
 ) {
-	if s.pushStopped.Load() {
-		return
-	}
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
 	pushType := s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
