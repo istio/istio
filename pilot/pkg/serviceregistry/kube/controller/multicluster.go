@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/errgroup"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -353,28 +354,32 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 
 // checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
 func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace string) bool {
+	var res bool
 	if features.ExternalIstiod {
-		namespace, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), systemNamespace, metav1.GetOptions{})
-		if err == nil {
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+		// context for both timeout and channel, whichever stops first, the context will be done
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = b.RetryWithContext(ctx, func() error {
+			namespace, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), systemNamespace, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
 			// found same system namespace on the remote cluster so check if we are a selected istiod to lead
 			istiodCluster, found := namespace.Annotations[annotation.TopologyControlPlaneClusters.Name]
 			if found {
 				localCluster := string(m.opts.ClusterID)
 				for _, cluster := range strings.Split(istiodCluster, ",") {
 					if cluster == "*" || cluster == localCluster {
-						return true
+						res = true
+						return nil
 					}
 				}
 			}
-		} else if !errors.IsNotFound(err) {
-			// TODO use a namespace informer to handle transient errors and to also allow dynamic updates
-			log.Errorf("failed to access system namespace %s: %v", systemNamespace, err)
-			// For now, fail open in case it's just a transient error. This may result in some unexpected error messages in istiod
-			// logs and/or some unnecessary attempts at leader election, but a local istiod will always win in those cases.
-			return true
-		}
+			return nil
+		})
 	}
-	return false
+	return res
 }
 
 // deleteCluster deletes cluster resources and does not trigger push.
