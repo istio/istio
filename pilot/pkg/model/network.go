@@ -476,7 +476,7 @@ func (n *networkGatewayNameCache) refreshAndNotify(name string) func() {
 
 // resolve gets all the A and AAAA records for the given name
 func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration, error) {
-	ttl := MinGatewayTTL
+	ttl := MaxGatewayTTL
 	var out []string
 	errs := istiomultierror.New()
 
@@ -501,7 +501,9 @@ func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration,
 				out = append(out, record.AAAA.String())
 			}
 		}
-		ttl = minimalTTL(res)
+		if nextTTL := minimalTTL(res); nextTTL < ttl {
+			ttl = nextTTL
+		}
 	}
 
 	wg.Add(2)
@@ -512,7 +514,7 @@ func (n *networkGatewayNameCache) resolve(name string) ([]string, time.Duration,
 	sort.Strings(out)
 	if errs.Len() == 2 {
 		// return error only if all requests are failed
-		return out, ttl, errs
+		return out, MinGatewayTTL, errs
 	}
 	return out, ttl, nil
 }
