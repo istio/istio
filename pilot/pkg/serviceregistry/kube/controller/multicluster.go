@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -363,6 +364,9 @@ func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace st
 		_ = b.RetryWithContext(ctx, func() error {
 			namespace, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), systemNamespace, metav1.GetOptions{})
 			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil
+				}
 				return err
 			}
 			// found same system namespace on the remote cluster so check if we are a selected istiod to lead
