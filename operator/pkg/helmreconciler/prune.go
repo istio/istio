@@ -380,7 +380,7 @@ func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.Manifest
 	return nil
 }
 
-// pruneAllTypes will collect all existing resource types we care about. For each type, the callback function
+// runForAllTypes will collect all existing resource types we care about. For each type, the callback function
 // will be called with the labels used to select this type, and all objects.
 // This is in internal function meant to support prune and delete
 func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, objects *unstructured.UnstructuredList) error) error {
