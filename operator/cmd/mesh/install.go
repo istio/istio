@@ -217,7 +217,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
 		if err == nil {
-			err = revtag.Create(kubeClient, tagManifests)
+			err = revtag.Create(kubeClient, tagManifests, ns)
 			if err != nil {
 				return err
 			}
