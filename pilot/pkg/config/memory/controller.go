@@ -61,6 +61,7 @@ func (c *Controller) RegisterHasSyncedHandler(cb func() bool) {
 }
 
 func (c *Controller) RegisterEventHandler(kind config.GroupVersionKind, f model.EventHandler) {
+	
 	c.monitor.AppendEventHandler(kind, f)
 }
 

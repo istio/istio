@@ -206,6 +206,19 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		}, retry.Timeout(time.Until(time.Now().Add(21*features.WorkloadEntryCleanupGracePeriod))))
 	})
 
+	t.Run("workloadentries with same IP are cleaned up", func(t *testing.T) {
+		dp := fakeProxy("1.1.1.1", wgA, "n1")
+		dp.XdsNode = n
+		dp2 := fakeProxy("1.1.1.1", wgA, "n1")
+		dp2.XdsNode = n
+		c1.store.RegisterEventHandler(gvk., c1.onWorkloadEntryEvent)
+
+		err := c1.RegisterWorkload(dp, time.Now())
+		if err != nil {
+			t.Fatalf("unexpected error registering workload: %v", err)
+		}
+	})
+
 	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
 }
 
