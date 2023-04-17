@@ -505,12 +505,8 @@ func TestManifestGeneratePilot(t *testing.T) {
 
 func TestManifestGenerateGateway(t *testing.T) {
 	runTestGroup(t, testGroup{
-		//{
-		//	desc:       "ingressgateway_k8s_settings",
-		//	diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
-		//},
 		{
-			desc:       "ingress_with_complicated_env",
+			desc:       "ingressgateway_k8s_settings",
 			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
 		},
 	})

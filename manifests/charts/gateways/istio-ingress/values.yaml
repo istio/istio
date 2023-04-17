@@ -77,22 +77,7 @@ gateways:
       annotations: {}
 
     ### Advanced options ############
-    # Specify the environment variables to be set in the gateway pods.
-    # This configuration supports not only key/value pairs but also slices for setting
-    # environment variables like downward API env vars.
-    # Example:
-    # env:
-    # - name: KEY
-    #   value: some-value
-    # - name: POD_NAMESPACE
-    #   valueFrom:
-    #     fieldRef:
-    #       apiVersion: v1
-    #       fieldPath: metadata.namespace
-    #
-    # NOTE: This configuration uses an OR logic. If you are using env as key/value pairs, do not mix them with slices, and vice versa.
     env: {}
-
     nodeSelector: {}
     tolerations: []
 

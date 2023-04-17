@@ -79,9 +79,15 @@ spec:
           - name: ISTIO_META_REQUESTED_NETWORK_VIEW
             value: "{{.}}"
           {{- end }}
+          {{- if eq (include "isList" .Values.env) "true" }}
+          {{- with .Values.env }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- else }}
           {{- range $key, $val := .Values.env }}
           - name: {{ $key }}
             value: {{ $val | quote }}
+          {{- end }}
           {{- end }}
           ports:
           - containerPort: 15090

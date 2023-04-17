@@ -71,6 +71,26 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
 
 # Pod environment variables
+# Specify the environment variables to be set in the gateway pods.
+# This configuration supports not only key/value pairs but also array for setting
+# environment variables like downward API env vars.
+#
+# Example array:
+# env:
+# - name: KEY
+#   value: some-value
+# - name: POD_NAMESPACE
+#   valueFrom:
+#     fieldRef:
+#       apiVersion: v1
+#       fieldPath: metadata.namespace
+#
+# Example object:
+# env:
+#   KEY: some-value
+#   KEY2: some-other-value
+#
+# NOTE: This configuration uses an OR logic. If you are using env as key/value pairs, do not mix them with arrays, and vice versa.
 env: {}
 
 # Labels to apply to all resources
