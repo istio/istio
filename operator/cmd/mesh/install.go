@@ -187,13 +187,12 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 
 	if iArgs.ShowDiff {
 		diff, err := compareIOPWithInstalledIOP(kubeClient, iop)
-		if err != nil {
+		if err != nil && !errors.IsNotFound(err) {
 			l.LogAndErrorf("Error when comparing installed IOP with the new one: %v", err)
-		}
-		if diff != "" {
+		} else if diff != "" {
 			l.LogAndPrint("The following differences were found when comparing the installed IOP with the new one:")
 			l.LogAndPrint(diff)
-		} else {
+		} else if diff == "" && !errors.IsNotFound(err) {
 			l.LogAndPrint("No differences found when comparing the installed IOP with the new one.")
 		}
 	}
@@ -460,27 +459,23 @@ func validateEnableNamespacesByDefault(iop *v1alpha12.IstioOperator) bool {
 }
 
 // compareIOPWithInstalledIOP returns the diff between two IstioOperator CRs.
-func compareIOPWithInstalledIOP(client kube.CLIClient, newIOP *v1alpha12.IstioOperator) (string, error) {
-	var oldIOP *v1alpha12.IstioOperator
-	var err error
+func compareIOPWithInstalledIOP(client kube.CLIClient, newIOP *v1alpha12.IstioOperator) (diff string, err error) {
 	crName := savedIOPName(newIOP)
-	oldIOP, err = findOperatorInCluster(client.Dynamic(), crName, newIOP.Namespace)
+	oldIOP, err := findOperatorInCluster(client.Dynamic(), crName, newIOP.Namespace)
+
 	if err != nil {
-		if !errors.IsNotFound(err) {
-			return "", fmt.Errorf("failed to find existing IstioOperator CR: %v", err)
-		}
+		return "", err
 	}
-	if oldIOP == nil {
-		// If not found, use the current IOP as the oldIOP, so there will be no diff.
-		oldIOP = newIOP
-	}
+
 	oldYAMLSpec, err := yaml.Marshal(oldIOP.Spec)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal old IOP: %v", err)
+		return "", err
 	}
+
 	newYAMLSpec, err := yaml.Marshal(newIOP.Spec)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal new IOP: %v", err)
+		return "", err
 	}
+
 	return compare.YAMLCmp(string(oldYAMLSpec), string(newYAMLSpec)), nil
 }

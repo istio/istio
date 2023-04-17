@@ -459,7 +459,7 @@ func fixTimestampRelatedUnmarshalIssues(un *unstructured.Unstructured) {
 	un.SetManagedFields([]metav1.ManagedFieldsEntry{})
 }
 
-// AllOperatorsInCluster find all IstioOperator in the cluster.
+// AllOperatorsInCluster finds all IstioOperator in the cluster.
 func AllOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator, error) {
 	ul, err := client.
 		Resource(istioOperatorGVR).
@@ -480,7 +480,7 @@ func AllOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 	return retval, nil
 }
 
-// FindOperatorInCluster find the specific IstioOperator in the cluster.
+// FindOperatorInCluster finds the specific IstioOperator in the cluster.
 func FindOperatorInCluster(client dynamic.Interface, name, namespace string) (*v1alpha1.IstioOperator, error) {
 	un, err := client.
 		Resource(istioOperatorGVR).
