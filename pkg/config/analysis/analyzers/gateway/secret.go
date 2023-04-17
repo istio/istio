@@ -17,9 +17,12 @@ package gateway
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/credentials/kube"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -79,7 +82,8 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 				continue
 			}
 
-			if !ctx.Exists(gvk.Secret, resource.NewShortOrFullName(gwNs, cn)) {
+			secret := ctx.Find(gvk.Secret, resource.NewShortOrFullName(gwNs, cn))
+			if secret == nil {
 				m := msg.NewReferencedResourceNotFound(r, "credentialName", cn)
 
 				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.CredentialName, i)); ok {
@@ -87,10 +91,35 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 				}
 
 				ctx.Report(gvk.Gateway, m)
+				continue
+			}
+			if !isValidSecret(secret) {
+				m := msg.NewInvalidGatewayCredential(r, r.Metadata.FullName.Name.String(), gwNs.String())
+
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.CredentialName, i)); ok {
+					m.Line = line
+				}
+
+				ctx.Report(gvk.Secret, m)
 			}
 		}
 		return true
 	})
+}
+
+func isValidSecret(secret *resource.Instance) bool {
+	s, ok := secret.Message.(*corev1.Secret)
+	if !ok {
+		return false
+	}
+	_, certs, _, err := kube.ExtractKeyCertAndStaple(s)
+	if err != nil {
+		return false
+	}
+	if err = xds.ValidateCertificate(certs); err != nil {
+		return false
+	}
+	return true
 }
 
 // Gets the namespace for the gateway (in terms of the actual workload selected by the gateway, NOT the namespace of the Gateway CRD)
