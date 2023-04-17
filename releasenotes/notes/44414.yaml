@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+
+issue:
+  - 44413
+
+releaseNotes:
+  - |
+    **Added** `istioctl pc route ` add a column "VHOST NAME"
