@@ -38,7 +38,6 @@ settings (--set meshConfig.enableTracing=true). See documentation for more info:
 
 const (
 	ChartsDeprecatedStr         = "Deprecated, use --manifests instead."
-	ControlPlaneRevStr          = "Control plane revision"
 	revisionFlagHelpStr         = `Target control plane revision for the command.`
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
@@ -58,6 +57,7 @@ could be secret list separated by comma, eg. '--imagePullSecrets imagePullSecret
 	AllOperatorRevFlagHelpStr = `Remove all versions of Istio operator.`
 	ComponentFlagHelpStr      = "Specify which component to generate manifests for."
 	VerifyCRInstallHelpStr    = "Verify the Istio control plane after installation/in-place upgrade"
+	showDiffHelpStr           = `Show the difference between the current installed Istio and the new Istio that will be installed.`
 )
 
 type RootArgs struct {

@@ -25,6 +25,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -34,6 +35,7 @@ import (
 	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
+	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
@@ -73,7 +75,13 @@ type InstallArgs struct {
 	ManifestsPath string
 	// Revision is the Istio control plane revision the command targets.
 	Revision string
+	// ShowDiff is to show the diff between the installed manifest and the upgraded manifest
+	ShowDiff bool
 }
+
+// findOperatorInCluster is a function pointer to the function that finds the IstioOperator CR in the cluster, this is
+// for test override.
+var findOperatorInCluster = verifier.FindOperatorInCluster
 
 func (a *InstallArgs) String() string {
 	var b strings.Builder
@@ -87,6 +95,7 @@ func (a *InstallArgs) String() string {
 	b.WriteString("Set:              " + fmt.Sprint(a.Set) + "\n")
 	b.WriteString("ManifestsPath:    " + a.ManifestsPath + "\n")
 	b.WriteString("Revision:         " + a.Revision + "\n")
+	b.WriteString("ShowDiff:         " + fmt.Sprint(a.ShowDiff) + "\n")
 	return b.String()
 }
 
@@ -103,6 +112,7 @@ func addInstallFlags(cmd *cobra.Command, args *InstallArgs) {
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.ShowDiff, "show-diff", false, showDiffHelpStr)
 }
 
 // InstallCmdWithArgs generates an Istio install manifest and applies it to a cluster
@@ -174,6 +184,19 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	// Ignore the err because we don't want to show
 	// "no running Istio pods in istio-system" for the first time
 	_ = detectIstioVersionDiff(p, tag, ns, kubeClient, setFlags)
+
+	if iArgs.ShowDiff {
+		diff, err := compareIOPWithInstalledIOP(kubeClient, iop)
+		if err != nil {
+			l.LogAndErrorf("Error when comparing installed IOP with the new one: %v", err)
+		}
+		if diff != "" {
+			l.LogAndPrint("The following differences were found when comparing the installed IOP with the new one:")
+			l.LogAndPrint(diff)
+		} else {
+			l.LogAndPrint("No differences found when comparing the installed IOP with the new one.")
+		}
+	}
 
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.DryRun && !iArgs.SkipConfirmation {
@@ -434,4 +457,30 @@ func validateEnableNamespacesByDefault(iop *v1alpha12.IstioOperator) bool {
 	}
 
 	return autoInjectNamespaces
+}
+
+// compareIOPWithInstalledIOP returns the diff between two IstioOperator CRs.
+func compareIOPWithInstalledIOP(client kube.CLIClient, new *v1alpha12.IstioOperator) (string, error) {
+	var old *v1alpha12.IstioOperator
+	var err error
+	crName := savedIOPName(new)
+	old, err = findOperatorInCluster(client.Dynamic(), crName, new.Namespace)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return "", fmt.Errorf("failed to find existing IstioOperator CR: %v", err)
+		}
+	}
+	if old == nil {
+		// If not found, use the current IOP as the oldIOP, so there will be no diff.
+		old = new
+	}
+	oldYAMLSpec, err := yaml.Marshal(old.Spec)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal old IOP: %v", err)
+	}
+	newYAMLSpec, err := yaml.Marshal(new.Spec)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal new IOP: %v", err)
+	}
+	return compare.YAMLCmp(string(oldYAMLSpec), string(newYAMLSpec)), nil
 }

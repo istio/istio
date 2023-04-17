@@ -15,8 +15,6 @@
 package mesh
 
 import (
-	"time"
-
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/util/clog"
@@ -25,20 +23,6 @@ import (
 
 type upgradeArgs struct {
 	*InstallArgs
-}
-
-func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
-	cmd.PersistentFlags().StringSliceVarP(&args.InFilenames, "filename", "f", nil, filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.Context, "context", "", ContextFlagHelpStr)
-	cmd.PersistentFlags().DurationVar(&args.ReadinessTimeout, "readiness-timeout", 300*time.Second,
-		"Maximum time to wait for Istio resources in each component to be ready.")
-	cmd.PersistentFlags().BoolVarP(&args.SkipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.Force, "force", false, ForceFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.Verify, "verify", false, VerifyCRInstallHelpStr)
-	cmd.PersistentFlags().StringArrayVarP(&args.Set, "set", "s", nil, setFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "charts", "", "", ChartsDeprecatedStr)
-	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
 // UpgradeCmd upgrades Istio control plane in-place with eligibility checks.
@@ -51,14 +35,15 @@ func UpgradeCmd(logOpts *log.Options) *cobra.Command {
 		Use:   "upgrade",
 		Short: "Upgrade Istio control plane in-place",
 		Long: "The upgrade command is an alias for the install command" +
-			" that performs additional upgrade-related checks.",
+			" that performs additional upgrade-related checks using `--show-diff` flag",
 		RunE: func(cmd *cobra.Command, args []string) (e error) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			p := NewPrinterForWriter(cmd.OutOrStderr())
+			upgradeArgs.InstallArgs.ShowDiff = true
 			return Install(rootArgs, upgradeArgs.InstallArgs, logOpts, cmd.OutOrStdout(), l, p)
 		},
 	}
 	addFlags(cmd, rootArgs)
-	addUpgradeFlags(cmd, upgradeArgs)
+	addInstallFlags(cmd, upgradeArgs.InstallArgs)
 	return cmd
 }
