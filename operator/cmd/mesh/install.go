@@ -462,20 +462,16 @@ func validateEnableNamespacesByDefault(iop *v1alpha12.IstioOperator) bool {
 func compareIOPWithInstalledIOP(client kube.CLIClient, newIOP *v1alpha12.IstioOperator) (diff string, err error) {
 	crName := savedIOPName(newIOP)
 	oldIOP, err := findOperatorInCluster(client.Dynamic(), crName, newIOP.Namespace)
-
 	if err != nil {
 		return "", err
 	}
-
 	oldYAMLSpec, err := yaml.Marshal(oldIOP.Spec)
 	if err != nil {
 		return "", err
 	}
-
 	newYAMLSpec, err := yaml.Marshal(newIOP.Spec)
 	if err != nil {
 		return "", err
 	}
-
 	return compare.YAMLCmp(string(oldYAMLSpec), string(newYAMLSpec)), nil
 }
