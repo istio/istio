@@ -460,25 +460,25 @@ func validateEnableNamespacesByDefault(iop *v1alpha12.IstioOperator) bool {
 }
 
 // compareIOPWithInstalledIOP returns the diff between two IstioOperator CRs.
-func compareIOPWithInstalledIOP(client kube.CLIClient, new *v1alpha12.IstioOperator) (string, error) {
-	var old *v1alpha12.IstioOperator
+func compareIOPWithInstalledIOP(client kube.CLIClient, newIOP *v1alpha12.IstioOperator) (string, error) {
+	var oldIOP *v1alpha12.IstioOperator
 	var err error
-	crName := savedIOPName(new)
-	old, err = findOperatorInCluster(client.Dynamic(), crName, new.Namespace)
+	crName := savedIOPName(newIOP)
+	oldIOP, err = findOperatorInCluster(client.Dynamic(), crName, newIOP.Namespace)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return "", fmt.Errorf("failed to find existing IstioOperator CR: %v", err)
 		}
 	}
-	if old == nil {
+	if oldIOP == nil {
 		// If not found, use the current IOP as the oldIOP, so there will be no diff.
-		old = new
+		oldIOP = newIOP
 	}
-	oldYAMLSpec, err := yaml.Marshal(old.Spec)
+	oldYAMLSpec, err := yaml.Marshal(oldIOP.Spec)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal old IOP: %v", err)
 	}
-	newYAMLSpec, err := yaml.Marshal(new.Spec)
+	newYAMLSpec, err := yaml.Marshal(newIOP.Spec)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal new IOP: %v", err)
 	}

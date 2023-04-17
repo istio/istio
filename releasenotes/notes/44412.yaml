@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 35961
+releaseNotes:
+- |
+  **Added** a new `istioctl install` flag `--show-diff` to show the configuration difference between the current profile to be installed and the profile that has already been installed (if it exists).
