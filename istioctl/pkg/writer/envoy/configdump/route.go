@@ -53,7 +53,7 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 		return err
 	}
 	if filter.Verbose {
-		fmt.Fprintln(w, "NAME\tDOMAINS\tMATCH\tVIRTUAL SERVICE")
+		fmt.Fprintln(w, "NAME\tVHOST NAME\tDOMAINS\tMATCH\tVIRTUAL SERVICE")
 	} else {
 		fmt.Fprintln(w, "NAME\tVIRTUAL HOSTS")
 	}
@@ -63,16 +63,18 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 				for _, vhosts := range route.GetVirtualHosts() {
 					for _, r := range vhosts.Routes {
 						if !isPassthrough(r.GetAction()) {
-							fmt.Fprintf(w, "%v\t%s\t%s\t%s\n",
+							fmt.Fprintf(w, "%v\t%s\t%s\t%s\t%s\n",
 								route.Name,
+								vhosts.Name,
 								describeRouteDomains(vhosts.GetDomains()),
 								describeMatch(r.GetMatch()),
 								describeManagement(r.GetMetadata()))
 						}
 					}
 					if len(vhosts.Routes) == 0 {
-						fmt.Fprintf(w, "%v\t%s\t%s\t%s\n",
+						fmt.Fprintf(w, "%v\t%s\t%s\t%s\t%s\n",
 							route.Name,
+							vhosts.Name,
 							describeRouteDomains(vhosts.GetDomains()),
 							"/*",
 							"404")
