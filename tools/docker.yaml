@@ -59,7 +59,6 @@ images:
   targets:
   - ${TARGET_OUT_LINUX}/istio-cni
   - ${TARGET_OUT_LINUX}/install-cni
-  - ${TARGET_OUT_LINUX}/istio-cni-taint
 
 - name: ztunnel
   dockerfile: pilot/docker/Dockerfile.ztunnel
