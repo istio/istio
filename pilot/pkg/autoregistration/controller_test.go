@@ -70,6 +70,28 @@ var (
 		Spec:   tmplA,
 		Status: nil,
 	}
+	tmplB = &v1alpha3.WorkloadGroup{
+		Template: &v1alpha3.WorkloadEntry{
+			Ports:          map[string]uint32{"http": 80},
+			Labels:         map[string]string{"app": "b"},
+			Network:        "nw0",
+			Locality:       "reg0/zone0/subzone0",
+			Weight:         1,
+			ServiceAccount: "sa-b",
+		},
+	}
+	wgB = config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadGroup,
+			Namespace:        "a",
+			Name:             "wg-b",
+			Labels: map[string]string{
+				"grouplabel": "notonentry",
+			},
+		},
+		Spec:   tmplB,
+		Status: nil,
+	}
 )
 
 func TestNonAutoregisteredWorkloads(t *testing.T) {
@@ -207,15 +229,22 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	})
 
 	t.Run("workloadentries with same IP are cleaned up", func(t *testing.T) {
-		dp := fakeProxy("1.1.1.1", wgA, "n1")
-		dp.XdsNode = n
-		dp2 := fakeProxy("1.1.1.1", wgA, "n1")
-		dp2.XdsNode = n
-		c1.store.RegisterEventHandler(gvk., c1.onWorkloadEntryEvent)
-
-		err := c1.RegisterWorkload(dp, time.Now())
+		duplicatedProxy := fakeProxy("1.1.1.1", wgA, "nw0")
+		duplicatedProxy.XdsNode = n
+		duplicatedProxy2 := fakeProxy("1.1.1.1", wgB, "nw0")
+		duplicatedProxy2.XdsNode = n
+		err := c1.RegisterWorkload(duplicatedProxy, time.Now())
 		if err != nil {
 			t.Fatalf("unexpected error registering workload: %v", err)
+		}
+		checkEntryOrFail(t, store, wgA, duplicatedProxy, n, c1.instanceID)
+		err = c1.RegisterWorkload(duplicatedProxy2, time.Now())
+		if err != nil {
+			t.Fatalf("unexpected error registering workload: %v", err)
+		}
+		checkEntryOrFail(t, store, wgB, duplicatedProxy2, n, c1.instanceID)
+		if err = checkNoEntry(store, wgA, duplicatedProxy); err != nil {
+			t.Fatalf("expected stale WorkloadEntry to be cleaned up: %v", err)
 		}
 	})
 
@@ -315,10 +344,11 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 }
 
 func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreController) {
-	store := memory.NewController(memory.Make(collections.All))
+	store := memory.NewSyncController(memory.Make(collections.All))
 	c1 := NewController(store, "pilot-1", keepalive.Infinity)
 	c2 := NewController(store, "pilot-2", keepalive.Infinity)
 	createOrFail(t, store, wgA)
+	createOrFail(t, store, wgB)
 	return c1, c2, store
 }
 
