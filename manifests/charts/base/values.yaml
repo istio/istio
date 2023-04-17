@@ -26,4 +26,7 @@ base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true
 
+  # For including base chart RBAC for backwards compatibility
+  includeRBAC: true
+
 defaultRevision: "default"

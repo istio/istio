@@ -1,3 +1,4 @@
+{{- if .Values.base.includeRBAC }}
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 # DO NOT EDIT!
 # THIS IS A LEGACY CHART HERE FOR BACKCOMPAT
@@ -179,3 +180,4 @@ rules:
     verbs: ["get", "list", "watch", "update"]
 {{- end}}
 ---
+{{- end}}
