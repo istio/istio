@@ -1,6 +1,10 @@
 {
   "node": {
+    {{- if .envoy_node_id_template }}
+    "id": "{{ .envoy_node_id_template }}",
+    {{- else }}
     "id": "{{ .nodeID }}",
+    {{- end }}
     "cluster": "{{ .cluster }}",
     "locality": {
       {{- if .region }}

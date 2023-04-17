@@ -35,6 +35,11 @@ func NewTemplateParams(is ...Instance) (map[string]any, error) {
 	return params, nil
 }
 
+// AddTemplateParam adds the given option to the existing golang template parameter map.
+func AddTemplateParam(params map[string]any, i Instance) error {
+	return i.apply(params)
+}
+
 // Name unique name for an option.
 type Name string
 

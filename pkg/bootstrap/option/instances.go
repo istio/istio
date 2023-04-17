@@ -15,13 +15,17 @@
 package option
 
 import (
+	"bytes"
+	"encoding/base64"
 	"strings"
+	"text/template"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 type (
@@ -251,4 +255,22 @@ func DiscoveryHost(value string) Instance {
 
 func MetadataDiscovery(value bool) Instance {
 	return newOption("metadata_discovery", value)
+}
+
+func EnvoyNodeIDTemplate(b64urlEncodedTmpl string, params map[string]any) Instance {
+	tmpl, err := base64.URLEncoding.DecodeString(b64urlEncodedTmpl)
+	if err != nil {
+		log.Warn("failed to decode ENVOY_NODE_ID_TEMPLATE with base64url.")
+	}
+	t, err := template.New("envoy-node-id-template").Parse(string(tmpl))
+	if err != nil {
+		log.Warnf("ENVOY_NODE_ID_TEMPLATE %q is not valid.", tmpl)
+		return skipOption("envoy_node_id_template")
+	}
+	buf := new(bytes.Buffer)
+	if err := t.Execute(buf, params); err != nil {
+		log.Warnf("Failed to execute ENVOY_NODE_ID_TEMPLATE %q.", tmpl)
+		return skipOption("envoy_node_id_template")
+	}
+	return newOption("envoy_node_id_template", buf.String())
 }

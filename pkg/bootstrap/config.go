@@ -174,7 +174,20 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info
 	// is not available (in particular in some multi-cluster cases)
-	return option.NewTemplateParams(opts...)
+	param, err := option.NewTemplateParams(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	// To use all the parameters in the Node ID template, evaluate it at last.
+	if len(cfg.Metadata.EnvoyNodeIDTemplate) > 0 {
+		opt := option.EnvoyNodeIDTemplate(cfg.Metadata.EnvoyNodeIDTemplate, param)
+		if err := option.AddTemplateParam(param, opt); err != nil {
+			return nil, err
+		}
+	}
+
+	return param, nil
 }
 
 // substituteValues substitutes variables known to the bootstrap like pod_ip.

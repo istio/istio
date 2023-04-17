@@ -661,6 +661,10 @@ type NodeMetadata struct {
 	// The istiod address when running ASM Managed Control Plane.
 	CloudrunAddr string `json:"CLOUDRUN_ADDR,omitempty"`
 
+	// Node ID template for Envoy. It is encoded with Base64URL to avoid additional escaping.
+	// The template can reference all the parameters which is defined in pkg/bootstrap/config.go.
+	EnvoyNodeIDTemplate string `json:"ENVOY_NODE_ID_TEMPLATE,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]any `json:"-"`
