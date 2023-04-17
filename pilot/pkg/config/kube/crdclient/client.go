@@ -185,7 +185,6 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 }
 
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
-	log.Debugf("ADITYA: FOR %V", kind.String())
 	cl.handlers[kind] = append(cl.handlers[kind], handler)
 }
 

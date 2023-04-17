@@ -16,7 +16,6 @@ package controller
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"sync"
 	"time"

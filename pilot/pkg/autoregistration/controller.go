@@ -17,11 +17,14 @@ package autoregistration
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"math"
 	"strings"
 	"sync"
 	"time"
+
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
@@ -37,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
