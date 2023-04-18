@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
   - |
-    **Added** `istioctl pc route ` add a column "VHOST NAME"
+    **Added** a "VHOST NAME" column to the output of `istioctl pc route`
