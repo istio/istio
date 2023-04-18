@@ -141,6 +141,16 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 					if header == nil {
 						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 					}
+
+					switch header.GetMatchType().(type) {
+					case *networking.StringMatch_Prefix:
+						{
+							if header.GetPrefix() == "" {
+								errs = appendErrors(errs, fmt.Errorf("header prefix match %v must have a value", name))
+							}
+						}
+					}
+
 					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 					errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
 				}
@@ -161,6 +171,16 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 					if header == nil {
 						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 					}
+
+					switch header.GetMatchType().(type) {
+					case *networking.StringMatch_Prefix:
+						{
+							if header.GetPrefix() == "" {
+								errs = appendErrors(errs, fmt.Errorf("header prefix match %v must have a value", name))
+							}
+						}
+					}
+
 					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 				}
 				for name, param := range match.QueryParams {
