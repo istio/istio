@@ -164,6 +164,11 @@ var (
 	reset             = false
 )
 
+var isZtunnelPod = func(podName, podNamespace string) bool {
+	client, _ := kubeClient(kubeconfig, configContext)
+	return ambientutil.IsZtunnelPod(client, podName, podNamespace)
+}
+
 func ztunnelLogLevel(level string) string {
 	switch level {
 	case "warning":
@@ -497,7 +502,7 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 
-					if ambientutil.IsZtunnelPod(podName) {
+					if isZtunnelPod(podName, podNamespace) {
 						dump, err = extractZtunnelConfigDump(podName, podNamespace)
 					} else {
 						dump, err = extractConfigDump(podName, podNamespace, false)
@@ -526,7 +531,7 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 
-					if ambientutil.IsZtunnelPod(podName) {
+					if isZtunnelPod(podName, podNamespace) {
 						w, err := setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
 						if err != nil {
 							return err
@@ -636,7 +641,7 @@ func workloadConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getComponentPodName(args[0]); err != nil {
 					return err
 				}
-				if !ambientutil.IsZtunnelPod(podName) {
+				if !isZtunnelPod(podName, podNamespace) {
 					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
@@ -878,7 +883,7 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if ambientutil.IsZtunnelPod(pod) {
+				if isZtunnelPod(pod, podNamespace) {
 					loggerNames[name] = Ztunnel
 				} else {
 					loggerNames[name] = Envoy
@@ -932,7 +937,7 @@ func logCmd() *cobra.Command {
 			var resp string
 			var errs *multierror.Error
 			for _, podName := range podNames {
-				if ambientutil.IsZtunnelPod(podName) {
+				if isZtunnelPod(podName, podNamespace) {
 					q := "level=" + ztunnelLogLevel(loggerLevelString)
 					if reset {
 						q += "&reset"
@@ -1311,7 +1316,7 @@ func secretConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-				if ambientutil.IsZtunnelPod(podName) {
+				if isZtunnelPod(podName, podNamespace) {
 					newWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
 				} else {
 					newWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())

@@ -644,3 +644,14 @@ messages:
         type: "[]string"
       - name: namespace
         type: string
+  - name: "InvalidGatewayCredential"
+    code: IST0161
+    level: Error
+    description: "The credential provided for the Gateway resource is invalid"
+    template: "The credential referenced by the Gateway %s in namespace %s is invalid, which can cause the traffic not to work as expected."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0161/"
+    args:
+      - name: gatewayName
+        type: string
+      - name: gatewayNamespace
+        type: string

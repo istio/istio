@@ -1624,7 +1624,8 @@ func IsManaged(gw *k8s.GatewaySpec) bool {
 
 func extractGatewayServices(r KubernetesResources, kgw *k8s.GatewaySpec, obj config.Config) ([]string, []string) {
 	if IsManaged(kgw) {
-		return []string{fmt.Sprintf("%s.%s.svc.%v", getDefaultName(obj.Name, kgw), obj.Namespace, r.Domain)}, nil
+		name := model.GetOrDefault(obj.Annotations[gatewayNameOverride], getDefaultName(obj.Name, kgw))
+		return []string{fmt.Sprintf("%s.%s.svc.%v", name, obj.Namespace, r.Domain)}, nil
 	}
 	gatewayServices := []string{}
 	skippedAddresses := []string{}

@@ -2003,6 +2003,10 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 					}
 				}
 				for _, when := range rule.GetWhen() {
+					if when == nil {
+						errs = appendErrors(errs, fmt.Errorf("when field cannot be nil"))
+						continue
+					}
 					errs = appendErrors(errs, check(when.Key == "source.namespace", when.Key))
 					errs = appendErrors(errs, check(when.Key == "source.principal", when.Key))
 					errs = appendErrors(errs, check(strings.HasPrefix(when.Key, "request.auth."), when.Key))
@@ -3382,6 +3386,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		case networking.ServiceEntry_STATIC:
 			unixEndpoint := false
 			for _, endpoint := range serviceEntry.Endpoints {
+				if endpoint == nil {
+					errs = appendValidation(errs, errors.New("endpoint cannot be nil"))
+					continue
+				}
 				addr := endpoint.GetAddress()
 				if strings.HasPrefix(addr, UnixAddressPrefix) {
 					unixEndpoint = true

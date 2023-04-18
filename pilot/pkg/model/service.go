@@ -612,7 +612,7 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses AddressMap
+	ClusterExternalAddresses *AddressMap
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
@@ -707,11 +707,11 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 		return false
 	}
 
-	if len(s.ClusterExternalAddresses.Addresses) != len(other.ClusterExternalAddresses.Addresses) {
+	if len(s.ClusterExternalAddresses.GetAddresses()) != len(other.ClusterExternalAddresses.GetAddresses()) {
 		return false
 	}
 
-	for k, v1 := range s.ClusterExternalAddresses.Addresses {
+	for k, v1 := range s.ClusterExternalAddresses.GetAddresses() {
 		if v2, ok := other.ClusterExternalAddresses.Addresses[k]; !ok || !slices.Equal(v1, v2) {
 			return false
 		}
@@ -1094,7 +1094,7 @@ func (s *Service) DeepCopy() *Service {
 		out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
 		copy(out.ServiceAccounts, s.ServiceAccounts)
 	}
-	out.ClusterVIPs = s.ClusterVIPs.DeepCopy()
+	out.ClusterVIPs = *s.ClusterVIPs.DeepCopy()
 	return &out
 }
 

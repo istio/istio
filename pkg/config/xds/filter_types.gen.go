@@ -310,6 +310,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/proof_source/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/server_preferred_address/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/rate_limit_descriptors/expr/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/rbac/audit_loggers/stream/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/rbac/matchers/upstream_ip_port/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/regex_engines/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/request_id/uuid/v3"

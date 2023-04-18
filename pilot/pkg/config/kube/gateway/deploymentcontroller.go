@@ -34,6 +34,7 @@ import (
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -291,20 +292,10 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	log.Info("reconciling")
 
 	defaultName := getDefaultName(gw.Name, &gw.Spec)
-	deploymentName := defaultName
-	if nameOverride, exists := gw.Annotations[gatewayNameOverride]; exists {
-		deploymentName = nameOverride
-	}
-
-	gatewaySA := defaultName
-	if saOverride, exists := gw.Annotations[gatewaySAOverride]; exists {
-		gatewaySA = saOverride
-	}
-
 	input := TemplateInput{
 		Gateway:        &gw,
-		DeploymentName: deploymentName,
-		ServiceAccount: gatewaySA,
+		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
+		ServiceAccount: model.GetOrDefault(gw.Annotations[gatewaySAOverride], defaultName),
 		Ports:          extractServicePorts(gw),
 		ClusterID:      d.clusterID.String(),
 		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),

@@ -14,8 +14,26 @@
 
 package ambient
 
-import "strings"
+import (
+	"context"
+	"strings"
 
-func IsZtunnelPod(podName string) bool {
-	return strings.HasPrefix(podName, "ztunnel")
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pkg/kube"
+)
+
+func IsZtunnelPod(client kube.Client, podName, podNamespace string) bool {
+	isZtunnel := strings.HasPrefix(podName, "ztunnel")
+	if client == nil {
+		return isZtunnel
+	}
+	pod, err := client.Kube().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		return isZtunnel
+	}
+	if v, ok := pod.Labels["app"]; ok {
+		return v == "ztunnel"
+	}
+	return isZtunnel
 }
