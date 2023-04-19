@@ -50,16 +50,19 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 			continue
 		}
 		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, hosts) {
+			// backup the Cluster in case mergeTransportSocketCluster modifies it
+			cpValueBkp := proto.Clone(cp.Value)
 
-			ret, err := mergeTransportSocketCluster(c, cp)
+			err := mergeTransportSocketCluster(c, cp)
 			if err != nil {
 				log.Debugf("Merge of transport socket failed for cluster: %v", err)
 				continue
 			}
 			applied = true
-			if !ret {
-				merge.Merge(c, cp.Value)
-			}
+			merge.Merge(c, cp.Value)
+
+			// restore untouched copy of the Cluster for use in next iteration
+			cp.Value = cpValueBkp
 		}
 		IncrementEnvoyFilterMetric(cp.Key(), Cluster, applied)
 	}
@@ -83,26 +86,29 @@ func patchTransportSocket(ts *core.TransportSocket, patchTS *core.TransportSocke
 	return nil
 }
 
-// Test if the patch contains a config for TransportSocket or TransportSocketMatch
-// Returns a boolean indicating if the merge was handled by this function; if false, it should still be called
-// outside of this function.
-func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (merged bool, err error) {
+// Applies special case for patching Transport Socket and Transport Socket Matches
+// and removes used TS and TSM structs from source patch
+func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (err error) {
 	cpValueCast, okCpCast := (cp.Value).(*cluster.Cluster)
 	if !okCpCast {
-		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
+		return fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
 	}
-
-	merged = false
 
 	// First merge transport socket matches with the same name
 	if (len(c.GetTransportSocketMatches())) > 0 && (len(cpValueCast.GetTransportSocketMatches()) > 0) {
+		// List what will hold not used (not applied) TransportSocketMatches to use with direct merging later
+		newPatchTsms := make([]*cluster.Cluster_TransportSocketMatch, 0, len(c.GetTransportSocketMatches()))
+
 		for _, cpTsm := range cpValueCast.GetTransportSocketMatches() {
 			if cpTsm.GetName() == "" || (cpTsm.GetTransportSocket() == nil && cpTsm.GetMatch() == nil) {
 				// Don't try merging if TransportSocketMatches' TransportSocket and Match are both null or
 				// name is empty - name is used to match TransportSockets in patch to the one in live Cluster and
 				// if TransportSocket and Match are both null there's nothing to patch
+				newPatchTsms = append(newPatchTsms, cpTsm)
 				continue
 			}
+
+			tsmMerged := false
 
 			for _, tsm := range c.GetTransportSocketMatches() {
 				if tsm.GetName() != cpTsm.GetName() {
@@ -113,7 +119,7 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 				if cpTsm.GetMatch() != nil {
 					// Replace Match if defined in patch
 					tsm.Match = cpTsm.Match
-					merged = true
+					tsmMerged = true
 				}
 
 				// Merge TransportSockets
@@ -122,25 +128,30 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 						// Merge when it's the same type
 						err := patchTransportSocket(tsm.GetTransportSocket(), cpTsm.GetTransportSocket())
 						if err != nil {
-							return false, err
+							return err
 						}
 					} else {
 						// Replace when type mismatch
 						tsm.TransportSocket = cpTsm.TransportSocket
 					}
-					merged = true
+					tsmMerged = true
 				}
 			}
+
+			if !tsmMerged {
+				newPatchTsms = append(newPatchTsms, cpTsm)
+			}
 		}
-	}
-	// Return if already merged
-	if merged {
-		return true, nil
+
+		if len(newPatchTsms) != len(cpValueCast.TransportSocketMatches) {
+			cpValueCast.TransportSocket = nil
+		}
+		cpValueCast.TransportSocketMatches = newPatchTsms
 	}
 
 	// Check if cluster patch has a transport socket.
 	if cpValueCast.GetTransportSocket() == nil {
-		return false, nil
+		return nil
 	}
 	var tsmPatch *core.TransportSocket
 
@@ -154,9 +165,9 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		}
 		if tsmPatch == nil {
 			// If we merged we would get both a transport_socket and transport_socket_matches which is not valid
-			// Drop the filter, but indicate that we handled the merge so that the outer function does not try
-			// to merge it again
-			return true, nil
+			// Drop the TS from the patch so that the outer function does not try to merge it again
+			cpValueCast.TransportSocket = nil
+			return nil
 		}
 	} else if c.GetTransportSocket() != nil {
 		if cpValueCast.GetTransportSocket().Name == c.GetTransportSocket().Name {
@@ -171,10 +182,11 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		// Merge the patch and the cluster at a lower level
 		err := patchTransportSocket(tsmPatch, cpValueCast.GetTransportSocket())
 		if err != nil {
-			return false, err
+			return err
 		}
 	}
-	return true, nil
+	cpValueCast.TransportSocket = nil
+	return nil
 }
 
 // ShouldKeepCluster checks if there is a REMOVE patch on the cluster, returns false if there is one so that it is removed.
