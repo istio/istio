@@ -785,7 +785,7 @@ func (s *Server) CreateEBPFRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP,
 		deleteIPRules([]string{strconv.Itoa(constants.TProxyMarkPriority), strconv.Itoa(constants.OrgSrcPriority)}, false)
 
 		// Set up tproxy marks
-		err := addTProxyMarks()
+		err := addTProxyMarkRule()
 		if err != nil {
 			return fmt.Errorf("failed to add TPROXY mark rules: %v", err)
 		}
@@ -818,21 +818,30 @@ func (s *Server) CreateEBPFRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP,
 			}
 		}
 
+		vethLink, err := netlink.LinkByIndex(proxyNsVethIdx)
+		if err != nil {
+			return fmt.Errorf("failed to find veth with index '%d' within namespace %s: %v", proxyNsVethIdx, ztunnelNetNS, err)
+		}
+
+		err = disableRPFiltersForLink(vethLink.Attrs().Name)
+		if err != nil {
+			log.Warnf("failed to disable procfs rp_filter for device %s: %v", vethLink.Attrs().Name, err)
+		}
+
+		if ebpf.EBPFTproxySupport() {
+			log.Infof("Current kernel version support tproxy in eBPF, skip the iptables rules.")
+			return nil
+		}
+
+		err = addOrgSrcMarkRule()
+		if err != nil {
+			return fmt.Errorf("failed to add OrgSrc mark rules: %v", err)
+		}
+
 		// Flush prerouting table - this should be a new pod netns and it should be clean, but just to be safe..
 		err = execute(s.IptablesCmd(), "-t", "mangle", "-F", "PREROUTING")
 		if err != nil {
 			return fmt.Errorf("failed to configure iptables rule: %v", err)
-		}
-
-		// Logging for prerouting mangle
-		err = execute(s.IptablesCmd(), "-t", "mangle", "-I", "PREROUTING", "-j", "LOG", "--log-prefix", "ztunnel mangle pre")
-		if err != nil {
-			return fmt.Errorf("failed to configure iptables rule: %v", err)
-		}
-
-		vethLink, err := netlink.LinkByIndex(proxyNsVethIdx)
-		if err != nil {
-			return fmt.Errorf("failed to find veth with index '%d' within namespace %s: %v", proxyNsVethIdx, ztunnelNetNS, err)
 		}
 
 		// Set up append rules
@@ -891,11 +900,6 @@ func (s *Server) CreateEBPFRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP,
 		err = s.iptablesAppend(appendRules)
 		if err != nil {
 			log.Errorf("failed to append iptables rule: %v", err)
-		}
-
-		err = disableRPFiltersForLink(vethLink.Attrs().Name)
-		if err != nil {
-			log.Warnf("failed to disable procfs rp_filter for device %s: %v", vethLink.Attrs().Name, err)
 		}
 
 		return nil
@@ -1004,9 +1008,13 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 		}
 
 		// Set up tproxy marks
-		err = addTProxyMarks()
+		err = addTProxyMarkRule()
 		if err != nil {
 			return fmt.Errorf("failed to add TPROXY mark rules: %v", err)
+		}
+		err = addOrgSrcMarkRule()
+		if err != nil {
+			return fmt.Errorf("failed to add OrgSrc mark rules: %v", err)
 		}
 
 		loopbackLink, err := netlink.LinkByName("lo")
@@ -1208,7 +1216,7 @@ func (s *Server) cleanupNode() {
 	}
 }
 
-func addTProxyMarks() error {
+func addTProxyMarkRule() error {
 	// Set up tproxy marks
 	var rules []*netlink.Rule
 	// TODO IPv6, append  unix.AF_INET6
@@ -1222,7 +1230,24 @@ func addTProxyMarks() error {
 		tproxMarkRule.Mask = constants.TProxyMask
 		tproxMarkRule.Priority = constants.TProxyMarkPriority
 		rules = append(rules, tproxMarkRule)
+	}
 
+	for _, rule := range rules {
+		log.Debugf("Adding netlink rule : %+v", rule)
+		if err := netlink.RuleAdd(rule); err != nil {
+			return fmt.Errorf("failed to configure netlink rule: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func addOrgSrcMarkRule() error {
+	// Set up tproxy marks
+	var rules []*netlink.Rule
+	// TODO IPv6, append  unix.AF_INET6
+	families := []int{unix.AF_INET}
+	for _, family := range families {
 		// Equiv: "ip rule add priority 20003 fwmark 0x4d3/0xfff lookup 100"
 		orgSrcRule := netlink.NewRule()
 		orgSrcRule.Family = family

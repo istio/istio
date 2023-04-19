@@ -33,12 +33,14 @@ package server
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"os"
 
 	"github.com/cilium/ebpf"
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
 	"github.com/hashicorp/go-multierror"
@@ -72,7 +74,7 @@ var isBigEndian = native.IsBigEndian
 
 type RedirectServer struct {
 	redirectArgsChan           chan *RedirectArgs
-	obj                        ambient_redirectObjects
+	obj                        eBPFObjects
 	ztunnelHostingressFd       uint32
 	ztunnelHostingressProgName string
 	ztunnelIngressFd           uint32
@@ -89,8 +91,122 @@ var stringToLevel = map[string]uint32{
 	"none":  EBPFLogLevelNone,
 }
 
+type eBPFObjects interface {
+	GetMapObj() *ambient_redirectMaps
+	GetAppInbound() *ebpf.Program
+	GetAppOutbound() *ebpf.Program
+	GetZtunnelHostIngress() *ebpf.Program
+	GetZtunnelIngress() *ebpf.Program
+	io.Closer
+}
+type eBPFObjectsImplOld struct {
+	eBPFProgsCommon
+	eBPFProgsOld
+	ambient_redirectMaps
+}
+
+func (o *eBPFObjectsImplOld) GetMapObj() *ambient_redirectMaps {
+	return &o.ambient_redirectMaps
+}
+
+func (o *eBPFObjectsImplOld) GetAppInbound() *ebpf.Program {
+	return o.AppInbound
+}
+
+func (o *eBPFObjectsImplOld) GetAppOutbound() *ebpf.Program {
+	return o.AppOutbound
+}
+
+func (o *eBPFObjectsImplOld) GetZtunnelHostIngress() *ebpf.Program {
+	return o.ZtunnelHostIngress
+}
+
+func (o *eBPFObjectsImplOld) GetZtunnelIngress() *ebpf.Program {
+	return o.ZtunnelIngress
+}
+
+func (o *eBPFObjectsImplOld) Close() error {
+	return _Ambient_redirectClose(
+		&o.eBPFProgsCommon,
+		&o.eBPFProgsOld,
+		&o.ambient_redirectMaps,
+	)
+}
+
+type eBPFObjectsImplNew struct {
+	eBPFProgsCommon
+	eBPFProgsNew
+	ambient_redirectMaps
+}
+
+func (o *eBPFObjectsImplNew) GetMapObj() *ambient_redirectMaps {
+	return &o.ambient_redirectMaps
+}
+
+func (o *eBPFObjectsImplNew) GetAppInbound() *ebpf.Program {
+	return o.AppInbound
+}
+
+func (o *eBPFObjectsImplNew) GetAppOutbound() *ebpf.Program {
+	return o.AppOutbound
+}
+
+func (o *eBPFObjectsImplNew) GetZtunnelHostIngress() *ebpf.Program {
+	return o.ZtunnelHostIngress
+}
+
+func (o *eBPFObjectsImplNew) GetZtunnelIngress() *ebpf.Program {
+	return o.ZtunnelTproxy
+}
+
+func (o *eBPFObjectsImplNew) Close() error {
+	return _Ambient_redirectClose(
+		&o.eBPFProgsCommon,
+		&o.eBPFProgsNew,
+		&o.ambient_redirectMaps,
+	)
+}
+
+type eBPFProgsCommon struct {
+	AppInbound         *ebpf.Program `ebpf:"app_inbound"`
+	AppOutbound        *ebpf.Program `ebpf:"app_outbound"`
+	ZtunnelHostIngress *ebpf.Program `ebpf:"ztunnel_host_ingress"`
+}
+
+func (p *eBPFProgsCommon) Close() error {
+	return _Ambient_redirectClose(
+		p.AppInbound,
+		p.AppOutbound,
+		p.ZtunnelHostIngress,
+	)
+}
+
+type eBPFProgsOld struct {
+	ZtunnelIngress *ebpf.Program `ebpf:"ztunnel_ingress"`
+}
+
+func (p *eBPFProgsOld) Close() error {
+	return _Ambient_redirectClose(
+		p.ZtunnelIngress,
+	)
+}
+
+type eBPFProgsNew struct {
+	ZtunnelTproxy *ebpf.Program `ebpf:"ztunnel_tproxy"`
+}
+
+func (p *eBPFProgsNew) Close() error {
+	return _Ambient_redirectClose(
+		p.ZtunnelTproxy,
+	)
+}
+
+func EBPFTproxySupport() bool {
+	return kernel.CheckKernelVersion(5, 7, 0)
+}
+
 func (r *RedirectServer) SetLogLevel(level string) {
-	if err := r.obj.LogLevel.Update(uint32(0), stringToLevel[level], ebpf.UpdateAny); err != nil {
+	if err := r.obj.GetMapObj().LogLevel.Update(uint32(0), stringToLevel[level], ebpf.UpdateAny); err != nil {
 		log.Errorf("failed to update ebpf log level: %v", err)
 	}
 }
@@ -105,9 +221,9 @@ func (r *RedirectServer) UpdateHostIP(ips []string) error {
 			return err
 		}
 		if ip.Is4() {
-			err = r.obj.HostIpInfo.Update(uint32(0), ip.As16(), ebpf.UpdateAny)
+			err = r.obj.GetMapObj().HostIpInfo.Update(uint32(0), ip.As16(), ebpf.UpdateAny)
 		} else {
-			err = r.obj.HostIpInfo.Update(uint32(1), ip.As16(), ebpf.UpdateAny)
+			err = r.obj.GetMapObj().HostIpInfo.Update(uint32(1), ip.As16(), ebpf.UpdateAny)
 		}
 		if err != nil {
 			return err
@@ -156,7 +272,7 @@ func AddPodToMesh(ifIndex uint32, macAddr net.HardwareAddr, ips []netip.Addr) er
 	if len(ip) != 4 {
 		return fmt.Errorf("invalid ip addr(%s), ipv4 is supported", ipAddr.String())
 	}
-	if err := r.obj.AppInfo.Update(ip, mapInfo, ebpf.UpdateAny); err != nil {
+	if err := r.obj.GetMapObj().AppInfo.Update(ip, mapInfo, ebpf.UpdateAny); err != nil {
 		multiErr = multierror.Append(multiErr, err)
 		if err := r.detachTCForWorkload(ifIndex); err != nil {
 			multiErr = multierror.Append(multiErr, err)
@@ -177,32 +293,44 @@ func (r *RedirectServer) initBpfObjects() error {
 	}
 	options.Maps.PinPath = MapsPinpath
 	// load ebpf program
-	obj := ambient_redirectObjects{}
-	if err := loadAmbient_redirectObjects(&obj, &options); err != nil {
-		return fmt.Errorf("loading objects: %v", err)
+	if EBPFTproxySupport() {
+		obj := eBPFObjectsImplNew{}
+		if err := loadAmbient_redirectObjects(&obj, &options); err != nil {
+			return fmt.Errorf("loading objects: %v", err)
+		}
+		r.obj = &obj
+	} else {
+		obj := eBPFObjectsImplOld{}
+		if err := loadAmbient_redirectObjects(&obj, &options); err != nil {
+			return fmt.Errorf("loading objects: %v", err)
+		}
+		r.obj = &obj
 	}
-	r.obj = obj
-	r.ztunnelHostingressFd = uint32(r.obj.ZtunnelHostIngress.FD())
-	ztunnelHostingressInfo, err := r.obj.ZtunnelHostIngress.Info()
+
+	r.ztunnelHostingressFd = uint32(r.obj.GetZtunnelHostIngress().FD())
+	ztunnelHostingressInfo, err := r.obj.GetZtunnelHostIngress().Info()
 	if err != nil {
 		return fmt.Errorf("unable to load metadata of bfp prog: %v", err)
 	}
 	r.ztunnelHostingressProgName = ztunnelHostingressInfo.Name
-	r.ztunnelIngressFd = uint32(r.obj.ZtunnelIngress.FD())
-	ztunnelIngressInfo, err := r.obj.ZtunnelIngress.Info()
+
+	r.ztunnelIngressFd = uint32(r.obj.GetZtunnelIngress().FD())
+	ztunnelIngressInfo, err := r.obj.GetZtunnelIngress().Info()
 	if err != nil {
 		return fmt.Errorf("unable to load metadata of bfp prog: %v", err)
 	}
 	r.ztunnelIngressProgName = ztunnelIngressInfo.Name
 
-	r.inboundFd = uint32(r.obj.AppInbound.FD())
-	inboundInfo, err := r.obj.AppInbound.Info()
+	log.Infof("ztunnelIngressProgName: %s", r.ztunnelIngressProgName)
+
+	r.inboundFd = uint32(r.obj.GetAppInbound().FD())
+	inboundInfo, err := r.obj.GetAppInbound().Info()
 	if err != nil {
 		return fmt.Errorf("unable to load metadata of bfp prog: %v", err)
 	}
 	r.inboundProgName = inboundInfo.Name
-	r.outboundFd = uint32(r.obj.AppOutbound.FD())
-	outboundInfo, err := r.obj.AppOutbound.Info()
+	r.outboundFd = uint32(r.obj.GetAppOutbound().FD())
+	outboundInfo, err := r.obj.GetAppOutbound().Info()
 	if err != nil {
 		return fmt.Errorf("unable to load metadata of bfp prog: %v", err)
 	}
@@ -323,7 +451,7 @@ func (r *RedirectServer) handleRequest(args *RedirectArgs) error {
 			}
 			// For array map, kernel doesn't support delete elem(refer to kernel/bpf/arraymap.c)
 			// it works just like an 'array'.
-			if err := r.obj.ZtunnelInfo.Update(uint32(0), mapInfo, ebpf.UpdateAny); err != nil {
+			if err := r.obj.GetMapObj().ZtunnelInfo.Update(uint32(0), mapInfo, ebpf.UpdateAny); err != nil {
 				multiErr = multierror.Append(multiErr, err)
 			}
 		} else {
@@ -340,7 +468,7 @@ func (r *RedirectServer) handleRequest(args *RedirectArgs) error {
 			if args.CaptureDNS {
 				mapInfo.Flag |= CaptureDNSFlag
 			}
-			if err := r.obj.ZtunnelInfo.Update(uint32(0), mapInfo, ebpf.UpdateAny); err != nil {
+			if err := r.obj.GetMapObj().ZtunnelInfo.Update(uint32(0), mapInfo, ebpf.UpdateAny); err != nil {
 				multiErr = multierror.Append(multiErr, err)
 				if err := r.detachTCForZtunnel(ifindex, peerIndex, namespace); err != nil {
 					multiErr = multierror.Append(multiErr, err)
@@ -366,7 +494,7 @@ func (r *RedirectServer) handleRequest(args *RedirectArgs) error {
 			} else {
 				log.Debugf("zero ifindex for app removal")
 			}
-			if err := r.obj.AppInfo.Delete(ip); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+			if err := r.obj.GetMapObj().AppInfo.Delete(ip); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
 				multiErr = multierror.Append(multiErr, err)
 			}
 		} else {
@@ -377,7 +505,7 @@ func (r *RedirectServer) handleRequest(args *RedirectArgs) error {
 				}
 				return multiErr.ErrorOrNil()
 			}
-			if err := r.obj.AppInfo.Update(ip, mapInfo, ebpf.UpdateAny); err != nil {
+			if err := r.obj.GetMapObj().AppInfo.Update(ip, mapInfo, ebpf.UpdateAny); err != nil {
 				multiErr = multierror.Append(multiErr, err)
 				if err := r.detachTCForWorkload(ifindex); err != nil {
 					multiErr = multierror.Append(multiErr, err)
@@ -575,7 +703,7 @@ func (r *RedirectServer) delClsactQdisc(namespace string, ifindex uint32) error 
 //nolint:unused
 func (r *RedirectServer) dumpZtunnelInfo() (*mapInfo, error) {
 	var info mapInfo
-	if err := r.obj.ZtunnelInfo.Lookup(uint32(0), &info); err != nil {
+	if err := r.obj.GetMapObj().ZtunnelInfo.Lookup(uint32(0), &info); err != nil {
 		return nil, fmt.Errorf("failed to look up ztunnel info: %w", err)
 	}
 	return &info, nil
@@ -587,7 +715,7 @@ func (r *RedirectServer) dumpAppInfo() ([]uint32, []mapInfo) {
 	var valueOut mapInfo
 	var values []mapInfo
 	var keys []uint32
-	mapIter := r.obj.AppInfo.Iterate()
+	mapIter := r.obj.GetMapObj().AppInfo.Iterate()
 	for mapIter.Next(&keyOut, &valueOut) {
 		keys = append(keys, keyOut)
 		values = append(values, valueOut)

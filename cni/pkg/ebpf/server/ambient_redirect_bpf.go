@@ -85,6 +85,7 @@ type ambient_redirectProgramSpecs struct {
 	AppOutbound        *ebpf.ProgramSpec `ebpf:"app_outbound"`
 	ZtunnelHostIngress *ebpf.ProgramSpec `ebpf:"ztunnel_host_ingress"`
 	ZtunnelIngress     *ebpf.ProgramSpec `ebpf:"ztunnel_ingress"`
+	ZtunnelTproxy      *ebpf.ProgramSpec `ebpf:"ztunnel_tproxy"`
 }
 
 // ambient_redirectMapSpecs contains maps before they are loaded into the kernel.
@@ -139,6 +140,7 @@ type ambient_redirectPrograms struct {
 	AppOutbound        *ebpf.Program `ebpf:"app_outbound"`
 	ZtunnelHostIngress *ebpf.Program `ebpf:"ztunnel_host_ingress"`
 	ZtunnelIngress     *ebpf.Program `ebpf:"ztunnel_ingress"`
+	ZtunnelTproxy      *ebpf.Program `ebpf:"ztunnel_tproxy"`
 }
 
 func (p *ambient_redirectPrograms) Close() error {
@@ -147,6 +149,7 @@ func (p *ambient_redirectPrograms) Close() error {
 		p.AppOutbound,
 		p.ZtunnelHostIngress,
 		p.ZtunnelIngress,
+		p.ZtunnelTproxy,
 	)
 }
 
