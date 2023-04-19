@@ -33,10 +33,6 @@ var (
 	// Description: Unhandled gateway port
 	GatewayPortNotOnWorkload = diag.NewMessageType(diag.Warning, "IST0104", "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)")
 
-	// IstioProxyImageMismatch defines a diag.MessageType for message "IstioProxyImageMismatch".
-	// Description: The image of the Istio proxy running on the pod does not match the image defined in the injection configuration.
-	IstioProxyImageMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The image of the Istio proxy running on the pod does not match the image defined in the injection configuration (pod image: %s; injection configuration image: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
-
 	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
 	// Description: The resource has a schema validation error.
 	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "Schema validation error: %v")
@@ -251,7 +247,6 @@ func All() []*diag.MessageType {
 		NamespaceNotInjected,
 		PodMissingProxy,
 		GatewayPortNotOnWorkload,
-		IstioProxyImageMismatch,
 		SchemaValidationError,
 		MisplacedAnnotation,
 		UnknownAnnotation,
@@ -360,16 +355,6 @@ func NewGatewayPortNotOnWorkload(r *resource.Instance, selector string, port int
 		r,
 		selector,
 		port,
-	)
-}
-
-// NewIstioProxyImageMismatch returns a new diag.Message based on IstioProxyImageMismatch.
-func NewIstioProxyImageMismatch(r *resource.Instance, proxyImage string, injectionImage string) diag.Message {
-	return diag.NewMessage(
-		IstioProxyImageMismatch,
-		r,
-		proxyImage,
-		injectionImage,
 	)
 }
 
