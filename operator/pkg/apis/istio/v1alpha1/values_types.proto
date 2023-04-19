@@ -76,9 +76,6 @@ message CNIConfig {
 
   google.protobuf.BoolValue chained = 14;
 
-  CNITaintConfig taint  = 15;
-
-
   ResourceQuotas resource_quotas = 16;
 
   Resources resources = 17;
@@ -97,11 +94,6 @@ message CNIAmbientConfig {
   // Controls whether ambient redirection is enabled
   google.protobuf.BoolValue enabled = 1;
   string redirectMode = 2;
-}
-
-message CNITaintConfig {
-  // Controls whether taint behavior is enabled.
-  google.protobuf.BoolValue enabled = 1;
 }
 
 message CNIRepairConfig {

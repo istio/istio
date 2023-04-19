@@ -23,7 +23,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -172,24 +171,22 @@ func TestIPReuse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cannot delete pod: %v", err)
 	}
-	if err := wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	retry.UntilOrFail(t, func() bool {
 		if _, ok := c.pods.getPodKey("128.0.0.1"); ok {
-			return false, nil
+			return false
 		}
-		return true, nil
-	}); err != nil {
-		t.Fatalf("delete failed: %v", err)
-	}
+		return true
+	})
 }
 
-func waitForPod(c *FakeController, ip string) error {
-	return wait.Poll(5*time.Millisecond, 1*time.Second, func() (bool, error) {
+func waitForPod(t test.Failer, c *FakeController, ip string) {
+	retry.UntilOrFail(t, func() bool {
 		c.pods.RLock()
 		defer c.pods.RUnlock()
 		if _, ok := c.pods.podsByIP[ip]; ok {
-			return true, nil
+			return true
 		}
-		return false, nil
+		return false
 	})
 }
 

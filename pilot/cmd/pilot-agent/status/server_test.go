@@ -693,8 +693,8 @@ func TestAppProbe(t *testing.T) {
 					HTTPGet: &apimirror.HTTPGetAction{
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
+						Host: testHostValue,
 						HTTPHeaders: []apimirror.HTTPHeader{
-							{Name: "Host", Value: testHostValue},
 							{Name: testHeader, Value: testHeaderValue},
 						},
 					},
@@ -845,6 +845,16 @@ func TestAppProbe(t *testing.T) {
 		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v/%s", statusPort, tc.probePath), nil)
 		if err != nil {
 			t.Fatalf("[%v] failed to create request", tc.probePath)
+		}
+		if c := tc.config["/"+tc.probePath]; c != nil {
+			if hc := c.HTTPGet; hc != nil {
+				if hc.Host != "" {
+					req.Host = hc.Host
+				}
+				for _, h := range hc.HTTPHeaders {
+					req.Header[h.Name] = append(req.Header[h.Name], h.Value)
+				}
+			}
 		}
 		resp, err := client.Do(req)
 		if err != nil {
@@ -1324,7 +1334,6 @@ func TestProbeHeader(t *testing.T) {
 				},
 			},
 			want: http.Header{
-				testHeader:   []string{testHeaderValue},
 				"Connection": []string{"close"},
 			},
 		},
@@ -1342,23 +1351,22 @@ func TestProbeHeader(t *testing.T) {
 				},
 			},
 			want: http.Header{
-				testHeader:   []string{testHeaderValue, testHeaderValue},
 				"Connection": []string{"close"},
 			},
 		},
 		{
 			name: "Proxy overwrites Origin",
 			originHeaders: http.Header{
-				testHeader: []string{testHeaderValue, testHeaderValue},
+				testHeader: []string{testHeaderValue},
 			},
 			proxyHeaders: []apimirror.HTTPHeader{
 				{
 					Name:  testHeader,
-					Value: testHeaderValue + "Over",
+					Value: testHeaderValue + "over",
 				},
 			},
 			want: http.Header{
-				testHeader:   []string{testHeaderValue + "Over"},
+				testHeader:   []string{testHeaderValue},
 				"Connection": []string{"close"},
 			},
 		},

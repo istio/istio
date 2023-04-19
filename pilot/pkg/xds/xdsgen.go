@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/lazy"
 	"istio.io/pkg/env"
 	istioversion "istio.io/pkg/version"
 )
@@ -41,14 +42,8 @@ type IstioControlPlaneInstance struct {
 	Info istioversion.BuildInfo
 }
 
-var controlPlane *core.ControlPlane
-
-// ControlPlane identifies the instance and Istio version.
-func ControlPlane() *core.ControlPlane {
-	return controlPlane
-}
-
-func init() {
+// Evaluate the controlPlane lazily in order to allow "POD_NAME" env var setting after running the process.
+var controlPlane = lazy.New(func() (*core.ControlPlane, error) {
 	// The Pod Name (instance identity) is in PilotArgs, but not reachable globally nor from DiscoveryServer
 	podName := env.Register("POD_NAME", "", "").Get()
 	byVersion, err := json.Marshal(IstioControlPlaneInstance{
@@ -59,7 +54,14 @@ func init() {
 	if err != nil {
 		log.Warnf("XDS: Could not serialize control plane id: %v", err)
 	}
-	controlPlane = &core.ControlPlane{Identifier: string(byVersion)}
+	return &core.ControlPlane{Identifier: string(byVersion)}, nil
+})
+
+// ControlPlane identifies the instance and Istio version.
+func ControlPlane() *core.ControlPlane {
+	// Error will never happen because the getter of lazy does not return error.
+	cp, _ := controlPlane.Get()
+	return cp
 }
 
 func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {

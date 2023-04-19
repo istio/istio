@@ -61,7 +61,7 @@ const (
 	defaultKialiPort      = 20001
 	defaultJaegerPort     = 16686
 	defaultZipkinPort     = 9411
-	defaultSkywalkingPort = 12800
+	defaultSkywalkingPort = 8080
 )
 
 // port-forward to Istio System Prometheus; open browser

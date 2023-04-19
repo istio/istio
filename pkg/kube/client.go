@@ -404,9 +404,6 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 		return nil, err
 	}
 
-	config := rest.CopyConfig(c.config)
-	config.ContentType = runtime.ContentTypeProtobuf
-
 	c.kube, err = kubernetes.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
@@ -557,7 +554,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		fastWaitForCacheSync(stop, c.istioInformer)
 		fastWaitForCacheSync(stop, c.gatewayapiInformer)
 		fastWaitForCacheSync(stop, c.extInformer)
-		_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+		_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
 			select {
 			case <-stop:
 				return false, fmt.Errorf("channel closed")
@@ -639,7 +636,7 @@ type dynamicInformerSync interface {
 func fastWaitForCacheSync(stop <-chan struct{}, informerFactory reflectInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
-	_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+	_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
 		select {
 		case <-stop:
 			return false, fmt.Errorf("channel closed")
@@ -710,7 +707,7 @@ func (c *client) WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.Info
 func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
-	_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+	_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
 		select {
 		case <-stop:
 			return false, fmt.Errorf("channel closed")
@@ -1094,17 +1091,15 @@ func (c *client) UtilFactory() util.Factory {
 func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error {
 	// Create the options.
 	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
-	flags := apply.NewApplyFlags(c.clientFactory, streams)
+	flags := apply.NewApplyFlags(streams)
 	flags.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
 
 	cmd := apply.NewCmdApply("", c.clientFactory, streams)
-	opts, err := flags.ToOptions(cmd, "", nil)
+	opts, err := flags.ToOptions(c.clientFactory, cmd, "", nil)
 	if err != nil {
 		return err
 	}
 	opts.DynamicClient = c.dynamic
-	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamDryRun)
-	opts.FieldValidationVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamFieldValidation)
 	opts.FieldManager = fieldManager
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer
@@ -1139,7 +1134,7 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 
 	opts.OpenAPISchema, _ = c.clientFactory.OpenAPISchema()
 
-	opts.Validator, err = c.clientFactory.Validator(metav1.FieldValidationStrict, opts.FieldValidationVerifier)
+	opts.Validator, err = c.clientFactory.Validator(metav1.FieldValidationStrict)
 	if err != nil {
 		return err
 	}
@@ -1239,7 +1234,6 @@ func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
 	opts.WaitForDeletion = true
 	opts.WarnClusterScope = enforceNamespace
 	opts.DynamicClient = c.dynamic
-	opts.DryRunVerifier = resource.NewQueryParamVerifier(c.dynamic, c.clientFactory.OpenAPIGetter(), resource.QueryParamDryRun)
 
 	if dryRun {
 		opts.DryRunStrategy = util.DryRunServer

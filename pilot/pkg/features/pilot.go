@@ -616,10 +616,6 @@ var (
 		false,
 		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
 
-	StripHostPort = env.Register("ISTIO_GATEWAY_STRIP_HOST_PORT", false,
-		"If enabled, Gateway will remove any port from host/authority header "+
-			"before any processing of request by HTTP filters or routing. Deprecated: in Istio 1.15+ port is ignored in domain matching.").Get()
-
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
 	EnableUnsafeAssertions = env.Register(
@@ -757,6 +753,10 @@ var (
 	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
 		"If set, limit Kubernetes watches to a single namespace. "+
 			"Warning: only a single namespace can be set.").Get()
+
+	// This is a feature flag, can be removed if protobuf proves universally better.
+	KubernetesClientContentType = env.Register("ISTIO_KUBE_CLIENT_CONTENT_TYPE", "protobuf",
+		"The content type to use for Kubernetes clients. Defaults to protobuf. Valid options: [protobuf, json]").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

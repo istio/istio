@@ -73,6 +73,16 @@ func (i Instance) SubsetOf(that Instance) bool {
 	return true
 }
 
+// Match is true if the label has same values for the keys.
+// if len(i) == 0, will return false. It is mainly used for service -> workload
+func (i Instance) Match(that Instance) bool {
+	if len(i) == 0 {
+		return false
+	}
+
+	return i.SubsetOf(that)
+}
+
 // Equals returns true if the labels are equal.
 func (i Instance) Equals(that Instance) bool {
 	return maps.Equal(i, that)

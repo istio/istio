@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
@@ -162,6 +163,11 @@ var (
 	loggerLevelString = ""
 	reset             = false
 )
+
+var isZtunnelPod = func(podName, podNamespace string) bool {
+	client, _ := kubeClient(kubeconfig, configContext)
+	return ambientutil.IsZtunnelPod(client, podName, podNamespace)
+}
 
 func ztunnelLogLevel(level string) string {
 	switch level {
@@ -496,7 +502,7 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 
-					if isZtunnelPod(podName) {
+					if isZtunnelPod(podName, podNamespace) {
 						dump, err = extractZtunnelConfigDump(podName, podNamespace)
 					} else {
 						dump, err = extractConfigDump(podName, podNamespace, false)
@@ -525,7 +531,7 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 
-					if isZtunnelPod(podName) {
+					if isZtunnelPod(podName, podNamespace) {
 						w, err := setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
 						if err != nil {
 							return err
@@ -635,7 +641,7 @@ func workloadConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getComponentPodName(args[0]); err != nil {
 					return err
 				}
-				if !isZtunnelPod(podName) {
+				if !isZtunnelPod(podName, podNamespace) {
 					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
@@ -877,7 +883,7 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if isZtunnelPod(pod) {
+				if isZtunnelPod(pod, podNamespace) {
 					loggerNames[name] = Ztunnel
 				} else {
 					loggerNames[name] = Envoy
@@ -931,7 +937,7 @@ func logCmd() *cobra.Command {
 			var resp string
 			var errs *multierror.Error
 			for _, podName := range podNames {
-				if isZtunnelPod(podName) {
+				if isZtunnelPod(podName, podNamespace) {
 					q := "level=" + ztunnelLogLevel(loggerLevelString)
 					if reset {
 						q += "&reset"
@@ -990,10 +996,6 @@ func logCmd() *cobra.Command {
 			s, levelListString))
 
 	return logCmd
-}
-
-func isZtunnelPod(podName string) bool {
-	return strings.HasPrefix(podName, "ztunnel")
 }
 
 func routeConfigCmd() *cobra.Command {
@@ -1314,7 +1316,7 @@ func secretConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-				if isZtunnelPod(podName) {
+				if isZtunnelPod(podName, podNamespace) {
 					newWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
 				} else {
 					newWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())

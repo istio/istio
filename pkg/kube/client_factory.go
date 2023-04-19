@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	openapiclient "k8s.io/client-go/openapi"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
@@ -166,14 +167,14 @@ func (c *clientFactory) UnstructuredClientForMapping(mapping *meta.RESTMapping) 
 	return c.factory.UnstructuredClientForMapping(mapping)
 }
 
-func (c *clientFactory) Validator(validationDirective string, verifier *resource.QueryParamVerifier) (validation.Schema, error) {
-	return c.factory.Validator(validationDirective, verifier)
+func (c *clientFactory) Validator(validationDirective string) (validation.Schema, error) {
+	return c.factory.Validator(validationDirective)
 }
 
 func (c *clientFactory) OpenAPISchema() (openapi.Resources, error) {
 	return c.factory.OpenAPISchema()
 }
 
-func (c *clientFactory) OpenAPIGetter() discovery.OpenAPISchemaInterface {
-	return c.factory.OpenAPIGetter()
+func (c *clientFactory) OpenAPIV3Client() (openapiclient.Client, error) {
+	return c.factory.OpenAPIV3Client()
 }

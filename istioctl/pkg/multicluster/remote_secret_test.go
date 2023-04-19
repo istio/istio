@@ -112,12 +112,17 @@ func TestCreateRemoteSecrets(t *testing.T) {
 	prevOutputWriterStub := makeOutputWriterTestHook
 	defer func() { makeOutputWriterTestHook = prevOutputWriterStub }()
 
+	prevTokenWaitBackoff := tokenWaitBackoff
+	defer func() { tokenWaitBackoff = prevTokenWaitBackoff }()
+
 	sa := makeServiceAccount("saSecret")
 	sa2 := makeServiceAccount("saSecret", "saSecret2")
 	saSecret := makeSecret("saSecret", "caData", "token")
 	saSecret2 := makeSecret("saSecret2", "caData", "token")
 	saSecretMissingToken := makeSecret("saSecret", "caData", "")
 	badStartingConfigErrStr := "could not find cluster for context"
+
+	tokenWaitBackoff = 10 * time.Millisecond
 
 	cases := []struct {
 		testName string
