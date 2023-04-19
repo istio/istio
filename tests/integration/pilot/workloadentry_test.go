@@ -78,9 +78,7 @@ spec:
       mode: AUTO_PASSTHROUGH
 `
 			// Configure an AUTO_PASSTHROUGH EW gateway
-			if err := t.ConfigIstio().YAML("istio-system", gatewayCfg).Apply(apply.CleanupConditionally); err != nil {
-				t.Fatal(err)
-			}
+			t.ConfigIstio().YAML("istio-system", gatewayCfg).ApplyOrFail(t, apply.CleanupConditionally)
 
 			ewGatewayIP, ewGatewayPort := ist.EastWestGatewayFor(clusterCfg).AddressForPort(15443)
 			if ewGatewayIP == "" || ewGatewayPort == 0 { // most likely EW gateway is not deployed, skip testing
@@ -121,9 +119,7 @@ spec:
   address: %s`, ewGatewayPort, ewGatewayIP)
 
 			// Configure ServiceEntry & WorkloadEntry
-			if err := t.ConfigIstio().YAML(namespaceName, workloadEntryYaml).Apply(apply.CleanupConditionally); err != nil {
-				t.Fatal(err)
-			}
+			t.ConfigIstio().YAML(namespaceName, workloadEntryYaml).ApplyOrFail(t, apply.CleanupConditionally)
 
 			srcs := apps.All.Instances()
 			for _, src := range srcs {
@@ -133,7 +129,10 @@ spec:
 				//      naked
 				//      proxyless-grpc
 				//      vm
-				if srcName == commonDeployment.ProxylessGRPCSvc || srcName == commonDeployment.NakedSvc || srcName == commonDeployment.ExternalSvc || srcName == commonDeployment.VMSvc {
+				if srcName == commonDeployment.ProxylessGRPCSvc ||
+					srcName == commonDeployment.NakedSvc ||
+					srcName == commonDeployment.ExternalSvc ||
+					srcName == commonDeployment.VMSvc {
 					continue
 				}
 				srcCluster := src.Config().Cluster.Name()
