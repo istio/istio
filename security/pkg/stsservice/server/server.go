@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/network"
-
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/pkg/log"
