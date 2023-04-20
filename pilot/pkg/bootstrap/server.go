@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -64,6 +63,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
@@ -416,20 +416,7 @@ func getClusterID(args *PilotArgs) cluster.ID {
 	return clusterID
 }
 
-func isUnexpectedListenerError(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, net.ErrClosed) {
-		return false
-	}
-	if errors.Is(err, http.ErrServerClosed) {
-		return false
-	}
-	return true
-}
-
-// Start starts all components of the Pilot discovery service on the port specified in DiscoveryServerOptions.
+// Start starts all components of the error serving tap http serverPilot discovery service on the port specified in DiscoveryServerOptions.
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
 func (s *Server) Start(stop <-chan struct{}) error {
@@ -484,7 +471,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}
 		go func() {
 			log.Infof("starting webhook service at %s", httpsListener.Addr())
-			if err := s.httpsServer.ServeTLS(httpsListener, "", ""); isUnexpectedListenerError(err) {
+			if err := s.httpsServer.ServeTLS(httpsListener, "", ""); network.IsUnexpectedListenerError(err) {
 				log.Errorf("error serving https server: %v", err)
 			}
 		}()
@@ -1352,7 +1339,7 @@ func (s *Server) serveHTTP() error {
 	}
 	go func() {
 		log.Infof("starting HTTP service at %s", httpListener.Addr())
-		if err := s.httpServer.Serve(httpListener); isUnexpectedListenerError(err) {
+		if err := s.httpServer.Serve(httpListener); network.IsUnexpectedListenerError(err) {
 			log.Errorf("error serving http server: %v", err)
 		}
 	}()

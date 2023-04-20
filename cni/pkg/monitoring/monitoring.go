@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
 
+	"istio.io/istio/pkg/network"
 	"istio.io/pkg/log"
 )
 
@@ -48,8 +49,7 @@ func SetupMonitoring(port int, path string, stop <-chan struct{}) {
 		Handler: mux,
 	}
 	go func() {
-		err = monitoringServer.Serve(listener)
-		if err != nil {
+		if err = monitoringServer.Serve(listener); network.IsUnexpectedListenerError(err) {
 			log.Errorf("error running monitoring http server: %s", err)
 		}
 	}()
