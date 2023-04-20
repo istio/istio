@@ -167,11 +167,16 @@ func (c *Controller) AddHandler(h ClusterHandler) {
 
 // Run starts the controller until it receives a message over stopCh
 func (c *Controller) Run(stopCh <-chan struct{}) error {
-	// run handlers for the config cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
-	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
-	configCluster := &Cluster{Client: c.configClusterClient, ID: c.configClusterID}
-	if err := c.handleAdd(configCluster, stopCh); err != nil {
-		return fmt.Errorf("failed initializing primary cluster %s: %v", c.configClusterID, err)
+	// When these two are set to true, Istiod will not add config cluster to multicluster
+	if features.ExternalIstiod && features.DisableConfigClusterDiscovery {
+		log.Infof("skip initializing primary cluster %s", c.configClusterID)
+	} else {
+		// run handlers for the config cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
+		// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
+		configCluster := &Cluster{Client: c.configClusterClient, ID: c.configClusterID}
+		if err := c.handleAdd(configCluster, stopCh); err != nil {
+			return fmt.Errorf("failed initializing primary cluster %s: %v", c.configClusterID, err)
+		}
 	}
 	go func() {
 		t0 := time.Now()
