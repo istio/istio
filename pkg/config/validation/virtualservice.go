@@ -144,7 +144,7 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 
 					if _, ok := header.GetMatchType().(*networking.StringMatch_Prefix); ok {
 						if header.GetPrefix() == "" {
-							errs = appendErrors(errs, fmt.Errorf("header match %v may not be empty", name))
+							errs = appendErrors(errs, fmt.Errorf("header prefix match %v may not be empty", name))
 						}
 					}
 
@@ -171,7 +171,7 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 
 					if _, ok := header.GetMatchType().(*networking.StringMatch_Prefix); ok {
 						if header.GetPrefix() == "" {
-							errs = appendErrors(errs, fmt.Errorf("header match %v may not be empty", name))
+							errs = appendErrors(errs, fmt.Errorf("header prefix match %v may not be empty", name))
 						}
 					}
 
