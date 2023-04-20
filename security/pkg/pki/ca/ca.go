@@ -16,6 +16,7 @@ package ca
 
 import (
 	"context"
+	"crypto/elliptic"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -364,8 +365,16 @@ func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration, checkLi
 	// use the type of private key the CA uses to generate an intermediate CA of that type (e.g. CA cert using RSA will
 	// cause intermediate CAs using RSA to be generated)
 	_, signingKey, _, _ := ca.keyCertBundle.GetAll()
-	if util.IsSupportedECPrivateKey(signingKey) {
+	if curve, err := util.GetElipticCurve(signingKey); err == nil {
 		opts.ECSigAlg = util.EcdsaSigAlg
+		switch curve {
+		case elliptic.P384():
+			opts.ECCCurve = util.P384Curve
+		case elliptic.P256():
+			fallthrough
+		default:
+			opts.ECCCurve = util.P256Curve
+		}
 	}
 
 	csrPEM, privPEM, err := util.GenCSR(opts)

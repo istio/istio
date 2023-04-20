@@ -355,14 +355,19 @@ func TestGetRSAKeySize(t *testing.T) {
 
 func TestIsSupportedECPrivateKey(t *testing.T) {
 	_, ed25519PrivKey, _ := ed25519.GenerateKey(nil)
-	ecdsaPrivKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	ecdsaPrivKeyP256, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	ecdsaPrivKeyP384, _ := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 
 	cases := map[string]struct {
 		key         crypto.PrivateKey
 		isSupported bool
 	}{
-		"ECDSA": {
-			key:         ecdsaPrivKey,
+		"ECDSA-P256": {
+			key:         ecdsaPrivKeyP256,
+			isSupported: true,
+		},
+		"ECDSA-P384": {
+			key:         ecdsaPrivKeyP384,
 			isSupported: true,
 		},
 		"ED25519": {
@@ -372,7 +377,7 @@ func TestIsSupportedECPrivateKey(t *testing.T) {
 	}
 
 	for id, tc := range cases {
-		if IsSupportedECPrivateKey(&tc.key) != tc.isSupported {
+		if _, err := GetElipticCurve(&tc.key); err != nil {
 			t.Errorf("%s: does not match expected support level for EC signature algorithms", id)
 		}
 	}

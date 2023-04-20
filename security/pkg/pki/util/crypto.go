@@ -17,6 +17,7 @@ package util
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -130,14 +131,14 @@ func GetRSAKeySize(privKey crypto.PrivateKey) (int, error) {
 	return pkey.N.BitLen(), nil
 }
 
-// IsSupportedECPrivateKey is a predicate returning true if the private key is EC based
-func IsSupportedECPrivateKey(privKey *crypto.PrivateKey) bool {
-	switch (*privKey).(type) {
+// GetElipticCurve is a predicate returning true if the private key is EC based
+func GetElipticCurve(privKey *crypto.PrivateKey) (elliptic.Curve, error) {
+	switch key := (*privKey).(type) {
 	// this should agree with var SupportedECSignatureAlgorithms
 	case *ecdsa.PrivateKey:
-		return true
+		return key.Curve, nil
 	default:
-		return false
+		return elliptic.P256(), nil
 	}
 }
 
