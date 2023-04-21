@@ -487,7 +487,6 @@ func ConvertStructToAttributeKeyValues(labels map[string]*structpb.Value) []*otl
 	return attrList
 }
 
-// FIXME: this is a copy of extensionproviders.LookupCluster to avoid import cycle
 func LookupCluster(push *PushContext, service string, port int) (hostname string, cluster string, err error) {
 	if service == "" {
 		err = fmt.Errorf("service must not be empty")

@@ -28,7 +28,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
-	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -44,7 +43,7 @@ func TestConfigureTracing(t *testing.T) {
 		return authority, clusterName, nil
 	}
 	defer func() {
-		clusterLookupFn = extensionproviders.LookupCluster
+		clusterLookupFn = model.LookupCluster
 	}()
 
 	defaultUUIDExtensionCtx := requestidextension.UUIDRequestIDExtensionContext{

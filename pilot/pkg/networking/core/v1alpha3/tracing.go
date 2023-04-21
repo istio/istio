@@ -32,7 +32,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	telemetrypb "istio.io/api/telemetry/v1alpha1"
-	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -56,7 +55,7 @@ const (
 )
 
 // this is used for testing. it should not be changed in regular code.
-var clusterLookupFn = extensionproviders.LookupCluster
+var clusterLookupFn = model.LookupCluster
 
 type typedConfigGenFn func() (*anypb.Any, error)
 
