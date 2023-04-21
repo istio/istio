@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
@@ -821,7 +822,7 @@ func (p *XdsProxy) initDebugInterface(port int) error {
 
 	go func() {
 		log.Infof("starting Http service at %s", listener.Addr())
-		if err := p.httpTapServer.Serve(listener); err != nil {
+		if err := p.httpTapServer.Serve(listener); network.IsUnexpectedListenerError(err) {
 			log.Errorf("error serving tap http server: %v", err)
 		}
 	}()

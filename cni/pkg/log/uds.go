@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/uds"
 	"istio.io/pkg/log"
 )
@@ -61,8 +62,7 @@ func (l *UDSLogger) StartUDSLogServer(sockAddress string, stop <-chan struct{}) 
 		return fmt.Errorf("failed to create UDS listener: %v", err)
 	}
 	go func() {
-		if err := l.loggingServer.Serve(unixListener); err != nil &&
-			err != http.ErrServerClosed {
+		if err := l.loggingServer.Serve(unixListener); network.IsUnexpectedListenerError(err) {
 			log.Errorf("Error running UDS log server: %v", err)
 		}
 	}()
