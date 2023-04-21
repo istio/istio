@@ -59,6 +59,9 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 	}
 	for _, route := range routes {
 		if filter.Verify(route) {
+			if includeConfigType {
+				route.Name = fmt.Sprintf("route/%s", route.Name)
+			}
 			if filter.Verbose {
 				for _, vhosts := range route.GetVirtualHosts() {
 					for _, r := range vhosts.Routes {

@@ -31,6 +31,7 @@ import (
 	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer"
+	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
@@ -555,6 +556,8 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 				}
+				configdump.SetPrintConfigTypeInSummary(true)
+				sdscompare.SetPrintConfigTypeInSummary(true)
 				return configWriter.PrintFullSummary(
 					configdump.ClusterFilter{
 						FQDN:      host.Name(fqdn),
@@ -571,6 +574,12 @@ func allConfigCmd() *cobra.Command {
 					configdump.RouteFilter{
 						Name:    routeName,
 						Verbose: verboseProxyConfig,
+					},
+					configdump.EndpointFilter{
+						Address: address,
+						Port:    uint32(port),
+						Cluster: clusterName,
+						Status:  status,
 					},
 				)
 			default:
