@@ -22,12 +22,10 @@ func init() {
 	)
 }
 
-var (
-	providerLookupClusterFailures = monitoring.NewSum(
-		"provider_lookup_cluster_failures",
-		"Number of times a cluster lookup failed",
-		monitoring.WithLabels(typeTag),
-	)
+var providerLookupClusterFailures = monitoring.NewSum(
+	"provider_lookup_cluster_failures",
+	"Number of times a cluster lookup failed",
+	monitoring.WithLabels(typeTag),
 )
 
 func IncLookupClusterFailures(provider string) {
