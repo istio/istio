@@ -155,6 +155,7 @@ func tcpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConfi
 
 	hostname, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
 	if err != nil {
+		IncLookupClusterFailures("envoyTCPAls")
 		log.Errorf("could not find cluster for tcp grpc provider %q: %v", prov, err)
 		return nil
 	}
@@ -306,6 +307,7 @@ func httpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConf
 
 	hostname, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
 	if err != nil {
+		IncLookupClusterFailures("envoyHTTPAls")
 		log.Errorf("could not find cluster for http grpc provider %q: %v", prov, err)
 		return nil
 	}
@@ -407,6 +409,7 @@ func openTelemetryLog(pushCtx *PushContext,
 ) *accesslog.AccessLog {
 	hostname, cluster, err := clusterLookupFn(pushCtx, provider.Service, int(provider.Port))
 	if err != nil {
+		IncLookupClusterFailures("envoyOtelAls")
 		log.Errorf("could not find cluster for open telemetry provider %q: %v", provider, err)
 		return nil
 	}

@@ -275,6 +275,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			} else if features.JwksFetchMode == jwt.Hybrid {
 				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
 			} else {
+				model.IncLookupClusterFailures("jwks")
 				// Log error and create remote JWKs with fake cluster
 				authnLog.Errorf("Failed to look up Envoy cluster %v. "+
 					"Please create ServiceEntry to register external JWKs server or "+

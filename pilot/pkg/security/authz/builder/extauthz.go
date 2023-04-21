@@ -154,6 +154,7 @@ func buildExtAuthzHTTP(push *model.PushContext,
 	}
 	hostname, cluster, err := model.LookupCluster(push, config.Service, port)
 	if err != nil {
+		model.IncLookupClusterFailures("authz")
 		errs = multierror.Append(errs, err)
 	}
 	status, err := parseStatusOnError(config.StatusOnError)

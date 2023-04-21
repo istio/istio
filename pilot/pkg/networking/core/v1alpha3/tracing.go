@@ -152,6 +152,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, cluster, err := clusterLookupFn(pushCtx, provider.Zipkin.GetService(), int(provider.Zipkin.GetPort()))
 			if err != nil {
+				model.IncLookupClusterFailures("zipkin")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			return zipkinConfig(hostname, cluster, !provider.Zipkin.GetEnable_64BitTraceId())
@@ -162,6 +163,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, cluster, err := clusterLookupFn(pushCtx, provider.Datadog.GetService(), int(provider.Datadog.GetPort()))
 			if err != nil {
+				model.IncLookupClusterFailures("datadog")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			return datadogConfig(serviceCluster, hostname, cluster)
@@ -174,6 +176,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Lightstep.GetService(), int(provider.Lightstep.GetPort()))
 			if err != nil {
+				model.IncLookupClusterFailures("lightstep")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			// TODO: read raw metadata and retrieve lightstep extensions (instead of relying on version)
@@ -196,6 +199,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Skywalking.GetService(), int(provider.Skywalking.GetPort()))
 			if err != nil {
+				model.IncLookupClusterFailures("skywalking")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			return skywalkingConfig(clusterName, hostname)
@@ -216,6 +220,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Opentelemetry.GetService(), int(provider.Opentelemetry.GetPort()))
 			if err != nil {
+				model.IncLookupClusterFailures("opentelemetry")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			return otelConfig(serviceCluster, hostname, clusterName)
