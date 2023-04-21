@@ -39,8 +39,9 @@ import (
 	"os"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/features"
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/docker/docker/pkg/parsers/kernel"
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
 	"github.com/hashicorp/go-multierror"
@@ -202,7 +203,17 @@ func (p *eBPFProgsNew) Close() error {
 }
 
 func EBPFTproxySupport() bool {
-	return kernel.CheckKernelVersion(5, 7, 0)
+	err := features.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkAssign)
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		log.Infof("FnSkAssign (Linux 5.7 or later) is not supported in current kernel")
+	} else {
+		log.Errorf("failed to query ebpf helper availability: %v", err)
+	}
+
+	return false
 }
 
 func (r *RedirectServer) SetLogLevel(level string) {

@@ -829,83 +829,84 @@ func (s *Server) CreateEBPFRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP,
 		}
 
 		if ebpf.EBPFTproxySupport() {
-			log.Infof("Current kernel version support tproxy in eBPF, skip the iptables rules.")
 			return nil
 		}
-
-		err = addOrgSrcMarkRule()
-		if err != nil {
-			return fmt.Errorf("failed to add OrgSrc mark rules: %v", err)
-		}
-
-		// Flush prerouting table - this should be a new pod netns and it should be clean, but just to be safe..
-		err = execute(s.IptablesCmd(), "-t", "mangle", "-F", "PREROUTING")
-		if err != nil {
-			return fmt.Errorf("failed to configure iptables rule: %v", err)
-		}
-
-		// Set up append rules
-		appendRules := []*iptablesRule{
-			// Set eBPF mark on inbound packets
-			newIptableRule(
-				constants.TableMangle,
-				"PREROUTING",
-				"-p", "tcp",
-				"-m", "mark",
-				"--mark", constants.EBPFInboundMark,
-				"-m", "tcp",
-				"--dport", fmt.Sprintf("%d", constants.ZtunnelInboundPort),
-				"-j", "TPROXY",
-				"--tproxy-mark", fmt.Sprintf("0x%x", constants.TProxyMark)+"/"+fmt.Sprintf("0x%x", constants.TProxyMask),
-				"--on-port", fmt.Sprintf("%d", constants.ZtunnelInboundPort),
-				"--on-ip", "127.0.0.1",
-			),
-			// Same mark, but on plaintext port
-			newIptableRule(
-				constants.TableMangle,
-				"PREROUTING",
-				"-p", "tcp",
-				"-m", "mark",
-				"--mark", constants.EBPFInboundMark,
-				"-j", "TPROXY",
-				"--tproxy-mark", fmt.Sprintf("0x%x", constants.TProxyMark)+"/"+fmt.Sprintf("0x%x", constants.TProxyMask),
-				"--on-port", fmt.Sprintf("%d", constants.ZtunnelInboundPlaintextPort),
-				"--on-ip", "127.0.0.1",
-			),
-			// Set outbound eBPF mark
-			newIptableRule(
-				constants.TableMangle,
-				"PREROUTING",
-				"-p", "tcp",
-				"-m", "mark",
-				"--mark", constants.EBPFOutboundMark,
-				"-j", "TPROXY",
-				"--tproxy-mark", fmt.Sprintf("0x%x", constants.TProxyMark)+"/"+fmt.Sprintf("0x%x", constants.TProxyMask),
-				"--on-port", fmt.Sprintf("%d", constants.ZtunnelOutboundPort),
-				"--on-ip", "127.0.0.1",
-			),
-			// For anything NOT going to the ztunnel IP, add the OrgSrcRet mark
-			newIptableRule(
-				constants.TableMangle,
-				"PREROUTING",
-				"-p", "tcp",
-				"-i", vethLink.Attrs().Name,
-				"!",
-				"--dst", ztunnelIP,
-				"-j", "MARK",
-				"--set-mark", fmt.Sprintf("0x%x", constants.OrgSrcRetMark)+"/"+fmt.Sprintf("0x%x", constants.OrgSrcRetMask),
-			),
-		}
-
-		err = s.iptablesAppend(appendRules)
-		if err != nil {
-			log.Errorf("failed to append iptables rule: %v", err)
-		}
-
-		return nil
+		log.Infof("Current kernel doesn't support tproxy in eBPF, fall back to iptables tproxy rules")
+		return s.createTroxyRulesForLegacyEBPF(ztunnelIP, vethLink.Attrs().Name)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to configure ztunnel ebpf from within ns(%s): %v", ns, err)
+	}
+
+	return nil
+}
+
+func (s *Server) createTroxyRulesForLegacyEBPF(ztunnelIP, ifName string) error {
+	err := addOrgSrcMarkRule()
+	if err != nil {
+		return fmt.Errorf("failed to add OrgSrc mark rules: %v", err)
+	}
+
+	// Flush prerouting table - this should be a new pod netns and it should be clean, but just to be safe..
+	err = execute(s.IptablesCmd(), "-t", "mangle", "-F", "PREROUTING")
+	if err != nil {
+		return fmt.Errorf("failed to configure iptables rule: %v", err)
+	}
+
+	// Set up append rules
+	appendRules := []*iptablesRule{
+		// Set eBPF mark on inbound packets
+		newIptableRule(
+			constants.TableMangle,
+			"PREROUTING",
+			"-p", "tcp",
+			"-m", "mark",
+			"--mark", constants.EBPFInboundMark,
+			"-m", "tcp",
+			"--dport", fmt.Sprintf("%d", constants.ZtunnelInboundPort),
+			"-j", "TPROXY",
+			"--tproxy-mark", fmt.Sprintf("0x%x", constants.TProxyMark)+"/"+fmt.Sprintf("0x%x", constants.TProxyMask),
+			"--on-port", fmt.Sprintf("%d", constants.ZtunnelInboundPort),
+			"--on-ip", "127.0.0.1",
+		),
+		// Same mark, but on plaintext port
+		newIptableRule(
+			constants.TableMangle,
+			"PREROUTING",
+			"-p", "tcp",
+			"-m", "mark",
+			"--mark", constants.EBPFInboundMark,
+			"-j", "TPROXY",
+			"--tproxy-mark", fmt.Sprintf("0x%x", constants.TProxyMark)+"/"+fmt.Sprintf("0x%x", constants.TProxyMask),
+			"--on-port", fmt.Sprintf("%d", constants.ZtunnelInboundPlaintextPort),
+			"--on-ip", "127.0.0.1",
+		),
+		// Set outbound eBPF mark
+		newIptableRule(
+			constants.TableMangle,
+			"PREROUTING",
+			"-p", "tcp",
+			"-m", "mark",
+			"--mark", constants.EBPFOutboundMark,
+			"-j", "TPROXY",
+			"--tproxy-mark", fmt.Sprintf("0x%x", constants.TProxyMark)+"/"+fmt.Sprintf("0x%x", constants.TProxyMask),
+			"--on-port", fmt.Sprintf("%d", constants.ZtunnelOutboundPort),
+			"--on-ip", "127.0.0.1",
+		),
+		// For anything NOT going to the ztunnel IP, add the OrgSrcRet mark
+		newIptableRule(
+			constants.TableMangle,
+			"PREROUTING",
+			"-p", "tcp",
+			"-i", ifName,
+			"!",
+			"--dst", ztunnelIP,
+			"-j", "MARK",
+			"--set-mark", fmt.Sprintf("0x%x", constants.OrgSrcRetMark)+"/"+fmt.Sprintf("0x%x", constants.OrgSrcRetMask),
+		),
+	}
+	if err := s.iptablesAppend(appendRules); err != nil {
+		return fmt.Errorf("failed to append iptables rule: %v", err)
 	}
 
 	return nil

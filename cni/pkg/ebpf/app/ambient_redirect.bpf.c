@@ -377,38 +377,37 @@ int ztunnel_tproxy(struct __sk_buff *skb)
         return TC_ACT_SHOT;
 
     sk = bpf_skc_lookup_tcp(skb, tuple, tuple_len, BPF_F_CURRENT_NETNS, 0);
-    if (sk) {
-        if (sk->state != BPF_TCP_LISTEN) {
-            goto assign;
-        }
+    if (sk && sk->state == BPF_TCP_LISTEN) {
         bpf_sk_release(sk);
+        sk = NULL;
     }
+    if (!sk) {
+        // No exisiting connection, try to find listner
+        __builtin_memset(&proxy_tup, 0, sizeof(proxy_tup));
 
-    __builtin_memset(&proxy_tup, 0, sizeof(proxy_tup));
-
-    if (skb->cb[4] == OUTBOUND_CB) {
-        proxy_port = bpf_htons(ZTUNNEL_OUTBOUND_PORT);
-    } else {
-        if (tuple->ipv4.dport != bpf_htons(ZTUNNEL_INBOUND_PORT)) {
-            // for plaintext case
-            proxy_port = bpf_htons(ZTUNNEL_INBOUND_PLAINTEXT_PORT);
+        if (skb->cb[4] == OUTBOUND_CB) {
+            proxy_port = bpf_htons(ZTUNNEL_OUTBOUND_PORT);
         } else {
-            proxy_port = bpf_htons(ZTUNNEL_INBOUND_PORT);
+            if (tuple->ipv4.dport != bpf_htons(ZTUNNEL_INBOUND_PORT)) {
+                // for plaintext case
+                proxy_port = bpf_htons(ZTUNNEL_INBOUND_PLAINTEXT_PORT);
+            } else {
+                proxy_port = bpf_htons(ZTUNNEL_INBOUND_PORT);
+            }
+        }
+
+        proxy_tup.ipv4.dport = proxy_port;
+
+        sk = bpf_skc_lookup_tcp(skb, &proxy_tup, tuple_len, BPF_F_CURRENT_NETNS, 0);
+        if (sk && sk->state != BPF_TCP_LISTEN) {
+            bpf_sk_release(sk);
+            sk = NULL;
         }
     }
-
-    proxy_tup.ipv4.dport = proxy_port;
-
-    sk = bpf_skc_lookup_tcp(skb, &proxy_tup, tuple_len, BPF_F_CURRENT_NETNS, 0);
     if (!sk) {
         return TC_ACT_OK;
     }
-    if (sk->state != BPF_TCP_LISTEN) {
-        bpf_sk_release(sk);
-        return TC_ACT_SHOT;
-    }
 
-assign:
     ret = bpf_sk_assign(skb, sk, 0);
     bpf_sk_release(sk);
 
