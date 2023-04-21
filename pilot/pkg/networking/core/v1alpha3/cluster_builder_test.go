@@ -1108,14 +1108,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		clusterID istiocluster.ID, lbls labels.Instance,
 	) *core.Metadata {
 		newmeta := &core.Metadata{}
-		util.AppendLbEndpointMetadata(&model.EndpointMetadata{
-			Network:      networkID,
-			TLSMode:      tlsMode,
-			WorkloadName: workloadname,
-			Namespace:    namespace,
-			ClusterID:    clusterID,
-			Labels:       lbls,
-		}, newmeta)
+		util.AppendLbEndpointMetadata(networkID, tlsMode, workloadname, namespace, clusterID, lbls, newmeta)
 		return newmeta
 	}
 

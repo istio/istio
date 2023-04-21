@@ -570,16 +570,24 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 			Metadata: &core.Metadata{},
 		}
 
-		metadata := instance.Endpoint.Metadata()
+		labels := instance.Endpoint.Labels
+		ns := instance.Endpoint.Namespace
 		if features.CanonicalServiceForMeshExternalServiceEntry && service.MeshExternal {
-			metadata.Namespace = service.Attributes.Namespace
+			ns = service.Attributes.Namespace
 			svcLabels := service.Attributes.Labels
 			if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
-				metadata.Labels[model.IstioCanonicalServiceLabelName] = svcLabels[model.IstioCanonicalServiceLabelName]
-				metadata.Labels[model.IstioCanonicalServiceRevisionLabelName] = svcLabels[model.IstioCanonicalServiceRevisionLabelName]
+				labels = map[string]string{
+					model.IstioCanonicalServiceLabelName:         svcLabels[model.IstioCanonicalServiceLabelName],
+					model.IstioCanonicalServiceRevisionLabelName: svcLabels[model.IstioCanonicalServiceRevisionLabelName],
+				}
+				for k, v := range instance.Endpoint.Labels {
+					labels[k] = v
+				}
 			}
 		}
-		util.AppendLbEndpointMetadata(metadata, ep.Metadata)
+
+		util.AppendLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
+			ns, instance.Endpoint.Locality.ClusterID, labels, ep.Metadata)
 
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
