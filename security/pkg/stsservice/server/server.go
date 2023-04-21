@@ -100,7 +100,7 @@ func NewServer(config Config, tokenManager security.TokenManager) (*Server, erro
 	go func() {
 		stsServerLog.Infof("Start listening on %s:%d", config.LocalHostAddr, s.Port)
 		if err := s.stsServer.Serve(ln); network.IsUnexpectedListenerError(err) {
-			// ListenAndServe always returns a non-nil error.
+			// Serve always returns a non-nil error.
 			stsServerLog.Error(err)
 		}
 	}()
