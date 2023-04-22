@@ -17,6 +17,7 @@ package tpath
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/util"
@@ -28,6 +29,7 @@ func TestGetFromStructPath(t *testing.T) {
 		nodeYAML  string
 		path      string
 		wantYAML  string
+		wantYAMLS []string
 		wantFound bool
 		wantErr   string
 	}{
@@ -134,6 +136,65 @@ g:
 			wantFound: false,
 			wantErr:   "getFromStructPath path e, unsupported type string",
 		},
+		{
+			desc: "GetMapEntryItemFromWildCard",
+			nodeYAML: `
+a: va
+b: vb
+c:
+  d: vd
+  e:
+    f: vf
+g:
+  h:
+  - i: vi
+    j: vj
+    k:
+      l:
+        m: vm
+        n: vm
+`,
+			path: "c.*",
+			wantYAMLS: []string{`vd
+`, `
+f: vf
+`},
+			wantFound: true,
+		},
+		{
+			desc: "GetSliceEntryItemFromWildCard",
+			nodeYAML: `
+a: va
+b: vb
+c:
+  d: vd
+  e:
+    f: vf
+g:
+  h:
+  - i: vi
+    j: vj
+    k:
+      l:
+        m: vm
+        n: vm
+        o:
+          p: vp
+  - k:
+      l:
+        m: vm-slice2
+`,
+			path: "g.h[*].k.l.*",
+			wantYAMLS: []string{`vm
+`,
+				`vm
+`,
+				`p: vp
+`,
+				`vm-slice2
+`},
+			wantFound: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -152,11 +213,41 @@ g:
 			if tt.wantErr != "" || !tt.wantFound {
 				return
 			}
-			gotYAML := util.ToYAML(GotOut)
-			diff := util.YAMLDiff(gotYAML, tt.wantYAML)
-			if diff != "" {
-				t.Errorf("GetFromStructPath(%s): YAML of gotOut:\n%s\n, YAML of wantOut:\n%s\n, diff:\n%s\n", tt.desc, gotYAML, tt.wantYAML, diff)
+			switch gt := GotOut.(type) {
+			case []any:
+				if len(tt.wantYAMLS) != len(gt) {
+					t.Fatalf("GetFromStructPath(%s): gotOut:%v, wantOut:%v", tt.desc, GotOut, tt.wantYAMLS)
+				}
+				for i, got := range gt {
+					want := tt.wantYAMLS[i]
+					gotYAML := util.ToYAML(got)
+					diff := diffOut(gotYAML, want)
+					if diff != "" {
+						t.Errorf("GetFromStructPath(%s): YAML of gotOut:\n%s\n, YAML of wantOut:\n%s\n, diff:\n%s\n", tt.desc, gotYAML, want, diff)
+					}
+				}
+			default:
+				if tt.wantYAML != "" {
+					gotYAML := util.ToYAML(GotOut)
+					diff := diffOut(gotYAML, tt.wantYAML)
+					if diff != "" {
+						t.Errorf("GetFromStructPath(%s): YAML of gotOut:\n%s\n, YAML of wantOut:\n%s\n, diff:\n%s\n", tt.desc, gotYAML, tt.wantYAML, diff)
+					}
+				}
 			}
 		})
 	}
+}
+
+func diffOut(got, want string) string {
+	if isYAML(got) {
+		return util.YAMLDiff(got, want)
+	}
+	return cmp.Diff(got, want)
+}
+
+func isYAML(s string) bool {
+	var out map[string]interface{}
+	err := yaml.Unmarshal([]byte(s), &out)
+	return err == nil
 }

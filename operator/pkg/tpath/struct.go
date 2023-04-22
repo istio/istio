@@ -20,6 +20,7 @@ package tpath
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -33,7 +34,23 @@ func GetFromStructPath(node any, path string) (any, bool, error) {
 }
 
 // getFromStructPath is the internal implementation of GetFromStructPath which recurses through a tree of Go structs
-// given a path. It terminates when the end of the path is reached or a path element does not exist.
+// given a path. It terminates when the end of the path is reached or a path element does not exist. It also supports
+// wildcard matching using '*' as a path element for maps and slices. When '*' is used in a map or a slice, it iterates
+// through all elements in the collection and applies the remaining path.
+//
+// For example, given the following JSON-like structure:
+//
+//	{
+//	  "a": [
+//	    {"x": 1, "y": 2},
+//	    {"x": 3, "y": 4}
+//	  ],
+//	  "b": {
+//	    "c": {"x": 5, "y": 6}
+//	  }
+//	}
+//
+// The path "a[*].x" would return [1, 3], and the path "b.*.y" would return [6].
 func getFromStructPath(node any, path util.Path) (any, bool, error) {
 	scope.Debugf("getFromStructPath path=%s, node(%T)", path, node)
 	if len(path) == 0 {
@@ -57,17 +74,68 @@ func getFromStructPath(node any, path util.Path) (any, bool, error) {
 		if path[0] == "" {
 			return nil, false, fmt.Errorf("getFromStructPath path %s, empty map key value", path)
 		}
-		mapVal := val.MapIndex(reflect.ValueOf(path[0]))
-		if !mapVal.IsValid() {
-			return nil, false, fmt.Errorf("getFromStructPath path %s, path does not exist", path)
+		if path[0] == "*" {
+			results := make([]any, 0)
+			var f bool
+
+			// Make the order of the keys deterministic, for testing.
+			unsortedKeys := val.MapKeys()
+			keys := make([]reflect.Value, len(unsortedKeys))
+			for i, key := range unsortedKeys {
+				keys[i] = key
+			}
+			sort.Slice(keys, func(i, j int) bool {
+				return keys[i].String() < keys[j].String()
+			})
+			// 3. Iterate through the sorted keys
+			for _, key := range keys {
+				subResult, t, err := getFromStructPath(val.MapIndex(key).Interface(), path[1:])
+				if err != nil {
+					return nil, false, err
+				}
+				f = f || t
+				switch sr := subResult.(type) {
+				case []any:
+					results = append(results, sr...)
+				default:
+					results = append(results, sr)
+
+				}
+			}
+			return results, f, nil
+		} else {
+			mapVal := val.MapIndex(reflect.ValueOf(path[0]))
+			if !mapVal.IsValid() {
+				return nil, false, fmt.Errorf("getFromStructPath path %s, path does not exist", path)
+			}
+			return getFromStructPath(mapVal.Interface(), path[1:])
 		}
-		return getFromStructPath(mapVal.Interface(), path[1:])
 	case reflect.Slice:
-		idx, err := strconv.Atoi(path[0])
-		if err != nil {
-			return nil, false, fmt.Errorf("getFromStructPath path %s, expected index number, got %s", path, path[0])
+		p := sanitizeField(path[0])
+		if p == "*" {
+			results := make([]any, 0)
+			var f bool
+			for i := 0; i < val.Len(); i++ {
+				subResult, t, err := getFromStructPath(val.Index(i).Interface(), path[1:])
+				if err != nil {
+					return nil, false, err
+				}
+				f = f || t
+				switch sr := subResult.(type) {
+				case []any:
+					results = append(results, sr...)
+				default:
+					results = append(results, sr)
+				}
+			}
+			return results, f, nil
+		} else {
+			idx, err := strconv.Atoi(path[0])
+			if err != nil {
+				return nil, false, fmt.Errorf("getFromStructPath path %s, expected index number, got %s", path, path[0])
+			}
+			return getFromStructPath(val.Index(idx).Interface(), path[1:])
 		}
-		return getFromStructPath(val.Index(idx).Interface(), path[1:])
 	case reflect.Ptr:
 		structElems = reflect.ValueOf(node).Elem()
 		if !util.IsStruct(structElems) {
@@ -93,6 +161,16 @@ func getFromStructPath(node any, path util.Path) (any, bool, error) {
 	}
 
 	return nil, false, nil
+}
+
+func sanitizeField(path string) string {
+	if path == "*" {
+		return path
+	}
+	if path[0] == '[' && path[len(path)-1] == ']' {
+		return path[1 : len(path)-1]
+	}
+	return path
 }
 
 // SetFromPath sets out with the value at path from node. out is not set if the path doesn't exist or the value is nil.

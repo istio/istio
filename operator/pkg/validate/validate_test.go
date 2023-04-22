@@ -68,14 +68,14 @@ values:
 			yamlStr: `
 hub: ?illegal-tag!
 `,
-			wantErrs: makeErrors([]string{`invalid value Hub: ?illegal-tag!`}),
+			wantErrs: makeErrors([]string{`invalid value hub: ?illegal-tag!`}),
 		},
 		{
 			desc: "BadHub",
 			yamlStr: `
 hub: docker.io:tag/istio
 `,
-			wantErrs: makeErrors([]string{`invalid value Hub: docker.io:tag/istio`}),
+			wantErrs: makeErrors([]string{`invalid value hub: docker.io:tag/istio`}),
 		},
 		{
 			desc: "GoodURL",
@@ -92,7 +92,7 @@ components:
     name: istio@ingress-1
     enabled: true
 `,
-			wantErrs: makeErrors([]string{`invalid value Components.IngressGateways: istio@ingress-1`}),
+			wantErrs: makeErrors([]string{`invalid DNS1123 label specified: istio@ingress-1`}),
 		},
 		{
 			desc: "BadValuesIP",
@@ -162,6 +162,40 @@ meshConfig:
   defaultConfig:
     discoveryAddress: istiod:15012
 `,
+		},
+		{
+			desc: "bad gateway config",
+			yamlStr: `
+components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    namespace: "invalid namespace"
+    k8s:
+      service:
+        ports:
+        - name: "invalid name"
+          port: 80
+        - name: "invalid name2"
+          port: 443
+  egressGateways:
+  - name: istio-egressgateway
+    namespace: "invalid namespace2"
+    k8s:
+      service:
+        ports:
+        - name: "invalid name3"
+          port: 80
+        - name: "invalid name4"
+          port: 443
+`,
+			wantErrs: makeErrors([]string{
+				`invalid DNS1123 label specified: invalid name3`,
+				`invalid DNS1123 label specified: invalid name4`,
+				`invalid DNS1123 label specified: invalid namespace2`,
+				`invalid DNS1123 label specified: invalid name`,
+				`invalid DNS1123 label specified: invalid name2`,
+				`invalid DNS1123 label specified: invalid namespace`,
+			}),
 		},
 	}
 

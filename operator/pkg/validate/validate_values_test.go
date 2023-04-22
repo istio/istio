@@ -149,6 +149,32 @@ cni:
 `,
 			wantErrs: makeErrors([]string{`unknown field "foo" in v1alpha1.CNIConfig`}),
 		},
+		{
+			desc: "bad cluster name",
+			yamlStr: `
+global:
+  multiCluster:
+    clusterName: "bad name"
+`,
+			wantErrs: makeErrors([]string{`invalid DNS1123 domain "bad name"`}),
+		},
+		{
+			desc: "bad network fromRegistry",
+			yamlStr: `
+global:
+  meshNetworks:
+    network1:
+      endpoints:
+      - fromRegistry: "bad name network1"
+    network2:
+      endpoints:
+      - fromRegistry: "bad name network2"
+`,
+			wantErrs: makeErrors([]string{
+				`invalid DNS1123 domain "bad name network1"`,
+				`invalid DNS1123 domain "bad name network2"`,
+			}),
+		},
 	}
 
 	for _, tt := range tests {

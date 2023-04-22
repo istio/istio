@@ -15,11 +15,13 @@
 package validate
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/apimachinery/pkg/util/json"
 
 	"istio.io/api/operator/v1alpha1"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -34,15 +36,19 @@ import (
 var (
 	// DefaultValidations maps a data path to a validation function.
 	DefaultValidations = map[string]ValidatorFunc{
-		"Values": func(path util.Path, i any) util.Errors {
+		"values": func(path util.Path, i any) util.Errors {
 			return CheckValues(i)
 		},
-		"MeshConfig":                 validateMeshConfig,
-		"Hub":                        validateHub,
-		"Tag":                        validateTag,
-		"Revision":                   validateRevision,
-		"Components.IngressGateways": validateGatewayName,
-		"Components.EgressGateways":  validateGatewayName,
+		"meshConfig":                         validateMeshConfig,
+		"hub":                                validateHub,
+		"tag":                                validateTag,
+		"revision":                           validateDNS1123Label,
+		"components.ingressGateways[*].name": validateDNS1123Label,
+		"components.egressGateways[*].name":  validateDNS1123Label,
+		"components.ingressGateways[*].k8s.service.ports[*].name": validateDNS1123Label,
+		"components.egressGateways[*].k8s.service.ports[*].name":  validateDNS1123Label,
+		"components.ingressGateways[*].namespace":                 validateDNS1123Label,
+		"components.egressGateways[*].namespace":                  validateDNS1123Label,
 	}
 	// requiredValues lists all the values that must be non-empty.
 	requiredValues = map[string]bool{}
@@ -70,13 +76,42 @@ func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequiredFields 
 }
 
 func Validate2(validations map[string]ValidatorFunc, iop *v1alpha1.IstioOperatorSpec) (errs util.Errors) {
-	for path, validator := range validations {
-		v, f, _ := tpath.GetFromStructPath(iop, path)
+	// Convert to map[string]interface{} so we can use tpath.
+	iopMap, err := iopSpecToMap(iop)
+	if err != nil {
+		return util.NewErrs(err)
+	}
+
+	// Sort the validation keys for deterministic order.
+	sortedKeys := make([]string, 0, len(validations))
+	for k := range validations {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	for _, path := range sortedKeys {
+		validator := validations[path]
+		v, f, _ := tpath.GetFromStructPath(iopMap, path)
 		if f {
-			errs = append(errs, validator(util.PathFromString(path), v)...)
+			if err := validator(util.PathFromString(path), v); err.ToError() != nil {
+				errs = append(errs, err...)
+			}
 		}
 	}
 	return
+}
+
+func iopSpecToMap(spec *v1alpha1.IstioOperatorSpec) (map[string]interface{}, error) {
+	jsonData, err := json.Marshal(spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal IstioOperatorSpec: %v", err)
+	}
+	var specMap map[string]interface{}
+	err = json.Unmarshal(jsonData, &specMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal IstioOperatorSpec JSON: %v", err)
+	}
+	return specMap, nil
 }
 
 // Validate function below is used by third party for integrations and has to be public
@@ -206,28 +241,73 @@ func validateHub(path util.Path, val any) util.Errors {
 }
 
 func validateTag(path util.Path, val any) util.Errors {
-	return validateWithRegex(path, val.(*structpb.Value).GetStringValue(), TagRegexp)
+	switch t := val.(type) {
+	case *structpb.Value:
+		return validateWithRegex(path, t.GetStringValue(), TagRegexp)
+	case string:
+		return validateWithRegex(path, t, TagRegexp)
+	}
+	return nil
 }
 
-func validateRevision(_ util.Path, val any) util.Errors {
-	if val == "" {
+func validateDNS1123Label(_ util.Path, val any) util.Errors {
+	if val == nil {
 		return nil
 	}
-	if !labels.IsDNS1123Label(val.(string)) {
-		err := fmt.Errorf("invalid revision specified: %s", val.(string))
+	validateFunc := func(name string) error {
+		if name == "" {
+			return nil
+		}
+		if !labels.IsDNS1123Label(name) {
+			return fmt.Errorf("invalid DNS1123 label specified: %s", name)
+		}
+		return nil
+	}
+	switch t := val.(type) {
+	case []any:
+		errs := util.Errors{}
+		for _, v := range t {
+			if err := validateFunc(v.(string)); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return errs
+	}
+	if err := validateFunc(val.(string)); err != nil {
 		return util.Errors{err}
 	}
 	return nil
 }
 
-func validateGatewayName(path util.Path, val any) (errs util.Errors) {
-	v := val.([]*v1alpha1.GatewaySpec)
-	for _, n := range v {
-		if n == nil {
-			errs = append(errs, util.NewErrs(errors.New("badly formatted gateway configuration")))
-		} else {
-			errs = append(errs, validateWithRegex(path, n.Name, ObjectNameRegexp)...)
+func validateDNS1123domain(_ util.Path, val any) util.Errors {
+	validateFunc := func(domain string) error {
+		if len(domain) > 253 {
+			return fmt.Errorf("invalid DNS1123 domain %q (longer than 253 chars)", val)
 		}
+		parts := strings.Split(domain, ".")
+		for i, label := range parts {
+			// Allow the last part to be empty, for unambiguous names like `istio.io.`
+			if i == len(parts)-1 && label == "" {
+				return nil
+			}
+			if !labels.IsDNS1123Label(label) {
+				return fmt.Errorf("invalid DNS1123 domain %q", domain)
+			}
+		}
+		return nil
 	}
-	return
+	switch t := val.(type) {
+	case []any:
+		errs := util.Errors{}
+		for _, v := range t {
+			if err := validateFunc(v.(string)); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return errs
+	}
+	if err := validateFunc(val.(string)); err != nil {
+		return util.Errors{err}
+	}
+	return nil
 }

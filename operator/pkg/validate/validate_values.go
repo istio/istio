@@ -17,19 +17,21 @@ package validate
 import (
 	"reflect"
 
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 )
 
 // DefaultValuesValidations maps a data path to a validation function.
 var DefaultValuesValidations = map[string]ValidatorFunc{
-	"global.proxy.includeIPRanges":     validateIPRangesOrStar,
-	"global.proxy.excludeIPRanges":     validateIPRangesOrStar,
-	"global.proxy.includeInboundPorts": validateStringList(validatePortNumberString),
-	"global.proxy.excludeInboundPorts": validateStringList(validatePortNumberString),
-	"meshConfig":                       validateMeshConfig,
+	"global.proxy.includeIPRanges":                    validateIPRangesOrStar,
+	"global.proxy.excludeIPRanges":                    validateIPRangesOrStar,
+	"global.proxy.includeInboundPorts":                validateStringList(validatePortNumberString),
+	"global.proxy.excludeInboundPorts":                validateStringList(validatePortNumberString),
+	"global.multiCluster.clusterName":                 validateDNS1123domain,
+	"global.meshNetworks.*.endpoints[*].fromRegistry": validateDNS1123domain,
+
+	"meshConfig": validateMeshConfig,
 }
 
 // CheckValues validates the values in the given tree, which follows the Istio values.yaml schema.
@@ -46,26 +48,17 @@ func CheckValues(root any) util.Errors {
 	if err := util.UnmarshalWithJSONPB(string(vs), val, false); err != nil {
 		return util.Errors{err}
 	}
-	return ValuesValidate(DefaultValuesValidations, root.(*structpb.Struct).AsMap(), nil)
+	return ValuesValidate(DefaultValuesValidations, root, nil)
 }
 
 // ValuesValidate validates the values of the tree using the supplied Func
 func ValuesValidate(validations map[string]ValidatorFunc, node any, path util.Path) (errs util.Errors) {
-	pstr := path.String()
-	scope.Debugf("ValuesValidate %s", pstr)
-	vf := validations[pstr]
-	if vf != nil {
-		errs = util.AppendErrs(errs, vf(path, node))
+	for pstr, validator := range validations {
+		scope.Debugf("ValuesValidate %s", pstr)
+		v, f, _ := tpath.GetFromStructPath(node, pstr)
+		if f {
+			errs = util.AppendErrs(errs, validator(util.PathFromString(pstr), v))
+		}
 	}
-
-	nn, ok := node.(map[string]any)
-	if !ok {
-		// Leaf, nothing more to recurse.
-		return errs
-	}
-	for k, v := range nn {
-		errs = util.AppendErrs(errs, ValuesValidate(validations, v, append(path, k)))
-	}
-
-	return errs
+	return errs.Dedup()
 }
