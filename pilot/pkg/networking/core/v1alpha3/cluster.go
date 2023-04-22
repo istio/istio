@@ -254,11 +254,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			miss += len(cached)
 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
-			lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.proxyView, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxyType, service)
-			defaultCluster := cb.buildDefaultCluster(clusterKey.clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
+			defaultCluster := cb.buildDefaultCluster(clusterKey.clusterName, discoveryType, nil, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
@@ -354,14 +353,13 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			lbEndpoints := cb.buildLocalityLbEndpoints(proxyView, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxyType, service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "",
 				service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
+			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, nil, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
