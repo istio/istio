@@ -516,12 +516,16 @@ func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 
 // Metadata returns the endpoint metadata used for telemetry purposes.
 func (ep *IstioEndpoint) Metadata() *EndpointMetadata {
+	labels := map[string]string{}
+	for k, v := range ep.Labels {
+		labels[k] = v
+	}
 	return &EndpointMetadata{
 		Network:      ep.Network,
 		TLSMode:      ep.TLSMode,
 		WorkloadName: ep.WorkloadName,
 		Namespace:    ep.Namespace,
-		Labels:       ep.Labels,
+		Labels:       labels,
 		ClusterID:    ep.Locality.ClusterID,
 	}
 }
