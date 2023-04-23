@@ -389,6 +389,9 @@ func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra
   # Validate bookinfo-gateway.yaml with shorthand syntax
   istioctl v -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
+  # Validate all yaml files under samples/bookinfo/networking directory
+  istioctl validate -f samples/bookinfo/networking
+
   # Validate current deployments under 'default' namespace within the cluster
   kubectl get deployments -o yaml | istioctl validate -f -
 
