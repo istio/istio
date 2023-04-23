@@ -83,10 +83,10 @@ func workloadCommands() *cobra.Command {
 		Use:   "workload",
 		Short: "Commands to assist in configuring and deploying workloads running on VMs and other non-Kubernetes environments",
 		Example: `  # workload group yaml generation
-  workload group create
+  istioctl x workload group create
 
   # workload entry configuration generation
-  workload entry configure`,
+  istioctl x workload entry configure`,
 	}
 	workloadCmd.AddCommand(groupCommand())
 	workloadCmd.AddCommand(entryCommand())
@@ -97,7 +97,7 @@ func groupCommand() *cobra.Command {
 	groupCmd := &cobra.Command{
 		Use:     "group",
 		Short:   "Commands dealing with WorkloadGroup resources",
-		Example: "group create --name foo --namespace bar --labels app=foobar",
+		Example: "  istioctl x workload group create --name foo --namespace bar --labels app=foobar",
 	}
 	groupCmd.AddCommand(createCommand())
 	return groupCmd
@@ -107,7 +107,7 @@ func entryCommand() *cobra.Command {
 	entryCmd := &cobra.Command{
 		Use:     "entry",
 		Short:   "Commands dealing with WorkloadEntry resources",
-		Example: "entry configure -f workloadgroup.yaml -o outputDir",
+		Example: "  istioctl x workload entry configure -f workloadgroup.yaml -o outputDir",
 	}
 	entryCmd.AddCommand(configureCommand())
 	return entryCmd
@@ -119,7 +119,8 @@ func createCommand() *cobra.Command {
 		Short: "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",
 		Long: `Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries.
 The default output is serialized YAML, which can be piped into 'kubectl apply -f -' to send the artifact to the API Server.`,
-		Example: "create --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --annotations annotation=foobar --serviceAccount sa",
+		Example: "  istioctl x workload group create --name foo --namespace bar --labels app=foo,bar=baz " +
+			"--ports grpc=3550,http=8080 --annotations annotation=foobar --serviceAccount sa",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("expecting a workload name")
@@ -191,10 +192,10 @@ func configureCommand() *cobra.Command {
 This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.
 Configure requires either the WorkloadGroup artifact path or its location on the API server.`,
 		Example: `  # configure example using a local WorkloadGroup artifact
-  configure -f workloadgroup.yaml -o config
+  istioctl x workload entry configure -f workloadgroup.yaml -o config
 
   # configure example using the API server
-  configure --name foo --namespace bar -o config`,
+  istioctl x workload entry configure --name foo --namespace bar -o config`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if filename == "" && (name == "" || namespace == "") {
 				return fmt.Errorf("expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup")
