@@ -1,0 +1,18 @@
+{{- if .Values.defaultPodDisruptionBudget.enabled }}
+{{- if (semverCompare ">=1.21-0" .Capabilities.KubeVersion.GitVersion) }}
+apiVersion: policy/v1
+{{- else }}
+apiVersion: policy/v1beta1
+{{- end }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "gateway.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway.labels" . | nindent 4}}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+  {{- include "gateway.selectorLabels" . | nindent 6 }}
+{{- end }}

@@ -95,3 +95,6 @@ networkGateway: ""
 imagePullPolicy: ""
 
 imagePullSecrets: []
+
+defaultPodDisruptionBudget:
+  enabled: true
