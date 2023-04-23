@@ -91,3 +91,6 @@ affinity: {}
 networkGateway: ""
 
 imagePullSecrets: []
+
+defaultPodDisruptionBudget:
+  enabled: true
