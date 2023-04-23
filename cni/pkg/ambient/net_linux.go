@@ -841,7 +841,7 @@ func (s *Server) CreateEBPFRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP,
 	return nil
 }
 
-func (s *Server) createTroxyRulesForLegacyEBPF(ztunnelIP, ifName string) error {
+func (s *Server) createTProxyRulesForLegacyEBPF(ztunnelIP, ifName string) error {
 	err := addOrgSrcMarkRule()
 	if err != nil {
 		return fmt.Errorf("failed to add OrgSrc mark rules: %v", err)
