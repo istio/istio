@@ -124,9 +124,6 @@ func InstallCmdWithArgs(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Opt
 
   # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
   istioctl install --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
-
-  # For setting boolean-string option, it should be enclosed quotes and escaped with a backslash (\).
-  istioctl install --set meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_VIA_AGENT=\"false\"
 `,
 		Args: cobra.ExactArgs(0),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -184,7 +181,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 		if profile == "empty" {
 			prompt = fmt.Sprintf("This will install the Istio %s %s profile into the cluster. Proceed? (y/N)", tag, profile)
 		}
-		if !confirm(prompt, stdOut) {
+		if !Confirm(prompt, stdOut) {
 			p.Println("Cancelled.")
 			os.Exit(1)
 		}
@@ -219,10 +216,9 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
-		if err == nil {
-			err = revtag.Create(kubeClient, tagManifests)
-			if err != nil {
-				return err
+		if err == nil && !rootArgs.DryRun {
+			if err = revtag.Create(kubeClient, tagManifests, ns); err != nil {
+				return fmt.Errorf("failed to create revision tag: %v", err)
 			}
 		}
 	}

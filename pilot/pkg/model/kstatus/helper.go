@@ -17,6 +17,7 @@ package kstatus
 import (
 	"reflect"
 
+	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config"
@@ -83,24 +84,24 @@ func GetCondition(conditions []metav1.Condition, condition string) metav1.Condit
 
 // UpdateConditionIfChanged updates a condition if it has been changed.
 func UpdateConditionIfChanged(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
-	ret := append([]metav1.Condition(nil), conditions...)
-	idx := -1
-	for i, cond := range ret {
-		if cond.Type == condition.Type {
-			idx = i
-			break
-		}
-	}
+	ret := slices.Clone(conditions)
+	idx := slices.IndexFunc(ret, func(cond metav1.Condition) bool {
+		return cond.Type == condition.Type
+	})
 
 	if idx == -1 {
 		ret = append(ret, condition)
 		return ret
 	}
-	if ret[idx].Message == condition.Message &&
-		ret[idx].ObservedGeneration == condition.ObservedGeneration &&
-		ret[idx].Status == condition.Status {
-		// Skip update, no changes
-		return conditions
+
+	if ret[idx].Status == condition.Status {
+		if ret[idx].Message == condition.Message &&
+			ret[idx].ObservedGeneration == condition.ObservedGeneration {
+			// Skip update, no changes
+			return conditions
+		}
+		// retain LastTransitionTime if status is not changed
+		condition.LastTransitionTime = ret[idx].LastTransitionTime
 	}
 	ret[idx] = condition
 

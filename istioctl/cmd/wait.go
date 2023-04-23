@@ -25,15 +25,14 @@ import (
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -44,7 +43,7 @@ var (
 	timeout      time.Duration
 	generation   string
 	verbose      bool
-	targetSchema collection.Schema
+	targetSchema resource.Schema
 	clientGetter func(string, string) (dynamic.Interface, error)
 )
 
@@ -92,7 +91,7 @@ func waitCmd() *cobra.Command {
 			}
 			generations := []string{firstVersion}
 			targetResource := config.Key(
-				targetSchema.Resource().Group(), targetSchema.Resource().Version(), targetSchema.Resource().Kind(),
+				targetSchema.Group(), targetSchema.Version(), targetSchema.Kind(),
 				nameflag, namespace)
 			for {
 				// run the check here as soon as we start
@@ -160,7 +159,7 @@ func validateType(kind string) error {
 	kind = strings.ReplaceAll(kind, "-", "")
 
 	for _, s := range collections.Pilot.All() {
-		if strings.EqualFold(kind, s.Resource().Kind()) {
+		if strings.EqualFold(kind, s.Kind()) {
 			targetSchema = s
 			return nil
 		}
@@ -175,6 +174,9 @@ func countVersions(versionCount map[string]int, configVersion string) {
 		versionCount[configVersion] = 1
 	}
 }
+
+const distributionTrackingDisabledErrorString = "pilot version tracking is disabled " +
+	"(To enable this feature, please set PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING=true)"
 
 func poll(cmd *cobra.Command,
 	acceptedVersions []string,
@@ -197,6 +199,10 @@ func poll(cmd *cobra.Command,
 		var configVersions []xds.SyncedVersions
 		err = json.Unmarshal(response, &configVersions)
 		if err != nil {
+			respStr := string(response)
+			if strings.Contains(respStr, xds.DistributionTrackingDisabledMessage) {
+				return 0, 0, 0, fmt.Errorf("%s", distributionTrackingDisabledErrorString)
+			}
 			return 0, 0, 0, err
 		}
 		printVerbosef(cmd, "sync status: %+v", configVersions)
@@ -246,11 +252,7 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		if err != nil {
 			return err
 		}
-		collectionParts := strings.Split(targetSchema.Name().String(), "/")
-		group := targetSchema.Resource().Group()
-		version := targetSchema.Resource().Version()
-		resource := collectionParts[3]
-		r := dclient.Resource(schema.GroupVersionResource{Group: group, Version: version, Resource: resource}).Namespace(namespace)
+		r := dclient.Resource(targetSchema.GroupVersionResource()).Namespace(namespace)
 		watch, err := r.Watch(context.TODO(), metav1.ListOptions{FieldSelector: "metadata.name=" + nf})
 		if err != nil {
 			return err

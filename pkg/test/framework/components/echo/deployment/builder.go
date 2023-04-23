@@ -395,7 +395,7 @@ func (b builder) validateTemplates(config echo.Config, c cluster.Cluster) bool {
 		expected.InsertAll(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
 	}
 	if b.templates == nil || b.templates[c.Name()] == nil {
-		return len(expected) == 0
+		return expected.IsEmpty()
 	}
 
 	return b.templates[c.Name()].SupersetOf(expected)

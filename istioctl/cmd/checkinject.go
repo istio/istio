@@ -41,7 +41,7 @@ func checkInjectCommand() *cobra.Command {
 		Short: "Check the injection status or inject-ability of a given resource, explains why it is (or will be) injected or not",
 		Long: `
 Checks associated resources of the given resource, and running webhooks to examine whether the pod can be or will be injected or not.`,
-		Example: `	# Check the injection status of a pod
+		Example: `  # Check the injection status of a pod
   istioctl experimental check-inject details-v1-fcff6c49c-kqnfk.test
 	
   # Check the injection status of a pod under a deployment

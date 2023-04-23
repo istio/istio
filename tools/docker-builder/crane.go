@@ -158,10 +158,6 @@ func translate(plan []string, src string) (string, error) {
 	return "", fmt.Errorf("failed to find real source for %v. plan: %+v", src, plan)
 }
 
-func sp(s string) *string {
-	return &s
-}
-
 func absPath(p string) string {
 	if path.IsAbs(p) {
 		return p

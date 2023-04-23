@@ -31,6 +31,7 @@ import (
 	authzmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestIsCatchAllMatch(t *testing.T) {
@@ -343,8 +344,8 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			},
 		},
 	}
-	if got := translateCORSPolicy(corsPolicy); !reflect.DeepEqual(got, expectedCorsPolicy) {
-		t.Errorf("translateCORSPolicy() = \n%v, want \n%v", got, expectedCorsPolicy)
+	if got := TranslateCORSPolicy(corsPolicy); !reflect.DeepEqual(got, expectedCorsPolicy) {
+		t.Errorf("TranslateCORSPolicy() = \n%v, want \n%v", got, expectedCorsPolicy)
 	}
 }
 
@@ -426,7 +427,7 @@ func TestMirrorPercent(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			mp := mirrorPercent(tt.route)
+			mp := MirrorPercent(tt.route)
 			if !reflect.DeepEqual(mp, tt.want) {
 				t.Errorf("Unexpected mirro percent want %v, got %v", tt.want, mp)
 			}
@@ -438,7 +439,7 @@ func TestSourceMatchHTTP(t *testing.T) {
 	type args struct {
 		match          *networking.HTTPMatchRequest
 		proxyLabels    labels.Instance
-		gatewayNames   map[string]bool
+		gatewayNames   sets.String
 		proxyNamespace string
 	}
 	tests := []struct {
@@ -661,7 +662,7 @@ func TestTranslateFault(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			tf := translateFault(tt.fault)
+			tf := TranslateFault(tt.fault)
 			if !reflect.DeepEqual(tf, tt.want) {
 				t.Errorf("Unexpected translate fault want %v, got %v", tt.want, tf)
 			}

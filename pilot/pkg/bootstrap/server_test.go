@@ -632,7 +632,7 @@ func TestInitOIDC(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := &PilotArgs{JwtRule: tt.jwtRule}
 
-			_, err := initOIDC(args, "domain-foo")
+			_, err := initOIDC(args)
 			gotErr := err != nil
 			if gotErr != tt.expectErr {
 				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)
@@ -684,7 +684,6 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 			var certRotated bool
 			var rotatedCertBytes []byte
 			err := retry.Until(func() bool {
-				time.Sleep(time.Second)
 				rotatedCertBytes = s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem
 				st := string(rotatedCertBytes)
 				certRotated = st != string(tt.certToWatch)

@@ -462,11 +462,19 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
-		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
-			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
-			resources = append(resources, marshalledEndpoint)
-			cached++
-		} else {
+
+		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
+		if !features.EnableUnsafeAssertions {
+			cachedEndpoint := eds.Server.Cache.Get(&builder)
+			if cachedEndpoint != nil {
+				resources = append(resources, cachedEndpoint)
+				cached++
+				continue
+			}
+		}
+
+		// generate eds from beginning
+		{
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
 				continue
@@ -481,7 +489,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, req, resource)
+			eds.Server.Cache.Add(&builder, req, resource)
 		}
 	}
 	return resources, model.XdsLogDetails{
@@ -515,11 +523,18 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 			removed = append(removed, clusterName)
 			continue
 		}
-		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
-			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
-			resources = append(resources, marshalledEndpoint)
-			cached++
-		} else {
+
+		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
+		if !features.EnableUnsafeAssertions {
+			cachedEndpoint := eds.Server.Cache.Get(&builder)
+			if cachedEndpoint != nil {
+				resources = append(resources, cachedEndpoint)
+				cached++
+				continue
+			}
+		}
+		// generate new eds cache
+		{
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
 				removed = append(removed, clusterName)
@@ -534,7 +549,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, req, resource)
+			eds.Server.Cache.Add(&builder, req, resource)
 		}
 	}
 	return resources, removed, model.XdsLogDetails{

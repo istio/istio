@@ -55,6 +55,7 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 				"istiod1": statusInput1(),
 				"istiod2": statusInput2(),
 				"istiod3": statusInput3(),
+				"istiod4": statusInput4(),
 			},
 			want: "testdata/multiStatusMultiPilot.txt",
 		},
@@ -114,6 +115,7 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 			input: map[string][]xds.SyncStatus{
 				"istiod1": statusInput1(),
 				"istiod2": statusInput2(),
+				"istiod4": statusInput4(),
 			},
 			filterPod: "proxy2",
 			want:      "testdata/singleStatus.txt",
@@ -221,6 +223,24 @@ func statusInput3() []xds.SyncStatus {
 	}
 }
 
+func statusInput4() []xds.SyncStatus {
+	return []xds.SyncStatus{
+		{
+			ClusterID:     "cluster4",
+			ProxyID:       "proxy4",
+			IstioVersion:  "1.1",
+			ProxyType:     model.Ztunnel,
+			ClusterSent:   "",
+			ClusterAcked:  "",
+			ListenerAcked: "",
+			EndpointSent:  "",
+			EndpointAcked: "",
+			RouteSent:     "",
+			RouteAcked:    "",
+		},
+	}
+}
+
 func statusInputProxyVersion() []xds.SyncStatus {
 	return []xds.SyncStatus{
 		{
@@ -275,11 +295,22 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy3",
 						clusterID:      "cluster3",
-						cdsSyncStatus:  status.ConfigStatus_UNKNOWN,
+						cdsSyncStatus:  status.ConfigStatus_NOT_SENT,
 						ldsSyncStatus:  status.ConfigStatus_ERROR,
 						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
 						edsSyncStatus:  status.ConfigStatus_STALE,
 						ecdsSyncStatus: status.ConfigStatus_NOT_SENT,
+					},
+				}),
+				"istiod4": xdsResponseInput("istiod4", []clientConfigInput{
+					{
+						proxyID:        "proxy4",
+						clusterID:      "cluster4",
+						cdsSyncStatus:  status.ConfigStatus_UNKNOWN,
+						ldsSyncStatus:  status.ConfigStatus_UNKNOWN,
+						rdsSyncStatus:  status.ConfigStatus_UNKNOWN,
+						edsSyncStatus:  status.ConfigStatus_UNKNOWN,
+						ecdsSyncStatus: status.ConfigStatus_UNKNOWN,
 					},
 				}),
 			},

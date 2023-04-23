@@ -37,6 +37,7 @@ import (
 	diff "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
+	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 type k8sPodInfoFunc func(*kubernetes.Clientset, string, string) (*PodInfo, error)
@@ -173,7 +174,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			if _, err := os.Create(outputFilePath); err != nil {
 				t.Fatalf("Failed to create temp file for IPTables rule output: %v", err)
 			}
-			t.Setenv(dryRunFilePath.Name, outputFilePath)
+			t.Setenv(dependencies.DryRunFilePath.Name, outputFilePath)
 			_, _, err := testutils.CmdAddWithArgs(
 				&skel.CmdArgs{
 					Netns:     sandboxDirectory,

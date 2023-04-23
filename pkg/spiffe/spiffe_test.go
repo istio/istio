@@ -466,7 +466,7 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 				},
 			}
 
-			req, err := http.NewRequest("POST", "https://"+server.Listener.Addr().String(), bytes.NewBuffer([]byte("ABC")))
+			req, err := http.NewRequest(http.MethodPost, "https://"+server.Listener.Addr().String(), bytes.NewBuffer([]byte("ABC")))
 			if err != nil {
 				t.Errorf("failed to create HTTP client: %v", err)
 			}
@@ -557,6 +557,16 @@ func TestExpandWithTrustDomains(t *testing.T) {
 			},
 			want: map[string]struct{}{
 				"spiffe://cluster.local/custom-suffix": {},
+			},
+		},
+		{
+			name:      "Non SPIFFE URI",
+			spiffeURI: []string{"testdns.com"},
+			trustDomains: []string{
+				"foo",
+			},
+			want: map[string]struct{}{
+				"testdns.com": {},
 			},
 		},
 	}

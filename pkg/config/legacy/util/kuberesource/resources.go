@@ -17,29 +17,28 @@ package kuberesource
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
-func SkipExcludedCollections(requiredCols collection.Names, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
+func SkipExcludedCollections(requiredCols []config.GroupVersionKind, excludedResourceKinds []string) collection.Schemas {
 	resultBuilder := collection.NewSchemasBuilder()
-	for _, name := range requiredCols {
-		s, f := collections.All.Find(name.String())
+	for _, gv := range requiredCols {
+		s, f := collections.All.FindByGroupVersionKind(gv)
 		if !f {
 			continue
 		}
 		disabled := false
-		if isKindExcluded(excludedResourceKinds, s.Resource().Kind()) {
+		if isKindExcluded(excludedResourceKinds, s.Kind()) {
 			// Found a matching exclude directive for this KubeResource. Disable the resource.
 			disabled = true
 
 			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
-			if enableServiceDiscovery {
-				if IsRequiredForServiceDiscovery(s.Resource()) {
-					// This is needed for service discovery. Re-enable.
-					disabled = false
-				}
+			if IsRequiredForServiceDiscovery(s) {
+				// This is needed for service discovery. Re-enable.
+				disabled = false
 			}
 		}
 
@@ -57,8 +56,8 @@ func SkipExcludedCollections(requiredCols collection.Names, excludedResourceKind
 func DefaultExcludedResourceKinds() []string {
 	resources := make([]string, 0)
 	for _, r := range collections.Kube.All() {
-		if IsDefaultExcluded(r.Resource()) {
-			resources = append(resources, r.Resource().Kind())
+		if IsDefaultExcluded(r) {
+			resources = append(resources, r.Kind())
 		}
 	}
 	return resources

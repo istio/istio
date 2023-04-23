@@ -43,7 +43,8 @@ Makefile*                                                        @istio/wg-test-
 /pkg/webhooks/                                                   @istio/wg-environments-maintainers
 /prow/                                                           @istio/wg-test-and-release-maintainers
 /release/                                                        @istio/wg-test-and-release-maintainers
-/releasenotes/                                                   @istio/wg-test-and-release-maintainers @istio/release-managers
+/releasenotes/                                                   @istio/wg-test-and-release-maintainers
+/releasenotes/notes
 /samples/                                                        @istio/wg-docs-maintainers-english
 /samples/addons                                                  @istio/wg-policies-and-telemetry-maintainers @istio/wg-environments-maintainers
 /samples/multicluster                                            @istio/wg-networking-maintainers

@@ -171,6 +171,9 @@ type Config struct {
 
 	// IPFamilyPolicy. This is optional field. Mainly is used for dual stack testing.
 	IPFamilyPolicy string
+
+	// WaypointProxy specifies if this workload should have an associated Waypoint
+	WaypointProxy bool
 }
 
 // Getter for a custom echo deployment
@@ -202,6 +205,13 @@ func (c Config) NamespacedName() NamespacedName {
 	}
 }
 
+func (c Config) AccountName() string {
+	if c.ServiceAccount {
+		return c.Service
+	}
+	return "default"
+}
+
 // ServiceAccountName returns the service account name for this service.
 func (c Config) ServiceAccountName() string {
 	return "cluster.local/ns/" + c.NamespaceName() + "/sa/" + c.Service
@@ -213,6 +223,11 @@ type SubsetConfig struct {
 	Version string
 	// Annotations provides metadata hints for deployment of the instance.
 	Annotations Annotations
+	// Labels provides metadata hints for deployment of the instance.
+	Labels map[string]string
+	// Replicas of this deployment
+	Replicas int
+
 	// TODO: port more into workload config.
 }
 
@@ -301,6 +316,22 @@ func (c Config) IsProxylessGRPC() bool {
 func (c Config) IsTProxy() bool {
 	// TODO this could be HasCustomInjectionMode
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(SidecarInterceptionMode) == "TPROXY"
+}
+
+func (c Config) HasWaypointProxy() bool {
+	return c.WaypointProxy
+}
+
+func (c Config) HasSidecar() bool {
+	return len(c.Subsets) > 0 && c.Subsets[0].Labels != nil && c.Subsets[0].Labels["sidecar.istio.io/inject"] == "true"
+}
+
+func (c Config) IsUncaptured() bool {
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(AmbientType) == constants.AmbientRedirectionDisabled
+}
+
+func (c Config) HasProxyCapabilities() bool {
+	return !c.IsUncaptured() || c.HasSidecar() || c.IsProxylessGRPC()
 }
 
 func (c Config) IsVM() bool {

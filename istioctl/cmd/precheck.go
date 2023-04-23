@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
@@ -131,8 +130,12 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 
 	// TODO: add more checks
 
-	sa := local.NewSourceAnalyzer(analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
-		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+	sa := local.NewSourceAnalyzer(
+		analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
+		resource.Namespace(selectedNamespace),
+		resource.Namespace(istioNamespace),
+		nil,
+	)
 	// Set up the kube client
 	config := kube.BuildClientCmd(kubeconfig, configContext)
 	restConfig, err := config.ClientConfig()
@@ -140,7 +143,7 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 		return nil, err
 	}
 
-	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), "")
 	if err != nil {
 		return nil, err
 	}
@@ -182,13 +185,12 @@ func checkGatewayAPIs(cli kube.CLIClient) (diag.Messages, error) {
 		}
 		if !versions.Contains(gvk.KubernetesGateway.Version) {
 			origin := kube3.Origin{
-				Collection: collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
-				Kind:       gvk.CustomResourceDefinition.Kind,
+				Type: gvk.CustomResourceDefinition,
 				FullName: resource.FullName{
 					Namespace: resource.Namespace(r.Namespace),
 					Name:      resource.LocalName(r.Name),
 				},
-				Version: resource.Version(gvk.CustomResourceDefinition.Version),
+				ResourceVersion: resource.Version(r.ResourceVersion),
 			}
 			r := &resource.Instance{
 				Origin: &origin,
@@ -442,13 +444,12 @@ func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error)
 			}
 
 			origin := &kube3.Origin{
-				Collection: collections.K8SCoreV1Pods.Name(),
-				Kind:       collections.K8SCoreV1Pods.Resource().Kind(),
+				Type: gvk.Pod,
 				FullName: resource.FullName{
 					Namespace: resource.Namespace(pod.Namespace),
 					Name:      resource.LocalName(pod.Name),
 				},
-				Version: resource.Version(pod.ResourceVersion),
+				ResourceVersion: resource.Version(pod.ResourceVersion),
 			}
 			for port, status := range ports {
 				// Binding to localhost no longer works out of the box on Istio 1.10+, give them a warning.

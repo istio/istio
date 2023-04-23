@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"time"
 
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/pkg/log"
@@ -98,9 +99,10 @@ func NewServer(config Config, tokenManager security.TokenManager) (*Server, erro
 	s.Port = ln.Addr().(*net.TCPAddr).Port
 	go func() {
 		stsServerLog.Infof("Start listening on %s:%d", config.LocalHostAddr, s.Port)
-		err := s.stsServer.Serve(ln)
-		// ListenAndServe always returns a non-nil error.
-		stsServerLog.Error(err)
+		if err := s.stsServer.Serve(ln); network.IsUnexpectedListenerError(err) {
+			// Serve always returns a non-nil error.
+			stsServerLog.Error(err)
+		}
 	}()
 	return s, nil
 }

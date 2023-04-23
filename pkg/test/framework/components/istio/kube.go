@@ -39,6 +39,8 @@ import (
 	"istio.io/istio/istioctl/cmd"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
+	istiokube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
@@ -49,6 +51,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
+	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -78,11 +82,13 @@ type istioImpl struct {
 	env                  *kube.Environment
 	externalControlPlane bool
 	installer            *installer
-	*configMap
+	*meshConfig
+	injectConfig *injectConfig
 
 	mu sync.Mutex
 	// ingress components, indexed first by cluster name and then by gateway name.
 	ingress map[string]map[string]ingress.Instance
+	istiod  map[string]istiokube.PortForwarder
 	values  OperatorValues
 	workDir string
 	iopFiles
@@ -120,8 +126,20 @@ func (i *istioImpl) Ingresses() ingress.Instances {
 }
 
 func (i *istioImpl) IngressFor(c cluster.Cluster) ingress.Instance {
-	name := types.NamespacedName{Name: defaultIngressServiceName, Namespace: i.cfg.SystemNamespace}
-	return i.CustomIngressFor(c, name, defaultIngressIstioLabel)
+	ingressServiceName := defaultIngressServiceName
+	ingressServiceNamespace := i.cfg.SystemNamespace
+	ingressServiceLabel := defaultIngressIstioLabel
+	if serviceNameOverride := i.cfg.IngressGatewayServiceName; serviceNameOverride != "" {
+		ingressServiceName = serviceNameOverride
+	}
+	if serviceNamespaceOverride := i.cfg.IngressGatewayServiceNamespace; serviceNamespaceOverride != "" {
+		ingressServiceNamespace = serviceNamespaceOverride
+	}
+	if serviceLabelOverride := i.cfg.IngressGatewayIstioLabel; serviceLabelOverride != "" {
+		ingressServiceLabel = fmt.Sprintf("istio=%s", serviceLabelOverride)
+	}
+	name := types.NamespacedName{Name: ingressServiceName, Namespace: ingressServiceNamespace}
+	return i.CustomIngressFor(c, name, ingressServiceLabel)
 }
 
 func (i *istioImpl) EastWestGatewayFor(c cluster.Cluster) ingress.Instance {
@@ -151,6 +169,30 @@ func (i *istioImpl) CustomIngressFor(c cluster.Cluster, service types.Namespaced
 		i.ingress[c.Name()][labelSelector] = ingr
 	}
 	return i.ingress[c.Name()][labelSelector]
+}
+
+func (i *istioImpl) InternalDiscoveryAddressFor(c cluster.Cluster) (string, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if e, f := i.istiod[c.Name()]; f {
+		return e.Address(), nil
+	}
+	// Find the Prometheus pod and service, and start forwarding a local port.
+	fetchFn := testKube.NewSinglePodFetch(c, i.cfg.SystemNamespace, "istio=pilot")
+	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
+	if err != nil {
+		return "", err
+	}
+	pod := pods[0]
+	fw, err := c.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15012)
+	if err != nil {
+		return "", err
+	}
+
+	if err := fw.Start(); err != nil {
+		return "", err
+	}
+	return fw.Address(), nil
 }
 
 func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.AddrPort, error) {
@@ -229,9 +271,11 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		workDir:              workDir,
 		values:               iop.Spec.Values.Fields,
 		installer:            newInstaller(ctx, workDir),
-		configMap:            newConfigMap(ctx, cfg.SystemNamespace, revisions),
+		meshConfig:           &meshConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)},
+		injectConfig:         &injectConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)},
 		iopFiles:             iopFiles,
 		ingress:              map[string]map[string]ingress.Instance{},
+		istiod:               map[string]istiokube.PortForwarder{},
 		externalControlPlane: ctx.AllClusters().IsExternalControlPlane(),
 	}
 
@@ -799,6 +843,14 @@ func (i *istioImpl) configureRemoteConfigForControlPlane(c cluster.Cluster) erro
 		}
 	}
 	return nil
+}
+
+func (i *istioImpl) UpdateInjectionConfig(t resource.Context, update func(*inject.Config) error, cleanup cleanup.Strategy) error {
+	return i.injectConfig.UpdateInjectionConfig(t, update, cleanup)
+}
+
+func (i *istioImpl) InjectionConfig() (*inject.Config, error) {
+	return i.injectConfig.InjectConfig()
 }
 
 func genCommonOperatorFiles(ctx resource.Context, cfg Config, workDir string) (i iopFiles, err error) {

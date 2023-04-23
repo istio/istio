@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test/util/retry"
@@ -474,7 +473,7 @@ func (w *workload) configs() []config.Config {
 	if w.kind == VirtualMachine {
 		return []config.Config{{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
+				GroupVersionKind:  gvk.ServiceEntry,
 				Name:              w.name,
 				Namespace:         w.namespace,
 				CreationTimestamp: time.Now(),

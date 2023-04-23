@@ -24,7 +24,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -45,7 +44,7 @@ import (
 func init() {
 	features.WorkloadEntryAutoRegistration = true
 	features.WorkloadEntryHealthChecks = true
-	features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
+	features.WorkloadEntryCleanupGracePeriod = 25 * time.Millisecond
 }
 
 var (
@@ -92,10 +91,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
 			c.RegisterWorkload(tc, time.Now())
-			items, err := store.List(gvk.WorkloadEntry, model.NamespaceAll)
-			if err != nil {
-				t.Fatalf("failed listing WorkloadEntry: %v", err)
-			}
+			items := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if len(items) != 0 {
 				t.Fatalf("expected 0 WorkloadEntry")
 			}
@@ -452,16 +448,9 @@ func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, hea
 }
 
 func checkHealthOrFail(t test.Failer, store model.ConfigStoreController, proxy *model.Proxy, healthy bool) {
-	err := wait.Poll(100*time.Millisecond, 1*time.Second, func() (done bool, err error) {
-		err2 := checkEntryHealth(store, proxy, healthy)
-		if err2 != nil {
-			return false, nil
-		}
-		return true, nil
+	retry.UntilSuccessOrFail(t, func() error {
+		return checkEntryHealth(store, proxy, healthy)
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func fakeProxy(ip string, wg config.Config, nw network.ID) *model.Proxy {

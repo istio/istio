@@ -135,7 +135,7 @@ func Analyze() *cobra.Command {
 
 			// check whether selected namespace exists.
 			if namespace != "" && useKube {
-				client, err := kube.NewClient(kube.BuildClientCmd(kubeconfig, configContext))
+				client, err := kube.NewClient(kube.BuildClientCmd(kubeconfig, configContext), "")
 				if err != nil {
 					return err
 				}
@@ -153,7 +153,7 @@ func Analyze() *cobra.Command {
 
 			sa := local.NewIstiodAnalyzer(analyzers.AllCombined(),
 				resource.Namespace(selectedNamespace),
-				resource.Namespace(istioNamespace), nil, true)
+				resource.Namespace(istioNamespace), nil)
 
 			// Check for suppressions and add them to our SourceAnalyzer
 			suppressions := make([]local.AnalysisSuppression, 0, len(suppress))
@@ -189,7 +189,7 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
+				k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), "")
 				if err != nil {
 					return err
 				}

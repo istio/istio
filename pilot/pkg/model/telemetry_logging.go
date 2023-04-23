@@ -24,7 +24,8 @@ import (
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	otelaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/open_telemetry/v3"
-	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
+	metadataformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/metadata/v3"
+	reqwithoutquery "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"golang.org/x/exp/maps"
@@ -56,7 +57,8 @@ const (
 	TCPEnvoyALSName  = "envoy.tcp_grpc_access_log"
 	OtelEnvoyALSName = "envoy.access_loggers.open_telemetry"
 
-	requestWithoutQuery = "%REQ_WITHOUT_QUERY"
+	reqWithoutQueryCommandOperator = "%REQ_WITHOUT_QUERY"
+	metadataCommandOperator        = "%METADATA"
 
 	DevStdout = "/dev/stdout"
 
@@ -102,15 +104,20 @@ var (
 	// State logged by the metadata exchange filter about the upstream and downstream service instances
 	// We need to propagate these as part of access log service stream
 	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
-	// But end users can certainly configure it on their own via the meshConfig using the %FILTERSTATE% macro.
+	// But end users can certainly configure it on their own via the meshConfig using the %FILTER_STATE% macro.
 	envoyWasmStateToLog = []string{"wasm.upstream_peer", "wasm.upstream_peer_id", "wasm.downstream_peer", "wasm.downstream_peer_id"}
 
-	// accessLogFormatters configures additional formatters needed for some of the format strings like "REQ_WITHOUT_QUERY"
-	accessLogFormatters = []*core.TypedExtensionConfig{
-		{
-			Name:        "envoy.formatter.req_without_query",
-			TypedConfig: protoconv.MessageToAny(&formatters.ReqWithoutQuery{}),
-		},
+	// reqWithoutQueryFormatter configures additional formatters needed for some of the format strings like "REQ_WITHOUT_QUERY"
+	reqWithoutQueryFormatter = &core.TypedExtensionConfig{
+		Name:        "envoy.formatter.req_without_query",
+		TypedConfig: protoconv.MessageToAny(&reqwithoutquery.ReqWithoutQuery{}),
+	}
+
+	// metadataFormatter configures additional formatters needed for some of the format strings like "METATDATA"
+	// for more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/formatter/metadata/v3/metadata.proto
+	metadataFormatter = &core.TypedExtensionConfig{
+		Name:        "envoy.formatter.metadata",
+		TypedConfig: protoconv.MessageToAny(&metadataformatter.Metadata{}),
 	}
 )
 
@@ -183,7 +190,7 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 		Path: p,
 	}
 
-	needsFormatter := false
+	var needsFormatter []*core.TypedExtensionConfig
 	if prov.LogFormat != nil {
 		switch logFormat := prov.LogFormat.LogFormat.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text:
@@ -194,8 +201,8 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 	} else {
 		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat("")
 	}
-	if needsFormatter {
-		fl.GetLogFormat().Formatters = accessLogFormatters
+	if len(needsFormatter) != 0 {
+		fl.GetLogFormat().Formatters = needsFormatter
 	}
 
 	al := &accesslog.AccessLog{
@@ -206,9 +213,10 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 	return al
 }
 
-func buildFileAccessTextLogFormat(logFormatText string) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
+func buildFileAccessTextLogFormat(logFormatText string) (*fileaccesslog.FileAccessLog_LogFormat, []*core.TypedExtensionConfig) {
 	formatString := fileAccessLogFormat(logFormatText)
-	needsFormatter := strings.Contains(formatString, requestWithoutQuery)
+	formatters := accessLogTextFormatters(formatString)
+
 	return &fileaccesslog.FileAccessLog_LogFormat{
 		LogFormat: &core.SubstitutionFormatString{
 			Format: &core.SubstitutionFormatString_TextFormatSource{
@@ -219,12 +227,12 @@ func buildFileAccessTextLogFormat(logFormatText string) (*fileaccesslog.FileAcce
 				},
 			},
 		},
-	}, needsFormatter
+	}, formatters
 }
 
 func buildFileAccessJSONLogFormat(
 	logFormat *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels,
-) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
+) (*fileaccesslog.FileAccessLog_LogFormat, []*core.TypedExtensionConfig) {
 	jsonLogStruct := EnvoyJSONLogFormatIstio
 	if logFormat.Labels != nil {
 		jsonLogStruct = logFormat.Labels
@@ -235,20 +243,54 @@ func buildFileAccessJSONLogFormat(
 		jsonLogStruct = EnvoyJSONLogFormatIstio
 	}
 
-	needsFormatter := false
-	for _, value := range jsonLogStruct.Fields {
-		if strings.Contains(value.GetStringValue(), requestWithoutQuery) {
-			needsFormatter = true
-			break
-		}
-	}
+	formatters := accessLogJSONFormatters(jsonLogStruct)
 	return &fileaccesslog.FileAccessLog_LogFormat{
 		LogFormat: &core.SubstitutionFormatString{
 			Format: &core.SubstitutionFormatString_JsonFormat{
 				JsonFormat: jsonLogStruct,
 			},
 		},
-	}, needsFormatter
+	}, formatters
+}
+
+func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtensionConfig {
+	reqWithoutQuery, metadata := false, false
+	for _, value := range jsonLogStruct.Fields {
+		if reqWithoutQuery && metadata {
+			break
+		}
+
+		if !reqWithoutQuery && strings.Contains(value.GetStringValue(), reqWithoutQueryCommandOperator) {
+			reqWithoutQuery = true
+			continue
+		}
+
+		if !metadata && strings.Contains(value.GetStringValue(), metadataCommandOperator) {
+			metadata = true
+		}
+	}
+
+	formatters := make([]*core.TypedExtensionConfig, 0, 2)
+	if reqWithoutQuery {
+		formatters = append(formatters, reqWithoutQueryFormatter)
+	}
+	if metadata {
+		formatters = append(formatters, metadataFormatter)
+	}
+
+	return formatters
+}
+
+func accessLogTextFormatters(text string) []*core.TypedExtensionConfig {
+	formatters := make([]*core.TypedExtensionConfig, 0, 2)
+	if strings.Contains(text, reqWithoutQueryCommandOperator) {
+		formatters = append(formatters, reqWithoutQueryFormatter)
+	}
+	if strings.Contains(text, metadataCommandOperator) {
+		formatters = append(formatters, metadataFormatter)
+	}
+
+	return formatters
 }
 
 func httpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) *accesslog.AccessLog {
@@ -311,11 +353,11 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 	fl := &fileaccesslog.FileAccessLog{
 		Path: path,
 	}
-	needsFormatter := false
+	var formatters []*core.TypedExtensionConfig
 	switch mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
 		formatString := fileAccessLogFormat(mesh.AccessLogFormat)
-		needsFormatter = strings.Contains(formatString, requestWithoutQuery)
+		formatters = accessLogTextFormatters(formatString)
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
 				Format: &core.SubstitutionFormatString_TextFormatSource{
@@ -337,12 +379,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 				jsonLogStruct = &parsedJSONLogStruct
 			}
 		}
-		for _, value := range jsonLogStruct.Fields {
-			if strings.Contains(value.GetStringValue(), requestWithoutQuery) {
-				needsFormatter = true
-				break
-			}
-		}
+		formatters = accessLogJSONFormatters(jsonLogStruct)
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
 				Format: &core.SubstitutionFormatString_JsonFormat{
@@ -353,8 +390,9 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 	default:
 		log.Warnf("unsupported access log format %v", mesh.AccessLogEncoding)
 	}
-	if needsFormatter {
-		fl.GetLogFormat().Formatters = accessLogFormatters
+
+	if len(formatters) > 0 {
+		fl.GetLogFormat().Formatters = formatters
 	}
 	al := &accesslog.AccessLog{
 		Name:       wellknown.FileAccessLog,

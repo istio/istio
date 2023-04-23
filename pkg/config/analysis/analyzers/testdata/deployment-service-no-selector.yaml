@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-no-selector
+  namespace: default
+spec:
+  ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 6443
+---
+# this deployment is not associated with any service, so it should generate a warning
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helloworld-v2
+  namespace: default
+  labels:
+    app: helloworld
+    version: v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: helloworld
+        version: v2
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+        - name: helloworld
+          image: docker.io/istio/examples-helloworld-v2
+          resources:
+            requests:
+              cpu: "100m"
+          imagePullPolicy: IfNotPresent #Always
+          ports:
+            - containerPort: 5000

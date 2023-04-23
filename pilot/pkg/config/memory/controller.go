@@ -17,10 +17,8 @@ package memory
 import (
 	"errors"
 	"fmt"
-	"sync/atomic"
 
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -33,7 +31,6 @@ type Controller struct {
 	configStore model.ConfigStore
 	hasSynced   func() bool
 
-	started atomic.Bool
 	// If meshConfig.DiscoverySelectors are specified, the namespacesFilter tracks the namespaces this controller watches.
 	namespacesFilter func(obj interface{}) bool
 }
@@ -67,14 +64,6 @@ func (c *Controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 	c.monitor.AppendEventHandler(kind, f)
 }
 
-func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
-	return nil
-}
-
-func (c *Controller) HasStarted() bool {
-	return c.started.Load()
-}
-
 // HasSynced return whether store has synced
 // It can be controlled externally (such as by the data source),
 // otherwise it'll always consider synced.
@@ -86,7 +75,6 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	c.started.Store(true)
 	c.monitor.Run(stop)
 }
 
@@ -166,11 +154,8 @@ func (c *Controller) Delete(kind config.GroupVersionKind, key, namespace string,
 	return errors.New("Delete failure: config" + key + "does not exist")
 }
 
-func (c *Controller) List(kind config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	configs, err := c.configStore.List(kind, namespace)
-	if err != nil {
-		return nil, err
-	}
+func (c *Controller) List(kind config.GroupVersionKind, namespace string) []config.Config {
+	configs := c.configStore.List(kind, namespace)
 	if c.namespacesFilter != nil {
 		var out []config.Config
 		for _, config := range configs {
@@ -178,7 +163,7 @@ func (c *Controller) List(kind config.GroupVersionKind, namespace string) ([]con
 				out = append(out, config)
 			}
 		}
-		return out, err
+		return out
 	}
-	return configs, nil
+	return configs
 }

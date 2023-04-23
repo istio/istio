@@ -44,12 +44,14 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	istiocluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -1102,6 +1104,21 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		},
 	}
 
+	buildMetadata := func(networkID network.ID, tlsMode, workloadname, namespace string,
+		clusterID istiocluster.ID, lbls labels.Instance,
+	) *core.Metadata {
+		newmeta := &core.Metadata{}
+		util.AppendLbEndpointMetadata(&model.EndpointMetadata{
+			Network:      networkID,
+			TLSMode:      tlsMode,
+			WorkloadName: workloadname,
+			Namespace:    namespace,
+			ClusterID:    clusterID,
+			Labels:       lbls,
+		}, newmeta)
+		return newmeta
+	}
+
 	cases := []struct {
 		name      string
 		mesh      *meshconfig.MeshConfig
@@ -1204,7 +1221,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
+							Metadata: buildMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1224,7 +1241,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
+							Metadata: buildMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1256,7 +1273,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
+							Metadata: buildMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 40,
 							},
@@ -1322,7 +1339,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("", "", "", "", "cluster-1", map[string]string{}),
+							Metadata: buildMetadata("", "", "", "", "cluster-1", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1443,7 +1460,10 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
+							Metadata: buildMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{
+								"version": "v1",
+								"app":     "example",
+							}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -2667,6 +2687,178 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								},
 							},
 						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		{
+			name: "tls mode SIMPLE, with EcdhCurves specified in Mesh Config",
+			opts: &buildClusterOpts{
+				mutable:          newTestCluster(),
+				isDrWithSelector: true,
+				mesh: &meshconfig.MeshConfig{
+					TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+						EcdhCurves: []string{"P-256"},
+					},
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+				CredentialName:  credentialName,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+							EcdhCurves:                []string{"P-256"},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+								},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
+									SdsConfig: authn_model.SDSAdsConfig,
+								},
+							},
+						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		{
+			name: "tls mode MUTUAL, with EcdhCurves specified in Mesh Config",
+			opts: &buildClusterOpts{
+				mutable:          newTestCluster(),
+				isDrWithSelector: true,
+				mesh: &meshconfig.MeshConfig{
+					TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+						EcdhCurves: []string{"P-256", "P-384"},
+					},
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_MUTUAL,
+				CredentialName:  credentialName,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+							EcdhCurves:                []string{"P-256", "P-384"},
+						},
+						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+							{
+								Name:      "kubernetes://" + credentialName,
+								SdsConfig: authn_model.SDSAdsConfig,
+							},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+								},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
+									SdsConfig: authn_model.SDSAdsConfig,
+								},
+							},
+						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		// ecdh curves from MeshConfig should be ignored for ISTIO_MUTUAL mode
+		{
+			name: "tls mode ISTIO_MUTUAL with EcdhCurves specified in Mesh Config",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+				mesh: &meshconfig.MeshConfig{
+					TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+						EcdhCurves: []string{"P-256", "P-384"},
+					},
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
+									ResourceApiVersion:  core.ApiVersion_V3,
+								},
+							},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+														},
+													},
+												},
+											},
+										},
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
+										ResourceApiVersion:  core.ApiVersion_V3,
+									},
+								},
+							},
+						},
+						AlpnProtocols: util.ALPNInMeshWithMxc,
 					},
 					Sni: "some-sni.com",
 				},

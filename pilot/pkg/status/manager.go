@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // Manager allows multiple controllers to provide input into configuration
@@ -49,13 +49,13 @@ func NewManager(store model.ConfigStore) *Manager {
 	}
 	retrieveFunc := func(resource Resource) *config.Config {
 		scope.Debugf("retrieving config for status update: %s/%s", resource.Namespace, resource.Name)
-		schema, _ := collections.All.FindByGroupVersionResource(resource.GroupVersionResource)
-		if schema == nil {
-			scope.Warnf("schema %v could not be identified", schema)
+		k, ok := gvk.FromGVR(resource.GroupVersionResource)
+		if !ok {
+			scope.Warnf("GVR %v could not be identified", resource.GroupVersionResource)
 			return nil
 		}
 
-		current := store.Get(schema.Resource().GroupVersionKind(), resource.Name, resource.Namespace)
+		current := store.Get(k, resource.Name, resource.Namespace)
 		return current
 	}
 	return &Manager{

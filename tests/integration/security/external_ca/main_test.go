@@ -20,6 +20,7 @@ package externalca
 import (
 	"testing"
 
+	"istio.io/istio/pkg/kube"
 	csrctrl "istio.io/istio/pkg/test/csrctrl/controllers"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
@@ -38,30 +39,34 @@ func TestMain(m *testing.M) {
 	// Integration test for testing interoperability with external CA's that are integrated with K8s CSR API
 	// Refer to https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
 	// nolint: staticcheck
+	var certs []csrctrl.SignerRootCert
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		RequireMinVersion(19).
-		Setup(istio.Setup(nil, setupConfig)).
+		Setup(func(ctx resource.Context) error {
+			var clients []kube.Client
+			for _, c := range ctx.AllClusters() {
+				clients = append(clients, c)
+			}
+			var err error
+			certs, err = csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", stopChan, clients)
+			return err
+		}).
+		Setup(istio.Setup(nil, func(ctx resource.Context, cfg *istio.Config) {
+			var isExternalControlPlane bool
+			for _, cluster := range ctx.AllClusters() {
+				if cluster.IsExternalControlPlane() {
+					isExternalControlPlane = true
+				}
+			}
+
+			cfg.ControlPlaneValues = generateConfigYaml(certs, false, isExternalControlPlane)
+			cfg.ConfigClusterValues = generateConfigYaml(certs, true, false)
+		})).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Run()
 	stopChan <- struct{}{}
 	close(stopChan)
-}
-
-func setupConfig(ctx resource.Context, cfg *istio.Config) {
-	certs := csrctrl.RunCSRController("clusterissuers.istio.io/signer1,clusterissuers.istio.io/signer2", false, stopChan, ctx.AllClusters())
-	if cfg == nil {
-		return
-	}
-	var isExternalControlPlane bool
-	for _, cluster := range ctx.AllClusters() {
-		if cluster.IsExternalControlPlane() {
-			isExternalControlPlane = true
-		}
-	}
-
-	cfg.ControlPlaneValues = generateConfigYaml(certs, false, isExternalControlPlane)
-	cfg.ConfigClusterValues = generateConfigYaml(certs, true, false)
 }
 
 func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool, isExternalControlPlane bool) string {
@@ -70,6 +75,9 @@ func generateConfigYaml(certs []csrctrl.SignerRootCert, isConfigCluster bool, is
 
 	cfgYaml := tmpl.MustEvaluate(`
 values:
+  pilot:
+    env:
+      EXTERNAL_CA: ISTIOD_RA_KUBERNETES_API
   meshConfig:
     defaultConfig:
       proxyMetadata:
@@ -92,8 +100,6 @@ components:
       env:
       - name: CERT_SIGNER_DOMAIN
         value: clusterissuers.istio.io
-      - name: EXTERNAL_CA
-        value: ISTIOD_RA_KUBERNETES_API
       - name: PILOT_CERT_PROVIDER
         value: k8s.io/clusterissuers.istio.io/signer2
       overlays:

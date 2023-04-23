@@ -20,6 +20,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -30,7 +31,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/mcs"
 )
 
@@ -47,13 +48,13 @@ type serviceExportCache interface {
 
 	// ExportedServices returns the list of services that are exported in this cluster. Used for debugging.
 	ExportedServices() []exportedService
-
 	Run(stop <-chan struct{})
 
 	// HasSynced indicates whether the kube createClient has synced for the watched resources.
 	HasSynced() bool
 
-	OnCRDEvent(name string)
+	// HasCRDInstalled indicates whether the serviceExport crd has been installed.
+	HasCRDInstalled() bool
 }
 
 // newServiceExportCache creates a new serviceExportCache that observes the given cluster.
@@ -63,7 +64,7 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 			Controller:      c,
 			serviceExportCh: make(chan struct{}),
 		}
-		c.AppendCrdHandlers(ec.OnCRDEvent)
+		c.crdWatcher.AddCallBack(ec.onCRDEvent)
 
 		// Set the discoverability policy for the clusterset.local host.
 		ec.clusterSetLocalPolicySelector = func(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
@@ -103,7 +104,7 @@ type discoverabilityPolicySelector func(*model.Service) model.EndpointDiscoverab
 type serviceExportCacheImpl struct {
 	*Controller
 
-	filteredInformer informer.FilteredSharedIndexInformer
+	serviceExports kclient.Untyped
 
 	// clusterLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the cluster.local host.
 	clusterLocalPolicySelector discoverabilityPolicySelector
@@ -116,7 +117,7 @@ type serviceExportCacheImpl struct {
 	started atomic.Bool
 }
 
-func (ec *serviceExportCacheImpl) onServiceExportEvent(_, obj any, event model.Event) error {
+func (ec *serviceExportCacheImpl) onServiceExportEvent(_, obj controllers.Object, event model.Event) error {
 	se := controllers.Extract[*unstructured.Unstructured](obj)
 	if se == nil {
 		return nil
@@ -158,8 +159,7 @@ func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Servi
 }
 
 func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
-	item, _, _ := ec.filteredInformer.GetIndexer().GetByKey(name.String())
-	return item != nil
+	return ec.serviceExports.Get(name.Name, name.Namespace) != nil
 }
 
 func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
@@ -167,10 +167,7 @@ func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 		return nil
 	}
 	// List all exports in this cluster.
-	exports, err := ec.filteredInformer.List("")
-	if err != nil {
-		return make([]exportedService, 0)
-	}
+	exports := ec.serviceExports.List(metav1.NamespaceAll, klabels.Everything())
 
 	ec.RLock()
 
@@ -205,28 +202,29 @@ func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
 	case <-stop:
 		return
 	}
-	dInformer := ec.client.DynamicInformer().ForResource(mcs.ServiceExportGVR)
-	_ = dInformer.Informer().SetTransform(kube.StripUnusedFields)
-	if ec.opts.DiscoveryNamespacesFilter != nil {
-		ec.filteredInformer = informer.NewFilteredSharedIndexInformer(ec.opts.DiscoveryNamespacesFilter.Filter, dInformer.Informer())
-	} else {
-		ec.filteredInformer = informer.NewFilteredSharedIndexInformer(nil, dInformer.Informer())
-	}
+	dInformer := ec.client.DynamicInformer().ForResource(mcs.ServiceExportGVR).Informer()
+	ec.serviceExports = kclient.NewUntyped(ec.client, dInformer, kclient.Filter{ObjectFilter: ec.opts.GetFilter()})
 	// Register callbacks for events.
-	ec.registerHandlers(ec.filteredInformer, "ServiceExports", ec.onServiceExportEvent, nil)
-	go ec.filteredInformer.Run(stop)
-	kube.WaitForCacheSync(stop, ec.filteredInformer.HasSynced)
+	registerHandlers(ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)
+	go dInformer.Run(stop)
+	kube.WaitForCacheSync(stop, ec.serviceExports.HasSynced)
 	ec.started.Store(true)
 }
 
 func (ec *serviceExportCacheImpl) HasSynced() bool {
-	// This is called during the initiation of istiod.
-	// 1. If MCS CRD not installed, always return true.
-	// 2. TODO: If MCS CRD installed, we need to wait informer cache synced and also process each item.
-	return true
+	return ec.started.Load()
 }
 
-func (ec *serviceExportCacheImpl) OnCRDEvent(name string) {
+func (ec *serviceExportCacheImpl) HasCRDInstalled() bool {
+	select {
+	case <-ec.serviceExportCh:
+		return true
+	default:
+		return false
+	}
+}
+
+func (ec *serviceExportCacheImpl) onCRDEvent(name string) {
 	if name == mcs.ServiceExportGVR.Resource+"."+mcs.ServiceExportGVR.Group {
 		select {
 		case <-ec.serviceExportCh: // channel already closed
@@ -256,4 +254,6 @@ func (c disabledServiceExportCache) ExportedServices() []exportedService {
 	return nil
 }
 
-func (c disabledServiceExportCache) OnCRDEvent(name string) {}
+func (c disabledServiceExportCache) HasCRDInstalled() bool {
+	return false
+}

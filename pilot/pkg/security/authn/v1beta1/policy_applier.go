@@ -49,16 +49,41 @@ var authnLog = log.RegisterScope("authn", "authn debugging", 0)
 
 // Implementation of authn.PolicyApplier with v1beta1 API.
 type v1beta1PolicyApplier struct {
-	jwtPolicies []*config.Config
-
-	peerPolices []*config.Config
-
 	// processedJwtRules is the consolidate JWT rules from all jwtPolicies.
 	processedJwtRules []*v1beta1.JWTRule
 
 	consolidatedPeerPolicy *v1beta1.PeerAuthentication
 
 	push *model.PushContext
+}
+
+// NewPolicyApplier returns new applier for v1beta1 authentication policies.
+func NewPolicyApplier(rootNamespace string,
+	jwtPolicies []*config.Config,
+	peerPolicies []*config.Config,
+	push *model.PushContext,
+) authn.PolicyApplier {
+	processedJwtRules := []*v1beta1.JWTRule{}
+
+	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
+	// https://github.com/istio/istio/issues/19245
+	for idx := range jwtPolicies {
+		spec := jwtPolicies[idx].Spec.(*v1beta1.RequestAuthentication)
+		processedJwtRules = append(processedJwtRules, spec.JwtRules...)
+	}
+
+	// Sort the jwt rules by the issuer alphabetically to make the later-on generated filter
+	// config deterministic.
+	sort.Slice(processedJwtRules, func(i, j int) bool {
+		return strings.Compare(
+			processedJwtRules[i].GetIssuer(), processedJwtRules[j].GetIssuer()) < 0
+	})
+
+	return &v1beta1PolicyApplier{
+		processedJwtRules:      processedJwtRules,
+		consolidatedPeerPolicy: ComposePeerAuthentication(rootNamespace, peerPolicies),
+		push:                   push,
+	}
 }
 
 func (a *v1beta1PolicyApplier) JwtFilter() *hcm.HttpFilter {
@@ -163,6 +188,9 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(
 		mc = a.push.Mesh
 	}
 	// Configure TLS version based on meshconfig TLS API.
+	// This is used to configure TLS version for inbound filter chain of ISTIO MUTUAL cases.
+	// For MUTUAL and SIMPLE TLS modes specified via ServerTLSSettings in Sidecar or Gateway,
+	// TLS version is configured in the BuildListenerContext.
 	minTLSVersion := authn_utils.GetMinTLSVersion(mc.GetMeshMTLS().GetMinProtocolVersion())
 	return authn.MTLSSettings{
 		Port: endpointPort,
@@ -171,37 +199,6 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(
 			trustDomainAliases, minTLSVersion),
 		HTTP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP,
 			trustDomainAliases, minTLSVersion),
-	}
-}
-
-// NewPolicyApplier returns new applier for v1beta1 authentication policies.
-func NewPolicyApplier(rootNamespace string,
-	jwtPolicies []*config.Config,
-	peerPolicies []*config.Config,
-	push *model.PushContext,
-) authn.PolicyApplier {
-	processedJwtRules := []*v1beta1.JWTRule{}
-
-	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
-	// https://github.com/istio/istio/issues/19245
-	for idx := range jwtPolicies {
-		spec := jwtPolicies[idx].Spec.(*v1beta1.RequestAuthentication)
-		processedJwtRules = append(processedJwtRules, spec.JwtRules...)
-	}
-
-	// Sort the jwt rules by the issuer alphabetically to make the later-on generated filter
-	// config deterministic.
-	sort.Slice(processedJwtRules, func(i, j int) bool {
-		return strings.Compare(
-			processedJwtRules[i].GetIssuer(), processedJwtRules[j].GetIssuer()) < 0
-	})
-
-	return &v1beta1PolicyApplier{
-		jwtPolicies:            jwtPolicies,
-		peerPolices:            peerPolicies,
-		processedJwtRules:      processedJwtRules,
-		consolidatedPeerPolicy: ComposePeerAuthentication(rootNamespace, peerPolicies),
-		push:                   push,
 	}
 }
 

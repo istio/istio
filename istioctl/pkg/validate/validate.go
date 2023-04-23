@@ -36,8 +36,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
@@ -102,7 +102,7 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 			obj.Namespace = defaultNamespace
 		}
 
-		warnings, err := schema.Resource().ValidateConfig(*obj)
+		warnings, err := schema.ValidateConfig(*obj)
 		return warnings, err
 	}
 
@@ -361,7 +361,7 @@ func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra
 	}
 
 	flags := c.PersistentFlags()
-	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Names of files to validate")
+	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Inputs of files to validate")
 	flags.BoolVarP(&referential, "referential", "x", true, "Enable structural validation for policy and telemetry")
 
 	return c
@@ -428,7 +428,7 @@ func handleNamespace(istioNamespace string) string {
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Unstructured, domain string) (*config.Config, error) {
+func convertObjectFromUnstructured(schema resource.Schema, un *unstructured.Unstructured, domain string) (*config.Config, error) {
 	data, err := fromSchemaAndJSONMap(schema, un.Object["spec"])
 	if err != nil {
 		return nil, err
@@ -436,7 +436,7 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 
 	return &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  schema.Resource().GroupVersionKind(),
+			GroupVersionKind:  schema.GroupVersionKind(),
 			Name:              un.GetName(),
 			Namespace:         un.GetNamespace(),
 			Domain:            domain,
@@ -450,13 +450,13 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func fromSchemaAndJSONMap(schema collection.Schema, data any) (config.Spec, error) {
+func fromSchemaAndJSONMap(schema resource.Schema, data any) (config.Spec, error) {
 	// Marshal to json bytes
 	str, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
-	out, err := schema.Resource().NewInstance()
+	out, err := schema.NewInstance()
 	if err != nil {
 		return nil, err
 	}

@@ -291,18 +291,26 @@ func zoneToRegion(z string) (string, error) {
 func (e *gcpEnv) Locality() *core.Locality {
 	var l core.Locality
 	if e.shouldFillMetadata() {
-		z, zerr := metadata.Zone()
-		if zerr != nil {
-			log.Warnf("Error fetching GCP zone: %v", zerr)
+		// Sometimes for non-gcp platforms metadata IP is accessible but
+		// won't return anything. So it's safer to check existing env variable.
+		_, _, _, envLoc := parseGCPMetadata()
+		if envLoc == "" {
+			md := e.Metadata()
+			if md[GCPLocation] != "" {
+				envLoc = md[GCPLocation]
+			}
+		}
+		if envLoc == "" {
+			log.Warnf("Error fetching GCP zone: %v", envLoc)
 			return &l
 		}
-		r, rerr := zoneToRegion(z)
+		r, rerr := zoneToRegion(envLoc)
 		if rerr != nil {
 			log.Warnf("Error fetching GCP region: %v", rerr)
 			return &l
 		}
 		l.Region = r
-		l.Zone = z
+		l.Zone = envLoc
 	}
 
 	return &l
@@ -365,9 +373,15 @@ type GcpInstance struct {
 
 // Checks metadata to see if GKE metadata or Kubernetes env vars exist
 func (e *gcpEnv) IsKubernetes() bool {
-	md := e.Metadata()
+	// sometimes for non-gcp platforms, metadataIP doesn't return anything. It's
+	// safer to use the existing env variable.
+	_, _, cluster, _ := parseGCPMetadata()
+	if cluster == "" {
+		md := e.Metadata()
+		cluster = md[GCPCluster]
+	}
 	_, onKubernetes := os.LookupEnv(KubernetesServiceHost)
-	return md[GCPCluster] != "" || onKubernetes
+	return cluster != "" || onKubernetes
 }
 
 func createMetadataSupplier(property string, fn func() (string, error)) metadataSupplier {

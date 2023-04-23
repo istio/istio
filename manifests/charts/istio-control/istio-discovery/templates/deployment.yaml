@@ -52,6 +52,7 @@ spec:
         prometheus.io/port: "15014"
         prometheus.io/scrape: "true"
         {{- end }}
+        ambient.istio.io/redirection: disabled
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
@@ -167,6 +168,10 @@ spec:
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.memory
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}

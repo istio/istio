@@ -29,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
@@ -42,7 +41,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	istioProtocol "istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/url"
@@ -496,8 +496,8 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 
 	u := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": collections.IstioNetworkingV1Alpha3Serviceentries.Resource().APIVersion(),
-			"kind":       collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
+			"apiVersion": gvk.ServiceEntry.GroupVersion(),
+			"kind":       gvk.ServiceEntry.Kind,
 			"metadata": map[string]any{
 				"namespace": opts.Namespace,
 				"name":      resourceName(opts.Name),
@@ -519,12 +519,7 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	if err == nil {
 		return fmt.Errorf("service %q already exists, skip", opts.Name)
 	}
-	serviceEntryGVR := schema.GroupVersionResource{
-		Group:    collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Group(),
-		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
-		Resource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Plural(),
-	}
-	_, err = dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Get(context.TODO(), resourceName(opts.Name), metav1.GetOptions{})
+	_, err = dynamicClient.Resource(gvr.ServiceEntry).Namespace(ns).Get(context.TODO(), resourceName(opts.Name), metav1.GetOptions{})
 	if err == nil {
 		return fmt.Errorf("service entry %q already exists, skip", resourceName(opts.Name))
 	}
@@ -672,12 +667,7 @@ func createServiceEntry(dynamicClient dynamic.Interface, ns string,
 	if u == nil {
 		return fmt.Errorf("failed to create vm service")
 	}
-	serviceEntryGVR := schema.GroupVersionResource{
-		Group:    collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Group(),
-		Version:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
-		Resource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Plural(),
-	}
-	_, err := dynamicClient.Resource(serviceEntryGVR).Namespace(ns).Create(context.TODO(), u, metav1.CreateOptions{})
+	_, err := dynamicClient.Resource(gvr.ServiceEntry).Namespace(ns).Create(context.TODO(), u, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create service entry %v", err)
 	}

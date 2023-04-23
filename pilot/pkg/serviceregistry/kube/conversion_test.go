@@ -308,6 +308,12 @@ func TestExternalServiceConversion(t *testing.T) {
 		t.Fatalf("service hostname incorrect => %q, want %q",
 			service.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
 	}
+
+	if service.Attributes.Type != string(extSvc.Spec.Type) ||
+		service.Attributes.ExternalName != extSvc.Spec.ExternalName {
+		t.Fatalf("service attributes incorrect => %v/%v, want %v/%v",
+			service.Attributes.Type, service.Attributes.ExternalName, extSvc.Spec.Type, extSvc.Spec.ExternalName)
+	}
 }
 
 func TestExternalClusterLocalServiceConversion(t *testing.T) {

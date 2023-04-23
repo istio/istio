@@ -31,7 +31,7 @@ func TestParseResourceName(t *testing.T) {
 			resource:         "kubernetes://cert",
 			defaultNamespace: "default",
 			expected: SecretResource{
-				Type:         KubernetesSecretType,
+				ResourceType: KubernetesSecretType,
 				Name:         "cert",
 				Namespace:    "default",
 				ResourceName: "kubernetes://cert",
@@ -43,7 +43,7 @@ func TestParseResourceName(t *testing.T) {
 			resource:         "kubernetes://namespace/cert",
 			defaultNamespace: "default",
 			expected: SecretResource{
-				Type:         KubernetesSecretType,
+				ResourceType: KubernetesSecretType,
 				Name:         "cert",
 				Namespace:    "namespace",
 				ResourceName: "kubernetes://namespace/cert",
@@ -55,7 +55,7 @@ func TestParseResourceName(t *testing.T) {
 			resource:         "kubernetes-gateway://namespace/cert",
 			defaultNamespace: "default",
 			expected: SecretResource{
-				Type:         KubernetesGatewaySecretType,
+				ResourceType: KubernetesGatewaySecretType,
 				Name:         "cert",
 				Namespace:    "namespace",
 				ResourceName: "kubernetes-gateway://namespace/cert",

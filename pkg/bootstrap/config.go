@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"path"
 	"strconv"
@@ -86,6 +87,13 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		xdsType = "DELTA_GRPC"
 	}
 
+	// Waypoint overrides
+	metadataDiscovery := false
+	if strings.HasPrefix(cfg.ID, "waypoint~") {
+		xdsType = "DELTA_GRPC"
+		metadataDiscovery = true
+	}
+
 	opts = append(opts,
 		option.NodeID(cfg.ID),
 		option.NodeType(cfg.ID),
@@ -93,7 +101,8 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
-		option.XdsType(xdsType))
+		option.XdsType(xdsType),
+		option.MetadataDiscovery(metadataDiscovery))
 
 	// Add GCPProjectNumber to access in bootstrap template.
 	md := cfg.Metadata.PlatformMetadata
@@ -118,16 +127,42 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if network.AllIPv6(cfg.Metadata.InstanceIPs) {
+	if network.AllIPv4(cfg.Metadata.InstanceIPs) {
+		// IPv4 only
+		opts = append(opts,
+			option.Localhost(option.LocalhostIPv4),
+			option.Wildcard(option.WildcardIPv4),
+			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+	} else if network.AllIPv6(cfg.Metadata.InstanceIPs) {
+		// IPv6 only
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
 	} else {
-		opts = append(opts,
-			option.Localhost(option.LocalhostIPv4),
-			option.Wildcard(option.WildcardIPv4),
-			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+		// Dual Stack
+		if features.EnableDualStack {
+			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
+			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
+			netIP, _ := netip.ParseAddr(cfg.Metadata.InstanceIPs[0])
+			if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
+				opts = append(opts,
+					option.Localhost(option.LocalhostIPv6),
+					option.Wildcard(option.WildcardIPv6),
+					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
+			} else {
+				opts = append(opts,
+					option.Localhost(option.LocalhostIPv4),
+					option.Wildcard(option.WildcardIPv4),
+					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
+			}
+		} else {
+			// keep the original logic if Dual Stack is disable
+			opts = append(opts,
+				option.Localhost(option.LocalhostIPv4),
+				option.Wildcard(option.WildcardIPv4),
+				option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+		}
 	}
 
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
@@ -157,39 +192,6 @@ func substituteValues(patterns []string, varName string, values []string) []stri
 		}
 	}
 	return ret
-}
-
-// DefaultStatTags for telemetry v2 tag extraction.
-var DefaultStatTags = []string{
-	"reporter",
-	"source_namespace",
-	"source_workload",
-	"source_workload_namespace",
-	"source_principal",
-	"source_app",
-	"source_version",
-	"source_cluster",
-	"destination_namespace",
-	"destination_workload",
-	"destination_workload_namespace",
-	"destination_principal",
-	"destination_app",
-	"destination_version",
-	"destination_service",
-	"destination_service_name",
-	"destination_service_namespace",
-	"destination_port",
-	"destination_cluster",
-	"request_protocol",
-	"request_operation",
-	"request_host",
-	"response_flags",
-	"grpc_response_status",
-	"connection_security_policy",
-	"source_canonical_service",
-	"destination_canonical_service",
-	"source_canonical_revision",
-	"destination_canonical_revision",
 }
 
 func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
@@ -222,9 +224,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		return substituteValues(inclusionOption, "{pod_ip}", nodeIPs)
 	}
 
-	extraStatTags := make([]string, 0, len(DefaultStatTags))
-	extraStatTags = append(extraStatTags,
-		DefaultStatTags...)
+	extraStatTags := make([]string, 0, len(config.ExtraStatTags))
 	for _, tag := range config.ExtraStatTags {
 		if tag != "" {
 			extraStatTags = append(extraStatTags, tag)

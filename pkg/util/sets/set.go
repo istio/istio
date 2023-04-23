@@ -114,6 +114,21 @@ func (s Set[T]) Difference(s2 Set[T]) Set[T] {
 	return result
 }
 
+// Diff takes a pair of Sets, and returns the elements that occur only on the left and right set.
+func (s Set[T]) Diff(other Set[T]) (left []T, right []T) {
+	for k := range s {
+		if _, f := other[k]; !f {
+			left = append(left, k)
+		}
+	}
+	for k := range other {
+		if _, f := s[k]; !f {
+			right = append(right, k)
+		}
+	}
+	return
+}
+
 // Intersection returns a set of objects that are common between s and s2
 // For example:
 // s = {a1, a2, a3}
@@ -215,4 +230,29 @@ func (s Set[T]) Len() int {
 // IsEmpty indicates whether the set is the empty set.
 func (s Set[T]) IsEmpty() bool {
 	return len(s) == 0
+}
+
+// InsertOrNew inserts t into the set if the set exists, or returns a new set with t if not.
+// Works well with DeleteCleanupLast.
+// Example:
+//
+//	InsertOrNew(m, key, value)
+func InsertOrNew[K comparable, T comparable](m map[K]Set[T], k K, v T) {
+	s, f := m[k]
+	if !f {
+		m[k] = New(v)
+	} else {
+		s.Insert(v)
+	}
+}
+
+// DeleteCleanupLast removes an element from a set in a map of sets, deleting the key from the map if there are no keys left.
+// Works well with InsertOrNew.
+// Example:
+//
+//	sets.DeleteCleanupLast(m, key, value)
+func DeleteCleanupLast[K comparable, T comparable](m map[K]Set[T], k K, v T) {
+	if m[k].Delete(v).IsEmpty() {
+		delete(m, k)
+	}
 }

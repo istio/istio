@@ -50,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -73,6 +72,14 @@ func getProxy() *model.Proxy {
 		ConfigNamespace: "not-default",
 	}
 	pr.DiscoverIPMode()
+	return pr
+}
+
+func getIPv6Proxy() *model.Proxy {
+	pr := &model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"2001:1::1"},
+	}
 	return pr
 }
 
@@ -403,7 +410,7 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 
 			virtualService := config.Config{
 				Meta: config.Meta{
-					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+					GroupVersionKind: gvk.VirtualService,
 					Name:             "test_vs",
 					Namespace:        "default",
 				},
@@ -468,7 +475,7 @@ func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
 
 			virtualService := config.Config{
 				Meta: config.Meta{
-					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+					GroupVersionKind: gvk.VirtualService,
 					Name:             "test_vs",
 					Namespace:        "default",
 				},
@@ -619,6 +626,71 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	}
 }
 
+func TestOutboundListenerForExternalServices(t *testing.T) {
+	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
+	svc.Attributes.ServiceRegistry = provider.Kubernetes
+
+	autoSvc := buildServiceWithPort("test.com", 9999, protocol.Unsupported, tnow)
+	autoSvc.Attributes.ServiceRegistry = provider.External
+
+	extSvc := buildServiceWithPort("example1.com", 9999, protocol.TCP, tnow)
+	extSvc.Attributes.ServiceRegistry = provider.External
+
+	tests := []struct {
+		name        string
+		instances   []*model.ServiceInstance
+		services    []*model.Service
+		listenersOn string
+	}{
+		{
+			name: "internal k8s service with ipv4 & ipv6 endpoint for Kubernetes TCP protocol",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(svc, "10.10.10.10"),
+				buildServiceInstance(svc, "fd00:10:244:1::11"),
+			},
+			services:    []*model.Service{svc},
+			listenersOn: "0.0.0.0_9999",
+		},
+		{
+			name: "external service with ipv4 & ipv6 endpoints for Kubernetes auto protocol",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(autoSvc, "10.10.10.10"),
+				buildServiceInstance(autoSvc, "fd00:10:244:1::11"),
+			},
+			services:    []*model.Service{autoSvc},
+			listenersOn: "::_9999",
+		},
+		{
+			name: "external service with ipv4 & ipv6 endpoints for Kubernetes TCP protocol",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(extSvc, "10.10.10.10"),
+				buildServiceInstance(extSvc, "fd00:10:244:1::11"),
+			},
+			services:    []*model.Service{extSvc},
+			listenersOn: "::_9999",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{
+				Services:  tt.services,
+				Instances: tt.instances,
+			})
+
+			proxy := cg.SetupProxy(getIPv6Proxy())
+
+			listeners := NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(proxy, cg.env.PushContext)
+			for _, l := range listeners {
+				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
+					if l.Name != tt.listenersOn {
+						t.Errorf("Expected listeners on %s, got %s", tt.listenersOn, l.Name)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestInboundHTTPListenerConfig(t *testing.T) {
 	sidecarConfig := config.Config{
 		Meta: config.Meta{
@@ -677,9 +749,12 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 				listenertest.VerifyListener(t, l, listenertest.ListenerTest{
 					FilterChains: []listenertest.FilterChainTest{
 						{
-							TotalMatch:  true,
-							Port:        8080,
-							HTTPFilters: []string{xdsfilters.MxFilterName, xdsfilters.Fault.Name, xdsfilters.Cors.Name, xdsfilters.Router.Name},
+							TotalMatch: true,
+							Port:       8080,
+							HTTPFilters: []string{
+								xdsfilters.MxFilterName, xdsfilters.GrpcStats.Name, xdsfilters.Fault.Name,
+								xdsfilters.Cors.Name, xdsfilters.Router.Name,
+							},
 							ValidateHCM: func(t test.Failer, hcm *hcm.HttpConnectionManager) {
 								assert.Equal(t, "istio-envoy", hcm.GetServerName(), "server name")
 								if len(tt.cfg) == 0 {
@@ -2554,6 +2629,7 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *listener.Listener, hostn
 func verifyFilterChainMatch(t *testing.T, listener *listener.Listener) {
 	httpFilters := []string{
 		xdsfilters.MxFilterName,
+		xdsfilters.GrpcStats.Name,
 		xdsfilters.Fault.Name,
 		xdsfilters.Cors.Name,
 		xdsfilters.Router.Name,

@@ -22,7 +22,7 @@ set -o nounset
 set -o pipefail
 
 if [[ "${TARGET_OUT_LINUX:-}" == "" ]]; then
-  echo "Environment variables no set. Make sure you run through the makefile (\`make init\`) rather than directly."
+  echo "Environment variables not set. Make sure you run through the makefile (\`make init\`) rather than directly."
   exit 1
 fi
 
@@ -168,16 +168,6 @@ fi
 download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH" "${SIDECAR}"
 download_envoy_if_necessary "${ISTIO_ENVOY_CENTOS_RELEASE_URL}" "$ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH" "${SIDECAR}-centos"
 ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
-
-# Download WebAssembly plugin files
-WASM_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR}
-for plugin in stats metadata_exchange
-do
-  FILTER_WASM_URL="${ISTIO_ENVOY_BASE_URL}/${plugin}-${ISTIO_ENVOY_VERSION}.wasm"
-  download_wasm_if_necessary "${FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/"${plugin//_/-}"-filter.wasm
-  FILTER_WASM_URL="${ISTIO_ENVOY_BASE_URL}/${plugin}-${ISTIO_ENVOY_VERSION}.compiled.wasm"
-  download_wasm_if_necessary "${FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/"${plugin//_/-}"-filter.compiled.wasm
-done
 
 # Copy native envoy binary to TARGET_OUT
 echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${TARGET_OUT}/${SIDECAR}"

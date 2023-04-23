@@ -1,4 +1,4 @@
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: foo
@@ -9,10 +9,12 @@ spec:
       http:
         paths:
           - backend:
-              serviceName: service1
-              servicePort: 4200
+              service:
+                name: service1
+                port:
+                  number: 4200
 ---
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: foo2
@@ -24,5 +26,7 @@ spec:
         paths:
           - path: /second
             backend:
-              serviceName: service2
-              servicePort: 4200
+              service:
+                name: service2
+                port:
+                  number: 4200

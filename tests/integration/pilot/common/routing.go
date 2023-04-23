@@ -20,6 +20,7 @@ package common
 import (
 	"fmt"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"reflect"
 	"sort"
@@ -128,7 +129,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: {{.GatewayPort}}
@@ -150,15 +151,16 @@ spec:
 ---
 `
 
-func httpGateway(host string, port int, portName, protocol string) string { //nolint: unparam
+func httpGateway(host string, port int, portName, protocol string, gatewayIstioLabel string) string { //nolint: unparam
 	return tmpl.MustEvaluate(gatewayTmpl, struct {
-		GatewayHost     string
-		GatewayPort     int
-		GatewayPortName string
-		GatewayProtocol string
-		Credential      string
+		GatewayHost       string
+		GatewayPort       int
+		GatewayPortName   string
+		GatewayProtocol   string
+		Credential        string
+		GatewayIstioLabel string
 	}{
-		host, port, portName, protocol, "",
+		host, port, portName, protocol, "", gatewayIstioLabel,
 	})
 }
 
@@ -464,18 +466,110 @@ spec:
 			Count: 1,
 			Check: check.And(
 				check.Status(http.StatusMovedPermanently),
-				check.Each(
-					func(r echoClient.Response) error {
-						originalHostname, err := url.Parse(r.RequestURL)
-						if err != nil {
-							return err
-						}
-						return ExpectString(r.ResponseHeaders.Get("Location"),
-							fmt.Sprintf("https://%s:%d/foo", originalHostname.Hostname(), ports.All().MustForName("http").ServicePort),
-							"Location")
-					})),
+				LocationHeader("https://{{.Hostname}}:80/foo")),
 		},
 		workloadAgnostic: true,
+	})
+	t.RunTraffic(TrafficTestCase{
+		name: "redirect request port",
+		config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - b
+  http:
+  - match:
+    - uri:
+        exact: /foo
+    redirect:
+      derivePort: FROM_REQUEST_PORT
+`,
+		children: []TrafficCall{
+			{
+				name: "to default",
+				call: t.Apps.A[0].CallOrFail,
+				opts: echo.CallOptions{
+					To: t.Apps.B,
+					Port: echo.Port{
+						Name: "http",
+					},
+					HTTP: echo.HTTP{
+						Path:            "/foo",
+						Headers:         HostHeader("b"),
+						FollowRedirects: false,
+					},
+
+					Count: 1,
+					Check: check.And(
+						check.Status(http.StatusMovedPermanently),
+						// Note: there is no "80" added, as its already the protocol default
+						LocationHeader("http://b/foo")),
+				},
+			},
+			{
+				name: "to default with host port",
+				call: t.Apps.A[0].CallOrFail,
+				opts: echo.CallOptions{
+					To: t.Apps.B,
+					Port: echo.Port{
+						Name: "http",
+					},
+					HTTP: echo.HTTP{
+						Path:            "/foo",
+						Headers:         HostHeader("b:80"),
+						FollowRedirects: false,
+					},
+					Count: 1,
+					Check: check.And(
+						check.Status(http.StatusMovedPermanently),
+						// Note: 80 is set as it was explicit in the host header
+						LocationHeader("http://b:80/foo")),
+				},
+			},
+			{
+				name: "non-default",
+				call: t.Apps.A[0].CallOrFail,
+				opts: echo.CallOptions{
+					To: t.Apps.B,
+					Port: echo.Port{
+						Name: "http2",
+					},
+					HTTP: echo.HTTP{
+						Path:            "/foo",
+						Headers:         HostHeader("b"),
+						FollowRedirects: false,
+					},
+					Count: 1,
+					Check: check.And(
+						check.Status(http.StatusMovedPermanently),
+						// Note: there is "85" added, as its already NOT the protocol default
+						LocationHeader("http://b:85/foo")),
+				},
+			},
+			{
+				name: "non-default with host port",
+				call: t.Apps.A[0].CallOrFail,
+				opts: echo.CallOptions{
+					To: t.Apps.B,
+					Port: echo.Port{
+						Name: "http2",
+					},
+					HTTP: echo.HTTP{
+						Path:            "/foo",
+						Headers:         HostHeader("b:85"),
+						FollowRedirects: false,
+					},
+					Count: 1,
+					Check: check.And(
+						check.Status(http.StatusMovedPermanently),
+						// Note: there is "85" added, as its already NOT the protocol default
+						LocationHeader("http://b:85/foo")),
+				},
+			},
+		},
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "rewrite uri",
@@ -975,8 +1069,8 @@ func autoPassthroughCases(t TrafficContext) {
 
 	mtlsHost := host.Name(t.Apps.A.Config().ClusterLocalFQDN())
 	nakedHost := host.Name(t.Apps.Naked.Config().ClusterLocalFQDN())
-	httpsPort := ports.All().MustForName("https").ServicePort
-	httpsAutoPort := ports.All().MustForName("auto-https").ServicePort
+	httpsPort := ports.HTTP.ServicePort
+	httpsAutoPort := ports.AutoHTTPS.ServicePort
 	snis := []string{
 		model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsPort),
 		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsPort),
@@ -1023,10 +1117,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: cross-network-gateway-test
-  namespace: istio-system
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
     - port:
         number: 443
@@ -1038,6 +1132,16 @@ spec:
         - "*.local"
 `,
 			children: childs,
+			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
+				systemNamespace := "istio-system"
+				if t.Istio.Settings().SystemNamespace != "" {
+					systemNamespace = t.Istio.Settings().SystemNamespace
+				}
+				return map[string]any{
+					"SystemNamespace":   systemNamespace,
+					"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+				}
+			},
 		})
 	}
 }
@@ -1056,9 +1160,10 @@ func gatewayCases(t TrafficContext) {
 			"GatewayProtocol":    string(protocol),
 			"Gateway":            "gateway",
 			"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-			"Port":               dest.PortForName("http").ServicePort,
+			"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
 			"Credential":         cred,
 			"Ciphers":            ciphers,
+			"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 		}
 	}
 
@@ -1086,7 +1191,7 @@ func gatewayCases(t TrafficContext) {
 		targetMatchers:   singleTarget,
 		workloadAgnostic: true,
 		viaIngress:       true,
-		config:           httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP"),
+		config:           httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP", t.Istio.Settings().IngressGatewayIstioLabel),
 		opts: echo.CallOptions{
 			Count: 1,
 			Port: echo.Port{
@@ -1110,7 +1215,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 80
@@ -1129,6 +1234,11 @@ spec:
 			},
 			Check: check.Status(http.StatusMovedPermanently),
 		},
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
 		setupOpts: fqdnHostHeader,
 	})
 	t.RunTraffic(TrafficTestCase{
@@ -1143,7 +1253,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 80
@@ -1158,7 +1268,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: ingressgateway-redirect-config
-  namespace: istio-system
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   configPatches:
   - applyTo: NETWORK_FILTER
@@ -1177,7 +1287,7 @@ spec:
           normalize_path: true
   workloadSelector:
     labels:
-      istio: ingressgateway
+      istio: {{.GatewayIstioLabel | default "ingressgateway"}}
 ---
 ` + httpVirtualServiceTmpl,
 		opts: echo.CallOptions{
@@ -1194,10 +1304,16 @@ spec:
 		setupOpts: fqdnHostHeader,
 		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
 			dest := dests[0]
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-				"Port":               dest.PortForName("http").ServicePort,
+				"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
+				"SystemNamespace":    systemNamespace,
+				"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 	})
@@ -1208,7 +1324,10 @@ spec:
 		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
 			// Test all cipher suites, including a fake one. Envoy should accept all of the ones on the "valid" list,
 			// and control plane should filter our invalid one.
-			return templateParams(protocol.HTTPS, src, dests, append(sets.SortedList(security.ValidCipherSuites), "fake"))
+
+			params := templateParams(protocol.HTTPS, src, dests, append(sets.SortedList(security.ValidCipherSuites), "fake"))
+			params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
+			return params
 		},
 		setupOpts: fqdnHostHeader,
 		opts: echo.CallOptions{
@@ -1232,7 +1351,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 80
@@ -1258,6 +1377,7 @@ spec:
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
 				"Port":               443,
+				"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 	})
@@ -1274,7 +1394,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 80
@@ -1289,7 +1409,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: ingressgateway-redirect-config
-  namespace: istio-system
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   configPatches:
   - applyTo: NETWORK_FILTER
@@ -1308,7 +1428,7 @@ spec:
           normalize_path: true
   workloadSelector:
     labels:
-      istio: ingressgateway
+      istio: {{.GatewayIstioLabel | default "ingressgateway"}}
 ---
 ` + httpVirtualServiceTmpl,
 		opts: echo.CallOptions{
@@ -1324,11 +1444,17 @@ spec:
 		},
 		setupOpts: fqdnHostHeader,
 		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			dest := dests[0]
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
 				"Port":               443,
+				"SystemNamespace":    systemNamespace,
+				"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 	})
@@ -1344,7 +1470,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 80
@@ -1369,7 +1495,8 @@ spec:
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-				"Port":               ports.All().MustForName("auto-http").ServicePort,
+				"Port":               dest.PortForName(ports.AutoHTTP.Name).ServicePort,
+				"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 	})
@@ -1385,7 +1512,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 80
@@ -1413,10 +1540,16 @@ spec:
 		setupOpts: fqdnHostHeader,
 		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
 			dest := dests[0]
+			systemNamespace := "istio-system"
+			if t.Istio.Settings().SystemNamespace != "" {
+				systemNamespace = t.Istio.Settings().SystemNamespace
+			}
 			return map[string]any{
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-				"Port":               ports.All().MustForName("auto-http").ServicePort,
+				"Port":               dest.PortForName(ports.AutoHTTP.Name).ServicePort,
+				"SystemNamespace":    systemNamespace,
+				"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 	})
@@ -1431,7 +1564,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 80
@@ -1492,12 +1625,13 @@ spec:
 				"Gateway":            "gateway",
 				"VirtualServiceHost": "*.example.com",
 				"DestinationHost":    dests[0].Config().ClusterLocalFQDN(),
-				"Port":               ports.All().MustForName(ports.HTTP).ServicePort,
+				"Port":               ports.HTTP.ServicePort,
+				"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 	})
 
-	for _, port := range []string{"auto-http", "http", "http2"} {
+	for _, port := range []echo.Port{ports.AutoHTTP, ports.HTTP, ports.HTTP2} {
 		for _, h2 := range []bool{true, false} {
 			port, h2 := port, h2
 			protoName := "http1"
@@ -1519,7 +1653,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 80
@@ -1550,7 +1684,8 @@ spec:
 					return map[string]any{
 						"Gateway":            "gateway",
 						"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-						"Port":               ports.All().MustForName(port).ServicePort,
+						"Port":               port.ServicePort,
+						"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 					}
 				},
 			})
@@ -1566,7 +1701,9 @@ spec:
 			name:   string(proto),
 			config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 			templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
-				return templateParams(proto, src, dests, nil)
+				params := templateParams(proto, src, dests, nil)
+				params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
+				return params
 			},
 			setupOpts: fqdnHostHeader,
 			opts: echo.CallOptions{
@@ -1584,6 +1721,7 @@ spec:
 			templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
 				params := templateParams(proto, src, dests, nil)
 				params["MatchScheme"] = strings.ToLower(string(proto))
+				params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
 				return params
 			},
 			setupOpts: fqdnHostHeader,
@@ -1627,8 +1765,8 @@ func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceVi
 			name: d[0].Config().Service,
 			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
 			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") +
-				tcpVirtualService("gateway", fqdn, "", 80, d[0].PortForName("tcp").ServicePort),
+			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP", "") + // use the default label since this test creates its own gateway
+				tcpVirtualService("gateway", fqdn, "", 80, ports.TCP.ServicePort),
 			call: apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:                1,
@@ -1685,8 +1823,8 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 			name: d[0].Config().Service,
 			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
 			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP") +
-				tcpVirtualService("gateway", fqdn, "", 80, d[0].PortForName("tcp").ServicePort),
+			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP", "") + // use the default label since this test creates its own gateway
+				tcpVirtualService("gateway", fqdn, "", 80, ports.TCP.ServicePort),
 			call: apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
@@ -1716,7 +1854,6 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
 	var cases []TrafficTestCase
 	gatewayListenPort := 80
-	gatewayListenPortName := "http"
 
 	destinationSets := []echo.Instances{
 		apps.A,
@@ -1730,8 +1867,8 @@ func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []Traf
 		fqdn := d[0].Config().ClusterLocalFQDN()
 		cases = append(cases, TrafficTestCase{
 			name: d[0].Config().Service,
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP") +
-				httpVirtualService("gateway", fqdn, d[0].PortForName(gatewayListenPortName).ServicePort),
+			config: httpGateway("*", gatewayListenPort, ports.HTTP.Name, "HTTP", "") +
+				httpVirtualService("gateway", fqdn, ports.HTTP.ServicePort),
 			call: apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
@@ -1897,7 +2034,7 @@ spec:
 func hostCases(t TrafficContext) {
 	for _, c := range t.Apps.A {
 		cfg := t.Apps.Headless.Config()
-		port := ports.All().MustForName("auto-http").WorkloadPort
+		port := ports.AutoHTTP.WorkloadPort
 		wl := t.Apps.Headless[0].WorkloadsOrFail(t)
 		if len(wl) == 0 {
 			t.Fatalf("no workloads found")
@@ -1944,7 +2081,7 @@ func hostCases(t TrafficContext) {
 				},
 			})
 		}
-		port = ports.All().MustForName("http").WorkloadPort
+		port = ports.HTTP.WorkloadPort
 		hosts = []string{
 			cfg.ClusterLocalFQDN(),
 			fmt.Sprintf("%s:%d", cfg.ClusterLocalFQDN(), port),
@@ -2022,7 +2159,7 @@ spec:
     port: %d
     targetPort: %d
   selector:
-    app: b`, ports.All().MustForName("http").ServicePort, ports.All().MustForName("http").WorkloadPort)
+    app: b`, ports.HTTP.ServicePort, ports.HTTP.WorkloadPort)
 		t.RunTraffic(TrafficTestCase{
 			name:   fmt.Sprintf("case 1 both match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -2030,7 +2167,7 @@ spec:
 			opts: echo.CallOptions{
 				Count:   1,
 				Address: "b-alt-1",
-				Port:    echo.Port{ServicePort: ports.All().MustForName("http").ServicePort, Protocol: protocol.HTTP},
+				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
 				Timeout: time.Millisecond * 100,
 				Check:   check.OK(),
 			},
@@ -2051,7 +2188,7 @@ spec:
     port: %d
     targetPort: %d
   selector:
-    app: b`, ports.All().MustForName("http").ServicePort, ports.All().GetWorkloadOnlyPorts()[0].WorkloadPort)
+    app: b`, ports.HTTP.ServicePort, ports.All().GetWorkloadOnlyPorts()[0].WorkloadPort)
 		t.RunTraffic(TrafficTestCase{
 			name:   fmt.Sprintf("case 2 service port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -2059,7 +2196,7 @@ spec:
 			opts: echo.CallOptions{
 				Count:   1,
 				Address: "b-alt-2",
-				Port:    echo.Port{ServicePort: ports.All().MustForName("http").ServicePort, Protocol: protocol.TCP},
+				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.TCP},
 				Scheme:  scheme.TCP,
 				Timeout: time.Millisecond * 100,
 				Check:   check.OK(),
@@ -2080,7 +2217,7 @@ spec:
     port: 12345
     targetPort: %d
   selector:
-    app: b`, ports.All().MustForName("http").WorkloadPort)
+    app: b`, ports.HTTP.WorkloadPort)
 		t.RunTraffic(TrafficTestCase{
 			name:   fmt.Sprintf("case 3 target port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -2161,12 +2298,12 @@ spec:
 `, map[string]any{
 				"Service":        svcName,
 				"Network":        c.Config().Cluster.NetworkName(),
-				"Port":           ports.All().MustForName("http").ServicePort,
-				"TargetPort":     ports.All().MustForName("http").WorkloadPort,
-				"TcpPort":        ports.All().MustForName("tcp").ServicePort,
-				"TcpTargetPort":  ports.All().MustForName("tcp").WorkloadPort,
-				"GrpcPort":       ports.All().MustForName("grpc").ServicePort,
-				"GrpcTargetPort": ports.All().MustForName("grpc").WorkloadPort,
+				"Port":           ports.HTTP.ServicePort,
+				"TargetPort":     ports.HTTP.WorkloadPort,
+				"TcpPort":        ports.TCP.ServicePort,
+				"TcpTargetPort":  ports.TCP.WorkloadPort,
+				"GrpcPort":       ports.GRPC.ServicePort,
+				"GrpcTargetPort": ports.GRPC.WorkloadPort,
 			})
 
 			destRule := fmt.Sprintf(`
@@ -2191,7 +2328,7 @@ spec:
 				opts: echo.CallOptions{
 					Count:   10,
 					Address: svcName,
-					Port:    echo.Port{ServicePort: ports.All().MustForName("http").ServicePort, Protocol: protocol.HTTP},
+					Port:    echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
 					Check: check.And(
 						check.OK(),
 						func(result echo.CallResult, rerr error) error {
@@ -2211,7 +2348,7 @@ spec:
 					Path:    "/?some-query-param=bar",
 					Headers: headers.New().With("x-some-header", "baz").Build(),
 				},
-				Port: echo.Port{ServicePort: ports.All().MustForName("http").ServicePort, Protocol: protocol.HTTP},
+				Port: echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
 				Check: check.And(
 					check.OK(),
 					ConsistentHostChecker,
@@ -2220,14 +2357,14 @@ spec:
 			tcpCallopts := echo.CallOptions{
 				Count:   10,
 				Address: svcName,
-				Port:    echo.Port{ServicePort: ports.All().MustForName("tcp").ServicePort, Protocol: protocol.TCP},
+				Port:    echo.Port{ServicePort: ports.TCP.ServicePort, Protocol: protocol.TCP},
 				Check: check.And(
 					check.OK(),
 					ConsistentHostChecker,
 				),
 			}
 			if c.Config().WorkloadClass() == echo.Proxyless {
-				callOpts.Port = echo.Port{ServicePort: ports.All().MustForName("grpc").ServicePort, Protocol: protocol.GRPC}
+				callOpts.Port = echo.Port{ServicePort: ports.GRPC.ServicePort, Protocol: protocol.GRPC}
 			}
 			// Setup tests for various forms of the API
 			// TODO: it may be necessary to vary the inputs of the hash and ensure we get a different backend
@@ -2406,8 +2543,8 @@ func protocolSniffingCases(t TrafficContext) {
 		})
 	}
 
-	autoPort := ports.All().MustForName("auto-http")
-	httpPort := ports.All().MustForName("http")
+	autoPort := ports.AutoHTTP
+	httpPort := ports.HTTP
 	// Tests for http1.0. Golang does not support 1.0 client requests at all
 	// To simulate these, we use TCP and hand-craft the requests.
 	t.RunTraffic(TrafficTestCase{
@@ -2501,7 +2638,7 @@ func instanceIPTests(t TrafficContext) {
 		name            string
 		endpoint        string
 		disableSidecar  bool
-		port            string
+		port            echo.Port
 		code            int
 		minIstioVersion string
 	}{
@@ -2509,25 +2646,25 @@ func instanceIPTests(t TrafficContext) {
 		{
 			name:           "instance IP without sidecar",
 			disableSidecar: true,
-			port:           "http-instance",
+			port:           ports.HTTPInstance,
 			code:           http.StatusOK,
 		},
 		{
 			name:     "instance IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
-			port:     "http-instance",
+			port:     ports.HTTPInstance,
 			code:     http.StatusOK,
 		},
 		{
 			name:     "instance IP with localhost sidecar",
 			endpoint: "127.0.0.1",
-			port:     "http-instance",
+			port:     ports.HTTPInstance,
 			code:     http.StatusServiceUnavailable,
 		},
 		{
 			name:     "instance IP with empty sidecar",
 			endpoint: "",
-			port:     "http-instance",
+			port:     ports.HTTPInstance,
 			code:     http.StatusOK,
 		},
 
@@ -2535,7 +2672,7 @@ func instanceIPTests(t TrafficContext) {
 		{
 			name:           "localhost IP without sidecar",
 			disableSidecar: true,
-			port:           "http-localhost",
+			port:           ports.HTTPLocalHost,
 			code:           http.StatusServiceUnavailable,
 			// when testing with pre-1.10 versions this request succeeds
 			minIstioVersion: "1.10.0",
@@ -2543,19 +2680,19 @@ func instanceIPTests(t TrafficContext) {
 		{
 			name:     "localhost IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
-			port:     "http-localhost",
+			port:     ports.HTTPLocalHost,
 			code:     http.StatusServiceUnavailable,
 		},
 		{
 			name:     "localhost IP with localhost sidecar",
 			endpoint: "127.0.0.1",
-			port:     "http-localhost",
+			port:     ports.HTTPLocalHost,
 			code:     http.StatusOK,
 		},
 		{
 			name:     "localhost IP with empty sidecar",
 			endpoint: "",
-			port:     "http-localhost",
+			port:     ports.HTTPLocalHost,
 			code:     http.StatusServiceUnavailable,
 			// when testing with pre-1.10 versions this request succeeds
 			minIstioVersion: "1.10.0",
@@ -2565,25 +2702,25 @@ func instanceIPTests(t TrafficContext) {
 		{
 			name:           "wildcard IP without sidecar",
 			disableSidecar: true,
-			port:           "http",
+			port:           ports.HTTP,
 			code:           http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
-			port:     "http",
+			port:     ports.HTTP,
 			code:     http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with localhost sidecar",
 			endpoint: "127.0.0.1",
-			port:     "http",
+			port:     ports.HTTP,
 			code:     http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with empty sidecar",
 			endpoint: "",
-			port:     "http",
+			port:     ports.HTTP,
 			code:     http.StatusOK,
 		},
 	}
@@ -2611,18 +2748,16 @@ spec:
       number: %d
       protocol: HTTP
     defaultEndpoint: %s:%d
-`, ports.All().MustForName(ipCase.port).WorkloadPort, ipCase.endpoint, ports.All().MustForName(ipCase.port).WorkloadPort)
+`, ipCase.port.WorkloadPort, ipCase.endpoint, ipCase.port.WorkloadPort)
 			}
 			t.RunTraffic(TrafficTestCase{
 				name:   ipCase.name,
 				call:   client.CallOrFail,
 				config: config,
 				opts: echo.CallOptions{
-					Count: 1,
-					To:    to,
-					Port: echo.Port{
-						Name: ipCase.port,
-					},
+					Count:   1,
+					To:      to,
+					Port:    ipCase.port,
 					Scheme:  scheme.HTTP,
 					Timeout: time.Second * 5,
 					Check:   check.Status(ipCase.code),
@@ -2907,6 +3042,103 @@ func VMTestCases(vms echo.Instances) func(t TrafficContext) {
 	}
 }
 
+func TestExternalService(t TrafficContext) {
+	// Let us enable outboundTrafficPolicy REGISTRY_ONLY
+	// on one of the workloads, to verify selective external connectivity
+	SidecarScope := fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: restrict-external-service
+  namespace: %s
+spec:
+  workloadSelector:
+    labels:
+      app: a
+  outboundTrafficPolicy:
+    mode: "REGISTRY_ONLY"
+`, t.Apps.EchoNamespace.Namespace.Name())
+
+	fakeExternalAddress := t.Apps.External.All[0].Address()
+	parsedIP, err := netip.ParseAddr(fakeExternalAddress)
+	if err == nil {
+		if parsedIP.Is6() {
+			// CI has some issues with ipv6 DNS resolution, due to which
+			// we are not able to directly use the host name in the connectivity tests.
+			// Hence using a bogus IPv6 address with -HHost option as a workaround to
+			// simulate ServiceEntry based wildcard listener scenarios.
+			fakeExternalAddress = "2002::1"
+		} else {
+			fakeExternalAddress = "1.1.1.1"
+		}
+	}
+
+	testCases := []struct {
+		name       string
+		statusCode int
+		from       echo.Instances
+		to         string
+		protocol   protocol.Instance
+		port       int
+	}{
+		// TC1: Test connectivity to external service from outboundTrafficPolicy restricted pod.
+		// The external service is exposed through a ServiceEntry, so the traffic should go through
+		{
+			name:       "traffic from outboundTrafficPolicy REGISTRY_ONLY to allowed host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.A,
+			to:         t.Apps.External.All[0].Address(),
+			protocol:   protocol.HTTPS,
+			port:       443,
+		},
+		// TC2: Same test as TC1, but use a fake external ip in destination for connectivity.
+		{
+			name:       "traffic from outboundTrafficPolicy REGISTRY_ONLY to allowed host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.A,
+			to:         fakeExternalAddress,
+			protocol:   protocol.HTTPS,
+			port:       443,
+		},
+		// TC3: Test connectivity to external service from outboundTrafficPolicy=PASS_THROUGH pod.
+		// Traffic should go through without the need for any explicit ServiceEntry
+		{
+			name:       "traffic from outboundTrafficPolicy PASS_THROUGH to any host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.B,
+			to:         t.Apps.External.All[0].Address(),
+			protocol:   protocol.HTTP,
+			port:       80,
+		},
+		// TC4: Same test as TC3, but use a fake external ip in destination for connectivity.
+		{
+			name:       "traffic from outboundTrafficPolicy PASS_THROUGH to any host",
+			statusCode: http.StatusOK,
+			from:       t.Apps.B,
+			to:         fakeExternalAddress,
+			protocol:   protocol.HTTP,
+			port:       80,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.RunTraffic(TrafficTestCase{
+			name:   fmt.Sprintf("%v to external service %v", tc.from[0].NamespacedName(), tc.to),
+			config: SidecarScope,
+			opts: echo.CallOptions{
+				Address: tc.to,
+				HTTP: echo.HTTP{
+					Headers: HostHeader(t.Apps.External.All[0].Config().DefaultHostHeader),
+				},
+				Port: echo.Port{Protocol: tc.protocol, ServicePort: tc.port},
+				Check: check.And(
+					check.Status(tc.statusCode),
+				),
+			},
+			call: tc.from[0].CallOrFail,
+		})
+	}
+}
+
 func destinationRule(app, mode string) string {
 	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
@@ -3059,7 +3291,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 80
@@ -3105,7 +3337,7 @@ apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
 metadata:
   name: default
-  namespace: istio-system
+  namespace: {{.SystemNamespace | default "istio-system"}}
 spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
@@ -3156,7 +3388,9 @@ spec:
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"Headers": []configData{{"X-Jwt-Nested-Key", "exact", "valueC"}},
+				"Headers":           []configData{{"X-Jwt-Nested-Key", "exact", "valueC"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3183,6 +3417,8 @@ spec:
 					{"X-Jwt-Nested-Key", "exact", "valueC"},
 					{"X-Jwt-Iss", "exact", "test-issuer-1@istio.io"},
 				},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3205,7 +3441,9 @@ spec:
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"Headers": []configData{{"x-jwt-wrong-header", "exact", "header_to_be_deleted"}},
+				"Headers":           []configData{{"x-jwt-wrong-header", "exact", "header_to_be_deleted"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3228,7 +3466,9 @@ spec:
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"Headers":           []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3251,7 +3491,9 @@ spec:
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
+				"Headers":           []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3278,6 +3520,8 @@ spec:
 					{"@request.auth.claims.sub", "regex", "(\\W|^)(sub-1|sub-2)(\\W|$)"},
 					{"@request.auth.claims.nested.key1", "regex", "(\\W|^)value[AB](\\W|$)"},
 				},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3304,6 +3548,8 @@ spec:
 					{"@request.auth.claims.nested.key1", "exact", "valueA"},
 					{"@request.auth.claims.sub", "prefix", "sub"},
 				},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3326,7 +3572,9 @@ spec:
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "value-not-matched"}},
+				"WithoutHeaders":    []configData{{"@request.auth.claims.nested.key1", "exact", "value-not-matched"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3349,7 +3597,9 @@ spec:
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"WithoutHeaders":    []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3377,6 +3627,8 @@ spec:
 					{"@request.auth.claims.nested.key1", "exact", "value-not-matched"},
 					{"@request.auth.claims.nested.key1", "regex", "(\\W|^)value\\s{0,3}not{0,1}\\s{0,3}matched(\\W|$)"},
 				},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3403,6 +3655,8 @@ spec:
 					{"@request.auth.claims.nested.key1", "exact", "valueA"},
 					{"@request.auth.claims.sub", "prefix", "value-not-matched"},
 				},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3425,7 +3679,9 @@ spec:
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.sub", "exact", "value-not-matched"}},
+				"Headers":           []configData{{"@request.auth.claims.sub", "exact", "value-not-matched"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3448,7 +3704,9 @@ spec:
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"Headers":           []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3471,7 +3729,9 @@ spec:
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"Headers":           []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3494,7 +3754,9 @@ spec:
 		config:           configAll,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"Headers":           []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3518,7 +3780,9 @@ spec:
 		config:           configRoute,
 		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
 			return map[string]any{
-				"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"Headers":           []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},
 		opts: echo.CallOptions{
@@ -3533,4 +3797,20 @@ spec:
 			Check: check.Status(http.StatusNotFound),
 		},
 	})
+}
+
+func LocationHeader(expected string) echo.Checker {
+	return check.Each(
+		func(r echoClient.Response) error {
+			originalHostname, err := url.Parse(r.RequestURL)
+			if err != nil {
+				return err
+			}
+			exp := tmpl.MustEvaluate(expected, map[string]string{
+				"Hostname": originalHostname.Hostname(),
+			})
+			return ExpectString(r.ResponseHeaders.Get("Location"),
+				exp,
+				"Location")
+		})
 }

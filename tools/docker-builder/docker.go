@@ -28,6 +28,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/ptr"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -172,7 +173,7 @@ func createBuildxBuilderIfNeeded(a Args) error {
 		if err != nil {
 			return fmt.Errorf("command failed: %v", err)
 		}
-		matches := regexp.MustCompile(`Driver: (.*)`).FindStringSubmatch(out.String())
+		matches := regexp.MustCompile(`Driver:\s+(.*)`).FindStringSubmatch(out.String())
 		if len(matches) == 0 || matches[1] != "docker-container" {
 			return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
 				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0" +
@@ -229,8 +230,8 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			}
 			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))
 			t := Target{
-				Context:    sp(p),
-				Dockerfile: sp(filepath.Base(bp.Dockerfile)),
+				Context:    ptr.Of(p),
+				Dockerfile: ptr.Of(filepath.Base(bp.Dockerfile)),
 				Args:       createArgs(a, target, variant, ""),
 				Platforms:  a.Architectures,
 			}

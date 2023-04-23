@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -57,12 +57,88 @@ var (
 		},
 	}
 
+	textFormattersProvider = &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "envoy-text-formatters",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: "/dev/stdout",
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text{
+						Text: "%REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%\n",
+					},
+				},
+			},
+		},
+	}
+
+	jsonFormattersProvider = &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "envoy-json-formatters",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: "/dev/stdout",
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
+						Labels: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
+								"req1": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+								"req2": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key2:val1)%"}},
+								"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+								"key2": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(UPSTREAM_HOST:istio)%"}},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	defaultJSONLabelsOut = &fileaccesslog.FileAccessLog{
 		Path: "/dev/stdout",
 		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: EnvoyJSONLogFormatIstio,
+				},
+			},
+		},
+	}
+
+	formattersJSONLabelsOut = &fileaccesslog.FileAccessLog{
+		Path: "/dev/stdout",
+		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Formatters: []*core.TypedExtensionConfig{
+					reqWithoutQueryFormatter,
+					metadataFormatter,
+				},
+				Format: &core.SubstitutionFormatString_JsonFormat{
+					JsonFormat: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"req1": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+							"req2": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key2:val1)%"}},
+							"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+							"key2": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(UPSTREAM_HOST:istio)%"}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	formattersTextLabelsOut = &fileaccesslog.FileAccessLog{
+		Path: "/dev/stdout",
+		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Formatters: []*core.TypedExtensionConfig{
+					reqWithoutQueryFormatter,
+					metadataFormatter,
+				},
+				Format: &core.SubstitutionFormatString_TextFormatSource{
+					TextFormatSource: &core.DataSource{
+						Specifier: &core.DataSource_InlineString{
+							InlineString: "%REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%\n",
+						},
+					},
 				},
 			},
 		},
@@ -78,16 +154,13 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 	}
 	m := mesh.DefaultMeshConfig()
 
-	m.ExtensionProviders = append(m.ExtensionProviders, jsonTextProvider)
+	m.ExtensionProviders = append(m.ExtensionProviders, jsonTextProvider, textFormattersProvider, jsonFormattersProvider)
 
 	environment := &Environment{
 		ConfigStore: store,
 		Watcher:     mesh.NewFixedWatcher(m),
 	}
-	telemetries, err := getTelemetries(environment)
-	if err != nil {
-		t.Fatalf("getTelemetries failed: %v", err)
-	}
+	telemetries := getTelemetries(environment)
 
 	ctx := NewPushContext()
 	ctx.Mesh = m
@@ -97,7 +170,7 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 func newTelemetry(ns string, spec config.Spec) config.Config {
 	return config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.Telemetry,
 			Name:             "default",
 			Namespace:        ns,
 		},
@@ -135,7 +208,7 @@ func (ts *telemetryStore) Get(_ config.GroupVersionKind, _, _ string) *config.Co
 	return nil
 }
 
-func (ts *telemetryStore) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (ts *telemetryStore) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	var configs []config.Config
 	for _, data := range ts.data {
 		if data.typ == typ {
@@ -145,7 +218,7 @@ func (ts *telemetryStore) List(typ config.GroupVersionKind, namespace string) ([
 			configs = append(configs, data.cfg)
 		}
 	}
-	return configs, nil
+	return configs
 }
 
 func newTracingConfig(providerName string, disabled bool) *TracingConfig {

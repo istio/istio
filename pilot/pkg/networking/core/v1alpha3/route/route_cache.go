@@ -58,6 +58,10 @@ type Cache struct {
 	EnvoyFilterKeys         []string
 }
 
+func (r *Cache) Type() string {
+	return model.RDSType
+}
+
 func (r *Cache) Cacheable() bool {
 	if r == nil {
 		return false
@@ -115,11 +119,7 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 	return configs
 }
 
-func (r *Cache) DependentTypes() []kind.Kind {
-	return nil
-}
-
-func (r *Cache) Key() string {
+func (r *Cache) Key() any {
 	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
@@ -181,7 +181,7 @@ func (r *Cache) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.Sum()
+	return h.Sum64()
 }
 
 func hashToBytes(number model.ConfigHash) []byte {

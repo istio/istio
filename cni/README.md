@@ -11,6 +11,23 @@ The CNI handling the netns setup replaces the current Istio approach using a `NE
 `initContainers` container, `istio-init`, injected in the pods along with `istio-proxy` sidecars.  This
 removes the need for a privileged, `NET_ADMIN` container in the Istio users' application pods.
 
+## Ambient mode
+
+In addition to configuring application pods, if Ambient mode is enabled, the `istio-cni` plugin also configures the node-level
+proxy (ztunnel):
+
+- Sets up redirection on the node such that traffic from application pods is forwarded to ztunnel, in the host/node network namespace.
+- Configures iptables and packet routing miscellanea within the `ztunnel` network namespace.
+
+### Ambient redirection mode
+
+If Ambient mode is enabled, the CNI plugin currently supports two different mechanisms for Ambient traffic redirection.
+
+1. `iptables` and `geneve` tunnels
+1. `eBPF` programs and maps
+
+These are not mutually compatible, and one or the other will be used, depending on the `CNIAmbientConfig.redirectMode` flag. The current default is `iptables`+`geneve`, though that is expected to change.
+
 ## Usage
 
 A complete set of instructions on how to use and install the Istio CNI is available on the Istio documentation site under [Install Istio with the Istio CNI plugin](https://istio.io/latest/docs/setup/additional-setup/cni/).
@@ -29,7 +46,7 @@ A complete set of instructions on how to use and install the Istio CNI is availa
 
 1. SSH into the Kubernetes worker node that runs your pod.
 
-1. Use `nsenter` to view the iptables.
+1. Use `nsenter` (or `ip netns exec`) to view the iptables.
 
     ```console
     $ cpid=$(docker inspect --format '{{ .State.Pid }}' $container_id)
@@ -37,6 +54,13 @@ A complete set of instructions on how to use and install the Istio CNI is availa
     ```
 
 ### Collecting Logs
+
+#### Using `istioctl`/helm
+
+- Set: `values.global.logging.level="cni:debug,ambient:debug"`
+- Inspect the pod logs of a `istio-cni` Daemonset pod on a specific node.
+
+#### From a specific node syslog
 
 The CNI plugins are executed by threads in the `kubelet` process.  The CNI plugins logs end up the syslog
 under the `kubelet` process. On systems with `journalctl` the following is an example command line
@@ -68,7 +92,7 @@ $ gcloud logging read "resource.type=k8s_node AND jsonPayload.SYSLOG_IDENTIFIER=
     - creates service-account `istio-cni` with `ClusterRoleBinding` to allow gets on pods' info
 
 - `install-cni` container
-    - copies `istio-cni`, `istio-iptables` and `istio-cni-taint` to `/opt/cni/bin`
+    - copies `istio-cni` and `istio-iptables` to `/opt/cni/bin`
     - creates kubeconfig for the service account the pod runs under
     - injects the CNI plugin config to the CNI config file
         - CNI installer will try to look for the config file under the mounted CNI net dir based on file name extensions (`.conf`, `.conflist`)

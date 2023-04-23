@@ -15,7 +15,6 @@
 package crdclient
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
@@ -24,9 +23,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/pkg/log"
 )
 
@@ -34,22 +33,17 @@ import (
 // and will be invoked on each informer event.
 type cacheHandler struct {
 	client   *Client
-	informer informer.FilteredSharedIndexInformer
-	lister   func(namespace string) cache.GenericNamespaceLister
-	schema   collection.Schema
+	informer kclient.Untyped
+	schema   resource.Schema
 }
 
 func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
-	if err := h.client.checkReadyForEvents(curr); err != nil {
-		return err
-	}
-
 	currItem := controllers.ExtractObject(curr)
 	if currItem == nil {
 		return nil
 	}
 
-	currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+	currConfig := TranslateObject(currItem, h.schema.GroupVersionKind(), h.client.domainSuffix)
 
 	var oldConfig config.Config
 	if old != nil {
@@ -58,7 +52,7 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 			log.Warnf("Old Object can not be converted to runtime Object %v, is type %T", old, old)
 			return nil
 		}
-		oldConfig = TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+		oldConfig = TranslateObject(oldItem, h.schema.GroupVersionKind(), h.client.domainSuffix)
 	}
 
 	if h.client.objectInRevision(&currConfig) {
@@ -82,52 +76,35 @@ func (h *cacheHandler) onEvent(old any, curr any, event model.Event) error {
 
 func (h *cacheHandler) callHandlers(old config.Config, curr config.Config, event model.Event) {
 	// TODO we may consider passing a pointer to handlers instead of the value. While spec is a pointer, the meta will be copied
-	for _, f := range h.client.handlers[h.schema.Resource().GroupVersionKind()] {
+	for _, f := range h.client.handlers[h.schema.GroupVersionKind()] {
 		f(old, curr, event)
 	}
 }
 
-func createCacheHandler(cl *Client, schema collection.Schema, i informers.GenericInformer) *cacheHandler {
-	scope.Debugf("registered CRD %v", schema.Resource().GroupVersionKind())
+func createCacheHandler(cl *Client, schema resource.Schema, i informers.GenericInformer) *cacheHandler {
+	scope.Debugf("registered CRD %v", schema.GroupVersionKind())
 	h := &cacheHandler{
 		client:   cl,
 		schema:   schema,
-		informer: informer.NewFilteredSharedIndexInformer(cl.namespacesFilter, i.Informer()),
+		informer: kclient.NewUntyped(cl.client, i.Informer(), kclient.Filter{ObjectFilter: cl.namespacesFilter}),
 	}
 
-	h.lister = func(namespace string) cache.GenericNamespaceLister {
-		gr := schema.Resource().GroupVersionResource().GroupResource()
-		if schema.Resource().IsClusterScoped() || namespace == metav1.NamespaceAll {
-			return cache.NewGenericLister(h.informer.GetIndexer(), gr)
-		}
-		return cache.NewGenericLister(h.informer.GetIndexer(), gr).ByNamespace(namespace)
-	}
-
-	kind := schema.Resource().Kind()
+	kind := schema.Kind()
 	h.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			incrementEvent(kind, "add")
-			if !cl.beginSync.Load() {
-				return
-			}
 			cl.queue.Push(func() error {
 				return h.onEvent(nil, obj, model.EventAdd)
 			})
 		},
 		UpdateFunc: func(old, cur any) {
 			incrementEvent(kind, "update")
-			if !cl.beginSync.Load() {
-				return
-			}
 			cl.queue.Push(func() error {
 				return h.onEvent(old, cur, model.EventUpdate)
 			})
 		},
 		DeleteFunc: func(obj any) {
 			incrementEvent(kind, "delete")
-			if !cl.beginSync.Load() {
-				return
-			}
 			cl.queue.Push(func() error {
 				return h.onEvent(nil, obj, model.EventDelete)
 			})

@@ -93,7 +93,15 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "only telemetry api (with provider)",
 			inSpec:          fakeTracingSpec(fakeZipkin(), 99.999, false, true),
 			opts:            fakeOptsOnlyZipkinTelemetryAPI(),
-			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, true), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantRfCtx:       nil,
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:            "zipkin enable 64bit trace id",
+			inSpec:          fakeTracingSpec(fakeZipkinEnable64bitTraceID(), 99.999, false, true),
+			opts:            fakeOptsOnlyZipkinTelemetryAPI(),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, false), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx:       nil,
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
@@ -117,7 +125,7 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "both tracing enabled (with provider)",
 			inSpec:          fakeTracingSpec(fakeZipkin(), 99.999, false, true),
 			opts:            fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
-			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, true), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx:       nil,
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
@@ -125,7 +133,7 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "both tracing disabled (with provider)",
 			inSpec:          fakeTracingSpec(fakeZipkin(), 99.999, false, true),
 			opts:            fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
-			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, true), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx:       nil,
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
@@ -166,7 +174,7 @@ func TestConfigureTracing(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hcm := &hcm.HttpConnectionManager{}
-			gotRfCtx, gotReqIDExtCtx := configureTracingFromSpec(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0)
+			gotRfCtx, gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0)
 			if diff := cmp.Diff(tc.want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 			}
@@ -305,6 +313,20 @@ func fakeZipkin() *meshconfig.MeshConfig_ExtensionProvider {
 				Service:      "zipkin",
 				Port:         9411,
 				MaxTagLength: 256,
+			},
+		},
+	}
+}
+
+func fakeZipkinEnable64bitTraceID() *meshconfig.MeshConfig_ExtensionProvider {
+	return &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "foo",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Zipkin{
+			Zipkin: &meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider{
+				Service:             "zipkin",
+				Port:                9411,
+				MaxTagLength:        256,
+				Enable_64BitTraceId: true,
 			},
 		},
 	}
@@ -562,13 +584,13 @@ var fakeEnvTag = &tracing.CustomTag{
 	},
 }
 
-func fakeZipkinProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
+func fakeZipkinProvider(expectClusterName, expectAuthority string, enableTraceID bool) *tracingcfg.Tracing_Http {
 	fakeZipkinProviderConfig := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         expectClusterName,
 		CollectorEndpoint:        "/api/v2/spans",
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
 		CollectorHostname:        expectAuthority,
-		TraceId_128Bit:           true,
+		TraceId_128Bit:           enableTraceID,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
 	fakeZipkinAny := protoconv.MessageToAny(fakeZipkinProviderConfig)

@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
@@ -65,7 +64,7 @@ type ConfigInput struct {
 	Services int
 	// Number of instances to make
 	Instances int
-	// Type of proxy to generate configs for
+	// ResourceType of proxy to generate configs for
 	ProxyType model.NodeType
 }
 
@@ -518,7 +517,7 @@ func createEndpoints(numEndpoints, numServices, numNetworks int) []config.Config
 		}
 		result = append(result, config.Config{
 			Meta: config.Meta{
-				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
+				GroupVersionKind:  gvk.ServiceEntry,
 				Name:              fmt.Sprintf("foo-%d", s),
 				Namespace:         "default",
 				CreationTimestamp: time.Now(),
@@ -621,20 +620,60 @@ func BenchmarkCache(b *testing.B) {
 	})
 	b.Run("insert", func(b *testing.B) {
 		c := model.NewXdsCache()
-
+		stop := make(chan struct{})
+		defer close(stop)
+		c.Run(stop)
 		for n := 0; n < b.N; n++ {
 			key := makeCacheKey(n)
 			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(n))}
 			c.Add(key, req, res)
 		}
 	})
+	// to trigger clear index on old dependents
+	b.Run("insert same key", func(b *testing.B) {
+		c := model.NewXdsCache()
+		stop := make(chan struct{})
+		defer close(stop)
+		c.Run(stop)
+		// First occupy cache capacity
+		for i := 0; i < features.XDSCacheMaxSize; i++ {
+			key := makeCacheKey(i)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(i))}
+			c.Add(key, req, res)
+		}
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			key := makeCacheKey(1)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(features.XDSCacheMaxSize + n))}
+			c.Add(key, req, res)
+		}
+	})
 	b.Run("get", func(b *testing.B) {
 		c := model.NewXdsCache()
-
 		key := makeCacheKey(1)
 		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(1))}
 		c.Add(key, req, res)
 		for n := 0; n < b.N; n++ {
+			c.Get(key)
+		}
+	})
+
+	b.Run("insert and get", func(b *testing.B) {
+		c := model.NewXdsCache()
+		stop := make(chan struct{})
+		defer close(stop)
+		c.Run(stop)
+		// First occupy cache capacity
+		for i := 0; i < features.XDSCacheMaxSize; i++ {
+			key := makeCacheKey(i)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(i))}
+			c.Add(key, req, res)
+		}
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			key := makeCacheKey(n)
+			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(features.XDSCacheMaxSize + n))}
+			c.Add(key, req, res)
 			c.Get(key)
 		}
 	})

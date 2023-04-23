@@ -47,10 +47,8 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/network"
+	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
@@ -67,8 +65,6 @@ const (
 	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
 	Passthrough = "allow_any"
-	// OutboundTunnel is HBONE's outbound cluster.
-	OutboundTunnel = "outbound-tunnel"
 
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
@@ -216,6 +212,11 @@ func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *m
 	return additionalAddresses
 }
 
+// BuildAddress returns a SocketAddress with the given ip and port or uds.
+func BuildInternalAddress(name string) *core.Address {
+	return BuildInternalAddressWithIdentifier(name, "")
+}
+
 func BuildNetworkAddress(bind string, port uint32, transport istionetworking.TransportProtocol) *core.Address {
 	if port == 0 {
 		return nil
@@ -244,18 +245,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
-}
-
-// IsIstioVersionGE114 checks whether the given Istio version is greater than or equals 1.14.
-func IsIstioVersionGE114(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 14, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE115 checks whether the given Istio version is greater than or equals 1.15.
-func IsIstioVersionGE115(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 15, Patch: -1}) >= 0
 }
 
 // IsIstioVersionGE116 checks whether the given Istio version is greater than or equals 1.16.
@@ -483,23 +472,21 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 	return retVal, nil
 }
 
-// BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
-	clusterID cluster.ID, labels labels.Instance,
-) *core.Metadata {
-	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&
-		(!features.EndpointTelemetryLabel || !features.EnableTelemetryLabel) {
-		return nil
+// AppendLbEndpointMetadata adds metadata values to a lb endpoint using the passed in metadata as base.
+func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetadata *core.Metadata,
+) {
+	if !features.EndpointTelemetryLabel || !features.EnableTelemetryLabel {
+		return
 	}
 
-	metadata := &core.Metadata{
-		FilterMetadata: map[string]*structpb.Struct{},
+	if envoyMetadata.FilterMetadata == nil {
+		envoyMetadata.FilterMetadata = map[string]*structpb.Struct{}
 	}
 
-	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+	if istioMetadata.TLSMode != "" && istioMetadata.TLSMode != model.DisabledTLSModeLabel {
+		envoyMetadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: tlsMode}},
+				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: istioMetadata.TLSMode}},
 			},
 		}
 	}
@@ -510,24 +497,26 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
 	if features.EndpointTelemetryLabel {
-		var sb strings.Builder
-		sb.WriteString(workloadname)
-		sb.WriteString(";")
-		sb.WriteString(namespace)
-		sb.WriteString(";")
-		if csn, ok := labels[model.IstioCanonicalServiceLabelName]; ok {
-			sb.WriteString(csn)
-		}
-		sb.WriteString(";")
-		if csr, ok := labels[model.IstioCanonicalServiceRevisionLabelName]; ok {
-			sb.WriteString(csr)
-		}
-		sb.WriteString(";")
-		sb.WriteString(clusterID.String())
-		addIstioEndpointLabel(metadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
-	}
+		// allow defaulting for non-injected cases
+		canonicalName, canonicalRevision := kubelabels.CanonicalService(istioMetadata.Labels, istioMetadata.WorkloadName)
 
-	return metadata
+		// don't bother sending the default value in config
+		if canonicalRevision == "latest" {
+			canonicalRevision = ""
+		}
+
+		var sb strings.Builder
+		sb.WriteString(istioMetadata.WorkloadName)
+		sb.WriteString(";")
+		sb.WriteString(istioMetadata.Namespace)
+		sb.WriteString(";")
+		sb.WriteString(canonicalName)
+		sb.WriteString(";")
+		sb.WriteString(canonicalRevision)
+		sb.WriteString(";")
+		sb.WriteString(istioMetadata.ClusterID.String())
+		addIstioEndpointLabel(envoyMetadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
+	}
 }
 
 // MaybeApplyTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.
@@ -559,6 +548,12 @@ func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.
 	// We make a copy instead of modifying on existing endpoint pointer directly to avoid data race.
 	// See https://github.com/istio/istio/issues/34227 for details.
 	newEndpoint := proto.Clone(ep).(*endpoint.LbEndpoint)
+
+	// ep.Metadata.FilterMetadata maybe an empty map or nil, after clone, corresponding field will be a nil map.
+	if newEndpoint.Metadata.FilterMetadata == nil {
+		newEndpoint.Metadata.FilterMetadata = make(map[string]*structpb.Struct)
+	}
+
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
 		newEndpoint.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
@@ -642,34 +637,6 @@ func ConvertToEnvoyMatch(in *networking.StringMatch) *matcher.StringMatcher {
 		}
 	}
 	return nil
-}
-
-func StringSliceEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-
-	return true
-}
-
-func UInt32SliceEqual(a, b []uint32) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-
-	return true
 }
 
 func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
@@ -777,6 +744,14 @@ func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
 				},
 				EndpointId: identifier,
 			},
+		},
+	}
+}
+
+func BuildTunnelMetadata(address string, port, tunnelPort int) *core.Metadata {
+	return &core.Metadata{
+		FilterMetadata: map[string]*structpb.Struct{
+			"tunnel": BuildTunnelMetadataStruct(address, address, port, tunnelPort),
 		},
 	}
 }

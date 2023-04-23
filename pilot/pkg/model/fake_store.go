@@ -39,19 +39,19 @@ func (s *FakeStore) Schemas() collection.Schemas {
 
 func (*FakeStore) Get(typ config.GroupVersionKind, name, namespace string) *config.Config { return nil }
 
-func (s *FakeStore) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (s *FakeStore) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	nsConfigs := s.store[typ]
 	if nsConfigs == nil {
-		return nil, nil
+		return nil
 	}
 	var res []config.Config
 	if namespace == NamespaceAll {
 		for _, configs := range nsConfigs {
 			res = append(res, configs...)
 		}
-		return res, nil
+		return res
 	}
-	return nsConfigs[namespace], nil
+	return nsConfigs[namespace]
 }
 
 func (s *FakeStore) Create(cfg config.Config) (revision string, err error) {

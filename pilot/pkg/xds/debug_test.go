@@ -81,7 +81,7 @@ func TestSyncz(t *testing.T) {
 }
 
 func getSyncStatus(t *testing.T, server *xds.DiscoveryServer) []xds.SyncStatus {
-	req, err := http.NewRequest("GET", "/debug", nil)
+	req, err := http.NewRequest(http.MethodGet, "/debug", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +199,7 @@ func getConfigDump(t *testing.T, s *xds.DiscoveryServer, proxyID string, wantCod
 	if proxyID != "" {
 		path += fmt.Sprintf("?proxyID=%v", proxyID)
 	}
-	req, err := http.NewRequest("GET", path, nil)
+	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +221,7 @@ func getConfigDump(t *testing.T, s *xds.DiscoveryServer, proxyID string, wantCod
 
 func TestDebugHandlers(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	req, err := http.NewRequest("GET", "/debug", nil)
+	req, err := http.NewRequest(http.MethodGet, "/debug", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
