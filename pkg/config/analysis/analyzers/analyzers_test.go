@@ -191,6 +191,12 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "conflicting gateways detect: no port",
+		inputFiles: []string{"testdata/conflicting-gateways-invalid-port.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
 		analyzer:   &injection.Analyzer{},
