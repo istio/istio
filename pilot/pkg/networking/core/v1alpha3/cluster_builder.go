@@ -575,6 +575,12 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 			metadata.Namespace = service.Attributes.Namespace
 			svcLabels := service.Attributes.Labels
 			if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
+				// Clone labels to prevent concurrent access to map.
+				labels := map[string]string{}
+				for k, v := range metadata.Labels {
+					labels[k] = v
+				}
+				metadata.Labels = labels
 				metadata.Labels[model.IstioCanonicalServiceLabelName] = svcLabels[model.IstioCanonicalServiceLabelName]
 				metadata.Labels[model.IstioCanonicalServiceRevisionLabelName] = svcLabels[model.IstioCanonicalServiceRevisionLabelName]
 			}
