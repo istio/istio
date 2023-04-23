@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 36792
+releaseNotes:
+  - |
+    **Added** support for validating some IOP fields in compliance with DNS1123.
