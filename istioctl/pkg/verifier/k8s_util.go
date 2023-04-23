@@ -46,9 +46,24 @@ func verifyDeploymentStatus(deployment *appsv1.Deployment) error {
 }
 
 func verifyDaemonSetStatus(daemonSet *appsv1.DaemonSet) error {
-	if daemonSet.Status.NumberUnavailable > 0 {
-		return fmt.Errorf("waiting for daemonset %q rollout to finish: %d of %d updated pods are unavailable",
-			daemonSet.Name, daemonSet.Status.NumberUnavailable, daemonSet.Status.UpdatedNumberScheduled)
+	if daemonSet.Status.DesiredNumberScheduled != daemonSet.Status.CurrentNumberScheduled {
+		return fmt.Errorf("waiting for daemonset %s/%s rollout to finish: %d of %d desired pods are scheduled",
+			daemonSet.Namespace, daemonSet.Name, daemonSet.Status.CurrentNumberScheduled, daemonSet.Status.DesiredNumberScheduled)
+	}
+	switch daemonSet.Spec.UpdateStrategy.Type {
+	case appsv1.OnDeleteDaemonSetStrategyType:
+		if daemonSet.Status.UpdatedNumberScheduled != daemonSet.Status.DesiredNumberScheduled {
+			return fmt.Errorf("DaemonSet is not ready: %s/%s. %d out of %d expected pods have been scheduled",
+				daemonSet.Namespace, daemonSet.Name, daemonSet.Status.UpdatedNumberScheduled, daemonSet.Status.DesiredNumberScheduled)
+		}
+	case appsv1.RollingUpdateDaemonSetStrategyType:
+		if daemonSet.Status.DesiredNumberScheduled <= 0 {
+			return fmt.Errorf("DaemonSet %s/%s is not ready. Initializing, no pods are running",
+				daemonSet.Namespace, daemonSet.Name)
+		} else if daemonSet.Status.NumberReady < daemonSet.Status.DesiredNumberScheduled {
+			return fmt.Errorf("DaemonSet %s/%s is not ready. %d out of %d expected pods are ready",
+				daemonSet.Namespace, daemonSet.Name, daemonSet.Status.NumberReady, daemonSet.Status.DesiredNumberScheduled)
+		}
 	}
 	return nil
 }
