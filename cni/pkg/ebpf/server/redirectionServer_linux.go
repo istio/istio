@@ -202,7 +202,7 @@ func (p *eBPFProgsNew) Close() error {
 	)
 }
 
-func EBPFTproxySupport() bool {
+func EBPFTProxySupport() bool {
 	err := features.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkAssign)
 	if err == nil {
 		return true
@@ -304,7 +304,7 @@ func (r *RedirectServer) initBpfObjects() error {
 	}
 	options.Maps.PinPath = MapsPinpath
 	// load ebpf program
-	if EBPFTproxySupport() {
+	if EBPFTProxySupport() {
 		obj := eBPFObjectsImplNew{}
 		if err := loadAmbient_redirectObjects(&obj, &options); err != nil {
 			return fmt.Errorf("loading objects: %v", err)

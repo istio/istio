@@ -828,11 +828,11 @@ func (s *Server) CreateEBPFRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP,
 			log.Warnf("failed to disable procfs rp_filter for device %s: %v", vethLink.Attrs().Name, err)
 		}
 
-		if ebpf.EBPFTproxySupport() {
+		if ebpf.EBPFTProxySupport() {
 			return nil
 		}
 		log.Infof("Current kernel doesn't support tproxy in eBPF, fall back to iptables tproxy rules")
-		return s.createTroxyRulesForLegacyEBPF(ztunnelIP, vethLink.Attrs().Name)
+		return s.createTProxyRulesForLegacyEBPF(ztunnelIP, vethLink.Attrs().Name)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to configure ztunnel ebpf from within ns(%s): %v", ns, err)
