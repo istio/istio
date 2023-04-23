@@ -82,7 +82,7 @@ func waypointCmd() *cobra.Command {
 		Use:   "generate",
 		Short: "Generate a waypoint configuration",
 		Long:  "Generate a waypoint configuration as YAML",
-		Example: ` # Generate a waypoint as yaml
+		Example: `  # Generate a waypoint as yaml
   istioctl x waypoint generate --service-account something --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gw := makeGateway(false)
@@ -184,8 +184,7 @@ func waypointCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List managed waypoint configurations",
 		Long:  "List managed waypoint configurations in the cluster",
-		Example: `  # List all waypoints in the cluster
-  # List all waypoints in a specific namespace
+		Example: `  # List all waypoints in a specific namespace
   istioctl x waypoint list --namespace default
 
   # List all waypoints in the cluster
@@ -265,7 +264,13 @@ func waypointCmd() *cobra.Command {
   istioctl x waypoint apply
 
   # Generate a waypoint as yaml
-  istioctl x waypoint generate --service-account something --namespace default`,
+  istioctl x waypoint generate --service-account something --namespace default
+
+  # Delete a waypoint from a specific namespace for a specific service account
+  istioctl x waypoint delete --service-account something --namespace default
+
+  # List all waypoints in a specific namespace
+  istioctl x waypoint list --namespace default`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown subcommand %q", args[0])
