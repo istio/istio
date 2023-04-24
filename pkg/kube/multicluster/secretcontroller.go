@@ -63,9 +63,11 @@ func init() {
 }
 
 var (
-	timeouts = monitoring.NewSum(
+	clusterID = monitoring.MustCreateLabel("cluster_id")
+	timeouts  = monitoring.NewSum(
 		"remote_cluster_sync_timeouts_total",
 		"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
+		monitoring.WithLabels(clusterID),
 	)
 
 	clusterType = monitoring.MustCreateLabel("cluster_type")
