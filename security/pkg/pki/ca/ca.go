@@ -371,8 +371,6 @@ func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration, checkLi
 		switch curve {
 		case elliptic.P384():
 			opts.ECCCurve = util.P384Curve
-		case elliptic.P256():
-			fallthrough
 		default:
 			opts.ECCCurve = util.P256Curve
 		}
