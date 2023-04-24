@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -62,4 +63,17 @@ func TestNoErrorIfMessageLevelsBelowThreshold(t *testing.T) {
 	err := errorIfMessagesExceedThreshold(msgs)
 
 	g.Expect(err).To(BeNil())
+}
+
+func TestSkipPodsInFiles(t *testing.T) {
+	// g := NewWithT(t)
+
+	c := testCase{
+		args: strings.Split(
+			"analyze -A --use-kube=false --failure-threshold ERROR testdata/analyze-file/public-gateway.yaml",
+			" "),
+		wantException: false,
+	}
+
+	verifyOutput(t, c)
 }
