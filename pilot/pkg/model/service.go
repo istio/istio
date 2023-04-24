@@ -517,21 +517,17 @@ func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 // MetadataClone returns the cloned endpoint metadata used for telemetry purposes.
 // This should be used when the endpoint labels should be updated.
 func (ep *IstioEndpoint) MetadataClone() *EndpointMetadata {
-	labels := map[string]string{}
-	for k, v := range ep.Labels {
-		labels[k] = v
-	}
 	return &EndpointMetadata{
 		Network:      ep.Network,
 		TLSMode:      ep.TLSMode,
 		WorkloadName: ep.WorkloadName,
 		Namespace:    ep.Namespace,
-		Labels:       labels,
+		Labels:       maps.Clone(ep.Labels),
 		ClusterID:    ep.Locality.ClusterID,
 	}
 }
 
-// MetadataClone returns the cloned endpoint metadata used for telemetry purposes.
+// Metadata returns the endpoint metadata used for telemetry purposes.
 func (ep *IstioEndpoint) Metadata() *EndpointMetadata {
 	return &EndpointMetadata{
 		Network:      ep.Network,
