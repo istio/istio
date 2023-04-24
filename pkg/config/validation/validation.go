@@ -3429,6 +3429,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 
 			for _, endpoint := range serviceEntry.Endpoints {
+				if endpoint == nil {
+					errs = appendValidation(errs, errors.New("endpoint cannot be nil"))
+					continue
+				}
 				if !netutil.IsValidIPAddress(endpoint.Address) {
 					if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
 						errs = appendValidation(errs,
