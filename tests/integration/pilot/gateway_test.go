@@ -63,7 +63,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: gateway-istio
-  namespace: echo
 spec:
   ports:
   - appProtocol: http
