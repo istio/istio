@@ -49,8 +49,6 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 			switch options.ECCCurve {
 			case P384Curve:
 				curve = elliptic.P384()
-			case P256Curve:
-				fallthrough
 			default:
 				curve = elliptic.P256()
 			}
