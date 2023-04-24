@@ -440,7 +440,7 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 	}
 	canManage, resourceVersion := d.canManage(gvr, us.GetName(), us.GetNamespace())
 	if !canManage {
-		log.Errorf("skipping %v/%v/%v, already managed", gvr, us.GetName(), us.GetNamespace())
+		log.Debugf("skipping %v/%v/%v, already managed", gvr, us.GetName(), us.GetNamespace())
 		return nil
 	}
 	// Ensure our canManage assertion is not stale
