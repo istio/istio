@@ -185,14 +185,16 @@ g:
         m: vm-slice2
 `,
 			path: "g.h[*].k.l.*",
-			wantYAMLS: []string{`vm
+			wantYAMLS: []string{
+				`vm
 `,
 				`vm
 `,
 				`p: vp
 `,
 				`vm-slice2
-`},
+`,
+			},
 			wantFound: true,
 		},
 	}

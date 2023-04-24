@@ -76,7 +76,7 @@ func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequiredFields 
 }
 
 func Validate2(validations map[string]ValidatorFunc, iop *v1alpha1.IstioOperatorSpec) (errs util.Errors) {
-	// Convert to map[string]interface{} so we can use tpath.
+	// Convert to map[string]interface{} to avoid GatewaySpec not found.
 	iopMap, err := iopSpecToMap(iop)
 	if err != nil {
 		return util.NewErrs(err)

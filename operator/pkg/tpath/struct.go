@@ -57,6 +57,9 @@ func getFromStructPath(node any, path util.Path) (any, bool, error) {
 		scope.Debugf("getFromStructPath returning node(%T)%v", node, node)
 		return node, !util.IsValueNil(node), nil
 	}
+	if node == nil {
+		return nil, false, nil
+	}
 	// For protobuf types, switch them out with standard types; otherwise we will traverse protobuf internals rather
 	// than the standard representation
 	if v, ok := node.(*structpb.Struct); ok {
@@ -79,11 +82,7 @@ func getFromStructPath(node any, path util.Path) (any, bool, error) {
 			var f bool
 
 			// Make the order of the keys deterministic, for testing.
-			unsortedKeys := val.MapKeys()
-			keys := make([]reflect.Value, len(unsortedKeys))
-			for i, key := range unsortedKeys {
-				keys[i] = key
-			}
+			keys := val.MapKeys()
 			sort.Slice(keys, func(i, j int) bool {
 				return keys[i].String() < keys[j].String()
 			})
@@ -103,13 +102,12 @@ func getFromStructPath(node any, path util.Path) (any, bool, error) {
 				}
 			}
 			return results, f, nil
-		} else {
-			mapVal := val.MapIndex(reflect.ValueOf(path[0]))
-			if !mapVal.IsValid() {
-				return nil, false, fmt.Errorf("getFromStructPath path %s, path does not exist", path)
-			}
-			return getFromStructPath(mapVal.Interface(), path[1:])
 		}
+		mapVal := val.MapIndex(reflect.ValueOf(path[0]))
+		if !mapVal.IsValid() {
+			return nil, false, fmt.Errorf("getFromStructPath path %s, path does not exist", path)
+		}
+		return getFromStructPath(mapVal.Interface(), path[1:])
 	case reflect.Slice:
 		p := sanitizeField(path[0])
 		if p == "*" {
@@ -129,13 +127,12 @@ func getFromStructPath(node any, path util.Path) (any, bool, error) {
 				}
 			}
 			return results, f, nil
-		} else {
-			idx, err := strconv.Atoi(path[0])
-			if err != nil {
-				return nil, false, fmt.Errorf("getFromStructPath path %s, expected index number, got %s", path, path[0])
-			}
-			return getFromStructPath(val.Index(idx).Interface(), path[1:])
 		}
+		idx, err := strconv.Atoi(path[0])
+		if err != nil {
+			return nil, false, fmt.Errorf("getFromStructPath path %s, expected index number, got %s", path, path[0])
+		}
+		return getFromStructPath(val.Index(idx).Interface(), path[1:])
 	case reflect.Ptr:
 		structElems = reflect.ValueOf(node).Elem()
 		if !util.IsStruct(structElems) {
