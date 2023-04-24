@@ -948,12 +948,6 @@ func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.Is
 		}
 	}
 
-	// Include default resources
-	err := sa.AddDefaultResources()
-	if err != nil {
-		return nil, fmt.Errorf("error adding default resources: %v", err)
-	}
-
 	// Gather test files
 	var files []local.ReaderSource
 	for _, f := range tc.inputFiles {
@@ -965,9 +959,15 @@ func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.Is
 	}
 
 	// Include resources from test files
-	err = sa.AddReaderKubeSource(files)
+	err := sa.AddTestReaderKubeSource(files)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up file kube source on testcase %s: %v", tc.name, err)
+	}
+
+	// Include default resources
+	err = sa.AddDefaultResources()
+	if err != nil {
+		return nil, fmt.Errorf("error adding default resources: %v", err)
 	}
 
 	return sa, nil
