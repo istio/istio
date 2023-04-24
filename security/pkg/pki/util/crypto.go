@@ -137,7 +137,10 @@ func GetEllipticCurve(privKey *crypto.PrivateKey) (elliptic.Curve, error) {
 	switch key := (*privKey).(type) {
 	// this should agree with var SupportedECSignatureAlgorithms
 	case *ecdsa.PrivateKey:
-		return key.Curve, nil
+		if key.Curve == elliptic.P256() || key.Curve == elliptic.P384() {
+			return key.Curve, nil
+		}
+		return elliptic.P256(), fmt.Errorf("private key uses unsupported curve")
 	default:
 		return elliptic.P256(), fmt.Errorf("private key is not ECDSA based")
 	}

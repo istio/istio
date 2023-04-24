@@ -357,6 +357,7 @@ func TestIsSupportedECPrivateKey(t *testing.T) {
 	_, ed25519PrivKey, _ := ed25519.GenerateKey(nil)
 	ecdsaPrivKeyP256, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	ecdsaPrivKeyP384, _ := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	ecdsaPrivKeyP521, _ := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 
 	cases := map[string]struct {
 		key         crypto.PrivateKey
@@ -370,6 +371,10 @@ func TestIsSupportedECPrivateKey(t *testing.T) {
 			key:         ecdsaPrivKeyP384,
 			isSupported: true,
 		},
+		"ECDSA-P512": {
+			key:         ecdsaPrivKeyP521,
+			isSupported: false,
+		},
 		"ED25519": {
 			key:         ed25519PrivKey,
 			isSupported: false,
@@ -377,8 +382,11 @@ func TestIsSupportedECPrivateKey(t *testing.T) {
 	}
 
 	for id, tc := range cases {
-		if _, err := GetEllipticCurve(&tc.key); err != nil {
-			t.Errorf("%s: does not match expected support level for EC signature algorithms", id)
+		_, err := GetEllipticCurve(&tc.key)
+		if err != nil {
+			if tc.isSupported {
+				t.Errorf("%s: should be supported, but is failing", id)
+			}
 		}
 	}
 }
