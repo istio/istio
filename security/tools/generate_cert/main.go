@@ -153,7 +153,7 @@ func main() {
 		RSAKeySize:   *keySize,
 		IsServer:     *isServer,
 		ECSigAlg:     util.SupportedECSignatureAlgorithms(*ec),
-		ECCCurve:     util.SupportedElipticCurves(*curve),
+		ECCCurve:     util.SupportedEllipticCurves(*curve),
 		DNSNames:     *sanFields,
 	}
 	certPem, privPem, err := util.GenCertKeyFromOptions(opts)

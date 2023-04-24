@@ -42,17 +42,17 @@ import (
 // to be used in key generation (e.g. ECDSA or ED2551)
 type SupportedECSignatureAlgorithms string
 
-// SupportedElipticCurves are the types of curves
+// SupportedEllipticCurves are the types of curves
 // to be used in key generation (e.g. P256, P384)
-type SupportedElipticCurves string
+type SupportedEllipticCurves string
 
 const (
 	// only ECDSA is currently supported
 	EcdsaSigAlg SupportedECSignatureAlgorithms = "ECDSA"
 
 	// supported curves when using ECC
-	P256Curve SupportedElipticCurves = "P256"
-	P384Curve SupportedElipticCurves = "P384"
+	P256Curve SupportedEllipticCurves = "P256"
+	P384Curve SupportedEllipticCurves = "P384"
 )
 
 // CertOptions contains options for generating a new certificate.
@@ -109,7 +109,7 @@ type CertOptions struct {
 	// The type of Elliptical Signature algorithm to use
 	// when generating private keys. Currently only ECDSA is supported.
 	// If empty, RSA is used, otherwise ECC is used.
-	ECCCurve SupportedElipticCurves
+	ECCCurve SupportedEllipticCurves
 
 	// Subjective Alternative Name values.
 	DNSNames string
@@ -132,9 +132,9 @@ func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, 
 			case P384Curve:
 				curve = elliptic.P384()
 			case P256Curve:
-				curve = elliptic.P256()
+				fallthrough
 			default:
-				return nil, nil, fmt.Errorf("unsupported curve (%v) (%v)", options.ECCCurve, err)
+				curve = elliptic.P256()
 			}
 
 			ecPriv, err = ecdsa.GenerateKey(curve, rand.Reader)
