@@ -23,10 +23,12 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -35,6 +37,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	testKube "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
@@ -47,8 +51,94 @@ func TestGateway(t *testing.T) {
 
 			t.NewSubTest("unmanaged").Run(UnmanagedGatewayTest)
 			t.NewSubTest("managed").Run(ManagedGatewayTest)
+			t.NewSubTest("managed-owner").Run(ManagedOwnerGatewayTest)
 			t.NewSubTest("status").Run(StatusGatewayTest)
 		})
+}
+
+func ManagedOwnerGatewayTest(t framework.TestContext) {
+	image := fmt.Sprintf("%s/app:%s", t.Settings().Image.Hub, t.Settings().Image.Tag)
+	t.ConfigIstio().YAML(apps.Namespace.Name(), fmt.Sprintf(`
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-istio
+spec:
+  ports:
+  - appProtocol: http
+    name: default
+    port: 80
+  selector:
+    istio.io/gateway-name: gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-istio
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: gateway
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio.io/gateway-name: gateway
+    spec:
+      containers:
+      - name: fake
+        image: %s
+`, image)).ApplyOrFail(t)
+	cls := t.Clusters().Kube().Default()
+	fetchFn := testKube.NewSinglePodFetch(cls, apps.Namespace.Name(), "istio.io/gateway-name=gateway")
+	if _, err := testKube.WaitUntilPodsAreReady(fetchFn); err != nil {
+		t.Fatal(err)
+	}
+
+	t.ConfigIstio().YAML(apps.Namespace.Name(), `
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "*.example.com"
+    port: 80
+    protocol: HTTP
+`).ApplyOrFail(t)
+
+	// Make sure Gateway becomes programmed..
+	client := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().Gateways(apps.Namespace.Name())
+	check := func() error {
+		gw, _ := client.Get(context.Background(), "gateway", metav1.GetOptions{})
+		if gw == nil {
+			return fmt.Errorf("failed to find gateway")
+		}
+		cond := kstatus.GetCondition(gw.Status.Conditions, string(k8s.GatewayConditionProgrammed))
+		if cond.Status != metav1.ConditionTrue {
+			return fmt.Errorf("failed to find programmed condition: %+v", cond)
+		}
+		if cond.ObservedGeneration != gw.Generation {
+			return fmt.Errorf("stale GWC generation: %+v", cond)
+		}
+		return nil
+	}
+	retry.UntilSuccessOrFail(t, check)
+
+	// Make sure we did not overwrite our deployment or service
+	dep, err := t.Clusters().Kube().Default().Kube().AppsV1().Deployments(apps.Namespace.Name()).
+		Get(context.Background(), "gateway-istio", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, dep.Labels[constants.ManagedGatewayLabel], "")
+	assert.Equal(t, dep.Spec.Template.Spec.Containers[0].Image, image)
+
+	svc, err := t.Clusters().Kube().Default().Kube().CoreV1().Services(apps.Namespace.Name()).
+		Get(context.Background(), "gateway-istio", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, svc.Labels[constants.ManagedGatewayLabel], "")
+	assert.Equal(t, svc.Spec.Type, corev1.ServiceTypeClusterIP)
 }
 
 func ManagedGatewayTest(t framework.TestContext) {
