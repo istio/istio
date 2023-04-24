@@ -1142,6 +1142,9 @@ message BaseConfig {
   google.protobuf.BoolValue enableIstioConfigCRDs = 3;
 
   google.protobuf.BoolValue validateGateway = 4;
+
+  // For including base chart RBAC for backwards compatibility
+  google.protobuf.BoolValue includeRBAC = 5;
 }
 
 message IstiodRemoteConfig {
