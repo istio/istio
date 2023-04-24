@@ -79,14 +79,10 @@ func (in *Installer) install(ctx context.Context) (err error) {
 // Run starts the installation process, verifies the configuration, then sleeps.
 // If an invalid configuration is detected, the installation process will restart to restore a valid state.
 func (in *Installer) Run(ctx context.Context) (err error) {
-	if in.cfg.CNIEnableInstall {
-		if err = in.install(ctx); err != nil {
-			return
-		}
-		installLog.Info("Installation succeed, start watching for re-installation.")
-	} else {
-		installLog.Info("Skip installing CNI configuration and binaries.")
+	if err = in.install(ctx); err != nil {
+		return
 	}
+	installLog.Info("Installation succeed, start watching for re-installation.")
 
 	for {
 		if err = in.sleepCheckInstall(ctx); err != nil {
@@ -94,7 +90,7 @@ func (in *Installer) Run(ctx context.Context) (err error) {
 		}
 
 		installLog.Info("Detect changes to the CNI configuration and binaries, attempt reinstalling...")
-		if in.cfg.CNIEnableInstall && in.cfg.CNIEnableReinstall {
+		if in.cfg.CNIEnableReinstall {
 			if err = in.install(ctx); err != nil {
 				return
 			}
@@ -223,10 +219,6 @@ func (in *Installer) sleepCheckInstall(ctx context.Context) error {
 
 // checkInstall returns an error if an invalid CNI configuration is detected
 func checkInstall(cfg *config.InstallConfig, cniConfigFilepath string) error {
-	// If the installation is skipped, don't check for invalid configurations.
-	if !cfg.CNIEnableInstall {
-		return nil
-	}
 	defaultCNIConfigFilename, err := getDefaultCNINetwork(cfg.MountedCNINetDir)
 	if err != nil {
 		return err
