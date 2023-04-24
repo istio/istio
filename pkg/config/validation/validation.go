@@ -3429,6 +3429,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 
 			for _, endpoint := range serviceEntry.Endpoints {
+				if endpoint == nil {
+					errs = appendValidation(errs, errors.New("endpoint cannot be nil"))
+					continue
+				}
 				if !netutil.IsValidIPAddress(endpoint.Address) {
 					if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
 						errs = appendValidation(errs,
@@ -3448,6 +3452,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 			if len(serviceEntry.Addresses) > 0 {
 				for _, port := range serviceEntry.Ports {
+					if port == nil {
+						errs = appendValidation(errs, errors.New("ports cannot be nil"))
+						continue
+					}
 					p := protocol.Parse(port.Protocol)
 					if p.IsTCP() {
 						if len(serviceEntry.Hosts) > 1 {
@@ -3473,6 +3481,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		// (because the hosts are ignored).
 		if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
 			for _, port := range serviceEntry.Ports {
+				if port == nil {
+					errs = appendValidation(errs, errors.New("ports cannot be nil"))
+					continue
+				}
 				p := protocol.Parse(port.Protocol)
 				if !p.IsHTTP() && !p.IsTLS() {
 					errs = appendValidation(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
