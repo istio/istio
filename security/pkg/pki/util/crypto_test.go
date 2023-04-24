@@ -361,33 +361,42 @@ func TestIsSupportedECPrivateKey(t *testing.T) {
 	ecdsaPrivKeyP521, _ := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 
 	cases := map[string]struct {
-		key   crypto.PrivateKey
-		isErr bool
+		key           crypto.PrivateKey
+		isErr         bool
+		expectedCurve elliptic.Curve
 	}{
 		"ECDSA-P224": {
-			key:   ecdsaPrivKeyP224,
-			isErr: true,
+			key:           ecdsaPrivKeyP224,
+			isErr:         false,
+			expectedCurve: elliptic.P256(),
 		},
 		"ECDSA-P256": {
-			key:   ecdsaPrivKeyP256,
-			isErr: false,
+			key:           ecdsaPrivKeyP256,
+			isErr:         false,
+			expectedCurve: elliptic.P256(),
 		},
 		"ECDSA-P384": {
-			key:   ecdsaPrivKeyP384,
-			isErr: false,
+			key:           ecdsaPrivKeyP384,
+			isErr:         false,
+			expectedCurve: elliptic.P384(),
 		},
 		"ECDSA-P512": {
-			key:   ecdsaPrivKeyP521,
-			isErr: true,
+			key:           ecdsaPrivKeyP521,
+			isErr:         false,
+			expectedCurve: elliptic.P256(),
 		},
 		"ED25519": {
-			key:   ed25519PrivKey,
-			isErr: true,
+			key:           ed25519PrivKey,
+			isErr:         true,
+			expectedCurve: nil,
 		},
 	}
 
 	for id, tc := range cases {
-		_, err := GetEllipticCurve(&tc.key)
+		curve, err := GetEllipticCurve(&tc.key)
+		if tc.expectedCurve != curve {
+			t.Errorf("expected (%v) but received (%v)", tc.expectedCurve, curve)
+		}
 		if err != nil {
 			if !tc.isErr {
 				t.Errorf("%s: should be supported, but is failing", id)
