@@ -2373,19 +2373,21 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 }
 
 func TestInitVirtualService(t *testing.T) {
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
 	configStore := NewFakeStore()
 	gatewayName := "ns1/gateway"
 
-	vs1 := config.Config{
+	root := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
-			Name:             "vs1",
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "root",
 			Namespace:        "ns1",
 		},
 		Spec: &networking.VirtualService{
+			ExportTo: []string{"*"},
 			Hosts:    []string{"*.org"},
 			Gateways: []string{"gateway"},
 			Http: []*networking.HTTPRoute{
@@ -2403,20 +2405,21 @@ func TestInitVirtualService(t *testing.T) {
 						},
 					},
 					Delegate: &networking.Delegate{
-						Name:      "vs2",
+						Name:      "delegate",
 						Namespace: "ns2",
 					},
 				},
 			},
 		},
 	}
-	vs2 := config.Config{
+	delegate := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
-			Name:             "vs2",
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "delegate",
 			Namespace:        "ns2",
 		},
 		Spec: &networking.VirtualService{
+			ExportTo: []string{"*"},
 			Hosts:    []string{},
 			Gateways: []string{gatewayName},
 			Http: []*networking.HTTPRoute{
@@ -2424,7 +2427,84 @@ func TestInitVirtualService(t *testing.T) {
 					Route: []*networking.HTTPRouteDestination{
 						{
 							Destination: &networking.Destination{
-								Host: "test",
+								Host: "delegate",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	public := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "public",
+			Namespace:        "ns3",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.org"},
+			Gateways: []string{gatewayName},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "public",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	private := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "private",
+			Namespace:        "ns1",
+		},
+		Spec: &networking.VirtualService{
+			ExportTo: []string{".", "ns2"},
+			Hosts:    []string{"*.org"},
+			Gateways: []string{gatewayName},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "private",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	invisible := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "invisible",
+			Namespace:        "ns5",
+		},
+		Spec: &networking.VirtualService{
+			ExportTo: []string{".", "ns3"},
+			Hosts:    []string{"*.org"},
+			Gateways: []string{"gateway", "mesh"},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "invisible",
 								Port: &networking.PortSelector{
 									Number: 80,
 								},
@@ -2436,7 +2516,7 @@ func TestInitVirtualService(t *testing.T) {
 		},
 	}
 
-	for _, c := range []config.Config{vs1, vs2} {
+	for _, c := range []config.Config{root, delegate, public, private, invisible} {
 		if _, err := configStore.Create(c); err != nil {
 			t.Fatalf("could not create %v", c.Name)
 		}
@@ -2450,8 +2530,8 @@ func TestInitVirtualService(t *testing.T) {
 
 	t.Run("resolve shortname", func(t *testing.T) {
 		rules := ps.VirtualServicesForGateway("ns1", gatewayName)
-		if len(rules) != 1 {
-			t.Fatalf("wanted 1 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
+		if len(rules) != 3 {
+			t.Fatalf("wanted 3 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
 		}
 		gotHTTPHosts := make([]string, 0)
 		for _, r := range rules {
@@ -2462,8 +2542,19 @@ func TestInitVirtualService(t *testing.T) {
 				}
 			}
 		}
-		if !reflect.DeepEqual(gotHTTPHosts, []string{"test.ns2"}) {
+		if !reflect.DeepEqual(gotHTTPHosts, []string{"private.ns1", "public.ns3", "delegate.ns2"}) {
 			t.Errorf("got %+v", gotHTTPHosts)
+		}
+	})
+
+	t.Run("destinations by gateway", func(t *testing.T) {
+		got := ps.virtualServiceIndex.destinationsByGateway
+		want := map[string]sets.String{
+			gatewayName:   sets.New("delegate.ns2", "public.ns3", "private.ns1"),
+			"ns5/gateway": sets.New("invisible.ns5"),
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("destinationsByGateway: got %+v", got)
 		}
 	})
 }
