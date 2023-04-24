@@ -66,8 +66,6 @@ func TestNoErrorIfMessageLevelsBelowThreshold(t *testing.T) {
 }
 
 func TestSkipPodsInFiles(t *testing.T) {
-	// g := NewWithT(t)
-
 	c := testCase{
 		args: strings.Split(
 			"analyze -A --use-kube=false --failure-threshold ERROR testdata/analyze-file/public-gateway.yaml",
