@@ -99,9 +99,7 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 	}
 
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
-	kubeResources := kuberesource.SkipExcludedCollections(
-		analyzer.Metadata().Inputs,
-		kuberesource.DefaultExcludedResourceKinds())
+	kubeResources := kuberesource.ConvertInputsToSchemas(analyzer.Metadata().Inputs)
 
 	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
@@ -230,7 +228,8 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 	if sa.fileSource != nil {
 		src = sa.fileSource
 	} else {
-		src = file.NewKubeSource(sa.kubeResources)
+		readerResources := sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...)
+		src = file.NewKubeSource(readerResources)
 		sa.fileSource = src
 	}
 	src.SetDefaultNamespace(sa.namespace)
