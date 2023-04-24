@@ -21,7 +21,6 @@ import (
 	"sort"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -29,7 +28,6 @@ import (
 
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	creds "istio.io/istio/pilot/pkg/model/credentials"
@@ -44,98 +42,9 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-const (
-	DefaultClassName             = "istio"
-	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
-	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
-	gatewayNameOverride          = "gateway.istio.io/name-override"
-	gatewaySAOverride            = "gateway.istio.io/service-account"
-)
-
-// KubernetesResources stores all inputs to our conversion
-type KubernetesResources struct {
-	GatewayClass   []config.Config
-	Gateway        []config.Config
-	HTTPRoute      []config.Config
-	TCPRoute       []config.Config
-	TLSRoute       []config.Config
-	ReferenceGrant []config.Config
-	// Namespaces stores all namespace in the cluster, keyed by name
-	Namespaces map[string]*corev1.Namespace
-	// Credentials stores all credentials in the cluster
-	Credentials credentials.Controller
-
-	// Domain for the cluster. Typically, cluster.local
-	Domain  string
-	Context GatewayContext
-}
-
-type AllowedReferences map[Reference]map[Reference]*Grants
-
-func (refs AllowedReferences) SecretAllowed(resourceName string, namespace string) bool {
-	p, err := creds.ParseResourceName(resourceName, "", "", "")
-	if err != nil {
-		log.Warnf("failed to parse resource name %q: %v", resourceName, err)
-		return false
-	}
-	from := Reference{Kind: gvk.KubernetesGateway, Namespace: k8s.Namespace(namespace)}
-	to := Reference{Kind: gvk.Secret, Namespace: k8s.Namespace(p.Namespace)}
-	allow := refs[from][to]
-	if allow == nil {
-		return false
-	}
-	return allow.AllowAll || allow.AllowedNames.Contains(p.Name)
-}
-
-func (refs AllowedReferences) BackendAllowed(
-	k config.GroupVersionKind,
-	backendName k8s.ObjectName,
-	backendNamespace k8s.Namespace,
-	routeNamespace string,
-) bool {
-	from := Reference{Kind: k, Namespace: k8s.Namespace(routeNamespace)}
-	to := Reference{Kind: gvk.Service, Namespace: backendNamespace}
-	allow := refs[from][to]
-	if allow == nil {
-		return false
-	}
-	return allow.AllowAll || allow.AllowedNames.Contains(string(backendName))
-}
-
-// OutputResources stores all outputs of our conversion
-type OutputResources struct {
-	Gateway        []config.Config
-	VirtualService []config.Config
-	// AllowedReferences stores all allowed references, from Reference -> to Reference(s)
-	AllowedReferences AllowedReferences
-	// ReferencedNamespaceKeys stores the label key of all namespace selections. This allows us to quickly
-	// determine if a namespace update could have impacted any Gateways. See namespaceEvent.
-	ReferencedNamespaceKeys sets.String
-
-	// ResourceReferences stores all resources referenced by gateway-api resources. This allows us to quickly
-	// determine if a resource update could have impacted any Gateways.
-	// key: referenced resources(e.g. secrets), value: gateway-api resources(e.g. gateways)
-	ResourceReferences map[model.ConfigKey][]model.ConfigKey
-}
-
-// Reference stores a reference to a namespaced GVK, as used by ReferencePolicy
-type Reference struct {
-	Kind      config.GroupVersionKind
-	Namespace k8s.Namespace
-}
-
-type ConfigContext struct {
-	KubernetesResources
-	AllowedReferences AllowedReferences
-	GatewayReferences map[parentKey][]*parentInfo
-
-	// key: referenced resources(e.g. secrets), value: gateway-api resources(e.g. gateways)
-	resourceReferences map[model.ConfigKey][]model.ConfigKey
-}
-
 // convertResources is the top level entrypoint to our conversion logic, computing the full state based
 // on KubernetesResources inputs.
-func convertResources(r KubernetesResources) OutputResources {
+func convertResources(r GatewayResources) IstioResources {
 	// sort HTTPRoutes by creation timestamp and namespace/name
 	sort.Slice(r.HTTPRoute, func(i, j int) bool {
 		if r.HTTPRoute[i].CreationTimestamp.Equal(r.HTTPRoute[j].CreationTimestamp) {
@@ -145,11 +54,11 @@ func convertResources(r KubernetesResources) OutputResources {
 		}
 		return r.HTTPRoute[i].CreationTimestamp.Before(r.HTTPRoute[j].CreationTimestamp)
 	})
-	result := OutputResources{}
+	result := IstioResources{}
 	ctx := ConfigContext{
-		KubernetesResources: r,
-		AllowedReferences:   convertReferencePolicies(r),
-		resourceReferences:  make(map[model.ConfigKey][]model.ConfigKey),
+		GatewayResources:   r,
+		AllowedReferences:  convertReferencePolicies(r),
+		resourceReferences: make(map[model.ConfigKey][]model.ConfigKey),
 	}
 
 	gw, gwMap, nsReferences := convertGateways(ctx)
@@ -181,7 +90,7 @@ type Grants struct {
 // convertReferencePolicies extracts all ReferencePolicy into an easily accessibly index.
 // The currently supported references are:
 // * Gateway -> Secret
-func convertReferencePolicies(r KubernetesResources) AllowedReferences {
+func convertReferencePolicies(r GatewayResources) AllowedReferences {
 	res := map[Reference]map[Reference]*Grants{}
 	type namespacedGrant struct {
 		Namespace string
@@ -1244,7 +1153,7 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 
 // getGatewayClass finds all gateway class that are owned by Istio
 // Response is ClassName -> Controller type
-func getGatewayClasses(r KubernetesResources) map[string]k8s.GatewayController {
+func getGatewayClasses(r GatewayResources) map[string]k8s.GatewayController {
 	res := map[string]k8s.GatewayController{}
 	allFound := sets.New[string]()
 	for _, obj := range r.GatewayClass {
@@ -1378,7 +1287,7 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 	// namespaceLabelReferences keeps track of all namespace label keys referenced by Gateways. This is
 	// used to ensure we handle namespace updates for those keys.
 	namespaceLabelReferences := sets.New[string]()
-	classes := getGatewayClasses(r.KubernetesResources)
+	classes := getGatewayClasses(r.GatewayResources)
 	for _, obj := range r.Gateway {
 		obj := obj
 		kgw := obj.Spec.(*k8s.GatewaySpec)
@@ -1391,7 +1300,7 @@ func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentI
 		servers := []*istio.Server{}
 
 		// Extract the addresses. A gateway will bind to a specific Service
-		gatewayServices, skippedAddresses := extractGatewayServices(r.KubernetesResources, kgw, obj)
+		gatewayServices, skippedAddresses := extractGatewayServices(r.GatewayResources, kgw, obj)
 		for i, l := range kgw.Listeners {
 			i := i
 			namespaceLabelReferences.InsertAll(getNamespaceLabelReferences(l.AllowedRoutes)...)
@@ -1622,7 +1531,7 @@ func IsManaged(gw *k8s.GatewaySpec) bool {
 	return false
 }
 
-func extractGatewayServices(r KubernetesResources, kgw *k8s.GatewaySpec, obj config.Config) ([]string, []string) {
+func extractGatewayServices(r GatewayResources, kgw *k8s.GatewaySpec, obj config.Config) ([]string, []string) {
 	if IsManaged(kgw) {
 		name := model.GetOrDefault(obj.Annotations[gatewayNameOverride], getDefaultName(obj.Name, kgw))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, obj.Namespace, r.Domain)}, nil
@@ -1691,7 +1600,7 @@ func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerI
 		listenerConditions[string(k8sbeta.ListenerConditionResolvedRefs)].error = err
 		return nil, false
 	}
-	hostnames := buildHostnameMatch(obj.Namespace, r.KubernetesResources, l)
+	hostnames := buildHostnameMatch(obj.Namespace, r.GatewayResources, l)
 	server := &istio.Server{
 		Port: &istio.Port{
 			// Name is required. We only have one server per Gateway, so we can just name them all the same
@@ -1839,7 +1748,7 @@ func parentRefString(ref k8s.ParentReference) string {
 }
 
 // buildHostnameMatch generates a VirtualService.spec.hosts section from a listener
-func buildHostnameMatch(localNamespace string, r KubernetesResources, l k8s.Listener) []string {
+func buildHostnameMatch(localNamespace string, r GatewayResources, l k8s.Listener) []string {
 	// We may allow all hostnames or a specific one
 	hostname := "*"
 	if l.Hostname != nil {
@@ -1861,7 +1770,7 @@ func buildHostnameMatch(localNamespace string, r KubernetesResources, l k8s.List
 }
 
 // namespacesFromSelector determines a list of allowed namespaces for a given AllowedRoutes
-func namespacesFromSelector(localNamespace string, r KubernetesResources, lr *k8s.AllowedRoutes) []string {
+func namespacesFromSelector(localNamespace string, r GatewayResources, lr *k8s.AllowedRoutes) []string {
 	// Default is to allow only the same namespace
 	if lr == nil || lr.Namespaces == nil || lr.Namespaces.From == nil || *lr.Namespaces.From == k8sbeta.NamespacesFromSame {
 		return []string{localNamespace}
@@ -1938,7 +1847,7 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 	return ret
 }
 
-func (kr KubernetesResources) FuzzValidate() bool {
+func (kr GatewayResources) FuzzValidate() bool {
 	for _, gwc := range kr.GatewayClass {
 		if gwc.Spec == nil {
 			return false

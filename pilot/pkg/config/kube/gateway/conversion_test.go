@@ -622,8 +622,8 @@ func getStatus(t test.Failer, acfgs ...[]config.Config) []byte {
 
 var timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
 
-func splitOutput(configs []config.Config) OutputResources {
-	out := OutputResources{
+func splitOutput(configs []config.Config) IstioResources {
+	out := IstioResources{
 		Gateway:        []config.Config{},
 		VirtualService: []config.Config{},
 	}
@@ -639,8 +639,8 @@ func splitOutput(configs []config.Config) OutputResources {
 	return out
 }
 
-func splitInput(t test.Failer, configs []config.Config) KubernetesResources {
-	out := KubernetesResources{}
+func splitInput(t test.Failer, configs []config.Config) GatewayResources {
+	out := GatewayResources{}
 	namespaces := sets.New[string]()
 	for _, c := range configs {
 		namespaces.Insert(c.Namespace)
@@ -808,8 +808,8 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 	kr := splitInput(b, input)
 	kr.Context = NewGatewayContext(cg.PushContext())
 	ctx := ConfigContext{
-		KubernetesResources: kr,
-		AllowedReferences:   convertReferencePolicies(kr),
+		GatewayResources:  kr,
+		AllowedReferences: convertReferencePolicies(kr),
 	}
 	_, gwMap, _ := convertGateways(ctx)
 	ctx.GatewayReferences = gwMap
@@ -829,7 +829,7 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 func TestExtractGatewayServices(t *testing.T) {
 	tests := []struct {
 		name             string
-		r                KubernetesResources
+		r                GatewayResources
 		kgw              *k8s.GatewaySpec
 		obj              config.Config
 		gatewayServices  []string
@@ -837,7 +837,7 @@ func TestExtractGatewayServices(t *testing.T) {
 	}{
 		{
 			name: "managed gateway",
-			r:    KubernetesResources{Domain: "cluster.local"},
+			r:    GatewayResources{Domain: "cluster.local"},
 			kgw: &k8s.GatewaySpec{
 				GatewayClassName: "istio",
 			},
@@ -851,7 +851,7 @@ func TestExtractGatewayServices(t *testing.T) {
 		},
 		{
 			name: "managed gateway with name overrided",
-			r:    KubernetesResources{Domain: "cluster.local"},
+			r:    GatewayResources{Domain: "cluster.local"},
 			kgw: &k8s.GatewaySpec{
 				GatewayClassName: "istio",
 			},
@@ -868,7 +868,7 @@ func TestExtractGatewayServices(t *testing.T) {
 		},
 		{
 			name: "unmanaged gateway",
-			r:    KubernetesResources{Domain: "domain"},
+			r:    GatewayResources{Domain: "domain"},
 			kgw: &k8s.GatewaySpec{
 				GatewayClassName: "istio",
 				Addresses: []k8s.GatewayAddress{
