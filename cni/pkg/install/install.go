@@ -90,14 +90,11 @@ func (in *Installer) Run(ctx context.Context) (err error) {
 		}
 
 		installLog.Info("Detect changes to the CNI configuration and binaries, attempt reinstalling...")
-		if in.cfg.CNIEnableReinstall {
-			if err = in.install(ctx); err != nil {
-				return
-			}
-			installLog.Info("CNI configuration and binaries reinstalled.")
-		} else {
-			installLog.Info("Skip reinstalling CNI configuration and binaries.")
+		if err = in.install(ctx); err != nil {
+			return
 		}
+		installLog.Info("CNI configuration and binaries reinstalled.")
+
 	}
 }
 
