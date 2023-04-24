@@ -365,7 +365,8 @@ func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration, checkLi
 	// use the type of private key the CA uses to generate an intermediate CA of that type (e.g. CA cert using RSA will
 	// cause intermediate CAs using RSA to be generated)
 	_, signingKey, _, _ := ca.keyCertBundle.GetAll()
-	if curve, err := util.GetElipticCurve(signingKey); err == nil {
+	curve, err := util.GetEllipticCurve(signingKey)
+	if err == nil {
 		opts.ECSigAlg = util.EcdsaSigAlg
 		switch curve {
 		case elliptic.P384():

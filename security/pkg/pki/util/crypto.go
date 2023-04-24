@@ -131,14 +131,15 @@ func GetRSAKeySize(privKey crypto.PrivateKey) (int, error) {
 	return pkey.N.BitLen(), nil
 }
 
-// GetElipticCurve is a predicate returning true if the private key is EC based
-func GetElipticCurve(privKey *crypto.PrivateKey) (elliptic.Curve, error) {
+// GetEllipticCurve returns the type of curve associated with the private key;
+// if the key is not EC-based it will return P256 (default used) and and erro
+func GetEllipticCurve(privKey *crypto.PrivateKey) (elliptic.Curve, error) {
 	switch key := (*privKey).(type) {
 	// this should agree with var SupportedECSignatureAlgorithms
 	case *ecdsa.PrivateKey:
 		return key.Curve, nil
 	default:
-		return elliptic.P256(), nil
+		return elliptic.P256(), fmt.Errorf("private key is not ECDSA based")
 	}
 }
 

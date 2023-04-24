@@ -377,7 +377,7 @@ func TestIsSupportedECPrivateKey(t *testing.T) {
 	}
 
 	for id, tc := range cases {
-		if _, err := GetElipticCurve(&tc.key); err != nil {
+		if _, err := GetEllipticCurve(&tc.key); err != nil {
 			t.Errorf("%s: does not match expected support level for EC signature algorithms", id)
 		}
 	}
