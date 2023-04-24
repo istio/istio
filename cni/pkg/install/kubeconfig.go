@@ -15,19 +15,25 @@
 package install
 
 import (
-	"bytes"
-	"encoding/base64"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"text/template"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/clientcmd/api/latest"
+	"sigs.k8s.io/yaml"
+
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
 )
 
-const kubeconfigTemplate = `# Kubeconfig file for Istio CNI plugin.
+var kubeconfigTemplate = func() *template.Template {
+	t := `# Kubeconfig file for Istio CNI plugin.
 apiVersion: v1
 kind: Config
 clusters:
@@ -46,6 +52,12 @@ contexts:
     user: istio-cni
 current-context: istio-cni-context
 `
+	tpl, err := template.New("kubeconfig").Parse(t)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse kubeconfig template: %v", err))
+	}
+	return tpl
+}
 
 type kubeconfigFields struct {
 	KubernetesServiceProtocol string
@@ -55,76 +67,74 @@ type kubeconfigFields struct {
 	TLSConfig                 string
 }
 
-func createKubeconfigFile(cfg *config.InstallConfig, saToken string) (kubeconfigFilepath string, err error) {
+func createKubeconfig(cfg *config.InstallConfig) (runtime.Object, error) {
 	if len(cfg.K8sServiceHost) == 0 {
-		err = fmt.Errorf("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
-		return
+		return nil, fmt.Errorf("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
 	}
 
 	if len(cfg.K8sServicePort) == 0 {
-		err = fmt.Errorf("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
-		return
+		return nil, fmt.Errorf("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
 	}
 
-	var tpl *template.Template
-	tpl, err = template.New("kubeconfig").Parse(kubeconfigTemplate)
-	if err != nil {
-		return
+	protocol := model.GetOrDefault(cfg.K8sServiceProtocol, "https")
+	cluster := &api.Cluster{
+		Server: fmt.Sprintf("%s://%s", protocol, net.JoinHostPort(cfg.K8sServiceHost, cfg.K8sServicePort)),
 	}
 
-	protocol := cfg.K8sServiceProtocol
-	if protocol == "" {
-		protocol = "https"
-	}
-
-	caFile := cfg.KubeCAFile
-	if caFile == "" {
-		caFile = constants.ServiceAccountPath + "/ca.crt"
-	}
-
-	var tlsConfig string
 	if cfg.SkipTLSVerify {
-		tlsConfig = "insecure-skip-tls-verify: true"
+		// User explicitly opted into insecure.
+		cluster.InsecureSkipTLSVerify = true
 	} else {
-		if !file.Exists(caFile) {
-			return "", fmt.Errorf("file does not exist: %s", caFile)
-		}
-		var caContents []byte
-		caContents, err = os.ReadFile(caFile)
+		caFile := model.GetOrDefault(cfg.KubeCAFile, constants.ServiceAccountCAPath)
+		caContents, err := os.ReadFile(caFile)
 		if err != nil {
-			return
+			return nil, err
 		}
-		caBase64 := base64.StdEncoding.EncodeToString(caContents)
-		tlsConfig = "certificate-authority-data: " + caBase64
+		cluster.CertificateAuthorityData = caContents
 	}
 
-	fields := kubeconfigFields{
-		KubernetesServiceProtocol: protocol,
-		KubernetesServiceHost:     cfg.K8sServiceHost,
-		KubernetesServicePort:     cfg.K8sServicePort,
-		ServiceAccountToken:       saToken,
-		TLSConfig:                 tlsConfig,
+	const contextName = "istio-cni-context"
+	const clusterName = "local"
+	const userName = "istio-cni"
+	kcfg := &api.Config{
+		Kind:        "Config",
+		APIVersion:  "v1",
+		Preferences: api.Preferences{},
+		Clusters: map[string]*api.Cluster{
+			clusterName: cluster,
+		},
+		AuthInfos: map[string]*api.AuthInfo{
+			userName: {
+				TokenFile: constants.ServiceAccountTokenPath,
+			},
+		},
+		Contexts: map[string]*api.Context{
+			contextName: {
+				AuthInfo: userName,
+				Cluster:  clusterName,
+			},
+		},
+		CurrentContext: contextName,
 	}
 
-	var kcbb bytes.Buffer
-	if err := tpl.Execute(&kcbb, fields); err != nil {
-		return "", err
+	return latest.Scheme.ConvertToVersion(kcfg, latest.ExternalVersion)
+}
+
+func writeKubeconfigFile(cfg *config.InstallConfig) error {
+	kcfg, err := createKubeconfig(cfg)
+	if err != nil {
+		return err
+	}
+	kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
+	installLog.Infof("write kubeconfig file %s with: \n%+v", kubeconfigFilepath, kcfg)
+
+	kubeconfig, err := yaml.Marshal(kcfg)
+	if err != nil {
+		return err
+	}
+	if err := file.AtomicWrite(kubeconfigFilepath, kubeconfig, os.FileMode(cfg.KubeconfigMode)); err != nil {
+		return err
 	}
 
-	var kcbbToPrint bytes.Buffer
-	fields.ServiceAccountToken = "<redacted>"
-	if !cfg.SkipTLSVerify {
-		fields.TLSConfig = fmt.Sprintf("certificate-authority-data: <CA cert from %s>", caFile)
-	}
-	if err := tpl.Execute(&kcbbToPrint, fields); err != nil {
-		return "", err
-	}
-
-	kubeconfigFilepath = filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
-	installLog.Infof("write kubeconfig file %s with: \n%+v", kubeconfigFilepath, kcbbToPrint.String())
-	if err = file.AtomicWrite(kubeconfigFilepath, kcbb.Bytes(), os.FileMode(cfg.KubeconfigMode)); err != nil {
-		return "", err
-	}
-
-	return
+	return nil
 }

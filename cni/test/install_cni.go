@@ -174,7 +174,7 @@ func runInstall(ctx context.Context, tempCNIConfDir, tempCNIBinDir,
 	tempK8sSvcAcctDir, cniConfFileName string, chainedCNIPlugin bool,
 ) {
 	root := cmd.GetCommand()
-	constants.ServiceAccountPath = tempK8sSvcAcctDir
+	constants.ServiceAccountCAPath = tempK8sSvcAcctDir + "/ca.crt"
 	constants.HostCNIBinDir = tempCNIBinDir
 	constants.CNIBinDir = filepath.Join(env.IstioSrc, "cni/test/testdata/bindir")
 	root.SetArgs([]string{

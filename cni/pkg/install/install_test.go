@@ -160,8 +160,6 @@ func TestSleepCheckInstall(t *testing.T) {
 			in := NewInstaller(cfg, isReady)
 			in.cniConfigFilepath = cniConfigFilepath
 
-			in.saToken = "foo"
-			in.saTokenFilepath = filepath.Join(tempDir, c.saFilename)
 			if err := file.AtomicCopy(filepath.Join("testdata", c.saFilename), tempDir, c.saFilename); err != nil {
 				t.Fatal(err)
 			}

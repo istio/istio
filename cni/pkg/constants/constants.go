@@ -52,16 +52,22 @@ const (
 )
 
 // Internal constants
-var (
-	CNIBinDir             = "/opt/cni/bin"
-	HostCNIBinDir         = "/host/opt/cni/bin"
-	SecondaryBinDir       = "/host/secondary-bin-dir"
-	ServiceAccountPath    = "/var/run/secrets/kubernetes.io/serviceaccount"
+const (
 	DefaultKubeconfigMode = 0o600
-	UDSLogPath            = "/log"
+
+	UDSLogPath      = "/log"
+	SecondaryBinDir = "/host/secondary-bin-dir"
 
 	// K8s liveness and readiness endpoints
 	LivenessEndpoint  = "/healthz"
 	ReadinessEndpoint = "/readyz"
-	Port              = "8000"
+	ReadinessPort     = "8000"
+)
+
+// Exposed for testing constants
+var (
+	CNIBinDir               = "/opt/cni/bin"
+	HostCNIBinDir           = "/host/opt/cni/bin"
+	ServiceAccountCAPath    = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	ServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 )

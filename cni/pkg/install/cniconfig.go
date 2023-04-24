@@ -78,13 +78,13 @@ func getCNIConfigVars(cfg *config.InstallConfig) cniConfigVars {
 	}
 }
 
-func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig, saToken string) (string, error) {
+func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {
 	cniConfig, err := readCNIConfigTemplate(getCNIConfigTemplate(cfg))
 	if err != nil {
 		return "", err
 	}
 
-	cniConfig = replaceCNIConfigVars(cniConfig, getCNIConfigVars(cfg), saToken)
+	cniConfig = replaceCNIConfigVars(cniConfig, getCNIConfigVars(cfg))
 
 	return writeCNIConfig(ctx, cniConfig, getPluginConfig(cfg))
 }
@@ -107,7 +107,7 @@ func readCNIConfigTemplate(template cniConfigTemplate) ([]byte, error) {
 	return nil, fmt.Errorf("need CNI_NETWORK_CONFIG or CNI_NETWORK_CONFIG_FILE to be set")
 }
 
-func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars, saToken string) []byte {
+func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars) []byte {
 	cniConfigStr := string(cniConfig)
 
 	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__LOG_LEVEL__", vars.logLevel)
@@ -118,11 +118,7 @@ func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars, saToken string) 
 	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBERNETES_SERVICE_PORT__", vars.k8sServicePort)
 	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBERNETES_NODE_NAME__", vars.k8sNodeName)
 
-	// Log the config file before inserting service account token.
-	// This way auth token is not visible in the logs.
 	installLog.Infof("CNI config: %s", cniConfigStr)
-
-	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__SERVICEACCOUNT_TOKEN__", saToken)
 
 	return []byte(cniConfigStr)
 }
