@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	DefaultClassName             = "istio"
+	defaultClassName             = "istio"
 	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
 	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
 	gatewayNameOverride          = "gateway.istio.io/name-override"
@@ -50,6 +50,11 @@ type GatewayResources struct {
 	// Domain for the cluster. Typically, cluster.local
 	Domain  string
 	Context GatewayContext
+}
+
+type Grants struct {
+	AllowAll     bool
+	AllowedNames sets.String
 }
 
 type AllowedReferences map[Reference]map[Reference]*Grants
@@ -104,13 +109,4 @@ type IstioResources struct {
 type Reference struct {
 	Kind      config.GroupVersionKind
 	Namespace k8s.Namespace
-}
-
-type ConfigContext struct {
-	GatewayResources
-	AllowedReferences AllowedReferences
-	GatewayReferences map[parentKey][]*parentInfo
-
-	// key: referenced resources(e.g. secrets), value: gateway-api resources(e.g. gateways)
-	resourceReferences map[model.ConfigKey][]model.ConfigKey
 }

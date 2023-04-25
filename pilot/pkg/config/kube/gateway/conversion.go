@@ -55,7 +55,7 @@ func convertResources(r GatewayResources) IstioResources {
 		return r.HTTPRoute[i].CreationTimestamp.Before(r.HTTPRoute[j].CreationTimestamp)
 	})
 	result := IstioResources{}
-	ctx := ConfigContext{
+	ctx := configContext{
 		GatewayResources:   r,
 		AllowedReferences:  convertReferencePolicies(r),
 		resourceReferences: make(map[model.ConfigKey][]model.ConfigKey),
@@ -82,14 +82,7 @@ func convertResources(r GatewayResources) IstioResources {
 	return result
 }
 
-type Grants struct {
-	AllowAll     bool
-	AllowedNames sets.String
-}
-
 // convertReferencePolicies extracts all ReferencePolicy into an easily accessibly index.
-// The currently supported references are:
-// * Gateway -> Secret
 func convertReferencePolicies(r GatewayResources) AllowedReferences {
 	res := map[Reference]map[Reference]*Grants{}
 	type namespacedGrant struct {
@@ -152,7 +145,7 @@ func convertReferencePolicies(r GatewayResources) AllowedReferences {
 }
 
 // convertVirtualService takes all xRoute types and generates corresponding VirtualServices.
-func convertVirtualService(r ConfigContext) []config.Config {
+func convertVirtualService(r configContext) []config.Config {
 	result := []config.Config{}
 	for _, obj := range r.TCPRoute {
 		if vsConfig := buildTCPVirtualService(r, obj); vsConfig != nil {
@@ -185,7 +178,7 @@ func convertVirtualService(r ConfigContext) []config.Config {
 }
 
 func buildHTTPVirtualServices(
-	ctx ConfigContext,
+	ctx configContext,
 	obj config.Config,
 	gatewayRoutes map[string]map[string]*config.Config,
 	meshRoutes map[string]map[string]*config.Config,
@@ -622,7 +615,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 	return parentRefs
 }
 
-func buildTCPVirtualService(ctx ConfigContext, obj config.Config) *config.Config {
+func buildTCPVirtualService(ctx configContext, obj config.Config) *config.Config {
 	route := obj.Spec.(*k8s.TCPRouteSpec)
 
 	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
@@ -674,7 +667,7 @@ func buildTCPVirtualService(ctx ConfigContext, obj config.Config) *config.Config
 	return &vsConfig
 }
 
-func buildTLSVirtualService(ctx ConfigContext, obj config.Config) []config.Config {
+func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Config {
 	route := obj.Spec.(*k8s.TLSRouteSpec)
 
 	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
@@ -735,7 +728,7 @@ func buildTLSVirtualService(ctx ConfigContext, obj config.Config) []config.Confi
 	return configs
 }
 
-func buildTCPDestination(ctx ConfigContext, forwardTo []k8s.BackendRef, ns string) ([]*istio.RouteDestination, *ConfigError) {
+func buildTCPDestination(ctx configContext, forwardTo []k8s.BackendRef, ns string) ([]*istio.RouteDestination, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil
 	}
@@ -798,7 +791,7 @@ func hostnamesToStringListWithWildcard(h []k8s.Hostname) []string {
 }
 
 func buildHTTPDestination(
-	ctx ConfigContext,
+	ctx configContext,
 	forwardTo []k8s.HTTPBackendRef,
 	ns string,
 	totalZero bool,
@@ -870,7 +863,7 @@ func buildHTTPDestination(
 	return res, invalidBackendErr
 }
 
-func buildDestination(ctx ConfigContext, to k8s.BackendRef, ns string) (*istio.Destination, *ConfigError) {
+func buildDestination(ctx configContext, to k8s.BackendRef, ns string) (*istio.Destination, *ConfigError) {
 	// check if the reference is allowed
 	refs := ctx.AllowedReferences
 	if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
@@ -973,7 +966,7 @@ func headerListToMap(hl []k8s.HTTPHeader) map[string]string {
 	return res
 }
 
-func createMirrorFilter(ctx ConfigContext, filter *k8s.HTTPRequestMirrorFilter, ns string) (*istio.Destination, *ConfigError) {
+func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, ns string) (*istio.Destination, *ConfigError) {
 	if filter == nil {
 		return nil, nil
 	}
@@ -1170,10 +1163,10 @@ func getGatewayClasses(r GatewayResources) map[string]k8s.GatewayController {
 			})
 		}
 	}
-	if !allFound.Contains(DefaultClassName) {
+	if !allFound.Contains(defaultClassName) {
 		// Allow `istio` class without explicit GatewayClass. However, if it already exists then do not
 		// add it here, in case it points to a different controller.
-		res[DefaultClassName] = constants.ManagedGatewayController
+		res[defaultClassName] = constants.ManagedGatewayController
 	}
 	if features.EnableAmbientControllers && !allFound.Contains(constants.WaypointGatewayClassName) {
 		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
@@ -1207,6 +1200,15 @@ var meshGVK = config.GroupVersionKind{
 var meshParentKey = parentKey{
 	Kind: meshGVK,
 	Name: "istio",
+}
+
+type configContext struct {
+	GatewayResources
+	AllowedReferences AllowedReferences
+	GatewayReferences map[parentKey][]*parentInfo
+
+	// key: referenced resources(e.g. secrets), value: gateway-api resources(e.g. gateways)
+	resourceReferences map[model.ConfigKey][]model.ConfigKey
 }
 
 // parentInfo holds info about a "parent" - something that can be referenced as a ParentRef in the API.
@@ -1279,7 +1281,7 @@ func getDefaultName(name string, kgw *k8s.GatewaySpec) string {
 	return fmt.Sprintf("%v-%v", name, kgw.GatewayClassName)
 }
 
-func convertGateways(r ConfigContext) ([]config.Config, map[parentKey][]*parentInfo, sets.String) {
+func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentInfo, sets.String) {
 	// result stores our generated Istio Gateways
 	result := []config.Config{}
 	// gwMap stores an index to access parentInfo (which corresponds to a Kubernetes Gateway)
@@ -1413,7 +1415,7 @@ func getListenerNames(obj config.Config) sets.Set[k8s.SectionName] {
 }
 
 func reportGatewayStatus(
-	r ConfigContext,
+	r configContext,
 	obj config.Config,
 	gatewayServices []string,
 	servers []*istio.Server,
@@ -1572,7 +1574,7 @@ func getNamespaceLabelReferences(routes *k8s.AllowedRoutes) []string {
 	return res
 }
 
-func buildListener(r ConfigContext, obj config.Config, l k8s.Listener, listenerIndex int, controllerName k8s.GatewayController) (*istio.Server, bool) {
+func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerIndex int, controllerName k8s.GatewayController) (*istio.Server, bool) {
 	listenerConditions := map[string]*condition{
 		string(k8sbeta.ListenerConditionAccepted): {
 			reason:  string(k8sbeta.ListenerReasonAccepted),
@@ -1647,7 +1649,7 @@ func listenerProtocolToIstio(protocol k8s.ProtocolType) string {
 	return string(protocol)
 }
 
-func buildTLS(ctx ConfigContext, tls *k8s.GatewayTLSConfig, gw config.Config, isAutoPassthrough bool) (*istio.ServerTLSSettings, *ConfigError) {
+func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, isAutoPassthrough bool) (*istio.ServerTLSSettings, *ConfigError) {
 	if tls == nil {
 		return nil, nil
 	}
@@ -1696,7 +1698,7 @@ func buildTLS(ctx ConfigContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 	return out, nil
 }
 
-func buildSecretReference(ctx ConfigContext, ref k8s.SecretObjectReference, gw config.Config) (string, *ConfigError) {
+func buildSecretReference(ctx configContext, ref k8s.SecretObjectReference, gw config.Config) (string, *ConfigError) {
 	if !nilOrEqual((*string)(ref.Group), gvk.Secret.Group) || !nilOrEqual((*string)(ref.Kind), gvk.Secret.Kind) {
 		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", objectReferenceString(ref))}
 	}

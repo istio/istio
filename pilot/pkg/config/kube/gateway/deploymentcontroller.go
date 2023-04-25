@@ -111,7 +111,7 @@ var classInfos = getClassInfos()
 
 func getClassInfos() map[string]classInfo {
 	m := map[string]classInfo{
-		DefaultClassName: {
+		defaultClassName: {
 			controller:  constants.ManagedGatewayController,
 			description: "The default Istio GatewayClass",
 			templates:   "kube-gateway",

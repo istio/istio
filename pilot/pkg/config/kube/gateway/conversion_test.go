@@ -807,7 +807,7 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator)
 	kr := splitInput(b, input)
 	kr.Context = NewGatewayContext(cg.PushContext())
-	ctx := ConfigContext{
+	ctx := configContext{
 		GatewayResources:  kr,
 		AllowedReferences: convertReferencePolicies(kr),
 	}
