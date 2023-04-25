@@ -136,9 +136,9 @@ func TestDirectoryWithRecursion(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
-			// Recursive is true, so we should see two errors (SchemaValidationError and UnknownAnnotation).
+			// Recursive is true, so we should see one error (SchemaValidationError).
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=true", dirWithConfig)
-			expectMessages(t, g, output, msg.SchemaValidationError, msg.UnknownAnnotation)
+			expectMessages(t, g, output, msg.SchemaValidationError)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
@@ -195,7 +195,8 @@ func TestJsonInputFile(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
 			// Validation error if we have a gateway with invalid selector.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, jsonGatewayFile)
+			applyFileOrFail(t, ns.Name(), jsonGatewayFile)
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
@@ -235,7 +236,10 @@ func TestJsonOutput(t *testing.T) {
 
 			for _, tc := range testcases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), false, tc.args...)
+					for _, fileName := range tc.args {
+						applyFileOrFail(t, ns.Name(), fileName)
+					}
+					stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), true)
 					expectJSONMessages(t, g, stdout, tc.messages...)
 					g.Expect(err).To(BeNil())
 				})
