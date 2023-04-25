@@ -19,6 +19,7 @@ import (
 	"errors"
 
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -114,7 +115,7 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.C
 	var errs *multierror.Error
 	var configs []config.Config
 	// Used to remove duplicated config
-	configMap := sets.New[string]()
+	configMap := sets.New[types.NamespacedName]()
 
 	for _, store := range cr.stores[typ] {
 		storeConfigs, err := store.List(typ, namespace)
@@ -122,8 +123,7 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.C
 			errs = multierror.Append(errs, err)
 		}
 		for _, cfg := range storeConfigs {
-			key := cfg.GroupVersionKind.Kind + cfg.Namespace + cfg.Name
-			if !configMap.InsertContains(key) {
+			if !configMap.InsertContains(config.NamespacedName(cfg)) {
 				configs = append(configs, cfg)
 			}
 		}
