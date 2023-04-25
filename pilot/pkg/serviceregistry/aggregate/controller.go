@@ -56,22 +56,22 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (c *Controller) Waypoint(scope model.WaypointScope) sets.Set[netip.Addr] {
-	res := sets.New[netip.Addr]()
+func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 	if !features.EnableAmbientControllers {
-		return res
+		return nil
 	}
+	var res []netip.Addr
 	for _, p := range c.GetRegistries() {
-		res = res.Merge(p.Waypoint(scope))
+		res = append(res, p.Waypoint(scope)...)
 	}
 	return res
 }
 
 func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.WorkloadInfo {
-	res := []*model.WorkloadInfo{}
 	if !features.EnableAmbientControllers {
-		return res
+		return nil
 	}
+	var res []*model.WorkloadInfo
 	for _, p := range c.GetRegistries() {
 		res = append(res, p.WorkloadsForWaypoint(scope)...)
 	}
@@ -79,10 +79,10 @@ func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.Wo
 }
 
 func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
-	res := sets.New[types.NamespacedName]()
 	if !features.EnableAmbientControllers {
-		return res
+		return nil
 	}
+	res := sets.New[types.NamespacedName]()
 	for _, p := range c.GetRegistries() {
 		res = res.Merge(p.AdditionalPodSubscriptions(proxy, addr, cur))
 	}
@@ -90,7 +90,7 @@ func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur se
 }
 
 func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
-	res := []*workloadapi.Authorization{}
+	var res []*workloadapi.Authorization
 	if !features.EnableAmbientControllers {
 		return res
 	}
@@ -101,7 +101,7 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadap
 }
 
 func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
-	i := []*model.WorkloadInfo{}
+	var i []*model.WorkloadInfo
 	removed := sets.New[string]()
 	if !features.EnableAmbientControllers {
 		return i, []string{}
