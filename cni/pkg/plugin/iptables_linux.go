@@ -39,6 +39,7 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	viper.Set(constants.NetworkNamespace, netns)
 	viper.Set(constants.EnvoyPort, rdrct.targetPort)
 	viper.Set(constants.ProxyUID, rdrct.noRedirectUID)
+	viper.Set(constants.ProxyGID, rdrct.noRedirectGID)
 	viper.Set(constants.InboundInterceptionMode, rdrct.redirectMode)
 	viper.Set(constants.ServiceCidr, rdrct.includeIPCidrs)
 	viper.Set(constants.LocalExcludePorts, rdrct.excludeInboundPorts)
