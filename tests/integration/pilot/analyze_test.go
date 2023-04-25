@@ -431,7 +431,7 @@ func expectJSONMessages(t test.Failer, g *GomegaWithT, output string, expected .
 
 	var j []map[string]any
 	if err := json.Unmarshal([]byte(output), &j); err != nil {
-		t.Fatal(err)
+		t.Fatal(err, output)
 	}
 
 	g.Expect(j).To(HaveLen(len(expected)))
