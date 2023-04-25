@@ -14,6 +14,9 @@ spec:
   selector:
     matchLabels:
       {{- include "gateway.selectorLabels" . | nindent 6 }}
+  {{- if .Values.minReadySeconds }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
+  {{- end }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
