@@ -39,7 +39,10 @@ spec:
             type_url: type.googleapis.com/stats.PluginConfig
             value:
               {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
-              {}
+              {
+                "graceful_deletion_interval": "1s",
+                "rotation_interval": "2s"
+              }
               {{- else }}
               {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
               {{- end }}
@@ -64,7 +67,9 @@ spec:
             value:
               {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
               {
-                "disable_host_header_fallback": true
+                "disable_host_header_fallback": true,
+                "graceful_deletion_interval": "1s",
+                "rotation_interval": "2s"
               }
               {{- else }}
               {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
@@ -90,6 +95,8 @@ spec:
             value:
               {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
               {
+                "graceful_deletion_interval": "1s",
+                "rotation_interval": "2s",
                 "disable_host_header_fallback": true
               }
               {{- else }}
@@ -129,7 +136,10 @@ spec:
             type_url: type.googleapis.com/stats.PluginConfig
             value:
               {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
-              {}
+              {
+                "graceful_deletion_interval": "1s",
+                "rotation_interval": "2s"
+              }
               {{- else }}
               {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
               {{- end }}
@@ -151,7 +161,10 @@ spec:
             type_url: type.googleapis.com/stats.PluginConfig
             value:
               {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
-              {}
+              {
+                "graceful_deletion_interval": "1s",
+                "rotation_interval": "2s"
+              }
               {{- else }}
               {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
               {{- end }}
@@ -173,7 +186,10 @@ spec:
             type_url: type.googleapis.com/stats.PluginConfig
             value:
               {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
-              {}
+              {
+                "graceful_deletion_interval": "1s",
+                "rotation_interval": "2s"
+              }
               {{- else }}
               {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
               {{- end }}
