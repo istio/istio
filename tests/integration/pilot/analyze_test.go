@@ -224,12 +224,12 @@ func TestJsonOutput(t *testing.T) {
 			}{
 				{
 					name:     "no other output except analysis json output",
-					args:     []string{jsonGatewayFile, jsonOutput},
+					args:     []string{jsonGatewayFile},
 					messages: []*diag.MessageType{msg.ReferencedResourceNotFound},
 				},
 				{
 					name:     "invalid file does not output error in stdout",
-					args:     []string{invalidExtensionFile, jsonOutput},
+					args:     []string{invalidExtensionFile},
 					messages: []*diag.MessageType{},
 				},
 			}
@@ -239,7 +239,7 @@ func TestJsonOutput(t *testing.T) {
 					for _, fileName := range tc.args {
 						applyFileOrFail(t, ns.Name(), fileName)
 					}
-					stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), true)
+					stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), true, jsonOutput)
 					expectJSONMessages(t, g, stdout, tc.messages...)
 					g.Expect(err).To(BeNil())
 				})
