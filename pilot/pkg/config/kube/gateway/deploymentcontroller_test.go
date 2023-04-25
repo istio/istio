@@ -63,7 +63,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: DefaultClassName,
+					GatewayClassName: defaultClassName,
 				},
 			},
 		},
@@ -76,7 +76,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Annotations: map[string]string{gatewaySAOverride: "custom-sa"},
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: DefaultClassName,
+					GatewayClassName: defaultClassName,
 				},
 			},
 		},
@@ -89,7 +89,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
 				Spec: v1beta1.GatewaySpec{
-					GatewayClassName: DefaultClassName,
+					GatewayClassName: defaultClassName,
 					Addresses: []v1beta1.GatewayAddress{{
 						Type:  func() *v1beta1.AddressType { x := v1beta1.IPAddressType; return &x }(),
 						Value: "1.2.3.4",
@@ -109,7 +109,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					},
 				},
 				Spec: v1beta1.GatewaySpec{
-					GatewayClassName: DefaultClassName,
+					GatewayClassName: defaultClassName,
 					Listeners: []v1beta1.Listener{{
 						Name:     "http",
 						Port:     v1beta1.PortNumber(80),
@@ -128,7 +128,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
 				Spec: v1beta1.GatewaySpec{
-					GatewayClassName: DefaultClassName,
+					GatewayClassName: defaultClassName,
 					Listeners: []v1beta1.Listener{{
 						Name:     "http",
 						Port:     v1beta1.PortNumber(80),
@@ -229,7 +229,7 @@ func TestVersionManagement(t *testing.T) {
 			Name:      "gw",
 			Namespace: "default",
 		},
-		Spec: v1beta1.GatewaySpec{GatewayClassName: DefaultClassName},
+		Spec: v1beta1.GatewaySpec{GatewayClassName: defaultClassName},
 	}
 	gws.Create(defaultGateway)
 	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))

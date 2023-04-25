@@ -103,8 +103,7 @@ type classInfo struct {
 	description string
 	// The key in the templates to use for this class
 	templates string
-	// reportGatewayClassStatus, if enabled, will set the GatewayClass to be accepted when it is first created.
-	// nolint: unused
+	// reportGatewayClassStatus, if enabled, will update the status when it is first created.
 	reportGatewayClassStatus bool
 }
 
@@ -112,7 +111,7 @@ var classInfos = getClassInfos()
 
 func getClassInfos() map[string]classInfo {
 	m := map[string]classInfo{
-		DefaultClassName: {
+		defaultClassName: {
 			controller:  constants.ManagedGatewayController,
 			description: "The default Istio GatewayClass",
 			templates:   "kube-gateway",
