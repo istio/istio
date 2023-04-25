@@ -21,7 +21,10 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
+	"golang.org/x/exp/slices"
+
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/pkg/log"
@@ -39,8 +42,9 @@ type Installer struct {
 // NewInstaller returns an instance of Installer with the given config
 func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	return &Installer{
-		cfg:     cfg,
-		isReady: isReady,
+		cfg:                cfg,
+		kubeconfigFilepath: filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename),
+		isReady:            isReady,
 	}
 }
 
@@ -52,7 +56,7 @@ func (in *Installer) install(ctx context.Context) error {
 		return err
 	}
 
-	if err := writeKubeconfigFile(in.cfg); err != nil {
+	if err := writeKubeConfigFile(in.cfg); err != nil {
 		cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
 		return err
 	}
@@ -69,23 +73,30 @@ func (in *Installer) install(ctx context.Context) error {
 
 // Run starts the installation process, verifies the configuration, then sleeps.
 // If an invalid configuration is detected, the installation process will restart to restore a valid state.
-func (in *Installer) Run(ctx context.Context) (err error) {
-	if err = in.install(ctx); err != nil {
-		return
+func (in *Installer) Run(ctx context.Context) error {
+	if err := in.install(ctx); err != nil {
+		return err
 	}
 	installLog.Info("Installation succeed, start watching for re-installation.")
+	targets := append(slices.Clone(in.cfg.CNIBinTargetDirs), in.cfg.MountedCNINetDir, constants.ServiceAccountPath)
+	// Create file watcher before checking for installation
+	// so that no file modifications are missed while and after checking
+	watcher, err := util.CreateFileWatcher(targets...)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
 
 	for {
-		if err = in.sleepCheckInstall(ctx); err != nil {
-			return
+		if err := in.sleepCheckInstall(ctx, watcher); err != nil {
+			return err
 		}
 
 		installLog.Info("Detect changes to the CNI configuration and binaries, attempt reinstalling...")
-		if err = in.install(ctx); err != nil {
-			return
+		if err := in.install(ctx); err != nil {
+			return err
 		}
 		installLog.Info("CNI configuration and binaries reinstalled.")
-
 	}
 }
 
@@ -153,29 +164,22 @@ func (in *Installer) Cleanup() error {
 // sleepCheckInstall verifies the configuration then blocks until an invalid configuration is detected, and return nil.
 // If an error occurs or context is canceled, the function will return the error.
 // Returning from this function will set the pod to "NotReady".
-func (in *Installer) sleepCheckInstall(ctx context.Context) error {
-	// Create file watcher before checking for installation
-	// so that no file modifications are missed while and after checking
-	watcher, fileModified, errChan, err := util.CreateFileWatcher(append(in.cfg.CNIBinTargetDirs, in.cfg.MountedCNINetDir)...)
-	if err != nil {
-		return err
-	}
+func (in *Installer) sleepCheckInstall(ctx context.Context, watcher *util.Watcher) error {
 	defer func() {
 		SetNotReady(in.isReady)
-		_ = watcher.Close()
 	}()
 
 	for {
-		if checkErr := checkInstall(in.cfg, in.cniConfigFilepath); checkErr != nil {
+		if err := checkInstall(in.cfg, in.cniConfigFilepath); err != nil {
 			// Pod set to "NotReady" due to invalid configuration
-			installLog.Infof("Invalid configuration. %v", checkErr)
+			installLog.Infof("Invalid configuration. %v", err)
 			return nil
 		}
 		// Check if file has been modified or if an error has occurred during checkInstall before setting isReady to true
 		select {
-		case <-fileModified:
+		case <-watcher.Events:
 			return nil
-		case err := <-errChan:
+		case err := <-watcher.Errors:
 			return err
 		case <-ctx.Done():
 			return ctx.Err()
@@ -184,7 +188,7 @@ func (in *Installer) sleepCheckInstall(ctx context.Context) error {
 			SetReady(in.isReady)
 			cniInstalls.With(resultLabel.Value(resultSuccess)).Increment()
 			// Pod set to "NotReady" before termination
-			return util.WaitForFileMod(ctx, fileModified, errChan)
+			return watcher.Wait(ctx)
 		}
 	}
 }

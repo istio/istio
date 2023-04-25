@@ -15,11 +15,14 @@
 package install
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -28,9 +31,13 @@ const (
 	k8sServiceHost = "10.96.0.1"
 	k8sServicePort = "443"
 	kubeCAFilepath = "testdata/kube-ca.crt"
+	saToken        = "service_account_token_string"
 )
 
 func TestCreateKubeconfigFile(t *testing.T) {
+	tmp := t.TempDir()
+	os.WriteFile(filepath.Join(tmp, "token"), []byte(saToken), 0o644)
+	constants.ServiceAccountPath = tmp
 	cases := []struct {
 		name               string
 		expectedFailure    bool
@@ -76,7 +83,7 @@ func TestCreateKubeconfigFile(t *testing.T) {
 				K8sServicePort:     c.k8sServicePort,
 				SkipTLSVerify:      c.skipTLSVerify,
 			}
-			result, err := createKubeconfig(cfg)
+			result, err := createKubeConfig(cfg)
 			if err != nil {
 				if !c.expectedFailure {
 					t.Fatalf("did not expect failure: %v", err)

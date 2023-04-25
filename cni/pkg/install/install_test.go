@@ -22,7 +22,10 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/exp/slices"
+
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/util"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/util/assert"
@@ -172,7 +175,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			}
 
 			t.Log("Expecting an invalid configuration log:")
-			if err := in.sleepCheckInstall(ctx); err != nil {
+			if err := in.sleepCheckInstall(ctx, nil); err != nil {
 				t.Fatalf("error should be nil due to invalid config, got: %v", err)
 			}
 			assert.Equal(t, isReady.Load(), false)
@@ -208,8 +211,13 @@ func TestSleepCheckInstall(t *testing.T) {
 			// Listen to sleepCheckInstall return value
 			// Should detect a valid configuration and wait indefinitely for a file modification
 			errChan := make(chan error)
+			watcher, err := util.CreateFileWatcher(append(slices.Clone(in.cfg.CNIBinTargetDirs), in.cfg.MountedCNINetDir)...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer watcher.Close()
 			go func(ctx context.Context) {
-				errChan <- in.sleepCheckInstall(ctx)
+				errChan <- in.sleepCheckInstall(ctx, watcher)
 			}(ctx)
 
 			select {
@@ -249,7 +257,7 @@ func TestSleepCheckInstall(t *testing.T) {
 
 				// Run sleepCheckInstall
 				go func(ctx context.Context, in *Installer) {
-					errChan <- in.sleepCheckInstall(ctx)
+					errChan <- in.sleepCheckInstall(ctx, nil)
 				}(ctx, in)
 			}
 

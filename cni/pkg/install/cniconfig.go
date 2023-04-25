@@ -176,13 +176,11 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 		return filepath.Join(cfg.mountedCNINetDir, filename), nil
 	}
 
-	watcher, fileModified, errChan, err := util.CreateFileWatcher(cfg.mountedCNINetDir)
+	watcher, err := util.CreateFileWatcher(cfg.mountedCNINetDir)
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		_ = watcher.Close()
-	}()
+	defer watcher.Close()
 
 	for len(filename) == 0 {
 		filename, err = getDefaultCNINetwork(cfg.mountedCNINetDir)
@@ -191,7 +189,7 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 		}
 		installLog.Warnf("Istio CNI is configured as chained plugin, but cannot find existing CNI network config: %v", err)
 		installLog.Infof("Waiting for CNI network config file to be written in %v...", cfg.mountedCNINetDir)
-		if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
+		if err := watcher.Wait(ctx); err != nil {
 			return "", err
 		}
 	}
@@ -207,7 +205,7 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 			cniConfigFilepath = cniConfigFilepath[:len(cniConfigFilepath)-4]
 		} else {
 			installLog.Infof("CNI config file %s does not exist. Waiting for file to be written...", cniConfigFilepath)
-			if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
+			if err := watcher.Wait(ctx); err != nil {
 				return "", err
 			}
 		}

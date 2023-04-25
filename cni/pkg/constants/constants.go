@@ -66,8 +66,7 @@ const (
 
 // Exposed for testing constants
 var (
-	CNIBinDir               = "/opt/cni/bin"
-	HostCNIBinDir           = "/host/opt/cni/bin"
-	ServiceAccountCAPath    = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	ServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	CNIBinDir          = "/opt/cni/bin"
+	HostCNIBinDir      = "/host/opt/cni/bin"
+	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
 )

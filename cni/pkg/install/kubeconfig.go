@@ -19,9 +19,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"text/template"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/clientcmd/api/latest"
 	"sigs.k8s.io/yaml"
@@ -32,42 +30,7 @@ import (
 	"istio.io/istio/pkg/file"
 )
 
-var kubeconfigTemplate = func() *template.Template {
-	t := `# Kubeconfig file for Istio CNI plugin.
-apiVersion: v1
-kind: Config
-clusters:
-- name: local
-  cluster:
-    server: {{.KubernetesServiceProtocol}}://[{{.KubernetesServiceHost}}]:{{.KubernetesServicePort}}
-    {{.TLSConfig}}
-users:
-- name: istio-cni
-  user:
-    token: "{{.ServiceAccountToken}}"
-contexts:
-- name: istio-cni-context
-  context:
-    cluster: local
-    user: istio-cni
-current-context: istio-cni-context
-`
-	tpl, err := template.New("kubeconfig").Parse(t)
-	if err != nil {
-		panic(fmt.Errorf("failed to parse kubeconfig template: %v", err))
-	}
-	return tpl
-}
-
-type kubeconfigFields struct {
-	KubernetesServiceProtocol string
-	KubernetesServiceHost     string
-	KubernetesServicePort     string
-	ServiceAccountToken       string
-	TLSConfig                 string
-}
-
-func createKubeconfig(cfg *config.InstallConfig) (runtime.Object, error) {
+func createKubeConfig(cfg *config.InstallConfig) (*api.Config, error) {
 	if len(cfg.K8sServiceHost) == 0 {
 		return nil, fmt.Errorf("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
 	}
@@ -85,12 +48,17 @@ func createKubeconfig(cfg *config.InstallConfig) (runtime.Object, error) {
 		// User explicitly opted into insecure.
 		cluster.InsecureSkipTLSVerify = true
 	} else {
-		caFile := model.GetOrDefault(cfg.KubeCAFile, constants.ServiceAccountCAPath)
+		caFile := model.GetOrDefault(cfg.KubeCAFile, constants.ServiceAccountPath+"/ca.crt")
 		caContents, err := os.ReadFile(caFile)
 		if err != nil {
 			return nil, err
 		}
 		cluster.CertificateAuthorityData = caContents
+	}
+
+	token, err := os.ReadFile(constants.ServiceAccountPath + "/token")
+	if err != nil {
+		return nil, err
 	}
 
 	const contextName = "istio-cni-context"
@@ -105,7 +73,7 @@ func createKubeconfig(cfg *config.InstallConfig) (runtime.Object, error) {
 		},
 		AuthInfos: map[string]*api.AuthInfo{
 			userName: {
-				TokenFile: constants.ServiceAccountTokenPath,
+				Token: string(token),
 			},
 		},
 		Contexts: map[string]*api.Context{
@@ -117,23 +85,39 @@ func createKubeconfig(cfg *config.InstallConfig) (runtime.Object, error) {
 		CurrentContext: contextName,
 	}
 
-	return latest.Scheme.ConvertToVersion(kcfg, latest.ExternalVersion)
+	return kcfg, nil
 }
 
-func writeKubeconfigFile(cfg *config.InstallConfig) error {
-	kcfg, err := createKubeconfig(cfg)
+func writeKubeConfigFile(cfg *config.InstallConfig) error {
+	kcfg, err := createKubeConfig(cfg)
 	if err != nil {
 		return err
 	}
 	kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
-	installLog.Infof("write kubeconfig file %s with: \n%+v", kubeconfigFilepath, kcfg)
 
-	kubeconfig, err := yaml.Marshal(kcfg)
+	lcfg, err := latest.Scheme.ConvertToVersion(kcfg, latest.ExternalVersion)
+	if err != nil {
+		return err
+	}
+	// Convert to v1 schema which has proper encoding
+	kubeconfig, err := yaml.Marshal(lcfg)
 	if err != nil {
 		return err
 	}
 	if err := file.AtomicWrite(kubeconfigFilepath, kubeconfig, os.FileMode(cfg.KubeconfigMode)); err != nil {
 		return err
+	}
+
+	// Log with redaction
+	if err := api.RedactSecrets(kcfg); err == nil {
+		lcfg, err := latest.Scheme.ConvertToVersion(kcfg, latest.ExternalVersion)
+		if err != nil {
+			return err
+		}
+		kcfgs, err := yaml.Marshal(lcfg)
+		if err == nil {
+			installLog.Infof("write kubeconfig file %s with: \n%+v", kubeconfigFilepath, string(kcfgs))
+		}
 	}
 
 	return nil
