@@ -436,17 +436,6 @@ func (c *Controller) AppendServiceHandlerForCluster(id cluster.ID, f model.Servi
 	handler.AppendServiceHandler(f)
 }
 
-func (c *Controller) AppendWorkloadHandlerForCluster(id cluster.ID, f func(*model.WorkloadInstance, model.Event)) {
-	c.storeLock.Lock()
-	defer c.storeLock.Unlock()
-	handler, ok := c.handlersByCluster[id]
-	if !ok {
-		c.handlersByCluster[id] = &model.ControllerHandlers{}
-		handler = c.handlersByCluster[id]
-	}
-	handler.AppendWorkloadHandler(f)
-}
-
 func (c *Controller) UnRegisterHandlersForCluster(id cluster.ID) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
