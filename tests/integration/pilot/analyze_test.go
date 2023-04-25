@@ -217,33 +217,18 @@ func TestJsonOutput(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
-			testcases := []struct {
-				name     string
-				args     []string
-				messages []*diag.MessageType
-			}{
-				{
-					name:     "no other output except analysis json output",
-					args:     []string{jsonGatewayFile},
-					messages: []*diag.MessageType{msg.ReferencedResourceNotFound},
-				},
-				{
-					name:     "invalid file does not output error in stdout",
-					args:     []string{invalidExtensionFile},
-					messages: []*diag.MessageType{},
-				},
-			}
+			t.NewSubTest("no other output except analysis json output").Run(func(t framework.TestContext) {
+				applyFileOrFail(t, ns.Name(), jsonGatewayFile)
+				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), true, jsonOutput)
+				expectJSONMessages(t, g, stdout, msg.ReferencedResourceNotFound)
+				g.Expect(err).To(BeNil())
+			})
 
-			for _, tc := range testcases {
-				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					for _, fileName := range tc.args {
-						applyFileOrFail(t, ns.Name(), fileName)
-					}
-					stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), true, jsonOutput)
-					expectJSONMessages(t, g, stdout, tc.messages...)
-					g.Expect(err).To(BeNil())
-				})
-			}
+			t.NewSubTest("invalid file does not output error in stdout").Run(func(t framework.TestContext) {
+				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), false, invalidExtensionFile, jsonOutput)
+				expectJSONMessages(t, g, stdout)
+				g.Expect(err).To(BeNil())
+			})
 		})
 }
 
