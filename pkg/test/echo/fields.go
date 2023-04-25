@@ -77,4 +77,5 @@ const (
 	CipherField           Field = "Cipher"
 	TLSVersionField       Field = "Version"
 	TLSServerName         Field = "ServerName"
+	IdentityField         Field = "Identity"
 )

@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/util/retry"
+	istiometadata "istio.io/ztunnel/go-metadata"
 )
 
 const (
@@ -72,11 +73,14 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		IdleTimeout: idleTimeout,
 	}
 
+	var handler http.Handler = &httpHandler{Config: s.Config}
+	if AmbientRedirectionEnabled {
+		handler = istiometadata.Handler(handler)
+	}
+
 	s.server = &http.Server{
 		IdleTimeout: idleTimeout,
-		Handler: h2c.NewHandler(&httpHandler{
-			Config: s.Config,
-		}, h2s),
+		Handler:     h2c.NewHandler(handler, h2s),
 	}
 
 	var listener net.Listener
@@ -309,6 +313,12 @@ func (h *httpHandler) webSocketEcho(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var AmbientRedirectionEnabled = func() bool {
+	r := os.Getenv("AMBIENT_ENABLED")
+	v, _ := strconv.ParseBool(r)
+	return v
+}()
+
 // nolint: interfacer
 func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	port := ""
@@ -328,6 +338,9 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	echo.ProtocolField.Write(body, r.Proto)
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
 	echo.IPField.Write(body, ip)
+	if cm := istiometadata.ExtractFromRequest(r); cm != nil {
+		echo.IdentityField.Write(body, cm.Identity)
+	}
 
 	// Note: since this is the NegotiatedProtocol, it will be set to empty if the client sends an ALPN
 	// not supported by the server (ie one of h2,http/1.1,http/1.0)

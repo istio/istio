@@ -33,6 +33,7 @@ var (
 	responseHeaderFieldRegex = regexp.MustCompile(string(ResponseHeaderField) + "=(.*)")
 	URLFieldRegex            = regexp.MustCompile(string(URLField) + "=(.*)")
 	ClusterFieldRegex        = regexp.MustCompile(string(ClusterField) + "=(.*)")
+	IdentityFieldRegex       = regexp.MustCompile(string(IdentityField) + "=(.*)")
 	IstioVersionFieldRegex   = regexp.MustCompile(string(IstioVersionField) + "=(.*)")
 	IPFieldRegex             = regexp.MustCompile(string(IPField) + "=(.*)")
 	methodFieldRegex         = regexp.MustCompile(string(MethodField) + "=(.*)")
@@ -109,6 +110,11 @@ func parseResponse(output string) Response {
 	match = ClusterFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Cluster = match[1]
+	}
+
+	match = IdentityFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.Identity = match[1]
 	}
 
 	match = IstioVersionFieldRegex.FindStringSubmatch(output)

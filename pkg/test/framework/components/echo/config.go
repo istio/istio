@@ -334,6 +334,10 @@ func (c Config) HasProxyCapabilities() bool {
 	return !c.IsUncaptured() || c.HasSidecar() || c.IsProxylessGRPC()
 }
 
+func (c Config) IsCaptured() bool {
+	return !c.IsUncaptured() && !c.HasSidecar() && !c.IsProxylessGRPC()
+}
+
 func (c Config) IsVM() bool {
 	return c.DeployAsVM
 }

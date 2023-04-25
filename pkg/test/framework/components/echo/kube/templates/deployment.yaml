@@ -161,6 +161,10 @@ spec:
         - name: EXPOSE_GRPC_ADMIN
           value: "true"
 {{- end }}
+{{- if $.IsCaptured }}
+        - name: AMBIENT_ENABLED
+          value: "true"
+{{- end }}
         readinessProbe:
 {{- if $.ReadinessTCPPort }}
           tcpSocket:

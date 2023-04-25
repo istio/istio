@@ -58,6 +58,8 @@ type Response struct {
 	Hostname string
 	// The cluster where the server is deployed.
 	Cluster string
+	// The identity of the client
+	Identity string
 	// IstioVersion for the Istio sidecar.
 	IstioVersion string
 	// IP is the requester's ip address
