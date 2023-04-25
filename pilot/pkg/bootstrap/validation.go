@@ -40,10 +40,15 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	}
 
 	if features.ValidationWebhookConfigName != "" && s.kubeClient != nil {
+		vwc := controller.NewValidatingWebhookController(s.kubeClient, args.Revision, args.Namespace, s.istiodCertBundleWatcher)
+
+		s.addReadinessProbe("validation", func() (bool, error) {
+			return vwc.Ready(), nil
+		})
+
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			log.Infof("Starting validation controller")
-			go controller.NewValidatingWebhookController(
-				s.kubeClient, args.Revision, args.Namespace, s.istiodCertBundleWatcher).Run(stop)
+			go vwc.Run(stop)
 			return nil
 		})
 	}
