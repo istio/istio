@@ -31,4 +31,4 @@ issue:
 # release notes.
 releaseNotes:
   - |-
-    **Added** `cluster_id` label for remote_cluster_sync_timeouts_total metric.
+    **Added** `cluster` label for remote_cluster_sync_timeouts_total metric.
