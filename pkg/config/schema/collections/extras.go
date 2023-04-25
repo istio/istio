@@ -14,4 +14,16 @@
 
 package collections
 
+import (
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schema/collection"
+)
+
 var Istio = Pilot.Add(MeshNetworks).Add(MeshConfig)
+
+var PilotGatewayAPI = func() collection.Schemas {
+	if features.EnableAlphaGatewayAPI {
+		return pilotGatewayAPI
+	}
+	return pilotStableGatewayAPI
+}()
