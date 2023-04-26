@@ -21,8 +21,6 @@ import (
 	"os"
 
 	"github.com/fsnotify/fsnotify"
-
-	"istio.io/istio/pkg/file"
 )
 
 type Watcher struct {
@@ -58,9 +56,6 @@ func CreateFileWatcher(dirs ...string) (*Watcher, error) {
 	go watchFiles(watcher, fileModified, errChan)
 
 	for _, dir := range dirs {
-		if file.IsDirWriteable(dir) != nil {
-			continue
-		}
 		if err := watcher.Add(dir); err != nil {
 			if closeErr := watcher.Close(); closeErr != nil {
 				err = fmt.Errorf("%s: %w", closeErr.Error(), err)
