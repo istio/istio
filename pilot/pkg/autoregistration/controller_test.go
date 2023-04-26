@@ -42,8 +42,6 @@ import (
 )
 
 func init() {
-	features.WorkloadEntryAutoRegistration = true
-	features.WorkloadEntryHealthChecks = true
 	features.WorkloadEntryCleanupGracePeriod = 25 * time.Millisecond
 }
 
