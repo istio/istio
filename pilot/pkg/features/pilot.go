@@ -213,13 +213,6 @@ var (
 			"Gateways with same selectors in different namespaces will not be applicable.",
 	).Get()
 
-	// nolint
-	InboundProtocolDetectionTimeout, InboundProtocolDetectionTimeoutSet = env.Register(
-		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
-		1*time.Second,
-		"Protocol detection timeout for inbound listener",
-	).Lookup()
-
 	EnableHeadlessService = env.Register(
 		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
 		true,
