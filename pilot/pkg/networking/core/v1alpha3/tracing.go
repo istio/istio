@@ -574,16 +574,8 @@ func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 func configureCustomTags(hcmTracing *hcm.HttpConnectionManager_Tracing,
 	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, node *model.Proxy,
 ) {
-	var tags []*tracing.CustomTag
-
-	// TODO(dougreid): remove support for this feature. We don't want this to be
-	// optional moving forward. And we can add it back in via the Telemetry API
-	// later, if needed.
-	// THESE TAGS SHOULD BE ALWAYS ON.
-	if features.EnableIstioTags {
-		tags = append(tags, buildOptionalPolicyTags()...)
-		tags = append(tags, buildServiceTags(node.Metadata, node.Labels)...)
-	}
+	tags := buildOptionalPolicyTags()
+	tags = append(tags, buildServiceTags(node.Metadata, node.Labels)...)
 
 	if len(providerTags) == 0 {
 		tags = append(tags, buildCustomTagsFromProxyConfig(proxyCfg.GetTracing().GetCustomTags())...)
