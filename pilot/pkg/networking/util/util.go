@@ -47,11 +47,8 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/labels"
 	kubelabels "istio.io/istio/pkg/kube/labels"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
@@ -476,22 +473,20 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 }
 
 // AppendLbEndpointMetadata adds metadata values to a lb endpoint using the passed in metadata as base.
-func AppendLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
-	clusterID cluster.ID, lbls labels.Instance, metadata *core.Metadata,
+func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetadata *core.Metadata,
 ) {
-	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&
-		(!features.EndpointTelemetryLabel || !features.EnableTelemetryLabel) {
+	if !features.EndpointTelemetryLabel || !features.EnableTelemetryLabel {
 		return
 	}
 
-	if metadata.FilterMetadata == nil {
-		metadata.FilterMetadata = map[string]*structpb.Struct{}
+	if envoyMetadata.FilterMetadata == nil {
+		envoyMetadata.FilterMetadata = map[string]*structpb.Struct{}
 	}
 
-	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+	if istioMetadata.TLSMode != "" && istioMetadata.TLSMode != model.DisabledTLSModeLabel {
+		envoyMetadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: tlsMode}},
+				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: istioMetadata.TLSMode}},
 			},
 		}
 	}
@@ -503,7 +498,7 @@ func AppendLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, names
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
 	if features.EndpointTelemetryLabel {
 		// allow defaulting for non-injected cases
-		canonicalName, canonicalRevision := kubelabels.CanonicalService(lbls, workloadname)
+		canonicalName, canonicalRevision := kubelabels.CanonicalService(istioMetadata.Labels, istioMetadata.WorkloadName)
 
 		// don't bother sending the default value in config
 		if canonicalRevision == "latest" {
@@ -511,16 +506,16 @@ func AppendLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, names
 		}
 
 		var sb strings.Builder
-		sb.WriteString(workloadname)
+		sb.WriteString(istioMetadata.WorkloadName)
 		sb.WriteString(";")
-		sb.WriteString(namespace)
+		sb.WriteString(istioMetadata.Namespace)
 		sb.WriteString(";")
 		sb.WriteString(canonicalName)
 		sb.WriteString(";")
 		sb.WriteString(canonicalRevision)
 		sb.WriteString(";")
-		sb.WriteString(clusterID.String())
-		addIstioEndpointLabel(metadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
+		sb.WriteString(istioMetadata.ClusterID.String())
+		addIstioEndpointLabel(envoyMetadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
 	}
 }
 
