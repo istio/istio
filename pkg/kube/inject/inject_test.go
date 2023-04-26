@@ -295,13 +295,6 @@ func TestInjection(t *testing.T) {
 			want: "tcp-probes.yaml.injected",
 		},
 		{
-			in:   "tcp-probes.yaml",
-			want: "tcp-probes-disabled.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.RewriteTCPProbes, false)
-			},
-		},
-		{
 			in:          "hello-host-network-with-ns.yaml",
 			want:        "hello-host-network-with-ns.yaml.injected",
 			expectedLog: "Skipping injection because Deployment \"sample/hello-host-network\" has host networking enabled",
