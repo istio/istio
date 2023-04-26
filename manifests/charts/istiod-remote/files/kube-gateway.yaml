@@ -1,0 +1,312 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.ServiceAccount | quote}}
+  namespace: {{.Namespace | quote}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.DeploymentName | quote}}
+  namespace: {{.Namespace | quote}}
+  annotations:
+    {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+  labels:
+    {{- toJsonMap .Labels | nindent 4 }}
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: {{.Name}}
+    uid: "{{.UID}}"
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: {{.Name}}
+  template:
+    metadata:
+      annotations:
+        {{- toJsonMap
+          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version")
+          (strdict "istio.io/rev" (.Revision | default "default"))
+          (strdict
+            "prometheus.io/path" "/stats/prometheus"
+            "prometheus.io/port" "15020"
+            "prometheus.io/scrape" "true"
+          ) | nindent 8 }}
+      labels:
+        {{- toJsonMap
+          (strdict
+            "sidecar.istio.io/inject" "false"
+            "service.istio.io/canonical-name" .DeploymentName
+            "service.istio.io/canonical-revision" "latest"
+           )
+          .Labels
+          (strdict "istio.io/gateway-name" .Name) | nindent 8}}
+    spec:
+      {{- if .KubeVersion122 }}
+      {{/* safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326. */}}
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      {{- end }}
+      serviceAccountName: {{.ServiceAccount | quote}}
+      containers:
+      - name: istio-proxy
+        image: "{{ .ProxyImage }}"
+        {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
+        securityContext:
+        {{- if .KubeVersion122 }}
+          # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
+          capabilities:
+            drop:
+            - ALL
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
+        {{- else }}
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+          runAsUser: 0
+          runAsGroup: 1337
+          runAsNonRoot: false
+          allowPrivilegeEscalation: true
+          readOnlyRootFilesystem: true
+        {{- end }}
+        ports:
+        - containerPort: 15021
+          name: status-port
+          protocol: TCP
+        - containerPort: 15090
+          protocol: TCP
+          name: http-envoy-prom
+        args:
+        - proxy
+        - router
+        - --domain
+        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+        - --proxyLogLevel
+        - {{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel | quote}}
+        - --proxyComponentLogLevel
+        - {{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel | quote}}
+        - --log_output_level
+        - {{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level | quote}}
+      {{- if .Values.global.sts.servicePort }}
+        - --stsPort={{ .Values.global.sts.servicePort }}
+      {{- end }}
+      {{- if .Values.global.logAsJson }}
+        - --log_as_json
+      {{- end }}
+      {{- if .Values.global.proxy.lifecycle }}
+        lifecycle:
+          {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}
+      {{- end }}
+        env:
+        - name: JWT_POLICY
+          value: {{ .Values.global.jwtPolicy }}
+        - name: PILOT_CERT_PROVIDER
+          value: {{ .Values.global.pilotCertProvider }}
+        - name: CA_ADDR
+        {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+        {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+        {{- end }}
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: ISTIO_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        - name: PROXY_CONFIG
+          value: |
+                 {{ protoToJSON .ProxyConfig }}
+        - name: ISTIO_META_POD_PORTS
+          value: "[]"
+        - name: ISTIO_META_APP_CONTAINERS
+          value: ""
+        - name: ISTIO_META_CLUSTER_ID
+          value: "{{ valueOrDefault .Values.global.multiCluster.clusterName .ClusterID }}"
+        - name: ISTIO_META_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: "{{ .ProxyConfig.InterceptionMode.String }}"
+        {{- if .Values.global.network }}
+        - name: ISTIO_META_NETWORK
+          value: "{{ .Values.global.network }}"
+        {{- end }}
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: {{.DeploymentName|quote}}
+        - name: ISTIO_META_OWNER
+          value: "kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.DeploymentName}}"
+        {{- if .Values.global.meshID }}
+        - name: ISTIO_META_MESH_ID
+          value: "{{ .Values.global.meshID }}"
+        {{- else if (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}
+        - name: ISTIO_META_MESH_ID
+          value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
+        {{- end }}
+        {{- with (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain)  }}
+        - name: TRUST_DOMAIN
+          value: "{{ . }}"
+        {{- end }}
+        {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- with (index .Labels "topology.istio.io/network") }}
+        - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+          value: {{.|quote}}
+        {{- end }}
+        startupProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+          initialDelaySeconds: 1
+          periodSeconds: 1
+          successThreshold: 1
+          timeoutSeconds: 1
+        readinessProbe:
+          failureThreshold: 4
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
+        volumeMounts:
+        - name: workload-socket
+          mountPath: /var/run/secrets/workload-spiffe-uds
+        - name: credential-socket
+          mountPath: /var/run/secrets/credential-uds
+        {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
+        - name: gke-workload-certificate
+          mountPath: /var/run/secrets/workload-spiffe-credentials
+          readOnly: true
+        {{- else }}
+        - name: workload-certs
+          mountPath: /var/run/secrets/workload-spiffe-credentials
+        {{- end }}
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        {{- end }}
+        - mountPath: /var/lib/istio/data
+          name: istio-data
+        # SDS channel between istioagent and Envoy
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        {{- end }}
+        - name: istio-podinfo
+          mountPath: /etc/istio/pod
+      volumes:
+      - emptyDir: {}
+        name: workload-socket
+      - emptyDir: {}
+        name: credential-socket
+      {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
+      - name: gke-workload-certificate
+        csi:
+          driver: workloadcertificates.security.cloud.google.com
+      {{- else}}
+      - emptyDir: {}
+        name: workload-certs
+      {{- end }}
+      # SDS channel between istioagent and Envoy
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - name: istio-data
+        emptyDir: {}
+      - name: istio-podinfo
+        downwardAPI:
+          items:
+            - path: "labels"
+              fieldRef:
+                fieldPath: metadata.labels
+            - path: "annotations"
+              fieldRef:
+                fieldPath: metadata.annotations
+      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+      {{- end }}
+      {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+      {{- end }}
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{ toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+  labels:
+    {{ toJsonMap .Labels | nindent 4}}
+  name: {{.DeploymentName | quote}}
+  namespace: {{.Namespace | quote}}
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: {{.Name}}
+    uid: {{.UID}}
+spec:
+  ports:
+  {{- range $key, $val := .Ports }}
+  - name: {{ $val.Name | quote }}
+    port: {{ $val.Port }}
+    protocol: TCP
+    appProtocol: {{ $val.AppProtocol }}
+  {{- end }}
+  selector:
+    istio.io/gateway-name: {{.Name}}
+  {{- if .Spec.Addresses }}
+  loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
+  {{- end }}
+  type: {{ index .Annotations "networking.istio.io/service-type" | default "LoadBalancer" | quote }}
+---
