@@ -744,9 +744,6 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 }
 
 func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
-	if features.EnableLegacyLBAlgorithmDefault {
-		return cluster.Cluster_ROUND_ROBIN
-	}
 	return cluster.Cluster_LEAST_REQUEST
 }
 
