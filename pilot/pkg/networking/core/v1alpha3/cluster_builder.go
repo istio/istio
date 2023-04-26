@@ -584,6 +584,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 		} else {
 			metadata = instance.Endpoint.Metadata()
 		}
+
 		util.AppendLbEndpointMetadata(metadata, ep.Metadata)
 
 		locality := instance.Endpoint.Locality.Label

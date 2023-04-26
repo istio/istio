@@ -12,17 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package model
 
-import (
-	"testing"
+import "istio.io/pkg/monitoring"
 
-	"istio.io/istio/pkg/fuzz"
+func init() {
+	monitoring.MustRegister(
+		providerLookupClusterFailures,
+	)
+}
+
+var providerLookupClusterFailures = monitoring.NewSum(
+	"provider_lookup_cluster_failures",
+	"Number of times a cluster lookup failed",
+	monitoring.WithLabels(typeTag),
 )
 
-func FuzzConvertResources(f *testing.F) {
-	fuzz.Fuzz(f, func(fg fuzz.Helper) {
-		r := fuzz.Struct[GatewayResources](fg)
-		convertResources(r)
-	})
+func IncLookupClusterFailures(provider string) {
+	providerLookupClusterFailures.With(typeTag.Value(provider)).Increment()
 }

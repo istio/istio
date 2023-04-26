@@ -813,7 +813,7 @@ type AmbientIndexes interface {
 		currentSubs sets.Set[types.NamespacedName],
 	) sets.Set[types.NamespacedName]
 	Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization
-	Waypoint(scope WaypointScope) sets.Set[netip.Addr]
+	Waypoint(scope WaypointScope) []netip.Addr
 	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
 }
 
@@ -836,7 +836,7 @@ func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*workloadapi.Authori
 	return nil
 }
 
-func (u NoopAmbientIndexes) Waypoint(WaypointScope) sets.Set[netip.Addr] {
+func (u NoopAmbientIndexes) Waypoint(WaypointScope) []netip.Addr {
 	return nil
 }
 

@@ -94,51 +94,6 @@ const (
 	TraceLevel
 )
 
-// existing sorted active loggers
-var activeLoggers = []string{
-	"admin",
-	"aws",
-	"assert",
-	"backtrace",
-	"client",
-	"config",
-	"connection",
-	"conn_handler", // Added through https://github.com/envoyproxy/envoy/pull/8263
-	"dubbo",
-	"file",
-	"filter",
-	"forward_proxy",
-	"grpc",
-	"hc",
-	"health_checker",
-	"http",
-	"http2",
-	"hystrix",
-	"init",
-	"io",
-	"jwt",
-	"kafka",
-	"lua",
-	"main",
-	"misc",
-	"mongo",
-	"quic",
-	"pool",
-	"rbac",
-	"redis",
-	"router",
-	"runtime",
-	"stats",
-	"secret",
-	"tap",
-	"testing",
-	"thrift",
-	"tracing",
-	"upstream",
-	"udp",
-	"wasm",
-}
-
 var levelToString = map[Level]string{
 	TraceLevel:    "trace",
 	DebugLevel:    "debug",
@@ -995,14 +950,13 @@ func logCmd() *cobra.Command {
 		levelToString[ErrorLevel],
 		levelToString[CriticalLevel],
 		levelToString[OffLevel])
-	s := strings.Join(activeLoggers, ", ")
 
 	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
 	logCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
-			" [<logger>:]<level>,[<logger>:]<level>,... where logger can be one of %s and level can be one of %s",
-			s, levelListString))
+			" [<logger>:]<level>,[<logger>:]<level>,... where logger components can be listed by running \"istioctl proxy-config log <pod-name[.namespace]>\""+
+			"or referred from https://github.com/envoyproxy/envoy/blob/main/source/common/common/logger.h, and level can be one of %s", levelListString))
 
 	return logCmd
 }

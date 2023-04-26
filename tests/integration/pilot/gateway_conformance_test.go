@@ -54,10 +54,8 @@ var skippedTests = map[string]string{
 }
 
 func TestGatewayConformance(t *testing.T) {
-	// nolint: staticcheck
 	framework.
 		NewTest(t).
-		RequiresSingleCluster().
 		Features("traffic.gateway").
 		Run(func(ctx framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(ctx)

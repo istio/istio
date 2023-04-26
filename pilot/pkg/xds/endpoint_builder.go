@@ -496,6 +496,6 @@ func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr
 	ips := push.WaypointsFor(model.WaypointScope{
 		Namespace:      e.Namespace,
 		ServiceAccount: ident.ServiceAccount,
-	}).UnsortedList()
+	})
 	return ips
 }
