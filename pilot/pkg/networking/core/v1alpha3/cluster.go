@@ -262,6 +262,16 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			if defaultCluster == nil {
 				continue
 			}
+
+			// if the service uses persistent sessions, override status allows
+			// DRAINING endpoints to be kept as 'UNHEALTHY' coarse status in envoy.
+			// Will not be used for normal traffic, only when explicit override.
+			if service.Attributes.Labels[features.PersistentSessionLabel] != "" {
+				defaultCluster.cluster.CommonLbConfig.OverrideHostStatus = &core.HealthStatusSet{
+					Statuses: []core.HealthStatus{core.HealthStatus_HEALTHY, core.HealthStatus_UNHEALTHY, core.HealthStatus_DRAINING},
+				}
+			}
+
 			// If stat name is configured, build the alternate stats name.
 			if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
 				defaultCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
