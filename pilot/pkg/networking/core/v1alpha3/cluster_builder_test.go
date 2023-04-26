@@ -1703,9 +1703,13 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(5)
 	var actual []*endpoint.LocalityLbEndpoints
+	mu := sync.Mutex{}
 	for i := 0; i < 5; i++ {
 		go func() {
-			actual = cb.buildLocalityLbEndpoints(view, service, 8080, lbls)
+			eps := cb.buildLocalityLbEndpoints(view, service, 8080, lbls)
+			mu.Lock()
+			actual = eps
+			mu.Unlock()
 			wg.Done()
 		}()
 	}
