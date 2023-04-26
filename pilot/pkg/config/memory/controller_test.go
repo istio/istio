@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory_test
+package memory
 
 import (
 	"sync/atomic"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -29,28 +28,28 @@ const (
 )
 
 func TestControllerEvents(t *testing.T) {
-	store := memory.Make(collections.Mocks)
-	ctl := memory.NewController(store)
+	store := Make(collections.Mocks)
+	ctl := NewController(store)
 	// Note that the operations must go through the controller since the store does not trigger back events
 	mock.CheckCacheEvents(ctl, ctl, TestNamespace, 5, t)
 }
 
 func TestControllerCacheFreshness(t *testing.T) {
-	store := memory.Make(collections.Mocks)
-	ctl := memory.NewController(store)
+	store := Make(collections.Mocks)
+	ctl := NewController(store)
 	mock.CheckCacheFreshness(ctl, TestNamespace, t)
 }
 
 func TestControllerClientSync(t *testing.T) {
-	store := memory.Make(collections.Mocks)
-	ctl := memory.NewController(store)
+	store := Make(collections.Mocks)
+	ctl := NewController(store)
 	mock.CheckCacheSync(store, ctl, TestNamespace, 5, t)
 }
 
 func TestControllerHashSynced(t *testing.T) {
-	store := memory.Make(collections.Mocks)
+	store := Make(collections.Mocks)
 	var v int32
-	ctl := memory.NewController(store)
+	ctl := NewController(store)
 
 	ctl.RegisterHasSyncedHandler(func() bool {
 		return atomic.LoadInt32(&v) > 0

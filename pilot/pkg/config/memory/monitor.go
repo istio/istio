@@ -92,6 +92,10 @@ func (m *configStoreMonitor) Run(stop <-chan struct{}) {
 	for {
 		select {
 		case <-stop:
+			length := len(m.eventCh)
+			for i := 0; i < length; i++ {
+				m.processConfigEvent(<-m.eventCh)
+			}
 			return
 		case ce, ok := <-m.eventCh:
 			if ok {
