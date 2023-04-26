@@ -696,9 +696,6 @@ var (
 	VerifyCertAtClient = env.Register("VERIFY_CERTIFICATE_AT_CLIENT", false,
 		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
 
-	PrioritizedLeaderElection = env.Register("PRIORITIZED_LEADER_ELECTION", true,
-		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
-
 	EnableTLSOnSidecarIngress = env.Register("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
 		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
 
