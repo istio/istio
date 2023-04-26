@@ -521,10 +521,6 @@ templates:
         - name: {{ . }}
         {{- end }}
       {{- end }}
-      {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
-      securityContext:
-        fsGroup: 1337
-      {{- end }}
   gateway: |
     {{- $containers := list }}
     {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
@@ -758,10 +754,6 @@ templates:
         {{- range .Values.global.imagePullSecrets }}
         - name: {{ . }}
         {{- end }}
-      {{- end }}
-      {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
-      securityContext:
-        fsGroup: 1337
       {{- end }}
   grpc-simple: |
     metadata:
@@ -1144,10 +1136,6 @@ templates:
         {{- range .Values.global.imagePullSecrets }}
         - name: {{ . }}
         {{- end }}
-      {{- end }}
-      {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
-      securityContext:
-        fsGroup: 1337
       {{- end }}
   waypoint: |
     apiVersion: v1

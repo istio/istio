@@ -252,14 +252,6 @@ func TestInjection(t *testing.T) {
 			expectedError: "excludeoutboundports",
 		},
 		{
-			in:   "hello.yaml",
-			want: "hello-no-seccontext.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableLegacyFSGroupInjection, false)
-				test.SetEnvForTest(t, "ENABLE_LEGACY_FSGROUP_INJECTION", "false")
-			},
-		},
-		{
 			in:   "traffic-annotations.yaml",
 			want: "traffic-annotations.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
