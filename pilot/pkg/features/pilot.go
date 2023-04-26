@@ -677,12 +677,6 @@ var (
 
 	CertSignerDomain = env.Register("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
 
-	AutoReloadPluginCerts = env.Register(
-		"AUTO_RELOAD_PLUGIN_CERTS",
-		true,
-		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart istiod to pick up certs."+
-			"Istiod picks newly added intermediate plug-in CA certs and updates it. Plug-in new Root-CA not supported.").Get()
-
 	RewriteTCPProbes = env.Register(
 		"REWRITE_TCP_PROBES",
 		true,

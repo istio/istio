@@ -463,9 +463,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
 
-		if features.AutoReloadPluginCerts {
-			s.initCACertsWatcher()
-		}
+		s.initCACertsWatcher()
 	}
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
