@@ -361,6 +361,10 @@ func setupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 		Namespace: appsNamespace,
 		Ports:     []echo.Port{},
 		Subsets: []echo.SubsetConfig{{
+			Labels: map[string]string{
+				"test.istio.io/fake-namespace": "mounted-certs",
+				"test.istio.io/fake-sa":        "client",
+			},
 			Version: "v1",
 			// Set up custom annotations to mount the certs.
 			Annotations: echo.NewAnnotations().
@@ -369,6 +373,18 @@ func setupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 				// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
 				// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
 				Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
+			// This is pretty hacky. We have fixed certs, so we want to fake our SA and Namespace
+			RawProxyOverlay: `
+env:
+- name: SERVICE_ACCOUNT
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.annotations['test.istio.io/fake-sa']
+- name: POD_NAMESPACE
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.annotations['test.istio.io/fake-namespace']
+`,
 		}},
 	}
 
@@ -386,6 +402,10 @@ func setupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 		},
 		Subsets: []echo.SubsetConfig{{
 			Version: "v1",
+			Labels: map[string]string{
+				"test.istio.io/fake-namespace": "mounted-certs",
+				"test.istio.io/fake-sa":        "server",
+			},
 			// Set up custom annotations to mount the certs.
 			Annotations: echo.NewAnnotations().
 				Set(echo.SidecarVolume, serverSidecarVolumes).
@@ -393,6 +413,17 @@ func setupApps(ctx resource.Context, customNs namespace.Getter, customCfg *[]ech
 				// the default bootstrap template does not support reusing values from the `ISTIO_META_TLS_CLIENT_*` environment variables
 				// see security/pkg/nodeagent/cache/secretcache.go:generateFileSecret() for details
 				Set(echo.SidecarConfig, `{"controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":`+strings.Replace(ProxyMetadataJSON, "\n", "", -1)+`}`),
+			RawProxyOverlay: `
+env:
+- name: SERVICE_ACCOUNT
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.annotations['test.istio.io/fake-sa']
+- name: POD_NAMESPACE
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.annotations['test.istio.io/fake-namespace']
+`,
 		}},
 	}
 	customConfig = append(customConfig, client, server)

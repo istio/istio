@@ -227,6 +227,8 @@ type SubsetConfig struct {
 	// Replicas of this deployment
 	Replicas int
 
+	// RawProxyOverlay allows overlaying arbitrary configuration onto the proxy container
+	RawProxyOverlay string
 	// TODO: port more into workload config.
 }
 

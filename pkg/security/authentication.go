@@ -21,7 +21,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/env"
 )
 
@@ -33,10 +32,6 @@ var AuthPlaintext = env.Register("XDS_AUTH_PLAINTEXT", false,
 // If no authenticators are configured, or if the request is on a non-secure
 // stream ( 15010 ) - returns amn empty caller and no errors.
 func Authenticate(ctx context.Context, authenticators []Authenticator) (*Caller, error) {
-	if !features.XDSAuth {
-		return nil, nil
-	}
-
 	// authenticate - currently just checks that request has a certificate signed with the our key.
 	// Protected by flag to avoid breaking upgrades - should be enabled in multi-cluster/meshexpansion where
 	// XDS is exposed.

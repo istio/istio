@@ -21,7 +21,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
@@ -44,7 +43,7 @@ func (s *DiscoveryServer) authorize(con *Connection, identities []string) error 
 		return nil
 	}
 
-	if features.EnableXDSIdentityCheck && identities != nil {
+	if identities != nil {
 		// TODO: allow locking down, rejecting unauthenticated requests.
 		id, err := checkConnectionIdentity(con.proxy, identities)
 		if err != nil {

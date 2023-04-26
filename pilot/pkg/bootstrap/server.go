@@ -358,9 +358,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if len(features.TrustedGatewayCIDR) > 0 {
 		authenticators = append(authenticators, &authenticate.XfccAuthenticator{})
 	}
-	if features.XDSAuth {
-		s.XDSServer.Authenticators = authenticators
-	}
+	s.XDSServer.Authenticators = authenticators
 	caOpts.Authenticators = authenticators
 
 	// Start CA or RA server. This should be called after CA and Istiod certs have been created.
@@ -486,22 +484,18 @@ func (s *Server) initSDSServer() {
 	if s.kubeClient == nil {
 		return
 	}
-	if !features.EnableXDSIdentityCheck {
-		// Make sure we have security
-		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
-	} else {
-		creds := kubecredentials.NewMulticluster(s.clusterID)
-		creds.AddSecretHandler(func(name string, namespace string) {
-			s.XDSServer.ConfigUpdate(&model.PushRequest{
-				Full:           false,
-				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: name, Namespace: namespace}),
 
-				Reason: model.NewReasonStats(model.SecretTrigger),
-			})
+	creds := kubecredentials.NewMulticluster(s.clusterID)
+	creds.AddSecretHandler(func(name string, namespace string) {
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
+			Full:           false,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: name, Namespace: namespace}),
+
+			Reason: model.NewReasonStats(model.SecretTrigger),
 		})
-		s.multiclusterController.AddHandler(creds)
-		s.environment.CredentialsController = creds
-	}
+	})
+	s.multiclusterController.AddHandler(creds)
+	s.environment.CredentialsController = creds
 }
 
 // initKubeClient creates the k8s client if running in a k8s environment.

@@ -82,6 +82,9 @@ spec:
         imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext: # to allow core dumps
           readOnlyRootFilesystem: false
+{{- with $subset.RawProxyOverlay }}
+{{. | indent 8}}
+{{- end }}
 {{- end }}
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz

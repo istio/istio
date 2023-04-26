@@ -368,15 +368,6 @@ var (
 	EnableUnsafeAdminEndpoints = env.Register("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoints will be exposed on the debug interface. Not recommended for production.").Get()
 
-	XDSAuth = env.Register("XDS_AUTH", true,
-		"If true, will authenticate XDS clients.").Get()
-
-	EnableXDSIdentityCheck = env.Register(
-		"PILOT_ENABLE_XDS_IDENTITY_CHECK",
-		true,
-		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
-	).Get()
-
 	// TODO: Move this to proper API.
 	trustedGatewayCIDR = env.Register(
 		"TRUSTED_GATEWAY_CIDR",
