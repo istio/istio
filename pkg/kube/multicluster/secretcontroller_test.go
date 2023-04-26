@@ -186,6 +186,7 @@ func Test_SecretController(t *testing.T) {
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
 	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil))
+	clientset.RunAndWait(stopCh)
 	c.AddHandler(&handler{})
 	_ = c.Run(stopCh)
 	t.Run("sync timeout", func(t *testing.T) {

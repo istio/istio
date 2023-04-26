@@ -40,7 +40,7 @@ type DiscoveryNamespacesFilter interface {
 	// SelectorsChanged is invoked when meshConfig's discoverySelectors change
 	SelectorsChanged(discoverySelectors []*metav1.LabelSelector)
 	// SyncNamespaces is invoked when namespace informer hasSynced before other controller SyncAll
-	SyncNamespaces() error
+	SyncNamespaces()
 	// NamespaceCreated returns true if the created namespace is selected for discovery
 	NamespaceCreated(ns metav1.ObjectMeta) (membershipChanged bool)
 	// NamespaceUpdated : membershipChanged will be true if the updated namespace is newly selected or deselected for discovery
@@ -70,6 +70,7 @@ func NewDiscoveryNamespacesFilter(
 	}
 
 	// initialize discovery namespaces filter
+	// However this may not take any effect when namespace informer has not started.
 	f.SelectorsChanged(discoverySelectors)
 
 	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
@@ -188,7 +189,7 @@ func (d *discoveryNamespacesFilter) notifyNamespaceHandlers(ns string, event mod
 	}
 }
 
-func (d *discoveryNamespacesFilter) SyncNamespaces() error {
+func (d *discoveryNamespacesFilter) SyncNamespaces() {
 	namespaceList := d.namespaces.List("", labels.Everything())
 
 	d.lock.Lock()
@@ -212,8 +213,6 @@ func (d *discoveryNamespacesFilter) SyncNamespaces() error {
 
 	// update filter state
 	d.discoveryNamespaces = newDiscoveryNamespaces
-
-	return nil
 }
 
 // NamespaceCreated : if newly created namespace is selected, update namespace membership

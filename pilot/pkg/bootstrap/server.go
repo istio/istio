@@ -1136,7 +1136,16 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID, s.environment.Watcher)
 	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
 	s.addStartFunc("multicluster controller", func(stop <-chan struct{}) error {
-		return s.multiclusterController.Run(stop)
+		go func() {
+			err := s.multiclusterController.Run(stop)
+			if err != nil {
+				log.Error(err)
+				os.Exit(1)
+			}
+			// because multi cluster controller will init the config cluster service registry, we need to run the client after the informer created.
+			s.kubeClient.RunAndWait(stop)
+		}()
+		return nil
 	})
 }
 
