@@ -87,6 +87,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 
 	customUID := int64(1000670000)
 	customGID := int64(1000670001)
+	zero := int64(0)
 
 	tests := []struct {
 		name   string
@@ -175,6 +176,30 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 				ProxyGID:       &customGID,
 			},
 			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/custom-uid.txt.golden"),
+		},
+		{
+			name: "custom-uid-zero",
+			input: &PodInfo{
+				Containers:     []string{"test", "istio-proxy"},
+				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Annotations:    map[string]string{annotation.SidecarStatus.Name: "true"},
+				ProxyUID:       &zero,
+			},
+			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/basic.txt.golden"),
+		},
+		{
+			name: "custom-uid-tproxy",
+			input: &PodInfo{
+				Containers:     []string{"test", "istio-proxy"},
+				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Annotations: map[string]string{
+					annotation.SidecarStatus.Name:           "true",
+					annotation.SidecarInterceptionMode.Name: redirectModeTPROXY,
+				},
+				ProxyUID: &customUID,
+				ProxyGID: &customGID,
+			},
+			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/custom-uid-tproxy.txt.golden"),
 		},
 	}
 
