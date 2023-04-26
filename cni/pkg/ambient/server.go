@@ -189,13 +189,8 @@ func (s *Server) ReconcileZtunnel() error {
 	s.UpdateConfig()
 	if activePod == nil {
 		log.Infof("active ztunnel updated, no ztunnel running on the node")
-		if s.redirectMode == EbpfMode {
-			if err := s.delZtunnelEbpfOnNode(); err != nil {
-				log.Error(err)
-			}
-			return nil
-		}
-		s.cleanupNode()
+		// To avoid traffic escaping, we should keep everything rather than doing cleanupNode
+		s.ztunnelDown()
 		return nil
 	}
 	log.Infof("active ztunnel updated to %v", activePod.Name)

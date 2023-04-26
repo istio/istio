@@ -1190,25 +1190,37 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 	return nil
 }
 
+func (s *Server) ztunnelDown() {
+	switch s.redirectMode {
+	case EbpfMode:
+		if err := s.delZtunnelEbpfOnNode(); err != nil {
+			log.Error(err)
+		}
+	case IptablesMode:
+		// nothing to do with IptablesMode
+	}
+}
+
 func (s *Server) cleanupNode() {
 	log.Infof("Node-level network rule cleanup started")
-	if s.redirectMode == EbpfMode {
+	switch s.redirectMode {
+	case EbpfMode:
 		if err := s.cleanupPodsEbpfOnNode(); err != nil {
 			log.Errorf("%v", err)
 		}
-		return
-	}
-	s.cleanRules()
+	case IptablesMode:
+		s.cleanRules()
 
-	flushAllRouteTables()
+		flushAllRouteTables()
 
-	deleteIPRules([]string{"100", "101", "102", "103"}, true)
+		deleteIPRules([]string{"100", "101", "102", "103"}, true)
 
-	deleteTunnelLinks(constants.InboundTun, constants.OutboundTun, true)
+		deleteTunnelLinks(constants.InboundTun, constants.OutboundTun, true)
 
-	err := Ipset.DestroySet()
-	if err != nil {
-		log.Warnf("unable to delete IPSet: %v", err)
+		err := Ipset.DestroySet()
+		if err != nil {
+			log.Warnf("unable to delete IPSet: %v", err)
+		}
 	}
 }
 
@@ -1289,13 +1301,9 @@ func setProc(path string, value string) error {
 	return os.WriteFile(path, []byte(value), 0o644)
 }
 
-func buildRouteFromPod(pod *corev1.Pod, ip string) ([]string, error) {
+func buildRouteForPod(ip string) ([]string, error) {
 	if ip == "" {
-		ip = pod.Status.PodIP
-	}
-
-	if ip == "" {
-		return nil, errors.New("no ip found")
+		return nil, errors.New("ip is none")
 	}
 
 	return []string{

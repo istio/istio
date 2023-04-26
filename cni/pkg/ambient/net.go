@@ -77,7 +77,7 @@ func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
 		log.Infof("Pod '%s/%s' (%s) is in ipset", pod.Name, pod.Namespace, string(pod.UID))
 	}
 
-	rte, err := buildRouteFromPod(pod, ip)
+	rte, err := buildRouteForPod(ip)
 	if err != nil {
 		log.Errorf("Failed to build route for pod %s: %v", pod.Name, err)
 	}
@@ -150,20 +150,27 @@ func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
 	return err
 }
 
-func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
+func delPodFromMeshWithIptables(client kubernetes.Interface, pod *corev1.Pod) {
 	log.Debugf("Removing pod '%s/%s' (%s) from mesh", pod.Name, pod.Namespace, string(pod.UID))
 	if IsPodInIpset(pod) {
-		log.Infof("Removing pod '%s' (%s) from ipset", pod.Name, string(pod.UID))
-		err := Ipset.DeleteIP(net.ParseIP(pod.Status.PodIP).To4())
-		if err != nil {
-			log.Errorf("Failed to delete pod %s from ipset list: %v", pod.Name, err)
-		}
+		log.Infof("Removing pod '%s' (%s) from ipset and related route", pod.Name, string(pod.UID))
+		delIPsetAndRoute(pod.Status.PodIP)
 	} else {
 		log.Infof("Pod '%s/%s' (%s) is not in ipset", pod.Name, pod.Namespace, string(pod.UID))
 	}
-	rte, err := buildRouteFromPod(pod, "")
+
+	if err := AnnotateUnenrollPod(client, pod); err != nil {
+		log.Errorf("failed to annotate pod unenrollment: %v", err)
+	}
+}
+
+func delIPsetAndRoute(ip string) {
+	if err := Ipset.DeleteIP(net.ParseIP(ip).To4()); err != nil {
+		log.Errorf("Failed to delete %s from ipset list: %v", ip, err)
+	}
+	rte, err := buildRouteForPod(ip)
 	if err != nil {
-		log.Errorf("Failed to build route for pod %s: %v", pod.Name, err)
+		log.Errorf("Failed to build route for %s: %v", ip, err)
 	}
 	if RouteExists(rte) {
 		log.Infof("Removing route: %+v", rte)
@@ -172,12 +179,8 @@ func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
 		// err = netlink.RouteDel(rte)
 		err = execute("ip", append([]string{"route", "del"}, rte...)...)
 		if err != nil {
-			log.Warnf("Failed to delete route (%s) for pod %s: %v", rte, pod.Name, err)
+			log.Warnf("Failed to delete route (%s): %v", rte, err)
 		}
-	}
-
-	if err := AnnotateUnenrollPod(client, pod); err != nil {
-		log.Errorf("failed to annotate pod unenrollment: %v", err)
 	}
 }
 
@@ -280,7 +283,7 @@ func (s *Server) AddPodToMesh(pod *corev1.Pod) {
 func (s *Server) DelPodFromMesh(pod *corev1.Pod) {
 	switch s.redirectMode {
 	case IptablesMode:
-		DelPodFromMesh(s.kubeClient.Kube(), pod)
+		delPodFromMeshWithIptables(s.kubeClient.Kube(), pod)
 	case EbpfMode:
 		if pod.Spec.HostNetwork {
 			log.Debugf("pod(%s/%s) is using host network, skip it", pod.Namespace, pod.Name)
@@ -303,6 +306,9 @@ func (s *Server) cleanStaleIPs(stales sets.Set[string]) {
 	log.Infof("Ambient stale Pod IPs to be cleaned: %s", stales)
 	switch s.redirectMode {
 	case IptablesMode:
+		for ip := range stales {
+			delIPsetAndRoute(ip)
+		}
 	case EbpfMode:
 		for ip := range stales {
 			if err := s.delPodEbpfOnNode(ip, false); err != nil {
