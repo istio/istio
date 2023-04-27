@@ -766,7 +766,7 @@ var (
 	MetricRotationInterval = env.Register("METRIC_ROTATION_INTERVAL", 0*time.Second,
 		"Metric scope rotation interval, set to 0 to disable the metric scope rotation").Get()
 	MetricGracefulDeletionInterval = env.Register("METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute,
-		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disbaled.").Get()
+		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disabled.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
