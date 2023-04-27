@@ -102,10 +102,7 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 	}
 
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
-	kubeResources := kuberesource.SkipExcludedCollections(
-		analyzer.Metadata().Inputs,
-		kuberesource.DefaultExcludedResourceKinds(),
-		serviceDiscovery)
+	kubeResources := kuberesource.ConvertInputsToSchemas(analyzer.Metadata().Inputs)
 
 	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
@@ -236,13 +233,29 @@ func (sa *IstiodAnalyzer) SetSuppressions(suppressions []AnalysisSuppression) {
 	sa.suppressions = suppressions
 }
 
+// AddTestReaderKubeSource adds a yaml source to the analyzer, which will analyze
+// runtime resources like pods and namespaces for use in tests.
+func (sa *IstiodAnalyzer) AddTestReaderKubeSource(readers []ReaderSource) error {
+	return sa.addReaderKubeSourceInternal(readers, true)
+}
+
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current IstiodAnalyzer
 func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
+	return sa.addReaderKubeSourceInternal(readers, false)
+}
+
+func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, includeRuntimeResources bool) error {
 	var src *file.KubeSource
 	if sa.fileSource != nil {
 		src = sa.fileSource
 	} else {
-		src = file.NewKubeSource(sa.kubeResources)
+		var readerResources collection.Schemas
+		if includeRuntimeResources {
+			readerResources = sa.kubeResources
+		} else {
+			readerResources = sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...)
+		}
+		src = file.NewKubeSource(readerResources)
 		sa.fileSource = src
 	}
 	src.SetDefaultNamespace(sa.namespace)
