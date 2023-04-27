@@ -49,22 +49,20 @@ func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 }
 
 func (in *Installer) install(ctx context.Context) error {
-	if err := copyBinaries(
-		in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs,
-		in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
+	if err := copyBinaries(in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs); err != nil {
 		cniInstalls.With(resultLabel.Value(resultCopyBinariesFailure)).Increment()
-		return err
+		return fmt.Errorf("copy binaries: %v", err)
 	}
 
 	if err := writeKubeConfigFile(in.cfg); err != nil {
 		cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
-		return err
+		return fmt.Errorf("write kubeconfig: %v", err)
 	}
 
 	cfgPath, err := createCNIConfigFile(ctx, in.cfg)
 	if err != nil {
 		cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
-		return err
+		return fmt.Errorf("create CNI config file: %v", err)
 	}
 	in.cniConfigFilepath = cfgPath
 
@@ -78,17 +76,9 @@ func (in *Installer) Run(ctx context.Context) error {
 		return err
 	}
 	installLog.Info("Installation succeed, start watching for re-installation.")
-	targets := append(slices.Clone(in.cfg.CNIBinTargetDirs), in.cfg.MountedCNINetDir, constants.ServiceAccountPath)
-	// Create file watcher before checking for installation
-	// so that no file modifications are missed while and after checking
-	watcher, err := util.CreateFileWatcher(targets...)
-	if err != nil {
-		return err
-	}
-	defer watcher.Close()
 
 	for {
-		if err := in.sleepCheckInstall(ctx, watcher); err != nil {
+		if err := in.sleepCheckInstall(ctx); err != nil {
 			return err
 		}
 
@@ -164,9 +154,20 @@ func (in *Installer) Cleanup() error {
 // sleepCheckInstall verifies the configuration then blocks until an invalid configuration is detected, and return nil.
 // If an error occurs or context is canceled, the function will return the error.
 // Returning from this function will set the pod to "NotReady".
-func (in *Installer) sleepCheckInstall(ctx context.Context, watcher *util.Watcher) error {
+func (in *Installer) sleepCheckInstall(ctx context.Context) error {
+	targets := append(slices.Clone(in.cfg.CNIBinTargetDirs), in.cfg.MountedCNINetDir, constants.ServiceAccountPath)
+
+	// Create file watcher before checking for installation
+	// so that no file modifications are missed while and after checking
+	// note: we create a file watcher for each invocation, otherwise when we write to the directories
+	// we would get infinite looping of events
+	watcher, err := util.CreateFileWatcher(targets...)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		SetNotReady(in.isReady)
+		watcher.Close()
 	}()
 
 	for {

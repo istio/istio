@@ -110,6 +110,10 @@ func writeKubeConfigFile(cfg *config.InstallConfig) error {
 
 	// Log with redaction
 	if err := api.RedactSecrets(kcfg); err == nil {
+		for _, c := range kcfg.Clusters {
+			// Not actually sensitive, just annoyingly verbose.
+			c.CertificateAuthority = "REDACTED"
+		}
 		lcfg, err := latest.Scheme.ConvertToVersion(kcfg, latest.ExternalVersion)
 		if err != nil {
 			return err

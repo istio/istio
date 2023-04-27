@@ -21,6 +21,9 @@ import (
 	"os"
 
 	"github.com/fsnotify/fsnotify"
+
+	"istio.io/istio/pkg/file"
+	"istio.io/pkg/log"
 )
 
 type Watcher struct {
@@ -49,13 +52,17 @@ func (w *Watcher) Close() {
 func CreateFileWatcher(dirs ...string) (*Watcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("watcher create: %v", err)
 	}
 
 	fileModified, errChan := make(chan struct{}), make(chan error)
 	go watchFiles(watcher, fileModified, errChan)
 
 	for _, dir := range dirs {
+		if !file.Exists(dir) {
+			log.Infof("skip watching non-existing dir %v", dir)
+			continue
+		}
 		if err := watcher.Add(dir); err != nil {
 			if closeErr := watcher.Close(); closeErr != nil {
 				err = fmt.Errorf("%s: %w", closeErr.Error(), err)
@@ -79,6 +86,7 @@ func watchFiles(watcher *fsnotify.Watcher, fileModified chan struct{}, errChan c
 				return
 			}
 			if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 {
+				log.Infof("file modified: %v", event.Name)
 				fileModified <- struct{}{}
 			}
 		case err, ok := <-watcher.Errors:

@@ -28,8 +28,6 @@ const (
 	KubeconfigMode       = "kubeconfig-mode"
 	KubeCAFile           = "kube-ca-file"
 	SkipTLSVerify        = "skip-tls-verify"
-	SkipCNIBinaries      = "skip-cni-binaries"
-	UpdateCNIBinaries    = "update-cni-binaries"
 	MonitoringPort       = "monitoring-port"
 	LogUDSAddress        = "log-uds-address"
 	AmbientEnabled       = "ambient-enabled"

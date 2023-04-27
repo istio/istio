@@ -107,11 +107,11 @@ var rootCmd = &cobra.Command{
 
 		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				log.Infof("Installer exits with %v", err)
+				log.Infof("installer complete: %v", err)
 				// Error was caused by interrupt/termination signal
 				err = nil
 			} else {
-				log.Errorf("Installer exits with %v", err)
+				log.Errorf("installer failed: %v", err)
 			}
 		}
 
@@ -160,9 +160,6 @@ func init() {
 	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the same as install-cni pod")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
-	registerBooleanParameter(constants.UpdateCNIBinaries, true, "Whether to refresh existing binaries when installing CNI")
-	registerStringArrayParameter(constants.SkipCNIBinaries, []string{},
-		"Binaries that should not be installed. Currently Istio only installs one binary `istio-cni`")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
 	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log ouptut to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
@@ -247,12 +244,10 @@ func constructConfig() (*config.Config, error) {
 		K8sServicePort:     os.Getenv("KUBERNETES_SERVICE_PORT"),
 		K8sNodeName:        os.Getenv("KUBERNETES_NODE_NAME"),
 
-		CNIBinSourceDir:   constants.CNIBinDir,
-		CNIBinTargetDirs:  []string{constants.HostCNIBinDir, constants.SecondaryBinDir},
-		UpdateCNIBinaries: viper.GetBool(constants.UpdateCNIBinaries),
-		SkipCNIBinaries:   viper.GetStringSlice(constants.SkipCNIBinaries),
-		MonitoringPort:    viper.GetInt(constants.MonitoringPort),
-		LogUDSAddress:     viper.GetString(constants.LogUDSAddress),
+		CNIBinSourceDir:  constants.CNIBinDir,
+		CNIBinTargetDirs: []string{constants.HostCNIBinDir, constants.SecondaryBinDir},
+		MonitoringPort:   viper.GetInt(constants.MonitoringPort),
+		LogUDSAddress:    viper.GetString(constants.LogUDSAddress),
 
 		AmbientEnabled: viper.GetBool(constants.AmbientEnabled),
 		EbpfEnabled:    viper.GetBool(constants.EbpfEnabled),

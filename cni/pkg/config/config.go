@@ -64,11 +64,6 @@ type InstallConfig struct {
 	CNIBinSourceDir string
 	// Directories into which to copy the CNI binaries
 	CNIBinTargetDirs []string
-	// Whether to override existing CNI binaries
-	UpdateCNIBinaries bool
-
-	// The names of binaries to skip when copying
-	SkipCNIBinaries []string
 
 	// The HTTP port for monitoring
 	MonitoringPort int
@@ -139,8 +134,6 @@ func (c InstallConfig) String() string {
 	b.WriteString("K8sServiceHost: " + c.K8sServiceHost + "\n")
 	b.WriteString("K8sServicePort: " + fmt.Sprint(c.K8sServicePort) + "\n")
 	b.WriteString("K8sNodeName: " + c.K8sNodeName + "\n")
-	b.WriteString("UpdateCNIBinaries: " + fmt.Sprint(c.UpdateCNIBinaries) + "\n")
-	b.WriteString("SkipCNIBinaries: " + fmt.Sprint(c.SkipCNIBinaries) + "\n")
 	b.WriteString("MonitoringPort: " + fmt.Sprint(c.MonitoringPort) + "\n")
 	b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
 	b.WriteString("HostNSEnterExec: " + fmt.Sprint(c.HostNSEnterExec) + "\n")
