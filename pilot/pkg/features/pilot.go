@@ -647,12 +647,6 @@ var (
 		"If enabled, Gateway's with ISTIO_MUTUAL mode and credentialName configured will use simple TLS. "+
 			"This is to retain legacy behavior only and not recommended for use beyond migration.").Get()
 
-	EnableLegacyAutoPassthrough = env.Register(
-		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",
-		false,
-		"If enabled, pilot will allow any upstream cluster to be used with AUTO_PASSTHROUGH. "+
-			"This option is intended for backwards compatibility only and is not secure with untrusted downstreams; it will be removed in the future.").Get()
-
 	SharedMeshConfig = env.Register("SHARED_MESH_CONFIG", "",
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 
