@@ -27,7 +27,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -196,37 +195,22 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 		if f {
 			vs := old.Spec.(*networking.VirtualService)
 			vs.Http = append(vs.Http, httpRoutes...)
-			if features.LegacyIngressBehavior {
-				sort.SliceStable(vs.Http, func(i, j int) bool {
-					r1 := vs.Http[i].Match[0].GetUri()
-					r2 := vs.Http[j].Match[0].GetUri()
-					_, r1Ex := r1.GetMatchType().(*networking.StringMatch_Exact)
-					_, r2Ex := r2.GetMatchType().(*networking.StringMatch_Exact)
-					// TODO: default at the end
-					if r1Ex && !r2Ex {
-						return true
-					}
-					return false
-				})
-			}
 		} else {
 			ingressByHost[host] = &virtualServiceConfig
 		}
 
-		if !features.LegacyIngressBehavior {
-			// sort routes to meet ingress route precedence requirements
-			// see https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-matches
-			vs := ingressByHost[host].Spec.(*networking.VirtualService)
-			sort.SliceStable(vs.Http, func(i, j int) bool {
-				r1Len, r1Ex := getMatchURILength(vs.Http[i].Match[0])
-				r2Len, r2Ex := getMatchURILength(vs.Http[j].Match[0])
-				// TODO: default at the end
-				if r1Len == r2Len {
-					return r1Ex && !r2Ex
-				}
-				return r1Len > r2Len
-			})
-		}
+		// sort routes to meet ingress route precedence requirements
+		// see https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-matches
+		vs := ingressByHost[host].Spec.(*networking.VirtualService)
+		sort.SliceStable(vs.Http, func(i, j int) bool {
+			r1Len, r1Ex := getMatchURILength(vs.Http[i].Match[0])
+			r2Len, r2Ex := getMatchURILength(vs.Http[j].Match[0])
+			// TODO: default at the end
+			if r1Len == r2Len {
+				return r1Ex && !r2Ex
+			}
+			return r1Len > r2Len
+		})
 	}
 
 	// Matches * and "/". Currently not supported - would conflict

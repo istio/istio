@@ -398,10 +398,6 @@ var (
 		return durationpb.New(defaultRequestTimeoutVar.Get())
 	}()
 
-	LegacyIngressBehavior = env.Register("PILOT_LEGACY_INGRESS_BEHAVIOR", false,
-		"If this is set to true, istio ingress will perform the legacy behavior, "+
-			"which does not meet https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-matches.").Get()
-
 	EnableGatewayAPI = env.Register("PILOT_ENABLE_GATEWAY_API", true,
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
 			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
@@ -651,12 +647,6 @@ var (
 		"If enabled, Gateway's with ISTIO_MUTUAL mode and credentialName configured will use simple TLS. "+
 			"This is to retain legacy behavior only and not recommended for use beyond migration.").Get()
 
-	EnableLegacyAutoPassthrough = env.Register(
-		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",
-		false,
-		"If enabled, pilot will allow any upstream cluster to be used with AUTO_PASSTHROUGH. "+
-			"This option is intended for backwards compatibility only and is not secure with untrusted downstreams; it will be removed in the future.").Get()
-
 	SharedMeshConfig = env.Register("SHARED_MESH_CONFIG", "",
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 
@@ -676,12 +666,6 @@ var (
 		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
 
 	CertSignerDomain = env.Register("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
-
-	AutoReloadPluginCerts = env.Register(
-		"AUTO_RELOAD_PLUGIN_CERTS",
-		true,
-		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart istiod to pick up certs."+
-			"Istiod picks newly added intermediate plug-in CA certs and updates it. Plug-in new Root-CA not supported.").Get()
 
 	RewriteTCPProbes = env.Register(
 		"REWRITE_TCP_PROBES",
@@ -727,8 +711,6 @@ var (
 
 	LocalClusterSecretWatcher = env.Register("LOCAL_CLUSTER_SECRET_WATCHER", false,
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
-
-	SidecarIgnorePort = env.Register("SIDECAR_IGNORE_PORT_IN_HOST_MATCH", true, "If enabled, port will not be used in vhost domain matches.").Get()
 
 	EnableEnhancedResourceScoping = env.Register("ENABLE_ENHANCED_RESOURCE_SCOPING", false,
 		"If enabled, meshConfig.discoverySelectors will limit the CustomResource configurations(like Gateway,VirtualService,DestinationRule,Ingress, etc)"+

@@ -3607,7 +3607,7 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 	errs = appendValidation(errs, validateLocalities(srcLocalities))
 
 	if (len(lb.GetFailover()) != 0 || len(lb.GetFailoverPriority()) != 0) && outlier == nil {
-		errs = appendValidation(errs, WrapWarning(fmt.Errorf("outlier detection poicy must be provided for failover")))
+		errs = appendValidation(errs, WrapWarning(fmt.Errorf("outlier detection policy must be provided for failover")))
 	}
 
 	for _, failover := range lb.GetFailover() {
