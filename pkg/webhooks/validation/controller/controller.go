@@ -202,10 +202,6 @@ func (c *Controller) readyForFailClose() bool {
 	return true
 }
 
-func (c *Controller) Ready() bool {
-	return c.readyForFailClose()
-}
-
 const (
 	deniedRequestMessageFragment     = `denied the request`
 	missingResourceMessageFragment   = `the server could not find the requested resource`
