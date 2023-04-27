@@ -521,13 +521,6 @@ templates:
         - name: {{ . }}
         {{- end }}
       {{- end }}
-<<<<<<< HEAD
-      {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
-      securityContext:
-        fsGroup: 1337
-      {{- end }}
-=======
->>>>>>> 1a70766017 (gen)
   gateway: |
     {{- $containers := list }}
     {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
@@ -762,13 +755,6 @@ templates:
         - name: {{ . }}
         {{- end }}
       {{- end }}
-<<<<<<< HEAD
-      {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
-      securityContext:
-        fsGroup: 1337
-      {{- end }}
-=======
->>>>>>> 1a70766017 (gen)
   grpc-simple: |
     metadata:
       sidecar.istio.io/rewriteAppHTTPProbers: "false"
@@ -1151,13 +1137,6 @@ templates:
         - name: {{ . }}
         {{- end }}
       {{- end }}
-<<<<<<< HEAD
-      {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
-      securityContext:
-        fsGroup: 1337
-      {{- end }}
-=======
->>>>>>> 1a70766017 (gen)
   waypoint: |
     apiVersion: v1
     kind: ServiceAccount
@@ -1710,3 +1689,31 @@ templates:
       {{- end }}
       type: {{ index .Annotations "networking.istio.io/service-type" | default "LoadBalancer" | quote }}
     ---
+  custom: |
+    metadata:
+      annotations:
+        # Disable the built-in transformations. In the future we may want a template-level API
+        prometheus.istio.io/merge-metrics: "false"
+        sidecar.istio.io/rewriteAppHTTPProbers: "false"
+        foo: bar
+    spec:
+      containers:
+      {{- range $index, $container := .Spec.Containers }}
+      - name: {{ $container.Name }}
+        env:
+        - name: SOME_ENV
+          value: "true"
+        - name: SOME_FILE
+          value: /var/lib/data/foo.json
+        volumeMounts:
+        - mountPath: /var/lib/data/foo.json
+          subPath: foo.json
+          name: some-injected-file
+      {{- end}}
+      volumes:
+      - name: some-injected-file
+        downwardAPI:
+          items:
+          - path: foo.json
+            fieldRef:
+              fieldPath: "metadata.annotations['foo']"
