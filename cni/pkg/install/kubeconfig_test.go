@@ -19,12 +19,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sigs.k8s.io/yaml"
-
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -93,15 +90,13 @@ func TestCreateKubeconfigFile(t *testing.T) {
 			} else if c.expectedFailure {
 				t.Fatalf("expected failure")
 			}
-			resultBytes, err := yaml.Marshal(result)
-			assert.NoError(t, err)
 
 			goldenFilepath := "testdata/kubeconfig-tls"
 			if c.skipTLSVerify {
 				goldenFilepath = "testdata/kubeconfig-skip-tls"
 			}
 
-			testutils.CompareContent(t, resultBytes, goldenFilepath)
+			testutils.CompareContent(t, []byte(result.Full), goldenFilepath)
 		})
 	}
 }

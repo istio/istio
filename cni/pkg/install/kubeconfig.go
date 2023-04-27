@@ -30,13 +30,20 @@ import (
 	"istio.io/istio/pkg/file"
 )
 
-func createKubeConfig(cfg *config.InstallConfig) (*api.Config, error) {
+type kubeconfig struct {
+	// The full kubeconfig
+	Full string
+	// Kubeconfig with confidential data redacted.
+	Redacted string
+}
+
+func createKubeConfig(cfg *config.InstallConfig) (kubeconfig, error) {
 	if len(cfg.K8sServiceHost) == 0 {
-		return nil, fmt.Errorf("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
+		return kubeconfig{}, fmt.Errorf("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
 	}
 
 	if len(cfg.K8sServicePort) == 0 {
-		return nil, fmt.Errorf("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
+		return kubeconfig{}, fmt.Errorf("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
 	}
 
 	protocol := model.GetOrDefault(cfg.K8sServiceProtocol, "https")
@@ -51,14 +58,14 @@ func createKubeConfig(cfg *config.InstallConfig) (*api.Config, error) {
 		caFile := model.GetOrDefault(cfg.KubeCAFile, constants.ServiceAccountPath+"/ca.crt")
 		caContents, err := os.ReadFile(caFile)
 		if err != nil {
-			return nil, err
+			return kubeconfig{}, err
 		}
 		cluster.CertificateAuthorityData = caContents
 	}
 
 	token, err := os.ReadFile(constants.ServiceAccountPath + "/token")
 	if err != nil {
-		return nil, err
+		return kubeconfig{}, err
 	}
 
 	const contextName = "istio-cni-context"
@@ -85,44 +92,50 @@ func createKubeConfig(cfg *config.InstallConfig) (*api.Config, error) {
 		CurrentContext: contextName,
 	}
 
-	return kcfg, nil
+	lcfg, err := latest.Scheme.ConvertToVersion(kcfg, latest.ExternalVersion)
+	if err != nil {
+		return kubeconfig{}, err
+	}
+	// Convert to v1 schema which has proper encoding
+	fullYaml, err := yaml.Marshal(lcfg)
+	if err != nil {
+		return kubeconfig{}, err
+	}
+
+	// Log with redaction
+	if err := api.RedactSecrets(kcfg); err != nil {
+		return kubeconfig{}, err
+	}
+	for _, c := range kcfg.Clusters {
+		// Not actually sensitive, just annoyingly verbose.
+		c.CertificateAuthority = "REDACTED"
+	}
+	lrcfg, err := latest.Scheme.ConvertToVersion(kcfg, latest.ExternalVersion)
+	if err != nil {
+		return kubeconfig{}, err
+	}
+	redacted, err := yaml.Marshal(lrcfg)
+	if err != nil {
+		return kubeconfig{}, err
+	}
+
+	return kubeconfig{
+		Full:     string(fullYaml),
+		Redacted: string(redacted),
+	}, nil
 }
 
 func writeKubeConfigFile(cfg *config.InstallConfig) error {
-	kcfg, err := createKubeConfig(cfg)
+	kc, err := createKubeConfig(cfg)
 	if err != nil {
 		return err
 	}
 	kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
-
-	lcfg, err := latest.Scheme.ConvertToVersion(kcfg, latest.ExternalVersion)
-	if err != nil {
-		return err
-	}
-	// Convert to v1 schema which has proper encoding
-	kubeconfig, err := yaml.Marshal(lcfg)
-	if err != nil {
-		return err
-	}
-	if err := file.AtomicWrite(kubeconfigFilepath, kubeconfig, os.FileMode(cfg.KubeconfigMode)); err != nil {
+	if err := file.AtomicWrite(kubeconfigFilepath, []byte(kc.Full), os.FileMode(cfg.KubeconfigMode)); err != nil {
 		return err
 	}
 
-	// Log with redaction
-	if err := api.RedactSecrets(kcfg); err == nil {
-		for _, c := range kcfg.Clusters {
-			// Not actually sensitive, just annoyingly verbose.
-			c.CertificateAuthority = "REDACTED"
-		}
-		lcfg, err := latest.Scheme.ConvertToVersion(kcfg, latest.ExternalVersion)
-		if err != nil {
-			return err
-		}
-		kcfgs, err := yaml.Marshal(lcfg)
-		if err == nil {
-			installLog.Infof("write kubeconfig file %s with: \n%+v", kubeconfigFilepath, string(kcfgs))
-		}
-	}
+	installLog.Infof("write kubeconfig file %s with: \n%+v", kubeconfigFilepath, kc.Redacted)
 
 	return nil
 }
