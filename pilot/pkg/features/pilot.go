@@ -761,6 +761,12 @@ var (
 	// This is a feature flag, can be removed if protobuf proves universally better.
 	KubernetesClientContentType = env.Register("ISTIO_KUBE_CLIENT_CONTENT_TYPE", "protobuf",
 		"The content type to use for Kubernetes clients. Defaults to protobuf. Valid options: [protobuf, json]").Get()
+
+	// This is an experimental feature flag, can be removed once it became stable, and should introduced to Telemetry API.
+	MetricRotationInterval = env.Register("METRIC_ROTATION_INTERVAL", 0*time.Second,
+		"Metric scope rotation interval, set to 0 to disable the metric scope rotation").Get()
+	MetricGracefulDeletionInterval = env.Register("METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute,
+		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disbaled.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
