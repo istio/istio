@@ -702,7 +702,7 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"disabled-then-empty",
 			[]config.Config{
-				newTelemetry("istio-system", disbaledAllMetrics),
+				newTelemetry("istio-system", disabledAllMetrics),
 				newTelemetry("default", emptyPrometheus),
 			},
 			sidecar,
@@ -714,7 +714,7 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"disabled-then-overrides",
 			[]config.Config{
-				newTelemetry("istio-system", disbaledAllMetrics),
+				newTelemetry("istio-system", disabledAllMetrics),
 				newTelemetry("default", overridesPrometheus),
 			},
 			sidecar,
