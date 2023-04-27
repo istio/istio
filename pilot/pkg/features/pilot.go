@@ -626,10 +626,6 @@ var (
 		false,
 		"Enables proxy discovery of the workload metadata to back-fill the telemetry reports.").Get()
 
-	PartialFullPushes = env.Register("PILOT_PARTIAL_FULL_PUSHES", true,
-		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
-			"This occurs for EDS in many cases regardless of this setting.").Get()
-
 	EnableLegacyIstioMutualCredentialName = env.Register("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,
 		"If enabled, Gateway's with ISTIO_MUTUAL mode and credentialName configured will use simple TLS. "+
