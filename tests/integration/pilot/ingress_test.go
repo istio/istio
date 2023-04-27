@@ -441,6 +441,10 @@ func TestCustomGateway(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ingress.custom").
 		Run(func(t framework.TestContext) {
+			inject := false
+			if t.Settings().Compatibility {
+				inject = true
+			}
 			injectLabel := `sidecar.istio.io/inject: "true"`
 			if t.Settings().Revisions.Default() != "" {
 				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revisions.Default())
@@ -454,7 +458,7 @@ func TestCustomGateway(t *testing.T) {
 			}
 
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal"})
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal", Inject: inject})
 				_ = t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: v1
 kind: Service
 metadata:
