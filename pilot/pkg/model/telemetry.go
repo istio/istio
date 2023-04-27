@@ -37,7 +37,6 @@ import (
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/labels"
@@ -130,9 +129,11 @@ func getTelemetries(env *Environment) *Telemetries {
 }
 
 type metricsConfig struct {
-	ClientMetrics     metricConfig
-	ServerMetrics     metricConfig
-	ReportingInterval *durationpb.Duration
+	ClientMetrics            metricConfig
+	ServerMetrics            metricConfig
+	ReportingInterval        *durationpb.Duration
+	RotationInterval         *durationpb.Duration
+	GracefulDeletionInterval *durationpb.Duration
 }
 
 type metricConfig struct {
@@ -522,6 +523,15 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 			NodeType:      proxy.Type,
 		}
 		m = append(m, cfg)
+	}
+
+	// guard with a pilot feature flag?
+	// try get metric expiry setting from annotations
+	rotationInterval := metricRotationInterval(proxy)
+	gracefulDeletionInterval := metricGracefulDeletionInterval(proxy)
+	for _, cfg := range m {
+		cfg.RotationInterval = rotationInterval
+		cfg.GracefulDeletionInterval = gracefulDeletionInterval
 	}
 
 	var res any
@@ -1087,20 +1097,34 @@ var metricToPrometheusMetric = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "response_messages_total",
 }
 
-func metricRotationInterval() *durationpb.Duration {
-	if features.MetricRotationInterval == 0*time.Second {
-		return nil
-	}
-
-	return durationpb.New(features.MetricRotationInterval)
+// metricRotationInterval returns the metric rotation interval for the proxy,
+// only work fro istio's metrics. if nil is returned, it means disable rotation.
+func metricRotationInterval(proxy *Proxy) *durationpb.Duration {
+	// get the metric rotation interval from the proxy metadata if it exists
+	return parseDurationFromProxyMetadata(proxy, "ISTIO_META_METRIC_ROTATION_INTERVAL")
 }
 
-func metricGracefulDeletionInterval() *durationpb.Duration {
-	if features.MetricGracefulDeletionInterval == 5*time.Minute {
+// metricGracefulDeletionInterval returns the metric graceful deletion interval for the proxy,
+// only work fro istio's metrics. No-op if the metric rotation is disabled.
+func metricGracefulDeletionInterval(proxy *Proxy) *durationpb.Duration {
+	return parseDurationFromProxyMetadata(proxy, "ISTIO_META_METRIC_GRACEFUL_DELETION_INTERVAL")
+}
+
+func parseDurationFromProxyMetadata(proxy *Proxy, key string) *durationpb.Duration {
+	if proxy == nil ||
+		proxy.Metadata == nil ||
+		proxy.Metadata.ProxyConfig == nil ||
+		proxy.Metadata.ProxyConfig.ProxyMetadata == nil {
 		return nil
 	}
-
-	return durationpb.New(features.MetricGracefulDeletionInterval)
+	if val, ok := proxy.Metadata.ProxyConfig.ProxyMetadata[key]; ok {
+		t, err := time.ParseDuration(val)
+		if err != nil {
+			return nil
+		}
+		return durationpb.New(t)
+	}
+	return nil
 }
 
 func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryFilterConfig) *anypb.Any {
@@ -1118,8 +1142,8 @@ func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryF
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 		TcpReportingDuration:      filterConfig.ReportingInterval,
-		RotationInterval:          metricRotationInterval(),
-		GracefulDeletionInterval:  metricGracefulDeletionInterval(),
+		RotationInterval:          filterConfig.RotationInterval,
+		GracefulDeletionInterval:  filterConfig.GracefulDeletionInterval,
 	}
 
 	for _, override := range listenerCfg.Overrides {
