@@ -34,7 +34,6 @@ import (
 	meshapi "istio.io/api/mesh/v1alpha1"
 	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
@@ -250,14 +249,6 @@ func TestInjection(t *testing.T) {
 		{
 			in:            "traffic-annotations-bad-excludeoutboundports.yaml",
 			expectedError: "excludeoutboundports",
-		},
-		{
-			in:   "hello.yaml",
-			want: "hello-no-seccontext.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableLegacyFSGroupInjection, false)
-				test.SetEnvForTest(t, "ENABLE_LEGACY_FSGROUP_INJECTION", "false")
-			},
 		},
 		{
 			in:   "traffic-annotations.yaml",

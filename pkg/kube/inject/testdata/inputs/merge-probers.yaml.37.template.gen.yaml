@@ -521,10 +521,13 @@ templates:
         - name: {{ . }}
         {{- end }}
       {{- end }}
+<<<<<<< HEAD
       {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
       securityContext:
         fsGroup: 1337
       {{- end }}
+=======
+>>>>>>> 1a70766017 (gen)
   gateway: |
     {{- $containers := list }}
     {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
@@ -759,10 +762,13 @@ templates:
         - name: {{ . }}
         {{- end }}
       {{- end }}
+<<<<<<< HEAD
       {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
       securityContext:
         fsGroup: 1337
       {{- end }}
+=======
+>>>>>>> 1a70766017 (gen)
   grpc-simple: |
     metadata:
       sidecar.istio.io/rewriteAppHTTPProbers: "false"
@@ -1145,10 +1151,13 @@ templates:
         - name: {{ . }}
         {{- end }}
       {{- end }}
+<<<<<<< HEAD
       {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
       securityContext:
         fsGroup: 1337
       {{- end }}
+=======
+>>>>>>> 1a70766017 (gen)
   waypoint: |
     apiVersion: v1
     kind: ServiceAccount

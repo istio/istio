@@ -512,11 +512,6 @@ var (
 	XDSCacheIndexClearInterval = env.Register("PILOT_XDS_CACHE_INDEX_CLEAR_INTERVAL", 5*time.Second,
 		"The interval for xds cache index clearing.").Get()
 
-	// Note: while this appears unused in the go code, this sets a default which is used in the injection template.
-	EnableLegacyFSGroupInjection = env.Register("ENABLE_LEGACY_FSGROUP_INJECTION", false,
-		"If true, Istiod will set the pod fsGroup to 1337 on injection. This is required for Kubernetes 1.18 and older "+
-			`(see https://github.com/kubernetes/kubernetes/issues/57923 for details) unless JWT_POLICY is "first-party-jwt".`).Get()
-
 	XdsPushSendTimeout = env.Register(
 		"PILOT_XDS_SEND_TIMEOUT",
 		0*time.Second,
