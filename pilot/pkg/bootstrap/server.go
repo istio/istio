@@ -113,10 +113,9 @@ type Server struct {
 	ConfigStores           []model.ConfigStoreController
 	serviceEntryController *serviceentry.Controller
 
-	httpServer       *http.Server // debug, monitoring and readiness Server.
-	httpAddr         string
-	httpsServer      *http.Server // webhooks HTTPS Server.
-	httpsReadyClient *http.Client
+	httpServer  *http.Server // debug, monitoring and readiness Server.
+	httpAddr    string
+	httpsServer *http.Server // webhooks HTTPS Server.
 
 	grpcServer        *grpc.Server
 	grpcAddress       string
@@ -157,6 +156,7 @@ type Server struct {
 	server                  server.Instance
 
 	readinessProbes map[string]readinessProbe
+	readinessFlags  *readinessFlags
 
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
@@ -173,6 +173,11 @@ type Server struct {
 	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreController
+}
+
+type readinessFlags struct {
+	sidecarInjectorReady  bool
+	configValidationReady bool
 }
 
 type webhookInfo struct {
@@ -227,6 +232,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		httpMux:                 http.NewServeMux(),
 		monitoringMux:           http.NewServeMux(),
 		readinessProbes:         make(map[string]readinessProbe),
+		readinessFlags:          &readinessFlags{},
 		workloadTrustBundle:     tb.NewTrustBundle(nil),
 		server:                  server.New(),
 		shutdownDuration:        args.ShutdownDuration,
@@ -246,9 +252,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	prometheus.EnableHandlingTimeHistogram()
 
 	// make sure we have a readiness probe before serving HTTP to avoid marking ready too soon
-	s.addReadinessProbe("discovery", func() (bool, error) {
-		return s.XDSServer.IsServerReady(), nil
-	})
+	s.initReadinessProbes()
+
 	s.initServers(args)
 	if err := s.initIstiodAdminServer(args, s.webhookInfo.GetTemplates); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
@@ -1358,6 +1363,29 @@ func (s *Server) serveHTTP() error {
 	}()
 	s.httpAddr = httpListener.Addr().String()
 	return nil
+}
+
+func (s *Server) initReadinessProbes() {
+	probes := map[string]readinessProbe{
+		"discovery": func() (bool, error) {
+			return s.XDSServer.IsServerReady(), nil
+		},
+		"sidecarInjector": func() (bool, error) {
+			if s.readinessFlags.sidecarInjectorReady {
+				return true, nil
+			}
+			return false, fmt.Errorf("sidecar injector not ready")
+		},
+		"configValidation": func() (bool, error) {
+			if s.readinessFlags.configValidationReady {
+				return true, nil
+			}
+			return false, fmt.Errorf("config validation not ready")
+		},
+	}
+	for name, probe := range probes {
+		s.addReadinessProbe(name, probe)
+	}
 }
 
 func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
