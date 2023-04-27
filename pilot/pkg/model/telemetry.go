@@ -1087,6 +1087,22 @@ var metricToPrometheusMetric = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "response_messages_total",
 }
 
+func metricRotationInterval() *durationpb.Duration {
+	if features.MetricRotationInterval == 0*time.Second {
+		return nil
+	}
+
+	return durationpb.New(features.MetricRotationInterval)
+}
+
+func metricGracefulDeletionInterval() *durationpb.Duration {
+	if features.MetricGracefulDeletionInterval == 5*time.Minute {
+		return nil
+	}
+
+	return durationpb.New(features.MetricGracefulDeletionInterval)
+}
+
 func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryFilterConfig) *anypb.Any {
 	if !filterConfig.Metrics {
 		// No metric for prometheus
@@ -1102,8 +1118,8 @@ func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryF
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 		TcpReportingDuration:      filterConfig.ReportingInterval,
-		RotationInterval:          durationpb.New(features.MetricRotationInterval),
-		GracefulDeletionInterval:  durationpb.New(features.MetricGracefulDeletionInterval),
+		RotationInterval:          metricRotationInterval(),
+		GracefulDeletionInterval:  metricGracefulDeletionInterval(),
 	}
 
 	for _, override := range listenerCfg.Overrides {
