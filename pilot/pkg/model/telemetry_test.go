@@ -651,7 +651,7 @@ func TestTelemetryFilters(t *testing.T) {
 			{},
 		},
 	}
-	disabledAllMetrics := &tpb.Telemetry{
+	disbaledAllMetrics := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
 			{
 				Overrides: []*tpb.MetricsOverrides{{
@@ -692,7 +692,7 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 		{
 			"disabled-prometheus",
-			[]config.Config{newTelemetry("istio-system", disabledAllMetrics)},
+			[]config.Config{newTelemetry("istio-system", disbaledAllMetrics)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
