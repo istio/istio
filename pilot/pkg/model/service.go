@@ -839,14 +839,18 @@ type AddressInfo struct {
 }
 
 func (i AddressInfo) ResourceName() string {
-	var ii netip.Addr
+	var name string
 	switch addr := i.Type.(type) {
 	case *workloadapi.Address_Workload:
-		ii, _ = netip.AddrFromSlice(addr.Workload.Address)
+		ii, _ := netip.AddrFromSlice(addr.Workload.Address)
+		name = addr.Workload.Network + "/" + ii.String()
 	case *workloadapi.Address_Service:
-		ii, _ = netip.AddrFromSlice(addr.Service.Address)
+		// TODO GregHanson
+		// handle multiple service addresses
+		ii, _ := netip.AddrFromSlice(addr.Service.Addresses[0].Address)
+		name = addr.Service.Namespace + "/" + ii.String()
 	}
-	return ii.String()
+	return name
 }
 
 type WorkloadInfo struct {
@@ -864,7 +868,8 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 
 func (i WorkloadInfo) ResourceName() string {
 	ii, _ := netip.AddrFromSlice(i.Address)
-	return ii.String()
+	name := i.Network + "/" + ii.String()
+	return name
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This

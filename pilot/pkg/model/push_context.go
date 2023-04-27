@@ -2169,11 +2169,10 @@ func (ps *PushContext) SupportsTunnel(ip string) bool {
 	for _, p := range infos {
 		switch addr := p.Address.Type.(type) {
 		case *workloadapi.Address_Workload:
-			if addr.Workload.Protocol == workloadapi.Protocol_HTTP {
+			if addr.Workload.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
 				return true
 			}
 		}
-
 	}
 	return false
 }
