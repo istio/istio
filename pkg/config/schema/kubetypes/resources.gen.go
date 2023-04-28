@@ -78,7 +78,7 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 		return gvk.Pod
 	case *istioioapinetworkingv1beta1.ProxyConfig:
 		return gvk.ProxyConfig
-	case *sigsk8siogatewayapiapisv1alpha2.ReferenceGrant:
+	case *sigsk8siogatewayapiapisv1beta1.ReferenceGrant:
 		return gvk.ReferenceGrant
 	case *istioioapisecurityv1beta1.RequestAuthentication:
 		return gvk.RequestAuthentication
