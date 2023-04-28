@@ -1014,6 +1014,19 @@ func TestMetricRotationInterval(t *testing.T) {
 			expected: nil,
 		},
 		{
+			name: "default duration",
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					ProxyConfig: &NodeMetaProxyConfig{
+						ProxyMetadata: map[string]string{
+							"ISTIO_META_METRIC_ROTATION_INTERVAL": "0",
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
 			name: "valid metadata",
 			proxy: &Proxy{
 				Metadata: &NodeMetadata{
@@ -1064,6 +1077,19 @@ func TestMetricGracefulDeletionInterval(t *testing.T) {
 					ProxyConfig: &NodeMetaProxyConfig{
 						ProxyMetadata: map[string]string{
 							"ISTIO_META_METRIC_GRACEFUL_DELETION_INTERVAL": "10",
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "default value",
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					ProxyConfig: &NodeMetaProxyConfig{
+						ProxyMetadata: map[string]string{
+							"ISTIO_META_METRIC_GRACEFUL_DELETION_INTERVAL": "5m",
 						},
 					},
 				},
