@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -96,7 +97,7 @@ func init() {
 }
 
 // readinessProbe defines a function that will be used indicate whether a server is ready.
-type readinessProbe func() (bool, error)
+type readinessProbe func() bool
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
@@ -176,8 +177,8 @@ type Server struct {
 }
 
 type readinessFlags struct {
-	sidecarInjectorReady  bool
-	configValidationReady bool
+	sidecarInjectorReady  atomic.Bool
+	configValidationReady atomic.Bool
 }
 
 type webhookInfo struct {
@@ -571,8 +572,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 // this handler and everything has already initialized.
 func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	for name, fn := range s.readinessProbes {
-		if ready, err := fn(); !ready {
-			log.Warnf("%s is not ready: %v", name, err)
+		if ready := fn(); !ready {
+			log.Warnf("%s is not ready", name)
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -1354,20 +1355,14 @@ func (s *Server) serveHTTP() error {
 
 func (s *Server) initReadinessProbes() {
 	probes := map[string]readinessProbe{
-		"discovery": func() (bool, error) {
-			return s.XDSServer.IsServerReady(), nil
+		"discovery": func() bool {
+			return s.XDSServer.IsServerReady()
 		},
-		"sidecarInjector": func() (bool, error) {
-			if s.readinessFlags.sidecarInjectorReady {
-				return true, nil
-			}
-			return false, fmt.Errorf("sidecar injector not ready")
+		"sidecar injector": func() bool {
+			return s.readinessFlags.sidecarInjectorReady.Load()
 		},
-		"configValidation": func() (bool, error) {
-			if s.readinessFlags.configValidationReady {
-				return true, nil
-			}
-			return false, fmt.Errorf("config validation not ready")
+		"config validation": func() bool {
+			return s.readinessFlags.configValidationReady.Load()
 		},
 	}
 	for name, probe := range probes {

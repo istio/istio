@@ -39,7 +39,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return err
 	}
 
-	s.readinessFlags.configValidationReady = true
+	s.readinessFlags.configValidationReady.Store(true)
 
 	if features.ValidationWebhookConfigName != "" && s.kubeClient != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
