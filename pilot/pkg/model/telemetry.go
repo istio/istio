@@ -505,6 +505,11 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		allKeys.Insert(k)
 	}
 
+	// guard with a pilot feature flag?
+	// try get metric expiry setting from annotations
+	rotationInterval := metricRotationInterval(proxy)
+	gracefulDeletionInterval := metricGracefulDeletionInterval(proxy)
+
 	m := make([]telemetryFilterConfig, 0, allKeys.Len())
 	for _, k := range sets.SortedList(allKeys) {
 		p := t.fetchProvider(k)
@@ -512,26 +517,20 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 			continue
 		}
 		_, logging := tml[k]
-		_, metrics := tmm[k]
+		mertricCfg, metrics := tmm[k]
+
+		mertricCfg.RotationInterval = rotationInterval
+		mertricCfg.GracefulDeletionInterval = gracefulDeletionInterval
 
 		cfg := telemetryFilterConfig{
 			Provider:      p,
-			metricsConfig: tmm[k],
+			metricsConfig: mertricCfg,
 			AccessLogging: logging,
 			Metrics:       metrics,
 			LogsFilter:    tml[p.Name].Filter,
 			NodeType:      proxy.Type,
 		}
 		m = append(m, cfg)
-	}
-
-	// guard with a pilot feature flag?
-	// try get metric expiry setting from annotations
-	rotationInterval := metricRotationInterval(proxy)
-	gracefulDeletionInterval := metricGracefulDeletionInterval(proxy)
-	for _, cfg := range m {
-		cfg.RotationInterval = rotationInterval
-		cfg.GracefulDeletionInterval = gracefulDeletionInterval
 	}
 
 	var res any
@@ -1117,6 +1116,7 @@ func parseDurationFromProxyMetadata(proxy *Proxy, key string) *durationpb.Durati
 		proxy.Metadata.ProxyConfig.ProxyMetadata == nil {
 		return nil
 	}
+
 	if val, ok := proxy.Metadata.ProxyConfig.ProxyMetadata[key]; ok {
 		t, err := time.ParseDuration(val)
 		if err != nil {
