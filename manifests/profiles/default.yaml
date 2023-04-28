@@ -60,7 +60,7 @@ spec:
             memory: 128Mi
           limits:
             cpu: 2000m
-            memory: 1024Mi
+            memory: 2048Mi
         logLevel: warning
         componentLogLevel: "misc:error"
         privileged: false

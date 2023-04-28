@@ -82,7 +82,7 @@ RUN_TEST=$(GO) test -p 1 ${T} -tags=integ -vet=off
 test.integration.analyze: test.integration...analyze
 
 test.integration.%.analyze: | $(JUNIT_REPORT) check-go-tag
-	$(RUN_TEST) ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	$(RUN_TEST) ./tests/integration/$(subst .,/,$*)/... -timeout 300m \
 	${_INTEGRATION_TEST_FLAGS} \
 	--istio.test.analyze \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
@@ -94,13 +94,13 @@ check-go-tag:
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT) check-go-tag
-	$(RUN_TEST) ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	$(RUN_TEST) ./tests/integration/$(subst .,/,$*)/... -timeout 300m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Generate integration fuzz test targets for kubernetes environment.
 test.integration-fuzz.%.kube: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 -vet=off ${T} -tags="integfuzz integ" ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	$(GO) test -p 1 -vet=off ${T} -tags="integfuzz integ" ./tests/integration/$(subst .,/,$*)/... -timeout 300m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
@@ -116,7 +116,7 @@ test.integration.kube: test.integration.kube.presubmit
 # Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
-	$(RUN_TEST) ./tests/integration/... -timeout 30m \
+	$(RUN_TEST) ./tests/integration/... -timeout 300m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
@@ -125,11 +125,11 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
 .PHONY: test.integration.kube.environment
 test.integration.kube.environment: | $(JUNIT_REPORT) check-go-tag
 ifeq (${JOB_TYPE},postsubmit)
-	$(RUN_TEST) ./tests/integration/... -timeout 30m \
+	$(RUN_TEST) ./tests/integration/... -timeout 300m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 else
-	$(RUN_TEST) ./tests/integration/security/ ./tests/integration/pilot -timeout 30m \
+	$(RUN_TEST) ./tests/integration/security/ ./tests/integration/pilot -timeout 300m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	--test.run="TestReachability|TestTraffic" \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))

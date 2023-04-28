@@ -67,6 +67,10 @@ spec:
           [[ -f /tmp/istio-sidecar.rpm ]] && sudo rpm -vi /tmp/istio-sidecar.rpm && sudo rm /tmp/istio-sidecar.rpm
           [[ -f /tmp/istio-sidecar.deb ]] && sudo dpkg -i /tmp/istio-sidecar.deb && sudo rm /tmp/istio-sidecar.deb
 
+          # Install libc++
+          sudo apt-get update
+          sudo apt-get install -qqy --no-install-recommends libc++-dev
+
           # Read root cert from and place signed certs here (can't mount directly or the dir would be unwritable)
           sudo mkdir -p /var/run/secrets/istio
 

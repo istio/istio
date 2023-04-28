@@ -42,7 +42,7 @@ KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
 
 export FAST_VM_BUILDS=true
-export ISTIO_DOCKER_BUILDER="${ISTIO_DOCKER_BUILDER:-crane}"
+# export ISTIO_DOCKER_BUILDER="${ISTIO_DOCKER_BUILDER:-crane}"
 
 PARAMS=()
 
