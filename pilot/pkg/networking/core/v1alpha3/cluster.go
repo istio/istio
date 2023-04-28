@@ -276,8 +276,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 				// DRAINING/UNHEALTHY will not be used normally for new requests. They will be used if cookie/header
 				// selects them.
 				defaultCluster.cluster.CommonLbConfig.OverrideHostStatus = &core.HealthStatusSet{
-					Statuses: []core.HealthStatus{core.HealthStatus_HEALTHY, core.HealthStatus_UNHEALTHY,
-						core.HealthStatus_DRAINING, core.HealthStatus_UNKNOWN, core.HealthStatus_DEGRADED},
+					Statuses: []core.HealthStatus{
+						core.HealthStatus_HEALTHY,
+						core.HealthStatus_DRAINING, core.HealthStatus_UNKNOWN, core.HealthStatus_DEGRADED,
+					},
 				}
 			}
 
