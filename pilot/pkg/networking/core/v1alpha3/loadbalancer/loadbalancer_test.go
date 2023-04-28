@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
@@ -471,6 +472,152 @@ func TestApplyLocalitySetting(t *testing.T) {
 					},
 				},
 			},
+			{
+				name:             "priority assignment as per the overridden value",
+				failoverPriority: []string{"topology.istio.io/network=n1"},
+				proxyLabels: map[string]string{
+					"topology.istio.io/network": "n2",
+					"topology.istio.io/cluster": "test",
+				},
+				expected: []*endpoint.LocalityLbEndpoints{
+					{
+						Locality: &core.Locality{
+							Region:  "region1",
+							Zone:    "zone1",
+							SubZone: "subzone1",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("1.1.1.1"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region1",
+							Zone:    "zone1",
+							SubZone: "subzone1",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("2.2.2.2"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 1,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region2",
+							Zone:    "zone2",
+							SubZone: "subzone2",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("3.3.3.3"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region2",
+							Zone:    "zone2",
+							SubZone: "subzone2",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("4.4.4.4"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 1,
+					},
+				},
+			},
+			{
+				name:             "no endpoints with overridden value",
+				failoverPriority: []string{"topology.istio.io/network=n3"},
+				proxyLabels: map[string]string{
+					"topology.istio.io/network": "n1",
+					"topology.istio.io/cluster": "test",
+				},
+				expected: []*endpoint.LocalityLbEndpoints{
+					{
+						Locality: &core.Locality{
+							Region:  "region1",
+							Zone:    "zone1",
+							SubZone: "subzone1",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("1.1.1.1"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+							{
+								HostIdentifier: buildEndpoint("2.2.2.2"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 2,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region2",
+							Zone:    "zone2",
+							SubZone: "subzone2",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("3.3.3.3"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+							{
+								HostIdentifier: buildEndpoint("4.4.4.4"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 2,
+						},
+						Priority: 0,
+					},
+				},
+			},
 		}
 
 		wrappedEndpoints := buildWrappedLocalityLbEndpoints()
@@ -485,6 +632,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 					t.Fatalf("expected endpoints %d but got %d", len(cluster.LoadAssignment.Endpoints), len(tt.expected))
 				}
 				for i := range cluster.LoadAssignment.Endpoints {
+					// TODO Below assertions are not robust to ordering changes in cluster.LoadAssignment.Endpoints[i]
 					if cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight.GetValue() != tt.expected[i].LoadBalancingWeight.GetValue() {
 						t.Errorf("Got unexpected lb weight %v expected %v", cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight, tt.expected[i].LoadBalancingWeight)
 					}
@@ -601,7 +749,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
 			},
 			Spec: &networking.DestinationRule{
@@ -657,7 +805,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
 			},
 			Spec: &networking.DestinationRule{
@@ -708,7 +856,7 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 	env.PushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
 			},
 			Spec: &networking.DestinationRule{

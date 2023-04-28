@@ -40,6 +40,7 @@ type Config struct {
 	ProxyAddress string
 	Headers      http.Header
 	TLS          *tls.Config
+	Timeout      *time.Duration
 }
 
 type Dialer interface {
@@ -50,6 +51,7 @@ type Dialer interface {
 // NewDialer creates a Dialer that proxies connections over HBONE to the configured proxy.
 func NewDialer(cfg Config) Dialer {
 	var transport *http2.Transport
+
 	if cfg.TLS != nil {
 		transport = &http2.Transport{
 			TLSClientConfig: cfg.TLS,
@@ -58,8 +60,12 @@ func NewDialer(cfg Config) Dialer {
 		transport = &http2.Transport{
 			// For h2c
 			AllowHTTP: true,
-			DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
-				return net.Dial(network, addr)
+			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
+				d := net.Dialer{}
+				if cfg.Timeout != nil {
+					d.Timeout = *cfg.Timeout
+				}
+				return d.Dial(network, addr)
 			},
 		}
 	}
@@ -122,6 +128,9 @@ func (d *dialer) proxyTo(conn io.ReadWriteCloser, req Config, address string) er
 		if len(ids) > 0 {
 			remoteID = ids[0]
 		}
+	}
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("round trip failed: %v", resp.Status)
 	}
 	log.WithLabels("host", r.Host, "remote", remoteID).Info("CONNECT established")
 	go func() {

@@ -246,9 +246,17 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 
 // CheckSSAEnabled is a helper function to check whether ServerSideApply should be used when applying manifests.
 func (h *HelmReconciler) CheckSSAEnabled() bool {
+	if TestMode {
+		return false // our unit test setup doesn't work with SSA
+	}
 	if h.kubeClient != nil {
-		// There is a mutatingwebhook in gke that would corrupt the managedFields, which is fixed in k8s 1.18.
-		// See: https://github.com/kubernetes/kubernetes/issues/96351
+		// SSA went GA in k8s 1.22
+		if kube.IsAtLeastVersion(h.kubeClient, 22) {
+			return true
+		}
+		// For versions greater than 1.18, detect if SSA is enabled.
+		// There is a known issue with this detection logic for k8s clusters that were upgraded.
+		// See: https://github.com/istio/istio/issues/37946#issuecomment-1072875625
 		if kube.IsAtLeastVersion(h.kubeClient, 18) {
 			// todo(kebe7jun) a more general test method
 			// API Server does not support detecting whether ServerSideApply is enabled
@@ -514,8 +522,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
 		SkipServiceCheck: true,
-	}),
-		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil, true, 30*time.Second)
+	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil)
 	var localWebhookYAMLReaders []local.ReaderSource
 	var parsedK8sObjects object.K8sObjects
 	for _, wh := range whs {

@@ -20,19 +20,14 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	anypb "github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -43,14 +38,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -119,10 +111,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
 		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>).
 		_, _, svcHost, port := model.ParseSubsetKey(cluster)
-		if serviceClusters[string(svcHost)] == nil {
-			serviceClusters[string(svcHost)] = sets.New[string]()
-		}
-		serviceClusters[string(svcHost)].Insert(cluster)
+		sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
 		if servicePorts[string(svcHost)] == nil {
 			servicePorts[string(svcHost)] = make(map[int]string)
 		}
@@ -176,16 +165,26 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
-
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
+		if proxy.EnableHBONE() {
+			clusters = append(clusters, configgen.buildInboundHBONEClusters())
+		}
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
-		if proxy.EnableHBONE() {
-			clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, instances)...)
-		}
+	case model.Waypoint:
+		svcs := findWaypointServices(proxy, req.Push)
+		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
+		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(req.Push.ServicesAttachedToMesh(), svcs, services))
+		cacheStats = cacheStats.merge(cs)
+		resources = append(resources, ob...)
+		// Setup inbound clusters
+		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
+		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, svcs)...)
+		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, services)
@@ -201,14 +200,13 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 
 	// OutboundTunnel cluster is needed for sidecar and gateway.
 	if proxy.EnableHBONE() {
-		clusters = append(clusters, outboundTunnelCluster(proxy, req.Push))
+		clusters = append(clusters, cb.buildConnectOriginate(proxy, req.Push, nil))
 	}
 
 	// if credential socket exists, create a cluster for it
 	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
 		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
 	}
-
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
@@ -746,9 +744,6 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 }
 
 func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
-	if features.EnableLegacyLBAlgorithmDefault {
-		return cluster.Cluster_ROUND_ROBIN
-	}
 	return cluster.Cluster_LEAST_REQUEST
 }
 
@@ -956,30 +951,6 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	}
 }
 
-// Insert the original port into the istio metadata. The port is used in BTS delivered from client sidecar to server sidecar.
-// Server side car uses this port after de-multiplexed from tunnel.
-func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
-	if opts.mutable == nil || direction == model.TrafficDirectionInbound {
-		return
-	}
-	if service == nil {
-		// At outbound, the service corresponding to the cluster has to be provided.
-		return
-	}
-
-	if port, ok := service.Ports.GetByPort(opts.port.Port); ok {
-		im := getOrCreateIstioMetadata(opts.mutable.cluster)
-
-		// Add original_port field into istio metadata
-		// Endpoint could override this port but the chance should be small.
-		im.Fields["default_original_port"] = &structpb.Value{
-			Kind: &structpb.Value_NumberValue{
-				NumberValue: float64(port.Port),
-			},
-		}
-	}
-}
-
 // Build a struct which contains service metadata and will be added into cluster label.
 func buildServiceMetadata(svc *model.Service) *structpb.Value {
 	return &structpb.Value{
@@ -1025,36 +996,8 @@ func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
 	return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, instances []*model.ServiceInstance) []*cluster.Cluster {
-	clusters := make([]*cluster.Cluster, 0)
-	names := sets.New[string]()
-	for _, i := range instances {
-		p := i.Endpoint.EndpointPort
-		name := "inbound-hbone" + "|" + strconv.Itoa(int(p))
-		if !names.InsertContains(name) {
-			clusters = append(clusters, cb.buildInternalListenerCluster(name, name).build())
-		}
-	}
-	return clusters
-}
-
-func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, listenerName string) *MutableCluster {
-	clusterType := cluster.Cluster_STATIC
-	port := &model.Port{}
-	localCluster := cb.buildDefaultCluster(clusterName, clusterType, util.BuildInternalEndpoint(listenerName, nil),
-		model.TrafficDirectionInbound, port, nil, nil)
-	// no TLS
-	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = InternalUpstreamSocket
-	return localCluster
-}
-
 var HboneOrPlaintextSocket = []*cluster.Cluster_TransportSocketMatch{
-	{
-		Name:            "hbone",
-		Match:           hboneTransportSocketMatch,
-		TransportSocket: InternalUpstreamSocket,
-	},
+	hboneTransportSocket,
 	defaultTransportSocketMatch(),
 }
 
@@ -1081,45 +1024,4 @@ var InternalUpstreamSocket = &core.TransportSocket{
 		},
 		TransportSocket: xdsfilters.RawBufferTransportSocket,
 	})},
-}
-
-func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
-	return &cluster.Cluster{
-		Name:                 util.OutboundTunnel,
-		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:       push.Mesh.ConnectTimeout,
-		CleanupInterval:      durationpb.New(60 * time.Second),
-		TypedExtensionProtocolOptions: map[string]*anypb.Any{
-			v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
-				UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
-					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
-						Http2ProtocolOptions: &core.Http2ProtocolOptions{
-							AllowConnect: true,
-						},
-					},
-				}},
-			}),
-		},
-		TransportSocket: &core.TransportSocket{
-			Name: wellknown.TransportSocketTls,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
-				CommonTlsContext: buildHBONECommonTLSContext(proxy, push),
-			})},
-		},
-	}
-}
-
-func buildHBONECommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
-	ctx := &tls.CommonTlsContext{}
-	authnmodel.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), false)
-
-	ctx.AlpnProtocols = util.ALPNH2Only
-
-	ctx.TlsParams = &tls.TlsParameters{
-		// Ensure TLS 1.3 is used everywhere for HBONE
-		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
-		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
-	}
-	return ctx
 }

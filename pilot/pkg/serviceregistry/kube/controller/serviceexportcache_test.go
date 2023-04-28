@@ -16,7 +16,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/mcs"
 	istiotest "istio.io/istio/pkg/test"
@@ -68,7 +68,6 @@ func TestServiceNotExported(t *testing.T) {
 				t.Run(endpointMode.String(), func(t *testing.T) {
 					// Create and run the controller.
 					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-
 					// Check that the endpoint is cluster-local
 					ec.checkServiceInstancesOrFail(t, false)
 				})
@@ -84,7 +83,6 @@ func TestServiceExported(t *testing.T) {
 				t.Run(endpointMode.String(), func(t *testing.T) {
 					// Create and run the controller.
 					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-
 					// Export the service.
 					ec.export(t)
 
@@ -103,7 +101,6 @@ func TestServiceUnexported(t *testing.T) {
 				t.Run(endpointMode.String(), func(t *testing.T) {
 					// Create and run the controller.
 					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-
 					// Export the service and then unexport it immediately.
 					ec.export(t)
 					ec.unExport(t)
@@ -147,7 +144,10 @@ func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, 
 	createEndpoints(t, c, serviceExportName, serviceExportNamespace, []string{"tcp-port"}, []string{serviceExportPodIP}, nil, nil)
 
 	ec = c.exports.(*serviceExportCacheImpl)
-
+	close(ec.serviceExportCh)
+	retry.UntilOrFail(t, func() bool {
+		return ec.started.Load()
+	}, serviceExportTimeout)
 	// Wait for the resources to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
 		if svc := ec.GetService(ec.serviceHostname()); svc == nil {
@@ -202,10 +202,7 @@ func (ec *serviceExportCacheImpl) unExport(t *testing.T) {
 func (ec *serviceExportCacheImpl) waitForXDS(t *testing.T, exported bool) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		event := ec.opts.XDSUpdater.(*FakeXdsUpdater).Wait("eds")
-		if event == nil {
-			return errors.New("failed waiting for XDS event")
-		}
+		event := ec.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "eds")
 		if len(event.Endpoints) != 1 {
 			return fmt.Errorf("waitForXDS failed: expected 1 endpoint, found %d", len(event.Endpoints))
 		}

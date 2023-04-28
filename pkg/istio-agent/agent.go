@@ -302,7 +302,10 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 				errCh:       a.dynamicBootstrapWaitCh,
 				envoyUpdate: envoyProxy.UpdateConfig,
 			}
-			_ = a.xdsProxy.handleStream(bsStream)
+			err := a.xdsProxy.handleStream(bsStream)
+			if err != nil {
+				log.Warn(err)
+			}
 			delay := b.NextBackOff()
 			select {
 			case err, ok := <-a.dynamicBootstrapWaitCh:

@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -208,7 +209,7 @@ func (c *instance) Config() echo.Config {
 
 func (c *instance) WithWorkloads(wls ...echo.Workload) echo.Instance {
 	n := *c
-	c.workloadFilter = wls
+	n.workloadFilter = wls
 	return &n
 }
 
@@ -217,6 +218,10 @@ func (c *instance) Cluster() cluster.Cluster {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (echo.CallResult, error) {
+	// Setup default check. This is done here rather than in echo core package to avoid import loops
+	if opts.Check == nil {
+		opts.Check = check.OK()
+	}
 	return c.aggregateResponses(opts)
 }
 

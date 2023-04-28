@@ -45,11 +45,8 @@ const (
 	// this was formally "istio-gateway-leader"; because they are a different API group we need a different
 	// election to ensure we do not only handle one or the other.
 	GatewayStatusController = "istio-gateway-status-leader"
-	// GatewayDeploymentController controls the Deployment/Service generation from Gateways. This is
-	// separate from GatewayStatusController to allow running in a separate process (for low priv).
-	GatewayDeploymentController = "istio-gateway-deployment-leader"
-	StatusController            = "istio-status-leader"
-	AnalyzeController           = "istio-analyze-leader"
+	StatusController        = "istio-status-leader"
+	AnalyzeController       = "istio-analyze-leader"
 )
 
 // Leader election key prefix for remote istiod managed clusters
@@ -71,7 +68,6 @@ type LeaderElection struct {
 	// Criteria to determine leader priority.
 	revision       string
 	remote         bool
-	prioritized    bool
 	defaultWatcher revisions.DefaultWatcher
 
 	// Records which "cycle" the election is on. This is incremented each time an election is won and then lost
@@ -95,7 +91,7 @@ func (l *LeaderElection) Run(stop <-chan struct{}) {
 		<-stop
 		return
 	}
-	if l.prioritized && l.defaultWatcher != nil {
+	if l.defaultWatcher != nil {
 		go l.defaultWatcher.Run(stop)
 	}
 	for {
@@ -163,13 +159,10 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 		// to instances are both considered the leaders. As such, if this is intended to be use for mission-critical
 		// usages (rather than avoiding duplication of work), this may need to be re-evaluated.
 		ReleaseOnCancel: true,
-	}
-
-	if l.prioritized {
 		// Function to use to decide whether this leader should steal the existing lock.
-		config.KeyComparison = func(leaderKey string) bool {
+		KeyComparison: func(leaderKey string) bool {
 			return LocationPrioritizedComparison(leaderKey, l)
-		}
+		},
 	}
 
 	return k8sleaderelection.NewLeaderElector(config)
@@ -202,7 +195,7 @@ func NewLeaderElection(namespace, name, electionID, revision string, client kube
 
 func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, remote bool, client kube.Client) *LeaderElection {
 	var watcher revisions.DefaultWatcher
-	if features.EnableLeaderElection && features.PrioritizedLeaderElection {
+	if features.EnableLeaderElection {
 		watcher = revisions.NewDefaultWatcher(client, revision)
 	}
 	if name == "" {
@@ -217,7 +210,6 @@ func NewLeaderElectionMulticluster(namespace, name, electionID, revision string,
 		revision:       revision,
 		enabled:        features.EnableLeaderElection,
 		remote:         remote,
-		prioritized:    features.PrioritizedLeaderElection,
 		defaultWatcher: watcher,
 		// Default to a 30s ttl. Overridable for tests
 		ttl:   time.Second * 30,

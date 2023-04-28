@@ -25,6 +25,7 @@ from jaeger_client.codecs import B3Codec
 from opentracing.ext import tags
 from opentracing.propagation import Format
 from opentracing_instrumentation.request_context import get_current_span, span_in_context
+from prometheus_client import Counter, generate_latest
 import simplejson as json
 import requests
 import sys
@@ -58,31 +59,34 @@ Bootstrap(app)
 
 servicesDomain = "" if (os.environ.get("SERVICES_DOMAIN") is None) else "." + os.environ.get("SERVICES_DOMAIN")
 detailsHostname = "details" if (os.environ.get("DETAILS_HOSTNAME") is None) else os.environ.get("DETAILS_HOSTNAME")
+detailsPort = "9080" if (os.environ.get("DETAILS_SERVICE_PORT") is None) else os.environ.get("DETAILS_SERVICE_PORT")
 ratingsHostname = "ratings" if (os.environ.get("RATINGS_HOSTNAME") is None) else os.environ.get("RATINGS_HOSTNAME")
+ratingsPort = "9080" if (os.environ.get("RATINGS_SERVICE_PORT") is None) else os.environ.get("RATINGS_SERVICE_PORT")
 reviewsHostname = "reviews" if (os.environ.get("REVIEWS_HOSTNAME") is None) else os.environ.get("REVIEWS_HOSTNAME")
+reviewsPort = "9080" if (os.environ.get("REVIEWS_SERVICE_PORT") is None) else os.environ.get("REVIEWS_SERVICE_PORT")
 
 flood_factor = 0 if (os.environ.get("FLOOD_FACTOR") is None) else int(os.environ.get("FLOOD_FACTOR"))
 
 details = {
-    "name": "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
+    "name": "http://{0}{1}:{2}".format(detailsHostname, servicesDomain, detailsPort),
     "endpoint": "details",
     "children": []
 }
 
 ratings = {
-    "name": "http://{0}{1}:9080".format(ratingsHostname, servicesDomain),
+    "name": "http://{0}{1}:{2}".format(ratingsHostname, servicesDomain, ratingsPort),
     "endpoint": "ratings",
     "children": []
 }
 
 reviews = {
-    "name": "http://{0}{1}:9080".format(reviewsHostname, servicesDomain),
+    "name": "http://{0}{1}:{2}".format(reviewsHostname, servicesDomain, reviewsPort),
     "endpoint": "reviews",
     "children": [ratings]
 }
 
 productpage = {
-    "name": "http://{0}{1}:9080".format(detailsHostname, servicesDomain),
+    "name": "http://{0}{1}:{2}".format(detailsHostname, servicesDomain, detailsPort),
     "endpoint": "details",
     "children": [details, reviews]
 }
@@ -92,6 +96,8 @@ service_dict = {
     "details": details,
     "reviews": reviews,
 }
+
+request_result_counter = Counter('request_result', 'Results of requests', ['destination_app', 'response_code'])
 
 # A note on distributed tracing:
 #
@@ -354,6 +360,11 @@ def ratingsRoute(product_id):
     return json.dumps(ratings), status, {'Content-Type': 'application/json'}
 
 
+@app.route('/metrics')
+def metrics():
+    return generate_latest()
+
+
 # Data providers:
 def getProducts():
     return [
@@ -380,9 +391,11 @@ def getProductDetails(product_id, headers):
     except BaseException:
         res = None
     if res and res.status_code == 200:
+        request_result_counter.labels(destination_app='details', response_code=200).inc()
         return 200, res.json()
     else:
         status = res.status_code if res is not None and res.status_code else 500
+        request_result_counter.labels(destination_app='details', response_code=status).inc()
         return status, {'error': 'Sorry, product details are currently unavailable for this book.'}
 
 
@@ -396,8 +409,10 @@ def getProductReviews(product_id, headers):
         except BaseException:
             res = None
         if res and res.status_code == 200:
+            request_result_counter.labels(destination_app='reviews', response_code=200).inc()
             return 200, res.json()
     status = res.status_code if res is not None and res.status_code else 500
+    request_result_counter.labels(destination_app='reviews', response_code=status).inc()
     return status, {'error': 'Sorry, product reviews are currently unavailable for this book.'}
 
 
@@ -408,9 +423,11 @@ def getProductRatings(product_id, headers):
     except BaseException:
         res = None
     if res and res.status_code == 200:
+        request_result_counter.labels(destination_app='ratings', response_code=200).inc()
         return 200, res.json()
     else:
         status = res.status_code if res is not None and res.status_code else 500
+        request_result_counter.labels(destination_app='ratings', response_code=status).inc()
         return status, {'error': 'Sorry, product ratings are currently unavailable for this book.'}
 
 

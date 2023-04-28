@@ -330,13 +330,13 @@ func (c Config) DeepCopy() Config {
 	var clone Config
 	clone.Meta = c.Meta
 	if c.Labels != nil {
-		clone.Labels = make(map[string]string)
+		clone.Labels = make(map[string]string, len(c.Labels))
 		for k, v := range c.Labels {
 			clone.Labels[k] = v
 		}
 	}
 	if c.Annotations != nil {
-		clone.Annotations = make(map[string]string)
+		clone.Annotations = make(map[string]string, len(c.Annotations))
 		for k, v := range c.Annotations {
 			clone.Annotations[k] = v
 		}

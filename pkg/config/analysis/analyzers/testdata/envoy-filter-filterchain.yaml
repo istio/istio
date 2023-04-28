@@ -1,0 +1,27 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: test-patch-filter-chain
+  namespace: egress
+spec:
+  configPatches:
+    - applyTo: FILTER_CHAIN
+      match:
+        listener:
+          filterChain:
+            sni: www.example.com
+      patch:
+        operation: MERGE
+        value:
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              commonTlsContext:
+                alpnProtocols:
+                  - http/1.1
+                tlsCertificateSdsSecretConfigs:
+                  - name: kubernetes://wildcard-cert
+                    sdsConfig:
+                      ads: {}
+                      resourceApiVersion: V3

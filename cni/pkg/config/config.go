@@ -80,6 +80,12 @@ type InstallConfig struct {
 	// The UDS server address that CNI plugin will send log to.
 	LogUDSAddress string
 
+	// Whether ambient is enabled
+	AmbientEnabled bool
+
+	// Whether ebpf is enabled
+	EbpfEnabled bool
+
 	// Use the external nsenter command for network namespace switching
 	HostNSEnterExec bool
 }
@@ -144,6 +150,8 @@ func (c InstallConfig) String() string {
 	b.WriteString("MonitoringPort: " + fmt.Sprint(c.MonitoringPort) + "\n")
 	b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
 	b.WriteString("HostNSEnterExec: " + fmt.Sprint(c.HostNSEnterExec) + "\n")
+
+	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")
 
 	return b.String()
 }

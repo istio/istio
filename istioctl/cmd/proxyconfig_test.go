@@ -40,6 +40,10 @@ func TestProxyConfig(t *testing.T) {
 	loggingConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile(t, "../pkg/writer/envoy/logging/testdata/logging.txt"),
 		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
+		"ztunnel-9v7nw":               []byte("current log level is debug"),
+	}
+	isZtunnelPod = func(podName, _ string) bool {
+		return strings.HasPrefix(podName, "ztunnel")
 	}
 	cases := []execTestCase{
 		{
@@ -158,6 +162,12 @@ func TestProxyConfig(t *testing.T) {
 			args:             strings.Split("pc route httpbin-794b576b6c-qx6pf", " "),
 			expectedString:   `config dump has no configuration type`,
 			wantException:    true,
+		},
+		{ // set ztunnel logging level
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log ztunnel-9v7nw --level debug", " "),
+			expectedString:   "current log level is debug",
+			wantException:    false,
 		},
 	}
 

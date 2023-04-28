@@ -9,6 +9,22 @@
     # is processed as if it were declared in the leaf namespace.
     rootNamespace: {{ .Values.meshConfig.rootNamespace | default .Values.global.istioNamespace }}
 
+  {{ $prom := include "prometheus" . | eq "true" }}
+  {{ $sdMetrics := include "sd-metrics" . | eq "true" }}
+  {{ $sdLogs := include "sd-logs" . | eq "true" }}
+  {{- if or $prom $sdMetrics $sdLogs }}
+    defaultProviders:
+    {{- if or $prom $sdMetrics }}
+      metrics:
+      {{ if $prom }}- prometheus{{ end }}
+      {{ if $sdMetrics }}- stackdriver{{ end }}
+    {{- end }}
+    {{- if $sdLogs }}
+      accessLogging:
+      - stackdriver
+    {{- end }}
+  {{- end }}
+
     defaultConfig:
       {{- if .Values.global.meshID }}
       meshId: "{{ .Values.global.meshID }}"
@@ -27,7 +43,7 @@
       {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         zipkin:
           # Address of the Zipkin collector
-          address: {{ .Values.global.tracer.zipkin.address | default (print "zipkin." .Values.global.istioNamespace ":9411") }}
+          address: {{ ((.Values.global.tracer).zipkin).address | default (print "zipkin." .Values.global.istioNamespace ":9411") }}
       {{- else if eq .Values.global.proxy.tracer "datadog" }}
         datadog:
           # Address of the Datadog Agent

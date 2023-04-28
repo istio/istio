@@ -33,7 +33,7 @@ func TestDeltaXdsLeak(t *testing.T) {
 	proxy := setupXdsProxyWithDownstreamOptions(t, []grpc.ServerOption{grpc.StreamInterceptor(xdstest.SlowServerInterceptor(time.Second, time.Second))})
 	f := xdstest.NewMockServer(t)
 	setDialOptions(proxy, f.Listener)
-	proxy.istiodDialOptions = append(proxy.istiodDialOptions, grpc.WithStreamInterceptor(xdstest.SlowClientInterceptor(0, time.Second*10)))
+	proxy.dialOptions = append(proxy.dialOptions, grpc.WithStreamInterceptor(xdstest.SlowClientInterceptor(0, time.Second*10)))
 	conn := setupDownstreamConnection(t, proxy)
 	downstream := deltaStream(t, conn)
 	sendDeltaDownstreamWithoutResponse(t, downstream)

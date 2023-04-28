@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
@@ -317,7 +317,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
+			authzPolicies := createFakeAuthorizationPolicies(tc.configs)
 
 			result := authzPolicies.ListAuthorizationPolicies(tc.ns, tc.workloadLabels)
 			if !reflect.DeepEqual(tc.wantAllow, result.Allow) {
@@ -336,7 +336,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	}
 }
 
-func createFakeAuthorizationPolicies(configs []config.Config, t *testing.T) *AuthorizationPolicies {
+func createFakeAuthorizationPolicies(configs []config.Config) *AuthorizationPolicies {
 	store := &authzFakeStore{}
 	for _, cfg := range configs {
 		store.add(cfg)
@@ -345,17 +345,14 @@ func createFakeAuthorizationPolicies(configs []config.Config, t *testing.T) *Aut
 		ConfigStore: store,
 		Watcher:     mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-config"}),
 	}
-	authzPolicies, err := GetAuthorizationPolicies(environment)
-	if err != nil {
-		t.Fatalf("GetAuthorizationPolicies failed: %v", err)
-	}
+	authzPolicies := GetAuthorizationPolicies(environment)
 	return authzPolicies
 }
 
 func newConfig(name, ns string, spec config.Spec) config.Config {
 	return config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.AuthorizationPolicy,
 			Name:             name,
 			Namespace:        ns,
 		},
@@ -391,7 +388,7 @@ func (fs *authzFakeStore) Get(_ config.GroupVersionKind, _, _ string) *config.Co
 	return nil
 }
 
-func (fs *authzFakeStore) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (fs *authzFakeStore) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	var configs []config.Config
 	for _, data := range fs.data {
 		if data.typ == typ {
@@ -401,7 +398,7 @@ func (fs *authzFakeStore) List(typ config.GroupVersionKind, namespace string) ([
 			configs = append(configs, data.cfg)
 		}
 	}
-	return configs, nil
+	return configs
 }
 
 func (fs *authzFakeStore) Delete(_ config.GroupVersionKind, _, _ string, _ *string) error {

@@ -33,7 +33,7 @@ import (
 // proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
 // of metrics, which should be covered by integration test in proxy repo.
 func TestWasmStatsFilter(t *testing.T) {
-	common.TestStatsFilter(t, "observability.telemetry.stats.prometheus.http.wasm")
+	common.TestStatsFilter(t, "observability.telemetry.stats.prometheus.http.wasm", common.DefaultBucketCount)
 }
 
 func TestMain(m *testing.M) {

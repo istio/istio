@@ -18,21 +18,19 @@ import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
-	networkingV1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	kubeIngress "istio.io/istio/pilot/pkg/config/kube/ingress"
-	ingressv1 "istio.io/istio/pilot/pkg/config/kube/ingressv1"
+	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 func FuzzConvertIngressVirtualService(data []byte) int {
 	f := fuzz.NewConsumer(data)
-	ingress := knetworking.Ingress{}
-	err := f.GenerateStruct(&ingress)
+	ing := knetworking.Ingress{}
+	err := f.GenerateStruct(&ing)
 	if err != nil {
 		return 0
 	}
@@ -40,29 +38,14 @@ func FuzzConvertIngressVirtualService(data []byte) int {
 	cfgs := map[string]*config.Config{}
 	serviceLister, teardown := newServiceLister(service)
 	defer teardown()
-	ingressv1.ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
-	return 1
-}
-
-func FuzzConvertIngressVirtualService2(data []byte) int {
-	f := fuzz.NewConsumer(data)
-	ingress := networkingV1beta1.Ingress{}
-	err := f.GenerateStruct(&ingress)
-	if err != nil {
-		return 0
-	}
-	service := &corev1.Service{}
-	cfgs := map[string]*config.Config{}
-	serviceLister, teardown := newServiceLister(service)
-	defer teardown()
-	kubeIngress.ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
+	ingress.ConvertIngressVirtualService(ing, "mydomain", cfgs, serviceLister)
 	return 1
 }
 
 func FuzzConvertIngressV1alpha3(data []byte) int {
 	f := fuzz.NewConsumer(data)
-	ingress := knetworking.Ingress{}
-	err := f.GenerateStruct(&ingress)
+	ing := knetworking.Ingress{}
+	err := f.GenerateStruct(&ing)
 	if err != nil {
 		return 0
 	}
@@ -71,32 +54,16 @@ func FuzzConvertIngressV1alpha3(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	ingressv1.ConvertIngressV1alpha3(ingress, m, "mydomain")
+	ingress.ConvertIngressV1alpha3(ing, m, "mydomain")
 	return 1
 }
 
-func FuzzConvertIngressV1alpha32(data []byte) int {
-	f := fuzz.NewConsumer(data)
-	ingress := networkingV1beta1.Ingress{}
-	err := f.GenerateStruct(&ingress)
-	if err != nil {
-		return 0
-	}
-	m := &meshconfig.MeshConfig{}
-	err = f.GenerateStruct(m)
-	if err != nil {
-		return 0
-	}
-	kubeIngress.ConvertIngressV1alpha3(ingress, m, "mydomain")
-	return 1
-}
-
-func newServiceLister(objects ...runtime.Object) (listerv1.ServiceLister, func()) {
-	client := kube.NewFakeClient(objects...)
+func newServiceLister(objects ...runtime.Object) (kclient.Client[*corev1.Service], func()) {
+	kc := kube.NewFakeClient(objects...)
 	stop := make(chan struct{})
-	client.RunAndWait(stop)
+	kc.RunAndWait(stop)
 	teardown := func() {
 		close(stop)
 	}
-	return client.KubeInformer().Core().V1().Services().Lister(), teardown
+	return kclient.New[*corev1.Service](kc), teardown
 }

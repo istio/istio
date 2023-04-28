@@ -70,6 +70,9 @@ type TestOptions struct {
 	// Additional service registries to use. A ServiceEntry and memory registry will always be created.
 	ServiceRegistries []serviceregistry.Instance
 
+	// Base ConfigController to use. If not set, a in-memory store will be used
+	ConfigController model.ConfigStoreController
+
 	// Additional ConfigStoreController to use
 	ConfigStoreCaches []model.ConfigStoreController
 
@@ -117,9 +120,10 @@ type ConfigGenTest struct {
 func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	t.Helper()
 	configs := getConfigs(t, opts)
-	configStore := memory.MakeSkipValidation(collections.PilotGatewayAPI)
-
-	cc := memory.NewSyncController(configStore)
+	cc := opts.ConfigController
+	if cc == nil {
+		cc = memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI))
+	}
 	controllers := []model.ConfigStoreController{cc}
 	if opts.CreateConfigStore != nil {
 		controllers = append(controllers, opts.CreateConfigStore(cc))
@@ -219,7 +223,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.17.0"
+		p.Metadata.IstioVersion = "1.19.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)

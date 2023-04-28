@@ -78,6 +78,7 @@ const (
 type SelectionSpec struct {
 	Namespaces  []string          `json:"namespaces,omitempty"`
 	Deployments []string          `json:"deployments,omitempty"`
+	Daemonsets  []string          `json:"daemonsets,omitempty"`
 	Pods        []string          `json:"pods,omitempty"`
 	Containers  []string          `json:"containers,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`

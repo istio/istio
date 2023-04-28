@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/yaml"
 
@@ -45,7 +45,7 @@ func ApplyNamespace(yamlText, ns string) (string, error) {
 
 // ApplyPullSecrets applies the given pullsecret to the deployment resource
 func ApplyPullSecret(deploymentYaml string, pullSecret string) (string, error) {
-	var deploymentMerge v1.Deployment
+	var deploymentMerge appsv1.Deployment
 
 	mainYaml, err := yaml.YAMLToJSON([]byte(deploymentYaml))
 	if err != nil {

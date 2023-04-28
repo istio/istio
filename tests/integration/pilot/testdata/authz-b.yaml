@@ -6,7 +6,7 @@ spec:
   action: ALLOW
   selector:
     matchLabels:
-      "istio": "ingressgateway"
+      "istio": {{.GatewayIstioLabel | default "ingressgateway"}}
   rules:
   - to:
     - operation:
@@ -20,7 +20,7 @@ spec:
   action: DENY
   selector:
     matchLabels:
-      "istio": "ingressgateway"
+      "istio": {{.GatewayIstioLabel | default "ingressgateway"}}
   rules:
   - to:
     - operation:
@@ -36,7 +36,7 @@ metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 18080

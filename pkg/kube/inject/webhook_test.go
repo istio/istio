@@ -775,7 +775,7 @@ func normalizeAndCompareDeployments(got, want *corev1.Pod, ignoreIstioMetaJSONAn
 
 	for _, c := range got.Spec.Containers {
 		for _, env := range c.Env {
-			if env.ValueFrom != nil {
+			if env.ValueFrom != nil && env.ValueFrom.FieldRef != nil {
 				env.ValueFrom.FieldRef.APIVersion = ""
 			}
 			// check if metajson is encoded correctly
@@ -899,7 +899,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 			},
 		}))
 	}
-	pcs, _ := model.GetProxyConfigs(store, m)
+	pcs := model.GetProxyConfigs(store, m)
 	env := model.Environment{
 		Watcher: mesh.NewFixedWatcher(m),
 		PushContext: &model.PushContext{
@@ -1268,7 +1268,7 @@ func TestParseInjectEnvs(t *testing.T) {
 			// slash as separators
 			name: "no-predefined-kv-with-mixed-values",
 			in: func() string {
-				req, _ := http.NewRequest("GET",
+				req, _ := http.NewRequest(http.MethodGet,
 					"%2Finject%2Frootpage1%2Ffoo%2Frootpage2%2Fbar", nil)
 				return req.URL.Path
 			}(),
@@ -1279,7 +1279,7 @@ func TestParseInjectEnvs(t *testing.T) {
 			// eg. /inject/:ENV:rootpage1=/foo/bar:ENV:rootpage2=/bar/toe but url encoded.
 			name: "no-predefined-kv-with-slashes",
 			in: func() string {
-				req, _ := http.NewRequest("GET",
+				req, _ := http.NewRequest(http.MethodGet,
 					"%2Finject%2F%3AENV%3Arootpage1%3D%2Ffoo%2Fbar%3AENV%3Arootpage2%3D%2Fbar%2Ftoe", nil)
 				return req.URL.Path
 			}(),

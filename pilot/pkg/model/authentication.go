@@ -23,7 +23,6 @@ import (
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -98,7 +97,7 @@ type AuthenticationPolicies struct {
 
 // initAuthenticationPolicies creates a new AuthenticationPolicies struct and populates with the
 // authentication policies in the mesh environment.
-func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, error) {
+func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
 	policy := &AuthenticationPolicies{
 		requestAuthentications: map[string][]config.Config{},
 		peerAuthentications:    map[string][]config.Config{},
@@ -106,22 +105,10 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 		rootNamespace:          env.Mesh().GetRootNamespace(),
 	}
 
-	if configs, err := env.List(
-		gvk.RequestAuthentication, NamespaceAll); err == nil {
-		sortConfigByCreationTime(configs)
-		policy.addRequestAuthentication(configs)
-	} else {
-		return nil, err
-	}
+	policy.addRequestAuthentication(sortConfigByCreationTime(env.List(gvk.RequestAuthentication, NamespaceAll)))
+	policy.addPeerAuthentication(sortConfigByCreationTime(env.List(gvk.PeerAuthentication, NamespaceAll)))
 
-	if configs, err := env.List(
-		gvk.PeerAuthentication, NamespaceAll); err == nil {
-		policy.addPeerAuthentication(configs)
-	} else {
-		return nil, err
-	}
-
-	return policy, nil
+	return policy
 }
 
 func (policy *AuthenticationPolicies) addRequestAuthentication(configs []config.Config) {
@@ -252,9 +239,9 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 				}
 				var selector labels.Instance
 				switch cfg.GroupVersionKind {
-				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+				case gvk.RequestAuthentication:
 					selector = cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
-				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+				case gvk.PeerAuthentication:
 					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
 				default:
 					log.Warnf("Not support authentication type %q", cfg.GroupVersionKind)

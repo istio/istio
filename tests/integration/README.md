@@ -562,6 +562,9 @@ The test framework supports the following command-line flags:
 
   -istio.test.skipVM bool
         Skip all the VM related parts in all the tests. (default is "false")
+
+  -istio.test.helmRepo string
+        Overwrite the default helm Repo used for the tests.
 ```
 
 ## Notes
@@ -577,7 +580,7 @@ unable to locate an Envoy binary
 This is documented in this [PR](https://github.com/istio/istio/issues/13677). Once the Envoy binary is available for the Mac,
 these tests will hopefully succeed.
 
-* If one uses Docker for Mac for the kubernetes environment be sure to specify the `-istio.test.kube.loadbalancer=false` parameter. The solves an error like:
+* If one uses Docker for Mac for the kubernetes environment be sure to specify the `-istio.test.kube.loadbalancer=false` parameter. This solves an error like:
 
 ```plain
 service ingress is not available yet

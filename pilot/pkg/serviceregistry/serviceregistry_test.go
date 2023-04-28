@@ -41,10 +41,12 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -59,16 +61,12 @@ func setupTest(t *testing.T) (
 	*serviceentry.Controller,
 	model.ConfigStoreController,
 	kubernetes.Interface,
-	*xds.FakeXdsUpdater,
+	*xdsfake.Updater,
 ) {
 	t.Helper()
 	client := kubeclient.NewFakeClient()
 
-	eventch := make(chan xds.FakeXdsEvent, 100)
-
-	xdsUpdater := &xds.FakeXdsUpdater{
-		Events: eventch,
-	}
+	xdsUpdater := xdsfake.NewFakeXDS()
 	meshWatcher := mesh.NewFixedWatcher(&meshconfig.MeshConfig{})
 	kc := kubecontroller.NewController(
 		client,
@@ -155,9 +153,10 @@ func TestWorkloadInstances(t *testing.T) {
 	}
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod",
-			Namespace: namespace,
-			Labels:    labels,
+			Name:        "pod",
+			Namespace:   namespace,
+			Labels:      labels,
+			Annotations: map[string]string{},
 		},
 		Status: v1.PodStatus{
 			PodIP: "1.2.3.4",
@@ -212,23 +211,23 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("Kubernetes pod labels update", func(t *testing.T) {
 		_, _, _, kube, xdsUpdater := setupTest(t)
 		makeService(t, kube, service)
-		xdsUpdater.WaitOrFail(t, "svcupdate")
+		xdsUpdater.WaitOrFail(t, "service")
 		makePod(t, kube, pod)
-		xdsUpdater.WaitOrFail(t, "proxy update")
+		xdsUpdater.WaitOrFail(t, "proxy")
 		newPod := pod.DeepCopy()
 		newPod.Labels["newlabel"] = "new"
 		makePod(t, kube, newPod)
-		xdsUpdater.WaitOrFail(t, "proxy update")
+		xdsUpdater.WaitOrFail(t, "proxy")
 	})
 
 	t.Run("Kubernetes only: headless service", func(t *testing.T) {
 		kc, _, _, kube, xdsUpdater := setupTest(t)
 		makeService(t, kube, headlessService)
-		xdsUpdater.WaitOrFail(t, "svcupdate")
+		xdsUpdater.WaitOrFail(t, "service")
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 		xdsUpdater.WaitOrFail(t, "eds")
-		xdsUpdater.WaitOrFail(t, "xds")
+		xdsUpdater.WaitOrFail(t, "xds full")
 		instances := []ServiceInstanceResponse{{
 			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
@@ -239,15 +238,15 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Kubernetes only: endpoint occur earlier", func(t *testing.T) {
-		kc, _, _, kube, xdsUpdater := setupTest(t)
+		kc, _, _, kube, fx := setupTest(t)
 		makePod(t, kube, pod)
 
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
-		waitForEdsUpdate(t, xdsUpdater, 1)
+		waitForEdsUpdate(t, fx, 1)
 
 		// make service populated later than endpoint
 		makeService(t, kube, service)
-		waitForEdsUpdate(t, xdsUpdater, 1)
+		fx.WaitOrFail(t, "eds cache")
 
 		instances := []ServiceInstanceResponse{{
 			Hostname:   expectedSvc.Hostname,
@@ -457,21 +456,14 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects WorkloadEntry: wle occur earlier", func(t *testing.T) {
-		kc, _, store, kube, xdsUpdater := setupTest(t)
+		kc, _, store, kube, fx := setupTest(t)
 		makeIstioObject(t, store, workloadEntry)
 		// 	Other than proxy update, no event pushed when workload entry created as no service entry
-		xdsUpdater.WaitOrFail(t, "proxy update")
-		select {
-		case ev := <-xdsUpdater.Events:
-			t.Fatalf("Got %s event, expect none", ev.Kind)
-		case <-time.After(40 * time.Millisecond):
-		}
+		fx.WaitOrFail(t, "proxy")
+		fx.AssertEmpty(t, 40*time.Millisecond)
 
 		makeService(t, kube, service)
-		event := xdsUpdater.WaitOrFail(t, "edscache")
-		if event.Endpoints != 1 {
-			t.Errorf("expecting 1 endpoints, but got %d ", event.Endpoints)
-		}
+		fx.MatchOrFail(t, xdsfake.Event{Type: "eds cache", EndpointCount: 1})
 
 		instances := []ServiceInstanceResponse{{
 			Hostname:   expectedSvc.Hostname,
@@ -485,7 +477,7 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("Service selects both pods and WorkloadEntry", func(t *testing.T) {
 		kc, _, store, kube, xdsUpdater := setupTest(t)
 		makeService(t, kube, service)
-		xdsUpdater.WaitOrFail(t, "svcupdate")
+		xdsUpdater.WaitOrFail(t, "service")
 
 		makeIstioObject(t, store, workloadEntry)
 		xdsUpdater.WaitOrFail(t, "eds")
@@ -512,23 +504,19 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects both pods and WorkloadEntry: wle occur earlier", func(t *testing.T) {
-		kc, _, store, kube, xdsUpdater := setupTest(t)
+		kc, _, store, kube, fx := setupTest(t)
 		makeIstioObject(t, store, workloadEntry)
 
 		// 	Other than proxy update, no event pushed when workload entry created as no service entry
-		xdsUpdater.WaitOrFail(t, "proxy update")
-		select {
-		case ev := <-xdsUpdater.Events:
-			t.Fatalf("Got %s event, expect none", ev.Kind)
-		case <-time.After(200 * time.Millisecond):
-		}
+		fx.WaitOrFail(t, "proxy")
+		fx.AssertEmpty(t, 200*time.Millisecond)
 
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
-		waitForEdsUpdate(t, xdsUpdater, 1)
+		waitForEdsUpdate(t, fx, 1)
 
 		makeService(t, kube, service)
-		waitForEdsUpdate(t, xdsUpdater, 2)
+		fx.WaitOrFail(t, "eds cache")
 
 		instances := []ServiceInstanceResponse{
 			{
@@ -674,7 +662,7 @@ func TestWorkloadInstances(t *testing.T) {
 			Port:       8080,
 		}}
 		expectServiceInstances(t, s.KubeRegistry, expectedSvc, 80, instances)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:8080"})
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:8080"}, nil)
 		instances = []ServiceInstanceResponse{{
 			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
@@ -682,7 +670,7 @@ func TestWorkloadInstances(t *testing.T) {
 			Port:       9090,
 		}}
 		expectServiceInstances(t, s.KubeRegistry, expectedSvc, 90, instances)
-		expectEndpoints(t, s, "outbound|90||service.namespace.svc.cluster.local", []string{"2.3.4.5:9090"})
+		expectEndpoints(t, s, "outbound|90||service.namespace.svc.cluster.local", []string{"2.3.4.5:9090"}, nil)
 	})
 
 	t.Run("ServiceEntry selects Pod", func(t *testing.T) {
@@ -826,110 +814,128 @@ func TestWorkloadInstances(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		makeService(t, s.KubeClient().Kube(), service)
 		makeIstioObject(t, s.Store(), workloadEntry)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"})
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"}, nil)
 
 		newSvc := service.DeepCopy()
 		newSvc.Spec.Ports[0].Port = 8080
 		makeService(t, s.KubeClient().Kube(), newSvc)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
-		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", []string{"2.3.4.5:8080"})
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nil)
+		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", []string{"2.3.4.5:8080"}, nil)
 
 		newSvc.Spec.Ports[0].TargetPort = intstr.IntOrString{IntVal: 9090}
 		makeService(t, s.KubeClient().Kube(), newSvc)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
-		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", []string{"2.3.4.5:9090"})
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nil)
+		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", []string{"2.3.4.5:9090"}, nil)
 
 		if err := s.KubeClient().Kube().CoreV1().Services(newSvc.Namespace).Delete(context.Background(), newSvc.Name, metav1.DeleteOptions{}); err != nil {
 			t.Fatal(err)
 		}
-		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", nil)
+		expectEndpoints(t, s, "outbound|8080||service.namespace.svc.cluster.local", nil, nil)
 	})
 
 	t.Run("Service selects WorkloadEntry: update workloadEntry", func(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		makeService(t, s.KubeClient().Kube(), service)
 		makeIstioObject(t, s.Store(), workloadEntry)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"})
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"}, nil)
 
 		newWE := workloadEntry.DeepCopy()
 		newWE.Spec.(*networking.WorkloadEntry).Address = "3.4.5.6"
 		makeIstioObject(t, s.Store(), newWE)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"3.4.5.6:80"})
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"3.4.5.6:80"}, nil)
 
 		if err := s.Store().Delete(gvk.WorkloadEntry, newWE.Name, newWE.Namespace, nil); err != nil {
 			t.Fatal(err)
 		}
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nil)
 	})
 
-	t.Run("ServiceEntry selects Pod: update service entry", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		makeIstioObject(t, s.Store(), serviceEntry)
-		makePod(t, s.KubeClient().Kube(), pod)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
-
-		newSE := serviceEntry.DeepCopy()
-		newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.ServicePort{{
-			Name:       "http",
-			Number:     80,
-			Protocol:   "http",
-			TargetPort: 8080,
-		}}
-		makeIstioObject(t, s.Store(), newSE)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:8080"})
-
-		newSE = newSE.DeepCopy()
-		newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.ServicePort{{
-			Name:       "http",
-			Number:     9090,
-			Protocol:   "http",
-			TargetPort: 9091,
-		}}
-		makeIstioObject(t, s.Store(), newSE)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
-		expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", []string{"1.2.3.4:9091"})
-
-		if err := s.Store().Delete(gvk.ServiceEntry, newSE.Name, newSE.Namespace, nil); err != nil {
-			t.Fatal(err)
+	istiotest.SetForTest(t, &features.EnableHBONE, true)
+	istiotest.SetForTest(t, &features.EnableAmbientControllers, true)
+	for _, ambient := range []bool{false, true} {
+		name := "disabled"
+		if ambient {
+			name = "enabled"
 		}
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
-		expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", nil)
-	})
-
-	t.Run("ServiceEntry selects Pod: update pod", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		makeIstioObject(t, s.Store(), serviceEntry)
-		makePod(t, s.KubeClient().Kube(), pod)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
-
-		newPod := pod.DeepCopy()
-		newPod.Status.PodIP = "2.3.4.5"
-		makePod(t, s.KubeClient().Kube(), newPod)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:80"})
-
-		if err := s.KubeClient().Kube().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
-			t.Fatal(err)
+		m := mesh.DefaultMeshConfig()
+		var nodeMeta *model.NodeMetadata
+		if ambient {
+			nodeMeta = &model.NodeMetadata{EnableHBONE: true}
+			pod = pod.DeepCopy()
+			pod.Annotations[constants.AmbientRedirection] = constants.AmbientRedirectionEnabled
 		}
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
-	})
+		opts := xds.FakeOptions{MeshConfig: m}
+		t.Run("ambient "+name, func(t *testing.T) {
+			t.Run("ServiceEntry selects Pod: update service entry", func(t *testing.T) {
+				s := xds.NewFakeDiscoveryServer(t, opts)
+				makeIstioObject(t, s.Store(), serviceEntry)
+				makePod(t, s.KubeClient().Kube(), pod)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:80"}, ambient), nodeMeta)
 
-	t.Run("ServiceEntry selects Pod: deleting pod", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		makeIstioObject(t, s.Store(), serviceEntry)
-		makePod(t, s.KubeClient().Kube(), pod)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+				newSE := serviceEntry.DeepCopy()
+				newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.ServicePort{{
+					Name:       "http",
+					Number:     80,
+					Protocol:   "http",
+					TargetPort: 8080,
+				}}
+				makeIstioObject(t, s.Store(), newSE)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:8080"}, ambient), nodeMeta)
 
-		// Simulate pod being deleted by setting deletion timestamp
-		newPod := pod.DeepCopy()
-		newPod.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-		makePod(t, s.KubeClient().Kube(), newPod)
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+				newSE = newSE.DeepCopy()
+				newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.ServicePort{{
+					Name:       "http",
+					Number:     9090,
+					Protocol:   "http",
+					TargetPort: 9091,
+				}}
+				makeIstioObject(t, s.Store(), newSE)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nodeMeta)
+				expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:9091"}, ambient), nodeMeta)
 
-		if err := s.KubeClient().Kube().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
-			t.Fatal(err)
-		}
-		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
-	})
+				if err := s.Store().Delete(gvk.ServiceEntry, newSE.Name, newSE.Namespace, nil); err != nil {
+					t.Fatal(err)
+				}
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nodeMeta)
+				expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", nil, nodeMeta)
+			})
+
+			t.Run("ServiceEntry selects Pod: update pod", func(t *testing.T) {
+				s := xds.NewFakeDiscoveryServer(t, opts)
+				makeIstioObject(t, s.Store(), serviceEntry)
+				makePod(t, s.KubeClient().Kube(), pod)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:80"}, ambient), nodeMeta)
+
+				newPod := pod.DeepCopy()
+				newPod.Status.PodIP = "2.3.4.5"
+				makePod(t, s.KubeClient().Kube(), newPod)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"2.3.4.5:80"}, ambient), nodeMeta)
+
+				if err := s.KubeClient().Kube().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
+					t.Fatal(err)
+				}
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nodeMeta)
+			})
+
+			t.Run("ServiceEntry selects Pod: deleting pod", func(t *testing.T) {
+				s := xds.NewFakeDiscoveryServer(t, opts)
+				makeIstioObject(t, s.Store(), serviceEntry)
+				makePod(t, s.KubeClient().Kube(), pod)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:80"}, ambient), nodeMeta)
+
+				// Simulate pod being deleted by setting deletion timestamp
+				newPod := pod.DeepCopy()
+				newPod.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+				makePod(t, s.KubeClient().Kube(), newPod)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nodeMeta)
+
+				if err := s.KubeClient().Kube().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
+					t.Fatal(err)
+				}
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nodeMeta)
+			})
+		})
+	}
 
 	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
 		kc, _, store, kube, _ := setupTest(t)
@@ -967,6 +973,17 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 }
 
+func expectAmbient(strings []string, ambient bool) []string {
+	if !ambient {
+		return strings
+	}
+	var out []string
+	for _, s := range strings {
+		out = append(out, "connect_originate;"+s)
+	}
+	return out
+}
+
 func setHealth(cfg config.Config, healthy bool) config.Config {
 	cfg = cfg.DeepCopy()
 	if cfg.Annotations == nil {
@@ -985,15 +1002,9 @@ func setHealth(cfg config.Config, healthy bool) config.Config {
 	})
 }
 
-func waitForEdsUpdate(t *testing.T, xdsUpdater *xds.FakeXdsUpdater, expected int) {
+func waitForEdsUpdate(t *testing.T, xdsUpdater *xdsfake.Updater, expected int) {
 	t.Helper()
-	retry.UntilSuccessOrFail(t, func() error {
-		event := xdsUpdater.WaitOrFail(t, "eds", "edscache")
-		if event.Endpoints != expected {
-			return fmt.Errorf("expecting %d endpoints, but got %d", expected, event.Endpoints)
-		}
-		return nil
-	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second))
+	xdsUpdater.MatchOrFail(t, xdsfake.Event{Type: "eds", EndpointCount: expected})
 }
 
 func TestEndpointsDeduping(t *testing.T) {
@@ -1023,36 +1034,36 @@ func TestEndpointsDeduping(t *testing.T) {
 	})
 	// Create an expect endpoint
 	createEndpointSlice(t, s.KubeClient().Kube(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"}, nil)
 
 	// create an FQDN endpoint that should be ignored
 	createEndpointSliceWithType(t, s.KubeClient().Kube(), "slice1", "service",
 		namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"foo.com"}, discovery.AddressTypeFQDN)
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"}, nil)
 
 	// Add another port endpoint
 	createEndpointSlice(t, s.KubeClient().Kube(), "slice1", "service", namespace,
 		[]v1.EndpointPort{{Name: "http-other", Port: 90}, {Name: "http", Port: 80}}, []string{"1.2.3.4", "2.3.4.5"})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80", "2.3.4.5:80"})
-	expectEndpoints(t, s, "outbound|90||service.namespace.svc.cluster.local", []string{"1.2.3.4:90", "2.3.4.5:90"})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80", "2.3.4.5:80"}, nil)
+	expectEndpoints(t, s, "outbound|90||service.namespace.svc.cluster.local", []string{"1.2.3.4:90", "2.3.4.5:90"}, nil)
 
 	// Move the endpoint to another slice - transition phase where its duplicated
 	createEndpointSlice(t, s.KubeClient().Kube(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.5", "2.3.4.5"})
 	createEndpointSlice(t, s.KubeClient().Kube(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"2.3.4.5"})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.5:80", "2.3.4.5:80"})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.5:80", "2.3.4.5:80"}, nil)
 
 	// Move the endpoint to another slice - completed
 	createEndpointSlice(t, s.KubeClient().Kube(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
 	createEndpointSlice(t, s.KubeClient().Kube(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"2.3.4.5"})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80", "2.3.4.5:80"})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80", "2.3.4.5:80"}, nil)
 
 	// Delete endpoint
 	createEndpointSlice(t, s.KubeClient().Kube(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
 	createEndpointSlice(t, s.KubeClient().Kube(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"}, nil)
 
 	_ = s.KubeClient().Kube().DiscoveryV1().EndpointSlices(namespace).Delete(context.TODO(), "slice1", metav1.DeleteOptions{})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nil)
 
 	// Ensure there is nothing is left over
 	expectServiceInstances(t, s.KubeRegistry, &model.Service{
@@ -1068,6 +1079,7 @@ func TestEndpointsDeduping(t *testing.T) {
 			LabelSelectors: labels,
 		},
 	}, 80, []ServiceInstanceResponse{})
+	retry.UntilSuccessOrFail(t, s.AssertEndpointConsistency, retry.Converge(2), retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
 }
 
 // TestEndpointSlicingServiceUpdate is a regression test to ensure we do not end up with duplicate endpoints when a service changes.
@@ -1100,11 +1112,11 @@ func TestEndpointSlicingServiceUpdate(t *testing.T) {
 					ClusterIP: "9.9.9.9",
 				},
 			})
-			xdsUpdater := s.XdsUpdater.(*xds.FakeXdsUpdater)
+			fx := s.XdsUpdater.(*xdsfake.Updater)
 			createEndpointSlice(t, s.KubeClient().Kube(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
 			createEndpointSlice(t, s.KubeClient().Kube(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
-			expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
-			xdsUpdater.WaitOrFail(t, "svcupdate")
+			expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"}, nil)
+			fx.WaitOrFail(t, "service")
 
 			// Trigger a service updates
 			makeService(t, s.KubeClient().Kube(), &v1.Service{
@@ -1125,8 +1137,8 @@ func TestEndpointSlicingServiceUpdate(t *testing.T) {
 					ClusterIP: "9.9.9.9",
 				},
 			})
-			xdsUpdater.WaitOrFail(t, "svcupdate")
-			expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+			fx.WaitOrFail(t, "service")
+			expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"}, nil)
 		})
 	}
 }
@@ -1157,20 +1169,20 @@ func TestSameIPEndpointSlicing(t *testing.T) {
 			ClusterIP: "9.9.9.9",
 		},
 	})
-	xdsUpdater := s.XdsUpdater.(*xds.FakeXdsUpdater)
+	fx := s.XdsUpdater.(*xdsfake.Updater)
 
 	// Delete endpoints with same IP
 	createEndpointSlice(t, s.KubeClient().Kube(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
 	createEndpointSlice(t, s.KubeClient().Kube(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"}, nil)
 
 	// delete slice 1, it should still exist
 	_ = s.KubeClient().Kube().DiscoveryV1().EndpointSlices(namespace).Delete(context.TODO(), "slice1", metav1.DeleteOptions{})
-	xdsUpdater.WaitOrFail(t, "eds")
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+	fx.WaitOrFail(t, "eds")
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"}, nil)
 	_ = s.KubeClient().Kube().DiscoveryV1().EndpointSlices(namespace).Delete(context.TODO(), "slice2", metav1.DeleteOptions{})
-	xdsUpdater.WaitOrFail(t, "eds")
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+	fx.WaitOrFail(t, "eds")
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nil)
 }
 
 type ServiceInstanceResponse struct {
@@ -1180,10 +1192,10 @@ type ServiceInstanceResponse struct {
 	Port       uint32
 }
 
-func expectEndpoints(t *testing.T, s *xds.FakeDiscoveryServer, cluster string, expected []string) {
+func expectEndpoints(t *testing.T, s *xds.FakeDiscoveryServer, cluster string, expected []string, metadata *model.NodeMetadata) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		got := xdstest.ExtractLoadAssignments(s.Endpoints(s.SetupProxy(nil)))
+		got := xdstest.ExtractLoadAssignments(s.Endpoints(s.SetupProxy(&model.Proxy{Metadata: metadata})))
 		sort.Strings(got[cluster])
 		sort.Strings(expected)
 		if !reflect.DeepEqual(got[cluster], expected) {
@@ -1191,6 +1203,8 @@ func expectEndpoints(t *testing.T, s *xds.FakeDiscoveryServer, cluster string, e
 		}
 		return nil
 	}, retry.Converge(2), retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
+
+	retry.UntilSuccessOrFail(t, s.AssertEndpointConsistency, retry.Converge(2), retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
 }
 
 // nolint: unparam

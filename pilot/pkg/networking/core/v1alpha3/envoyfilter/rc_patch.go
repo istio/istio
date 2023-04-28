@@ -37,7 +37,7 @@ func ApplyRouteConfigurationPatches(
 ) (out *route.RouteConfiguration) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		IncrementEnvoyFilterErrorMetric(Route)
-		log.Errorf("route patch caused panic, so the patches did not take effect")
+		log.Errorf("route patch %s/%s caused panic, so the patches did not take effect", efw.Namespace, efw.Name)
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.
 	out = routeConfiguration
@@ -93,8 +93,8 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 			IncrementEnvoyFilterMetric(rp.Key(), VirtualHost, false)
 		}
 	}
-	if len(removedVirtualHosts) > 0 {
-		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
+	if removedVirtualHosts.Len() > 0 {
+		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts)-removedVirtualHosts.Len())
 		for _, virtualHost := range routeConfiguration.VirtualHosts {
 			if removedVirtualHosts.Contains(virtualHost.Name) {
 				continue

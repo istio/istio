@@ -24,12 +24,13 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"golang.org/x/exp/slices"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -103,16 +104,23 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	switch node.Type {
 	case model.SidecarProxy:
 		builder = configgen.buildSidecarListeners(builder)
+	case model.Waypoint:
+		builder = configgen.buildWaypointListeners(builder)
 	case model.Router:
 		builder = configgen.buildGatewayListeners(builder)
 	}
 
 	builder.patchListeners()
-	return builder.getListeners()
+	l := builder.getListeners()
+	if builder.node.EnableHBONE() && !builder.node.IsAmbient() {
+		l = append(l, outboundTunnelListener(builder.node))
+	}
+
+	return l
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
-	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
+	proxy *model.Proxy, mesh *meshconfig.MeshConfig, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
 ) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
@@ -183,18 +191,48 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		}
 	}
 
-	// Set TLS parameters if they are non-default
-	if len(serverTLSSettings.CipherSuites) > 0 ||
-		serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
-		serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
-		ctx.CommonTlsContext.TlsParams = &auth.TlsParameters{
-			TlsMinimumProtocolVersion: convertTLSProtocol(serverTLSSettings.MinProtocolVersion),
-			TlsMaximumProtocolVersion: convertTLSProtocol(serverTLSSettings.MaxProtocolVersion),
-			CipherSuites:              serverTLSSettings.CipherSuites,
-		}
+	if isSimpleOrMutual(serverTLSSettings.Mode) {
+		// If Mesh TLSDefaults are set, use them.
+		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
+		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
+	}
+	return ctx
+}
+
+func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ctx *auth.CommonTlsContext) {
+	if tlsDefaults == nil {
+		return
 	}
 
-	return ctx
+	if len(tlsDefaults.EcdhCurves) > 0 {
+		tlsParamsOrNew(ctx).EcdhCurves = tlsDefaults.EcdhCurves
+	}
+	if tlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(tlsDefaults.MinProtocolVersion)
+	}
+}
+
+func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx *auth.CommonTlsContext) {
+	if serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = convertTLSProtocol(serverTLSSettings.MinProtocolVersion)
+	}
+	if len(serverTLSSettings.CipherSuites) > 0 {
+		tlsParamsOrNew(ctx).CipherSuites = serverTLSSettings.CipherSuites
+	}
+	if serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMaximumProtocolVersion = convertTLSProtocol(serverTLSSettings.MaxProtocolVersion)
+	}
+}
+
+func isSimpleOrMutual(mode networking.ServerTLSSettings_TLSmode) bool {
+	return mode == networking.ServerTLSSettings_SIMPLE || mode == networking.ServerTLSSettings_MUTUAL
+}
+
+func tlsParamsOrNew(tlsContext *auth.CommonTlsContext) *auth.TlsParameters {
+	if tlsContext.TlsParams == nil {
+		tlsContext.TlsParams = &auth.TlsParameters{}
+	}
+	return tlsContext.TlsParams
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
@@ -206,6 +244,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(builder *ListenerBui
 			buildHTTPProxyListener().
 			buildVirtualOutboundListener()
 	}
+	return builder
+}
+
+// buildWaypointListeners produces a list of listeners for waypoint
+func (configgen *ConfigGeneratorImpl) buildWaypointListeners(builder *ListenerBuilder) *ListenerBuilder {
+	builder.inboundListeners = builder.buildWaypointInbound()
 	return builder
 }
 
@@ -698,6 +742,13 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 	if len(listenerOpts.bind) == 0 {
 		svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
 		svcExtraListenAddress := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
+		// Override the svcListenAddress, using the proxy ipFamily, for cases where the ipFamily cannot be detected easily.
+		// For example: due to the possibility of using hostnames instead of ips in ServiceEntry,
+		// it is hard to detect ipFamily for such services.
+		if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsIPv6() &&
+			svcListenAddress == constants.UnspecifiedIP {
+			svcListenAddress = constants.UnspecifiedIPv6
+		}
 		// We should never get an empty address.
 		// This is a safety guard, in case some platform adapter isn't doing things
 		// properly
@@ -1074,6 +1125,9 @@ type httpListenerOpts struct {
 	class istionetworking.ListenerClass
 	port  int
 	hbone bool
+
+	// Waypoint-specific modifications in HCM
+	isWaypoint bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1462,7 +1516,7 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 	if first.TransportProtocol != second.TransportProtocol {
 		return false
 	}
-	if !util.StringSliceEqual(first.ApplicationProtocols, second.ApplicationProtocols) {
+	if !slices.Equal(first.ApplicationProtocols, second.ApplicationProtocols) {
 		return false
 	}
 	if first.DestinationPort.GetValue() != second.DestinationPort.GetValue() {
@@ -1486,10 +1540,10 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 	if first.SourceType != second.SourceType {
 		return false
 	}
-	if !util.UInt32SliceEqual(first.SourcePorts, second.SourcePorts) {
+	if !slices.Equal(first.SourcePorts, second.SourcePorts) {
 		return false
 	}
-	if !util.StringSliceEqual(first.ServerNames, second.ServerNames) {
+	if !slices.Equal(first.ServerNames, second.ServerNames) {
 		return false
 	}
 	return true
@@ -1641,37 +1695,14 @@ func listenerKey(bind string, port int) string {
 const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
 
 // outboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
-func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
-	name := util.OutboundTunnel
+func outboundTunnelListener(proxy *model.Proxy) *listener.Listener {
 	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
 	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
-	p := &tcp.TcpProxy{
-		StatPrefix:       name,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
-		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
-			HeadersToAdd: []*core.HeaderValueOption{
-				{Header: &core.HeaderValue{
-					Key: "baggage",
-					Value: fmt.Sprintf(baggageFormat,
-						proxy.Metadata.ClusterID, proxy.ConfigNamespace,
-						// TODO do not hardcode deployment. But I think we ignore it anyways?
-						"deployment", proxy.Metadata.WorkloadName,
-						canonicalName, canonicalRevision,
-					),
-				}},
-			},
-		},
-	}
-
-	l := &listener.Listener{
-		Name:              name,
-		UseOriginalDst:    wrappers.Bool(false),
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		ListenerFilters:   []*listener.ListenerFilter{xdsfilters.SetDstAddress},
-		FilterChains: []*listener.FilterChain{{
-			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
-		}},
-	}
-	return l
+	baggage := fmt.Sprintf(baggageFormat,
+		proxy.Metadata.ClusterID, proxy.ConfigNamespace,
+		// TODO do not hardcode deployment. But I think we ignore it anyways?
+		"deployment", proxy.Metadata.WorkloadName,
+		canonicalName, canonicalRevision,
+	)
+	return buildConnectOriginateListener(baggage)
 }

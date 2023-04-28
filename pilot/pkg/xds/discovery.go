@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/security"
 )
 
@@ -239,6 +240,7 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
+	go s.Cache.Run(stopCh)
 }
 
 // Push metrics are updated periodically (10s default)
@@ -333,6 +335,12 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
+	if len(model.ConfigsOfKind(req.ConfigsUpdated, kind.Address)) > 0 {
+		// This is a bit like clearing EDS cache on EndpointShard update. Because Address
+		// types are fetched dynamically, they are not part of the same protections, so we need to clear
+		// the cache.
+		s.Cache.ClearAll()
+	}
 	inboundConfigUpdates.Increment()
 	s.InboundUpdates.Inc()
 	s.pushChannel <- req
@@ -451,6 +459,8 @@ func reasonsUpdated(req *model.PushRequest) string {
 		return "unknown"
 	case 1:
 		return string(req.Reason[0])
+	case 2:
+		return fmt.Sprintf("%s and %s", req.Reason[0], req.Reason[1])
 	default:
 		return fmt.Sprintf("%s and %d more reasons", req.Reason[0], len(req.Reason)-1)
 	}
@@ -547,6 +557,9 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.ExtensionConfigurationType] = ecdsGen
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
+
+	s.Generators[v3.WorkloadType] = &WorkloadGenerator{s: s}
+	s.Generators[v3.WorkloadAuthorizationType] = &WorkloadRBACGenerator{s: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen

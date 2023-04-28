@@ -54,9 +54,9 @@ function trace() {
 
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
-    gcloud auth configure-docker -q
+    gcloud auth configure-docker us-docker.pkg.dev -q
   elif [[ $(command -v docker-credential-gcr) ]]; then
-    docker-credential-gcr configure-docker
+    docker-credential-gcr configure-docker --registries=-us-docker.pkg.dev
   else
     echo "No credential helpers found, push to docker may not function properly"
   fi
@@ -100,7 +100,7 @@ function download_untar_istio_release() {
 function buildx-create() {
   export DOCKER_CLI_EXPERIMENTAL=enabled
   if ! docker buildx ls | grep -q container-builder; then
-    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.10.3 --name container-builder --buildkitd-flags="--debug"
+    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name container-builder --buildkitd-flags="--debug"
     # Pre-warm the builder. If it fails, fetch logs, but continue
     docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
   fi
@@ -123,6 +123,9 @@ function build_images() {
   fi
   if [[ "${SELECT_TEST}" == "test.integration.operator.kube" || "${SELECT_TEST}" == "test.integration.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
     targets+="docker.operator "
+  fi
+  if [[ "${SELECT_TEST}" == "test.integration.ambient.kube" || "${SELECT_TEST}" == "test.integration.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
+    targets+="docker.ztunnel "
   fi
   targets+="docker.install-cni "
   # Integration tests are always running on local architecture (no cross compiling), so find out what that is.

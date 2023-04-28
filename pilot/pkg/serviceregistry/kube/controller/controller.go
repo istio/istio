@@ -16,7 +16,6 @@ package controller
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"sync"
 	"time"
@@ -25,9 +24,8 @@ import (
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -38,7 +36,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
-	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -47,9 +44,12 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/informer"
-	filter "istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/mcs"
+	"istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/kube/watcher/crdwatcher"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/queue"
 	istiolog "istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -114,7 +114,7 @@ type Options struct {
 
 	DomainSuffix string
 
-	// ClusterID identifies the remote cluster in a multicluster env.
+	// ClusterID identifies the cluster which the controller communicate with.
 	ClusterID cluster.ID
 
 	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
@@ -127,8 +127,8 @@ type Options struct {
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
-	// NetworksWatcher observes changes to the mesh networks config.
-	NetworksWatcher mesh.NetworksWatcher
+	// MeshNetworksWatcher observes changes to the mesh networks config.
+	MeshNetworksWatcher mesh.NetworksWatcher
 
 	// MeshWatcher observes changes to the mesh config
 	MeshWatcher mesh.Watcher
@@ -146,7 +146,17 @@ type Options struct {
 	SyncTimeout time.Duration
 
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
-	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
+	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
+
+	ConfigController model.ConfigStoreController
+	ConfigCluster    bool
+}
+
+func (o *Options) GetFilter() namespace.DiscoveryFilter {
+	if o.DiscoveryNamespacesFilter != nil {
+		return o.DiscoveryNamespacesFilter.Filter
+	}
+	return nil
 }
 
 // DetectEndpointMode determines whether to use Endpoints or EndpointSlice based on the
@@ -218,24 +228,22 @@ type Controller struct {
 
 	queue queue.Instance
 
-	nsInformer cache.SharedIndexInformer
-	nsLister   listerv1.NamespaceLister
-
-	serviceInformer informer.FilteredSharedIndexInformer
-	serviceLister   listerv1.ServiceLister
+	namespaces kclient.Client[*v1.Namespace]
+	services   kclient.Client[*v1.Service]
 
 	endpoints kubeEndpointsController
 
 	// Used to watch node accessible from remote cluster.
 	// In multi-cluster(shared control plane multi-networks) scenario, ingress gateway service can be of nodePort type.
 	// With this, we can populate mesh's gateway address with the node ips.
-	nodeInformer cache.SharedIndexInformer
-	nodeLister   listerv1.NodeLister
+	nodes kclient.Client[*v1.Node]
 
-	exports serviceExportCache
-	imports serviceImportCache
-	pods    *PodCache
+	crdWatcher *crdwatcher.Controller
+	exports    serviceExportCache
+	imports    serviceImportCache
+	pods       *PodCache
 
+	crdHandlers                []func(name string)
 	handlers                   model.ControllerHandlers
 	namespaceDiscoveryHandlers []func(ns string, event model.Event)
 
@@ -245,16 +253,6 @@ type Controller struct {
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
 	servicesMap map[host.Name]*model.Service
-	// hostNamesForNamespacedName returns all possible hostnames for the given service name.
-	// If Kubernetes Multi-Cluster Services (MCS) is enabled, this will contain the regular
-	// hostname as well as the MCS hostname (clusterset.local). Otherwise, only the regular
-	// hostname will be returned.
-	hostNamesForNamespacedName func(name types.NamespacedName) []host.Name
-	// servicesForNamespacedName returns all services for the given service name.
-	// If Kubernetes Multi-Cluster Services (MCS) is enabled, this will contain the regular
-	// service as well as the MCS service (clusterset.local), if available. Otherwise,
-	// only the regular service will be returned.
-	servicesForNamespacedName func(name types.NamespacedName) []*model.Service
 	// nodeSelectorsForServices stores hostname => label selectors that can be used to
 	// refine the set of node port IPs for a service.
 	nodeSelectorsForServices map[host.Name]labels.Instance
@@ -268,11 +266,17 @@ type Controller struct {
 	// index over workload instances from workload entries
 	workloadInstancesIndex workloadinstances.Index
 
-	multinetwork
-	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
-	beginSync *atomic.Bool
-	// initialSync is set to true after performing an initial in-order processing of all objects.
-	initialSync *atomic.Bool
+	networkManager
+
+	// initialSyncTimedout is set to true after performing an initial processing timed out.
+	initialSyncTimedout *atomic.Bool
+	meshWatcher         mesh.Watcher
+
+	podsClient kclient.Client[*v1.Pod]
+
+	ambientIndex     *AmbientIndex
+	configController model.ConfigStoreController
+	configCluster    bool
 }
 
 // NewController creates a new Kubernetes controller
@@ -287,74 +291,36 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		workloadInstancesIndex:     workloadinstances.NewIndex(),
-		beginSync:                  atomic.NewBool(false),
-		initialSync:                atomic.NewBool(false),
-
-		multinetwork: initMultinetwork(),
+		initialSyncTimedout:        atomic.NewBool(false),
+		networkManager:             initNetworkManager(options),
+		configCluster:              options.ConfigCluster,
 	}
 
-	if features.EnableMCSHost {
-		c.hostNamesForNamespacedName = func(name types.NamespacedName) []host.Name {
-			return []host.Name{
-				kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix),
-				serviceClusterSetLocalHostname(name),
-			}
-		}
-		c.servicesForNamespacedName = func(name types.NamespacedName) []*model.Service {
-			out := make([]*model.Service, 0, 2)
-
-			c.RLock()
-			if svc := c.servicesMap[kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix)]; svc != nil {
-				out = append(out, svc)
-			}
-
-			if svc := c.servicesMap[serviceClusterSetLocalHostname(name)]; svc != nil {
-				out = append(out, svc)
-			}
-			c.RUnlock()
-
-			return out
-		}
-	} else {
-		c.hostNamesForNamespacedName = func(name types.NamespacedName) []host.Name {
-			return []host.Name{
-				kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix),
-			}
-		}
-		c.servicesForNamespacedName = func(name types.NamespacedName) []*model.Service {
-			if svc := c.GetService(kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix)); svc != nil {
-				return []*model.Service{svc}
-			}
-			return nil
-		}
-	}
-
-	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
-	_ = c.nsInformer.SetTransform(kubelib.StripUnusedFields)
-	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
+	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 	if c.opts.SystemNamespace != "" {
-		nsInformer := informer.NewFilteredSharedIndexInformer(func(obj any) bool {
-			ns, ok := obj.(*v1.Namespace)
-			if !ok {
-				log.Warnf("Namespace watch getting wrong type in event: %T", obj)
-				return false
-			}
-			return ns.Name == c.opts.SystemNamespace
-		}, c.nsInformer)
-		c.registerHandlers(nsInformer, "Namespaces", c.onSystemNamespaceEvent, nil)
+		registerHandlers[*v1.Namespace](
+			c,
+			c.namespaces,
+			"Namespaces",
+			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+				if cur.Name == c.opts.SystemNamespace {
+					return c.onSystemNamespaceEvent(old, cur, event)
+				}
+				return nil
+			},
+			nil,
+		)
 	}
 
 	if c.opts.DiscoveryNamespacesFilter == nil {
-		c.opts.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(c.nsLister, options.MeshWatcher.Mesh().DiscoverySelectors)
+		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
 
-	c.initDiscoveryHandlers(kubeClient, options.EndpointMode, options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
+	c.initDiscoveryHandlers(options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
 
-	c.serviceInformer = informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter,
-		kubeClient.KubeInformer().Core().V1().Services().Informer())
-	c.serviceLister = listerv1.NewServiceLister(c.serviceInformer.GetIndexer())
+	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
 
-	c.registerHandlers(c.serviceInformer, "Services", c.onServiceEvent, nil)
+	registerHandlers[*v1.Service](c, c.services, "Services", c.onServiceEvent, nil)
 
 	switch options.EndpointMode {
 	case EndpointSliceOnly:
@@ -367,35 +333,38 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	// This is for getting the node IPs of a selected set of nodes
-	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
-	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
-	nodeInformer := informer.NewFilteredSharedIndexInformer(nil, c.nodeInformer)
-	_ = c.nodeInformer.SetTransform(stripNodeUnusedFields)
-	c.registerHandlers(nodeInformer, "Nodes", c.onNodeEvent, nil)
+	c.nodes = kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: kubelib.StripNodeUnusedFields})
+	registerHandlers[*v1.Node](c, c.nodes, "Nodes", c.onNodeEvent, nil)
 
-	sharedPodInformer := kubeClient.KubeInformer().Core().V1().Pods().Informer()
-	podInformer := informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, sharedPodInformer)
-	_ = sharedPodInformer.SetTransform(stripPodUnusedFields)
-	c.pods = newPodCache(c, podInformer, func(key string) {
-		item, exists, err := c.endpoints.getInformer().GetIndexer().GetByKey(key)
-		if err != nil {
-			log.Debugf("Endpoint %v lookup failed with error %v, skipping stale endpoint", key, err)
-			return
-		}
-		if !exists {
-			log.Debugf("Endpoint %v not found, skipping stale endpoint", key)
-			return
-		}
-		if shouldEnqueue("Pods", c.beginSync) {
-			c.queue.Push(func() error {
-				return c.endpoints.onEvent(nil, item, model.EventUpdate)
-			})
-		}
+	c.podsClient = kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
+		ObjectFilter:    c.opts.DiscoveryNamespacesFilter.Filter,
+		ObjectTransform: kubelib.StripPodUnusedFields,
 	})
-	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, c.pods.labelFilter)
+	c.pods = newPodCache(c, c.podsClient, func(key types.NamespacedName) {
+		c.queue.Push(func() error {
+			return c.endpoints.sync(key.Name, key.Namespace, model.EventAdd, true)
+		})
+	})
+	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
+	if features.EnableMCSServiceDiscovery || features.EnableMCSHost {
+		c.crdWatcher = crdwatcher.NewController(kubeClient)
+	}
+	if features.EnableAmbientControllers {
+		c.configController = options.ConfigController
+		c.ambientIndex = c.setupIndex()
+	}
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
+
+	c.meshWatcher = options.MeshWatcher
+	if c.opts.MeshNetworksWatcher != nil {
+		c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
+			c.reloadMeshNetworks()
+			c.onNetworkChange()
+		})
+		c.reloadMeshNetworks()
+	}
 
 	return c
 }
@@ -447,39 +416,6 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 	return out
 }
 
-func (c *Controller) networkFromMeshNetworks(endpointIP string) network.ID {
-	c.RLock()
-	defer c.RUnlock()
-	if c.networkForRegistry != "" {
-		return c.networkForRegistry
-	}
-
-	if c.ranger != nil {
-		ip := net.ParseIP(endpointIP)
-		if ip == nil {
-			return ""
-		}
-		entries, err := c.ranger.ContainingNetworks(ip)
-		if err != nil {
-			log.Errorf("error getting cidr ranger entry from endpoint ip %s", endpointIP)
-			return ""
-		}
-		if len(entries) > 1 {
-			log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
-		}
-		if len(entries) > 0 {
-			return (entries[0].(namedRangerEntry)).name
-		}
-	}
-	return ""
-}
-
-func (c *Controller) networkFromSystemNamespace() network.ID {
-	c.RLock()
-	defer c.RUnlock()
-	return c.network
-}
-
 func (c *Controller) Network(endpointIP string, labels labels.Instance) network.ID {
 	// 1. check the pod/workloadEntry label
 	if nw := labels[label.TopologyNetwork.Name]; nw != "" {
@@ -509,27 +445,16 @@ func (c *Controller) Cleanup() error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(prev, curr any, event model.Event) error {
-	currSvc := controllers.Extract[*v1.Service](curr)
-	if currSvc == nil {
-		return nil
-	}
-
-	log.Debugf("Handle event %s for service %s in namespace %s", event, currSvc.Name, currSvc.Namespace)
+func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) error {
+	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.
-	svcConv := kube.ConvertService(*currSvc, c.opts.DomainSuffix, c.Cluster())
+	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster())
 	switch event {
 	case model.EventDelete:
 		c.deleteService(svcConv)
-	case model.EventAdd:
-		c.addOrUpdateService(nil, currSvc, svcConv, event, false)
-	case model.EventUpdate:
-		prevSvc := controllers.Extract[*v1.Service](prev)
-		if prevSvc == nil {
-			return nil
-		}
-		c.addOrUpdateService(prevSvc, currSvc, svcConv, event, false)
+	default:
+		c.addOrUpdateService(curr, svcConv, event, false)
 	}
 
 	return nil
@@ -558,7 +483,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.handlers.NotifyServiceHandlers(nil, svc, event)
 }
 
-func (c *Controller) addOrUpdateService(prev, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
+func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -575,9 +500,11 @@ func (c *Controller) addOrUpdateService(prev, curr *v1.Service, currConv *model.
 		needsFullPush = c.updateServiceNodePortAddresses(currConv)
 	}
 
+	var prevConv *model.Service
 	// instance conversion is only required when service is added/updated.
 	instances := kube.ExternalNameServiceInstances(curr, currConv)
 	c.Lock()
+	prevConv = c.servicesMap[currConv.Hostname]
 	c.servicesMap[currConv.Hostname] = currConv
 	if len(instances) > 0 {
 		c.externalNameSvcInstanceMap[currConv.Hostname] = instances
@@ -604,11 +531,6 @@ func (c *Controller) addOrUpdateService(prev, curr *v1.Service, currConv *model.
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
-	var prevConv *model.Service
-	if event == model.EventUpdate && prev != nil {
-		prevConv = kube.ConvertService(*prev, c.opts.DomainSuffix, c.Cluster())
-	}
-
 	c.handlers.NotifyServiceHandlers(prevConv, currConv, event)
 }
 
@@ -621,11 +543,7 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 	return endpoints
 }
 
-func (c *Controller) onNodeEvent(_, obj any, event model.Event) error {
-	node := controllers.Extract[*v1.Node](obj)
-	if node == nil {
-		return nil
-	}
+func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 	var updatedNeeded bool
 	if event == model.EventDelete {
 		updatedNeeded = true
@@ -666,29 +584,30 @@ func (c *Controller) onNodeEvent(_, obj any, event model.Event) error {
 }
 
 // FilterOutFunc func for filtering out objects during update callback
-type FilterOutFunc func(old, cur any) bool
+type FilterOutFunc[T controllers.Object] func(old, cur T) bool
 
-func (c *Controller) registerHandlers(
-	informer informer.FilteredSharedIndexInformer, otype string,
-	handler func(any, any, model.Event) error, filter FilterOutFunc,
+func registerHandlers[T controllers.ComparableObject](c *Controller,
+	informer kclient.Informer[T], otype string,
+	handler func(T, T, model.Event) error, filter FilterOutFunc[T],
 ) {
-	wrappedHandler := func(prev, curr any, event model.Event) error {
-		curr = tryGetLatestObject(informer, curr)
+	wrappedHandler := func(prev, curr T, event model.Event) error {
+		curr = informer.Get(curr.GetName(), curr.GetNamespace())
+		if controllers.IsNil(curr) {
+			// this can happen when an immediate delete after update
+			// the delete event can be handled later
+			return nil
+		}
 		return handler(prev, curr, event)
 	}
-	_ = informer.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.Cluster()))
 	informer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj any) {
+		controllers.EventHandler[T]{
+			AddFunc: func(obj T) {
 				incrementEvent(otype, "add")
-				if !shouldEnqueue(otype, c.beginSync) {
-					return
-				}
 				c.queue.Push(func() error {
-					return wrappedHandler(nil, obj, model.EventAdd)
+					return wrappedHandler(ptr.Empty[T](), obj, model.EventAdd)
 				})
 			},
-			UpdateFunc: func(old, cur any) {
+			UpdateFunc: func(old, cur T) {
 				if filter != nil {
 					if filter(old, cur) {
 						incrementEvent(otype, "updatesame")
@@ -697,134 +616,58 @@ func (c *Controller) registerHandlers(
 				}
 
 				incrementEvent(otype, "update")
-				if !shouldEnqueue(otype, c.beginSync) {
-					return
-				}
 				c.queue.Push(func() error {
 					return wrappedHandler(old, cur, model.EventUpdate)
 				})
 			},
-			DeleteFunc: func(obj any) {
+			DeleteFunc: func(obj T) {
 				incrementEvent(otype, "delete")
-				if !shouldEnqueue(otype, c.beginSync) {
-					return
-				}
 				c.queue.Push(func() error {
-					return handler(nil, obj, model.EventDelete)
+					return handler(ptr.Empty[T](), obj, model.EventDelete)
 				})
 			},
 		})
 }
 
-// tryGetLatestObject attempts to fetch the latest version of the object from the cache.
-// Changes may have occurred between queuing and processing.
-func tryGetLatestObject(informer informer.FilteredSharedIndexInformer, obj any) any {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		log.Warnf("failed creating key for informer object: %v", err)
-		return obj
-	}
-
-	latest, exists, err := informer.GetIndexer().GetByKey(key)
-	if !exists || err != nil {
-		log.Warnf("couldn't find %q in informer index", key)
-		return obj
-	}
-
-	return latest
-}
-
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	return c.initialSync.Load()
+	return c.queue.HasSynced() || c.initialSyncTimedout.Load()
 }
 
 func (c *Controller) informersSynced() bool {
-	if (c.nsInformer != nil && !c.nsInformer.HasSynced()) ||
-		!c.serviceInformer.HasSynced() ||
+	if !c.namespaces.HasSynced() ||
+		!c.services.HasSynced() ||
 		!c.endpoints.HasSynced() ||
-		!c.pods.informer.HasSynced() ||
-		!c.nodeInformer.HasSynced() ||
-		!c.exports.HasSynced() ||
-		!c.imports.HasSynced() {
+		!c.pods.pods.HasSynced() ||
+		!c.nodes.HasSynced() ||
+		(c.crdWatcher != nil && !c.crdWatcher.HasSynced()) {
 		return false
+	}
+
+	// wait for mcs sync if the CRD exists, otherwise do not wait for them
+	// Because crdWatcher.HasSynced only indicates the cache synced, but does not guarantee the event handler called.
+	// So we wait get the CRD explicitly and if MCS installed, we wait until serviceImports and serviceExports sync.
+	if c.crdWatcher != nil {
+		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceImportGVR.Resource + "." + mcs.ServiceImportGVR.Group); exists {
+			if !c.imports.HasSynced() {
+				return false
+			}
+		}
+		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceExportGVR.Resource + "." + mcs.ServiceExportGVR.Group); exists {
+			if !c.exports.HasSynced() {
+				return false
+			}
+		}
 	}
 	return true
 }
 
-// SyncAll syncs all the objects node->service->pod->endpoint in order
-// TODO: sync same kind of objects in parallel
-// This can cause great performance cost in multi clusters scenario.
-// Maybe just sync the cache and trigger one push at last.
-func (c *Controller) SyncAll() error {
-	c.beginSync.Store(true)
-	var err *multierror.Error
-	err = multierror.Append(err, c.syncDiscoveryNamespaces())
-	err = multierror.Append(err, c.syncSystemNamespace())
-	err = multierror.Append(err, c.syncNodes())
-	err = multierror.Append(err, c.syncServices())
-	err = multierror.Append(err, c.syncPods())
-	err = multierror.Append(err, c.syncEndpoints())
-
-	return multierror.Flatten(err.ErrorOrNil())
-}
-
-func (c *Controller) syncSystemNamespace() error {
-	var err error
-	if c.nsLister != nil {
-		sysNs, _ := c.nsLister.Get(c.opts.SystemNamespace)
-		log.Debugf("initializing systemNamespace:%s", c.opts.SystemNamespace)
-		if sysNs != nil {
-			err = c.onSystemNamespaceEvent(nil, sysNs, model.EventAdd)
-		}
-	}
-	return err
-}
-
-func (c *Controller) syncDiscoveryNamespaces() error {
-	var err error
-	if c.nsLister != nil {
-		err = c.opts.DiscoveryNamespacesFilter.SyncNamespaces()
-	}
-	return err
-}
-
-func (c *Controller) syncNodes() error {
-	var err *multierror.Error
-	nodes := c.nodeInformer.GetIndexer().List()
-	log.Debugf("initializing %d nodes", len(nodes))
-	for _, s := range nodes {
-		err = multierror.Append(err, c.onNodeEvent(nil, s, model.EventAdd))
-	}
-	return err.ErrorOrNil()
-}
-
-func (c *Controller) syncServices() error {
-	var err *multierror.Error
-	services, _ := c.serviceInformer.List(metav1.NamespaceAll)
-	log.Debugf("initializing %d services", len(services))
-	for _, s := range services {
-		err = multierror.Append(err, c.onServiceEvent(nil, s, model.EventAdd))
-	}
-	return err.ErrorOrNil()
-}
-
 func (c *Controller) syncPods() error {
 	var err *multierror.Error
-	pods, _ := c.pods.informer.List(metav1.NamespaceAll)
+	pods := c.podsClient.List(metav1.NamespaceAll, klabels.Everything())
 	log.Debugf("initializing %d pods", len(pods))
 	for _, s := range pods {
 		err = multierror.Append(err, c.pods.onEvent(nil, s, model.EventAdd))
-	}
-	return err.ErrorOrNil()
-}
-
-func (c *Controller) syncEndpoints() error {
-	var err *multierror.Error
-	endpoints := c.endpoints.getInformer().GetIndexer().List()
-	log.Debugf("initializing %d endpoints", len(endpoints))
-	for _, s := range endpoints {
-		err = multierror.Append(err, c.endpoints.onEvent(nil, s, model.EventAdd))
 	}
 	return err.ErrorOrNil()
 }
@@ -833,25 +676,18 @@ func (c *Controller) syncEndpoints() error {
 func (c *Controller) Run(stop <-chan struct{}) {
 	if c.opts.SyncTimeout != 0 {
 		time.AfterFunc(c.opts.SyncTimeout, func() {
-			if !c.initialSync.Load() {
+			if !c.queue.HasSynced() {
 				log.Warnf("kube controller for %s initial sync timed out", c.opts.ClusterID)
-				c.initialSync.Store(true)
+				c.initialSyncTimedout.Store(true)
 			}
 		})
 	}
 	st := time.Now()
-	if c.opts.NetworksWatcher != nil {
-		c.opts.NetworksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
-		c.reloadMeshNetworks()
-		c.reloadNetworkGateways()
-	}
+
+	go c.imports.Run(stop)
+	go c.exports.Run(stop)
 
 	kubelib.WaitForCacheSync(stop, c.informersSynced)
-	// after informer caches sync the first time, process resources in order
-	if err := c.SyncAll(); err != nil {
-		log.Errorf("one or more errors force-syncing resources: %v", err)
-	}
-	c.initialSync.Store(true)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
@@ -894,10 +730,10 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#late-initialization
-	node, err := c.nodeLister.Get(pod.Spec.NodeName)
-	if err != nil {
+	node := c.nodes.Get(pod.Spec.NodeName, "")
+	if node == nil {
 		if pod.Spec.NodeName != "" {
-			log.Warnf("unable to get node %q for pod %q/%q: %v", pod.Spec.NodeName, pod.Namespace, pod.Name, err)
+			log.Warnf("unable to get node %q for pod %q/%q", pod.Spec.NodeName, pod.Namespace, pod.Name)
 		}
 		return ""
 	}
@@ -959,11 +795,11 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	selector := labels.Instance(svc.Attributes.LabelSelectors)
 
 	// Get the service port name and target port so that we can construct the service instance
-	k8sService, err := c.serviceLister.Services(svc.Attributes.Namespace).Get(svc.Attributes.Name)
+	k8sService := c.services.Get(svc.Attributes.Name, svc.Attributes.Namespace)
 	// We did not find the k8s service. We cannot get the targetPort
-	if err != nil {
-		log.Infof("serviceInstancesFromWorkloadInstances(%s.%s) failed to get k8s service => error %v",
-			svc.Attributes.Name, svc.Attributes.Namespace, err)
+	if k8sService == nil {
+		log.Infof("serviceInstancesFromWorkloadInstances(%s.%s) failed to get k8s service",
+			svc.Attributes.Name, svc.Attributes.Namespace)
 		return nil
 	}
 
@@ -990,7 +826,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 		if wi.Namespace != svc.Attributes.Namespace {
 			return
 		}
-		if selector.SubsetOf(wi.Endpoint.Labels) {
+		if selector.Match(wi.Endpoint.Labels) {
 			instance := serviceInstanceFromWorkloadInstance(svc, servicePort, targetPort, wi)
 			if instance != nil {
 				out = append(out, instance)
@@ -1069,7 +905,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
-			if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
+			allServices := c.services.List(pod.Namespace, klabels.Everything())
+			if services := getPodServices(allServices, pod); len(services) > 0 {
 				out := make([]*model.ServiceInstance, 0)
 				for _, svc := range services {
 					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
@@ -1110,7 +947,8 @@ func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInst
 	}
 
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
-	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
+	allServices := c.services.List(si.Namespace, klabels.Everything())
+	if k8sServices := getPodServices(allServices, dummyPod); len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
@@ -1165,7 +1003,8 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 
 	shard := model.ShardKeyFromRegistry(c)
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
-	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
+	allServices := c.services.List(si.Namespace, klabels.Everything())
+	if k8sServices := getPodServices(allServices, dummyPod); len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
@@ -1193,27 +1032,14 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 }
 
-func (c *Controller) onSystemNamespaceEvent(_, curr any, ev model.Event) error {
+func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event) error {
 	if ev == model.EventDelete {
 		return nil
 	}
-	ns, ok := curr.(*v1.Namespace)
-	if !ok {
-		log.Warnf("Namespace watch getting wrong type in event: %T", curr)
-		return nil
-	}
-	if ns == nil {
-		return nil
-	}
-	nw := ns.Labels[label.TopologyNetwork.Name]
-	c.Lock()
-	oldDefaultNetwork := c.network
-	c.network = network.ID(nw)
-	c.Unlock()
-	// network changed, rarely happen
-	if oldDefaultNetwork != c.network {
+	if c.setNetworkFromNamespace(ns) {
+		// network changed, rarely happen
 		// refresh pods/endpoints/services
-		c.onDefaultNetworkChange()
+		c.onNetworkChange()
 	}
 	return nil
 }
@@ -1245,10 +1071,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	}
 
 	// Find the Service associated with the pod.
-	services, err := getPodServices(c.serviceLister, dummyPod)
-	if err != nil {
-		return nil, fmt.Errorf("error getting instances for %s: %v", proxy.ID, err)
-	}
+	allServices := c.services.List(proxy.ConfigNamespace, klabels.Everything())
+	services := getPodServices(allServices, dummyPod)
 	if len(services) == 0 {
 		return nil, fmt.Errorf("no instances found for %s", proxy.ID)
 	}
@@ -1274,6 +1098,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 
 				var portNum int
 				if len(proxy.Metadata.PodPorts) > 0 {
+					var err error
 					portNum, err = findPortFromMetadata(port, proxy.Metadata.PodPorts)
 					if err != nil {
 						return nil, fmt.Errorf("failed to find target port for %v: %v", proxy.ID, err)
@@ -1307,7 +1132,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 					out = append(out, &model.ServiceInstance{
 						Service:     modelService,
 						ServicePort: svcPort,
-						Endpoint:    epBuilder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy),
+						Endpoint:    epBuilder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy, model.Healthy),
 					})
 				}
 			}
@@ -1357,7 +1182,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 			svcPort := tps[tp]
 			// consider multiple IP scenarios
 			for _, ip := range proxy.IPAddresses {
-				istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy)
+				istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy, model.Healthy)
 				out = append(out, &model.ServiceInstance{
 					Service:     svc,
 					ServicePort: svcPort,
@@ -1418,59 +1243,49 @@ func (c *Controller) AppendNamespaceDiscoveryHandlers(f func(string, model.Event
 	c.namespaceDiscoveryHandlers = append(c.namespaceDiscoveryHandlers, f)
 }
 
-// stripPodUnusedFields is the transform function for shared pod informers,
-// it removes unused fields from objects before they are stored in the cache to save memory.
-func stripPodUnusedFields(obj any) (any, error) {
-	t, ok := obj.(metav1.ObjectMetaAccessor)
-	if !ok {
-		// shouldn't happen
-		return obj, nil
-	}
-	// ManagedFields is large and we never use it
-	t.GetObjectMeta().SetManagedFields(nil)
-	// Annotation is never used
-	t.GetObjectMeta().SetAnnotations(nil)
-	// only container ports can be used
-	if pod := obj.(*v1.Pod); pod != nil {
-		containers := []v1.Container{}
-		for _, c := range pod.Spec.Containers {
-			if len(c.Ports) > 0 {
-				containers = append(containers, v1.Container{
-					Ports: c.Ports,
-				})
-			}
-		}
-		pod.Spec.Containers = containers
-		pod.Spec.InitContainers = nil
-		pod.Spec.Volumes = nil
-		pod.Status.InitContainerStatuses = nil
-		pod.Status.ContainerStatuses = nil
-	}
-
-	return obj, nil
+// AppendCrdHandlers register handlers on crd event.
+func (c *Controller) AppendCrdHandlers(f func(name string)) {
+	c.crdHandlers = append(c.crdHandlers, f)
 }
 
-// stripNodeUnusedFields is the transform function for shared pod informers,
-// it removes unused fields from objects before they are stored in the cache to save memory.
-func stripNodeUnusedFields(obj any) (any, error) {
-	t, ok := obj.(metav1.ObjectMetaAccessor)
-	if !ok {
-		// shouldn't happen
-		return obj, nil
+// hostNamesForNamespacedName returns all possible hostnames for the given service name.
+// If Kubernetes Multi-Cluster Services (MCS) is enabled, this will contain the regular
+// hostname as well as the MCS hostname (clusterset.local). Otherwise, only the regular
+// hostname will be returned.
+func (c *Controller) hostNamesForNamespacedName(name types.NamespacedName) []host.Name {
+	if features.EnableMCSHost {
+		return []host.Name{
+			kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix),
+			serviceClusterSetLocalHostname(name),
+		}
 	}
-	// ManagedFields is large and we never use it
-	t.GetObjectMeta().SetManagedFields(nil)
-	// Annotation is never used
-	t.GetObjectMeta().SetAnnotations(nil)
-	// OwnerReference is never used
-	t.GetObjectMeta().SetOwnerReferences(nil)
-	// only node labels and addressed are useful
-	if node := obj.(*v1.Node); node != nil {
-		node.Status.Allocatable = nil
-		node.Status.Capacity = nil
-		node.Status.Images = nil
-		node.Status.Conditions = nil
+	return []host.Name{
+		kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix),
 	}
+}
 
-	return obj, nil
+// servicesForNamespacedName returns all services for the given service name.
+// If Kubernetes Multi-Cluster Services (MCS) is enabled, this will contain the regular
+// service as well as the MCS service (clusterset.local), if available. Otherwise,
+// only the regular service will be returned.
+func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*model.Service {
+	if features.EnableMCSHost {
+		out := make([]*model.Service, 0, 2)
+
+		c.RLock()
+		if svc := c.servicesMap[kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix)]; svc != nil {
+			out = append(out, svc)
+		}
+
+		if svc := c.servicesMap[serviceClusterSetLocalHostname(name)]; svc != nil {
+			out = append(out, svc)
+		}
+		c.RUnlock()
+
+		return out
+	}
+	if svc := c.GetService(kube.ServiceHostname(name.Name, name.Namespace, c.opts.DomainSuffix)); svc != nil {
+		return []*model.Service{svc}
+	}
+	return nil
 }

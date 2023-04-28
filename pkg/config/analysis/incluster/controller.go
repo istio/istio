@@ -27,11 +27,11 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -47,8 +47,7 @@ type Controller struct {
 func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreController,
 	kubeClient kube.Client, revision, namespace string, statusManager *status.Manager, domainSuffix string,
 ) (*Controller, error) {
-	ia := local.NewIstiodAnalyzer(analyzers.AllCombined(),
-		"", resource.Namespace(namespace), func(name collection.Name) {}, true)
+	ia := local.NewIstiodAnalyzer(analyzers.AllCombined(), "", resource.Namespace(namespace), func(name config.GroupVersionKind) {})
 	ia.AddSource(rwConfigStore)
 	// Filter out configs watched by rwConfigStore so we don't watch multiple times
 	store, err := crdclient.NewForSchemas(kubeClient,

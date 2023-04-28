@@ -283,14 +283,15 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 	}
 
 	c.mutex.Lock()
-	num := c.adsConnections[makeProxyKey(proxy)]
+	proxyKey := makeProxyKey(proxy)
+	num := c.adsConnections[proxyKey]
 	// if there is still ads connection, do not unregister.
 	if num > 1 {
-		c.adsConnections[makeProxyKey(proxy)] = num - 1
+		c.adsConnections[proxyKey] = num - 1
 		c.mutex.Unlock()
 		return
 	}
-	delete(c.adsConnections, makeProxyKey(proxy))
+	delete(c.adsConnections, proxyKey)
 	c.mutex.Unlock()
 
 	workload := &workItem{
@@ -424,11 +425,7 @@ func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
-			wles, err := c.store.List(gvk.WorkloadEntry, metav1.NamespaceAll)
-			if err != nil {
-				log.Warnf("error listing WorkloadEntry for cleanup: %v", err)
-				continue
-			}
+			wles := c.store.List(gvk.WorkloadEntry, metav1.NamespaceAll)
 			for _, wle := range wles {
 				wle := wle
 				if c.shouldCleanupEntry(wle) {
@@ -570,8 +567,11 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	if group.Metadata != nil && group.Metadata.Labels != nil {
 		entry.Labels = mergeLabels(entry.Labels, group.Metadata.Labels)
 	}
-	if proxy.Labels != nil {
-		entry.Labels = mergeLabels(entry.Labels, proxy.Labels)
+	// Explicitly do not use proxy.Labels, as it is only initialized *after* we register the workload,
+	// and it would be circular, as it will set the labels based on the WorkloadEntry -- but we are creating
+	// the workload entry.
+	if proxy.Metadata.Labels != nil {
+		entry.Labels = mergeLabels(entry.Labels, proxy.Metadata.Labels)
 	}
 
 	annotations := map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name}
@@ -612,5 +612,11 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 }
 
 func makeProxyKey(proxy *model.Proxy) string {
-	return string(proxy.Metadata.Network) + proxy.IPAddresses[0]
+	key := strings.Join([]string{
+		string(proxy.Metadata.Network),
+		proxy.IPAddresses[0],
+		proxy.Metadata.AutoRegisterGroup,
+		proxy.Metadata.Namespace,
+	}, "~")
+	return key
 }
