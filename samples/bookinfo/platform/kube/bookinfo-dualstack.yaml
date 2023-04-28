@@ -37,6 +37,8 @@ metadata:
     app: details
     service: details
 spec:
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies: [IPv6, IPv4]
   ports:
   - port: 9080
     name: http
@@ -90,6 +92,8 @@ metadata:
     app: ratings
     service: ratings
 spec:
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies: [IPv6, IPv4]
   ports:
   - port: 9080
     name: http
@@ -143,6 +147,8 @@ metadata:
     app: reviews
     service: reviews
 spec:
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies: [IPv4, IPv6]
   ports:
   - port: 9080
     name: http
@@ -293,6 +299,8 @@ metadata:
     app: productpage
     service: productpage
 spec:
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies: [IPv4, IPv6]
   ports:
   - port: 9080
     name: http
