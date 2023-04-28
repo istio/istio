@@ -1,19 +1,9 @@
-apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
-metadata:
-  namespace: istio-system
 spec:
-  hub: gcr.io/istio-testing
-  tag: latest
-
-  # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
     defaultConfig:
       proxyMetadata:
         ISTIO_AGENT_DUAL_STACK: "true"
-
-  # Global values passed through to helm global.yaml.
-  # Please keep this in sync with manifests/charts/global.yaml
   values:
     pilot:
       env:
