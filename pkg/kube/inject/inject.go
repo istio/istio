@@ -45,6 +45,7 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 // InjectionPolicy determines the policy for injecting the
@@ -103,6 +104,8 @@ type SidecarTemplateData struct {
 	Values         map[string]any
 	Revision       string
 	ProxyImage     string
+	ProxyUID       int64
+	ProxyGID       int64
 }
 
 type (
@@ -393,6 +396,9 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		return nil, nil, err
 	}
 
+	// xuxa
+	proxyUID, proxyGID := GetProxyIDs(params.namespace)
+
 	data := SidecarTemplateData{
 		TypeMeta:       params.typeMeta,
 		DeploymentMeta: params.deployMeta,
@@ -403,6 +409,8 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		Values:         params.valuesConfig.asMap,
 		Revision:       params.revision,
 		ProxyImage:     ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		ProxyUID:       proxyUID,
+		ProxyGID:       proxyGID,
 	}
 
 	mergedPod = params.pod
@@ -846,4 +854,25 @@ func updateClusterEnvs(container *corev1.Container, newKVs map[string]string) {
 		envVars = append(envVars, corev1.EnvVar{Name: key, Value: val, ValueFrom: nil})
 	}
 	container.Env = envVars
+}
+
+// GetProxyIDs returns the UID and GID to be used in the RunAsUser and RunAsGroup fields in the template
+// Inspects the namespace metadata for hints and fallbacks to the usual value of 1337.
+func GetProxyIDs(namespace *corev1.Namespace) (uid int64, gid int64) {
+	uid = constants.DefaultProxyUIDInt
+	gid = constants.DefaultProxyUIDInt
+
+	if namespace == nil {
+		return
+	}
+
+	// Check for OpenShift specifics and returns the max number in the range specified in the namespace annotation
+	if _, uidMax, err := getPreallocatedUIDRange(namespace); err == nil {
+		uid = *uidMax
+	}
+	if groups, err := getPreallocatedSupplementalGroups(namespace); err == nil && len(groups) > 0 {
+		gid = groups[0].Max
+	}
+
+	return
 }

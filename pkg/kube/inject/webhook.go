@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -101,6 +102,7 @@ type Webhook struct {
 	Config       *Config
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig ValuesConfig
+	kubeClient   kube.Client
 
 	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
 	watcher   Watcher
@@ -176,6 +178,8 @@ type WebhookParameters struct {
 
 	// The istio.io/rev this injector is responsible for
 	Revision string
+
+	KubeClient kube.Client
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -189,6 +193,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		meshConfig: p.Env.Mesh(),
 		env:        p.Env,
 		revision:   p.Revision,
+		kubeClient: p.KubeClient,
 	}
 
 	mc := NewMulticast(p.Watcher, wh.GetConfig)
@@ -333,6 +338,7 @@ func NewValuesConfig(v string) (ValuesConfig, error) {
 type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          metav1.ObjectMeta
+	namespace           *corev1.Namespace
 	typeMeta            metav1.TypeMeta
 	templates           map[string]*template.Template
 	defaultTemplate     []string
@@ -985,9 +991,25 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 
 	proxyConfig := wh.env.GetProxyConfigOrDefault(pod.Namespace, pod.Labels, pod.Annotations, wh.meshConfig)
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
+
+	// xuxa
+	var podNamespace *corev1.Namespace
+	if wh.kubeClient != nil {
+		client := kclient.New[*corev1.Namespace](wh.kubeClient)
+		podNamespace := client.Get(pod.Namespace, "")
+		if podNamespace != nil {
+			log.Infof("XUXA namespace = %v", *podNamespace)
+		} else {
+			log.Infof("XUXA namespace NIL")
+		}
+	} else {
+		log.Info("XUXA wh.kubeClient === NIL")
+	}
+
 	params := InjectionParameters{
 		pod:                 &pod,
 		deployMeta:          deploy,
+		namespace:           podNamespace,
 		typeMeta:            typeMeta,
 		templates:           wh.Config.Templates,
 		defaultTemplate:     wh.Config.DefaultTemplates,

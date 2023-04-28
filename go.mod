@@ -62,7 +62,8 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/buildkit v0.11.6
 	github.com/onsi/gomega v1.27.7
-	github.com/openshift/api v0.0.0-20200713203337-b2494ecb17dd
+	github.com/openshift/api v0.0.0-20230120195050-6ba31fa438f2
+	github.com/openshift/library-go v0.0.0-20230120214501-9bc305884fcb
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.15.1
