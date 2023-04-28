@@ -26,6 +26,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -97,7 +98,7 @@ func init() {
 }
 
 // readinessProbe defines a function that will be used indicate whether a server is ready.
-type readinessProbe func() (bool, error)
+type readinessProbe func() bool
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
@@ -114,10 +115,9 @@ type Server struct {
 	ConfigStores           []model.ConfigStoreController
 	serviceEntryController *serviceentry.Controller
 
-	httpServer       *http.Server // debug, monitoring and readiness Server.
-	httpAddr         string
-	httpsServer      *http.Server // webhooks HTTPS Server.
-	httpsReadyClient *http.Client
+	httpServer  *http.Server // debug, monitoring and readiness Server.
+	httpAddr    string
+	httpsServer *http.Server // webhooks HTTPS Server.
 
 	grpcServer        *grpc.Server
 	grpcAddress       string
@@ -159,6 +159,7 @@ type Server struct {
 	server                  server.Instance
 
 	readinessProbes map[string]readinessProbe
+	readinessFlags  *readinessFlags
 
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
@@ -173,6 +174,11 @@ type Server struct {
 	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreController
+}
+
+type readinessFlags struct {
+	sidecarInjectorReady  atomic.Bool
+	configValidationReady atomic.Bool
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -193,6 +199,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		httpMux:                 http.NewServeMux(),
 		monitoringMux:           http.NewServeMux(),
 		readinessProbes:         make(map[string]readinessProbe),
+		readinessFlags:          &readinessFlags{},
 		workloadTrustBundle:     tb.NewTrustBundle(nil),
 		server:                  server.New(),
 		shutdownDuration:        args.ShutdownDuration,
@@ -225,9 +232,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	prometheus.EnableHandlingTimeHistogram()
 
 	// make sure we have a readiness probe before serving HTTP to avoid marking ready too soon
-	s.addReadinessProbe("discovery", func() (bool, error) {
-		return s.XDSServer.IsServerReady(), nil
-	})
+	s.initReadinessProbes()
+
 	s.initServers(args)
 	if err := s.initIstiodAdminServer(args, whc); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
@@ -556,8 +562,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 // this handler and everything has already initialized.
 func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	for name, fn := range s.readinessProbes {
-		if ready, err := fn(); !ready {
-			log.Warnf("%s is not ready: %v", name, err)
+		if ready := fn(); !ready {
+			log.Warnf("%s is not ready", name)
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -1343,6 +1349,23 @@ func (s *Server) serveHTTP() error {
 	}()
 	s.httpAddr = httpListener.Addr().String()
 	return nil
+}
+
+func (s *Server) initReadinessProbes() {
+	probes := map[string]readinessProbe{
+		"discovery": func() bool {
+			return s.XDSServer.IsServerReady()
+		},
+		"sidecar injector": func() bool {
+			return s.readinessFlags.sidecarInjectorReady.Load()
+		},
+		"config validation": func() bool {
+			return s.readinessFlags.configValidationReady.Load()
+		},
+	}
+	for name, probe := range probes {
+		s.addReadinessProbe(name, probe)
+	}
 }
 
 func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
