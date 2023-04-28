@@ -3,4 +3,5 @@ kind: feature
 area: telemetry
 releaseNotes:
   - |
-    **Added** metric expiry flags in pilot, which is an experimental feature.
+    **Added** metric expiry support, when `ISTIO_META_METRIC_ROTATION_INTERVAL` and
+    `ISTIO_META_METRIC_GRACEFUL_DELETION_INTERVAL` are enabled in `ProxyConfig.proxyMetadata`.
