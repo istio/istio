@@ -1100,16 +1100,18 @@ var metricToPrometheusMetric = map[string]string{
 // only work fro istio's metrics. if nil is returned, it means disable rotation.
 func metricRotationInterval(proxy *Proxy) *durationpb.Duration {
 	// get the metric rotation interval from the proxy metadata if it exists
-	return parseDurationFromProxyMetadata(proxy, "ISTIO_META_METRIC_ROTATION_INTERVAL")
+	return parseDurationFromProxyMetadata(proxy, "ISTIO_META_METRIC_ROTATION_INTERVAL", 0*time.Second)
 }
 
 // metricGracefulDeletionInterval returns the metric graceful deletion interval for the proxy,
 // only work fro istio's metrics. No-op if the metric rotation is disabled.
 func metricGracefulDeletionInterval(proxy *Proxy) *durationpb.Duration {
-	return parseDurationFromProxyMetadata(proxy, "ISTIO_META_METRIC_GRACEFUL_DELETION_INTERVAL")
+	return parseDurationFromProxyMetadata(proxy, "ISTIO_META_METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute)
 }
 
-func parseDurationFromProxyMetadata(proxy *Proxy, key string) *durationpb.Duration {
+// metricRotationInterval returns the metric rotation interval for the proxy metadata,
+// return nil when equal to default duration to reduce the size of the xds.
+func parseDurationFromProxyMetadata(proxy *Proxy, key string, defaultDuration time.Duration) *durationpb.Duration {
 	if proxy == nil ||
 		proxy.Metadata == nil ||
 		proxy.Metadata.ProxyConfig == nil ||
@@ -1119,9 +1121,10 @@ func parseDurationFromProxyMetadata(proxy *Proxy, key string) *durationpb.Durati
 
 	if val, ok := proxy.Metadata.ProxyConfig.ProxyMetadata[key]; ok {
 		t, err := time.ParseDuration(val)
-		if err != nil {
+		if err != nil || t == defaultDuration {
 			return nil
 		}
+
 		return durationpb.New(t)
 	}
 	return nil
