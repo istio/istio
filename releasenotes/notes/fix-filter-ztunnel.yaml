@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** When running `istioctl uninstall`, the warnings about proxy information prompts should be filtered for the `Ztunnel` type..

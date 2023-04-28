@@ -56,14 +56,24 @@ type MeshInfo []ServerInfo
 // NodeType decides the responsibility of the proxy serves in the mesh
 type NodeType string
 
+const userFacingGateway = "gateway"
+
 func ToUserFacingNodeType(t model.NodeType) NodeType {
 	switch t {
 	case model.Router:
-		return "gateway"
+		return userFacingGateway
 	case model.Ztunnel, model.Waypoint, model.SidecarProxy:
 		return NodeType(t)
 	}
 	return ""
+}
+
+func NodeTypeIsGateway(t NodeType) bool {
+	return t == userFacingGateway
+}
+
+func NodeTypeIsZtunnel(t NodeType) bool {
+	return t == NodeType(model.Ztunnel)
 }
 
 // ProxyInfo contains the version for a single data plane component
