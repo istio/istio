@@ -1,9 +1,5 @@
-{{- if .Values.defaultPodDisruptionBudget.enabled }}
-{{- if (semverCompare ">=1.21-0" .Capabilities.KubeVersion.GitVersion) }}
+{{- if .Values.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
-{{- else }}
-apiVersion: policy/v1beta1
-{{- end }}
 kind: PodDisruptionBudget
 metadata:
   name: {{ include "gateway.name" . }}

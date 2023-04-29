@@ -196,7 +196,7 @@
         }
       }
     },
-    "defaultPodDisruptionBudget": {
+    "podDisruptionBudget": {
       "type": "object",
       "properties": {
         "enabled": {

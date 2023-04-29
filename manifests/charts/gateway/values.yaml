@@ -92,5 +92,5 @@ networkGateway: ""
 
 imagePullSecrets: []
 
-defaultPodDisruptionBudget:
+podDisruptionBudget:
   enabled: true
