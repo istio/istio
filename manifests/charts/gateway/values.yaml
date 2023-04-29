@@ -96,5 +96,5 @@ imagePullPolicy: ""
 
 imagePullSecrets: []
 
-defaultPodDisruptionBudget:
+podDisruptionBudget:
   enabled: true
