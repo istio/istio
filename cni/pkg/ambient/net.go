@@ -32,7 +32,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("ambient", "ambient controller", 0)
+var log = istiolog.RegisterScope("ambient", "ambient controller")
 
 func RouteExists(rte []string) bool {
 	output, err := executeOutput(

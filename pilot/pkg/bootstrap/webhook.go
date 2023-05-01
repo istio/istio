@@ -46,7 +46,7 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	if args.ServerOptions.HTTPSAddr == "" {
 		s.httpsMux = s.httpMux
-		istiolog.Info("HTTPS port is disabled, multiplexing webhooks on the httpAddr ", args.ServerOptions.HTTPAddr)
+		istiolog.Infof("HTTPS port is disabled, multiplexing webhooks on the httpAddr %v", args.ServerOptions.HTTPAddr)
 		return
 	}
 

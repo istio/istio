@@ -57,7 +57,7 @@ const (
 	defaultEgressGWName = "istio-egressgateway"
 )
 
-var scope = log.RegisterScope("translator", "API translator", 0)
+var scope = log.RegisterScope("translator", "API translator")
 
 // Translator is a set of mappings to translate between API paths, charts, values.yaml and k8s paths.
 type Translator struct {

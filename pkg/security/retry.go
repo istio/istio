@@ -25,7 +25,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var caLog = log.RegisterScope("ca", "ca client", 0)
+var caLog = log.RegisterScope("ca", "ca client")
 
 // CARetryOptions returns the default retry options recommended for CA calls
 // This includes 5 retries, with backoff from 100ms -> 1.6s with jitter.

@@ -35,7 +35,7 @@ var (
 	GKEClusterURL = env.Register("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 	// SecureTokenEndpoint is the Endpoint the STS client calls to.
 	SecureTokenEndpoint = "https://sts.googleapis.com/v1/token"
-	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging", 0)
+	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging")
 )
 
 const (

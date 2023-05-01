@@ -35,7 +35,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var statusLog = log.RegisterScope("ingress status", "", 0)
+var statusLog = log.RegisterScope("ingress status", "")
 
 // StatusSyncer keeps the status IP in each Ingress resource updated
 type StatusSyncer struct {

@@ -116,7 +116,7 @@ type XdsProxy struct {
 	istiodSAN             string
 }
 
-var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
+var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent")
 
 const (
 	localHostIPv4 = "127.0.0.1"
