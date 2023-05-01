@@ -425,7 +425,7 @@ func checkEntryOrFailAfter(
 		wait.Done()
 	})
 	wait.Wait()
-	checkEntryOrFail(t, store, wgA, proxy, node, connectedTo)
+	checkEntryOrFail(t, store, wg, proxy, node, connectedTo)
 }
 
 func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, healthy bool) (err error) {
