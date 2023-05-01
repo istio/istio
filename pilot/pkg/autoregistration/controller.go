@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/queue"
 	istiolog "istio.io/pkg/log"
@@ -357,7 +358,7 @@ func (c *Controller) unregisterWorkload(item any) error {
 			return nil
 		}
 		if c.shouldCleanupEntry(*wle) {
-			c.cleanupEntry(*wle)
+			c.cleanupEntry(*wle, false)
 		}
 		return nil
 	}, features.WorkloadEntryCleanupGracePeriod)
@@ -430,7 +431,7 @@ func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 				wle := wle
 				if c.shouldCleanupEntry(wle) {
 					c.cleanupQueue.Push(func() error {
-						c.cleanupEntry(wle)
+						c.cleanupEntry(wle, true)
 						return nil
 					})
 				}
@@ -453,7 +454,7 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 	// 2. connect: but the patch is based on the old workloadentry because of the propagation latency.
 	// So in this case the `DisconnectedAtAnnotation` is still there and the cleanup procedure will go on.
 	connTime := wle.Annotations[ConnectedAtAnnotation]
-	if connTime != "" {
+	if connTime != "" && c.maxConnectionAge != keepalive.Infinity {
 		// handle workload leak when both workload/pilot down at the same time before pilot has a chance to set disconnTime
 		connAt, err := time.Parse(timeFormat, connTime)
 		// if it has been 1.5*maxConnectionAge since workload connected, should delete it.
@@ -477,7 +478,7 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 	return true
 }
 
-func (c *Controller) cleanupEntry(wle config.Config) {
+func (c *Controller) cleanupEntry(wle config.Config, periodic bool) {
 	if err := c.cleanupLimit.Wait(context.TODO()); err != nil {
 		log.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
 		return
@@ -488,7 +489,7 @@ func (c *Controller) cleanupEntry(wle config.Config) {
 		return
 	}
 	autoRegistrationDeletes.Increment()
-	log.Infof("cleaned up auto-registered WorkloadEntry %s/%s", wle.Namespace, wle.Name)
+	log.Infof("cleaned up auto-registered WorkloadEntry %s/%s periodic:%v", wle.Namespace, wle.Name, periodic)
 }
 
 func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
