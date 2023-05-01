@@ -71,6 +71,7 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
+			rc, _ := gatewayConformanceInputs.Client.UtilFactory().RESTClient()
 			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
 				Scheme: kube.IstioScheme,
 				Mapper: mapper,
@@ -81,6 +82,8 @@ func TestGatewayConformance(t *testing.T) {
 
 			opts := suite.Options{
 				Client:               c,
+				RestConfig:           gatewayConformanceInputs.Client.RESTConfig(),
+				RESTClient:           rc,
 				GatewayClassName:     "istio",
 				Debug:                scopes.Framework.DebugEnabled(),
 				CleanupBaseResources: gatewayConformanceInputs.Cleanup,

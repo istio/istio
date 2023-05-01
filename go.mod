@@ -5,6 +5,9 @@ go 1.20
 // https://github.com/containerd/containerd/issues/5781
 exclude k8s.io/kubernetes v1.13.0
 
+// https://github.com/kubernetes-sigs/controller-runtime/issues/2295
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1-0.20230315234915-a26de2d610c3
+
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
@@ -101,8 +104,8 @@ require (
 	k8s.io/kube-openapi v0.0.0-20230327201221-f5883ff37f0c
 	k8s.io/kubectl v0.27.0
 	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
-	sigs.k8s.io/controller-runtime v0.13.1-0.20230315234915-a26de2d610c3
-	sigs.k8s.io/gateway-api v0.6.2
+	sigs.k8s.io/controller-runtime v0.14.6
+	sigs.k8s.io/gateway-api v0.7.0-rc1
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )
