@@ -159,6 +159,14 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	if err != nil {
 		return fmt.Errorf("fetch Istio version: %v", err)
 	}
+
+	// return warning if current date is near the EOL date
+	if operatorVer.IsEOL() {
+		warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
+		fmt.Printf("%s Istio %v may be out of support (EOL) already: see https://istio.io/latest/docs/releases/supported-releases/ for supported releases\n",
+			warnMarker, operatorVer.OperatorCodeBaseVersion)
+	}
+
 	setFlags := applyFlagAliases(iArgs.Set, iArgs.ManifestsPath, iArgs.Revision)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
