@@ -554,8 +554,8 @@ var (
 	{{- end }}
 		Build()
 
-	// PilotGatewayAPI contains only collections used by Pilot, including the full Gateway API.
-	pilotGatewayAPI = collection.NewSchemasBuilder().
+	// PilotGatewayAPI() contains only collections used by Pilot, including the full Gateway API.
+	PilotGatewayAPI() = collection.NewSchemasBuilder().
 	{{- range .Entries }}
 		{{- if or (contains .Resource.Group "istio.io") (contains .Resource.Group "gateway.networking.k8s.io") }}
 		MustAdd({{ .Resource.Identifier }}).

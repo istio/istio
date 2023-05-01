@@ -21,9 +21,9 @@ import (
 
 var Istio = Pilot.Add(MeshNetworks).Add(MeshConfig)
 
-var PilotGatewayAPI = func() collection.Schemas {
+func PilotGatewayAPI() collection.Schemas {
 	if features.EnableAlphaGatewayAPI {
 		return pilotGatewayAPI
 	}
 	return pilotStableGatewayAPI
-}()
+}
