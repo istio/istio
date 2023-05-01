@@ -112,7 +112,7 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 
 func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if proxy.VerifiedIdentity == nil {
-		log.Warnf("SDS proxy is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.",
+		log.Warn("SDS proxy is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.",
 			"proxy", proxy.ID)
 		return nil, model.DefaultXdsLogDetails, nil
 	}
@@ -216,7 +216,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
 		pilotSDSCertificateErrorsDetail.With(errTag.Value("fetch")).Increment()
-		log.Warnf("SDS failed to fetch key and certificate for",
+		log.Warn("SDS failed to fetch key and certificate for",
 			"resource", sr.ResourceName,
 			"error", err)
 		return nil
@@ -253,7 +253,7 @@ func ValidateCertificate(data []byte) error {
 func recordInvalidCertificate(name string, err error) {
 	pilotSDSCertificateErrors.Increment()
 	pilotSDSCertificateErrorsDetail.With(errTag.Value("invalid")).Increment()
-	log.Warnf("SDS invalid certificates",
+	log.Warn("SDS invalid certificates",
 		"resource", name,
 		"error", err)
 }
@@ -295,6 +295,16 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			if verified {
 				allowedResources = append(allowedResources, r)
 			} else {
+				if proxy.MergedGateway == nil {
+					log.Info("SDS deny k8s",
+						"resource", r.Name,
+						"resourcenamespace", r.Namespace)
+				} else {
+					log.Info("SDS deny k8s",
+						"resource", r.Name,
+						"resourcenamespace", r.Namespace,
+						"verified", proxy.MergedGateway.VerifiedCertificateReferences)
+				}
 				deniedResources = append(deniedResources, r.Name)
 			}
 		case credentials.KubernetesSecretType:
@@ -303,11 +313,15 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			if sameNamespace && isAuthorized() {
 				allowedResources = append(allowedResources, r)
 			} else {
+				log.Info("SDS deny",
+					"resource", r.Name,
+					"proxynamespace", proxy.VerifiedIdentity.Namespace,
+					"resourcenamespace", r.Namespace)
 				deniedResources = append(deniedResources, r.Name)
 			}
 		default:
 			// Should never happen
-			log.Warnf("SDS unknown credential type",
+			log.Warn("SDS unknown credential type",
 				"proxy", proxy.ID,
 				"resource", r.ResourceName,
 				"type", r.Type)
@@ -323,10 +337,11 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 		if errMessage == nil {
 			errMessage = fmt.Errorf("cross namespace secret reference requires ReferencePolicy")
 		}
-		log.Warnf("SDS proxy attempted to access unauthorized certificates",
+		log.Warn("SDS proxy attempted to access unauthorized certificates",
 			"proxy", proxy.ID,
 			"resource", atMostNJoin(deniedResources, 3),
-			"error", errMessage)
+			"error", errMessage,
+			"proxynamespace", proxy.VerifiedIdentity.Namespace)
 		pilotSDSCertificateErrors.Increment()
 		pilotSDSCertificateErrorsDetail.With(errTag.Value("namespace_denied")).Increment()
 	}
