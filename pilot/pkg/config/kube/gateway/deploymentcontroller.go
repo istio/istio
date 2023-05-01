@@ -315,6 +315,11 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	for _, t := range rendered {
 		if err := d.apply(gi.controller, t); err != nil {
+			log.Warn("Gateway deployment controller failed to apply template",
+				"error", err,
+				"template", t,
+				"name", gw.Name,
+				"namespace", gw.Namespace)
 			return fmt.Errorf("apply failed: %v", err)
 		}
 	}

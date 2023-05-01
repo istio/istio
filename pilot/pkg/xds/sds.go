@@ -99,7 +99,10 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 		sr, err := credentials.ParseResourceName(resource, proxy.VerifiedIdentity.Namespace, proxy.Metadata.ClusterID, s.configCluster)
 		if err != nil {
 			pilotSDSCertificateErrors.Increment()
-			log.Warnf("error parsing resource name: %v", err)
+			pilotSDSCertificateErrorsDetail.With(errTag.Value("parse")).Increment()
+			log.Warn("SDS error parsing resource name",
+				"error", err,
+				"resource", resource)
 			continue
 		}
 		res = append(res, SecretResource{sr, pkpConfHashStr})
@@ -109,7 +112,8 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 
 func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if proxy.VerifiedIdentity == nil {
-		log.Warnf("proxy %s is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		log.Warnf("SDS proxy is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.",
+			"proxy", proxy.ID)
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	if req == nil || !sdsNeedsPush(req.ConfigsUpdated) {
@@ -123,14 +127,21 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	// TODO: For the new gateway-api, we should always search the config namespace and stop reading across all clusters
 	proxyClusterSecrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
 	if err != nil {
-		log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		log.Warn("SDS proxy is from an unknown cluster, cannot retrieve certificates",
+			"proxy", proxy.ID,
+			"error", err,
+			"proxyCluster", proxy.Metadata.ClusterID)
 		pilotSDSCertificateErrors.Increment()
+		pilotSDSCertificateErrorsDetail.With(errTag.Value("proxy_cluster")).Increment()
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	configClusterSecrets, err := s.secrets.ForCluster(s.configCluster)
 	if err != nil {
-		log.Warnf("config cluster %s not found, cannot retrieve certificates: %v", s.configCluster, err)
+		log.Warn("SDS config cluster not found, cannot retrieve certificates.", "configcluster", s.configCluster,
+			"proxy", proxy.ID,
+			"error", err)
 		pilotSDSCertificateErrors.Increment()
+		pilotSDSCertificateErrorsDetail.With(errTag.Value("config_cluster")).Increment()
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 
@@ -185,7 +196,10 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		caCert, err := secretController.GetCaCert(sr.Name, sr.Namespace)
 		if err != nil {
 			pilotSDSCertificateErrors.Increment()
-			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
+			pilotSDSCertificateErrorsDetail.With(errTag.Value("fetch_ca")).Increment()
+			log.Warn("SDS failed to fetch ca certificate",
+				"resource", sr.ResourceName,
+				"error", err)
 			return nil
 		}
 		if features.VerifySDSCertificate {
@@ -201,7 +215,10 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	key, cert, staple, err := secretController.GetKeyCertAndStaple(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
-		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
+		pilotSDSCertificateErrorsDetail.With(errTag.Value("fetch")).Increment()
+		log.Warnf("SDS failed to fetch key and certificate for",
+			"resource", sr.ResourceName,
+			"error", err)
 		return nil
 	}
 	if features.VerifySDSCertificate {
@@ -235,7 +252,10 @@ func ValidateCertificate(data []byte) error {
 
 func recordInvalidCertificate(name string, err error) {
 	pilotSDSCertificateErrors.Increment()
-	log.Warnf("invalid certificates: %q: %v", name, err)
+	pilotSDSCertificateErrorsDetail.With(errTag.Value("invalid")).Increment()
+	log.Warnf("SDS invalid certificates",
+		"resource", name,
+		"error", err)
 }
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
@@ -287,8 +307,12 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			}
 		default:
 			// Should never happen
-			log.Warnf("unknown credential type %q", r.Type)
+			log.Warnf("SDS unknown credential type",
+				"proxy", proxy.ID,
+				"resource", r.ResourceName,
+				"type", r.Type)
 			pilotSDSCertificateErrors.Increment()
+			pilotSDSCertificateErrorsDetail.With(errTag.Value("credential_type")).Increment()
 		}
 	}
 
@@ -299,8 +323,12 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 		if errMessage == nil {
 			errMessage = fmt.Errorf("cross namespace secret reference requires ReferencePolicy")
 		}
-		log.Warnf("proxy %s attempted to access unauthorized certificates %s: %v", proxy.ID, atMostNJoin(deniedResources, 3), errMessage)
+		log.Warnf("SDS proxy attempted to access unauthorized certificates",
+			"proxy", proxy.ID,
+			"resource", atMostNJoin(deniedResources, 3),
+			"error", errMessage)
 		pilotSDSCertificateErrors.Increment()
+		pilotSDSCertificateErrorsDetail.With(errTag.Value("namespace_denied")).Increment()
 	}
 
 	return allowedResources
@@ -468,7 +496,7 @@ type SecretGen struct {
 var _ model.XdsResourceGenerator = &SecretGen{}
 
 func NewSecretGen(sc credscontroller.MulticlusterController, cache model.XdsCache, configCluster cluster.ID,
-	meshConfig *mesh.MeshConfig,
+		meshConfig *mesh.MeshConfig,
 ) *SecretGen {
 	// TODO: Currently we only have a single credentials controller (Kubernetes). In the future, we will need a mapping
 	// of resource type to secret controller (ie kubernetes:// -> KubernetesController, vault:// -> VaultController)

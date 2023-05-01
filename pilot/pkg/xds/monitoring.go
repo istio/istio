@@ -167,6 +167,12 @@ var (
 		"Total number of failures to fetch SDS key and certificate.",
 	)
 
+	pilotSDSCertificateErrorsDetail = monitoring.NewSum(
+		"pilot_sds_errors_total",
+		"Total number of failures to fetch SDS key and certificate by type",
+		monitoring.WithLabels(errTag),
+	)
+
 	inboundConfigUpdates  = inboundUpdates.With(typeTag.Value("config"))
 	inboundEDSUpdates     = inboundUpdates.With(typeTag.Value("eds"))
 	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))

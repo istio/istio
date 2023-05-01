@@ -269,6 +269,10 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
 	}
 
+	// TODO: get WI from peerAddr and use it to validate auth and (if secure net)
+	// - populate metadata from WI if missing
+	// - validate namespace and sensitive meta
+
 	ids, err := s.authenticate(ctx)
 	if err != nil {
 		return status.Error(codes.Unauthenticated, err.Error())
