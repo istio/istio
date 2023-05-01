@@ -194,11 +194,6 @@ func registerStringParameter(name, value, usage string) {
 	registerEnvironment(name, value, usage)
 }
 
-func registerStringArrayParameter(name string, value []string, usage string) {
-	rootCmd.Flags().StringArray(name, value, usage)
-	registerEnvironment(name, strings.Join(value, ","), usage)
-}
-
 func registerIntegerParameter(name string, value int, usage string) {
 	rootCmd.Flags().Int(name, value, usage)
 	registerEnvironment(name, value, usage)
