@@ -24,8 +24,8 @@ import (
 const (
 	// OperatorCodeBaseVersion is the version string from the code base.
 	OperatorCodeBaseVersion = "1.19.0"
-	OperatorEOLYear         = 2023
-	OperatorEOLMonth        = time.January
+	OperatorEOLYear         = 2024
+	OperatorEOLMonth        = time.April
 )
 
 var (
@@ -48,4 +48,9 @@ func init() {
 		panic(err)
 	}
 	OperatorBinaryVersion = *v
+}
+
+func IsEOL() bool {
+	t := time.Now()
+	return t.Year() > OperatorEOLYear || (t.Year() == OperatorEOLYear && t.Month() >= OperatorEOLMonth)
 }
