@@ -238,8 +238,8 @@ Removing a revision tag should be done with care. Removing a revision tag will d
 that reference the tag in an "istio.io/rev" label. Verify that there are no remaining namespaces referencing a
 revision tag before removing using the "istioctl tag list" command.
 `,
-		Example: ` # Remove the revision tag "prod"
-	istioctl tag remove prod
+		Example: `  # Remove the revision tag "prod"
+  istioctl tag remove prod
 `,
 		Aliases: []string{"delete"},
 		Args: func(cmd *cobra.Command, args []string) error {
