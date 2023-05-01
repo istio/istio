@@ -139,11 +139,11 @@ func TestClientDelayedCRDs(t *testing.T) {
 
 // CheckIstioConfigTypes validates that an empty store can do CRUD operators on all given types
 func TestClient(t *testing.T) {
-	store, _ := makeClient(t, collections.PilotGatewayAPI.Union(collections.Kube))
+	store, _ := makeClient(t, collections.PilotGatewayAPI().Union(collections.Kube))
 	configName := "test"
 	configNamespace := "test-ns"
 	timeout := retry.Timeout(time.Millisecond * 200)
-	for _, r := range collections.PilotGatewayAPI.All() {
+	for _, r := range collections.PilotGatewayAPI().All() {
 		name := r.Kind()
 		t.Run(name, func(t *testing.T) {
 			configMeta := config.Meta{

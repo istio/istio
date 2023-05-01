@@ -798,6 +798,7 @@ var (
 				MustAdd(KubernetesGateway).
 				MustAdd(PeerAuthentication).
 				MustAdd(ProxyConfig).
+				MustAdd(ReferenceGrant).
 				MustAdd(RequestAuthentication).
 				MustAdd(ServiceEntry).
 				MustAdd(Sidecar).

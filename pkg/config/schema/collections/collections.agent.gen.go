@@ -331,8 +331,8 @@ var (
 		MustAdd(WorkloadGroup).
 		Build()
 
-	// PilotGatewayAPI contains only collections used by Pilot, including the full Gateway API.
-	pilotGatewayAPI = collection.NewSchemasBuilder().
+	// PilotGatewayAPI() contains only collections used by Pilot, including the full Gateway API.
+	PilotGatewayAPI() = collection.NewSchemasBuilder().
 			MustAdd(AuthorizationPolicy).
 			MustAdd(DestinationRule).
 			MustAdd(EnvoyFilter).
