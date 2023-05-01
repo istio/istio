@@ -121,8 +121,8 @@ func newController(o Options, client kube.Client) *Controller {
 		// longer lasting concerns which will eventually be retried on 1min interval.
 		// Unlike the mutating webhook controller, we do not use NewItemFastSlowRateLimiter. This is because
 		// the validation controller waits for its own service to be ready, so typically this takes a few seconds
-		// before we are ready; using FastSlow means we tend to always take the Slow time (1min)
-		controllers.WithRateLimiter(workqueue.NewItemFastSlowRateLimiter(100*time.Millisecond, 1*time.Minute, 5)))
+		// before we are ready; using FastSlow means we tend to always take the Slow time (1min).
+		controllers.WithRateLimiter(workqueue.NewItemExponentialFailureRateLimiter(100*time.Millisecond, 1*time.Minute)))
 
 	c.webhooks = kclient.NewFiltered[*kubeApiAdmission.ValidatingWebhookConfiguration](client, kclient.Filter{
 		LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision),
