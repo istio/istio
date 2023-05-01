@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config/constants"
@@ -366,18 +365,6 @@ var (
 
 	JwtPolicy = env.Register("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.").Get()
-
-	// Default request timeout for virtual services if a timeout is not configured in virtual service. It defaults to zero
-	// which disables timeout when it is not configured, to preserve the current behavior.
-	defaultRequestTimeoutVar = env.Register(
-		"ISTIO_DEFAULT_REQUEST_TIMEOUT",
-		0*time.Millisecond,
-		"Default Http and gRPC Request timeout",
-	)
-
-	DefaultRequestTimeout = func() *durationpb.Duration {
-		return durationpb.New(defaultRequestTimeoutVar.Get())
-	}()
 
 	EnableGatewayAPI = env.Register("PILOT_ENABLE_GATEWAY_API", true,
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
