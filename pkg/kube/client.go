@@ -38,6 +38,7 @@ import (
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	kubeExtInformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -1150,9 +1151,13 @@ func (c *client) deleteYAML(cfg, namespace string, dryRun bool) error {
 		}
 		return err
 	}
-	return dr.Delete(context.Background(), obj.GetName(), metav1.DeleteOptions{
+	err = dr.Delete(context.Background(), obj.GetName(), metav1.DeleteOptions{
 		DryRun: getDryRun(dryRun),
 	})
+	if kerrors.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 func (c *client) InvalidateDiscovery() {
