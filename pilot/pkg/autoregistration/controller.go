@@ -245,8 +245,12 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 		}
 		_, err := c.store.Patch(*wle, func(cfg config.Config) (config.Config, kubetypes.PatchType) {
 			nextEntry := workloadEntryFromGroup(entryName, proxy, groupCfg)
-			setConnectMeta(nextEntry, c.instanceID, conTime)
-			return *nextEntry, kubetypes.MergePatchType
+			// copy things as needed since cfg will have things like resource version and uid set by k8s
+			cfg.Meta.Labels = mergeLabels(cfg.Meta.Labels, nextEntry.Meta.Labels)
+			cfg.Meta.Annotations = mergeLabels(cfg.Meta.Annotations, nextEntry.Meta.Annotations)
+			cfg.Spec = nextEntry.Spec
+			setConnectMeta(&cfg, c.instanceID, conTime)
+			return cfg, kubetypes.MergePatchType
 		})
 		if err != nil {
 			return fmt.Errorf("failed updating WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
