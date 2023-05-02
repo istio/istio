@@ -5,4 +5,4 @@ issue: []
 
 releaseNotes:
 - |
-  **Added** profile to install Istio in dual-stack experimental mode.
+  **Added** dualstack profile to install Istio in dual-stack experimental mode.
