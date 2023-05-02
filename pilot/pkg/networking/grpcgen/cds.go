@@ -103,13 +103,13 @@ func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultCluste
 	var port *model.Port
 	svc := push.ServiceForHostname(node, hostname)
 	if svc == nil {
-		log.Warnf("cds gen for %s: did not find service for cluster %s", node.ID, defaultClusterName)
-	} else {
-		var ok bool
-		port, ok = svc.Ports.GetByPort(portNum)
-		if !ok {
-			log.Warnf("cds gen for %s: did not find port %d in service for cluster %s", node.ID, portNum, defaultClusterName)
-		}
+		return nil, fmt.Errorf("cds gen for %s: did not find service for cluster %s", node.ID, defaultClusterName)
+	}
+
+	var ok bool
+	port, ok = svc.Ports.GetByPort(portNum)
+	if !ok {
+		return nil, fmt.Errorf("cds gen for %s: did not find port %d in service for cluster %s", node.ID, portNum, defaultClusterName)
 	}
 
 	return &clusterBuilder{
