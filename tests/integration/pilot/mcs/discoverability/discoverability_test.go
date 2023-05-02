@@ -458,7 +458,7 @@ func createServiceEntry(t framework.TestContext, c cluster.Cluster, svcName, ns 
 		},
 	}
 	if _, err := c.Istio().NetworkingV1alpha3().ServiceEntries(ns).Create(context.TODO(), &svcEntry, metav1.CreateOptions{}); err != nil {
-		t.Errorf("failed to apply service entry: %s", err)
+		t.Errorf("failed to create service entry: %s", err)
 	}
 }
 
