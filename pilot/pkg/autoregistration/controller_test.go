@@ -146,6 +146,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			checkEntryOrFail(t, store, wgA, p, n, "")
 			// reconnect, ensure entry is there with the same instance id
 			origConnTime = time.Now()
+			p.Metadata.Labels["added-label"] = "foo"
 			c1.RegisterWorkload(p, origConnTime)
 			checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 		})
@@ -383,7 +384,7 @@ func checkEntry(
 		err = multierror.Append(err, fmt.Errorf("spec labels on WorkloadEntry should match meta labels"))
 	}
 	for k, v := range tmpl.Template.Labels {
-		if _, ok := proxy.Labels[k]; ok {
+		if _, ok := proxy.Metadata.Labels[k]; ok {
 			// would be overwritten
 			continue
 		}
@@ -391,7 +392,7 @@ func checkEntry(
 			err = multierror.Append(err, fmt.Errorf("labels missing on WorkloadEntry: %s=%s from template", k, v))
 		}
 	}
-	for k, v := range proxy.Labels {
+	for k, v := range proxy.Metadata.Labels {
 		if we.Labels[k] != v {
 			err = multierror.Append(err, fmt.Errorf("labels missing on WorkloadEntry: %s=%s from proxy meta", k, v))
 		}

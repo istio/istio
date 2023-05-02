@@ -229,6 +229,13 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 }
 
 func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conTime time.Time) error {
+	groupCfg := c.store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
+	if groupCfg == nil {
+		autoRegistrationErrors.Increment()
+		return grpcstatus.Errorf(codes.FailedPrecondition, "auto-registration WorkloadEntry of %v failed: cannot find WorkloadGroup %s/%s",
+			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
+	}
+
 	wle := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if wle != nil {
 		lastConTime, _ := time.Parse(timeFormat, wle.Annotations[ConnectedAtAnnotation])
@@ -236,10 +243,10 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 		if conTime.Before(lastConTime) {
 			return nil
 		}
-		// Try to patch, if it fails then try to create
 		_, err := c.store.Patch(*wle, func(cfg config.Config) (config.Config, kubetypes.PatchType) {
-			setConnectMeta(&cfg, c.instanceID, conTime)
-			return cfg, kubetypes.MergePatchType
+			nextEntry := workloadEntryFromGroup(entryName, proxy, groupCfg)
+			setConnectMeta(nextEntry, c.instanceID, conTime)
+			return *nextEntry, kubetypes.MergePatchType
 		})
 		if err != nil {
 			return fmt.Errorf("failed updating WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
@@ -250,12 +257,6 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 	}
 
 	// No WorkloadEntry, create one using fields from the associated WorkloadGroup
-	groupCfg := c.store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
-	if groupCfg == nil {
-		autoRegistrationErrors.Increment()
-		return grpcstatus.Errorf(codes.FailedPrecondition, "auto-registration WorkloadEntry of %v failed: cannot find WorkloadGroup %s/%s",
-			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
-	}
 	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
 	setConnectMeta(entry, c.instanceID, conTime)
 	_, err := c.store.Create(*entry)
