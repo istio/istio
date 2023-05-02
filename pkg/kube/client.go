@@ -192,7 +192,7 @@ type CLIClient interface {
 	PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.PodList, error)
 
 	// GetIstioPods retrieves the pod objects for Istio deployments
-	GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error)
+	GetIstioPods(ctx context.Context, namespace string, opts metav1.ListOptions) ([]v1.Pod, error)
 
 	// GetProxyPods retrieves all the proxy pod objects: sidecar injected pods and gateway pods.
 	GetProxyPods(ctx context.Context, limit int64, token string) (*v1.PodList, error)
@@ -800,9 +800,9 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 }
 
 func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {
-	istiods, err := c.GetIstioPods(ctx, istiodNamespace, map[string]string{
-		"labelSelector": "app=istiod",
-		"fieldSelector": RunningStatus,
+	istiods, err := c.GetIstioPods(ctx, istiodNamespace, metav1.ListOptions{
+		LabelSelector: "app=istiod",
+		FieldSelector: RunningStatus,
 	})
 	if err != nil {
 		return nil, err
@@ -869,38 +869,26 @@ func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, 
 	return out, nil
 }
 
-func (c *client) GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error) {
+func (c *client) GetIstioPods(ctx context.Context, namespace string, opts metav1.ListOptions) ([]v1.Pod, error) {
 	if c.revision != "" {
-		labelSelector, ok := params["labelSelector"]
-		if ok {
-			params["labelSelector"] = fmt.Sprintf("%s,%s=%s", labelSelector, label.IoIstioRev.Name, c.revision)
+		if opts.LabelSelector != "" {
+			opts.LabelSelector += fmt.Sprintf(",%s=%s", label.IoIstioRev.Name, c.revision)
 		} else {
-			params["labelSelector"] = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, c.revision)
+			opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, c.revision)
 		}
 	}
 
-	req := c.restClient.Get().
-		Resource("pods").
-		Namespace(namespace)
-	for k, v := range params {
-		req.Param(k, v)
+	pl, err := c.kube.CoreV1().Pods(namespace).List(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve Pods: %v", err)
 	}
-
-	res := req.Do(ctx)
-	if res.Error() != nil {
-		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
-	}
-	list := &v1.PodList{}
-	if err := res.Into(list); err != nil {
-		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
-	}
-	return list.Items, nil
+	return pl.Items, nil
 }
 
 func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error) {
-	pods, err := c.GetIstioPods(ctx, namespace, map[string]string{
-		"labelSelector": "app=istiod",
-		"fieldSelector": RunningStatus,
+	pods, err := c.GetIstioPods(ctx, namespace, metav1.ListOptions{
+		LabelSelector: "app=istiod",
+		FieldSelector: RunningStatus,
 	})
 	if err != nil {
 		return nil, err
@@ -1332,4 +1320,10 @@ func defaultAvailablePort() (uint16, error) {
 	}
 	port := l.Addr().(*net.TCPAddr).Port
 	return uint16(port), l.Close()
+}
+
+func SetRevisionForTest(c CLIClient, rev string) CLIClient {
+	tc := c.(*client)
+	tc.revision = rev
+	return tc
 }

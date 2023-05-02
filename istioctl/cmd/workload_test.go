@@ -24,7 +24,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
@@ -166,31 +165,28 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 		t.Run(dir.Name(), func(t *testing.T) {
 			testdir := path.Join("testdata/vmconfig", dir.Name())
 			kubeClientWithRevision = func(_, _, _ string) (kube.CLIClient, error) {
-				return &kube.MockClient{
-					RevisionValue: "rev-1",
-					Interface: fake.NewSimpleClientset(
-						&v1.ServiceAccount{
-							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
-							Secrets:    []v1.ObjectReference{{Name: "test"}},
+				return kube.SetRevisionForTest(kube.NewFakeClient(
+					&v1.ServiceAccount{
+						ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
+						Secrets:    []v1.ObjectReference{{Name: "test"}},
+					},
+					&v1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
+						Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+					},
+					&v1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
+						Data: map[string]string{
+							"mesh": string(util.ReadFile(t, path.Join(testdir, "meshconfig.yaml"))),
 						},
-						&v1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
-							Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
+						Data: map[string][]byte{
+							"token": {},
 						},
-						&v1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
-							Data: map[string]string{
-								"mesh": string(util.ReadFile(t, path.Join(testdir, "meshconfig.yaml"))),
-							},
-						},
-						&v1.Secret{
-							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
-							Data: map[string][]byte{
-								"token": {},
-							},
-						},
-					),
-				}, nil
+					},
+				), "rev-1"), nil
 			}
 
 			cmdWithClusterID := []string{
@@ -260,30 +256,28 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	noClusterID := "failed to automatically determine the --clusterID"
 
 	kubeClientWithRevision = func(_, _, _ string) (kube.CLIClient, error) {
-		return &kube.MockClient{
-			Interface: fake.NewSimpleClientset(
-				&v1.ServiceAccount{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
-					Secrets:    []v1.ObjectReference{{Name: "test"}},
+		return kube.NewFakeClient(
+			&v1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
+				Secrets:    []v1.ObjectReference{{Name: "test"}},
+			},
+			&v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
+				Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+			},
+			&v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio"},
+				Data: map[string]string{
+					"mesh": "defaultConfig: {}",
 				},
-				&v1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
-					Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+			},
+			&v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
+				Data: map[string][]byte{
+					"token": {},
 				},
-				&v1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio"},
-					Data: map[string]string{
-						"mesh": "defaultConfig: {}",
-					},
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
-					Data: map[string][]byte{
-						"token": {},
-					},
-				},
-			),
-		}, nil
+			},
+		), nil
 	}
 
 	cmdWithClusterID := []string{
