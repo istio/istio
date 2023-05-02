@@ -128,13 +128,12 @@ func TestMeshWide(t *testing.T) {
 		Features("traffic.mcs.servicediscovery").
 		Run(func(t framework.TestContext) {
 			// Export service B in all clusters.
-			createAndCleanupServiceExport(t, common.ServiceB, t.Clusters())
+			createAndCleanupServiceExport(t, common.ServiceB, common.GetSingleNetworkClusters(t.Clusters()))
 			serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
 			serviceB = match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
 			for _, ht := range hostTypes {
 				t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
 					runForAllClusterCombinations(t, func(t framework.TestContext, from echo.Instance, to echo.Target) {
-						// TODO: remove remote cluster from "from", because in the remote cluster ServiceEntry cannot be created and *.svc.clusterset.local is not resolvable
 						var expectedClusters cluster.Clusters
 						if ht == hostTypeClusterLocal {
 							// Ensure that all requests to cluster.local stay in the same cluster
@@ -143,10 +142,6 @@ func TestMeshWide(t *testing.T) {
 							// Ensure that requests to clusterset.local reach all destination clusters.
 							expectedClusters = to.Clusters()
 						}
-						scopes.Framework.Infof("to clusters: " + to.Clusters().String())
-						//from.Config().Cluster.Name()
-						//to.Config().Cluster.Name()
-						// TODO: Add locality labels and locality-based routing to distribute traffic equally across clusters
 						callAndValidate(t, ht, from, to, checkClustersReached(t.AllClusters(), expectedClusters))
 					})
 				})
@@ -431,17 +426,24 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 		}
 	} else {
 		scopes.Framework.Infof("No MCS Controller running. Manually creating ServiceImport in each cluster")
+		// Make target service resolvable in the domain clusterset.local
+		for _, c := range exportClusters {
+			if c.IsPrimary() {
+				createServiceEntry(t, c, common.ServiceB, echos.Namespace.Name())
+			}
+		}
 		for _, c := range exportClusters {
 			svc, err := c.Kube().CoreV1().Services(echos.Namespace.Name()).Get(context.TODO(), common.ServiceB, metav1.GetOptions{})
 			if err != nil {
 				t.Errorf("failed to get %s/%s: %s", common.ServiceB, echos.Namespace.Name(), err)
 			}
-			// TODO: skip creating ServiceEntry in the remote cluster
-			createServiceEntry(t, c, svc)
-			for _, c := range exportClusters {
-				scopes.Framework.Infof("Creating cluster import in cluster %s", c.Name())
+			// When there is no MCS controller, we are not able to create ServiceImport's VIP that would route traffic
+			// across services within the cluster set. Therefore, a ServiceEntry is created only in one of the clusters.
+			remoteClusters := exportClusters.Exclude(c)
+			for _, c := range remoteClusters {
+				scopes.Framework.Infof("Creating ServiceImport in cluster %s", c.Name())
 				if err := createServiceImport(c, svc.Spec.ClusterIP, serviceImportGVR); err != nil {
-					t.Errorf("failed to create service import in cluster %s: %s", c.Name(), err)
+					t.Errorf("failed to create ServiceImport in cluster %s: %s", c.Name(), err)
 				}
 			}
 		}
@@ -530,15 +532,15 @@ func genClusterSetIPService(c cluster.Cluster) (*corev1.Service, error) {
 	return dummySvc, err
 }
 
-func createServiceEntry(t framework.TestContext, c cluster.Cluster, svc *corev1.Service) {
+func createServiceEntry(t framework.TestContext, c cluster.Cluster, svcName, ns string) {
 	scopes.Framework.Infof("Applying service entry")
 	svcEntry := v1alpha3.ServiceEntry{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      svc.Name,
-			Namespace: svc.Namespace,
+			Name:      svcName,
+			Namespace: ns,
 		},
 		Spec: networkingv1alpha3.ServiceEntry{
-			Hosts: []string{fmt.Sprintf("%s.%s.svc.clusterset.local", svc.Name, svc.Namespace)},
+			Hosts: []string{fmt.Sprintf("%s.%s.svc.clusterset.local", svcName, ns)},
 			Ports: []*networkingv1alpha3.ServicePort{
 				{
 					Number:   uint32(ports.HTTP.ServicePort),
@@ -548,34 +550,11 @@ func createServiceEntry(t framework.TestContext, c cluster.Cluster, svc *corev1.
 			},
 			Location:   networkingv1alpha3.ServiceEntry_MESH_INTERNAL,
 			Resolution: networkingv1alpha3.ServiceEntry_STATIC,
-			Endpoints: []*networkingv1alpha3.WorkloadEntry{
-				{
-					Address: svc.Spec.ClusterIP,
-				},
-			},
 		},
 	}
-	if _, err := c.Istio().NetworkingV1alpha3().ServiceEntries(svc.Namespace).Create(context.TODO(), &svcEntry, metav1.CreateOptions{}); err != nil {
+	if _, err := c.Istio().NetworkingV1alpha3().ServiceEntries(ns).Create(context.TODO(), &svcEntry, metav1.CreateOptions{}); err != nil {
 		t.Errorf("failed to apply service entry: %s", err)
 	}
-	//	svcEntry := fmt.Sprintf(`
-	//apiVersion: networking.istio.io/v1beta1
-	//kind: ServiceEntry
-	//metadata:
-	//  name: %[1]s-%[3]s
-	//  namespace: %[2]s
-	//spec:
-	//  hosts:
-	//  - %[1]s.%[2]s.svc.clusterset.local
-	//  endpoints:
-	//  - address: %s
-	//  location: MESH_INTERNAL
-	//  ports:
-	//  - number: %d
-	//    name: %s
-	//    protocol: HTTP
-	//  resolution: STATIC
-	//`, svc.Name, svc.Namespace, c.Name(), svc.Spec.ClusterIP, ports.HTTP.ServicePort, ports.HTTP.Name)
 }
 
 func createServiceImport(c cluster.Cluster, vip string, serviceImportGVR schema.GroupVersionResource) error {

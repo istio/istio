@@ -125,7 +125,7 @@ func DeployEchosFunc(nsPrefix string, d *EchoDeployment) func(t resource.Context
 
 		// Create echo instances in each cluster.
 		d.Instances, err = deployment.New(t).
-			WithClusters(t.Clusters()...).
+			WithClusters(GetSingleNetworkClusters(t.Clusters())...).
 			WithConfig(echo.Config{
 				Service:   ServiceA,
 				Namespace: ns,
@@ -138,4 +138,8 @@ func DeployEchosFunc(nsPrefix string, d *EchoDeployment) func(t resource.Context
 			}).Build()
 		return err
 	}
+}
+
+func GetSingleNetworkClusters(clusters cluster.Clusters) cluster.Clusters {
+	return clusters.ByNetwork()[clusters.GetByName("primary").NetworkName()]
 }
