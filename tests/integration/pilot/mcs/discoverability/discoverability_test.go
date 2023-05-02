@@ -20,7 +20,6 @@ package discoverability
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"sort"
 	"sync"
 	"testing"
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -357,7 +357,6 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	}
 
 	// Now wait for ServiceImport to be created
-	//importClusters := serviceA.GetMatches(echos.Instances).Clusters()
 	if common.IsMCSControllerEnabled(t) {
 		scopes.Framework.Infof("Waiting for the MCS Controller to create ServiceImport in each cluster")
 		for _, c := range exportClusters {
