@@ -38,18 +38,19 @@ import (
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	kubeExtInformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/cli-runtime/pkg/printers"
-	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/dynamic"
@@ -67,8 +68,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/kubectl/pkg/cmd/apply"
-	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -1059,7 +1058,7 @@ func (c *client) ApplyYAMLFiles(namespace string, yamlFiles ...string) error {
 	for _, f := range removeEmptyFiles(yamlFiles) {
 		f := f
 		g.Go(func() error {
-			return c.applyYAMLFile(namespace, false, f)
+			return c.ssapplyYAMLFile(namespace, false, f)
 		})
 	}
 	return g.Wait()
@@ -1070,7 +1069,7 @@ func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) err
 	for _, f := range removeEmptyFiles(yamlFiles) {
 		f := f
 		g.Go(func() error {
-			return c.applyYAMLFile(namespace, true, f)
+			return c.ssapplyYAMLFile(namespace, true, f)
 		})
 	}
 	return g.Wait()
@@ -1086,79 +1085,79 @@ func (c *client) UtilFactory() util.Factory {
 	return c.clientFactory
 }
 
-// TODO once we drop Kubernetes 1.15 support we can drop all of this code in favor of Server Side Apply
-// Following https://ymmt2005.hatenablog.com/entry/2020/04/14/An_example_of_using_dynamic_client_of_k8s.io/client-go
-func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error {
-	// Create the options.
-	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
-	flags := apply.NewApplyFlags(streams)
-	flags.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
-
-	cmd := apply.NewCmdApply("", c.clientFactory, streams)
-	opts, err := flags.ToOptions(c.clientFactory, cmd, "", nil)
+func (c *client) ssapplyYAMLFile(namespace string, dryRun bool, file string) error {
+	d, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
-	opts.DynamicClient = c.dynamic
-	opts.FieldManager = fieldManager
-	if dryRun {
-		opts.DryRunStrategy = util.DryRunServer
-	}
-
-	// allow for a success message operation to be specified at print time
-	opts.ToPrinter = func(operation string) (printers.ResourcePrinter, error) {
-		opts.PrintFlags.NamePrintFlags.Operation = operation
-		util.PrintFlagsWithDryRunStrategy(opts.PrintFlags, opts.DryRunStrategy)
-		return opts.PrintFlags.ToPrinter()
-	}
-
-	if len(namespace) > 0 {
-		opts.Namespace = namespace
-		opts.EnforceNamespace = true
-	} else {
-		var err error
-		opts.Namespace, opts.EnforceNamespace, err = c.clientFactory.ToRawKubeConfigLoader().Namespace()
-		if err != nil {
+	cfgs := yml.SplitString(string(d))
+	for _, cfg := range cfgs {
+		if err := c.ssapplyYAML(cfg, namespace, dryRun); err != nil {
 			return err
 		}
 	}
-	dcmd := kubectlDelete.NewCmdDelete(c.clientFactory, streams)
-	opts.DeleteOptions = &kubectlDelete.DeleteOptions{
-		DynamicClient:   c.dynamic,
-		IOStreams:       streams,
-		FilenameOptions: flags.DeleteFlags.FileNameFlags.ToOptions(),
-	}
-	if err := opts.DeleteOptions.Complete(c.clientFactory, nil, dcmd); err != nil {
-		return fmt.Errorf("delete.Complete: %v", err)
+	return nil
+}
+
+func (c *client) ssapplyYAML(cfg string, namespace string, dryRun bool) error {
+	obj, dr, err := c.buildObject(cfg, namespace)
+	if err != nil {
+		if runtime.IsMissingKind(err) {
+			log.Infof("skip applying, not a Kubernetes kind")
+			return nil
+		}
+		return err
 	}
 
-	opts.OpenAPISchema, _ = c.clientFactory.OpenAPISchema()
-
-	opts.Validator, err = c.clientFactory.Validator(metav1.FieldValidationStrict)
+	data, err := json.Marshal(obj)
 	if err != nil {
 		return err
 	}
-	opts.Builder = c.clientFactory.NewBuilder()
-	opts.Mapper = c.mapper
 
-	opts.PostProcessorFn = opts.PrintAndPrunePostProcessor()
-
-	if err := opts.Run(); err != nil {
-		// Concatenate the stdout and stderr
-		s := stdout.String() + stderr.String()
-		return fmt.Errorf("%v: %s", err, s)
-	}
+	force := true
+	_, err = dr.Patch(context.Background(), obj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{
+		DryRun:       getDryRun(dryRun),
+		Force:        &force,
+		FieldManager: "istio-ci",
+	})
 	// If we are changing CRDs, invalidate the discovery client so future calls will not fail
-	if !dryRun {
-		f, err := os.ReadFile(file)
-		if err != nil {
-			log.Warnf("Failed to read %s: %v", file, err)
-		}
-		if len(yml.SplitYamlByKind(string(f))[gvk.CustomResourceDefinition.Kind]) > 0 {
-			c.InvalidateDiscovery()
+	if !dryRun && obj.GetKind() == gvk.CustomResourceDefinition.Kind {
+		c.InvalidateDiscovery()
+	}
+
+	return err
+}
+
+func (c *client) deleteYAMLFile(namespace string, dryRun bool, file string) error {
+	d, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	cfgs := yml.SplitString(string(d))
+	for _, cfg := range cfgs {
+		if err := c.deleteYAML(cfg, namespace, dryRun); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (c *client) deleteYAML(cfg, namespace string, dryRun bool) error {
+	obj, dr, err := c.buildObject(cfg, namespace)
+	if err != nil {
+		if runtime.IsMissingKind(err) {
+			log.Infof("skip delete, not a Kubernetes kind")
+			return nil
+		}
+		return err
+	}
+	err = dr.Delete(context.Background(), obj.GetName(), metav1.DeleteOptions{
+		DryRun: getDryRun(dryRun),
+	})
+	if kerrors.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 func (c *client) InvalidateDiscovery() {
@@ -1175,7 +1174,7 @@ func (c *client) DeleteYAMLFiles(namespace string, yamlFiles ...string) (err err
 	for i, f := range yamlFiles {
 		i, f := i, f
 		g.Go(func() error {
-			errs[i] = c.deleteFile(namespace, false, f)
+			errs[i] = c.deleteYAMLFile(namespace, false, f)
 			return errs[i]
 		})
 	}
@@ -1192,78 +1191,12 @@ func (c *client) DeleteYAMLFilesDryRun(namespace string, yamlFiles ...string) (e
 	for i, f := range yamlFiles {
 		i, f := i, f
 		g.Go(func() error {
-			errs[i] = c.deleteFile(namespace, true, f)
+			errs[i] = c.deleteYAMLFile(namespace, true, f)
 			return errs[i]
 		})
 	}
 	_ = g.Wait()
 	return multierror.Append(nil, errs...).ErrorOrNil()
-}
-
-func (c *client) deleteFile(namespace string, dryRun bool, file string) error {
-	// Create the options.
-	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
-
-	cmdNamespace, enforceNamespace, err := c.clientFactory.ToRawKubeConfigLoader().Namespace()
-	if err != nil {
-		return err
-	}
-
-	if len(namespace) > 0 {
-		cmdNamespace = namespace
-		enforceNamespace = true
-	}
-
-	fileOpts := resource.FilenameOptions{
-		Filenames: []string{file},
-	}
-	dcmd := kubectlDelete.NewCmdDelete(c.clientFactory, streams)
-	opts := &kubectlDelete.DeleteOptions{
-		DynamicClient:   c.dynamic,
-		IOStreams:       streams,
-		FilenameOptions: fileOpts,
-	}
-
-	if err := opts.Complete(c.clientFactory, nil, dcmd); err != nil {
-		return fmt.Errorf("delete.Complete: %v", err)
-	}
-
-	opts.CascadingStrategy = metav1.DeletePropagationBackground
-	opts.GracePeriod = -1
-	opts.IgnoreNotFound = true
-	opts.WaitForDeletion = true
-	opts.WarnClusterScope = enforceNamespace
-	opts.DynamicClient = c.dynamic
-
-	if dryRun {
-		opts.DryRunStrategy = util.DryRunServer
-	}
-
-	r := c.clientFactory.NewBuilder().
-		Unstructured().
-		ContinueOnError().
-		NamespaceParam(cmdNamespace).DefaultNamespace().
-		FilenameParam(enforceNamespace, &fileOpts).
-		LabelSelectorParam(opts.LabelSelector).
-		FieldSelectorParam(opts.FieldSelector).
-		SelectAllParam(opts.DeleteAll).
-		AllNamespaces(opts.DeleteAllNamespaces).
-		Flatten().
-		Do()
-	err = r.Err()
-	if err != nil {
-		return err
-	}
-	opts.Result = r
-
-	opts.Mapper = c.mapper
-
-	if err := opts.RunDelete(c.clientFactory); err != nil {
-		// Concatenate the stdout and stderr
-		s := stdout.String() + stderr.String()
-		return fmt.Errorf("%v: %s", err, s)
-	}
-	return nil
 }
 
 func (c *client) SetPortManager(manager PortManager) {
@@ -1293,6 +1226,46 @@ func isEmptyFile(f string) bool {
 		return true
 	}
 	return false
+}
+
+var decUnstructured = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+
+func getDryRun(dryRun bool) []string {
+	var dryRunArgs []string
+	if dryRun {
+		dryRunArgs = []string{metav1.DryRunAll}
+	}
+	return dryRunArgs
+}
+
+// buildObject takes a config YAML and default namespace and returns the same object as Unstructured, along with the client to access it
+func (c *client) buildObject(cfg string, namespace string) (*unstructured.Unstructured, dynamic.ResourceInterface, error) {
+	obj := &unstructured.Unstructured{}
+	_, gvk, err := decUnstructured.Decode([]byte(cfg), nil, obj)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	mapping, err := c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return nil, nil, fmt.Errorf("mapping: %v", err)
+	}
+
+	var dr dynamic.ResourceInterface
+	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+		ns := obj.GetNamespace()
+		if ns == "" {
+			ns = namespace
+		} else if namespace != "" && ns != namespace {
+			return nil, nil, fmt.Errorf("object %v/%v provided namespace %q but apply called with %q", gvk, obj.GetName(), ns, namespace)
+		}
+		// namespaced resources should specify the namespace
+		dr = c.dynamic.Resource(mapping.Resource).Namespace(ns)
+	} else {
+		// for cluster-wide resources
+		dr = c.dynamic.Resource(mapping.Resource)
+	}
+	return obj, dr, nil
 }
 
 // IstioScheme returns a scheme will all known Istio-related types added
