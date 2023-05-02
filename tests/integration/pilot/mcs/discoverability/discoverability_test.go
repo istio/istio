@@ -382,12 +382,6 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 		}
 	} else {
 		scopes.Framework.Infof("No MCS Controller running. Manually creating ServiceImport in each cluster")
-		// Make target service resolvable in the domain clusterset.local
-		for _, c := range exportClusters {
-			if c.IsPrimary() {
-				createServiceEntry(t, c, common.ServiceB, echos.Namespace.Name())
-			}
-		}
 		for _, c := range exportClusters {
 			svc, err := c.Kube().CoreV1().Services(echos.Namespace.Name()).Get(context.TODO(), common.ServiceB, metav1.GetOptions{})
 			if err != nil {
@@ -395,9 +389,12 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 			}
 			// When there is no MCS controller, we are not able to create ServiceImport's VIP that would route traffic
 			// across services within the cluster set. Therefore, a ServiceEntry is created only in one of the clusters.
-			remoteClusters := exportClusters.Exclude(c)
-			for _, c := range remoteClusters {
-				scopes.Framework.Infof("Creating ServiceImport in cluster %s", c.Name())
+			importClusters := exportClusters.Exclude(c)
+			for _, c := range importClusters {
+				// Make service B resolvable in the domain clusterset.local
+				if c.IsPrimary() {
+					createServiceEntry(t, c, common.ServiceB, echos.Namespace.Name())
+				}
 				if err := createServiceImport(c, svc.Spec.ClusterIP, serviceImportGVR); err != nil {
 					t.Errorf("failed to create ServiceImport in cluster %s: %s", c.Name(), err)
 				}
