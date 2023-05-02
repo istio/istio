@@ -1114,15 +1114,17 @@ spec:
     app: headless
   ports:` + ports + `
 ---
-apiVersion: v1
-kind: Endpoints
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
 metadata:
   name: headless
   namespace: default
-subsets:
+  labels:
+    kubernetes.io/service-name: headless
+endpoints:
 - addresses:
-  - ip: 1.2.3.4
-  ports:
+  - 1.2.3.4
+ports:
 ` + ports,
 		calls: calls,
 	},

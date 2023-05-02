@@ -203,8 +203,6 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*kubeControlle
 
 	options := m.opts
 	options.ClusterID = cluster.ID
-	// different clusters may have different k8s version, re-apply conditional default
-	options.EndpointMode = DetectEndpointMode(client)
 	if !configCluster {
 		options.SyncTimeout = features.RemoteClusterTimeout
 	}
