@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"sort"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -90,35 +89,6 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, enableMCSServiceDiscovery)).
 		Setup(common.DeployEchosFunc("mcs", &echos)).
 		Run()
-}
-
-func TestClusterLocal(t *testing.T) {
-	framework.NewTest(t).
-		Features("traffic.mcs.servicediscovery").
-		RequireIstioVersion("1.11").
-		Run(func(t framework.TestContext) {
-			t.SkipNow()
-			// Don't export service B in any cluster. All requests should stay in-cluster.
-			serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
-			serviceB = match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
-			for _, ht := range hostTypes {
-				t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
-					runForAllClusterCombinations(t, func(t framework.TestContext, from echo.Instance, to echo.Target) {
-						var checker echo.Checker
-						if ht == hostTypeClusterLocal {
-							// For calls to cluster.local, ensure that all requests stay in the same cluster
-							expectedClusters := cluster.Clusters{from.Config().Cluster}
-							checker = checkClustersReached(t.AllClusters(), expectedClusters)
-						} else {
-							// For calls to clusterset.local, we should fail DNS lookup. The clusterset.local host
-							// is only available for a service when it is exported in at least one cluster.
-							checker = checkDNSLookupFailed()
-						}
-						callAndValidate(t, ht, from, to, checker)
-					})
-				})
-			}
-		})
 }
 
 func TestMeshWide(t *testing.T) {
@@ -239,17 +209,6 @@ func checkClustersReached(allClusters cluster.Clusters, clusters cluster.Cluster
 	return check.And(
 		check.OK(),
 		check.ReachedClusters(allClusters, clusters))
-}
-
-func checkDNSLookupFailed() echo.Checker {
-	return check.And(
-		check.Error(),
-		func(_ echo.CallResult, err error) error {
-			if strings.Contains(err.Error(), "no such host") {
-				return nil
-			}
-			return err
-		})
 }
 
 func callAndValidate(t framework.TestContext, ht hostType, from echo.Instance, to echo.Target, checker echo.Checker) {
