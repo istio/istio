@@ -96,7 +96,7 @@ func TestMeshWide(t *testing.T) {
 		Features("traffic.mcs.servicediscovery").
 		Run(func(t framework.TestContext) {
 			// Export service B in all clusters.
-			createAndCleanupServiceExport(t, common.ServiceB, common.GetSingleNetworkClusters(t.Clusters()))
+			createAndCleanupServiceExport(t, common.ServiceB, common.GetClustersFromSameNetwork(t.Clusters()))
 			serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
 			serviceB = match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
 			for _, ht := range hostTypes {
