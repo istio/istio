@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -119,8 +120,8 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 		return nil, err
 	}
 
-	pods, err := kubeClient.GetIstioPods(context.TODO(), podNamespace, map[string]string{
-		"fieldSelector": "metadata.name=" + podName,
+	pods, err := kubeClient.GetIstioPods(context.TODO(), podNamespace, metav1.ListOptions{
+		FieldSelector: "metadata.name=" + podName,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pod: %s", err)

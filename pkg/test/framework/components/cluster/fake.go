@@ -46,7 +46,7 @@ func NewFake(name, major, minor string) Cluster {
 
 func newFakeCluster(cfg Config, topology Topology) (Cluster, error) {
 	return &FakeCluster{
-		CLIClient: kube.MockClient{},
+		CLIClient: kube.NewFakeClient(),
 		Topology:  topology,
 		Version: &version.Info{
 			Major: cfg.Meta.String("majorVesion"),
