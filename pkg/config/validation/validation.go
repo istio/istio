@@ -911,6 +911,13 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			}
 			// ensure that the struct is valid
 			if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false); err != nil {
+				if strings.Contains(err.Error(), "could not resolve Any message type") {
+					if strings.Contains(err.Error(), ".v2.") {
+						err = fmt.Errorf("referenced type unknown (hint: try using the v3 XDS API): %v", err)
+					} else {
+						err = fmt.Errorf("referenced type unknown: %v", err)
+					}
+				}
 				errs = appendValidation(errs, err)
 			} else {
 				// Run with strict validation, and emit warnings. This helps capture cases like unknown fields
@@ -922,6 +929,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 
 				// Append any deprecation notices
 				if obj != nil {
+					// Note: since we no longer import v2 protos, v2 references will fail during BuildXDSObjectFromStruct.
 					errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
 					errs = appendValidation(errs, validateMissingTypedConfigFilterTypes(obj))
 				}
