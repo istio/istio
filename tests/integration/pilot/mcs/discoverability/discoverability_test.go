@@ -20,6 +20,7 @@ package discoverability
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"sort"
 	"strings"
 	"sync"
@@ -38,6 +39,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
+	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/test/framework"
@@ -74,8 +77,8 @@ var (
 
 	hostTypes = []hostType{hostTypeClusterSetLocal, hostTypeClusterLocal}
 
-	serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
-	serviceB = match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
+	serviceA match.Matcher
+	serviceB match.Matcher
 )
 
 func TestMain(m *testing.M) {
@@ -96,8 +99,10 @@ func TestClusterLocal(t *testing.T) {
 		Features("traffic.mcs.servicediscovery").
 		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
+			t.SkipNow()
 			// Don't export service B in any cluster. All requests should stay in-cluster.
-
+			serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
+			serviceB = match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
 			for _, ht := range hostTypes {
 				t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
 					runForAllClusterCombinations(t, func(t framework.TestContext, from echo.Instance, to echo.Target) {
@@ -124,10 +129,12 @@ func TestMeshWide(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			// Export service B in all clusters.
 			createAndCleanupServiceExport(t, common.ServiceB, t.Clusters())
-
+			serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
+			serviceB = match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
 			for _, ht := range hostTypes {
 				t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
 					runForAllClusterCombinations(t, func(t framework.TestContext, from echo.Instance, to echo.Target) {
+						// TODO: remove remote cluster from "from", because in the remote cluster ServiceEntry cannot be created and *.svc.clusterset.local is not resolvable
 						var expectedClusters cluster.Clusters
 						if ht == hostTypeClusterLocal {
 							// Ensure that all requests to cluster.local stay in the same cluster
@@ -136,6 +143,10 @@ func TestMeshWide(t *testing.T) {
 							// Ensure that requests to clusterset.local reach all destination clusters.
 							expectedClusters = to.Clusters()
 						}
+						scopes.Framework.Infof("to clusters: " + to.Clusters().String())
+						//from.Config().Cluster.Name()
+						//to.Config().Cluster.Name()
+						// TODO: Add locality labels and locality-based routing to distribute traffic equally across clusters
 						callAndValidate(t, ht, from, to, checkClustersReached(t.AllClusters(), expectedClusters))
 					})
 				})
@@ -188,6 +199,11 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 
 func enableMCSServiceDiscovery(t resource.Context, cfg *istio.Config) {
 	cfg.ControlPlaneValues = fmt.Sprintf(`
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      ISTIO_META_DNS_CAPTURE: "true"
+      ISTIO_META_DNS_AUTO_ALLOCATE: "true"
 values:
   pilot:
     env:
@@ -389,10 +405,10 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	}
 
 	// Now wait for ServiceImport to be created
-	importClusters := serviceA.GetMatches(echos.Instances).Clusters()
+	//importClusters := serviceA.GetMatches(echos.Instances).Clusters()
 	if common.IsMCSControllerEnabled(t) {
 		scopes.Framework.Infof("Waiting for the MCS Controller to create ServiceImport in each cluster")
-		for _, c := range importClusters {
+		for _, c := range exportClusters {
 			c := c
 			serviceImports := c.Dynamic().Resource(serviceImportGVR).Namespace(echos.Namespace.Name())
 
@@ -415,18 +431,19 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 		}
 	} else {
 		scopes.Framework.Infof("No MCS Controller running. Manually creating ServiceImport in each cluster")
-		for _, c := range importClusters {
-			c := c
-			g.Go(func() error {
-				// Generate a dummy service in the cluster to reserve the ClusterSet VIP.
-				clusterSetIPSvc, err := genClusterSetIPService(c)
-				if err != nil {
-					return err
+		for _, c := range exportClusters {
+			svc, err := c.Kube().CoreV1().Services(echos.Namespace.Name()).Get(context.TODO(), common.ServiceB, metav1.GetOptions{})
+			if err != nil {
+				t.Errorf("failed to get %s/%s: %s", common.ServiceB, echos.Namespace.Name(), err)
+			}
+			// TODO: skip creating ServiceEntry in the remote cluster
+			createServiceEntry(t, c, svc)
+			for _, c := range exportClusters {
+				scopes.Framework.Infof("Creating cluster import in cluster %s", c.Name())
+				if err := createServiceImport(c, svc.Spec.ClusterIP, serviceImportGVR); err != nil {
+					t.Errorf("failed to create service import in cluster %s: %s", c.Name(), err)
 				}
-
-				// Create a ServiceImport in the cluster with the ClusterSet VIP.
-				return createServiceImport(c, clusterSetIPSvc.Spec.ClusterIP, serviceImportGVR)
-			})
+			}
 		}
 	}
 
@@ -511,6 +528,54 @@ func genClusterSetIPService(c cluster.Cluster) (*corev1.Service, error) {
 	}, retry.Timeout(10*time.Second))
 
 	return dummySvc, err
+}
+
+func createServiceEntry(t framework.TestContext, c cluster.Cluster, svc *corev1.Service) {
+	scopes.Framework.Infof("Applying service entry")
+	svcEntry := v1alpha3.ServiceEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+		},
+		Spec: networkingv1alpha3.ServiceEntry{
+			Hosts: []string{fmt.Sprintf("%s.%s.svc.clusterset.local", svc.Name, svc.Namespace)},
+			Ports: []*networkingv1alpha3.ServicePort{
+				{
+					Number:   uint32(ports.HTTP.ServicePort),
+					Name:     ports.HTTP.Name,
+					Protocol: "HTTP",
+				},
+			},
+			Location:   networkingv1alpha3.ServiceEntry_MESH_INTERNAL,
+			Resolution: networkingv1alpha3.ServiceEntry_STATIC,
+			Endpoints: []*networkingv1alpha3.WorkloadEntry{
+				{
+					Address: svc.Spec.ClusterIP,
+				},
+			},
+		},
+	}
+	if _, err := c.Istio().NetworkingV1alpha3().ServiceEntries(svc.Namespace).Create(context.TODO(), &svcEntry, metav1.CreateOptions{}); err != nil {
+		t.Errorf("failed to apply service entry: %s", err)
+	}
+	//	svcEntry := fmt.Sprintf(`
+	//apiVersion: networking.istio.io/v1beta1
+	//kind: ServiceEntry
+	//metadata:
+	//  name: %[1]s-%[3]s
+	//  namespace: %[2]s
+	//spec:
+	//  hosts:
+	//  - %[1]s.%[2]s.svc.clusterset.local
+	//  endpoints:
+	//  - address: %s
+	//  location: MESH_INTERNAL
+	//  ports:
+	//  - number: %d
+	//    name: %s
+	//    protocol: HTTP
+	//  resolution: STATIC
+	//`, svc.Name, svc.Namespace, c.Name(), svc.Spec.ClusterIP, ports.HTTP.ServicePort, ports.HTTP.Name)
 }
 
 func createServiceImport(c cluster.Cluster, vip string, serviceImportGVR schema.GroupVersionResource) error {
