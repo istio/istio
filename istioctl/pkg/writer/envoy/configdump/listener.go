@@ -312,7 +312,7 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 		return iType < jType
 	})
 
-	printStr := "ADDRESS\tPORT\tADDITIONAL ADDRESSES"
+	printStr := "ADDRESSES\tPORT"
 	if includeConfigType {
 		printStr = "NAME\t" + printStr
 	}
@@ -323,8 +323,8 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 	}
 	fmt.Fprintln(w, printStr)
 	for _, l := range verifiedListeners {
-		address := retrieveListenerAddress(l)
-		addresses := retrieveListenerAdditionalAddresses(l)
+		addresses := []string{retrieveListenerAddress(l)}
+		addresses = append(addresses, retrieveListenerAdditionalAddresses(l)...)
 		port := retrieveListenerPort(l)
 		if filter.Verbose {
 
@@ -335,18 +335,18 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 			for _, match := range matches {
 				if includeConfigType {
 					l.Name = fmt.Sprintf("listener/%s", l.Name)
-					fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", l.Name, address, port, strings.Join(addresses, ","), match.match, match.destination)
+					fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", l.Name, strings.Join(addresses, ","), port, match.match, match.destination)
 				} else {
-					fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", address, port, strings.Join(addresses, ","), match.match, match.destination)
+					fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", strings.Join(addresses, ","), port, match.match, match.destination)
 				}
 			}
 		} else {
 			listenerType := retrieveListenerType(l)
 			if includeConfigType {
 				l.Name = fmt.Sprintf("listener/%s", l.Name)
-				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", l.Name, address, port, strings.Join(addresses, ","), listenerType)
+				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", l.Name, strings.Join(addresses, ","), port, listenerType)
 			} else {
-				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", address, port, strings.Join(addresses, ","), listenerType)
+				fmt.Fprintf(w, "%v\t%v\t%v\n", strings.Join(addresses, ","), port, listenerType)
 			}
 		}
 	}
