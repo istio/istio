@@ -29,7 +29,6 @@ import (
 
 	envoy_admin_v3 "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"golang.org/x/sync/errgroup"
-	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -38,7 +37,6 @@ import (
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/api/annotation"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -482,54 +480,6 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 
 		wg.Wait()
 	})
-}
-
-// genClusterSetIPService Generates a dummy service in order to allocate ClusterSet VIPs for
-// service B in the given cluster.
-func genClusterSetIPService(c cluster.Cluster) (*corev1.Service, error) {
-	// Get the definition for service B, so we can get the ports.
-	svc, err := c.Kube().CoreV1().Services(echos.Namespace.Name()).Get(context.TODO(), common.ServiceB, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	dummySvcName := "clusterset-vip-" + common.ServiceB
-	dummySvc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dummySvcName,
-			Namespace: echos.Namespace.Name(),
-			Annotations: map[string]string{
-				// Export the service nowhere, so that no proxy will receive it or its VIP.
-				annotation.NetworkingExportTo.Name: "~",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type:  corev1.ServiceTypeClusterIP,
-			Ports: svc.Spec.Ports,
-		},
-	}
-
-	ns := echos.Namespace.Name()
-	if _, err := c.Kube().CoreV1().Services(ns).Create(context.TODO(), dummySvc, metav1.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
-		return nil, err
-	}
-
-	// Wait until a ClusterIP has been assigned.
-	dummySvc = nil
-	err = retry.UntilSuccess(func() error {
-		var err error
-		dummySvc, err = c.Kube().CoreV1().Services(echos.Namespace.Name()).Get(context.TODO(), dummySvcName, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		if len(svc.Spec.ClusterIP) == 0 {
-			return fmt.Errorf("clusterSet VIP not set for service %s/%s in cluster %s",
-				echos.Namespace, dummySvcName, c.Name())
-		}
-		return nil
-	}, retry.Timeout(10*time.Second))
-
-	return dummySvc, err
 }
 
 func createServiceEntry(t framework.TestContext, c cluster.Cluster, svcName, ns string) {
