@@ -111,7 +111,7 @@ type EchoDeployment struct {
 	echo.Instances
 }
 
-func DeployEchosFunc(nsPrefix string, d *EchoDeployment) func(t resource.Context) error {
+func DeployEchosFunc(nsPrefix string, d *EchoDeployment, filterClusters func(clusters cluster.Clusters) cluster.Clusters) func(t resource.Context) error {
 	return func(t resource.Context) error {
 		// Create a new namespace in each cluster.
 		ns, err := namespace.New(t, namespace.Config{
@@ -123,9 +123,15 @@ func DeployEchosFunc(nsPrefix string, d *EchoDeployment) func(t resource.Context
 		}
 		d.Namespace = ns
 
+		var clusters cluster.Clusters
+		if filterClusters != nil {
+			clusters = filterClusters(t.Clusters())
+		} else {
+			clusters = t.Clusters()
+		}
 		// Create echo instances in each cluster.
 		d.Instances, err = deployment.New(t).
-			WithClusters(GetClustersFromSameNetwork(t.Clusters())...).
+			WithClusters(clusters...).
 			WithConfig(echo.Config{
 				Service:   ServiceA,
 				Namespace: ns,

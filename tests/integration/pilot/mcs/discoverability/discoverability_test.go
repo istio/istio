@@ -87,7 +87,7 @@ func TestMain(m *testing.M) {
 		RequireMinClusters(2).
 		Setup(common.InstallMCSCRDs).
 		Setup(istio.Setup(&i, enableMCSServiceDiscovery)).
-		Setup(common.DeployEchosFunc("mcs", &echos)).
+		Setup(common.DeployEchosFunc("mcs", &echos, common.GetClustersFromSameNetwork)).
 		Run()
 }
 

@@ -51,7 +51,7 @@ func TestMain(m *testing.M) {
 		RequireMinVersion(17).
 		Setup(common.InstallMCSCRDs).
 		Setup(istio.Setup(&i, enableMCSAutoExport)).
-		Setup(common.DeployEchosFunc("se", &echos)).
+		Setup(common.DeployEchosFunc("se", &echos, nil)).
 		Run()
 }
 
