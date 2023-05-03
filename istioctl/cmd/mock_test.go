@@ -75,19 +75,19 @@ func (c MockClient) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, 
 	return results, nil
 }
 
-// UtilFactory mock's kubectl's utility factory.  This code sets up a fake factory,
-// similar to the one in https://github.com/kubernetes/kubectl/blob/master/pkg/cmd/describe/describe_test.go
-func (c MockClient) UtilFactory() util.Factory {
-	tf := cmdtesting.NewTestFactory()
-	_, _, codec := cmdtesting.NewExternalScheme()
-	tf.UnstructuredClient = &fake.RESTClient{
-		NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
-		Resp: &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     cmdtesting.DefaultHeader(),
-			Body: cmdtesting.ObjBody(codec,
-				cmdtesting.NewInternalType("", "", "foo")),
-		},
+func init() {
+	MakeKubeFactory = func(k kube.CLIClient) util.Factory {
+		tf := cmdtesting.NewTestFactory()
+		_, _, codec := cmdtesting.NewExternalScheme()
+		tf.UnstructuredClient = &fake.RESTClient{
+			NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
+			Resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     cmdtesting.DefaultHeader(),
+				Body: cmdtesting.ObjBody(codec,
+					cmdtesting.NewInternalType("", "", "foo")),
+			},
+		}
+		return tf
 	}
-	return tf
 }

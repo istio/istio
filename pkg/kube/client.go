@@ -68,7 +68,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/kubectl/pkg/cmd/util"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
@@ -227,7 +226,7 @@ type CLIClient interface {
 		expirationSeconds int64) (credentials.PerRPCCredentials, error)
 
 	// UtilFactory returns a kubectl factory
-	UtilFactory() util.Factory
+	UtilFactory() PartialFactory
 
 	// SetPortManager overrides the default port manager to provision local ports
 	SetPortManager(PortManager)
@@ -330,7 +329,7 @@ type fakeClient interface {
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
 type client struct {
-	clientFactory util.Factory
+	clientFactory *clientFactory
 	config        *rest.Config
 	clusterID     cluster.ID
 
@@ -1069,7 +1068,7 @@ func (c *client) CreatePerRPCCredentials(_ context.Context, tokenNamespace, toke
 	return NewRPCCredentials(c, tokenNamespace, tokenServiceAccount, audiences, expirationSeconds, 60)
 }
 
-func (c *client) UtilFactory() util.Factory {
+func (c *client) UtilFactory() PartialFactory {
 	return c.clientFactory
 }
 
