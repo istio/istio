@@ -160,6 +160,13 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 	return cr.writer.Patch(orig, patchFn)
 }
 
+func (cr *store) Apply(c config.Config, fieldManager string, force bool) (string, error) {
+	if cr.writer == nil {
+		return "", errorUnsupported
+	}
+	return cr.writer.Apply(c, fieldManager, force)
+}
+
 type storeCache struct {
 	model.ConfigStore
 	caches []model.ConfigStoreController

@@ -266,6 +266,10 @@ func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (string
 	return "", errUnsupportedOp
 }
 
+func (c *Controller) Apply(config config.Config, fieldManager string, force bool) (string, error) {
+	return "", errUnsupportedOp
+}
+
 func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string, _ *string) error {
 	return errUnsupportedOp
 }

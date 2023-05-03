@@ -15,6 +15,12 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 
+	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	apiistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
+	apiistioioapisecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
+	apiistioioapitelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
+
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
@@ -31,11 +37,11 @@ import (
 	istioioapinetworkingv1beta1 "istio.io/api/networking/v1beta1"
 	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
 	istioioapitelemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
-	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
-	apiistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
-	apiistioioapisecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
-	apiistioioapitelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
+	applyconfigistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/applyconfiguration/extensions/v1alpha1"
+	applyconfigistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/applyconfiguration/networking/v1alpha3"
+	applyconfigistioioapinetworkingv1beta1 "istio.io/client-go/pkg/applyconfiguration/networking/v1beta1"
+	applyconfigistioioapisecurityv1beta1 "istio.io/client-go/pkg/applyconfiguration/security/v1beta1"
+	applyconfigistioioapitelemetryv1alpha1 "istio.io/client-go/pkg/applyconfiguration/telemetry/v1alpha1"
 )
 
 func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
@@ -721,6 +727,83 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", orig.GroupVersionKind)
+	}
+}
+
+func apply(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta, fieldManager string, force bool) (metav1.Object, error) {
+	switch cfg.GroupVersionKind {
+	case gvk.AuthorizationPolicy:
+		return c.Istio().SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapisecurityv1beta1.AuthorizationPolicyApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapisecurityv1beta1.AuthorizationPolicy),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.DestinationRule:
+		return c.Istio().NetworkingV1alpha3().DestinationRules(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapinetworkingv1alpha3.DestinationRuleApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapinetworkingv1alpha3.DestinationRule),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.EnvoyFilter:
+		return c.Istio().NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapinetworkingv1alpha3.EnvoyFilterApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapinetworkingv1alpha3.EnvoyFilter),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.Gateway:
+		return c.Istio().NetworkingV1alpha3().Gateways(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapinetworkingv1alpha3.GatewayApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapinetworkingv1alpha3.Gateway),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.PeerAuthentication:
+		return c.Istio().SecurityV1beta1().PeerAuthentications(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapisecurityv1beta1.PeerAuthenticationApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapisecurityv1beta1.PeerAuthentication),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.ProxyConfig:
+		return c.Istio().NetworkingV1beta1().ProxyConfigs(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapinetworkingv1beta1.ProxyConfigApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapinetworkingv1beta1.ProxyConfig),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.RequestAuthentication:
+		return c.Istio().SecurityV1beta1().RequestAuthentications(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapisecurityv1beta1.RequestAuthenticationApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapisecurityv1beta1.RequestAuthentication),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.ServiceEntry:
+		return c.Istio().NetworkingV1alpha3().ServiceEntries(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapinetworkingv1alpha3.ServiceEntryApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapinetworkingv1alpha3.ServiceEntry),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.Sidecar:
+		return c.Istio().NetworkingV1alpha3().Sidecars(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapinetworkingv1alpha3.SidecarApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapinetworkingv1alpha3.Sidecar),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.Telemetry:
+		return c.Istio().TelemetryV1alpha1().Telemetries(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapitelemetryv1alpha1.TelemetryApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapitelemetryv1alpha1.Telemetry),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.VirtualService:
+		return c.Istio().NetworkingV1alpha3().VirtualServices(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapinetworkingv1alpha3.VirtualServiceApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapinetworkingv1alpha3.VirtualService),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.WasmPlugin:
+		return c.Istio().ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapiextensionsv1alpha1.WasmPluginApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapiextensionsv1alpha1.WasmPlugin),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.WorkloadEntry:
+		return c.Istio().NetworkingV1alpha3().WorkloadEntries(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapinetworkingv1alpha3.WorkloadEntryApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapinetworkingv1alpha3.WorkloadEntry),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	case gvk.WorkloadGroup:
+		return c.Istio().NetworkingV1alpha3().WorkloadGroups(cfg.Namespace).Apply(context.TODO(), &applyconfigistioioapinetworkingv1alpha3.WorkloadGroupApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:                         cfg.Spec.(*istioioapinetworkingv1alpha3.WorkloadGroup),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
 	}
 }
 

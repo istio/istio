@@ -109,6 +109,10 @@ func (s *KubeSource) Patch(orig config.Config, patchFn config.PatchFunc) (string
 	return s.inner.Patch(orig, patchFn)
 }
 
+func (s *KubeSource) Apply(config config.Config, fieldManager string, force bool) (string, error) {
+	return s.inner.Apply(config, fieldManager, force)
+}
+
 func (s *KubeSource) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
 	return s.inner.Delete(typ, name, namespace, resourceVersion)
 }

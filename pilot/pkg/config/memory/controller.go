@@ -141,6 +141,19 @@ func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (newRev
 	return
 }
 
+func (c *Controller) Apply(config config.Config, fieldManager string, force bool) (newRevision string, err error) {
+	oldconfig := c.configStore.Get(config.GroupVersionKind, config.Name, config.Namespace)
+	// TODO actually merge with oldconfig
+	if newRevision, err = c.configStore.Apply(config, "", false); err == nil {
+		c.monitor.ScheduleProcessEvent(ConfigEvent{
+			old:    *oldconfig,
+			config: config,
+			event:  model.EventUpdate,
+		})
+	}
+	return
+}
+
 func (c *Controller) Delete(kind config.GroupVersionKind, key, namespace string, resourceVersion *string) (err error) {
 	if config := c.Get(kind, key, namespace); config != nil {
 		if err = c.configStore.Delete(kind, key, namespace, resourceVersion); err == nil {

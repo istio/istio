@@ -180,6 +180,13 @@ type ConfigStore interface {
 	// read-modify-write conflicts when there are many concurrent-writers to the same resource.
 	Patch(orig config.Config, patchFn config.PatchFunc) (string, error)
 
+	// Apply performs a serverside apply of the resource.
+	// FieldManager names the component that is responsible for the included fields in cfg.
+	// If the server has values for these fields with a different field manager, a conflict error will occur.
+	// Use force to ignore conflict errors and take ownership of these fields.
+	// https://kubernetes.io/docs/reference/using-api/server-side-apply/
+	Apply(config config.Config, fieldManager string, force bool) (string, error)
+
 	// Delete removes an object from the store by key
 	// For k8s, resourceVersion must be fulfilled before a deletion is carried out.
 	// If not possible, a 409 Conflict status will be returned.

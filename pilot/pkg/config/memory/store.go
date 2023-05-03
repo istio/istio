@@ -250,6 +250,38 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 	return rev, nil
 }
 
+func (cr *store) Apply(config config.Config, fieldManager string, force bool) (string, error) {
+	cr.mutex.Lock()
+	defer cr.mutex.Unlock()
+
+	gvk := config.GroupVersionKind
+	s, ok := cr.schemas.FindByGroupVersionKind(gvk)
+	if !ok {
+		return "", fmt.Errorf("unknown type %v", gvk)
+	}
+
+	// TODO merge with existing config, then validate
+	if !cr.skipValidation {
+		if _, err := s.ValidateConfig(config); err != nil {
+			return "", err
+		}
+	}
+
+	_, ok = cr.data[gvk]
+	if !ok {
+		return "", errNotFound
+	}
+	ns, exists := cr.data[gvk][config.Namespace]
+	if !exists {
+		return "", errNotFound
+	}
+	rev := time.Now().String()
+	config.ResourceVersion = rev
+	ns[config.Name] = config
+
+	return rev, nil
+}
+
 // hasConflict checks if the two resources have a conflict, which will block Update calls
 func hasConflict(existing, replacement config.Config) bool {
 	if replacement.ResourceVersion == "" {

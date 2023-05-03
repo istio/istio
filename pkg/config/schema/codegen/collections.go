@@ -139,6 +139,12 @@ import (
 	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	apiistioioapisecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 	apiistioioapitelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
+
+	applyconfigistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/applyconfiguration/extensions/v1alpha1"
+	applyconfigistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/applyconfiguration/networking/v1alpha3"
+	applyconfigistioioapinetworkingv1beta1 "istio.io/client-go/pkg/applyconfiguration/networking/v1beta1"
+	applyconfigistioioapisecurityv1beta1 "istio.io/client-go/pkg/applyconfiguration/security/v1beta1"
+	applyconfigistioioapitelemetryv1alpha1 "istio.io/client-go/pkg/applyconfiguration/telemetry/v1alpha1"
 {{- range .Packages}}
 	{{.ImportName}} "{{.PackageName}}"
 {{- end}}
@@ -221,6 +227,21 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 	}
 }
 
+func apply(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta, fieldManager string, force bool) (metav1.Object, error) {
+	switch cfg.GroupVersionKind {
+{{- range .Entries }}
+	{{- if and (not .Resource.Synthetic) (contains .Resource.Group "istio") }}
+	case gvk.{{.Resource.Identifier}}:
+		return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}cfg.Namespace{{end}}).Apply(context.TODO(), &{{ .SSAClientImport }}.{{ .Resource.Kind }}ApplyConfiguration{
+			ObjectMetaApplyConfiguration: getApplyConfigMetadata(objMeta),
+			Spec:       cfg.Spec.(*{{ .ClientImport }}.{{.SpecType}}),
+		}, metav1.ApplyOptions{FieldManager: fieldManager, Force: force})
+	{{- end }}
+{{- end }}
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
+	}
+}
 
 func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
 	var deleteOptions metav1.DeleteOptions
@@ -576,6 +597,8 @@ type colEntry struct {
 	// separate from its client import
 	// Example: apiclientnetworkingv1alpha3.
 	IstioAwareClientImport string
+	// SSAClientImport is the import alias for serverside apply types
+	SSAClientImport string
 	// ClientGroupPath represents the group in the client. Example: NetworkingV1alpha3.
 	ClientGroupPath string
 	// InformerGroup represents the group in the client. Example: Networking().V1alpha3().
@@ -618,6 +641,7 @@ func buildInputs() (inputs, error) {
 			ClientImport:           toImport(r.ProtoPackage),
 			StatusImport:           toImport(r.StatusProtoPackage),
 			IstioAwareClientImport: toIstioAwareImport(r.ProtoPackage),
+			SSAClientImport:        toSSAImport(r.ProtoPackage),
 			ClientGroupPath:        toGroup(r.ProtoPackage),
 			InformerGroup:          toInformerGroup(r.ProtoPackage),
 			ClientGetter:           toGetter(r.ProtoPackage),
@@ -725,6 +749,14 @@ func toIstioAwareImport(p string) string {
 	imp := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(p, "/", ""), ".", ""), "-", "")
 	if strings.Contains(p, "istio.io") {
 		return "api" + imp
+	}
+	return imp
+}
+
+func toSSAImport(p string) string {
+	imp := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(p, "/", ""), ".", ""), "-", "")
+	if strings.Contains(p, "istio.io") {
+		return "applyconfig" + imp
 	}
 	return imp
 }

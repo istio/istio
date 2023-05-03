@@ -41,6 +41,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
 
+	applyconfig "istio.io/client-go/pkg/applyconfiguration/meta/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -294,6 +295,18 @@ func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, e
 	return meta.GetResourceVersion(), nil
 }
 
+func (cl *Client) Apply(cfg config.Config, fieldManager string, force bool) (string, error) {
+	if cfg.Spec == nil {
+		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
+	}
+
+	meta, err := apply(cl.client, cfg, getObjectMetadata(cfg), fieldManager, force)
+	if err != nil {
+		return "", err
+	}
+	return meta.GetResourceVersion(), nil
+}
+
 // Delete implements store interface
 // `resourceVersion` must be matched before deletion is carried out. If not possible, a 409 Conflict status will be
 func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
@@ -379,6 +392,34 @@ func getObjectMetadata(config config.Config) metav1.ObjectMeta {
 		ResourceVersion: config.ResourceVersion,
 		OwnerReferences: config.OwnerReferences,
 		UID:             types.UID(config.UID),
+	}
+}
+
+func getApplyConfigMetadata(objMeta metav1.ObjectMeta) *applyconfig.ObjectMetaApplyConfiguration {
+	var ownerRefs []applyconfig.OwnerReferenceApplyConfiguration
+	for _, ref := range objMeta.GetOwnerReferences() {
+		ownerRefs = append(ownerRefs, applyconfig.OwnerReferenceApplyConfiguration{
+			APIVersion:         &ref.APIVersion,
+			Kind:               &ref.Kind,
+			Name:               &ref.Name,
+			Controller:         ref.Controller,
+			BlockOwnerDeletion: ref.BlockOwnerDeletion,
+		})
+	}
+	return &applyconfig.ObjectMetaApplyConfiguration{
+		Name:                       &objMeta.Name,
+		GenerateName:               &objMeta.GenerateName,
+		Namespace:                  &objMeta.Namespace,
+		UID:                        &objMeta.UID,
+		ResourceVersion:            &objMeta.ResourceVersion,
+		Generation:                 &objMeta.Generation,
+		CreationTimestamp:          &objMeta.CreationTimestamp,
+		DeletionTimestamp:          objMeta.DeletionTimestamp,
+		DeletionGracePeriodSeconds: objMeta.DeletionGracePeriodSeconds,
+		Labels:                     objMeta.Labels,
+		Annotations:                objMeta.Annotations,
+		OwnerReferences:            ownerRefs,
+		Finalizers:                 objMeta.Finalizers,
 	}
 }
 

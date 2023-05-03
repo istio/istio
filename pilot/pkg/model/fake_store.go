@@ -72,6 +72,10 @@ func (*FakeStore) Patch(orig config.Config, patchFn config.PatchFunc) (string, e
 	return "", nil
 }
 
+func (*FakeStore) Apply(config config.Config, fieldManager string, force bool) (string, error) {
+	return "", nil
+}
+
 func (*FakeStore) Delete(typ config.GroupVersionKind, name, namespace string, rv *string) error {
 	return nil
 }
