@@ -152,7 +152,7 @@ type HealthStatus = v1alpha1.IstioCondition
 func NewController(store model.ConfigStoreController, instanceID string, maxConnAge time.Duration) *Controller {
 	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
 		if maxConnAge != math.MaxInt64 {
-			maxConnAge := maxConnAge + maxConnAge/2
+			maxConnAge = maxConnAge + maxConnAge/2
 			// if overflow, set it to max int64
 			if maxConnAge < 0 {
 				maxConnAge = time.Duration(math.MaxInt64)
@@ -459,7 +459,6 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 		// handle workload leak when both workload/pilot down at the same time before pilot has a chance to set disconnTime
 		connAt, err := time.Parse(timeFormat, connTime)
 		if err == nil && uint64(time.Since(connAt)) > uint64(c.maxConnectionAge) {
-			fmt.Println("Deleting because of maxConnectionAge >>>>>>>>>>>>", wle.Meta.Name, time.Now(), uint64(time.Since(connAt)), connAt, connTime, uint64(c.maxConnectionAge))
 			return true
 		}
 		return false
