@@ -49,8 +49,7 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"HTTPRouteRedirectPath":          "redirects are changed in 0.7; we support the 0.7 tests but not 0.6",
-	"HTTPRouteRedirectHostAndStatus": "redirects are changed in 0.7; we support the 0.7 tests but not 0.6",
+	"MeshFrontendHostname": "https://github.com/istio/istio/issues/44702",
 }
 
 func TestGatewayConformance(t *testing.T) {
@@ -92,6 +91,10 @@ func TestGatewayConformance(t *testing.T) {
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{
 					"istio.io/rev": rev,
+				}
+			} else {
+				opts.NamespaceLabels = map[string]string{
+					"istio-injection": "enabled",
 				}
 			}
 			ctx.Cleanup(func() {
