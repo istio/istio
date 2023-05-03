@@ -147,7 +147,11 @@ func (c *clientFactory) KubernetesClientSet() (*kubernetes.Clientset, error) {
 }
 
 func (c *clientFactory) RESTClient() (*rest.RESTClient, error) {
-	return c.RESTClient()
+	clientConfig, err := c.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+	return rest.RESTClientFor(clientConfig)
 }
 
 type rESTClientGetter interface {
