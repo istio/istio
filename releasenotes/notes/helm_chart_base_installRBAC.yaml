@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+issue: []
+
+docs: []
+
+releaseNotes:
+- |
+  **Added** value to the Istio Base Helm chart for configuring installRBAC. Can be used to omit RBAC for base chart if backwards compatibility not needed.
+
+upgradeNotes: []
+
+securityNotes: []
