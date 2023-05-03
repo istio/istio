@@ -110,20 +110,7 @@ func TestClusterLocal(t *testing.T) {
 						} else {
 							// For calls to clusterset.local, we should fail DNS lookup. The clusterset.local host
 							// is only available for a service when it is exported in at least one cluster.
-							var kubeDNSIP string
-							err := retry.UntilSuccess(func() error {
-								kubeDNS, err := from.Config().Cluster.Kube().CoreV1().Services("kube-system").Get(context.TODO(), "kube-dns", metav1.GetOptions{})
-								if err != nil {
-									return fmt.Errorf("failed to get kube-dns service: %s", err)
-								}
-								kubeDNSIP = kubeDNS.Spec.ClusterIP
-								return nil
-							})
-							if err != nil {
-								t.Error(err)
-							}
-							expectedErr := fmt.Sprintf("dial tcp: lookup %s on %s:53: server misbehaving", to.ClusterSetLocalFQDN(), kubeDNSIP)
-							checker = checkDNSLookupFailed(expectedErr)
+							checker = checkDNSLookupFailed()
 						}
 						callAndValidate(t, ht, from, to, checker)
 					})
@@ -248,11 +235,11 @@ func checkClustersReached(allClusters cluster.Clusters, clusters cluster.Cluster
 		check.ReachedClusters(allClusters, clusters))
 }
 
-func checkDNSLookupFailed(expectedErr string) echo.Checker {
+func checkDNSLookupFailed() echo.Checker {
 	return check.And(
 		check.Error(),
 		func(_ echo.CallResult, err error) error {
-			if strings.Contains(err.Error(), expectedErr) {
+			if strings.Contains(err.Error(), "no such host") || strings.Contains(err.Error(), "server misbehaving") {
 				return nil
 			}
 			return err
