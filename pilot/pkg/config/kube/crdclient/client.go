@@ -447,9 +447,9 @@ func knownCRDs(crdClient apiextensionsclient.Interface) (map[string]sets.Set, er
 	var res *crd.CustomResourceDefinitionList
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = time.Second
-	b.MaxElapsedTime = 20 * time.Second
+	b.MaxElapsedTime = 120 * time.Second
 	err := backoff.Retry(func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 		var err error
 		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
