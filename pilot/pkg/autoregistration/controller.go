@@ -152,7 +152,7 @@ type HealthStatus = v1alpha1.IstioCondition
 func NewController(store model.ConfigStoreController, instanceID string, maxConnAge time.Duration) *Controller {
 	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
 		if maxConnAge != math.MaxInt64 {
-			maxConnAge = maxConnAge + maxConnAge/2
+			maxConnAge += maxConnAge / 2
 			// if overflow, set it to max int64
 			if maxConnAge < 0 {
 				maxConnAge = time.Duration(math.MaxInt64)
