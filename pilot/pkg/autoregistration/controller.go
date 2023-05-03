@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/queue"
 	istiolog "istio.io/pkg/log"
@@ -152,10 +151,12 @@ type HealthStatus = v1alpha1.IstioCondition
 // NewController create a controller which manages workload lifecycle and health status.
 func NewController(store model.ConfigStoreController, instanceID string, maxConnAge time.Duration) *Controller {
 	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
-		maxConnAge := maxConnAge + maxConnAge/2
-		// if overflow, set it to max int64
-		if maxConnAge < 0 {
-			maxConnAge = time.Duration(math.MaxInt64)
+		if maxConnAge != math.MaxInt64 {
+			maxConnAge := maxConnAge + maxConnAge/2
+			// if overflow, set it to max int64
+			if maxConnAge < 0 {
+				maxConnAge = time.Duration(math.MaxInt64)
+			}
 		}
 		c := &Controller{
 			instanceID:       instanceID,
@@ -454,11 +455,11 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 	// 2. connect: but the patch is based on the old workloadentry because of the propagation latency.
 	// So in this case the `DisconnectedAtAnnotation` is still there and the cleanup procedure will go on.
 	connTime := wle.Annotations[ConnectedAtAnnotation]
-	if connTime != "" && c.maxConnectionAge != keepalive.Infinity {
+	if connTime != "" {
 		// handle workload leak when both workload/pilot down at the same time before pilot has a chance to set disconnTime
 		connAt, err := time.Parse(timeFormat, connTime)
-		// if it has been 1.5*maxConnectionAge since workload connected, should delete it.
-		if err == nil && uint64(time.Since(connAt)) > uint64(c.maxConnectionAge)+uint64(c.maxConnectionAge/2) {
+		if err == nil && uint64(time.Since(connAt)) > uint64(c.maxConnectionAge) {
+			fmt.Println("Deleting because of maxConnectionAge >>>>>>>>>>>>", wle.Meta.Name, time.Now(), uint64(time.Since(connAt)), connAt, connTime, uint64(c.maxConnectionAge))
 			return true
 		}
 		return false

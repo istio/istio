@@ -16,6 +16,7 @@ package autoregistration
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"sync"
 	"testing"
@@ -35,7 +36,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -71,9 +71,18 @@ var (
 	}
 )
 
+func TestTimeSince(t *testing.T) {
+	conTime, _ := time.Parse(time.RFC3339Nano, "2023-05-03T13:30:55.448057+05:30")
+	fmt.Println(time.Since(conTime))
+	fmt.Println(uint64(time.Since(conTime)))
+	maxConnectionAge := math.MaxInt
+	fmt.Println(uint64(maxConnectionAge))
+	fmt.Println(uint64(time.Since(conTime)) > uint64(maxConnectionAge))
+}
+
 func TestNonAutoregisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
-	c := NewController(store, "", keepalive.Infinity)
+	c := NewController(store, "", time.Duration(math.MaxInt64))
 	createOrFail(t, store, wgA)
 	stop := make(chan struct{})
 	go c.Run(stop)
@@ -299,8 +308,8 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 
 func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreController) {
 	store := memory.NewController(memory.Make(collections.All))
-	c1 := NewController(store, "pilot-1", keepalive.Infinity)
-	c2 := NewController(store, "pilot-2", keepalive.Infinity)
+	c1 := NewController(store, "pilot-1", time.Duration(math.MaxInt64))
+	c2 := NewController(store, "pilot-2", time.Duration(math.MaxInt64))
 	createOrFail(t, store, wgA)
 	return c1, c2, store
 }
