@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -428,12 +427,7 @@ func checkEntryOrFailAfter(
 	connectedTo string,
 	after time.Duration,
 ) {
-	wait := sync.WaitGroup{}
-	wait.Add(1)
-	time.AfterFunc(after, func() {
-		wait.Done()
-	})
-	wait.Wait()
+	time.Sleep(after)
 	checkEntryOrFail(t, store, wg, proxy, node, connectedTo)
 }
 
