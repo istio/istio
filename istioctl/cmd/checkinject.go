@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/table"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -234,9 +236,17 @@ func analyzeWebhooksMatchStatus(whs []admitv1.MutatingWebhook, podLabels, nsLabe
 			}
 			return labels
 		}
+
+		var isDeactived bool
 		for _, wh := range whs {
+			if reflect.DeepEqual(wh.NamespaceSelector, tag.NeverMatch) && reflect.DeepEqual(wh.ObjectSelector, tag.NeverMatch) {
+				isDeactived = true
+			}
 			nsMatchedLabels = append(nsMatchedLabels, extractMatchLabels(wh.NamespaceSelector)...)
 			podMatchedLabels = append(podMatchedLabels, extractMatchLabels(wh.ObjectSelector)...)
+		}
+		if isDeactived {
+			return "The injection webhook is deactivated, and will never match labels."
 		}
 		return fmt.Sprintf("No matching namespace labels (%s) "+
 			"or pod labels (%s)", strings.Join(nsMatchedLabels, ", "), strings.Join(podMatchedLabels, ", "))
