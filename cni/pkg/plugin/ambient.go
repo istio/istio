@@ -18,14 +18,17 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/cni/pkg/ambient"
 	"istio.io/istio/cni/pkg/ambient/ambientpod"
+	ebpf "istio.io/istio/cni/pkg/ebpf/server"
+	"istio.io/pkg/log"
 )
 
-func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName, podNamespace, podIfname string, podIPs []net.IPNet) (bool, error) {
+func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName, podNamespace, podIfname, podNetNs string, podIPs []net.IPNet) (bool, error) {
 	if !ambientConfig.ZTunnelReady {
 		return false, fmt.Errorf("ztunnel not ready")
 	}
@@ -48,25 +51,41 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 		return false, err
 	}
 
-	if ambientpod.HasLegacyLabel(pod.Labels) || ambientpod.HasLegacyLabel(ns.Labels) {
-		return false, fmt.Errorf("ambient: pod %s/%s or namespace has legacy labels", podNamespace, podName)
-	}
+	if ambientpod.PodZtunnelEnabled(ns, pod) {
+		if ambientConfig.RedirectMode == ambient.EbpfMode.String() {
+			ifIndex, mac, err := ambient.GetIndexAndPeerMac(podIfname, podNetNs)
+			if err != nil {
+				return false, err
+			}
+			ips := []netip.Addr{}
+			for _, ip := range podIPs {
+				if v, err := netip.ParseAddr(ip.IP.String()); err == nil {
+					ips = append(ips, v)
+				}
+			}
+			err = ebpf.AddPodToMesh(uint32(ifIndex), mac, ips)
+			if err != nil {
+				return false, err
+			}
+			if err := ambient.AnnotateEnrolledPod(client, pod); err != nil {
+				log.Errorf("failed to annotate pod enrollment: %v", err)
+			}
+		} else {
+			ambient.NodeName = pod.Spec.NodeName
 
-	if ambientpod.ShouldPodBeInIpset(ns, pod, true) {
-		ambient.NodeName = pod.Spec.NodeName
+			ambient.HostIP, err = ambient.GetHostIP(client)
+			if err != nil || ambient.HostIP == "" {
+				return false, fmt.Errorf("error getting host IP: %v", err)
+			}
 
-		ambient.HostIP, err = ambient.GetHostIP(client)
-		if err != nil || ambient.HostIP == "" {
-			return false, fmt.Errorf("error getting host IP: %v", err)
+			// Can't set this on GKE, but needed in AWS.. so silently ignore failures
+			_ = ambient.SetProc("/proc/sys/net/ipv4/conf/"+podIfname+"/rp_filter", "0")
+
+			for _, ip := range podIPs {
+				ambient.AddPodToMesh(client, pod, ip.IP.String())
+			}
+			return true, nil
 		}
-
-		// Can't set this on GKE, but needed in AWS.. so silently ignore failures
-		_ = ambient.SetProc("/proc/sys/net/ipv4/conf/"+podIfname+"/rp_filter", "0")
-
-		for _, ip := range podIPs {
-			ambient.AddPodToMesh(client, pod, ip.IP.String())
-		}
-		return true, nil
 	}
 
 	return false, nil

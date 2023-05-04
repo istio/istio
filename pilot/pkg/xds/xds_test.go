@@ -445,19 +445,20 @@ metadata:
   name: echo-app-%s
   namespace: default
 ---
-apiVersion: v1
-kind: Endpoints
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
 metadata:
   name: echo-app
   namespace: default
   labels:
     app: echo-app
-subsets:
+    kubernetes.io/service-name: echo-app
+endpoints:
 - addresses:
-  - ip: 10.0.0.%d
-  ports:
-  - name: grpc
-    port: 7070
+  - 10.0.0.%d
+ports:
+- name: grpc
+  port: 7070
 `, clusterID, i)
 					i++
 				}

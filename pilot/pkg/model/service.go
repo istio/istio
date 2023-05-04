@@ -32,6 +32,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -153,9 +154,6 @@ func (resolution Resolution) String() string {
 }
 
 const (
-	// IstioDefaultConfigNamespace constant for default namespace
-	IstioDefaultConfigNamespace = "default"
-
 	// LocalityLabel indicates the region/zone/subzone of an instance. It is used to override the native
 	// registry's value.
 	//
@@ -411,17 +409,12 @@ type Locality struct {
 type HealthStatus int32
 
 const (
-	// TODO: change the value to 1,2 to match HealthStatus proto
-
 	// Healthy.
-	Healthy HealthStatus = 0
+	Healthy HealthStatus = 1
 	// Unhealthy.
-	UnHealthy HealthStatus = 1
+	UnHealthy HealthStatus = 2
 	// Draining - the constant matches envoy
 	Draining HealthStatus = 3
-	// Not used in Istio
-	Timeout  HealthStatus = 4
-	Degraded HealthStatus = 5
 )
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
@@ -456,7 +449,7 @@ type IstioEndpoint struct {
 
 	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
 	// avoid recomputation
-	EnvoyEndpoint *endpoint.LbEndpoint
+	EnvoyEndpoint *endpoint.LbEndpoint `json:"-"`
 
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string
@@ -492,7 +485,7 @@ type IstioEndpoint struct {
 	// Determines the discoverability of this endpoint throughout the mesh.
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
 
-	// Indicatesthe endpoint health status.
+	// Indicates the endpoint health status.
 	HealthStatus HealthStatus
 
 	// If in k8s, the node where the pod resides
@@ -519,6 +512,52 @@ func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 		return true
 	}
 	return ep.DiscoverabilityPolicy.IsDiscoverableFromProxy(ep, p)
+}
+
+// MetadataClone returns the cloned endpoint metadata used for telemetry purposes.
+// This should be used when the endpoint labels should be updated.
+func (ep *IstioEndpoint) MetadataClone() *EndpointMetadata {
+	return &EndpointMetadata{
+		Network:      ep.Network,
+		TLSMode:      ep.TLSMode,
+		WorkloadName: ep.WorkloadName,
+		Namespace:    ep.Namespace,
+		Labels:       maps.Clone(ep.Labels),
+		ClusterID:    ep.Locality.ClusterID,
+	}
+}
+
+// Metadata returns the endpoint metadata used for telemetry purposes.
+func (ep *IstioEndpoint) Metadata() *EndpointMetadata {
+	return &EndpointMetadata{
+		Network:      ep.Network,
+		TLSMode:      ep.TLSMode,
+		WorkloadName: ep.WorkloadName,
+		Namespace:    ep.Namespace,
+		Labels:       ep.Labels,
+		ClusterID:    ep.Locality.ClusterID,
+	}
+}
+
+// EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.
+type EndpointMetadata struct {
+	// Network holds the network where this endpoint is present
+	Network network.ID
+
+	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
+	TLSMode string
+
+	// Name of the workload that this endpoint belongs to. This is for telemetry purpose.
+	WorkloadName string
+
+	// Namespace that this endpoint belongs to. This is for telemetry purpose.
+	Namespace string
+
+	// Labels points to the workload or deployment labels.
+	Labels labels.Instance
+
+	// ClusterID where the endpoint is located
+	ClusterID cluster.ID
 }
 
 // EndpointDiscoverabilityPolicy determines the discoverability of an endpoint throughout the mesh.
@@ -586,7 +625,7 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses AddressMap
+	ClusterExternalAddresses *AddressMap
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
@@ -681,12 +720,12 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 		return false
 	}
 
-	if len(s.ClusterExternalAddresses.Addresses) != len(other.ClusterExternalAddresses.Addresses) {
+	if len(s.ClusterExternalAddresses.GetAddresses()) != len(other.ClusterExternalAddresses.GetAddresses()) {
 		return false
 	}
 
-	for k, v1 := range s.ClusterExternalAddresses.Addresses {
-		if v2, ok := other.ClusterExternalAddresses.Addresses[k]; !ok || !stringSliceEqual(v1, v2) {
+	for k, v1 := range s.ClusterExternalAddresses.GetAddresses() {
+		if v2, ok := other.ClusterExternalAddresses.Addresses[k]; !ok || !slices.Equal(v1, v2) {
 			return false
 		}
 	}
@@ -763,84 +802,49 @@ type ServiceDiscovery interface {
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
 	MCSServices() []MCSServiceInfo
+	AmbientIndexes
+}
+
+type AmbientIndexes interface {
 	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
-	AdditionalPodSubscriptions(proxy *Proxy, allAddresses sets.Set[types.NamespacedName], currentSubs sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName]
+	AdditionalPodSubscriptions(
+		proxy *Proxy,
+		allAddresses sets.Set[types.NamespacedName],
+		currentSubs sets.Set[types.NamespacedName],
+	) sets.Set[types.NamespacedName]
 	Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization
-	AmbientSnapshot() *AmbientSnapshot
+	Waypoint(scope WaypointScope) []netip.Addr
+	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
 }
 
-type AmbientSnapshot struct {
-	// byPod indexes by Pod IP address.
-	workloads []*WorkloadInfo
+// NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
+type NoopAmbientIndexes struct{}
 
-	// Map of ServiceAccount -> IP
-	waypoints map[WaypointScope]sets.String
+func (u NoopAmbientIndexes) PodInformation(sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
+	return nil, nil
 }
 
-func NewAmbientSnapshot(workloads []*WorkloadInfo, waypoints map[WaypointScope]sets.String) *AmbientSnapshot {
-	return &AmbientSnapshot{
-		workloads: workloads,
-		waypoints: waypoints,
-	}
+func (u NoopAmbientIndexes) AdditionalPodSubscriptions(
+	*Proxy,
+	sets.Set[types.NamespacedName],
+	sets.Set[types.NamespacedName],
+) sets.Set[types.NamespacedName] {
+	return nil
 }
 
-func (a *AmbientSnapshot) Merge(other *AmbientSnapshot) *AmbientSnapshot {
-	if other == nil {
-		return a
-	}
-	if len(a.waypoints) == 0 && len(a.workloads) == 0 {
-		return other
-	}
-	if len(other.waypoints) == 0 && len(other.workloads) == 0 {
-		return a
-	}
-	a.workloads = append(a.workloads, other.workloads...)
-	for s, i := range other.waypoints {
-		a.waypoints[s].Merge(i)
-	}
-	return a
+func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*workloadapi.Authorization {
+	return nil
 }
 
-func (a *AmbientSnapshot) matchesScope(scope WaypointScope, w *WorkloadInfo) bool {
-	if len(scope.ServiceAccount) == 0 {
-		// We are a namespace wide waypoint. SA scope take precedence.
-		// Check if there is one for this workloads service account
-		if _, f := a.waypoints[WaypointScope{Namespace: scope.Namespace, ServiceAccount: w.ServiceAccount}]; f {
-			return false
-		}
-	}
-	if scope.ServiceAccount != "" && (w.ServiceAccount != scope.ServiceAccount) {
-		return false
-	}
-	if w.Namespace != scope.Namespace {
-		return false
-	}
-	// Filter out waypoints.
-	if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-		return false
-	}
-	return true
+func (u NoopAmbientIndexes) Waypoint(WaypointScope) []netip.Addr {
+	return nil
 }
 
-func (a *AmbientSnapshot) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
-	res := []*WorkloadInfo{}
-	// TODO: try to precompute
-	for _, w := range a.workloads {
-		if a.matchesScope(scope, w) {
-			res = append(res, w)
-		}
-	}
-	return res
+func (u NoopAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
+	return nil
 }
 
-func (a *AmbientSnapshot) Waypoint(scope WaypointScope) sets.Set[netip.Addr] {
-	res := sets.New[netip.Addr]()
-	for ip := range a.waypoints[scope] {
-		res.Insert(netip.MustParseAddr(ip))
-	}
-
-	return res
-}
+var _ AmbientIndexes = NoopAmbientIndexes{}
 
 type WorkloadInfo struct {
 	*workloadapi.Workload
@@ -1103,7 +1107,7 @@ func (s *Service) DeepCopy() *Service {
 		out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
 		copy(out.ServiceAccounts, s.ServiceAccounts)
 	}
-	out.ClusterVIPs = s.ClusterVIPs.DeepCopy()
+	out.ClusterVIPs = *s.ClusterVIPs.DeepCopy()
 	return &out
 }
 
@@ -1123,7 +1127,7 @@ func (s *Service) Equals(other *Service) bool {
 	if !s.Ports.Equals(other.Ports) {
 		return false
 	}
-	if !stringSliceEqual(s.ServiceAccounts, other.ServiceAccounts) {
+	if !slices.Equal(s.ServiceAccounts, other.ServiceAccounts) {
 		return false
 	}
 
@@ -1131,7 +1135,7 @@ func (s *Service) Equals(other *Service) bool {
 		return false
 	}
 	for k, v1 := range s.ClusterVIPs.Addresses {
-		if v2, ok := other.ClusterVIPs.Addresses[k]; !ok || !stringSliceEqual(v1, v2) {
+		if v2, ok := other.ClusterVIPs.Addresses[k]; !ok || !slices.Equal(v1, v2) {
 			return false
 		}
 	}

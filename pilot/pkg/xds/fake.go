@@ -26,6 +26,7 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
@@ -45,15 +47,19 @@ import (
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
@@ -61,6 +67,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/tests/util"
 )
 
 type FakeOptions struct {
@@ -76,8 +83,6 @@ type FakeOptions struct {
 	KubernetesObjectStringByCluster map[cluster.ID]string
 	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes" or DefaultClusterName)
 	KubernetesObjectString string
-	// Endpoint mode for the Kubernetes service registry
-	KubernetesEndpointMode kube.EndpointMode
 	// If provided, these configs will be used directly
 	Configs []config.Config
 	// If provided, the yaml string will be parsed and used as configs
@@ -121,8 +126,6 @@ type FakeDiscoveryServer struct {
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
-	stop := test.NewStop(t)
-
 	m := opts.MeshConfig
 	if m == nil {
 		m = mesh.DefaultMeshConfig()
@@ -162,11 +165,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	var xdsUpdater model.XDSUpdater = s
 	if opts.EnableFakeXDSUpdater {
-		evChan := make(chan FakeXdsEvent, 1000)
-		xdsUpdater = &FakeXdsUpdater{
-			Events:   evChan,
-			Delegate: s,
-		}
+		xdsUpdater = xdsfake.NewWithDelegate(s)
 	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
@@ -189,12 +188,12 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			DomainSuffix:     "cluster.local",
 			XDSUpdater:       xdsUpdater,
 			NetworksWatcher:  opts.NetworksWatcher,
-			Mode:             opts.KubernetesEndpointMode,
-			Stop:             stop,
 			SkipRun:          true,
 			ConfigController: k8sConfig,
+			ConfigCluster:    k8sCluster == opts.DefaultClusterName,
 			MeshWatcher:      mesh.NewFixedWatcher(m),
 		})
+		stop := test.NewStop(t)
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
 			defaultKubeClient = client
@@ -211,6 +210,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		}
 	}
 
+	stop := test.NewStop(t)
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	})
@@ -260,7 +260,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	configHandler := func(_, curr config.Config, event model.Event) {
 		pushReq := &model.PushRequest{
 			Full:           true,
-			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.FromGvk(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
 			Reason:         []model.TriggerReason{model.ConfigUpdate},
 		}
 		s.ConfigUpdate(pushReq)
@@ -271,16 +271,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	for _, schema := range schemas {
 		// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
-		if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
-			Resource().GroupVersionKind() {
+		if schema.GroupVersionKind() == gvk.ServiceEntry {
 			continue
 		}
-		if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadentries.
-			Resource().GroupVersionKind() {
+		if schema.GroupVersionKind() == gvk.WorkloadEntry {
 			continue
 		}
 
-		cg.Store().RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
+		cg.Store().RegisterEventHandler(schema.GroupVersionKind(), configHandler)
 	}
 	for _, registry := range registries {
 		k8s, ok := registry.(*kube.FakeController)
@@ -400,9 +398,9 @@ func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
 }
 
 func APIWatches() []string {
-	watches := []string{collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String()}
+	watches := []string{gvk.MeshConfig.String()}
 	for _, sch := range collections.Pilot.All() {
-		watches = append(watches, sch.Resource().GroupVersionKind().String())
+		watches = append(watches, sch.GroupVersionKind().String())
 	}
 	return watches
 }
@@ -477,6 +475,73 @@ func (f *FakeDiscoveryServer) EnsureSynced(t test.Failer) {
 	}, retry.Delay(time.Millisecond))
 }
 
+// AssertEndpointConsistency compares endpointShards - which are incrementally updated - with
+// InstancesByPort, which rebuilds the same state from the ground up. This ensures the two are kept in sync;
+// out of sync fields typically are bugs.
+func (f *FakeDiscoveryServer) AssertEndpointConsistency() error {
+	f.t.Helper()
+	mock := &DiscoveryServer{
+		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex()},
+		Cache: model.DisabledCache{},
+	}
+	ag := f.Discovery.Env.ServiceDiscovery.(*aggregate.Controller)
+
+	for _, svc := range f.Discovery.Env.Services() {
+		for _, reg := range ag.GetRegistries() {
+			endpoints := make([]*model.IstioEndpoint, 0)
+			for _, port := range svc.Ports {
+				if port.Protocol == protocol.UDP {
+					continue
+				}
+
+				// This loses track of grouping (shards)
+				for _, inst := range reg.InstancesByPort(svc, port.Port) {
+					endpoints = append(endpoints, inst.Endpoint)
+				}
+			}
+
+			mock.EDSCacheUpdate(model.ShardKeyFromRegistry(reg), string(svc.Hostname), svc.Attributes.Namespace, endpoints)
+		}
+	}
+
+	// Normalize result for compare
+	sort := func(a, b *model.IstioEndpoint) bool {
+		if a.Address == b.Address {
+			return a.EndpointPort > b.EndpointPort
+		}
+		return a.Address > b.Address
+	}
+	haveShardz := f.Discovery.Env.EndpointIndex.Shardz()
+	for svc, ns := range haveShardz {
+		for _, shard := range ns {
+			// As an optimization, we will keep empty services around to avoid 0->1->0 scaling
+			if len(shard.Shards) == 0 {
+				delete(haveShardz, svc)
+			}
+			for _, s := range shard.Shards {
+				slices.SortFunc(s, sort)
+			}
+		}
+	}
+	wantShardz := mock.Env.EndpointIndex.Shardz()
+	for _, ns := range wantShardz {
+		for _, shard := range ns {
+			for _, s := range shard.Shards {
+				slices.SortFunc(s, sort)
+			}
+		}
+	}
+	have, _ := yaml.Marshal(haveShardz)
+	want, _ := yaml.Marshal(wantShardz)
+	if err := util.Compare(have, want); err != nil {
+		f.t.Logf("Endpoint Shards: %v", string(have))
+		f.t.Logf("Instances By Port: %v", string(want))
+		return err
+	}
+
+	return nil
+}
+
 func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runtime.Object {
 	objects := map[cluster.ID][]runtime.Object{}
 
@@ -523,100 +588,6 @@ func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 		objects = append(objects, o)
 	}
 	return objects, nil
-}
-
-type FakeXdsEvent struct {
-	Kind      string
-	Host      string
-	Namespace string
-	Endpoints int
-	PushReq   *model.PushRequest
-}
-
-type FakeXdsUpdater struct {
-	// Events tracks notifications received by the updater
-	Events   chan FakeXdsEvent
-	Delegate model.XDSUpdater
-}
-
-var _ model.XDSUpdater = &FakeXdsUpdater{}
-
-func (fx *FakeXdsUpdater) EDSUpdate(s model.ShardKey, hostname string, namespace string, entry []*model.IstioEndpoint) {
-	fx.Events <- FakeXdsEvent{Kind: "eds", Host: hostname, Namespace: namespace, Endpoints: len(entry)}
-	if fx.Delegate != nil {
-		fx.Delegate.EDSUpdate(s, hostname, namespace, entry)
-	}
-}
-
-func (fx *FakeXdsUpdater) EDSCacheUpdate(s model.ShardKey, hostname string, namespace string, entry []*model.IstioEndpoint) {
-	fx.Events <- FakeXdsEvent{Kind: "edscache", Host: hostname, Namespace: namespace, Endpoints: len(entry)}
-	if fx.Delegate != nil {
-		fx.Delegate.EDSCacheUpdate(s, hostname, namespace, entry)
-	}
-}
-
-func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
-	fx.Events <- FakeXdsEvent{Kind: "xds", PushReq: req}
-	if fx.Delegate != nil {
-		fx.Delegate.ConfigUpdate(req)
-	}
-}
-
-func (fx *FakeXdsUpdater) ProxyUpdate(c cluster.ID, p string) {
-	fx.Events <- FakeXdsEvent{Kind: "proxy update"}
-	if fx.Delegate != nil {
-		fx.Delegate.ProxyUpdate(c, p)
-	}
-}
-
-func (fx *FakeXdsUpdater) SvcUpdate(s model.ShardKey, hostname string, namespace string, e model.Event) {
-	fx.Events <- FakeXdsEvent{Kind: "svcupdate", Host: hostname, Namespace: namespace}
-	if fx.Delegate != nil {
-		fx.Delegate.SvcUpdate(s, hostname, namespace, e)
-	}
-}
-
-func (fx *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {
-	fx.Events <- FakeXdsEvent{Kind: "removeshard"}
-	fx.ConfigUpdate(&model.PushRequest{Full: true})
-}
-
-func (fx *FakeXdsUpdater) WaitDurationOrFail(t test.Failer, duration time.Duration, types ...string) *FakeXdsEvent {
-	t.Helper()
-	got := fx.WaitDuration(duration, types...)
-	if got == nil {
-		t.Fatal("missing event")
-	}
-	return got
-}
-
-func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, types ...string) *FakeXdsEvent {
-	t.Helper()
-	got := fx.Wait(types...)
-	if got == nil {
-		t.Fatal("missing event")
-	}
-	return got
-}
-
-func (fx *FakeXdsUpdater) WaitDuration(duration time.Duration, types ...string) *FakeXdsEvent {
-	for {
-		select {
-		case e := <-fx.Events:
-			for _, et := range types {
-				if e.Kind == et {
-					return &e
-				}
-			}
-			continue
-		case <-time.After(duration):
-			return nil
-		}
-	}
-}
-
-func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
-	return fx.WaitDuration(1*time.Second, types...)
 }
 
 // disableAuthorizationForSecret makes the authorization check always pass. Should be used only for tests.

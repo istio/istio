@@ -15,6 +15,7 @@
 package aggregate
 
 import (
+	"net/netip"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -55,11 +56,33 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
-	res := sets.New[types.NamespacedName]()
+func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 	if !features.EnableAmbientControllers {
-		return res
+		return nil
 	}
+	var res []netip.Addr
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.Waypoint(scope)...)
+	}
+	return res
+}
+
+func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.WorkloadInfo {
+	if !features.EnableAmbientControllers {
+		return nil
+	}
+	var res []*model.WorkloadInfo
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.WorkloadsForWaypoint(scope)...)
+	}
+	return res
+}
+
+func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+	if !features.EnableAmbientControllers {
+		return nil
+	}
+	res := sets.New[types.NamespacedName]()
 	for _, p := range c.GetRegistries() {
 		res = res.Merge(p.AdditionalPodSubscriptions(proxy, addr, cur))
 	}
@@ -67,7 +90,7 @@ func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur se
 }
 
 func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
-	res := []*workloadapi.Authorization{}
+	var res []*workloadapi.Authorization
 	if !features.EnableAmbientControllers {
 		return res
 	}
@@ -77,19 +100,8 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadap
 	return res
 }
 
-func (c *Controller) AmbientSnapshot() *model.AmbientSnapshot {
-	m := &model.AmbientSnapshot{}
-	if !features.EnableAmbientControllers {
-		return m
-	}
-	for _, p := range c.GetRegistries() {
-		m = m.Merge(p.AmbientSnapshot())
-	}
-	return m
-}
-
 func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
-	i := []*model.WorkloadInfo{}
+	var i []*model.WorkloadInfo
 	removed := sets.New[string]()
 	if !features.EnableAmbientControllers {
 		return i, []string{}
@@ -422,17 +434,6 @@ func (c *Controller) AppendServiceHandlerForCluster(id cluster.ID, f model.Servi
 		handler = c.handlersByCluster[id]
 	}
 	handler.AppendServiceHandler(f)
-}
-
-func (c *Controller) AppendWorkloadHandlerForCluster(id cluster.ID, f func(*model.WorkloadInstance, model.Event)) {
-	c.storeLock.Lock()
-	defer c.storeLock.Unlock()
-	handler, ok := c.handlersByCluster[id]
-	if !ok {
-		c.handlersByCluster[id] = &model.ControllerHandlers{}
-		handler = c.handlersByCluster[id]
-	}
-	handler.AppendWorkloadHandler(f)
 }
 
 func (c *Controller) UnRegisterHandlersForCluster(id cluster.ID) {

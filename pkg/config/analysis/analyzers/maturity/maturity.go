@@ -20,12 +20,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -43,43 +42,51 @@ func (*AlphaAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "annotations.AlphaAnalyzer",
 		Description: "Checks for alpha Istio annotations in Kubernetes resources",
-		Inputs: collection.Names{
-			collections.K8SCoreV1Namespaces.Name(),
-			collections.K8SCoreV1Services.Name(),
-			collections.K8SCoreV1Pods.Name(),
-			collections.K8SAppsV1Deployments.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Namespace,
+			gvk.Service,
+			gvk.Pod,
+			gvk.Deployment,
 		},
 	}
 }
 
-var ignoredAnnotations = map[string]bool{
+var conditionallyIgnoredAnnotations = map[string]bool{
 	annotation.SidecarInterceptionMode.Name:               true,
 	annotation.SidecarTrafficIncludeInboundPorts.Name:     true,
 	annotation.SidecarTrafficExcludeInboundPorts.Name:     true,
 	annotation.SidecarTrafficIncludeOutboundIPRanges.Name: true,
 }
 
+var alwaysIgnoredAnnotations = map[string]bool{
+	// this annotation is set by default in istiod, don't alert on it.
+	annotation.SidecarStatus.Name: true,
+
+	// this annotation is set by controller, don't alert on it.
+	annotation.GatewayControllerVersion.Name: true,
+}
+
 // Analyze implements analysis.Analyzer
 func (fa *AlphaAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Namespaces.Name())
+	ctx.ForEach(gvk.Namespace, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, gvk.Namespace)
 		return true
 	})
-	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Services.Name())
+	ctx.ForEach(gvk.Service, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, gvk.Service)
 		return true
 	})
-	ctx.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Pods.Name())
+	ctx.ForEach(gvk.Pod, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, gvk.Pod)
 		return true
 	})
-	ctx.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, collections.K8SAppsV1Deployments.Name())
+	ctx.ForEach(gvk.Deployment, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, gvk.Deployment)
 		return true
 	})
 }
 
-func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, collectionType collection.Name) {
+func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, collectionType config.GroupVersionKind) {
 	if len(r.Metadata.Annotations) == 0 {
 		return
 	}
@@ -97,12 +104,11 @@ func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Contex
 
 		if annotationDef := lookupAnnotation(ann); annotationDef != nil {
 			if annotationDef.FeatureStatus == annotation.Alpha {
-				// this annotation is set by default in istiod, don't alert on it.
-				if annotationDef.Name == annotation.SidecarStatus.Name {
+				if alwaysIgnoredAnnotations[annotationDef.Name] {
 					continue
 				}
 				// some annotations are set by default in istiod, don't alert on it.
-				if shouldSkipDefault && ignoredAnnotations[annotationDef.Name] {
+				if shouldSkipDefault && conditionallyIgnoredAnnotations[annotationDef.Name] {
 					continue
 				}
 				m := msg.NewAlphaAnnotation(r, ann)

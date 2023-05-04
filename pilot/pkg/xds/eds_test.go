@@ -1323,7 +1323,7 @@ func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
 // TODO: refine the output
 // TODO: dump the ServiceInstances as well
 func testEdsz(t *testing.T, s *xds.FakeDiscoveryServer, proxyID string) {
-	req, err := http.NewRequest("GET", "/debug/edsz?proxyID="+proxyID, nil)
+	req, err := http.NewRequest(http.MethodGet, "/debug/edsz?proxyID="+proxyID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

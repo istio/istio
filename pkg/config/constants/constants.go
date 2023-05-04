@@ -17,6 +17,8 @@ package constants
 const (
 	// UnspecifiedIP constant for empty IP address
 	UnspecifiedIP = "0.0.0.0"
+	// UnspecifiedIPv6 constant for empty IPv6 address
+	UnspecifiedIPv6 = "::/0"
 
 	// AuthCertsPath is the path location for mTLS certificates
 	AuthCertsPath = "/etc/certs/"
@@ -154,7 +156,8 @@ const (
 	WaypointServiceAccount = "istio.io/for-service-account"
 
 	ManagedGatewayLabel               = "gateway.istio.io/managed"
-	ManagedGatewayController          = "istio.io-gateway-controller"
+	ManagedGatewayController          = "istio.io/gateway-controller"
+	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
 	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
 	ManagedGatewayMeshController      = "istio.io/mesh-controller"
 

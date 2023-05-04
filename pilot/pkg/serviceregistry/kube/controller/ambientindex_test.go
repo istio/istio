@@ -32,12 +32,14 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
@@ -53,7 +55,9 @@ func TestAmbientIndex(t *testing.T) {
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"}),
+		ClusterID:        "cluster0",
 	})
+	pc := clienttest.Wrap(t, controller.podsClient)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
 	addPolicy := func(name, ns string, selector map[string]string) {
@@ -102,47 +106,27 @@ func TestAmbientIndex(t *testing.T) {
 	assertEvent := func(ip ...string) {
 		t.Helper()
 		want := strings.Join(ip, ",")
-		attempts := 0
-		for attempts < 10 {
-			attempts++
-			ev := fx.WaitOrFail(t, "xds")
-			if ev.ID != want {
-				t.Logf("skip event %v, wanted %v", ev.ID, want)
-			} else {
-				return
-			}
-		}
-		t.Fatalf("didn't find event for %v", ip)
+		fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: want})
 	}
 	deletePod := func(name string) {
 		t.Helper()
-		if err := controller.client.Kube().CoreV1().Pods("ns1").Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
-			t.Fatal(err)
-		}
+		pc.Delete(name, "ns1")
 	}
 	addPods := func(ip string, name, sa string, labels map[string]string, annotations map[string]string) {
 		t.Helper()
 		pod := generatePod(ip, name, "ns1", sa, "node1", labels, annotations)
 
-		p, _ := controller.client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+		p := pc.Get(name, pod.Namespace)
 		if p == nil {
 			// Apiserver doesn't allow Create to modify the pod status; in real world its a 2 part process
 			pod.Status = corev1.PodStatus{}
-			newPod, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
-			if err != nil {
-				t.Fatalf("Cannot create %s: %v", pod.ObjectMeta.Name, err)
-			}
+			newPod := pc.Create(pod)
 			setPodReady(newPod)
 			newPod.Status.PodIP = ip
 			newPod.Status.Phase = corev1.PodRunning
-			if _, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metav1.UpdateOptions{}); err != nil {
-				t.Fatalf("Cannot update status %s: %v", pod.ObjectMeta.Name, err)
-			}
+			pc.UpdateStatus(newPod)
 		} else {
-			_, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
-			if err != nil {
-				t.Fatalf("Cannot update %s: %v", pod.ObjectMeta.Name, err)
-			}
+			pc.Update(pod)
 		}
 	}
 	addPods("127.0.0.1", "name1", "sa1", map[string]string{"app": "a"}, nil)
@@ -165,6 +149,7 @@ func TestAmbientIndex(t *testing.T) {
 			CanonicalRevision: "latest",
 			WorkloadType:      workloadapi.WorkloadType_POD,
 			WorkloadName:      "name3",
+			ClusterId:         "cluster0",
 		},
 	}})
 	assertEvent("127.0.0.2")
@@ -260,7 +245,7 @@ func TestAmbientIndex(t *testing.T) {
 
 	// Delete a waypoint
 	deletePod("waypoint2-ns")
-	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.201", "127.0.0.3")
+	assertEvent("127.0.0.1", "127.0.0.2", "127.0.0.201", "127.0.0.3", "svc1.ns1.svc.company.com")
 	// Workload should be updated
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("127.0.0.3")[0].WaypointAddresses,
@@ -348,6 +333,7 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"}),
 	})
+	pc := clienttest.Wrap(t, controller.podsClient)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
 	assertWorkloads := func(lookup string, state workloadapi.WorkloadStatus, names ...string) {
@@ -372,43 +358,25 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 	assertEvent := func(ip ...string) {
 		t.Helper()
 		want := strings.Join(ip, ",")
-		attempts := 0
-		for attempts < 10 {
-			attempts++
-			ev := fx.WaitOrFail(t, "xds")
-			if ev.ID != want {
-				t.Logf("skip event %v, wanted %v", ev.ID, want)
-			} else {
-				return
-			}
-		}
-		t.Fatalf("didn't find event for %v", ip)
+		fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: want})
 	}
 	addPods := func(ip string, name, sa string, labels map[string]string, markReady bool, phase corev1.PodPhase) {
 		t.Helper()
 		pod := generatePod(ip, name, "ns1", sa, "node1", labels, nil)
 
-		p, _ := controller.client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+		p := pc.Get(name, pod.Namespace)
 		if p == nil {
 			// Apiserver doesn't allow Create to modify the pod status; in real world its a 2 part process
 			pod.Status = corev1.PodStatus{}
-			newPod, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
-			if err != nil {
-				t.Fatalf("Cannot create %s: %v", pod.ObjectMeta.Name, err)
-			}
+			newPod := pc.Create(pod)
 			if markReady {
 				setPodReady(newPod)
 			}
 			newPod.Status.PodIP = ip
 			newPod.Status.Phase = phase
-			if _, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metav1.UpdateOptions{}); err != nil {
-				t.Fatalf("Cannot update status %s: %v", pod.ObjectMeta.Name, err)
-			}
+			pc.UpdateStatus(newPod)
 		} else {
-			_, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
-			if err != nil {
-				t.Fatalf("Cannot update %s: %v", pod.ObjectMeta.Name, err)
-			}
+			pc.Update(pod)
 		}
 	}
 

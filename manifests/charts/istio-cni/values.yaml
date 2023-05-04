@@ -44,11 +44,16 @@ cni:
   # Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift)
   privileged: false
 
+  # Custom configuration happens based on the CNI provider.
+  # Possible values: "default", "multus"
+  provider: "default"
+
   # Configure ambient settings
   ambient:
     # If enabled, ambient redirection will be enabled
     enabled: false
-    # Eventually this will have switch for iptables vs eBPF
+    # Set ambient redirection mode: "iptables" or "ebpf"
+    redirectMode: "iptables"
 
   repair:
     enabled: true
@@ -70,10 +75,6 @@ cni:
     requests:
       cpu: 100m
       memory: 100Mi
-
-  # Experimental taint controller for further race condition mitigation
-  taint:
-    enabled: false
 
   resourceQuotas:
     enabled: false

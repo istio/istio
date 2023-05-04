@@ -15,24 +15,17 @@
 package ambient
 
 import (
-	"time"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	informersv1 "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
-	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/cni/pkg/ambient/ambientpod"
-	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 )
-
-var ErrLegacyLabel = "Namespace %s has sidecar label istio-injection or istio.io/rev " +
-	"enabled while also setting ambient mode. This is not supported and the namespace will " +
-	"be ignored from the ambient mesh."
 
 func (s *Server) setupHandlers() {
 	s.queue = controllers.NewQueue("ambient",
@@ -41,24 +34,14 @@ func (s *Server) setupHandlers() {
 	)
 
 	// We only need to handle pods on our node
-	podInformer := s.kubeClient.KubeInformer().InformerFor(&corev1.Pod{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
-		return informersv1.NewFilteredPodInformer(
-			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
-			func(options *metav1.ListOptions) {
-				options.FieldSelector = "spec.nodeName=" + NodeName
-			},
-		)
-	})
-	_ = podInformer.SetTransform(kube.StripUnusedFields)
-	_, _ = podInformer.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
+	s.pods = kclient.NewFiltered[*corev1.Pod](s.kubeClient, kclient.Filter{FieldSelector: "spec.nodeName=" + NodeName})
+	s.pods.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
 		s.queue.Add(o)
 	}))
-	s.podLister = listerv1.NewPodLister(podInformer.GetIndexer())
 
 	// Namespaces could be anything though, so we watch all of those
-	ns := s.kubeClient.KubeInformer().Core().V1().Namespaces()
-	s.nsLister = ns.Lister()
-	_, _ = ns.Informer().AddEventHandler(controllers.ObjectHandler(s.EnqueueNamespace))
+	s.namespaces = kclient.New[*corev1.Namespace](s.kubeClient)
+	s.namespaces.AddEventHandler(controllers.ObjectHandler(s.EnqueueNamespace))
 }
 
 func (s *Server) Run(stop <-chan struct{}) {
@@ -67,25 +50,18 @@ func (s *Server) Run(stop <-chan struct{}) {
 }
 
 func (s *Server) ReconcileNamespaces() {
-	namespaces, _ := s.nsLister.List(klabels.Everything())
-	for _, ns := range namespaces {
+	for _, ns := range s.namespaces.List(metav1.NamespaceAll, klabels.Everything()) {
 		s.EnqueueNamespace(ns)
 	}
 }
 
 // EnqueueNamespace takes a Namespace and enqueues all Pod objects that make need an update
 func (s *Server) EnqueueNamespace(o controllers.Object) {
-	nsLabels := o.GetLabels()
 	namespace := o.GetName()
-	matchAmbient := s.matchesAmbientSelectors(nsLabels)
-	pods, _ := s.podLister.Pods(namespace).List(klabels.Everything())
+	matchAmbient := o.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient
 	if matchAmbient {
-		if ambientpod.HasLegacyLabel(nsLabels) {
-			log.Errorf(ErrLegacyLabel, namespace)
-			return
-		}
 		log.Infof("Namespace %s is enabled in ambient mesh", namespace)
-		for _, pod := range pods {
+		for _, pod := range s.pods.List(namespace, klabels.Everything()) {
 			s.queue.Add(controllers.Event{
 				New:   pod,
 				Old:   pod,
@@ -94,7 +70,7 @@ func (s *Server) EnqueueNamespace(o controllers.Object) {
 		}
 	} else {
 		log.Infof("Namespace %s is disabled from ambient mesh", namespace)
-		for _, pod := range pods {
+		for _, pod := range s.pods.List(namespace, klabels.Everything()) {
 			s.queue.Add(controllers.Event{
 				New:   pod,
 				Event: controllers.EventDelete,
@@ -116,29 +92,29 @@ func (s *Server) Reconcile(input any) error {
 		// For update, we just need to handle opt outs
 		newPod := event.New.(*corev1.Pod)
 		oldPod := event.Old.(*corev1.Pod)
-		if ambientpod.PodHasOptOut(newPod) && !ambientpod.PodHasOptOut(oldPod) {
-			log.Debugf("Pod %s matches opt out, but was not before, removing from mesh", newPod.Name)
-			DelPodFromMesh(s.kubeClient.Kube(), newPod)
-			return nil
+		ns := s.namespaces.Get(newPod.Namespace, "")
+		if ns == nil {
+			return fmt.Errorf("failed to find namespace %v", ns)
+		}
+		wasEnabled := oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
+		nowEnabled := ambientpod.PodZtunnelEnabled(ns, newPod)
+		if wasEnabled && !nowEnabled {
+			log.Debugf("Pod %s no longer matches, removing from mesh", newPod.Name)
+			s.DelPodFromMesh(newPod)
 		}
 
-		if event.New == event.Old {
-			// This is a bit of a hack, but in this case we are queued from namespace handler
-			if ambientpod.PodHasOptOut(pod) {
-				log.Debugf("Pod %s matches opt out, skipping", pod.Name)
-				return nil
-			}
-			AddPodToMesh(s.kubeClient.Kube(), pod, "")
+		if !wasEnabled && nowEnabled {
+			log.Debugf("Pod %s now matches, adding to mesh", newPod.Name)
+			s.AddPodToMesh(pod)
 		}
 	case controllers.EventDelete:
-		if IsPodInIpset(pod) {
+		if s.redirectMode == IptablesMode && IsPodInIpset(pod) {
 			log.Infof("Pod %s/%s is now stopped... cleaning up.", pod.Namespace, pod.Name)
-			DelPodFromMesh(s.kubeClient.Kube(), pod)
+			s.DelPodFromMesh(pod)
+		} else if s.redirectMode == EbpfMode {
+			log.Debugf("Pod %s/%s is now stopped or opt out... cleaning up.", pod.Namespace, pod.Name)
+			s.DelPodFromMesh(pod)
 		}
-		return nil
-	}
-	if ambientpod.PodHasOptOut(pod) {
-		log.Debugf("Pod %s matches opt out, skipping", pod.Name)
 		return nil
 	}
 	return nil

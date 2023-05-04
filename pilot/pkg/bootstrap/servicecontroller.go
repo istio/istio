@@ -58,7 +58,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	}
 
 	// Defer running of the service controllers.
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("service controllers", func(stop <-chan struct{}) error {
 		go serviceControllers.Run(stop)
 		return nil
 	})
@@ -71,7 +71,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.ClusterID = s.clusterID
 	args.RegistryOptions.KubeOptions.Metrics = s.environment
 	args.RegistryOptions.KubeOptions.XDSUpdater = s.XDSServer
-	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
+	args.RegistryOptions.KubeOptions.MeshNetworksWatcher = s.environment.NetworksWatcher
 	args.RegistryOptions.KubeOptions.MeshWatcher = s.environment.Watcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()

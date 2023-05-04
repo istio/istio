@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -37,6 +37,17 @@ var log = istiolog.RegisterScope("controllers", "common controller logic", 0)
 type Object interface {
 	metav1.Object
 	runtime.Object
+}
+
+type ComparableObject interface {
+	comparable
+	Object
+}
+
+// IsNil works around comparing generic types
+func IsNil[O ComparableObject](o O) bool {
+	var t O
+	return o == t
 }
 
 // UnstructuredToGVR extracts the GVR of an unstructured resource. This is useful when using dynamic
@@ -53,36 +64,28 @@ func UnstructuredToGVR(u unstructured.Unstructured) (schema.GroupVersionResource
 		Version: gv.Version,
 		Kind:    u.GetKind(),
 	}
-	found, ok := collections.All.FindByGroupVersionKind(gk)
+	found, ok := gvk.ToGVR(gk)
 	if !ok {
 		return res, fmt.Errorf("unknown gvk: %v", gk)
 	}
-	return schema.GroupVersionResource{
-		Group:    gk.Group,
-		Version:  gk.Version,
-		Resource: found.Resource().Plural(),
-	}, nil
+	return found, nil
 }
 
 // ObjectToGVR extracts the GVR of an unstructured resource. This is useful when using dynamic
 // clients.
 func ObjectToGVR(u Object) (schema.GroupVersionResource, error) {
-	gvk := u.GetObjectKind().GroupVersionKind()
+	g := u.GetObjectKind().GroupVersionKind()
 
 	gk := config.GroupVersionKind{
-		Group:   gvk.Group,
-		Version: gvk.Version,
-		Kind:    gvk.Kind,
+		Group:   g.Group,
+		Version: g.Version,
+		Kind:    g.Kind,
 	}
-	found, ok := collections.All.FindByGroupVersionKind(gk)
+	found, ok := gvk.ToGVR(gk)
 	if !ok {
 		return schema.GroupVersionResource{}, fmt.Errorf("unknown gvk: %v", gk)
 	}
-	return schema.GroupVersionResource{
-		Group:    gk.Group,
-		Version:  gk.Version,
-		Resource: found.Resource().Plural(),
-	}, nil
+	return found, nil
 }
 
 // EnqueueForParentHandler returns a handler that will enqueue the parent (by ownerRef) resource
@@ -304,7 +307,7 @@ type EventHandler[T Object] struct {
 	DeleteFunc func(obj T)
 }
 
-func (e EventHandler[T]) OnAdd(obj interface{}) {
+func (e EventHandler[T]) OnAdd(obj interface{}, _ bool) {
 	if e.AddFunc != nil {
 		e.AddFunc(Extract[T](obj))
 	}
@@ -323,3 +326,14 @@ func (e EventHandler[T]) OnDelete(obj interface{}) {
 }
 
 var _ cache.ResourceEventHandler = EventHandler[Object]{}
+
+type Shutdowner interface {
+	ShutdownHandlers()
+}
+
+// ShutdownAll is a simple helper to shutdown all informers
+func ShutdownAll(s ...Shutdowner) {
+	for _, h := range s {
+		h.ShutdownHandlers()
+	}
+}

@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 var (
@@ -114,8 +114,8 @@ var (
 	cannedDynamicConfig = []runtime.Object{
 		&unstructured.Unstructured{
 			Object: map[string]any{
-				"apiVersion": "networking.istio.io/" + collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Version(),
-				"kind":       collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
+				"apiVersion": gvk.ServiceEntry.GroupVersion(),
+				"kind":       gvk.ServiceEntry.Kind,
 				"metadata": map[string]any{
 					"namespace": "default",
 					"name":      "mesh-expansion-vmtest",

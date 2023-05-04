@@ -164,6 +164,7 @@ func NewTranslator() *Translator {
 				ResourceName:         "ztunnel",
 				HelmSubdir:           "ztunnel",
 				ToHelmValuesTreeRoot: "ztunnel",
+				ContainerName:        "istio-proxy",
 				FlattenValues:        true,
 			},
 		},

@@ -1,17 +1,3 @@
-// Copyright Istio Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //go:build integ
 // +build integ
 
@@ -62,13 +48,14 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
-var skippedTests = map[string]string{}
+var skippedTests = map[string]string{
+	"HTTPRouteRedirectPath":          "redirects are changed in 0.7; we support the 0.7 tests but not 0.6",
+	"HTTPRouteRedirectHostAndStatus": "redirects are changed in 0.7; we support the 0.7 tests but not 0.6",
+}
 
 func TestGatewayConformance(t *testing.T) {
-	// nolint: staticcheck
 	framework.
 		NewTest(t).
-		RequiresSingleCluster().
 		Features("traffic.gateway").
 		Run(func(ctx framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(ctx)
@@ -93,11 +80,11 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			opts := suite.Options{
-				Client:           c,
-				GatewayClassName: "istio",
-				Debug:            scopes.Framework.DebugEnabled(),
-				// CleanupBaseResources: gatewayConformanceInputs.Cleanup,
-				SupportedFeatures: suite.AllFeatures,
+				Client:               c,
+				GatewayClassName:     "istio",
+				Debug:                scopes.Framework.DebugEnabled(),
+				CleanupBaseResources: gatewayConformanceInputs.Cleanup,
+				SupportedFeatures:    suite.AllFeatures,
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{

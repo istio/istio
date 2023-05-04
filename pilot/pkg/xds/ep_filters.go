@@ -130,7 +130,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				Locality: model.Locality{
 					ClusterID: gw.Cluster,
 				},
-				Labels: labelutil.AugmentLabels(nil, nil, gw.Cluster, "", "", gw.Network),
+				Labels: labelutil.AugmentLabels(nil, gw.Cluster, "", "", gw.Network),
 			}
 
 			// Generate the EDS endpoint for this gateway.
@@ -146,8 +146,12 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				Metadata: &core.Metadata{},
 			}
 			// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-			util.AppendLbEndpointMetadata(gw.Network, model.IstioMutualTLSModeLabel,
-				"", "", b.clusterID, labels.Instance{}, gwEp.Metadata)
+			util.AppendLbEndpointMetadata(&model.EndpointMetadata{
+				Network:   gw.Network,
+				TLSMode:   model.IstioMutualTLSModeLabel,
+				ClusterID: b.clusterID,
+				Labels:    labels.Instance{},
+			}, gwEp.Metadata)
 			// Currently gateway endpoint does not support tunnel.
 			lbEndpoints.append(gwIstioEp, gwEp)
 		}

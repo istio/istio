@@ -15,20 +15,14 @@
 package model
 
 import (
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1beta1"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/proto/merge"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/protomarshal"
-	istiolog "istio.io/pkg/log"
 )
-
-var pclog = istiolog.RegisterScope("proxyconfig", "Istio ProxyConfig", 0)
 
 // ProxyConfigs organizes ProxyConfig configuration by namespace.
 type ProxyConfigs struct {
@@ -73,21 +67,18 @@ func (p *ProxyConfigs) EffectiveProxyConfig(meta *NodeMetadata, mc *meshconfig.M
 	return effectiveProxyConfig
 }
 
-func GetProxyConfigs(store ConfigStore, mc *meshconfig.MeshConfig) (*ProxyConfigs, error) {
+func GetProxyConfigs(store ConfigStore, mc *meshconfig.MeshConfig) *ProxyConfigs {
 	proxyconfigs := &ProxyConfigs{
 		namespaceToProxyConfigs: map[string][]*v1beta1.ProxyConfig{},
 		rootNamespace:           mc.GetRootNamespace(),
 	}
-	resources, err := store.List(collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind(), NamespaceAll)
-	if err != nil {
-		return nil, err
-	}
+	resources := store.List(gvk.ProxyConfig, NamespaceAll)
 	sortConfigByCreationTime(resources)
 	ns := proxyconfigs.namespaceToProxyConfigs
 	for _, resource := range resources {
 		ns[resource.Namespace] = append(ns[resource.Namespace], resource.Spec.(*v1beta1.ProxyConfig))
 	}
-	return proxyconfigs, nil
+	return proxyconfigs
 }
 
 func (p *ProxyConfigs) mergedGlobalConfig() *meshconfig.ProxyConfig {
@@ -130,16 +121,15 @@ func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig
 		if pcs[i] == nil {
 			continue
 		}
-		// TODO(Monkeyanator) some fields seem not to merge when set to the type's default value
-		// such as overriding with a concurrency value 0. Do we need a custom merge similar to what the
-		// telemetry code does with shallowMerge?
-		merge.Merge(merged, pcs[i])
-		if pcs[i].GetConcurrency() != nil {
-			merged.Concurrency = wrappers.Int32(pcs[i].GetConcurrency().GetValue())
+		proxyConfigYaml, err := protomarshal.ToYAML(pcs[i])
+		if err != nil {
+			continue
 		}
-		if pcs[i].GetImage() != nil {
-			merged.Image = pcs[i].GetImage().DeepCopy()
+		mergedConfig, err := mesh.MergeProxyConfig(proxyConfigYaml, merged)
+		if err == nil {
+			continue
 		}
+		merged = mergedConfig
 	}
 	return merged
 }

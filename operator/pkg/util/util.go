@@ -17,11 +17,11 @@ package util
 import (
 	"bytes"
 	"fmt"
-	"html/template"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"text/template"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )

@@ -60,10 +60,14 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
-var hboneTransportSocketMatch = &structpb.Struct{
-	Fields: map[string]*structpb.Value{
-		model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+var hboneTransportSocket = &cluster.Cluster_TransportSocketMatch{
+	Name: "hbone",
+	Match: &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+		},
 	},
+	TransportSocket: InternalUpstreamSocket,
 }
 
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
@@ -565,25 +569,23 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 			},
 			Metadata: &core.Metadata{},
 		}
+		var metadata *model.EndpointMetadata
 
-		labels := instance.Endpoint.Labels
-		ns := instance.Endpoint.Namespace
 		if features.CanonicalServiceForMeshExternalServiceEntry && service.MeshExternal {
-			ns = service.Attributes.Namespace
 			svcLabels := service.Attributes.Labels
 			if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
-				labels = map[string]string{
-					model.IstioCanonicalServiceLabelName:         svcLabels[model.IstioCanonicalServiceLabelName],
-					model.IstioCanonicalServiceRevisionLabelName: svcLabels[model.IstioCanonicalServiceRevisionLabelName],
-				}
-				for k, v := range instance.Endpoint.Labels {
-					labels[k] = v
-				}
+				metadata = instance.Endpoint.MetadataClone()
+				metadata.Labels[model.IstioCanonicalServiceLabelName] = svcLabels[model.IstioCanonicalServiceLabelName]
+				metadata.Labels[model.IstioCanonicalServiceRevisionLabelName] = svcLabels[model.IstioCanonicalServiceRevisionLabelName]
+			} else {
+				metadata = instance.Endpoint.Metadata()
 			}
+			metadata.Namespace = service.Attributes.Namespace
+		} else {
+			metadata = instance.Endpoint.Metadata()
 		}
 
-		util.AppendLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
-			ns, instance.Endpoint.Locality.ClusterID, labels, ep.Metadata)
+		util.AppendLbEndpointMetadata(metadata, ep.Metadata)
 
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
@@ -1000,11 +1002,7 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 			transportSocket := c.TransportSocket
 			c.TransportSocket = nil
 			c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-				{
-					Name:            "hbone",
-					Match:           hboneTransportSocketMatch,
-					TransportSocket: InternalUpstreamSocket,
-				},
+				hboneTransportSocket,
 				{
 					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
 					Match:           istioMtlsTransportSocketMatch,
@@ -1020,11 +1018,7 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 				c.TransportSocket = nil
 
 				c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-					{
-						Name:            "hbone",
-						Match:           hboneTransportSocketMatch,
-						TransportSocket: InternalUpstreamSocket,
-					},
+					hboneTransportSocket,
 					{
 						Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
 						TransportSocket: ts,
@@ -1128,6 +1122,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
+		applyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
+
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
@@ -1181,12 +1177,24 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 		}
 
+		applyTLSDefaults(tlsContext, opts.mesh.GetTlsDefaults())
+
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 	}
 	return tlsContext, nil
+}
+
+// applyTLSDefaults applies tls default settings from mesh config to UpstreamTlsContext.
+func applyTLSDefaults(tlsContext *auth.UpstreamTlsContext, tlsDefaults *meshconfig.MeshConfig_TLSConfig) {
+	if tlsDefaults == nil {
+		return
+	}
+	if len(tlsDefaults.EcdhCurves) > 0 {
+		tlsContext.CommonTlsContext.TlsParams.EcdhCurves = tlsDefaults.EcdhCurves
+	}
 }
 
 // Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.

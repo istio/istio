@@ -21,6 +21,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"golang.org/x/exp/slices"
 	"sigs.k8s.io/yaml"
 
 	ztunnelDump "istio.io/istio/istioctl/pkg/util/configdump"
@@ -47,7 +48,7 @@ func (wf *WorkloadFilter) Verify(workload *ztunnelDump.ZtunnelWorkload) bool {
 	return true
 }
 
-// PrintListenerSummary prints a summary of the relevant listeners in the config dump to the ConfigWriter stdout
+// PrintWorkloadSummary prints a summary of the relevant listeners in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 	w, zDump, err := c.setupWorkloadConfigWriter()
 	if err != nil {
@@ -74,13 +75,16 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 	})
 
 	if filter.Verbose {
-		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE\tL7 SUPPORT\tPROTOCOL")
+		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE\tWAYPOINT\tPROTOCOL")
 	} else {
 		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE")
 	}
+
+	waypointsAddrToName := make(map[string]string)
 	for _, wl := range verifiedWorkloads {
 		if filter.Verbose {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, wl.WorkloadIP, wl.Node, len(wl.WaypointAddresses) != 0, wl.Protocol)
+			waypoint := waypointName(wl, waypointsAddrToName, verifiedWorkloads)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, wl.WorkloadIP, wl.Node, waypoint, wl.Protocol)
 		} else {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, wl.WorkloadIP, wl.Node)
 		}
@@ -135,4 +139,20 @@ func (c *ConfigWriter) retrieveSortedWorkloadSlice() (*ztunnelDump.ZtunnelDump, 
 	}
 
 	return workloadDump, nil
+}
+
+func waypointName(wl *ztunnelDump.ZtunnelWorkload, prevAddresses map[string]string, workloads []*ztunnelDump.ZtunnelWorkload) string {
+	if len(wl.WaypointAddresses) == 0 {
+		return "None"
+	}
+	addr := wl.WaypointAddresses[0]
+	if name, ok := prevAddresses[addr]; ok {
+		return name
+	}
+	if idx := slices.IndexFunc(workloads, func(w *ztunnelDump.ZtunnelWorkload) bool { return w.WorkloadIP == addr }); idx > 0 {
+		wpName := workloads[idx].CanonicalName
+		prevAddresses[addr] = wpName
+		return wpName
+	}
+	return "NA" // Shouldn't normally reach here
 }

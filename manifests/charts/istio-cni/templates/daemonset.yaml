@@ -32,6 +32,7 @@ spec:
         sidecar.istio.io/inject: "false"
       annotations:
         sidecar.istio.io/inject: "false"
+        ambient.istio.io/redirection: disabled
         # Add Prometheus Scrape annotations
         prometheus.io/scrape: 'true'
         prometheus.io/port: "15014"
@@ -139,9 +140,15 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            - name: LOG_LEVEL
+              value: {{ .Values.cni.logLevel | quote }}
             {{- if .Values.cni.ambient.enabled }}
             - name: AMBIENT_ENABLED
               value: "true"
+            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
+            - name: EBPF_ENABLED
+              value: "true"
+            {{- end }}
             {{- end }}
           volumeMounts:
             - mountPath: /host/opt/cni/bin
@@ -153,77 +160,20 @@ spec:
             {{- if .Values.cni.ambient.enabled }}
             - mountPath: /etc/ambient-config
               name: cni-ambientconfig
+            - mountPath: /var/run/netns
+              mountPropagation: HostToContainer
+              name: cni-netns-dir
+            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
+            - mountPath: /sys/fs/bpf
+              mountPropagation: Bidirectional
+              name: cni-bpffs-dir
+            {{- end }}
             {{ end }}
           resources:
 {{- if .Values.cni.resources }}
 {{ toYaml .Values.cni.resources | trim | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
-{{- end }}
-          {{- if .Values.cni.ambient.enabled }}
-          lifecycle:
-            preStop:
-              exec:
-                command:
-                - sh
-                - -c
-                - |-
-                  iptables -t nat -F ztunnel-PREROUTING
-                  iptables -t nat -F ztunnel-POSTROUTING
-                  iptables -t mangle -F ztunnel-PREROUTING
-                  iptables -t mangle -F ztunnel-FOWARD
-                  iptables -t mangle -F ztunnel-INPUT
-                  iptables -t nat -D PREROUTING -j ztunnel-PREROUTING
-                  iptables -t nat -X ztunnel-PREROUTING
-                  iptables -t nat -D POSTROUTING -j ztunnel-POSTROUTING
-                  iptables -t nat -X ztunnel-POSTROUTING
-                  iptables -t mangle -D PREROUTING -j ztunnel-PREROUTING
-                  iptables -t mangle -X ztunnel-PREROUTING
-                  iptables -t mangle -D FORWARD -j ztunnel-FORWARD
-                  iptables -t mangle -X ztunnel-FORWARD
-                  iptables -t mangle -D INPUT -j ztunnel-INPUT
-                  iptables -t mangle -X ztunnel-INPUT
-
-                  ip route flush table 100
-                  ip route flush table 101
-                  ip route flush table 102
-
-                  ip rule del priority 100
-                  ip rule del priority 101
-                  ip rule del priority 102
-                  ip rule del priority 103
-
-                  ip link del name istioin
-                  ip link del name istioout
-
-                  ipset destroy ztunnel-pods-ips
-        {{ end }}
-{{- if .Values.cni.taint.enabled }}
-        - name: taint-controller
-{{- if contains "/" .Values.cni.image }}
-          image: "{{ .Values.cni.image }}"
-{{- else }}
-          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}{{with (.Values.cni.variant | default .Values.global.variant)}}-{{.}}{{end}}"
-{{- end }}
-{{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
-{{- end }}
-          command: ["/opt/local/bin/istio-cni-taint"]
-          securityContext:
-            runAsUser: 1337
-            runAsGroup: 1337
-            runAsNonRoot: true
-{{- if .Values.cni.seccompProfile }}
-            seccompProfile:
-{{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
-{{- end }}
-          env:
-          - name: "TAINT_RUN-AS-DAEMON"
-            value: "true"
-          - name: "TAINT_CONFIGMAP-NAME"
-            value: "istio-cni-taint-configmap"
-          - name: "TAINT_CONFIGMAP-NAMESPACE"
-            value: {{ .Release.Namespace | quote }}
 {{- end }}
       volumes:
         # Used to install CNI.
@@ -242,3 +192,11 @@ spec:
         - name: cni-log-dir
           hostPath:
             path: /var/run/istio-cni
+        - name: cni-netns-dir
+          hostPath:
+            path: /var/run/netns
+        {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
+        - name: cni-bpffs-dir
+          hostPath:
+            path: /sys/fs/bpf
+        {{- end }}

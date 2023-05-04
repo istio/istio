@@ -55,6 +55,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
@@ -511,7 +512,7 @@ func (a *ADSC) handleRecv() {
 		}
 
 		// Group-value-kind - used for high level api generator.
-		gvk, isMCP := convertTypeURLToMCPGVK(msg.TypeUrl)
+		resourceGvk, isMCP := convertTypeURLToMCPGVK(msg.TypeUrl)
 
 		adscLog.Info("Received ", a.url, " type ", msg.TypeUrl,
 			" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
@@ -519,7 +520,7 @@ func (a *ADSC) handleRecv() {
 			a.cfg.ResponseHandler.HandleResponse(a, msg)
 		}
 
-		if msg.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() &&
+		if msg.TypeUrl == gvk.MeshConfig.String() &&
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
@@ -582,7 +583,7 @@ func (a *ADSC) handleRecv() {
 			a.handleRDS(routes)
 		default:
 			if isMCP {
-				a.handleMCP(gvk, msg.Resources)
+				a.handleMCP(resourceGvk, msg.Resources)
 			}
 		}
 
@@ -593,8 +594,8 @@ func (a *ADSC) handleRecv() {
 
 		a.mutex.Lock()
 		if isMCP {
-			if _, exist := a.sync[gvk.String()]; !exist {
-				a.sync[gvk.String()] = time.Now()
+			if _, exist := a.sync[resourceGvk.String()]; !exist {
+				a.sync[resourceGvk.String()] = time.Now()
 			}
 		}
 		a.Received[msg.TypeUrl] = msg
@@ -1114,11 +1115,11 @@ func (a *ADSC) Watch() {
 func ConfigInitialRequests() []*discovery.DiscoveryRequest {
 	out := make([]*discovery.DiscoveryRequest, 0, len(collections.Pilot.All())+1)
 	out = append(out, &discovery.DiscoveryRequest{
-		TypeUrl: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
+		TypeUrl: gvk.MeshConfig.String(),
 	})
 	for _, sch := range collections.Pilot.All() {
 		out = append(out, &discovery.DiscoveryRequest{
-			TypeUrl: sch.Resource().GroupVersionKind().String(),
+			TypeUrl: sch.GroupVersionKind().String(),
 		})
 	}
 
@@ -1219,11 +1220,7 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 		return
 	}
 
-	existingConfigs, err := a.Store.List(groupVersionKind, "")
-	if err != nil {
-		adscLog.Warnf("Error listing existing configs %v", err)
-		return
-	}
+	existingConfigs := a.Store.List(groupVersionKind, "")
 
 	received := make(map[string]*config.Config)
 	for _, rsc := range resources {
@@ -1282,7 +1279,7 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 				continue
 			}
 			if a.LocalCacheDir != "" {
-				err = os.Remove(a.LocalCacheDir + "_res." +
+				err := os.Remove(a.LocalCacheDir + "_res." +
 					config.GroupVersionKind.Kind + "." + config.Namespace + "." + config.Name + ".json")
 				if err != nil {
 					adscLog.Warnf("Error deleting received MCP config to local file %v", err)

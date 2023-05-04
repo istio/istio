@@ -37,6 +37,7 @@ import (
 	diff "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
+	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 type k8sPodInfoFunc func(*kubernetes.Clientset, string, string) (*PodInfo, error)
@@ -83,6 +84,10 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 	cniConf := fmt.Sprintf(conf, currentVersion, currentVersion, ifname, sandboxDirectory, "iptables")
 	args := testSetArgs(cniConf)
 	newKubeClient = mocknewK8sClient
+
+	customUID := int64(1000670000)
+	customGID := int64(1000670001)
+	zero := int64(0)
 
 	tests := []struct {
 		name   string
@@ -161,6 +166,41 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			},
 			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/invalid-drop.txt.golden"),
 		},
+		{
+			name: "custom-uid",
+			input: &PodInfo{
+				Containers:     []string{"test", "istio-proxy"},
+				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Annotations:    map[string]string{annotation.SidecarStatus.Name: "true"},
+				ProxyUID:       &customUID,
+				ProxyGID:       &customGID,
+			},
+			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/custom-uid.txt.golden"),
+		},
+		{
+			name: "custom-uid-zero",
+			input: &PodInfo{
+				Containers:     []string{"test", "istio-proxy"},
+				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Annotations:    map[string]string{annotation.SidecarStatus.Name: "true"},
+				ProxyUID:       &zero,
+			},
+			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/basic.txt.golden"),
+		},
+		{
+			name: "custom-uid-tproxy",
+			input: &PodInfo{
+				Containers:     []string{"test", "istio-proxy"},
+				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Annotations: map[string]string{
+					annotation.SidecarStatus.Name:           "true",
+					annotation.SidecarInterceptionMode.Name: redirectModeTPROXY,
+				},
+				ProxyUID: &customUID,
+				ProxyGID: &customGID,
+			},
+			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/custom-uid-tproxy.txt.golden"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -173,7 +213,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			if _, err := os.Create(outputFilePath); err != nil {
 				t.Fatalf("Failed to create temp file for IPTables rule output: %v", err)
 			}
-			t.Setenv(dryRunFilePath.Name, outputFilePath)
+			t.Setenv(dependencies.DryRunFilePath.Name, outputFilePath)
 			_, _, err := testutils.CmdAddWithArgs(
 				&skel.CmdArgs{
 					Netns:     sandboxDirectory,

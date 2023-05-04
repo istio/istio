@@ -124,9 +124,6 @@ func InstallCmdWithArgs(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Opt
 
   # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
   istioctl install --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
-
-  # For setting boolean-string option, it should be enclosed quotes and escaped with a backslash (\).
-  istioctl install --set meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_VIA_AGENT=\"false\"
 `,
 		Args: cobra.ExactArgs(0),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -162,6 +159,14 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	if err != nil {
 		return fmt.Errorf("fetch Istio version: %v", err)
 	}
+
+	// return warning if current date is near the EOL date
+	if operatorVer.IsEOL() {
+		warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
+		fmt.Printf("%s Istio %v may be out of support (EOL) already: see https://istio.io/latest/docs/releases/supported-releases/ for supported releases\n",
+			warnMarker, operatorVer.OperatorCodeBaseVersion)
+	}
+
 	setFlags := applyFlagAliases(iArgs.Set, iArgs.ManifestsPath, iArgs.Revision)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
@@ -180,11 +185,12 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.DryRun && !iArgs.SkipConfirmation {
-		prompt := fmt.Sprintf("This will install the Istio %s %s profile with %q components into the cluster. Proceed? (y/N)", tag, profile, enabledComponents)
+		prompt := fmt.Sprintf("This will install the Istio %s %q profile (with components: %s) into the cluster. Proceed? (y/N)",
+			tag, profile, humanReadableJoin(enabledComponents))
 		if profile == "empty" {
 			prompt = fmt.Sprintf("This will install the Istio %s %s profile into the cluster. Proceed? (y/N)", tag, profile)
 		}
-		if !confirm(prompt, stdOut) {
+		if !Confirm(prompt, stdOut) {
 			p.Println("Cancelled.")
 			os.Exit(1)
 		}
@@ -219,10 +225,9 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
-		if err == nil {
-			err = revtag.Create(kubeClient, tagManifests)
-			if err != nil {
-				return err
+		if err == nil && !rootArgs.DryRun {
+			if err = revtag.Create(kubeClient, tagManifests, ns); err != nil {
+				return fmt.Errorf("failed to create revision tag: %v", err)
 			}
 		}
 	}
@@ -349,25 +354,19 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 			}
 		}
 		revision := manifest.GetValueForSetFlag(setFlags, "revision")
-		msg := ""
-		// when the revision is not passed and if the ns has a prior istio
-		if revision == "" && tag != icpTag {
-			if icpTag < tag {
-				msg = "A newer"
-			} else {
-				msg = "An older"
-			}
-			p.Printf("%s Istio control planes installed: %s.\n"+
-				"%s "+msg+" installed version of Istio has been detected. Running this command will overwrite it.\n", warnMarker, strings.Join(icpTags, ", "), warnMarker)
-		}
 		// when the revision is passed
-		if icpTag != "" && tag != icpTag && revision != "" {
+		if icpTag != "" && tag != icpTag {
+			check := "         Before upgrading, you may wish to use 'istioctl x precheck' to check for upgrade warnings.\n"
+			revisionWarning := "         Running this command will overwrite it; use revisions to upgrade alongside the existing version.\n"
+			if revision != "" {
+				revisionWarning = ""
+			}
 			if icpTag < tag {
-				p.Printf("%s Istio is being upgraded from %s -> %s.\n"+
-					"%s Before upgrading, you may wish to use 'istioctl analyze' to check for "+
-					"IST0002 and IST0135 deprecation warnings.\n", warnMarker, icpTag, tag, warnMarker)
+				p.Printf("%s Istio is being upgraded from %s to %s.\n"+revisionWarning+check,
+					warnMarker, icpTag, tag)
 			} else {
-				p.Printf("%s Istio is being downgraded from %s -> %s.\n", warnMarker, icpTag, tag)
+				p.Printf("%s Istio is being downgraded from %s to %s.\n"+revisionWarning+check,
+					warnMarker, icpTag, tag)
 			}
 		}
 	}
@@ -437,4 +436,17 @@ func validateEnableNamespacesByDefault(iop *v1alpha12.IstioOperator) bool {
 	}
 
 	return autoInjectNamespaces
+}
+
+func humanReadableJoin(ss []string) string {
+	switch len(ss) {
+	case 0:
+		return ""
+	case 1:
+		return ss[0]
+	case 2:
+		return ss[0] + " and " + ss[1]
+	default:
+		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
+	}
 }

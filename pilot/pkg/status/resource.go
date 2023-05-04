@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/log"
 )
 
@@ -66,9 +67,9 @@ func (r Resource) String() string {
 
 func (r *Resource) ToModelKey() string {
 	// we have a resource here, but model keys use kind.  Use the schema to find the correct kind.
-	found, _ := collections.All.FindByPlural(r.Group, r.Version, r.Resource)
+	found, _ := collections.All.FindByGroupVersionResource(r.GroupVersionResource)
 	return config.Key(
-		found.Resource().Group(), found.Resource().Version(), found.Resource().Kind(),
+		found.Group(), found.Version(), found.Kind(),
 		r.Name, r.Namespace)
 }
 
@@ -82,30 +83,15 @@ func ResourceFromMetadata(i resource.Metadata) Resource {
 }
 
 func ResourceFromModelConfig(c config.Config) Resource {
-	gvr := GVKtoGVR(c.GroupVersionKind)
-	if gvr == nil {
+	gvr, ok := gvk.ToGVR(c.GroupVersionKind)
+	if !ok {
 		return Resource{}
 	}
 	return Resource{
-		GroupVersionResource: *gvr,
+		GroupVersionResource: gvr,
 		Namespace:            c.Namespace,
 		Name:                 c.Name,
 		Generation:           strconv.FormatInt(c.Generation, 10),
-	}
-}
-
-func ResourceToModelConfig(c Resource) config.Meta {
-	gvk := GVRtoGVK(c.GroupVersionResource)
-	gen, err := strconv.Atoi(c.Generation)
-	if err != nil {
-		log.Errorf("failed to convert resource generation %s to int: %s", c.Generation, err)
-		return config.Meta{}
-	}
-	return config.Meta{
-		GroupVersionKind: gvk,
-		Namespace:        c.Namespace,
-		Name:             c.Name,
-		Generation:       int64(gen),
 	}
 }
 
@@ -121,26 +107,6 @@ func GetOGProvider(in any) (out GenerationProvider, err error) {
 		return &IstioGenerationProvider{ret}, nil
 	}
 	return nil, fmt.Errorf("cannot cast %T: %v to GenerationProvider", in, in)
-}
-
-func GVKtoGVR(in config.GroupVersionKind) *schema.GroupVersionResource {
-	found, ok := collections.All.FindByGroupVersionKind(in)
-	if !ok {
-		return nil
-	}
-	return &schema.GroupVersionResource{
-		Group:    in.Group,
-		Version:  in.Version,
-		Resource: found.Resource().Plural(),
-	}
-}
-
-func GVRtoGVK(in schema.GroupVersionResource) config.GroupVersionKind {
-	found, ok := collections.All.FindByGroupVersionResource(in)
-	if !ok {
-		return config.GroupVersionKind{}
-	}
-	return found.Resource().GroupVersionKind()
 }
 
 func NewIstioContext(stop <-chan struct{}) context.Context {

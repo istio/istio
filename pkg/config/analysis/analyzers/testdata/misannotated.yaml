@@ -80,6 +80,7 @@ metadata:
     helm.sh/hook: test-success
     # invalid here
     kubernetes.io/ingress.class: "istio"
+    gateway.istio.io/controller-version: "5"
 spec:
   containers:
     - name: "grafana-test"
@@ -99,6 +100,7 @@ metadata:
     traffic.sidecar.istio.io/excludeInboundPorts: "15020"
     traffic.sidecar.istio.io/includeInboundPorts: '*'
     traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+    gateway.istio.io/controller-version: "5"
 spec:
   containers:
     - name: "grafana-test"
@@ -120,6 +122,7 @@ metadata:
     traffic.sidecar.istio.io/excludeInboundPorts: "15020"
     traffic.sidecar.istio.io/includeInboundPorts: '*'
     traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+    gateway.istio.io/controller-version: "5"
 spec:
   containers:
     - name: "grafana-test"

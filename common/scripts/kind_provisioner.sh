@@ -367,7 +367,7 @@ function install_metallb() {
   kubectl apply --kubeconfig="$KUBECONFIG" -f "${COMMON_SCRIPTS}/metallb.yaml"
   kubectl create --kubeconfig="$KUBECONFIG" secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
 
-  if [ -z "${METALLB_IPS4[*]}" ]; then
+  if [ -z "${METALLB_IPS4+x}" ]; then
     # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs
     DOCKER_KIND_SUBNET="$(docker inspect kind | jq '.[0].IPAM.Config[0].Subnet' -r)"
     METALLB_IPS4=()

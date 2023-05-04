@@ -10,7 +10,7 @@ metadata:
   name: {{.DeploymentName | quote}}
   namespace: {{.Namespace | quote}}
   annotations:
-    {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
+    {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
   labels:
     {{- toJsonMap .Labels | nindent 4 }}
   ownerReferences:
@@ -26,7 +26,8 @@ spec:
     metadata:
       annotations:
         {{- toJsonMap
-          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account")
+          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version")
+          (strdict "istio.io/rev" (.Revision | default "default"))
           (strdict
             "ambient.istio.io/redirection" "disabled"
             "prometheus.io/path" "/stats/prometheus"
@@ -65,8 +66,6 @@ spec:
         {{- if .Values.global.logAsJson }}
         - --log_as_json
         {{- end }}
-        - --concurrency
-        - "2"
         env:
         - name: ISTIO_META_SERVICE_ACCOUNT
           valueFrom:
@@ -106,6 +105,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: ISTIO_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
                  {{ protoToJSON .ProxyConfig }}
@@ -209,3 +212,27 @@ spec:
         - name: {{ . }}
         {{- end }}
       {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{ toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+  labels:
+    {{ toJsonMap .Labels | nindent 4}}
+  name: {{.DeploymentName | quote}}
+  namespace: {{.Namespace | quote}}
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: "{{.Name}}"
+    uid: "{{.UID}}"
+spec:
+  ports:
+  - name: https-hbone
+    port: 15008
+    protocol: TCP
+    appProtocol: https
+  selector:
+    istio.io/gateway-name: "{{.Name}}"
+---

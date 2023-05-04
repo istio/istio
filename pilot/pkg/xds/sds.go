@@ -51,7 +51,11 @@ type SecretResource struct {
 
 var _ model.XdsCacheEntry = SecretResource{}
 
-func (sr SecretResource) Key() string {
+func (sr SecretResource) Type() string {
+	return model.SDSType
+}
+
+func (sr SecretResource) Key() any {
 	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
 }
 
@@ -169,7 +173,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy) *discovery.Resource {
 	// Fetch the appropriate cluster's secret, based on the credential type
 	var secretController credscontroller.Controller
-	switch sr.Type {
+	switch sr.ResourceType {
 	case credentials.KubernetesGatewaySecretType:
 		secretController = configClusterSecrets
 	default:
@@ -185,7 +189,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 		if features.VerifySDSCertificate {
-			if err := validateCertificate(caCert); err != nil {
+			if err := ValidateCertificate(caCert); err != nil {
 				recordInvalidCertificate(sr.ResourceName, err)
 				return nil
 			}
@@ -201,7 +205,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return nil
 	}
 	if features.VerifySDSCertificate {
-		if err := validateCertificate(cert); err != nil {
+		if err := ValidateCertificate(cert); err != nil {
 			recordInvalidCertificate(sr.ResourceName, err)
 			return nil
 		}
@@ -210,13 +214,23 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	return res
 }
 
-func validateCertificate(data []byte) error {
+func ValidateCertificate(data []byte) error {
 	block, _ := pem.Decode(data)
 	if block == nil {
 		return fmt.Errorf("pem decode failed")
 	}
-	_, err := x509.ParseCertificates(block.Bytes)
-	return err
+	certs, err := x509.ParseCertificates(block.Bytes)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	for _, cert := range certs {
+		// check if the certificate has expired
+		if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
+			return fmt.Errorf("certificate is expired or not yet valid")
+		}
+	}
+	return nil
 }
 
 func recordInvalidCertificate(name string, err error) {
@@ -253,7 +267,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 	for _, r := range resources {
 		sameNamespace := r.Namespace == proxy.VerifiedIdentity.Namespace
 		verified := proxy.MergedGateway != nil && proxy.MergedGateway.VerifiedCertificateReferences.Contains(r.ResourceName)
-		switch r.Type {
+		switch r.ResourceType {
 		case credentials.KubernetesGatewaySecretType:
 			// For KubernetesGateway, we only allow VerifiedCertificateReferences.
 			// This means a Secret in the same namespace as the Gateway (which also must be in the same namespace

@@ -50,3 +50,6 @@ multiCluster:
 meshConfig:
   defaultConfig:
     proxyMetadata: {}
+
+# Ambient redirection mode: "iptables" or "ebpf"
+redirectMode: "iptables"

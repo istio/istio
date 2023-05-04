@@ -132,6 +132,7 @@ const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gatewa
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
 func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
 	gatewayPorts := make(map[uint32]bool)
+	nonPlainTextGatewayPortsBindMap := map[uint32]sets.String{}
 	mergedServers := make(map[ServerPort]*MergedServers)
 	mergedQUICServers := make(map[ServerPort]*MergedServers)
 	serverPorts := make([]ServerPort, 0)
@@ -216,13 +217,15 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					//    for each server (as each server ends up as a separate http connection manager due to filter chain match)
 					// 3. No for everything else.
 					if current, exists := plainTextServers[resolvedPort]; exists {
-						if !canMergeProtocols(serverProtocol, protocol.Parse(current.Protocol)) {
+						if !canMergeProtocols(serverProtocol, protocol.Parse(current.Protocol)) && current.Bind == serverPort.Bind {
 							log.Infof("skipping server on gateway %s port %s.%d.%s: conflict with existing server %d.%s",
 								gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol, serverPort.Number, serverPort.Protocol)
 							RecordRejectedConfig(gatewayName)
 							continue
 						}
-						if routeName == "" {
+						// For TCP gateway/route the route name is empty but if they are different binds, should continue to generate the listener
+						// i.e gateway 10.0.0.1:8000:TCP should not conflict with 10.0.0.2:8000:TCP
+						if routeName == "" && current.Bind == serverPort.Bind {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 								gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
 							RecordRejectedConfig(gatewayName)
@@ -268,9 +271,19 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							}
 							serversByRouteName[routeName] = []*networking.Server{s}
 						}
-
+						// build the port bind map for none plain text protocol, thus can avoid protocol conflict if it's different bind
+						if bindsPortMap, ok := nonPlainTextGatewayPortsBindMap[resolvedPort]; ok && !bindsPortMap.Contains(serverPort.Bind) {
+							bindsPortMap.Insert(serverPort.Bind)
+						} else {
+							bindsPortMap := sets.String{}
+							bindsPortMap.Insert(serverPort.Bind)
+							nonPlainTextGatewayPortsBindMap[resolvedPort] = bindsPortMap
+						}
+						// If the bind/port combination is not being used as non-plaintext, they are different
+						// listeners and won't get conflicted even with same port different protocol
+						// i.e 0.0.0.0:443:GRPC/1.0.0.1:443:GRPC/1.0.0.2:443:HTTPS they are not conflicted, otherwise
 						// We have another TLS server on the same port. Can differentiate servers using SNI
-						if s.Tls == nil {
+						if s.Tls == nil && !nonPlainTextGatewayPortsBindMap[resolvedPort].Contains(serverPort.Bind) {
 							log.Warnf("TLS server without TLS options %s %s", gatewayName, s.String())
 							continue
 						}

@@ -17,7 +17,6 @@ package route_test
 import (
 	"reflect"
 	"testing"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -26,7 +25,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -37,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
@@ -63,7 +62,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 	}
 
-	gatewayNames := map[string]bool{"some-gateway": true}
+	gatewayNames := sets.New("some-gateway")
 
 	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewWithT(t)
@@ -71,7 +70,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		t.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -86,7 +85,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, serviceRegistry, nil, 8080, gatewayNames, true, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{IsHTTP3AltSvcHeaderNeeded: true})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(routes[0].GetResponseHeadersToAdd()).To(gomega.Equal([]*core.HeaderValueOption{
@@ -100,30 +100,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}))
 	})
 
-	t.Run("for virtual service with changed default timeout", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-
-		dt := features.DefaultRequestTimeout
-		features.DefaultRequestTimeout = durationpb.New(1 * time.Second)
-		defer func() { features.DefaultRequestTimeout = dt }()
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, serviceRegistry, nil, 8080, gatewayNames, false, nil)
-		xdstest.ValidateRoutes(t, routes)
-
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(1))
-		// Validate that when timeout is not specified, we send what is set in the timeout flag.
-		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(1)))
-		// nolint: staticcheck
-		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(1)))
-	})
-
 	t.Run("for virtual service with timeout", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithTimeout, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithTimeout, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -138,7 +120,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithTimeoutDisabled, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithTimeoutDisabled, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -152,7 +135,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithCatchAllRoute,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -165,7 +148,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithCatchAllPort,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -184,7 +167,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsIngress
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), vs,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -207,7 +190,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		vs.Annotations[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), vs,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -228,7 +211,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithCatchAllRouteWeightedDestination,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -240,7 +223,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithCatchAllMultiPrefixRoute,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -252,7 +235,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRegexMatchingOnURI,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -264,7 +247,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithStatPrefix,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(3))
@@ -281,7 +264,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithExactMatchingOnHeaderForJWTClaims,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -297,7 +280,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRegexMatchingOnHeader,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -309,7 +292,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRegexMatchingOnWithoutHeader,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -322,7 +305,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithPresentMatchingOnHeader,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -336,7 +319,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithPresentMatchingOnWithoutHeader,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -352,13 +335,65 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			g := gomega.NewWithT(t)
 			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 			routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), *c, serviceRegistry, nil,
-				8080, gatewayNames, false, nil)
+				8080, gatewayNames, route.RouteOptions{})
 			xdstest.ValidateRoutes(t, routes)
 			g.Expect(err).NotTo(gomega.HaveOccurred())
 			g.Expect(len(routes)).To(gomega.Equal(1))
 			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
 			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(gomega.Equal(true))
 			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(false))
+		}
+	})
+
+	t.Run("for virtual service with exact matching on query parameter", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithExactMatchingOnQueryParameter,
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetQueryParameters()[0].GetStringMatch().GetExact()).To(gomega.Equal("foo"))
+	})
+
+	t.Run("for virtual service with prefix matching on query parameter", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithPrefixMatchingOnQueryParameter,
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetQueryParameters()[0].GetStringMatch().GetPrefix()).To(gomega.Equal("foo-"))
+	})
+
+	t.Run("for virtual service with regex matching on query parameter", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRegexMatchingOnQueryParameter,
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetQueryParameters()[0].GetStringMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
+	})
+
+	t.Run("for virtual service with regex matching for all cases on query parameter", func(t *testing.T) {
+		cset := createVirtualServiceWithRegexMatchingForAllCasesOnQueryParameter()
+
+		for _, c := range cset {
+			g := gomega.NewWithT(t)
+			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+			routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), *c, serviceRegistry, nil,
+				8080, gatewayNames, route.RouteOptions{})
+			xdstest.ValidateRoutes(t, routes)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(len(routes)).To(gomega.Equal(1))
+			g.Expect(routes[0].GetMatch().GetQueryParameters()[0].GetName()).To(gomega.Equal("token"))
+			g.Expect(routes[0].GetMatch().GetQueryParameters()[0].GetPresentMatch()).To(gomega.Equal(true))
 		}
 	})
 
@@ -371,7 +406,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(fooNode, virtualServiceMatchingOnSourceNamespace,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -382,7 +417,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		routes, err = route.BuildHTTPRoutesForVirtualService(barNode, virtualServiceMatchingOnSourceNamespace,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetName()).To(gomega.Equal("bar"))
@@ -424,7 +459,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		proxy := node(cg)
 		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualServicePlain, serviceRegistry,
-			hashByDestination, 8080, gatewayNames, false, nil)
+			hashByDestination, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -472,7 +507,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		proxy := node(cg)
 		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualServicePlain, serviceRegistry,
-			hashByDestination, 8080, gatewayNames, false, nil)
+			hashByDestination, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -517,7 +552,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		proxy := node(cg)
 		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, serviceRegistry,
-			hashByDestination, 8080, gatewayNames, false, nil)
+			hashByDestination, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -560,7 +595,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		proxy := node(cg)
 		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, serviceRegistry,
-			hashByDestination, 8080, gatewayNames, false, nil)
+			hashByDestination, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -606,7 +641,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		proxy := node(cg)
 		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, serviceRegistry,
-			hashByDestination, 8080, gatewayNames, false, nil)
+			hashByDestination, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -638,10 +673,10 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		proxy := node(cg)
-		gatewayNames := map[string]bool{"some-gateway": true}
+		gatewayNames := sets.New("some-gateway")
 		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain)
 		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualServicePlain, serviceRegistry,
-			hashByDestination, 8080, gatewayNames, false, nil)
+			hashByDestination, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -662,7 +697,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithHeaderOperationsForSingleCluster,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -747,7 +782,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithHeaderOperationsForWeightedCluster,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -857,7 +892,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirect, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirect, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -871,7 +907,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirectPathPrefix, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirectPathPrefix, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -887,7 +924,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewriteHost, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewriteHost, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -903,7 +941,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewriteFullPath, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewriteFullPath, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -913,7 +952,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		g.Expect(routeAction.Route.RegexRewrite).To(gomega.Equal(&matcher.RegexMatchAndSubstitute{
 			Pattern: &matcher.RegexMatcher{
-				Regex: "/.+",
+				Regex: "/.*",
 			},
 			Substitution: "/replace-full",
 		}))
@@ -923,7 +962,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewritePrefixPath, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewritePrefixPath, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -939,7 +979,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg),
 			virtualServiceWithRewriteFullPathAndHost,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -951,7 +991,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}))
 		g.Expect(routeAction.Route.RegexRewrite).To(gomega.Equal(&matcher.RegexMatchAndSubstitute{
 			Pattern: &matcher.RegexMatcher{
-				Regex: "/.+",
+				Regex: "/.*",
 			},
 			Substitution: "/replace-full",
 		}))
@@ -963,7 +1003,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg),
 			virtualServiceWithRedirectPathPrefixNoGatewaySematics,
-			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -979,7 +1019,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirectFullPath, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirectFullPath, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -995,7 +1036,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirectAndSetHeader, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirectAndSetHeader, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -1013,7 +1055,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithDirectResponse, serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithDirectResponse, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -1029,7 +1072,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithDirectResponseAndSetHeader, serviceRegistry,
-			nil, 8080, gatewayNames, false, nil)
+			nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -2074,6 +2117,140 @@ var virtualServiceWithPresentMatchingOnWithoutHeader = config.Config{
 			},
 		},
 	},
+}
+
+var virtualServiceWithExactMatchingOnQueryParameter = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "auth",
+						QueryParams: map[string]*networking.StringMatch{
+							"token": {
+								MatchType: &networking.StringMatch_Exact{
+									Exact: "foo",
+								},
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithPrefixMatchingOnQueryParameter = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "auth",
+						QueryParams: map[string]*networking.StringMatch{
+							"token": {
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "foo-",
+								},
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRegexMatchingOnQueryParameter = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "auth",
+						QueryParams: map[string]*networking.StringMatch{
+							"token": {
+								MatchType: &networking.StringMatch_Regex{
+									Regex: "BAR .+?\\..+?\\..+?",
+								},
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+func createVirtualServiceWithRegexMatchingForAllCasesOnQueryParameter() []*config.Config {
+	ret := []*config.Config{}
+	regex := "*"
+	ret = append(ret, &config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "acme",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{},
+			Gateways: []string{"some-gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Name: "presence",
+							QueryParams: map[string]*networking.StringMatch{
+								"token": {
+									MatchType: &networking.StringMatch_Regex{
+										Regex: regex,
+									},
+								},
+							},
+						},
+					},
+					Redirect: &networking.HTTPRedirect{
+						Uri:          "example.org",
+						Authority:    "some-authority.default.svc.cluster.local",
+						RedirectCode: 308,
+					},
+				},
+			},
+		},
+	})
+
+	return ret
 }
 
 var virtualServiceMatchingOnSourceNamespace = config.Config{

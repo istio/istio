@@ -205,9 +205,9 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 		if ri := revisions[rev]; ri == nil {
 			revisions[rev] = &tag.RevisionDescription{}
 		}
-		cs, err := getEnabledComponents(iop)
+		cs, err := getEnabledUserFacingComponents(iop)
 		if err != nil {
-			return fmt.Errorf("error while getting IstioOperator Components: %v", err)
+			logger.LogAndErrorf("error while getting IstioOperator %s/%s Components: %v", iop.Namespace, iop.Name, err)
 		}
 		iopInfo := &tag.IstioOperatorCRInfo{
 			IOP:            iop,
@@ -631,7 +631,7 @@ func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 		Webhooks:         []*tag.MutatingWebhookConfigInfo{},
 	}
 	for _, iop := range iopCRs {
-		cs, err := getEnabledComponents(iop)
+		cs, err := getEnabledUserFacingComponents(iop)
 		if err != nil {
 			logger.LogAndErrorf("error while getting IstioOperator %s/%s Components: %v", iop.Namespace, iop.Name, err)
 		}
@@ -825,7 +825,7 @@ func printIngressGateways(w io.Writer, desc *tag.RevisionDescription) error {
 }
 
 func printEgressGateways(w io.Writer, desc *tag.RevisionDescription) error {
-	fmt.Fprintf(w, "\nEGRESS GATEWAYS: (%d)\n", len(desc.IngressGatewayPods))
+	fmt.Fprintf(w, "\nEGRESS GATEWAYS: (%d)\n", len(desc.EgressGatewayPods))
 	if len(desc.EgressGatewayPods) == 0 {
 		if egressGatewayEnabled(desc) {
 			fmt.Fprintln(w, "Egress gateway is enabled for this revision. However there are no such pods. "+
@@ -842,25 +842,18 @@ func printEgressGateways(w io.Writer, desc *tag.RevisionDescription) error {
 	return printPodTable(w, desc.EgressGatewayPods)
 }
 
-type istioGatewayType = string
-
-const (
-	ingress istioGatewayType = "ingress"
-	egress  istioGatewayType = "egress"
-)
-
 func ingressGatewayEnabled(desc *tag.RevisionDescription) bool {
-	return gatewayTypeEnabled(desc, ingress)
+	return gatewayTypeEnabled(desc, name2.UserFacingComponentName(name2.IngressComponentName))
 }
 
 func egressGatewayEnabled(desc *tag.RevisionDescription) bool {
-	return gatewayTypeEnabled(desc, egress)
+	return gatewayTypeEnabled(desc, name2.UserFacingComponentName(name2.EgressComponentName))
 }
 
-func gatewayTypeEnabled(desc *tag.RevisionDescription, gwType istioGatewayType) bool {
+func gatewayTypeEnabled(desc *tag.RevisionDescription, gwComponentName string) bool {
 	for _, iopdesc := range desc.IstioOperatorCRs {
 		for _, comp := range iopdesc.Components {
-			if strings.HasPrefix(comp, gwType) {
+			if strings.HasPrefix(comp, gwComponentName) {
 				return true
 			}
 		}
@@ -891,7 +884,7 @@ func printPodTable(w io.Writer, pods []*tag.PodFilteredInfo) error {
 	return podTableW.Flush()
 }
 
-func getEnabledComponents(iop *iopv1alpha1.IstioOperator) ([]string, error) {
+func getEnabledUserFacingComponents(iop *iopv1alpha1.IstioOperator) ([]string, error) {
 	if iop == nil {
 		return nil, nil
 	}

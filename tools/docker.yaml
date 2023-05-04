@@ -32,11 +32,6 @@ images:
   - tools/packaging/common/envoy_bootstrap.json
   - tools/packaging/common/gcp_envoy_bootstrap.json
   - ${TARGET_OUT_LINUX}/${RELEASE_MODE}/${SIDECAR}
-  # WASM has no debug mode, always use release/
-  - ${TARGET_OUT_LINUX}/release/stats-filter.wasm
-  - ${TARGET_OUT_LINUX}/release/stats-filter.compiled.wasm
-  - ${TARGET_OUT_LINUX}/release/metadata-exchange-filter.wasm
-  - ${TARGET_OUT_LINUX}/release/metadata-exchange-filter.compiled.wasm
   targets:
   - ${TARGET_OUT_LINUX}/pilot-agent
 - name: pilot
@@ -64,7 +59,6 @@ images:
   targets:
   - ${TARGET_OUT_LINUX}/istio-cni
   - ${TARGET_OUT_LINUX}/install-cni
-  - ${TARGET_OUT_LINUX}/istio-cni-taint
 
 - name: ztunnel
   dockerfile: pilot/docker/Dockerfile.ztunnel

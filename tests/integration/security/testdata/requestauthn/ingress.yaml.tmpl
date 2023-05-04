@@ -4,7 +4,7 @@ metadata:
   name: {{ .To.ServiceName }}-gateway
 spec:
   selector:
-    istio: ingressgateway # use istio default ingress gateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
     - port:
         number: 80

@@ -29,7 +29,7 @@ func TestJwtHTTPServer(t *testing.T) {
 	go server.runHTTP("localhost:0")
 	// Prepare the HTTP request.
 	httpClient := &http.Client{}
-	httpReq, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/jwtkeys", <-server.httpPort), nil)
+	httpReq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%d/jwtkeys", <-server.httpPort), nil)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -71,7 +71,7 @@ func TestJwtHTTPSServer(t *testing.T) {
 	// Start the test server on port 8443.
 	go server.runHTTPS(":8443")
 
-	httpsReq, err := http.NewRequest("GET", fmt.Sprintf("https://localhost:%d/jwtkeys", <-server.httpsPort), nil)
+	httpsReq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/jwtkeys", <-server.httpsPort), nil)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

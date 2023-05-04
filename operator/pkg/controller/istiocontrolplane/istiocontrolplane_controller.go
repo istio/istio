@@ -29,7 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kubeversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
+	cache2 "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -277,13 +279,6 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		}
 	}
 
-	// for backward compatibility, the previous applied installed-state CR does not have the ignore reconcile annotation
-	// TODO(richardwxn): remove this check and rely on annotation check only
-	if strings.HasPrefix(iop.Name, name.InstalledSpecCRPrefix) {
-		scope.Infof("Ignoring the installed-state IstioOperator CR %s ", iopName)
-		return reconcile.Result{}, nil
-	}
-
 	var err error
 	iopMerged := &iopv1alpha1.IstioOperator{}
 	*iopMerged = *iop
@@ -471,7 +466,7 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 // and Start it when the Manager is Started. It also provides additional options to modify internal reconciler behavior.
 func Add(mgr manager.Manager, options *Options) error {
 	restConfig = mgr.GetConfig()
-	kubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
+	kubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), "")
 	if err != nil {
 		return fmt.Errorf("create Kubernetes client: %v", err)
 	}
@@ -482,13 +477,14 @@ func Add(mgr manager.Manager, options *Options) error {
 func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error {
 	scope.Info("Adding controller for IstioOperator.")
 	// Create a new controller
-	c, err := controller.New("istiocontrolplane-controller", mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: options.MaxConcurrentReconciles})
+	opts := controller.Options{Reconciler: r, Controller: config.Controller{MaxConcurrentReconciles: options.MaxConcurrentReconciles}}
+	c, err := controller.New("istiocontrolplane-controller", mgr, opts)
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to primary resource IstioOperator
-	err = c.Watch(&source.Kind{Type: &iopv1alpha1.IstioOperator{}}, &handler.EnqueueRequestForObject{}, operatorPredicates)
+	err = c.Watch(source.Kind(mgr.GetCache(), &iopv1alpha1.IstioOperator{}), &handler.EnqueueRequestForObject{}, operatorPredicates)
 	if err != nil {
 		return err
 	}
@@ -497,7 +493,7 @@ func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error
 		return err
 	}
 	// watch for changes to Istio resources
-	err = watchIstioResources(c, ver)
+	err = watchIstioResources(mgr.GetCache(), c, ver)
 	if err != nil {
 		return err
 	}
@@ -506,7 +502,7 @@ func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error
 }
 
 // Watch changes for Istio resources managed by the operator
-func watchIstioResources(c controller.Controller, ver *kubeversion.Info) error {
+func watchIstioResources(mgrCache cache2.Cache, c controller.Controller, ver *kubeversion.Info) error {
 	for _, t := range watchedResources(ver) {
 		u := &unstructured.Unstructured{}
 		u.SetGroupVersionKind(schema.GroupVersionKind{
@@ -514,7 +510,7 @@ func watchIstioResources(c controller.Controller, ver *kubeversion.Info) error {
 			Group:   t.Group,
 			Version: t.Version,
 		})
-		err := c.Watch(&source.Kind{Type: u}, handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
+		err := c.Watch(source.Kind(mgrCache, u), handler.EnqueueRequestsFromMapFunc(func(_ context.Context, a client.Object) []reconcile.Request {
 			scope.Infof("Watching a change for istio resource: %s/%s", a.GetNamespace(), a.GetName())
 			return []reconcile.Request{
 				{NamespacedName: types.NamespacedName{

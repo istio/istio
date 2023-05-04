@@ -490,8 +490,14 @@ func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.authz-check").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
+			istioLabel := "ingressgateway"
+			if labelOverride := i.Settings().IngressGatewayIstioLabel; labelOverride != "" {
+				istioLabel = labelOverride
+			}
 			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/authz-a.yaml").ApplyOrFail(t)
-			t.ConfigIstio().File(i.Settings().SystemNamespace, "testdata/authz-b.yaml").ApplyOrFail(t)
+			t.ConfigIstio().EvalFile(i.Settings().SystemNamespace, map[string]any{
+				"GatewayIstioLabel": istioLabel,
+			}, "testdata/authz-b.yaml").ApplyOrFail(t)
 
 			gwPod, err := i.IngressFor(t.Clusters().Default()).PodID(0)
 			if err != nil {
