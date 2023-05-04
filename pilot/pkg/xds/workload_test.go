@@ -82,7 +82,7 @@ func TestWorkloadReconnect(t *testing.T) {
 	resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
 		ResourceNamesSubscribe: []string{"127.0.0.1"},
 	})
-	expect(resp, "127.0.0.1")
+	expect(resp, "/127.0.0.1")
 	ads.Cleanup()
 
 	// Reconnect
@@ -94,7 +94,7 @@ func TestWorkloadReconnect(t *testing.T) {
 			"127.0.0.1": "",
 		},
 	})
-	expect(ads.ExpectResponse(), "127.0.0.1")
+	expect(ads.ExpectResponse(), "/127.0.0.1")
 }
 
 func TestWorkload(t *testing.T) {
@@ -119,39 +119,39 @@ func TestWorkload(t *testing.T) {
 		resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe: []string{"127.0.0.1"},
 		})
-		expect(resp, "127.0.0.1")
+		expect(resp, "/127.0.0.1")
 
 		// Subscribe to unknown pod
 		ads.Request(&discovery.DeltaDiscoveryRequest{
-			ResourceNamesSubscribe: []string{"127.0.0.2"},
+			ResourceNamesSubscribe: []string{"/127.0.0.2"},
 		})
 		// "Removed" is a misnomer, but per the spec this is how we report "not found"
-		expectRemoved(ads.ExpectResponse(), "127.0.0.2")
+		expectRemoved(ads.ExpectResponse(), "/127.0.0.2")
 
 		// Once we create it, we should get a push
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
-		expect(ads.ExpectResponse(), "127.0.0.2")
+		expect(ads.ExpectResponse(), "/127.0.0.2")
 
 		// TODO: implement pod update; this actually cannot really be done without waypoints or VIPs
 		deletePod(s, "pod")
-		expectRemoved(ads.ExpectResponse(), "127.0.0.1")
+		expectRemoved(ads.ExpectResponse(), "/127.0.0.1")
 
 		// Create pod we are not subscribed to; due to same-node optimization this will push
 		createPod(s, "pod-same-node", "sa", "127.0.0.3", "node")
-		expect(ads.ExpectResponse(), "127.0.0.3")
+		expect(ads.ExpectResponse(), "/127.0.0.3")
 		deletePod(s, "pod-same-node")
-		expectRemoved(ads.ExpectResponse(), "127.0.0.3")
+		expectRemoved(ads.ExpectResponse(), "/127.0.0.3")
 
 		// Add service: we should not get any new resources, but updates to existing ones
 		// Note: we are not subscribed to svc1 explicitly, but it impacts pods we are subscribed to
 		createService(s, "svc1", "default", map[string]string{"app": "sa"})
-		expect(ads.ExpectResponse(), "127.0.0.2")
+		expect(ads.ExpectResponse(), "/127.0.0.2")
 		// Creating a pod in the service should send an update as usual
 		createPod(s, "pod", "sa", "127.0.0.1", "node")
-		expect(ads.ExpectResponse(), "127.0.0.1")
+		expect(ads.ExpectResponse(), "/127.0.0.1")
 		// Make service not select workload should also update things
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "127.0.0.1", "127.0.0.2")
+		expect(ads.ExpectResponse(), "/127.0.0.1", "/127.0.0.2")
 
 		// Now create pods in the service...
 		createPod(s, "pod4", "not-sa", "127.0.0.4", "not-node")
@@ -160,17 +160,17 @@ func TestWorkload(t *testing.T) {
 
 		// Now we subscribe to the service explicitly
 		ads.Request(&discovery.DeltaDiscoveryRequest{
-			ResourceNamesSubscribe: []string{"10.0.0.1"},
+			ResourceNamesSubscribe: []string{"/10.0.0.1"},
 		})
 		// Should get updates for all pods in the service
-		expect(ads.ExpectResponse(), "10.0.0.1", "127.0.0.4")
-		// Adding a pod in the service should trigger an update for that pod, even if we didn't explicitly subscribe
+		expect(ads.ExpectResponse(), "/127.0.0.4", "default/svc1.default.svc.cluster.local")
+		// Adding a pod in the service should not trigger an update for that pod - we didn't explicitly subscribe
 		createPod(s, "pod5", "not-sa", "127.0.0.5", "not-node")
-		expect(ads.ExpectResponse(), "127.0.0.5")
+		ads.ExpectNoResponse()
 
 		// And if the service changes to no longer select them, we should see them *removed* (not updated)
 		createService(s, "svc1", "default", map[string]string{"app": "nothing"})
-		expect(ads.ExpectResponse(), "10.0.0.1", "127.0.0.4", "127.0.0.5")
+		expect(ads.ExpectResponse(), "/127.0.0.4", "default/svc1.default.svc.cluster.local")
 	})
 	t.Run("wildcard", func(t *testing.T) {
 		expect := buildExpect(t)
@@ -185,26 +185,26 @@ func TestWorkload(t *testing.T) {
 
 		// Create pod, due to wildcard subscribe we should receive it
 		createPod(s, "pod", "sa", "127.0.0.1", "not-node")
-		expect(ads.ExpectResponse(), "127.0.0.1")
+		expect(ads.ExpectResponse(), "/127.0.0.1")
 
 		// A new pod should push only that one
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
-		expect(ads.ExpectResponse(), "127.0.0.2")
+		expect(ads.ExpectResponse(), "/127.0.0.2")
 
 		// TODO: implement pod update; this actually cannot really be done without waypoints or VIPs
 		deletePod(s, "pod")
-		expectRemoved(ads.ExpectResponse(), "127.0.0.1")
+		expectRemoved(ads.ExpectResponse(), "/127.0.0.1")
 
 		// Add service: we should not get any new resources, but updates to existing ones
 		createService(s, "svc1", "default", map[string]string{"app": "sa"})
-		expect(ads.ExpectResponse(), "10.0.0.1", "127.0.0.2")
+		expect(ads.ExpectResponse(), "/127.0.0.2", "default/svc1.default.svc.cluster.local")
 		// Creating a pod in the service should send an update as usual
 		createPod(s, "pod", "sa", "127.0.0.3", "node")
-		expect(ads.ExpectResponse(), "127.0.0.3")
+		expect(ads.ExpectResponse(), "/127.0.0.3")
 
 		// Make service not select workload should also update things
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "10.0.0.1", "127.0.0.2", "127.0.0.3")
+		expect(ads.ExpectResponse(), "/127.0.0.2", "/127.0.0.3", "default/svc1.default.svc.cluster.local")
 	})
 }
 
