@@ -897,7 +897,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			sdCfg := generateSDConfig(class, cfg)
-			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
+			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
 			wasmConfig := &httpwasm.Wasm{
@@ -943,7 +943,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			cfg := generateSDConfig(class, telemetryCfg)
-			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
+			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
 			wasmConfig := &wasmfilter.Wasm{
