@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/hashicorp/go-multierror"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
@@ -135,7 +136,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	} else if v.controlPlaneOpts.Revision == "default" {
 		v.controlPlaneOpts.Revision = ""
 	}
-	iop, err := v.operatorFromCluster(v.controlPlaneOpts.Revision)
+	iops, err := v.operatorsFromCluster(v.controlPlaneOpts.Revision)
 	if err != nil {
 		// At this point we know there is no IstioOperator defining a control plane.  This may
 		// be the case in a Istio cluster with external control plane.
@@ -150,21 +151,30 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 		}
 		return fmt.Errorf("could not load IstioOperator from cluster: %v. Use --filename", err)
 	}
-	if v.manifestsPath != "" {
-		iop.Spec.InstallPackagePath = v.manifestsPath
+	var crdTotal, istioDeploymentTotal int
+	multiErr := &multierror.Error{}
+	for _, iop := range iops {
+		if v.manifestsPath != "" {
+			iop.Spec.InstallPackagePath = v.manifestsPath
+		}
+		profile := manifest.GetProfile(iop)
+		by, err := yaml.Marshal(iop)
+		if err != nil {
+			return err
+		}
+		mergedIOP, err := manifest.GetMergedIOP(string(by), profile, v.manifestsPath, v.controlPlaneOpts.Revision, v.client, v.logger)
+		if err != nil {
+			return err
+		}
+		crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
+			mergedIOP, fmt.Sprintf("in cluster operator %s", mergedIOP.GetName()))
+		if err != nil {
+			multiErr = multierror.Append(multiErr, err)
+		}
+		crdTotal += crdCount
+		istioDeploymentTotal += istioDeploymentCount
 	}
-	profile := manifest.GetProfile(iop)
-	by, err := yaml.Marshal(iop)
-	if err != nil {
-		return err
-	}
-	mergedIOP, err := manifest.GetMergedIOP(string(by), profile, v.manifestsPath, v.controlPlaneOpts.Revision, v.client, v.logger)
-	if err != nil {
-		return err
-	}
-	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
-		mergedIOP, fmt.Sprintf("in cluster operator %s", mergedIOP.GetName()))
-	return v.reportStatus(crdCount, istioDeploymentCount, err)
+	return v.reportStatus(crdTotal, istioDeploymentTotal, multiErr.ErrorOrNil())
 }
 
 func (v *StatusVerifier) getRevision() (string, error) {
@@ -416,17 +426,21 @@ func (v *StatusVerifier) injectorFromCluster(revision string) (*admitv1.Mutating
 
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
-func (v *StatusVerifier) operatorFromCluster(revision string) (*v1alpha1.IstioOperator, error) {
+func (v *StatusVerifier) operatorsFromCluster(revision string) ([]*v1alpha1.IstioOperator, error) {
 	iops, err := AllOperatorsInCluster(v.client.Dynamic())
 	if err != nil {
 		return nil, err
 	}
+	iopsMatch := make([]*v1alpha1.IstioOperator, 0)
 	for _, iop := range iops {
 		if iop.Spec.Revision == revision ||
 			(iop.Spec.Revision == "default" && revision == "") ||
 			(iop.Spec.Revision == "" && revision == "default") {
-			return iop, nil
+			iopsMatch = append(iopsMatch, iop)
 		}
+	}
+	if len(iopsMatch) > 0 {
+		return iopsMatch, nil
 	}
 	return nil, fmt.Errorf("control plane revision %q not found", revision)
 }
