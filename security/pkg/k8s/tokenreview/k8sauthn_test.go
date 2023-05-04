@@ -16,10 +16,12 @@ package tokenreview
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
+
+	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 // TestGetTokenReviewResult verifies that getTokenReviewResult returns expected {<namespace>, <serviceaccountname>}.
@@ -28,7 +30,7 @@ func TestGetTokenReviewResult(t *testing.T) {
 		name           string
 		tokenReview    authenticationv1.TokenReview
 		expectedError  error
-		expectedResult []string
+		expectedResult security.KubernetesInfo
 	}{
 		{
 			name: "the service account authentication error",
@@ -37,8 +39,7 @@ func TestGetTokenReviewResult(t *testing.T) {
 					Error: "authentication error",
 				},
 			},
-			expectedError:  fmt.Errorf("the service account authentication returns an error: authentication error"),
-			expectedResult: nil,
+			expectedError: fmt.Errorf("the service account authentication returns an error: authentication error"),
 		},
 		{
 			name: "not authenticated",
@@ -47,8 +48,7 @@ func TestGetTokenReviewResult(t *testing.T) {
 					Authenticated: false,
 				},
 			},
-			expectedError:  fmt.Errorf("the token is not authenticated"),
-			expectedResult: nil,
+			expectedError: fmt.Errorf("the token is not authenticated"),
 		},
 		{
 			name: "token is not a service account",
@@ -62,8 +62,7 @@ func TestGetTokenReviewResult(t *testing.T) {
 					},
 				},
 			},
-			expectedError:  fmt.Errorf("the token is not a service account"),
-			expectedResult: nil,
+			expectedError: fmt.Errorf("the token is not a service account"),
 		},
 		{
 			name: "invalid username",
@@ -80,8 +79,7 @@ func TestGetTokenReviewResult(t *testing.T) {
 					},
 				},
 			},
-			expectedError:  fmt.Errorf("invalid username field in the token review result"),
-			expectedResult: nil,
+			expectedError: fmt.Errorf("invalid username field in the token review result"),
 		},
 		{
 			name: "success",
@@ -99,27 +97,44 @@ func TestGetTokenReviewResult(t *testing.T) {
 					},
 				},
 			},
-			expectedError:  nil,
-			expectedResult: []string{"default", "example-pod-sa"},
+			expectedResult: security.KubernetesInfo{
+				PodNamespace:      "default",
+				PodServiceAccount: "example-pod-sa",
+			},
+		},
+		{
+			name: " pod token",
+			tokenReview: authenticationv1.TokenReview{
+				Status: authenticationv1.TokenReviewStatus{
+					Authenticated: true,
+					User: authenticationv1.UserInfo{
+						Username: "system:serviceaccount:default:example-pod-sa",
+						UID:      "ff578a9e-65d3-11e8-aad2-42010a8a001d",
+						Groups: []string{
+							"system:serviceaccounts",
+							"system:serviceaccounts:default",
+							"system:authenticated",
+						},
+						Extra: map[string]authenticationv1.ExtraValue{
+							PodNameKey: []string{"some-pod"},
+							PodUIDKey:  []string{"12345"},
+						},
+					},
+				},
+			},
+			expectedResult: security.KubernetesInfo{
+				PodNamespace:      "default",
+				PodServiceAccount: "example-pod-sa",
+				PodUID:            "12345",
+				PodName:           "some-pod",
+			},
 		},
 	}
 	for _, tc := range testCases {
-		result, err := getTokenReviewResult(&tc.tokenReview)
-		if !reflect.DeepEqual(result, tc.expectedResult) {
-			t.Errorf("TestGetTokenReviewResult failed: case: %q, actual result is %v, expected is %v", tc.name, result, tc.expectedResult)
-		}
-		if !errEqual(err, tc.expectedError) {
-			t.Errorf("TestGetTokenReviewResult failed: case: %q, actual error is %v, expected is %v", tc.name, err, tc.expectedError)
-		}
-	}
-}
-
-func errEqual(err error, target error) bool {
-	if target == nil {
-		return err == target
-	} else if err == nil {
-		return false
-	} else {
-		return err.Error() == target.Error()
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := getTokenReviewResult(&tc.tokenReview)
+			assert.Equal(t, result, tc.expectedResult)
+			assert.Equal(t, err, tc.expectedError)
+		})
 	}
 }

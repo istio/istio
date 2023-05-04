@@ -377,7 +377,7 @@ func istiodLogCmd() *cobra.Command {
 	outputFormat := "short"
 
 	logCmd := &cobra.Command{
-		Use:   "log [<pod-name>] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[-r|--reset]|[--output|-o short|yaml]",
+		Use:   "log [<pod-name>]|[-r|--revision] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[--reset]|[--output|-o short|yaml]",
 		Short: "Manage istiod logging.",
 		Long:  "Retrieve or update logging levels of istiod components.",
 		Example: `  # Retrieve information about istiod logging levels.
@@ -389,8 +389,11 @@ func istiodLogCmd() *cobra.Command {
   # Update levels of the specified loggers.
   istioctl admin log --level ads:debug,authorization:debug
 
+  # Retrieve information about istiod logging levels for a specified revision.
+  istioctl admin log --revision v1
+
   # Reset levels of all the loggers to default value (info).
-  istioctl admin log -r
+  istioctl admin log --reset
 `,
 		Aliases: []string{"l"},
 		Args: func(logCmd *cobra.Command, args []string) error {

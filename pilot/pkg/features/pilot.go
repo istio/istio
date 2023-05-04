@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"google.golang.org/protobuf/types/known/durationpb"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
@@ -122,7 +122,13 @@ var (
 	PersistentSessionLabel = env.Register(
 		"PILOT_PERSISTENT_SESSION_LABEL",
 		"istio.io/persistent-session",
-		"If not empty, services with this label will use persistent sessions",
+		"If not empty, services with this label will use cookie based persistent sessions",
+	).Get()
+
+	PersistentSessionHeaderLabel = env.Register(
+		"PILOT_PERSISTENT_SESSION_HEADER_LABEL",
+		"istio.io/persistent-session-header",
+		"If not empty, services with this label will use header based persistent sessions",
 	).Get()
 
 	DrainingLabel = env.Register(
@@ -176,11 +182,6 @@ var (
 		false,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy").Get()
 
-	EnableAutomTLSCheckPolicies = env.Register(
-		"ENABLE_AUTO_MTLS_CHECK_POLICIES", true,
-		"Enable the auto mTLS EDS output to consult the PeerAuthentication Policy, only set the {tlsMode: istio} "+
-			" when server side policy enables mTLS PERMISSIVE or STRICT.").Get()
-
 	EnableProtocolSniffingForOutbound = env.Register(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
 		true,
@@ -205,13 +206,6 @@ var (
 		"If enabled, a gateway workload can only select gateway resources in the same namespace. "+
 			"Gateways with same selectors in different namespaces will not be applicable.",
 	).Get()
-
-	// nolint
-	InboundProtocolDetectionTimeout, InboundProtocolDetectionTimeoutSet = env.Register(
-		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
-		1*time.Second,
-		"Protocol detection timeout for inbound listener",
-	).Lookup()
 
 	EnableHeadlessService = env.Register(
 		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
@@ -309,13 +303,6 @@ var (
 			"ENABLE_MCS_HOST also be enabled.").Get() &&
 		EnableMCSHost
 
-	EnableLegacyLBAlgorithmDefault = env.Register(
-		"ENABLE_LEGACY_LB_ALGORITHM_DEFAULT",
-		false,
-		"If enabled, destinations for which no LB algorithm is specified will use the legacy "+
-			"default, ROUND_ROBIN. Care should be taken when using ROUND_ROBIN in general as it can "+
-			"overburden endpoints, especially when weights are used.").Get()
-
 	EnableAnalysis = env.Register(
 		"PILOT_ENABLE_ANALYSIS",
 		false,
@@ -379,22 +366,6 @@ var (
 	JwtPolicy = env.Register("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.").Get()
 
-	// Default request timeout for virtual services if a timeout is not configured in virtual service. It defaults to zero
-	// which disables timeout when it is not configured, to preserve the current behavior.
-	defaultRequestTimeoutVar = env.Register(
-		"ISTIO_DEFAULT_REQUEST_TIMEOUT",
-		0*time.Millisecond,
-		"Default Http and gRPC Request timeout",
-	)
-
-	DefaultRequestTimeout = func() *durationpb.Duration {
-		return durationpb.New(defaultRequestTimeoutVar.Get())
-	}()
-
-	LegacyIngressBehavior = env.Register("PILOT_LEGACY_INGRESS_BEHAVIOR", false,
-		"If this is set to true, istio ingress will perform the legacy behavior, "+
-			"which does not meet https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-matches.").Get()
-
 	EnableGatewayAPI = env.Register("PILOT_ENABLE_GATEWAY_API", true,
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
 			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
@@ -448,6 +419,33 @@ var (
 		return strings.Split(cidr, ",")
 	}()
 
+	CATrustedNodeAccounts = func() sets.Set[types.NamespacedName] {
+		accounts := env.Register(
+			"CA_TRUSTED_NODE_ACCOUNTS",
+			"",
+			"If set, the list of service accounts that are allowed to use node authentication for CSRs. "+
+				"Node authentication allows an identity to create CSRs on behalf of other identities, but only if there is a pod "+
+				"running on the same node with that identity. "+
+				"This is intended for use with node proxies.",
+		).Get()
+		res := sets.New[types.NamespacedName]()
+		if accounts == "" {
+			return res
+		}
+		for _, v := range strings.Split(accounts, ",") {
+			ns, sa, valid := strings.Cut(v, "/")
+			if !valid {
+				log.Warnf("Invalid CA_TRUSTED_NODE_ACCOUNTS, ignoring: %v", v)
+				continue
+			}
+			res.Insert(types.NamespacedName{
+				Namespace: ns,
+				Name:      sa,
+			})
+		}
+		return res
+	}()
+
 	EnableServiceEntrySelectPods = env.Register("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
@@ -465,7 +463,7 @@ var (
 
 	SpiffeBundleEndpoints = env.Register("SPIFFE_BUNDLE_ENDPOINTS", "",
 		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+
-			"bundle endpoint and uses it to verify client certifiates from that trust domain. The endpoint must be "+
+			"bundle endpoint and uses it to verify client certificates from that trust domain. The endpoint must be "+
 			"compliant to the SPIFFE Bundle Endpoint standard. For details, please refer to "+
 			"https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md . "+
 			"No need to configure this for root certificates issued via Istiod or web-PKI based root certificates. "+
@@ -491,10 +489,8 @@ var (
 	XDSCacheMaxSize = env.Register("PILOT_XDS_CACHE_SIZE", 60000,
 		"The maximum number of cache entries for the XDS cache.").Get()
 
-	// Note: while this appears unused in the go code, this sets a default which is used in the injection template.
-	EnableLegacyFSGroupInjection = env.Register("ENABLE_LEGACY_FSGROUP_INJECTION", false,
-		"If true, Istiod will set the pod fsGroup to 1337 on injection. This is required for Kubernetes 1.18 and older "+
-			`(see https://github.com/kubernetes/kubernetes/issues/57923 for details) unless JWT_POLICY is "first-party-jwt".`).Get()
+	XDSCacheIndexClearInterval = env.Register("PILOT_XDS_CACHE_INDEX_CLEAR_INTERVAL", 5*time.Second,
+		"The interval for xds cache index clearing.").Get()
 
 	XdsPushSendTimeout = env.Register(
 		"PILOT_XDS_SEND_TIMEOUT",
@@ -574,9 +570,10 @@ var (
 		"If enabled, HBONE support can be configured for proxies. "+
 			"Note: proxies must opt in on a per-proxy basis with ENABLE_HBONE to actually get HBONE config, in addition to this flag.").Get()
 
-	StripHostPort = env.Register("ISTIO_GATEWAY_STRIP_HOST_PORT", false,
-		"If enabled, Gateway will remove any port from host/authority header "+
-			"before any processing of request by HTTP filters or routing. Deprecated: in Istio 1.15+ port is ignored in domain matching.").Get()
+	EnableAmbientControllers = env.Register(
+		"PILOT_ENABLE_AMBIENT_CONTROLLERS",
+		false,
+		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
 
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
@@ -600,20 +597,10 @@ var (
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
 
-	PartialFullPushes = env.Register("PILOT_PARTIAL_FULL_PUSHES", true,
-		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
-			"This occurs for EDS in many cases regardless of this setting.").Get()
-
 	EnableLegacyIstioMutualCredentialName = env.Register("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,
 		"If enabled, Gateway's with ISTIO_MUTUAL mode and credentialName configured will use simple TLS. "+
 			"This is to retain legacy behavior only and not recommended for use beyond migration.").Get()
-
-	EnableLegacyAutoPassthrough = env.Register(
-		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",
-		false,
-		"If enabled, pilot will allow any upstream cluster to be used with AUTO_PASSTHROUGH. "+
-			"This option is intended for backwards compatibility only and is not secure with untrusted downstreams; it will be removed in the future.").Get()
 
 	SharedMeshConfig = env.Register("SHARED_MESH_CONFIG", "",
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
@@ -635,27 +622,12 @@ var (
 
 	CertSignerDomain = env.Register("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
 
-	AutoReloadPluginCerts = env.Register(
-		"AUTO_RELOAD_PLUGIN_CERTS",
-		false,
-		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart istiod to pick up certs."+
-			"Istiod picks newly added intermediate plug-in CA certs and updates it. Plug-in new Root-CA not supported.").Get()
-
-	RewriteTCPProbes = env.Register(
-		"REWRITE_TCP_PROBES",
-		true,
-		"If false, TCP probes will not be rewritten and therefor always succeed when a sidecar is used.",
-	).Get()
-
 	EnableQUICListeners = env.Register("PILOT_ENABLE_QUIC_LISTENERS", false,
 		"If true, QUIC listeners will be generated wherever there are listeners terminating TLS on gateways "+
 			"if the gateway service exposes a UDP port with the same number (for example 443/TCP and 443/UDP)").Get()
 
 	VerifyCertAtClient = env.Register("VERIFY_CERTIFICATE_AT_CLIENT", false,
 		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
-
-	PrioritizedLeaderElection = env.Register("PRIORITIZED_LEADER_ELECTION", true,
-		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
 
 	EnableTLSOnSidecarIngress = env.Register("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
 		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
@@ -686,8 +658,6 @@ var (
 	LocalClusterSecretWatcher = env.Register("LOCAL_CLUSTER_SECRET_WATCHER", false,
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
 
-	SidecarIgnorePort = env.Register("SIDECAR_IGNORE_PORT_IN_HOST_MATCH", true, "If enabled, port will not be used in vhost domain matches.").Get()
-
 	EnableEnhancedResourceScoping = env.Register("ENABLE_ENHANCED_RESOURCE_SCOPING", false,
 		"If enabled, meshConfig.discoverySelectors will limit the CustomResource configurations(like Gateway,VirtualService,DestinationRule,Ingress, etc)"+
 			"that can be processed by pilot. This will also restrict the root-ca certificate distribution.").Get()
@@ -707,6 +677,14 @@ var (
 
 	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
 		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
+
+	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
+		"If set, limit Kubernetes watches to a single namespace. "+
+			"Warning: only a single namespace can be set.").Get()
+
+	// This is a feature flag, can be removed if protobuf proves universally better.
+	KubernetesClientContentType = env.Register("ISTIO_KUBE_CLIENT_CONTENT_TYPE", "protobuf",
+		"The content type to use for Kubernetes clients. Defaults to protobuf. Valid options: [protobuf, json]").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

@@ -20,13 +20,11 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/ryanuber/go-glob"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/annotation"
 	"istio.io/api/mesh/v1alpha1"
@@ -45,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -84,28 +83,23 @@ type IstiodAnalyzer struct {
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
-func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration,
-) *IstiodAnalyzer {
-	return NewIstiodAnalyzer(analyzer, namespace, istioNamespace, cr, serviceDiscovery)
+func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace, cr CollectionReporterFn) *IstiodAnalyzer {
+	return NewIstiodAnalyzer(analyzer, namespace, istioNamespace, cr)
 }
 
 // NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
-	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool,
+	istioNamespace resource.Namespace, cr CollectionReporterFn,
 ) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
-		cr = func(collection.Name) {}
+		cr = func(config.GroupVersionKind) {}
 	}
 
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
-	kubeResources := kuberesource.SkipExcludedCollections(
-		analyzer.Metadata().Inputs,
-		kuberesource.DefaultExcludedResourceKinds(),
-		serviceDiscovery)
+	kubeResources := kuberesource.ConvertInputsToSchemas(analyzer.Metadata().Inputs)
 
 	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
@@ -113,7 +107,7 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 		meshNetworks:       mesh.DefaultMeshNetworks(),
 		analyzer:           analyzer,
 		namespace:          namespace,
-		internalStore:      memory.Make(collection.SchemasFor(collections.IstioMeshV1Alpha1MeshNetworks, collections.IstioMeshV1Alpha1MeshConfig)),
+		internalStore:      memory.Make(collection.SchemasFor(collections.MeshNetworks, collections.MeshConfig)),
 		istioNamespace:     istioNamespace,
 		kubeResources:      kubeResources,
 		collectionReporter: cr,
@@ -167,7 +161,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		Meta: config.Meta{
 			Name:             mesh_const.MeshConfigResourceName.Name.String(),
 			Namespace:        mesh_const.MeshConfigResourceName.Namespace.String(),
-			GroupVersionKind: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.MeshConfig,
 		},
 		Spec: sa.meshCfg,
 	})
@@ -179,7 +173,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		Meta: config.Meta{
 			Name:             mesh_const.MeshNetworksResourceName.Name.String(),
 			Namespace:        mesh_const.MeshNetworksResourceName.Namespace.String(),
-			GroupVersionKind: collections.IstioMeshV1Alpha1MeshNetworks.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.MeshNetworks,
 		},
 		Spec: sa.meshNetworks,
 	})
@@ -213,16 +207,8 @@ func (d dfCache) RegisterEventHandler(kind config.GroupVersionKind, handler mode
 	panic("implement me")
 }
 
-func (d dfCache) HasStarted() bool {
-	return true
-}
-
 // Run intentionally left empty
 func (d dfCache) Run(_ <-chan struct{}) {
-}
-
-func (d dfCache) SetWatchErrorHandler(f func(r *cache.Reflector, err error)) error {
-	panic("implement me")
 }
 
 func (d dfCache) HasSynced() bool {
@@ -236,13 +222,29 @@ func (sa *IstiodAnalyzer) SetSuppressions(suppressions []AnalysisSuppression) {
 	sa.suppressions = suppressions
 }
 
+// AddTestReaderKubeSource adds a yaml source to the analyzer, which will analyze
+// runtime resources like pods and namespaces for use in tests.
+func (sa *IstiodAnalyzer) AddTestReaderKubeSource(readers []ReaderSource) error {
+	return sa.addReaderKubeSourceInternal(readers, true)
+}
+
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current IstiodAnalyzer
 func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
+	return sa.addReaderKubeSourceInternal(readers, false)
+}
+
+func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, includeRuntimeResources bool) error {
 	var src *file.KubeSource
 	if sa.fileSource != nil {
 		src = sa.fileSource
 	} else {
-		src = file.NewKubeSource(sa.kubeResources)
+		var readerResources collection.Schemas
+		if includeRuntimeResources {
+			readerResources = sa.kubeResources
+		} else {
+			readerResources = sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...)
+		}
+		src = file.NewKubeSource(readerResources)
 		sa.fileSource = src
 	}
 	src.SetDefaultNamespace(sa.namespace)
@@ -284,19 +286,6 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		return
 	}
 	sa.stores = append(sa.stores, store)
-	if !store.HasStarted() {
-		err = store.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
-			// failed resources will never be synced, which causes the process to hang indefinitely.
-			// better to fail fast, and get a good idea for the failure.
-			scope.Analysis.Errorf("Failed to watch crd resource for analysis: %s", err)
-		})
-		if err != nil {
-			scope.Analysis.Errorf("error setting up error handling for kube crdclient: %v", err)
-			return
-		}
-	} else {
-		scope.Analysis.Debugf("store is started, skipping set watch error handler")
-	}
 
 	sa.clientsToRun = append(sa.clientsToRun, c)
 
@@ -402,7 +391,7 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 }
 
 // CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context
-type CollectionReporterFn func(collection.Name)
+type CollectionReporterFn func(config.GroupVersionKind)
 
 // copied from processing/snapshotter/analyzingdistributor.go
 func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {

@@ -273,3 +273,72 @@ spec:
   containers:
     - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
       name: server
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: no-workload # Invalid: there is one not matching any workload
+  namespace: test-ambient
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+  - from:
+      - source:
+          principals: [ "cluster.local/ns/default/sa/sleep" ]
+      - source:
+          namespaces: [ "httpbin" ] # Namespace exists
+    to:
+      - operation:
+          methods: [ "GET" ]
+          paths: [ "/info*" ]
+      - operation:
+          methods: [ "POST" ]
+          paths: [ "/data" ]
+    when:
+      - key: request.auth.claims[iss]
+        values: [ "https://accounts.google.com" ]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: valid-policy # this is valid since it will match the pod with ambient mode
+  namespace: test-ambient
+spec:
+  selector:
+    matchLabels:
+      app: sleep
+      version: v1
+  rules:
+  - from:
+      - source:
+          principals: [ "cluster.local/ns/default/sa/sleep" ]
+      - source:
+          namespaces: [ "httpbin" ] # Namespace exists
+    to:
+      - operation:
+          methods: [ "GET" ]
+          paths: [ "/info*" ]
+      - operation:
+          methods: [ "POST" ]
+          paths: [ "/data" ]
+    when:
+      - key: request.auth.claims[iss]
+        values: [ "https://accounts.google.com" ]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: sleep
+    version: v1
+  annotations:
+    ambient.istio.io/redirection: enabled
+  name: sleep-55bf89f8c9-wzfrh
+  namespace: test-ambient
+spec:
+  containers:
+    - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
+      name: server

@@ -11,6 +11,7 @@ spec:
   template:
     metadata:
       annotations:
+        istio.io/rev: default
         kubectl.kubernetes.io/default-container: hello
         kubectl.kubernetes.io/default-logs-container: hello
         prometheus.io/path: /stats/prometheus
@@ -61,6 +62,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: ISTIO_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              divisor: "0"
+              resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
             {}

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -565,41 +564,6 @@ func TestIstiodCipherSuites(t *testing.T) {
 				close(stop)
 				s.WaitUntilCompletion()
 			}()
-
-			// nolint: gosec // test only code
-			httpsReadyClient := &http.Client{
-				Timeout: time.Second,
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-						CipherSuites:       c.clientCipherSuites,
-						MinVersion:         tls.VersionTLS12,
-						MaxVersion:         tls.VersionTLS12,
-					},
-				},
-			}
-
-			retry.UntilSuccessOrFail(t, func() error {
-				req := &http.Request{
-					Method: http.MethodGet,
-					URL: &url.URL{
-						Scheme: "https",
-						Host:   s.httpsServer.Addr,
-						Path:   HTTPSHandlerReadyPath,
-					},
-				}
-				response, err := httpsReadyClient.Do(req)
-				if c.expectSuccess && err != nil {
-					return fmt.Errorf("expect success but got err %v", err)
-				}
-				if !c.expectSuccess && err == nil {
-					return fmt.Errorf("expect failure but succeeded")
-				}
-				if response != nil {
-					response.Body.Close()
-				}
-				return nil
-			})
 		})
 	}
 }
@@ -632,7 +596,7 @@ func TestInitOIDC(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := &PilotArgs{JwtRule: tt.jwtRule}
 
-			_, err := initOIDC(args, "domain-foo")
+			_, err := initOIDC(args)
 			gotErr := err != nil
 			if gotErr != tt.expectErr {
 				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)
@@ -684,7 +648,6 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 			var certRotated bool
 			var rotatedCertBytes []byte
 			err := retry.Until(func() bool {
-				time.Sleep(time.Second)
 				rotatedCertBytes = s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem
 				st := string(rotatedCertBytes)
 				certRotated = st != string(tt.certToWatch)

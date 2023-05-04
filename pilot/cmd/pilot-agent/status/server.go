@@ -45,6 +45,7 @@ import (
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	grpcStatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/strings/slices"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
@@ -127,6 +128,7 @@ type Options struct {
 	FetchDNS            func() *dnsProto.NameTable
 	NoEnvoy             bool
 	GRPCBootstrap       string
+	EnableProfiling     bool
 }
 
 // Server provides an endpoint for handling status probes.
@@ -144,6 +146,7 @@ type Server struct {
 	upstreamLocalAddress  *net.TCPAddr
 	config                Options
 	http                  *http.Client
+	enableProfiling       bool
 }
 
 func init() {
@@ -201,6 +204,7 @@ func NewServer(config Options) (*Server, error) {
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
 		config:                config,
+		enableProfiling:       config.EnableProfiling,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -349,12 +353,14 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
 
-	// Add the handler for pprof.
-	mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
-	mux.HandleFunc("/debug/pprof/cmdline", s.handlePprofCmdline)
-	mux.HandleFunc("/debug/pprof/profile", s.handlePprofProfile)
-	mux.HandleFunc("/debug/pprof/symbol", s.handlePprofSymbol)
-	mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
+	if s.enableProfiling {
+		// Add the handler for pprof.
+		mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
+		mux.HandleFunc("/debug/pprof/cmdline", s.handlePprofCmdline)
+		mux.HandleFunc("/debug/pprof/profile", s.handlePprofProfile)
+		mux.HandleFunc("/debug/pprof/symbol", s.handlePprofSymbol)
+		mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
+	}
 	mux.HandleFunc("/debug/ndsz", s.handleNdsz)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
@@ -701,25 +707,11 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	}
 
 	// Forward incoming headers to the application.
+	appReq.Host = req.Host
 	for name, values := range req.Header {
-		newValues := make([]string, len(values))
-		copy(newValues, values)
-		appReq.Header[name] = newValues
-	}
-
-	// If there are custom HTTPHeaders, it will override the forwarding header
-	if headers := prober.HTTPGet.HTTPHeaders; len(headers) != 0 {
-		for _, h := range headers {
-			delete(appReq.Header, h.Name)
-		}
-		for _, h := range headers {
-			if h.Name == "Host" || h.Name == ":authority" {
-				// Probe has specific host header override; honor it
-				appReq.Host = h.Value
-				appReq.Header.Set(h.Name, h.Value)
-			} else {
-				appReq.Header.Add(h.Name, h.Value)
-			}
+		appReq.Header[name] = slices.Clone(values)
+		if len(values) > 0 && (strings.EqualFold(name, "Host") || name == ":authority") {
+			appReq.Host = values[0]
 		}
 	}
 
@@ -775,10 +767,9 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // credentials are currently not supported
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			d := net.Dialer{
-				LocalAddr: s.upstreamLocalAddress,
-				Timeout:   timeout,
-			}
+			d := ProbeDialer()
+			d.LocalAddr = s.upstreamLocalAddress
+			d.Timeout = timeout
 			return d.DialContext(ctx, "tcp", addr)
 		}),
 	}

@@ -73,7 +73,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		return nil
 	}
 	var out model.Resources
-	policyApplier := factory.NewPolicyApplier(push, node.Metadata.Namespace, node.Labels)
+	mtlsPolicy := factory.NewMtlsPolicy(push, node.Metadata.Namespace, node.Labels)
 	serviceInstancesByPort := map[uint32]*model.ServiceInstance{}
 	for _, si := range node.ServiceInstances {
 		serviceInstancesByPort[si.Endpoint.EndpointPort] = si
@@ -107,7 +107,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 					},
 				},
 			}},
-			FilterChains: buildInboundFilterChains(node, push, si, policyApplier),
+			FilterChains: buildInboundFilterChains(node, push, si, mtlsPolicy),
 			// the following must not be set or the client will NACK
 			ListenerFilters: nil,
 			UseOriginalDst:  nil,
@@ -127,8 +127,8 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 }
 
 // nolint: unparam
-func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, applier authn.PolicyApplier) []*listener.FilterChain {
-	mode := applier.GetMutualTLSModeForPort(si.Endpoint.EndpointPort)
+func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, checker authn.MtlsPolicy) []*listener.FilterChain {
+	mode := checker.GetMutualTLSModeForPort(si.Endpoint.EndpointPort)
 
 	// auto-mtls label is set - clients will attempt to connect using mtls, and
 	// gRPC doesn't support permissive.
@@ -292,7 +292,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				}
 				filters := supportedFilters
 				if sessionFilter := util.BuildStatefulSessionFilter(sv); sessionFilter != nil {
-					filters = append(filters, sessionFilter)
+					filters = append([]*hcm.HttpFilter{sessionFilter}, filters...)
 				}
 				ll := &listener.Listener{
 					Name: net.JoinHostPort(matchedHost, sPort),

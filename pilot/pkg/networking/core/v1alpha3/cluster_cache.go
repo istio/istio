@@ -49,7 +49,7 @@ type clusterCache struct {
 	downstreamAuto bool
 	supportsIPv4   bool
 
-	// Dependent configs
+	// dependent configs
 	service         *model.Service
 	destinationRule *model.ConsolidatedDestRule
 	envoyFilterKeys []string
@@ -57,7 +57,11 @@ type clusterCache struct {
 	serviceAccounts []string // contains all the service accounts associated with the service
 }
 
-func (t *clusterCache) Key() string {
+func (t *clusterCache) Type() string {
+	return model.CDSType
+}
+
+func (t *clusterCache) Key() any {
 	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
@@ -117,10 +121,10 @@ func (t *clusterCache) Key() string {
 	}
 	h.Write(Separator)
 
-	return h.Sum()
+	return h.Sum64()
 }
 
-func (t clusterCache) DependentConfigs() []model.ConfigHash {
+func (t *clusterCache) DependentConfigs() []model.ConfigHash {
 	drs := t.destinationRule.GetFrom()
 	configs := make([]model.ConfigHash, 0, len(drs)+1+len(t.envoyFilterKeys))
 	if t.destinationRule != nil {
@@ -138,11 +142,7 @@ func (t clusterCache) DependentConfigs() []model.ConfigHash {
 	return configs
 }
 
-func (t *clusterCache) DependentTypes() []kind.Kind {
-	return nil
-}
-
-func (t clusterCache) Cacheable() bool {
+func (t *clusterCache) Cacheable() bool {
 	return true
 }
 

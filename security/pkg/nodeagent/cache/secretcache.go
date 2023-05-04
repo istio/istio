@@ -580,6 +580,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 		RSAKeySize: sc.configOptions.WorkloadRSAKeySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
+		ECCCurve:   pkiutil.SupportedEllipticCurves(sc.configOptions.ECCCurve),
 	}
 
 	// Generate the cert/key, send CSR to CA.

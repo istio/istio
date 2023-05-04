@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -44,12 +45,14 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	istiocluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -1102,6 +1105,21 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		},
 	}
 
+	buildMetadata := func(networkID network.ID, tlsMode, workloadname, namespace string,
+		clusterID istiocluster.ID, lbls labels.Instance,
+	) *core.Metadata {
+		newmeta := &core.Metadata{}
+		util.AppendLbEndpointMetadata(&model.EndpointMetadata{
+			Network:      networkID,
+			TLSMode:      tlsMode,
+			WorkloadName: workloadname,
+			Namespace:    namespace,
+			ClusterID:    clusterID,
+			Labels:       lbls,
+		}, newmeta)
+		return newmeta
+	}
+
 	cases := []struct {
 		name      string
 		mesh      *meshconfig.MeshConfig
@@ -1204,7 +1222,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
+							Metadata: buildMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1224,7 +1242,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
+							Metadata: buildMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1256,7 +1274,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
+							Metadata: buildMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 40,
 							},
@@ -1322,7 +1340,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("", "", "", "", "cluster-1", map[string]string{}),
+							Metadata: buildMetadata("", "", "", "", "cluster-1", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1443,7 +1461,10 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: util.BuildLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
+							Metadata: buildMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{
+								"version": "v1",
+								"app":     "example",
+							}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -1489,6 +1510,213 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
+	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
+	proxy := &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			ClusterID: "cluster-1",
+		},
+	}
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     8080,
+		Protocol: protocol.HTTP,
+	}
+	service := &model.Service{
+		Hostname: host.Name("*.example.org"),
+		Ports:    model.PortList{servicePort},
+		Attributes: model.ServiceAttributes{
+			Name:      "TestService",
+			Namespace: "test-ns",
+			Labels:    map[string]string{"service.istio.io/canonical-name": "example-service"},
+		},
+		MeshExternal: true,
+		Resolution:   model.DNSLB,
+	}
+
+	buildMetadata := func(networkID network.ID, tlsMode, workloadname, namespace string,
+		clusterID istiocluster.ID, lbls labels.Instance,
+	) *core.Metadata {
+		newmeta := &core.Metadata{}
+		util.AppendLbEndpointMetadata(&model.EndpointMetadata{
+			Network:      networkID,
+			TLSMode:      tlsMode,
+			WorkloadName: workloadname,
+			Namespace:    namespace,
+			ClusterID:    clusterID,
+			Labels:       lbls,
+		}, newmeta)
+		return newmeta
+	}
+
+	lbls := labels.Instance{"version": "v1"}
+
+	instances := []*model.ServiceInstance{
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+				WorkloadName: "workload-1",
+				Namespace:    "namespace-1",
+				Labels: map[string]string{
+					"version": "v1",
+					"app":     "example",
+				},
+				Locality: model.Locality{
+					ClusterID: "cluster-1",
+					Label:     "region1/zone1/subzone1",
+				},
+				LbWeight: 30,
+				Network:  "nw-0",
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.2",
+				EndpointPort: 10001,
+				WorkloadName: "workload-2",
+				Namespace:    "namespace-2",
+				Labels: map[string]string{
+					"version": "v2",
+					"app":     "example",
+				},
+				Locality: model.Locality{
+					ClusterID: "cluster-2",
+					Label:     "region1/zone1/subzone1",
+				},
+				LbWeight: 30,
+				Network:  "nw-1",
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.3",
+				EndpointPort: 10001,
+				WorkloadName: "workload-3",
+				Namespace:    "namespace-3",
+				Labels: map[string]string{
+					"version": "v3",
+					"app":     "example",
+				},
+				Locality: model.Locality{
+					ClusterID: "cluster-3",
+					Label:     "region2/zone1/subzone1",
+				},
+				LbWeight: 40,
+				Network:  "",
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.4",
+				EndpointPort: 10001,
+				WorkloadName: "workload-1",
+				Namespace:    "namespace-1",
+				Labels: map[string]string{
+					"version": "v4",
+					"app":     "example",
+				},
+				Locality: model.Locality{
+					ClusterID: "cluster-1",
+					Label:     "region1/zone1/subzone1",
+				},
+				LbWeight: 30,
+				Network:  "filtered-out",
+			},
+		},
+	}
+
+	updatedLbls := labels.Instance{
+		"app":                                "example",
+		model.IstioCanonicalServiceLabelName: "example-service",
+	}
+	expected := []*endpoint.LocalityLbEndpoints{
+		{
+			Locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: 30,
+			},
+			LbEndpoints: []*endpoint.LbEndpoint{
+				{
+					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+						Endpoint: &endpoint.Endpoint{
+							Address: &core.Address{
+								Address: &core.Address_SocketAddress{
+									SocketAddress: &core.SocketAddress{
+										Address: "192.168.1.1",
+										PortSpecifier: &core.SocketAddress_PortValue{
+											PortValue: 10001,
+										},
+									},
+								},
+							},
+						},
+					},
+					Metadata: buildMetadata("nw-0", "", "workload-1", "test-ns", "cluster-1", updatedLbls),
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 30,
+					},
+				},
+			},
+		},
+	}
+
+	sortEndpoints := func(endpoints []*endpoint.LocalityLbEndpoints) {
+		sort.SliceStable(endpoints, func(i, j int) bool {
+			if strings.Compare(endpoints[i].Locality.Region, endpoints[j].Locality.Region) < 0 {
+				return true
+			}
+			if strings.Compare(endpoints[i].Locality.Zone, endpoints[j].Locality.Zone) < 0 {
+				return true
+			}
+			return strings.Compare(endpoints[i].Locality.SubZone, endpoints[j].Locality.SubZone) < 0
+		})
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		MeshConfig: testMesh(),
+		Services:   []*model.Service{service},
+		Instances:  instances,
+	})
+
+	cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+	view := (&model.Proxy{
+		Metadata: &model.NodeMetadata{
+			RequestedNetworkView: []string{"nw-0", "nw-1"},
+		},
+	}).GetView()
+	wg := sync.WaitGroup{}
+	wg.Add(5)
+	var actual []*endpoint.LocalityLbEndpoints
+	mu := sync.Mutex{}
+	for i := 0; i < 5; i++ {
+		go func() {
+			eps := cb.buildLocalityLbEndpoints(view, service, 8080, lbls)
+			mu.Lock()
+			actual = eps
+			mu.Unlock()
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	sortEndpoints(actual)
+	if v := cmp.Diff(expected, actual, protocmp.Transform()); v != "" {
+		t.Fatalf("Expected (-) != actual (+):\n%s", v)
 	}
 }
 
@@ -2667,6 +2895,178 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								},
 							},
 						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		{
+			name: "tls mode SIMPLE, with EcdhCurves specified in Mesh Config",
+			opts: &buildClusterOpts{
+				mutable:          newTestCluster(),
+				isDrWithSelector: true,
+				mesh: &meshconfig.MeshConfig{
+					TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+						EcdhCurves: []string{"P-256"},
+					},
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+				CredentialName:  credentialName,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+							EcdhCurves:                []string{"P-256"},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+								},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
+									SdsConfig: authn_model.SDSAdsConfig,
+								},
+							},
+						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		{
+			name: "tls mode MUTUAL, with EcdhCurves specified in Mesh Config",
+			opts: &buildClusterOpts{
+				mutable:          newTestCluster(),
+				isDrWithSelector: true,
+				mesh: &meshconfig.MeshConfig{
+					TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+						EcdhCurves: []string{"P-256", "P-384"},
+					},
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_MUTUAL,
+				CredentialName:  credentialName,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+							EcdhCurves:                []string{"P-256", "P-384"},
+						},
+						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+							{
+								Name:      "kubernetes://" + credentialName,
+								SdsConfig: authn_model.SDSAdsConfig,
+							},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+								},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
+									SdsConfig: authn_model.SDSAdsConfig,
+								},
+							},
+						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		// ecdh curves from MeshConfig should be ignored for ISTIO_MUTUAL mode
+		{
+			name: "tls mode ISTIO_MUTUAL with EcdhCurves specified in Mesh Config",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+				mesh: &meshconfig.MeshConfig{
+					TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+						EcdhCurves: []string{"P-256", "P-384"},
+					},
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
+									ResourceApiVersion:  core.ApiVersion_V3,
+								},
+							},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+														},
+													},
+												},
+											},
+										},
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
+										ResourceApiVersion:  core.ApiVersion_V3,
+									},
+								},
+							},
+						},
+						AlpnProtocols: util.ALPNInMeshWithMxc,
 					},
 					Sni: "some-sni.com",
 				},

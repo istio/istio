@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
@@ -59,8 +60,6 @@ import (
 
 const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
-	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
-	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
 
 var connectionNumber = atomic.NewUint32(0)
@@ -83,8 +82,8 @@ type XdsProxy struct {
 	downstreamListener   net.Listener
 	downstreamGrpcServer *grpc.Server
 	istiodAddress        string
-	istiodDialOptions    []grpc.DialOption
 	optsMutex            sync.RWMutex
+	dialOptions          []grpc.DialOption
 	handlers             map[string]ResponseHandler
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
@@ -354,10 +353,8 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 
 func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, error) {
 	p.optsMutex.RLock()
-	opts := make([]grpc.DialOption, 0, len(p.istiodDialOptions))
-	opts = append(opts, p.istiodDialOptions...)
+	opts := p.dialOptions
 	p.optsMutex.RUnlock()
-
 	return grpc.DialContext(ctx, p.istiodAddress, opts...)
 }
 
@@ -650,7 +647,7 @@ func (p *XdsProxy) initIstiodDialOptions(agent *Agent) error {
 	}
 
 	p.optsMutex.Lock()
-	p.istiodDialOptions = opts
+	p.dialOptions = opts
 	p.optsMutex.Unlock()
 	return nil
 }
@@ -825,7 +822,7 @@ func (p *XdsProxy) initDebugInterface(port int) error {
 
 	go func() {
 		log.Infof("starting Http service at %s", listener.Addr())
-		if err := p.httpTapServer.Serve(listener); err != nil {
+		if err := p.httpTapServer.Serve(listener); network.IsUnexpectedListenerError(err) {
 			log.Errorf("error serving tap http server: %v", err)
 		}
 	}()

@@ -188,22 +188,13 @@ func TestPilotExist(t *testing.T) {
 			countLock:     &sync.Mutex{},
 			prunedKindSet: map[schema.GroupKind]struct{}{},
 		}
-		mockClient := &kube.MockClient{
-			DiscoverablePods: map[string]map[string]*v1.PodList{
-				"istio-system": {
-					"app=istiod": {
-						Items: []v1.Pod{
-							{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:      "istiod",
-									Namespace: "istio-system",
-								},
-							},
-						},
-					},
-				},
+		mockClient := kube.NewFakeClient(&v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "istiod",
+				Namespace: "istio-system",
+				Labels:    map[string]string{"app": "istiod"},
 			},
-		}
+		})
 
 		if exist, err := h.pilotExists(mockClient, "istio-system"); err != nil {
 			t.Fatalf("HelmReconciler.pilotExists error = %v", err)
@@ -215,9 +206,10 @@ func TestPilotExist(t *testing.T) {
 	t.Run("non-exist", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
 		iop := &v1alpha1.IstioOperator{}
+		kc := kube.NewFakeClientWithVersion("24")
 		h := &HelmReconciler{
 			client:     cl,
-			kubeClient: kube.NewFakeClientWithVersion("24"),
+			kubeClient: kc,
 			opts: &Options{
 				ProgressLog: progress.NewLog(),
 				Log:         clog.NewDefaultLogger(),
@@ -226,12 +218,7 @@ func TestPilotExist(t *testing.T) {
 			countLock:     &sync.Mutex{},
 			prunedKindSet: map[schema.GroupKind]struct{}{},
 		}
-		mockClient := &kube.MockClient{
-			DiscoverablePods: map[string]map[string]*v1.PodList{
-				"istio-system": {},
-			},
-		}
-		if exist, err := h.pilotExists(mockClient, "istio-system"); err != nil {
+		if exist, err := h.pilotExists(kc, "istio-system"); err != nil {
 			t.Fatalf("HelmReconciler.pilotExists error = %v", err)
 		} else if exist {
 			t.Errorf("HelmReconciler.pilotExists fail")

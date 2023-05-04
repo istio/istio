@@ -31,8 +31,8 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
         Description: "Checks that VirtualService resources reference Gateways that exist",
         // Each analyzer should register the collections that it needs to use as input.
         Inputs: collection.Names{
-            collections.IstioNetworkingV1Alpha3Gateways.Name(),
-            collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+            gvk.Gateway,
+            gvk.VirtualService,
         },
     }
 }
@@ -43,7 +43,7 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
     // in the current snapshot. The available collections, and how they map to k8s resources,
     // are defined in galley/pkg/config/schema/metadata.yaml
     // Available resources are listed under the "localAnalysis" snapshot in that file.
-    c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+    c.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
         s.analyzeVirtualService(r, c)
         return true
     })
@@ -61,7 +61,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
     // The resource name includes the namespace, if one exists. It should generally be safe to
     // assume that the namespace is not blank, except for cluster-scoped resources.
     for i, gwName := range vs.Gateways {
-        if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways, resource.NewName(r.Metadata.FullName.Namespace, gwName)) {
+        if !c.Exists(collections.Gateway, resource.NewName(r.Metadata.FullName.Namespace, gwName)) {
             // Messages are defined in galley/pkg/config/analysis/msg/messages.yaml
             // From there, code is generated for each message type, including a constructor function
             // that you can use to create a new validation message of each type.
@@ -80,7 +80,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
             }
 
             // Messages are reported via the passed-in context object.
-            c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), msg)
+            c.Report(gvk.VirtualService, msg)
         }
     }
 }

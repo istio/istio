@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/kube/namespace"
@@ -69,6 +70,7 @@ type Multicluster struct {
 	closing bool
 
 	serviceEntryController *serviceentry.Controller
+	configController       model.ConfigStoreController
 	XDSUpdater             model.XDSUpdater
 
 	m                     sync.Mutex // protects remoteKubeControllers
@@ -90,6 +92,7 @@ func NewMulticluster(
 	secretNamespace string,
 	opts Options,
 	serviceEntryController *serviceentry.Controller,
+	configController model.ConfigStoreController,
 	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
 	startNsController bool,
@@ -101,6 +104,7 @@ func NewMulticluster(
 		serverID:               serverID,
 		opts:                   opts,
 		serviceEntryController: serviceEntryController,
+		configController:       configController,
 		startNsController:      startNsController,
 		caBundleWatcher:        caBundleWatcher,
 		revision:               revision,
@@ -199,8 +203,6 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*kubeControlle
 
 	options := m.opts
 	options.ClusterID = cluster.ID
-	// different clusters may have different k8s version, re-apply conditional default
-	options.EndpointMode = DetectEndpointMode(client)
 	if !configCluster {
 		options.SyncTimeout = features.RemoteClusterTimeout
 	}
@@ -210,7 +212,9 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*kubeControlle
 	if !configCluster {
 		options.DiscoveryNamespacesFilter = nil
 	}
+	options.ConfigController = m.configController
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
+	options.ConfigCluster = configCluster
 	kubeRegistry := NewController(client, options)
 	kubeController := &kubeController{
 		Controller: kubeRegistry,
@@ -228,6 +232,9 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 	if m.serviceEntryController != nil && features.EnableServiceEntrySelectPods {
 		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
+	}
+	if m.configController != nil && features.EnableAmbientControllers {
+		m.configController.RegisterEventHandler(gvk.AuthorizationPolicy, kubeRegistry.AuthorizationPolicyHandler)
 	}
 
 	if configCluster && m.serviceEntryController != nil && features.EnableEnhancedResourceScoping {
@@ -275,7 +282,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 
 	if m.startNsController && (shouldLead || configCluster) {
 		// Block server exit on graceful termination of the leader controller.
-		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
+		m.s.RunComponentAsyncAndWait("namespace controller", func(_ <-chan struct{}) error {
 			log.Infof("joining leader-election for %s in %s on cluster %s",
 				leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
 			election := leaderelection.
@@ -319,7 +326,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		log.Infof("joining leader-election for %s in %s on cluster %s",
 			leaderelection.ServiceExportController, options.SystemNamespace, options.ClusterID)
 		// Block server exit on graceful termination of the leader controller.
-		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
+		m.s.RunComponentAsyncAndWait("auto serviceexport controller", func(_ <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, !configCluster, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
@@ -392,7 +399,7 @@ func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
 func createWleConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreController, error) {
 	log.Infof("Creating WorkloadEntry only config store for %s", opts.ClusterID)
 	workloadEntriesSchemas := collection.NewSchemasBuilder().
-		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
+		MustAdd(collections.WorkloadEntry).
 		Build()
 	crdOpts := crdclient.Option{Revision: revision, DomainSuffix: opts.DomainSuffix, Identifier: "mc-workload-entry-controller"}
 	return crdclient.NewForSchemas(client, crdOpts, workloadEntriesSchemas)

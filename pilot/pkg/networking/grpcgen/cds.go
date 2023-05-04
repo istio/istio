@@ -23,6 +23,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	corexds "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -65,10 +66,7 @@ func newClusterFilter(names []string) map[string]sets.String {
 	for _, name := range names {
 		dir, _, hn, p := model.ParseSubsetKey(name)
 		defaultKey := model.BuildSubsetKey(dir, "", hn, p)
-		if _, ok := filter[defaultKey]; !ok {
-			filter[defaultKey] = sets.New[string]()
-		}
-		filter[defaultKey].Insert(name)
+		sets.InsertOrNew(filter, defaultKey, name)
 	}
 	return filter
 }
@@ -105,13 +103,12 @@ func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultCluste
 	var port *model.Port
 	svc := push.ServiceForHostname(node, hostname)
 	if svc == nil {
-		log.Warnf("cds gen for %s: did not find service for cluster %s", node.ID, defaultClusterName)
-	} else {
-		var ok bool
-		port, ok = svc.Ports.GetByPort(portNum)
-		if !ok {
-			log.Warnf("cds gen for %s: did not find port %d in service for cluster %s", node.ID, portNum, defaultClusterName)
-		}
+		return nil, fmt.Errorf("cds gen for %s: did not find service for cluster %s", node.ID, defaultClusterName)
+	}
+
+	port, ok := svc.Ports.GetByPort(portNum)
+	if !ok {
+		return nil, fmt.Errorf("cds gen for %s: did not find port %d in service for cluster %s", node.ID, portNum, defaultClusterName)
 	}
 
 	return &clusterBuilder{
@@ -132,6 +129,15 @@ func (b *clusterBuilder) build() []*cluster.Cluster {
 	var defaultCluster *cluster.Cluster
 	if b.filter.Contains(b.defaultClusterName) {
 		defaultCluster = edsCluster(b.defaultClusterName)
+		if b.svc.Attributes.Labels[features.PersistentSessionLabel] != "" {
+			// see core/v1alpha3/cluster.go
+			defaultCluster.CommonLbConfig.OverrideHostStatus = &core.HealthStatusSet{
+				Statuses: []core.HealthStatus{
+					core.HealthStatus_HEALTHY,
+					core.HealthStatus_DRAINING, core.HealthStatus_UNKNOWN, core.HealthStatus_DEGRADED,
+				},
+			}
+		}
 	}
 
 	subsetClusters := b.applyDestinationRule(defaultCluster)

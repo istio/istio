@@ -19,13 +19,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
@@ -64,10 +63,10 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
@@ -97,7 +96,7 @@ func init() {
 }
 
 // readinessProbe defines a function that will be used indicate whether a server is ready.
-type readinessProbe func() (bool, error)
+type readinessProbe func() bool
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
@@ -114,10 +113,9 @@ type Server struct {
 	ConfigStores           []model.ConfigStoreController
 	serviceEntryController *serviceentry.Controller
 
-	httpServer       *http.Server // debug, monitoring and readiness Server.
-	httpAddr         string
-	httpsServer      *http.Server // webhooks HTTPS Server.
-	httpsReadyClient *http.Client
+	httpServer  *http.Server // debug, monitoring and readiness Server.
+	httpAddr    string
+	httpsServer *http.Server // webhooks HTTPS Server.
 
 	grpcServer        *grpc.Server
 	grpcAddress       string
@@ -147,9 +145,8 @@ type Server struct {
 	cacertsWatcher *fsnotify.Watcher
 	dnsNames       []string
 
-	certController *chiron.WebhookController
-	CA             *ca.IstioCA
-	RA             ra.RegistrationAuthority
+	CA *ca.IstioCA
+	RA ra.RegistrationAuthority
 
 	// TrustAnchors for workload to workload mTLS
 	workloadTrustBundle     *tb.TrustBundle
@@ -159,6 +156,7 @@ type Server struct {
 	server                  server.Instance
 
 	readinessProbes map[string]readinessProbe
+	readinessFlags  *readinessFlags
 
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
@@ -169,10 +167,51 @@ type Server struct {
 	// in AddStartFunc
 	internalStop chan struct{}
 
+	webhookInfo *webhookInfo
+
 	statusReporter *distribution.Reporter
 	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreController
+}
+
+type readinessFlags struct {
+	sidecarInjectorReady  atomic.Bool
+	configValidationReady atomic.Bool
+}
+
+type webhookInfo struct {
+	mu sync.RWMutex
+	wh *inject.Webhook
+}
+
+func (w *webhookInfo) GetTemplates() map[string]string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if w.wh != nil {
+		return w.wh.Config.RawTemplates
+	}
+	return map[string]string{}
+}
+
+func (w *webhookInfo) getWebhookConfig() inject.WebhookConfig {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if w.wh != nil {
+		return w.wh.GetConfig()
+	}
+	return inject.WebhookConfig{}
+}
+
+func (w *webhookInfo) addHandler(fn func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.wh != nil {
+		w.wh.MultiCast.AddHandler(func(c *inject.Config, s string) error {
+			fn()
+			return nil
+		})
+	}
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -193,25 +232,13 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		httpMux:                 http.NewServeMux(),
 		monitoringMux:           http.NewServeMux(),
 		readinessProbes:         make(map[string]readinessProbe),
+		readinessFlags:          &readinessFlags{},
 		workloadTrustBundle:     tb.NewTrustBundle(nil),
 		server:                  server.New(),
 		shutdownDuration:        args.ShutdownDuration,
 		internalStop:            make(chan struct{}),
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
-	}
-
-	// Used for readiness, monitoring and debug handlers.
-	var (
-		whMu sync.RWMutex
-		wh   *inject.Webhook
-	)
-	whc := func() map[string]string {
-		whMu.RLock()
-		defer whMu.RUnlock()
-		if wh != nil {
-			return wh.Config.RawTemplates
-		}
-		return map[string]string{}
+		webhookInfo:             &webhookInfo{},
 	}
 
 	// Apply custom initialization functions.
@@ -225,11 +252,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	prometheus.EnableHandlingTimeHistogram()
 
 	// make sure we have a readiness probe before serving HTTP to avoid marking ready too soon
-	s.addReadinessProbe("discovery", func() (bool, error) {
-		return s.XDSServer.IsServerReady(), nil
-	})
+	s.initReadinessProbes()
+
 	s.initServers(args)
-	if err := s.initIstiodAdminServer(args, whc); err != nil {
+	if err := s.initIstiodAdminServer(args, s.webhookInfo.GetTemplates); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
 	}
 	if err := s.serveHTTP(); err != nil {
@@ -240,9 +266,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
-
-	// used for both initKubeRegistry and initClusterRegistries
-	args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.DetectEndpointMode(s.kubeClient)
 
 	s.initMeshConfiguration(args, s.fileWatcher)
 	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
@@ -258,6 +281,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	caOpts := &caOptions{
 		TrustDomain:      s.environment.Mesh().TrustDomain,
 		Namespace:        args.Namespace,
+		DiscoveryFilter:  args.RegistryOptions.KubeOptions.GetFilter(),
 		ExternalCAType:   ra.CaExternalType(externalCaType),
 		CertSignerDomain: features.CertSignerDomain,
 	}
@@ -301,12 +325,13 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// common https server for webhooks (e.g. injection, validation)
 	if s.kubeClient != nil {
 		s.initSecureWebhookServer(args)
-		whMu.Lock()
-		wh, err = s.initSidecarInjector(args)
-		whMu.Unlock()
+		wh, err := s.initSidecarInjector(args)
 		if err != nil {
 			return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 		}
+		s.webhookInfo.mu.Lock()
+		s.webhookInfo.wh = wh
+		s.webhookInfo.mu.Unlock()
 		if err := s.initConfigValidation(args); err != nil {
 			return nil, fmt.Errorf("error initializing config validator: %v", err)
 		}
@@ -324,7 +349,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		&authenticate.ClientCertAuthenticator{},
 	}
 	if args.JwtRule != "" {
-		jwtAuthn, err := initOIDC(args, s.environment.Mesh().TrustDomain)
+		jwtAuthn, err := initOIDC(args)
 		if err != nil {
 			return nil, fmt.Errorf("error initializing OIDC: %v", err)
 		}
@@ -357,7 +382,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	// This must be last, otherwise we will not know which informers to register
 	if s.kubeClient != nil {
-		s.addStartFunc(func(stop <-chan struct{}) error {
+		s.addStartFunc("kube client", func(stop <-chan struct{}) error {
 			s.kubeClient.RunAndWait(stop)
 			return nil
 		})
@@ -366,7 +391,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	return s, nil
 }
 
-func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, error) {
+func initOIDC(args *PilotArgs) (security.Authenticator, error) {
 	// JWTRule is from the JWT_RULE environment variable.
 	// An example of json string for JWTRule is:
 	// `{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`.
@@ -376,7 +401,7 @@ func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, erro
 		return nil, fmt.Errorf("failed to unmarshal JWT rule: %v", err)
 	}
 	log.Infof("Istiod authenticating using JWTRule: %v", jwtRule)
-	jwtAuthn, err := authenticate.NewJwtAuthenticator(jwtRule, trustDomain)
+	jwtAuthn, err := authenticate.NewJwtAuthenticator(jwtRule)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the JWT authenticator: %v", err)
 	}
@@ -393,20 +418,7 @@ func getClusterID(args *PilotArgs) cluster.ID {
 	return clusterID
 }
 
-func isUnexpectedListenerError(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, net.ErrClosed) {
-		return false
-	}
-	if errors.Is(err, http.ErrServerClosed) {
-		return false
-	}
-	return true
-}
-
-// Start starts all components of the Pilot discovery service on the port specified in DiscoveryServerOptions.
+// Start starts all components of the error serving tap http serverPilot discovery service on the port specified in DiscoveryServerOptions.
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
 func (s *Server) Start(stop <-chan struct{}) error {
@@ -461,7 +473,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		}
 		go func() {
 			log.Infof("starting webhook service at %s", httpsListener.Addr())
-			if err := s.httpsServer.ServeTLS(httpsListener, "", ""); isUnexpectedListenerError(err) {
+			if err := s.httpsServer.ServeTLS(httpsListener, "", ""); network.IsUnexpectedListenerError(err) {
 				log.Errorf("error serving https server: %v", err)
 			}
 		}()
@@ -541,7 +553,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(kubeRestConfig))
+		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(kubeRestConfig), args.RegistryOptions.KubeOptions.ClusterID)
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
@@ -556,8 +568,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 // this handler and everything has already initialized.
 func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	for name, fn := range s.readinessProbes {
-		if ready, err := fn(); !ready {
-			log.Warnf("%s is not ready: %v", name, err)
+		if ready := fn(); !ready {
+			log.Warnf("%s is not ready", name)
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -596,6 +608,10 @@ func (s *Server) initServers(args *PilotArgs) {
 		ReadTimeout: 30 * time.Second,
 	}
 	if multiplexGRPC {
+		// To allow the gRPC handler to make per-request decision,
+		// use ReadHeaderTimeout instead of ReadTimeout.
+		s.httpServer.ReadTimeout = 0
+		s.httpServer.ReadHeaderTimeout = 30 * time.Second
 		s.httpServer.Handler = multiplexHandler
 	}
 
@@ -634,7 +650,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 func (s *Server) initDiscoveryService() {
 	log.Infof("starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("xds server", func(stop <-chan struct{}) error {
 		log.Infof("Starting ADS server")
 		s.XDSServer.Start(stop)
 		return nil
@@ -760,7 +776,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
 
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("secure gRPC", func(stop <-chan struct{}) error {
 		go func() {
 			<-stop
 			s.secureGrpcServer.Stop()
@@ -773,8 +789,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 
 // addStartFunc appends a function to be run. These are run synchronously in order,
 // so the function should start a go routine if it needs to do anything blocking
-func (s *Server) addStartFunc(fn server.Component) {
-	s.server.RunComponent(fn)
+func (s *Server) addStartFunc(name string, fn server.Component) {
+	s.server.RunComponent(name, fn)
 }
 
 // adds a readiness probe for Istiod Server.
@@ -786,8 +802,8 @@ func (s *Server) addReadinessProbe(name string, fn readinessProbe) {
 // This is useful to do cleanup activities
 // This is does not guarantee they will terminate gracefully - best effort only
 // Function should be synchronous; once it returns it is considered "done"
-func (s *Server) addTerminatingStartFunc(fn server.Component) {
-	s.server.RunComponentAsyncAndWait(fn)
+func (s *Server) addTerminatingStartFunc(name string, fn server.Component) {
+	s.server.RunComponentAsyncAndWait(name, fn)
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
@@ -873,7 +889,7 @@ func (s *Server) initRegistryEventHandlers() {
 			}
 			pushReq := &model.PushRequest{
 				Full:           true,
-				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.FromGvk(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
 				Reason:         []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.XDSServer.ConfigUpdate(pushReq)
@@ -884,20 +900,17 @@ func (s *Server) initRegistryEventHandlers() {
 		}
 		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
-			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
-				Resource().GroupVersionKind() {
+			if schema.GroupVersionKind() == gvk.ServiceEntry {
 				continue
 			}
-			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadentries.
-				Resource().GroupVersionKind() {
+			if schema.GroupVersionKind() == gvk.WorkloadEntry {
 				continue
 			}
-			if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadgroups.
-				Resource().GroupVersionKind() {
+			if schema.GroupVersionKind() == gvk.WorkloadGroup {
 				continue
 			}
 
-			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
+			s.configController.RegisterEventHandler(schema.GroupVersionKind(), configHandler)
 		}
 		if s.environment.GatewayAPIController != nil {
 			s.environment.GatewayAPIController.RegisterEventHandler(gvk.Namespace, func(config.Config, config.Config, model.Event) {
@@ -928,7 +941,7 @@ func (s *Server) initIstiodCertLoader() error {
 		return fmt.Errorf("first time load IstiodCert failed: %v", err)
 	}
 	_, watchCh := s.istiodCertBundleWatcher.AddWatcher()
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("reload certs", func(stop <-chan struct{}) error {
 		go s.reloadIstiodCert(watchCh, stop)
 		return nil
 	})
@@ -1013,7 +1026,7 @@ func getDNSNames(args *PilotArgs, host string) []string {
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
-	customTLSCertsExists, _, _, _ := hasCustomTLSCerts(tlsOptions)
+	customTLSCertsExists, _, _, caCertPath := hasCustomTLSCerts(tlsOptions)
 	if !customTLSCertsExists && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isCADisabled() {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
@@ -1021,8 +1034,8 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 	peerCertVerifier := spiffe.NewPeerCertVerifier()
 	var rootCertBytes []byte
 	var err error
-	if tlsOptions.CaCertFile != "" {
-		if rootCertBytes, err = os.ReadFile(tlsOptions.CaCertFile); err != nil {
+	if caCertPath != "" {
+		if rootCertBytes, err = os.ReadFile(caCertPath); err != nil {
 			return nil, err
 		}
 	} else {
@@ -1117,11 +1130,6 @@ func (s *Server) initControllers(args *PilotArgs) error {
 
 	s.initSDSServer()
 
-	// Certificate controller is created before MCP controller in case MCP server pod
-	// waits to mount a certificate to be provisioned by the certificate controller.
-	if err := s.initCertController(args); err != nil {
-		return fmt.Errorf("error initializing certificate controller: %v", err)
-	}
 	if features.EnableEnhancedResourceScoping {
 		// setup namespace filter
 		args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter = s.multiclusterController.DiscoveryNamespacesFilter
@@ -1141,7 +1149,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	}
 	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID, s.environment.Watcher)
 	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("multicluster controller", func(stop <-chan struct{}) error {
 		return s.multiclusterController.Run(stop)
 	})
 }
@@ -1197,7 +1205,7 @@ func (s *Server) startCA(caOpts *caOptions) {
 	if s.CA == nil && s.RA == nil {
 		return
 	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("ca", func(stop <-chan struct{}) error {
 		grpcServer := s.secureGrpcServer
 		if s.secureGrpcServer == nil {
 			grpcServer = s.grpcServer
@@ -1261,7 +1269,7 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 		s.XDSServer.ConfigUpdate(pushReq)
 	})
 
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("remote trust anchors", func(stop <-chan struct{}) error {
 		go s.workloadTrustBundle.ProcessRemoteTrustAnchors(stop, tb.RemoteDefaultPollPeriod)
 		return nil
 	})
@@ -1318,7 +1326,7 @@ func (s *Server) isCADisabled() bool {
 }
 
 func (s *Server) initStatusManager(_ *PilotArgs) {
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("status manager", func(stop <-chan struct{}) error {
 		s.statusManager = status.NewManager(s.RWConfigStore)
 		s.statusManager.Start(stop)
 		return nil
@@ -1333,12 +1341,29 @@ func (s *Server) serveHTTP() error {
 	}
 	go func() {
 		log.Infof("starting HTTP service at %s", httpListener.Addr())
-		if err := s.httpServer.Serve(httpListener); isUnexpectedListenerError(err) {
+		if err := s.httpServer.Serve(httpListener); network.IsUnexpectedListenerError(err) {
 			log.Errorf("error serving http server: %v", err)
 		}
 	}()
 	s.httpAddr = httpListener.Addr().String()
 	return nil
+}
+
+func (s *Server) initReadinessProbes() {
+	probes := map[string]readinessProbe{
+		"discovery": func() bool {
+			return s.XDSServer.IsServerReady()
+		},
+		"sidecar injector": func() bool {
+			return s.readinessFlags.sidecarInjectorReady.Load()
+		},
+		"config validation": func() bool {
+			return s.readinessFlags.configValidationReady.Load()
+		},
+	}
+	for name, probe := range probes {
+		s.addReadinessProbe(name, probe)
+	}
 }
 
 func serviceUpdateNeedsPush(prev, curr *model.Service) bool {

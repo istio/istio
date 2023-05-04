@@ -100,7 +100,6 @@ func (r *GoogleCASClient) createCertReq(name string, csrPEM []byte, lifetime tim
 func (r *GoogleCASClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
 	certChain := []string{}
 
-	rand.Seed(time.Now().UnixNano())
 	name := fmt.Sprintf("csr-workload-%s", rand.String(8))
 	creq := r.createCertReq(name, csrPEM, time.Duration(certValidTTLInSec)*time.Second)
 

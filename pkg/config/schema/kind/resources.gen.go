@@ -5,20 +5,26 @@ package kind
 
 import (
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 const (
-	AuthorizationPolicy Kind = iota
+	Address Kind = iota
+	AuthorizationPolicy
+	CertificateSigningRequest
 	ConfigMap
 	CustomResourceDefinition
 	Deployment
 	DestinationRule
+	EndpointSlice
 	Endpoints
 	EnvoyFilter
+	GRPCRoute
 	Gateway
 	GatewayClass
 	HTTPRoute
 	Ingress
+	IngressClass
 	KubernetesGateway
 	MeshConfig
 	MeshNetworks
@@ -32,11 +38,14 @@ const (
 	RequestAuthentication
 	Secret
 	Service
+	ServiceAccount
 	ServiceEntry
 	Sidecar
 	TCPRoute
 	TLSRoute
 	Telemetry
+	UDPRoute
+	ValidatingWebhookConfiguration
 	VirtualService
 	WasmPlugin
 	WorkloadEntry
@@ -45,8 +54,12 @@ const (
 
 func (k Kind) String() string {
 	switch k {
+	case Address:
+		return "Address"
 	case AuthorizationPolicy:
 		return "AuthorizationPolicy"
+	case CertificateSigningRequest:
+		return "CertificateSigningRequest"
 	case ConfigMap:
 		return "ConfigMap"
 	case CustomResourceDefinition:
@@ -55,10 +68,14 @@ func (k Kind) String() string {
 		return "Deployment"
 	case DestinationRule:
 		return "DestinationRule"
+	case EndpointSlice:
+		return "EndpointSlice"
 	case Endpoints:
 		return "Endpoints"
 	case EnvoyFilter:
 		return "EnvoyFilter"
+	case GRPCRoute:
+		return "GRPCRoute"
 	case Gateway:
 		return "Gateway"
 	case GatewayClass:
@@ -67,6 +84,8 @@ func (k Kind) String() string {
 		return "HTTPRoute"
 	case Ingress:
 		return "Ingress"
+	case IngressClass:
+		return "IngressClass"
 	case KubernetesGateway:
 		return "Gateway"
 	case MeshConfig:
@@ -93,6 +112,8 @@ func (k Kind) String() string {
 		return "Secret"
 	case Service:
 		return "Service"
+	case ServiceAccount:
+		return "ServiceAccount"
 	case ServiceEntry:
 		return "ServiceEntry"
 	case Sidecar:
@@ -103,6 +124,10 @@ func (k Kind) String() string {
 		return "TLSRoute"
 	case Telemetry:
 		return "Telemetry"
+	case UDPRoute:
+		return "UDPRoute"
+	case ValidatingWebhookConfiguration:
+		return "ValidatingWebhookConfiguration"
 	case VirtualService:
 		return "VirtualService"
 	case WasmPlugin:
@@ -116,106 +141,89 @@ func (k Kind) String() string {
 	}
 }
 
-func FromGvk(gvk config.GroupVersionKind) Kind {
-	if gvk.Kind == "AuthorizationPolicy" && gvk.Group == "security.istio.io" && gvk.Version == "v1beta1" {
+func MustFromGVK(g config.GroupVersionKind) Kind {
+	switch g {
+	case gvk.AuthorizationPolicy:
 		return AuthorizationPolicy
-	}
-	if gvk.Kind == "ConfigMap" && gvk.Group == "" && gvk.Version == "v1" {
+	case gvk.CertificateSigningRequest:
+		return CertificateSigningRequest
+	case gvk.ConfigMap:
 		return ConfigMap
-	}
-	if gvk.Kind == "CustomResourceDefinition" && gvk.Group == "apiextensions.k8s.io" && gvk.Version == "v1" {
+	case gvk.CustomResourceDefinition:
 		return CustomResourceDefinition
-	}
-	if gvk.Kind == "Deployment" && gvk.Group == "apps" && gvk.Version == "v1" {
+	case gvk.Deployment:
 		return Deployment
-	}
-	if gvk.Kind == "DestinationRule" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
+	case gvk.DestinationRule:
 		return DestinationRule
-	}
-	if gvk.Kind == "Endpoints" && gvk.Group == "" && gvk.Version == "v1" {
+	case gvk.EndpointSlice:
+		return EndpointSlice
+	case gvk.Endpoints:
 		return Endpoints
-	}
-	if gvk.Kind == "EnvoyFilter" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
+	case gvk.EnvoyFilter:
 		return EnvoyFilter
-	}
-	if gvk.Kind == "Gateway" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
+	case gvk.GRPCRoute:
+		return GRPCRoute
+	case gvk.Gateway:
 		return Gateway
-	}
-	if gvk.Kind == "GatewayClass" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1beta1" {
+	case gvk.GatewayClass:
 		return GatewayClass
-	}
-	if gvk.Kind == "HTTPRoute" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1beta1" {
+	case gvk.HTTPRoute:
 		return HTTPRoute
-	}
-	if gvk.Kind == "Ingress" && gvk.Group == "extensions" && gvk.Version == "v1beta1" {
+	case gvk.Ingress:
 		return Ingress
-	}
-	if gvk.Kind == "Gateway" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1beta1" {
+	case gvk.IngressClass:
+		return IngressClass
+	case gvk.KubernetesGateway:
 		return KubernetesGateway
-	}
-	if gvk.Kind == "MeshConfig" && gvk.Group == "" && gvk.Version == "v1alpha1" {
+	case gvk.MeshConfig:
 		return MeshConfig
-	}
-	if gvk.Kind == "MeshNetworks" && gvk.Group == "" && gvk.Version == "v1alpha1" {
+	case gvk.MeshNetworks:
 		return MeshNetworks
-	}
-	if gvk.Kind == "MutatingWebhookConfiguration" && gvk.Group == "admissionregistration.k8s.io" && gvk.Version == "v1" {
+	case gvk.MutatingWebhookConfiguration:
 		return MutatingWebhookConfiguration
-	}
-	if gvk.Kind == "Namespace" && gvk.Group == "" && gvk.Version == "v1" {
+	case gvk.Namespace:
 		return Namespace
-	}
-	if gvk.Kind == "Node" && gvk.Group == "" && gvk.Version == "v1" {
+	case gvk.Node:
 		return Node
-	}
-	if gvk.Kind == "PeerAuthentication" && gvk.Group == "security.istio.io" && gvk.Version == "v1beta1" {
+	case gvk.PeerAuthentication:
 		return PeerAuthentication
-	}
-	if gvk.Kind == "Pod" && gvk.Group == "" && gvk.Version == "v1" {
+	case gvk.Pod:
 		return Pod
-	}
-	if gvk.Kind == "ProxyConfig" && gvk.Group == "networking.istio.io" && gvk.Version == "v1beta1" {
+	case gvk.ProxyConfig:
 		return ProxyConfig
-	}
-	if gvk.Kind == "ReferenceGrant" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
+	case gvk.ReferenceGrant:
 		return ReferenceGrant
-	}
-	if gvk.Kind == "RequestAuthentication" && gvk.Group == "security.istio.io" && gvk.Version == "v1beta1" {
+	case gvk.RequestAuthentication:
 		return RequestAuthentication
-	}
-	if gvk.Kind == "Secret" && gvk.Group == "" && gvk.Version == "v1" {
+	case gvk.Secret:
 		return Secret
-	}
-	if gvk.Kind == "Service" && gvk.Group == "" && gvk.Version == "v1" {
+	case gvk.Service:
 		return Service
-	}
-	if gvk.Kind == "ServiceEntry" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
+	case gvk.ServiceAccount:
+		return ServiceAccount
+	case gvk.ServiceEntry:
 		return ServiceEntry
-	}
-	if gvk.Kind == "Sidecar" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
+	case gvk.Sidecar:
 		return Sidecar
-	}
-	if gvk.Kind == "TCPRoute" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
+	case gvk.TCPRoute:
 		return TCPRoute
-	}
-	if gvk.Kind == "TLSRoute" && gvk.Group == "gateway.networking.k8s.io" && gvk.Version == "v1alpha2" {
+	case gvk.TLSRoute:
 		return TLSRoute
-	}
-	if gvk.Kind == "Telemetry" && gvk.Group == "telemetry.istio.io" && gvk.Version == "v1alpha1" {
+	case gvk.Telemetry:
 		return Telemetry
-	}
-	if gvk.Kind == "VirtualService" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
+	case gvk.UDPRoute:
+		return UDPRoute
+	case gvk.ValidatingWebhookConfiguration:
+		return ValidatingWebhookConfiguration
+	case gvk.VirtualService:
 		return VirtualService
-	}
-	if gvk.Kind == "WasmPlugin" && gvk.Group == "extensions.istio.io" && gvk.Version == "v1alpha1" {
+	case gvk.WasmPlugin:
 		return WasmPlugin
-	}
-	if gvk.Kind == "WorkloadEntry" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
+	case gvk.WorkloadEntry:
 		return WorkloadEntry
-	}
-	if gvk.Kind == "WorkloadGroup" && gvk.Group == "networking.istio.io" && gvk.Version == "v1alpha3" {
+	case gvk.WorkloadGroup:
 		return WorkloadGroup
 	}
 
-	panic("unknown kind: " + gvk.String())
+	panic("unknown kind: " + g.String())
 }

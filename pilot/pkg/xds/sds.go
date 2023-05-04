@@ -51,13 +51,12 @@ type SecretResource struct {
 
 var _ model.XdsCacheEntry = SecretResource{}
 
-func (sr SecretResource) Key() string {
-	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
+func (sr SecretResource) Type() string {
+	return model.SDSType
 }
 
-// DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
-func (sr SecretResource) DependentTypes() []kind.Kind {
-	return nil
+func (sr SecretResource) Key() any {
+	return sr.SecretResource.Key() + "/" + sr.pkpConfHash
 }
 
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {
@@ -150,8 +149,8 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 			}
 		}
 
-		cachedItem, f := s.cache.Get(sr)
-		if f && !features.EnableUnsafeAssertions {
+		cachedItem := s.cache.Get(sr)
+		if cachedItem != nil && !features.EnableUnsafeAssertions {
 			// If it is in the Cache, add it and continue
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			results = append(results, cachedItem)
@@ -174,7 +173,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy) *discovery.Resource {
 	// Fetch the appropriate cluster's secret, based on the credential type
 	var secretController credscontroller.Controller
-	switch sr.Type {
+	switch sr.ResourceType {
 	case credentials.KubernetesGatewaySecretType:
 		secretController = configClusterSecrets
 	default:
@@ -190,7 +189,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 		if features.VerifySDSCertificate {
-			if err := validateCertificate(caCert); err != nil {
+			if err := ValidateCertificate(caCert); err != nil {
 				recordInvalidCertificate(sr.ResourceName, err)
 				return nil
 			}
@@ -199,29 +198,39 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return res
 	}
 
-	key, cert, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
+	key, cert, staple, err := secretController.GetKeyCertAndStaple(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
 		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
 		return nil
 	}
 	if features.VerifySDSCertificate {
-		if err := validateCertificate(cert); err != nil {
+		if err := ValidateCertificate(cert); err != nil {
 			recordInvalidCertificate(sr.ResourceName, err)
 			return nil
 		}
 	}
-	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert, proxy, s.meshConfig)
+	res := toEnvoyKeyCertStapleSecret(sr.ResourceName, key, cert, staple, proxy, s.meshConfig)
 	return res
 }
 
-func validateCertificate(data []byte) error {
+func ValidateCertificate(data []byte) error {
 	block, _ := pem.Decode(data)
 	if block == nil {
 		return fmt.Errorf("pem decode failed")
 	}
-	_, err := x509.ParseCertificates(block.Bytes)
-	return err
+	certs, err := x509.ParseCertificates(block.Bytes)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	for _, cert := range certs {
+		// check if the certificate has expired
+		if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
+			return fmt.Errorf("certificate is expired or not yet valid")
+		}
+	}
+	return nil
 }
 
 func recordInvalidCertificate(name string, err error) {
@@ -258,7 +267,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 	for _, r := range resources {
 		sameNamespace := r.Namespace == proxy.VerifiedIdentity.Namespace
 		verified := proxy.MergedGateway != nil && proxy.MergedGateway.VerifiedCertificateReferences.Contains(r.ResourceName)
-		switch r.Type {
+		switch r.ResourceType {
 		case credentials.KubernetesGatewaySecretType:
 			// For KubernetesGateway, we only allow VerifiedCertificateReferences.
 			// This means a Secret in the same namespace as the Gateway (which also must be in the same namespace
@@ -330,7 +339,7 @@ func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 	}
 }
 
-func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
+func toEnvoyKeyCertStapleSecret(name string, key, cert, staple []byte, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
 	var res *anypb.Any
 	pkpConf := proxy.Metadata.ProxyConfigOrDefault(meshConfig.GetDefaultConfig()).GetPrivateKeyProvider()
 	switch pkpConf.GetProvider().(type) {
@@ -403,6 +412,11 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 					PrivateKey: &core.DataSource{
 						Specifier: &core.DataSource_InlineBytes{
 							InlineBytes: key,
+						},
+					},
+					OcspStaple: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: staple,
 						},
 					},
 				},

@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/url"
 )
@@ -112,8 +112,8 @@ var (
 	cannedDynamicConfigs = []runtime.Object{
 		&unstructured.Unstructured{
 			Object: map[string]any{
-				"apiVersion": collections.IstioNetworkingV1Alpha3Serviceentries.Resource().APIVersion(),
-				"kind":       collections.IstioNetworkingV1Alpha3Serviceentries.Resource().Kind(),
+				"apiVersion": gvk.ServiceEntry.GroupVersion(),
+				"kind":       gvk.ServiceEntry.Kind,
 				"metadata": map[string]any{
 					"namespace": "default",
 					"name":      "mesh-expansion-vmtest",

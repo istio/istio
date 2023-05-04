@@ -108,7 +108,7 @@ func TestFileSnapshotWithFilter(t *testing.T) {
 
 	ts.testSetup(t)
 
-	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(collections.IstioNetworkingV1Alpha3Virtualservices), "")
+	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(collections.VirtualService), "")
 	configs, err := fileWatcher.ReadConfigFiles()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(1))

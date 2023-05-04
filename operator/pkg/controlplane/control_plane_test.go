@@ -85,28 +85,44 @@ func TestNewIstioOperator(t *testing.T) {
 			wantIstioOperator: &IstioControlPlane{
 				components: []component.IstioComponent{
 					&component.BaseComponent{
-						CommonComponentFields: &component.CommonComponentFields{
-							Options:       coreComponentOptions,
-							ComponentName: name.IstioBaseComponentName,
+						IstioComponentBase: &component.IstioComponentBase{
+							CommonComponentFields: &component.CommonComponentFields{
+								Options:       coreComponentOptions,
+								ComponentName: name.IstioBaseComponentName,
+							},
 						},
 					},
 					&component.PilotComponent{
-						CommonComponentFields: &component.CommonComponentFields{
-							Options:       coreComponentOptions,
-							ResourceName:  "test-resource",
-							ComponentName: name.PilotComponentName,
+						IstioComponentBase: &component.IstioComponentBase{
+							CommonComponentFields: &component.CommonComponentFields{
+								Options:       coreComponentOptions,
+								ResourceName:  "test-resource",
+								ComponentName: name.PilotComponentName,
+							},
 						},
 					},
 					&component.CNIComponent{
-						CommonComponentFields: &component.CommonComponentFields{
-							ComponentName: name.CNIComponentName,
-							Options:       coreComponentOptions,
+						IstioComponentBase: &component.IstioComponentBase{
+							CommonComponentFields: &component.CommonComponentFields{
+								ComponentName: name.CNIComponentName,
+								Options:       coreComponentOptions,
+							},
 						},
 					},
 					&component.IstiodRemoteComponent{
-						CommonComponentFields: &component.CommonComponentFields{
-							ComponentName: name.IstiodRemoteComponentName,
-							Options:       coreComponentOptions,
+						IstioComponentBase: &component.IstioComponentBase{
+							CommonComponentFields: &component.CommonComponentFields{
+								ComponentName: name.IstiodRemoteComponentName,
+								Options:       coreComponentOptions,
+							},
+						},
+					},
+					&component.ZtunnelComponent{
+						IstioComponentBase: &component.IstioComponentBase{
+							CommonComponentFields: &component.CommonComponentFields{
+								ComponentName: name.ZtunnelComponentName,
+								Options:       coreComponentOptions,
+							},
 						},
 					},
 				},
@@ -140,25 +156,31 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 			testOperator: &IstioControlPlane{
 				components: []component.IstioComponent{
 					&component.BaseComponent{
-						CommonComponentFields: &component.CommonComponentFields{
-							Options:       coreComponentOptions,
-							ComponentName: name.IstioBaseComponentName,
+						IstioComponentBase: &component.IstioComponentBase{
+							CommonComponentFields: &component.CommonComponentFields{
+								Options:       coreComponentOptions,
+								ComponentName: name.IstioBaseComponentName,
+							},
 						},
 					},
 					&component.PilotComponent{
-						CommonComponentFields: &component.CommonComponentFields{
-							Options: &component.Options{
-								InstallSpec: &v1alpha1.IstioOperatorSpec{},
-								Translator:  &translate.Translator{},
+						IstioComponentBase: &component.IstioComponentBase{
+							CommonComponentFields: &component.CommonComponentFields{
+								Options: &component.Options{
+									InstallSpec: &v1alpha1.IstioOperatorSpec{},
+									Translator:  &translate.Translator{},
+								},
+								ResourceName:  "test-resource",
+								ComponentName: name.PilotComponentName,
 							},
-							ResourceName:  "test-resource",
-							ComponentName: name.PilotComponentName,
 						},
 					},
 					&component.CNIComponent{
-						CommonComponentFields: &component.CommonComponentFields{
-							ComponentName: name.CNIComponentName,
-							Options:       coreComponentOptions,
+						IstioComponentBase: &component.IstioComponentBase{
+							CommonComponentFields: &component.CommonComponentFields{
+								ComponentName: name.CNIComponentName,
+								Options:       coreComponentOptions,
+							},
 						},
 					},
 				},
@@ -176,25 +198,31 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 			testOperator: &IstioControlPlane{
 				components: []component.IstioComponent{
 					&component.BaseComponent{
-						CommonComponentFields: &component.CommonComponentFields{
-							Options:       coreComponentOptions,
-							ComponentName: name.IstioBaseComponentName,
+						IstioComponentBase: &component.IstioComponentBase{
+							CommonComponentFields: &component.CommonComponentFields{
+								Options:       coreComponentOptions,
+								ComponentName: name.IstioBaseComponentName,
+							},
 						},
 					},
 					&component.PilotComponent{
-						CommonComponentFields: &component.CommonComponentFields{
-							Options: &component.Options{
-								InstallSpec: &v1alpha1.IstioOperatorSpec{},
-								Translator:  &translate.Translator{},
+						IstioComponentBase: &component.IstioComponentBase{
+							CommonComponentFields: &component.CommonComponentFields{
+								Options: &component.Options{
+									InstallSpec: &v1alpha1.IstioOperatorSpec{},
+									Translator:  &translate.Translator{},
+								},
+								ResourceName:  "test-resource",
+								ComponentName: name.PilotComponentName,
 							},
-							ResourceName:  "test-resource",
-							ComponentName: name.PilotComponentName,
 						},
 					},
 					&component.CNIComponent{
-						CommonComponentFields: &component.CommonComponentFields{
-							ComponentName: name.CNIComponentName,
-							Options:       coreComponentOptions,
+						IstioComponentBase: &component.IstioComponentBase{
+							CommonComponentFields: &component.CommonComponentFields{
+								ComponentName: name.CNIComponentName,
+								Options:       coreComponentOptions,
+							},
 						},
 					},
 				},

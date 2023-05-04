@@ -18,42 +18,31 @@ import (
 	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
-	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	filter "istio.io/istio/pkg/kube/namespace"
 )
 
 // initialize handlers for discovery selection scoping
-func (c *Controller) initDiscoveryHandlers(
-	kubeClient kubelib.Client,
-	endpointMode EndpointMode,
-	meshWatcher mesh.Watcher,
-	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
-) {
-	c.initDiscoveryNamespaceHandlers(kubeClient, endpointMode, discoveryNamespacesFilter)
-	c.initMeshWatcherHandler(kubeClient, endpointMode, meshWatcher, discoveryNamespacesFilter)
+func (c *Controller) initDiscoveryHandlers(meshWatcher mesh.Watcher, discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) {
+	c.initDiscoveryNamespaceHandlers(discoveryNamespacesFilter)
+	c.initMeshWatcherHandler(meshWatcher, discoveryNamespacesFilter)
 }
 
 // handle discovery namespace membership changes triggered by namespace events,
 // which requires triggering create/delete event handlers for services, pods, and endpoints,
 // and updating the DiscoveryNamespacesFilter.
-func (c *Controller) initDiscoveryNamespaceHandlers(
-	kubeClient kubelib.Client,
-	endpointMode EndpointMode,
-	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
-) {
+func (c *Controller) initDiscoveryNamespaceHandlers(discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) {
 	otype := "Namespaces"
-	_, _ = c.nsInformer.AddEventHandler(controllers.EventHandler[*v1.Namespace]{
+	c.namespaces.AddEventHandler(controllers.EventHandler[*v1.Namespace]{
 		AddFunc: func(ns *v1.Namespace) {
 			incrementEvent(otype, "add")
 			if discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta) {
 				c.queue.Push(func() error {
-					c.handleSelectedNamespace(endpointMode, ns.Name)
+					c.handleSelectedNamespace(ns.Name)
 					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
 					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
 					if features.EnableEnhancedResourceScoping {
@@ -72,9 +61,9 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 			if membershipChanged {
 				handleFunc := func() error {
 					if namespaceAdded {
-						c.handleSelectedNamespace(endpointMode, new.Name)
+						c.handleSelectedNamespace(new.Name)
 					} else {
-						c.handleDeselectedNamespace(kubeClient, endpointMode, new.Name)
+						c.handleDeselectedNamespace(new.Name)
 					}
 					// This is necessary because namespace handled by discoveryNamespacesFilter may take some time,
 					// if a CR is processed before discoveryNamespacesFilter takes effect, it will be ignored.
@@ -100,19 +89,14 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 // handle discovery namespace membership changes triggered by changes to meshConfig's discovery selectors
 // which requires updating the DiscoveryNamespaceFilter and triggering create/delete event handlers for services/pods/endpoints
 // for membership changes
-func (c *Controller) initMeshWatcherHandler(
-	kubeClient kubelib.Client,
-	endpointMode EndpointMode,
-	meshWatcher mesh.Watcher,
-	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
-) {
+func (c *Controller) initMeshWatcherHandler(meshWatcher mesh.Watcher, discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) {
 	meshWatcher.AddMeshHandler(func() {
 		newSelectedNamespaces, deselectedNamespaces := discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
 
 		for _, nsName := range newSelectedNamespaces {
 			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
 			c.queue.Push(func() error {
-				c.handleSelectedNamespace(endpointMode, nsName)
+				c.handleSelectedNamespace(nsName)
 				return nil
 			})
 		}
@@ -120,7 +104,7 @@ func (c *Controller) initMeshWatcherHandler(
 		for _, nsName := range deselectedNamespaces {
 			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
 			c.queue.Push(func() error {
-				c.handleDeselectedNamespace(kubeClient, endpointMode, nsName)
+				c.handleDeselectedNamespace(nsName)
 				return nil
 			})
 		}
@@ -138,49 +122,23 @@ func (c *Controller) initMeshWatcherHandler(
 }
 
 // issue create events for all services, pods, and endpoints in the newly labeled namespace
-func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns string) {
+func (c *Controller) handleSelectedNamespace(ns string) {
 	var errs *multierror.Error
 
 	// for each resource type, issue create events for objects in the labeled namespace
-
-	services, err := c.serviceLister.Services(ns).List(labels.Everything())
-	if err != nil {
-		log.Errorf("error listing services: %v", err)
-		return
-	}
-	for _, svc := range services {
+	for _, svc := range c.services.List(ns, labels.Everything()) {
 		errs = multierror.Append(errs, c.onServiceEvent(nil, svc, model.EventAdd))
 	}
 
-	pods, err := listerv1.NewPodLister(c.pods.informer.GetIndexer()).Pods(ns).List(labels.Everything())
-	if err != nil {
-		log.Errorf("error listing pods: %v", err)
-		return
-	}
+	pods := c.podsClient.List(ns, labels.Everything())
 	for _, pod := range pods {
 		errs = multierror.Append(errs, c.pods.onEvent(nil, pod, model.EventAdd))
 	}
-
-	switch endpointMode {
-	case EndpointsOnly:
-		endpoints, err := listerv1.NewEndpointsLister(c.endpoints.getInformer().GetIndexer()).Endpoints(ns).List(labels.Everything())
-		if err != nil {
-			log.Errorf("error listing endpoints: %v", err)
-			return
-		}
-		for _, ep := range endpoints {
-			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
-		}
-	case EndpointSliceOnly:
-		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(ns, labels.Everything())
-		if err != nil {
-			log.Errorf("error listing endpoint slices: %v", err)
-			return
-		}
-		for _, ep := range endpointSlices {
-			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventAdd))
-		}
+	if c.ambientIndex != nil {
+		c.ambientIndex.handlePods(pods, c)
 	}
+
+	errs = multierror.Append(errs, c.endpoints.sync("", ns, model.EventAdd, false))
 
 	for _, handler := range c.namespaceDiscoveryHandlers {
 		handler(ns, model.EventAdd)
@@ -194,49 +152,19 @@ func (c *Controller) handleSelectedNamespace(endpointMode EndpointMode, ns strin
 // issue delete events for all services, pods, and endpoints in the delabled namespace
 // use kubeClient.KubeInformer() to bypass filter in order to list resources from non-labeled namespace,
 // which fetches informers from the SharedInformerFactory cache (i.e. does not instantiate a new informer)
-func (c *Controller) handleDeselectedNamespace(kubeClient kubelib.Client, endpointMode EndpointMode, ns string) {
+func (c *Controller) handleDeselectedNamespace(ns string) {
 	var errs *multierror.Error
 
 	// for each resource type, issue delete events for objects in the delabled namespace
-
-	services, err := kubeClient.KubeInformer().Core().V1().Services().Lister().Services(ns).List(labels.Everything())
-	if err != nil {
-		log.Errorf("error listing services: %v", err)
-		return
-	}
-	for _, svc := range services {
+	for _, svc := range c.services.ListUnfiltered(ns, labels.Everything()) {
 		errs = multierror.Append(errs, c.onServiceEvent(nil, svc, model.EventDelete))
 	}
 
-	pods, err := kubeClient.KubeInformer().Core().V1().Pods().Lister().Pods(ns).List(labels.Everything())
-	if err != nil {
-		log.Errorf("error listing pods: %v", err)
-		return
-	}
-	for _, pod := range pods {
+	for _, pod := range c.podsClient.ListUnfiltered(ns, labels.Everything()) {
 		errs = multierror.Append(errs, c.pods.onEvent(nil, pod, model.EventDelete))
 	}
 
-	switch endpointMode {
-	case EndpointsOnly:
-		endpoints, err := kubeClient.KubeInformer().Core().V1().Endpoints().Lister().Endpoints(ns).List(labels.Everything())
-		if err != nil {
-			log.Errorf("error listing endpoints: %v", err)
-			return
-		}
-		for _, ep := range endpoints {
-			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventDelete))
-		}
-	case EndpointSliceOnly:
-		endpointSlices, err := c.endpoints.(*endpointSliceController).listSlices(ns, labels.Everything())
-		if err != nil {
-			log.Errorf("error listing endpoint slices: %v", err)
-			return
-		}
-		for _, ep := range endpointSlices {
-			errs = multierror.Append(errs, c.endpoints.onEvent(nil, ep, model.EventDelete))
-		}
-	}
+	errs = multierror.Append(errs, c.endpoints.sync("", ns, model.EventDelete, false))
 
 	for _, handler := range c.namespaceDiscoveryHandlers {
 		handler(ns, model.EventDelete)

@@ -36,24 +36,21 @@ import (
 // getByMessageName finds a schema by message name if it is available
 // In test setup, we do not have more than one descriptor with the same message type, so this
 // function is ok for testing purpose.
-func getByMessageName(schemas collection.Schemas, name string) (collection.Schema, bool) {
+func getByMessageName(schemas collection.Schemas, name string) (resource.Schema, bool) {
 	for _, s := range schemas.All() {
-		if s.Resource().Proto() == name {
+		if s.Proto() == name {
 			return s, true
 		}
 	}
 	return nil, false
 }
 
-func schemaFor(kind, proto string) collection.Schema {
-	return collection.Builder{
-		Name: kind,
-		Resource: resource.Builder{
-			Kind:   kind,
-			Plural: kind + "s",
-			Proto:  proto,
-		}.BuildNoValidate(),
-	}.MustBuild()
+func schemaFor(kind, proto string) resource.Schema {
+	return resource.Builder{
+		Kind:   kind,
+		Plural: kind + "s",
+		Proto:  proto,
+	}.BuildNoValidate()
 }
 
 func TestConfigDescriptor(t *testing.T) {
@@ -68,7 +65,7 @@ func TestConfigDescriptor(t *testing.T) {
 		t.Errorf("descriptor.Types() => got %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
 	}
 
-	aType, aExists := schemas.FindByGroupVersionKind(a.Resource().GroupVersionKind())
+	aType, aExists := schemas.FindByGroupVersionKind(a.GroupVersionKind())
 	if !aExists || !reflect.DeepEqual(aType, a) {
 		t.Errorf("descriptor.GetByType(a) => got %+v, want %+v", aType, a)
 	}
@@ -76,7 +73,7 @@ func TestConfigDescriptor(t *testing.T) {
 		t.Error("descriptor.GetByType(missing) => got true, want false")
 	}
 
-	aSchema, aSchemaExists := getByMessageName(schemas, a.Resource().Proto())
+	aSchema, aSchemaExists := getByMessageName(schemas, a.Proto())
 	if !aSchemaExists || !reflect.DeepEqual(aSchema, a) {
 		t.Errorf("descriptor.GetByMessageName(a) => got %+v, want %+v", aType, a)
 	}

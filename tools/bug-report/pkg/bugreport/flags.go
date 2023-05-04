@@ -29,10 +29,10 @@ import (
 )
 
 var (
-	startTime, endTime, configFile, tempDir string
-	included, excluded                      []string
-	commandTimeout, since                   time.Duration
-	gConfig                                 = &config2.BugReportConfig{}
+	startTime, endTime, configFile, tempDir, outputDir string
+	included, excluded                                 []string
+	commandTimeout, since                              time.Duration
+	gConfig                                            = &config2.BugReportConfig{}
 )
 
 func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
@@ -88,9 +88,12 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 		"List of comma separated glob patterns to match against log error strings. "+
 			"Any error matching these patterns is ignored when calculating the log importance heuristic.")
 
-	// output/working dir
+	// working dir to store temporary artifacts
 	cmd.PersistentFlags().StringVar(&tempDir, "dir", "",
 		"Set a specific directory for temporary artifact storage.")
+
+	cmd.PersistentFlags().StringVar(&outputDir, "output-dir", "",
+		"Set a specific directory for output archive file.")
 
 	// requests per second limit
 	cmd.PersistentFlags().IntVar(&args.RequestsPerSecondLimit, "rps-limit", 0,

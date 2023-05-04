@@ -113,6 +113,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 	endpointPort int32,
 	svcPortName string,
 	discoverabilityPolicy model.EndpointDiscoverabilityPolicy,
+	healthStatus model.HealthStatus,
 ) *model.IstioEndpoint {
 	if b == nil {
 		return nil
@@ -139,6 +140,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		HostName:              b.hostname,
 		SubDomain:             b.subDomain,
 		DiscoverabilityPolicy: discoverabilityPolicy,
+		HealthStatus:          healthStatus,
 		NodeName:              b.nodeName,
 	}
 }

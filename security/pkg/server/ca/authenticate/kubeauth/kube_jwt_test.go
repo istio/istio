@@ -15,7 +15,6 @@
 package kubeauth
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -31,7 +30,8 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 type mockMeshConfigHolder struct {
@@ -65,6 +65,7 @@ func TestAuthenticate(t *testing.T) {
 	remoteCluster := cluster.ID("remote")
 	invlidToken := "invalid-token"
 	meshHolder := mockMeshConfigHolder{"example.com"}
+	spiffe.SetTrustDomain("example.com")
 
 	testCases := map[string]struct {
 		remoteCluster  bool
@@ -103,7 +104,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			jwtPolicy:      jwt.PolicyFirstParty,
-			expectedID:     fmt.Sprintf(authenticate.IdentityTemplate, "example.com", "default", "example-pod-sa"),
+			expectedID:     spiffe.MustGenSpiffeURI("default", "example-pod-sa"),
 			expectedErrMsg: "",
 		},
 		"not found remote cluster results in error": {
@@ -186,11 +187,13 @@ func TestAuthenticate(t *testing.T) {
 			expectedCaller := &security.Caller{
 				AuthSource: security.AuthSourceIDToken,
 				Identities: []string{tc.expectedID},
+				KubernetesInfo: security.KubernetesInfo{
+					PodNamespace:      "default",
+					PodServiceAccount: "example-pod-sa",
+				},
 			}
 
-			if !reflect.DeepEqual(actualCaller, expectedCaller) {
-				t.Errorf("Case %q: Unexpected token: want %v but got %v", id, expectedCaller, actualCaller)
-			}
+			assert.Equal(t, actualCaller, expectedCaller)
 		})
 	}
 }

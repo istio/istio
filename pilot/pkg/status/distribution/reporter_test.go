@@ -89,7 +89,7 @@ func TestBuildReport(t *testing.T) {
 	}
 	// cast our model.Configs to Resource because these types aren't compatible
 	var myResources []status.Resource
-	col := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
+	col := collections.VirtualService
 	for _, res := range resources {
 		// Set Group Version and GroupVersionKind to real world values from VS
 		res.GroupVersionKind = col.GroupVersionKind()

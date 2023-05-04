@@ -27,6 +27,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
@@ -276,6 +277,56 @@ func newTestEnviroment() *model.Environment {
 			},
 		},
 	})
+	configStore.Create(config.Config{
+		Meta: config.Meta{
+			Name:             "test-with-server-accesslog-filter",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Telemetry,
+		},
+		Spec: &tpb.Telemetry{
+			Selector: &v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"app": "test-with-server-accesslog-filter",
+				},
+			},
+			AccessLogging: []*tpb.AccessLogging{
+				{
+					Match: &tpb.AccessLogging_LogSelector{
+						Mode: tpb.WorkloadMode_SERVER,
+					},
+					Providers: []*tpb.ProviderRef{
+						{
+							Name: "envoy-json",
+						},
+					},
+				},
+			},
+		},
+	})
+	configStore.Create(config.Config{
+		Meta: config.Meta{
+			Name:             "test-disable-accesslog",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Telemetry,
+		},
+		Spec: &tpb.Telemetry{
+			Selector: &v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"app": "test-disable-accesslog",
+				},
+			},
+			AccessLogging: []*tpb.AccessLogging{
+				{
+					Providers: []*tpb.ProviderRef{
+						{
+							Name: "envoy",
+						},
+					},
+					Disabled: wrapperspb.Bool(true),
+				},
+			},
+		},
+	})
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
@@ -350,6 +401,25 @@ func TestSetTCPAccessLog(t *testing.T) {
 			},
 		},
 		{
+			name: "log-selector-unmatched-telemetry",
+			push: env.PushContext,
+			proxy: &model.Proxy{
+				ConfigNamespace: "default",
+				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
+				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-with-server-accesslog-filter"}},
+			},
+			tcp:   &tcp.TcpProxy{},
+			class: networking.ListenerClassSidecarOutbound,
+			expected: &tcp.TcpProxy{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultOut)},
+					},
+				},
+			},
+		},
+		{
 			name: "without-telemetry",
 			push: env.PushContext,
 			proxy: &model.Proxy{
@@ -367,6 +437,18 @@ func TestSetTCPAccessLog(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name: "disable-accesslog",
+			push: env.PushContext,
+			proxy: &model.Proxy{
+				ConfigNamespace: "default",
+				Labels:          map[string]string{"app": "test-disable-accesslog"},
+				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-disable-accesslog"}},
+			},
+			tcp:      &tcp.TcpProxy{},
+			class:    networking.ListenerClassSidecarInbound,
+			expected: &tcp.TcpProxy{},
 		},
 	}
 
@@ -411,6 +493,25 @@ func TestSetHttpAccessLog(t *testing.T) {
 			},
 		},
 		{
+			name: "log-selector-unmatched-telemetry",
+			push: env.PushContext,
+			proxy: &model.Proxy{
+				ConfigNamespace: "default",
+				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
+				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-with-server-accesslog-filter"}},
+			},
+			hcm:   &hcm.HttpConnectionManager{},
+			class: networking.ListenerClassSidecarOutbound,
+			expected: &hcm.HttpConnectionManager{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultOut)},
+					},
+				},
+			},
+		},
+		{
 			name: "without-telemetry",
 			push: env.PushContext,
 			proxy: &model.Proxy{
@@ -428,6 +529,18 @@ func TestSetHttpAccessLog(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name: "disable-accesslog",
+			push: env.PushContext,
+			proxy: &model.Proxy{
+				ConfigNamespace: "default",
+				Labels:          map[string]string{"app": "test-disable-accesslog"},
+				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-disable-accesslog"}},
+			},
+			hcm:      &hcm.HttpConnectionManager{},
+			class:    networking.ListenerClassSidecarInbound,
+			expected: &hcm.HttpConnectionManager{},
 		},
 	}
 
@@ -477,6 +590,30 @@ func TestSetListenerAccessLog(t *testing.T) {
 			},
 		},
 		{
+			name: "log-selector-unmatched-telemetry",
+			push: env.PushContext,
+			proxy: &model.Proxy{
+				ConfigNamespace: "default",
+				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
+				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-with-server-accesslog-filter"}},
+			},
+			listener: &listener.Listener{},
+			class:    networking.ListenerClassSidecarOutbound,
+			expected: &listener.Listener{
+				AccessLog: []*accesslog.AccessLog{
+					{
+						Name: wellknown.FileAccessLog,
+						Filter: &accesslog.AccessLogFilter{
+							FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
+								ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"NR"}},
+							},
+						},
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultOut)},
+					},
+				},
+			},
+		},
+		{
 			name: "without-telemetry",
 			push: env.PushContext,
 			proxy: &model.Proxy{
@@ -499,6 +636,18 @@ func TestSetListenerAccessLog(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name: "disable-accesslog",
+			push: env.PushContext,
+			proxy: &model.Proxy{
+				ConfigNamespace: "default",
+				Labels:          map[string]string{"app": "test-disable-accesslog"},
+				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-disable-accesslog"}},
+			},
+			listener: &listener.Listener{},
+			class:    networking.ListenerClassSidecarInbound,
+			expected: &listener.Listener{},
 		},
 	}
 

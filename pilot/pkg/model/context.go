@@ -352,6 +352,10 @@ type WatchedResource struct {
 	// For Delta Xds, all resources of the TypeUrl that a client has subscribed to.
 	ResourceNames []string
 
+	// Wildcard indicates the subscription is a wildcard subscription. This only applies to types that
+	// allow both wildcard and non-wildcard subscriptions.
+	Wildcard bool
+
 	// NonceSent is the nonce sent in the last sent response. If it is equal with NonceAcked, the
 	// last message has been processed. If empty: we never sent a message of this type.
 	NonceSent string
@@ -621,6 +625,7 @@ type NodeMetadata struct {
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
 	// EnableHBONE, if set, will enable generation of HBONE config.
+	// Note: this only impacts sidecars; ztunnel and waypoint proxy unconditionally use HBONE.
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
 
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
@@ -688,6 +693,21 @@ func (node *Proxy) InNetwork(network network.ID) bool {
 // the proxy's cluster id or the given cluster id is unspecified ("").
 func (node *Proxy) InCluster(cluster cluster.ID) bool {
 	return node == nil || identifier.IsSameOrEmpty(cluster.String(), node.Metadata.ClusterID.String())
+}
+
+// IsWaypointProxy returns true if the proxy is acting as a waypoint proxy in an ambient mesh.
+func (node *Proxy) IsWaypointProxy() bool {
+	return node.Type == Waypoint
+}
+
+// IsZTunnel returns true if the proxy is acting as a ztunnel in an ambient mesh.
+func (node *Proxy) IsZTunnel() bool {
+	return node.Type == Ztunnel
+}
+
+// IsAmbient returns true if the proxy is acting as either a ztunnel or a waypoint proxy in an ambient mesh.
+func (node *Proxy) IsAmbient() bool {
+	return node.IsWaypointProxy() || node.IsZTunnel()
 }
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
@@ -777,9 +797,15 @@ const (
 
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
+
+	// Waypoint type is used for waypoint proxies
+	Waypoint NodeType = "waypoint"
+
+	// Ztunnel type is used for node proxies (ztunnel)
+	Ztunnel NodeType = "ztunnel"
 )
 
-var NodeTypes = [...]NodeType{SidecarProxy, Router}
+var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
 
 // IPMode represents the IP mode of proxy.
 type IPMode int
@@ -794,7 +820,7 @@ const (
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
-	case SidecarProxy, Router:
+	case SidecarProxy, Router, Waypoint, Ztunnel:
 		return true
 	default:
 		return false
@@ -825,9 +851,10 @@ func (node *Proxy) ServiceNode() string {
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	sidecarScope := node.SidecarScope
 
-	if node.Type == SidecarProxy {
+	switch node.Type {
+	case SidecarProxy:
 		node.SidecarScope = ps.getSidecarScope(node, node.Labels)
-	} else {
+	case Router, Waypoint:
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = ps.getSidecarScope(node, nil)
 	}
@@ -1180,7 +1207,23 @@ func (node *Proxy) FuzzValidate() bool {
 }
 
 func (node *Proxy) EnableHBONE() bool {
-	return features.EnableHBONE && bool(node.Metadata.EnableHBONE)
+	return node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE))
+}
+
+// WaypointScope is either an entire namespace or an individual service account
+// in the namespace. This setting dictates the upstream TLS verification
+// strategy, depending on the binding of the waypoints to its backend
+// workloads.
+type WaypointScope struct {
+	Namespace      string
+	ServiceAccount string // optional
+}
+
+func (node *Proxy) WaypointScope() WaypointScope {
+	return WaypointScope{
+		Namespace:      node.ConfigNamespace,
+		ServiceAccount: node.Metadata.Annotations[constants.WaypointServiceAccount],
+	}
 }
 
 type GatewayController interface {

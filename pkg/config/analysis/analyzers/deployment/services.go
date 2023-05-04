@@ -21,12 +21,13 @@ import (
 	core_v1 "k8s.io/api/core/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type ServiceAssociationAnalyzer struct{}
@@ -50,22 +51,26 @@ func (s *ServiceAssociationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "deployment.MultiServiceAnalyzer",
 		Description: "Checks association between services and pods",
-		Inputs: collection.Names{
-			collections.K8SCoreV1Services.Name(),
-			collections.K8SAppsV1Deployments.Name(),
-			collections.K8SCoreV1Namespaces.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Service,
+			gvk.Deployment,
+			gvk.Namespace,
 		},
 	}
 }
 
 func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
-		if util.DeploymentInMesh(r, c) {
+	c.ForEach(gvk.Deployment, func(r *resource.Instance) bool {
+		if !isWaypointDeployment(r) && util.DeploymentInMesh(r, c) {
 			s.analyzeDeploymentPortProtocol(r, c)
 			s.analyzeDeploymentTargetPorts(r, c)
 		}
 		return true
 	})
+}
+
+func isWaypointDeployment(r *resource.Instance) bool {
+	return r.Metadata.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel
 }
 
 // analyzeDeploymentPortProtocol analyzes the specific service mesh deployment
@@ -75,7 +80,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentPortProtocol(r *resource.I
 
 	// If there isn't any matching service, generate message: At least one service is needed.
 	if len(matchingSvcs) == 0 {
-		c.Report(collections.K8SAppsV1Deployments.Name(), msg.NewDeploymentRequiresServiceAssociated(r))
+		c.Report(gvk.Deployment, msg.NewDeploymentRequiresServiceAssociated(r))
 		return
 	}
 
@@ -101,7 +106,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentPortProtocol(r *resource.I
 			}
 
 			// Reporting the message for the deployment, port and conflicting services.
-			c.Report(collections.K8SAppsV1Deployments.Name(), m)
+			c.Report(gvk.Deployment, m)
 		}
 	}
 }
@@ -113,7 +118,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.In
 
 	// If there isn't any matching service, generate message: At least one service is needed.
 	if len(matchingSvcs) == 0 {
-		c.Report(collections.K8SAppsV1Deployments.Name(), msg.NewDeploymentRequiresServiceAssociated(r))
+		c.Report(gvk.Deployment, msg.NewDeploymentRequiresServiceAssociated(r))
 		return
 	}
 
@@ -136,7 +141,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.In
 			}
 
 			// Reporting the message for the deployment, port and conflicting services.
-			c.Report(collections.K8SAppsV1Deployments.Name(), m)
+			c.Report(gvk.Deployment, m)
 		}
 	}
 }
@@ -147,12 +152,12 @@ func (s *ServiceAssociationAnalyzer) findMatchingServices(r *resource.Instance, 
 	d := r.Message.(*appsv1.DeploymentSpec)
 	deploymentNS := r.Metadata.FullName.Namespace.String()
 
-	c.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Service, func(r *resource.Instance) bool {
 		s := r.Message.(*core_v1.ServiceSpec)
 
 		sSelector := klabels.SelectorFromSet(s.Selector)
 		pLabels := klabels.Set(d.Template.Labels)
-		if sSelector.Matches(pLabels) && r.Metadata.FullName.Namespace.String() == deploymentNS {
+		if !sSelector.Empty() && sSelector.Matches(pLabels) && r.Metadata.FullName.Namespace.String() == deploymentNS {
 			matchingSvcs = append(matchingSvcs, ServiceSpecWithName{r.Metadata.FullName.String(), s})
 		}
 

@@ -30,7 +30,7 @@ func TestStartWithError(t *testing.T) {
 
 	inst := server.New()
 	expected := errors.New("fake")
-	inst.RunComponent(func(stop <-chan struct{}) error {
+	inst.RunComponent("fake", func(stop <-chan struct{}) error {
 		return expected
 	})
 
@@ -44,7 +44,7 @@ func TestStartWithNoError(t *testing.T) {
 
 	inst := server.New()
 	c := newFakeComponent(0)
-	inst.RunComponent(c.Run)
+	inst.RunComponent("fake", c.Run)
 
 	stop := newReclosableChannel()
 	t.Cleanup(stop.Close)
@@ -98,12 +98,12 @@ func TestRunComponentsAfterStart(t *testing.T) {
 				component := c.c.Run
 				if c.async {
 					if c.wait {
-						inst.RunComponentAsyncAndWait(component)
+						inst.RunComponentAsyncAndWait("test", component)
 					} else {
-						inst.RunComponentAsync(component)
+						inst.RunComponentAsync("test", component)
 					}
 				} else {
-					inst.RunComponent(component)
+					inst.RunComponent("test", component)
 				}
 			}()
 

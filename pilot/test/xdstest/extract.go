@@ -268,20 +268,22 @@ func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []st
 	unhealthy := []string{}
 	for _, ep := range cla.Endpoints {
 		for _, lb := range ep.LbEndpoints {
+			var addrString string
+			switch lb.GetEndpoint().GetAddress().Address.(type) {
+			case *core.Address_SocketAddress:
+				addrString = fmt.Sprintf("%s:%d",
+					lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue())
+			case *core.Address_Pipe:
+				addrString = lb.GetEndpoint().Address.GetPipe().Path
+			case *core.Address_EnvoyInternalAddress:
+				internalAddr := lb.GetEndpoint().Address.GetEnvoyInternalAddress().GetServerListenerName()
+				destinationAddr := lb.GetMetadata().GetFilterMetadata()["tunnel"].GetFields()["destination"].GetStringValue()
+				addrString = fmt.Sprintf("%s;%s", internalAddr, destinationAddr)
+			}
 			if lb.HealthStatus == core.HealthStatus_HEALTHY {
-				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					healthy = append(healthy, fmt.Sprintf("%s:%d",
-						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
-				} else {
-					healthy = append(healthy, lb.GetEndpoint().Address.GetPipe().Path)
-				}
+				healthy = append(healthy, addrString)
 			} else {
-				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					unhealthy = append(unhealthy, fmt.Sprintf("%s:%d",
-						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
-				} else {
-					unhealthy = append(unhealthy, lb.GetEndpoint().Address.GetPipe().Path)
-				}
+				unhealthy = append(unhealthy, addrString)
 			}
 		}
 	}

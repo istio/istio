@@ -19,13 +19,14 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -34,7 +35,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/mcs"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -67,7 +68,8 @@ type serviceImportCache interface {
 	Run(stop <-chan struct{})
 	HasSynced() bool
 	ImportedServices() []importedService
-	OnCRDEvent(name string)
+	// HasCRDInstalled indicates whether the serviceImport crd has been installed.
+	HasCRDInstalled() bool
 }
 
 // newServiceImportCache creates a new cache of ServiceImport resources in the cluster.
@@ -77,7 +79,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 			Controller:      c,
 			serviceImportCh: make(chan struct{}),
 		}
-		c.AppendCrdHandlers(sic.OnCRDEvent)
+		c.crdWatcher.AddCallBack(sic.onCRDEvent)
 		return sic
 	}
 
@@ -88,9 +90,10 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 // serviceImportCacheImpl reads ServiceImport resources for a single cluster.
 type serviceImportCacheImpl struct {
 	*Controller
-	filteredInformer informer.FilteredSharedIndexInformer
-	serviceImportCh  chan struct{}
-	started          atomic.Bool
+
+	serviceImports  kclient.Untyped
+	serviceImportCh chan struct{}
+	started         atomic.Bool
 }
 
 // onServiceEvent is called when the controller receives an event for the kube Service (i.e. cluster.local).
@@ -132,12 +135,12 @@ func (ic *serviceImportCacheImpl) onServiceEvent(_, curr *model.Service, event m
 		}
 
 		mcsService := ic.genMCSService(curr, mcsHost, vips)
-		ic.addOrUpdateService(nil, nil, mcsService, event, false)
+		ic.addOrUpdateService(nil, mcsService, event, false)
 		return nil
 	})
 }
 
-func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj any, event model.Event) error {
+func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object, event model.Event) error {
 	si := controllers.Extract[*unstructured.Unstructured](obj)
 	if si == nil {
 		return nil
@@ -187,7 +190,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj any, event model.E
 
 	// Always force a rebuild of the endpoint cache in case this import caused
 	// a change to the discoverability policy.
-	ic.addOrUpdateService(nil, nil, mcsService, event, true)
+	ic.addOrUpdateService(nil, mcsService, event, true)
 
 	if needsFullPush {
 		ic.doFullPush(mcsHost, si.GetNamespace())
@@ -198,7 +201,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj any, event model.E
 
 func (ic *serviceImportCacheImpl) updateIPs(mcsService *model.Service, ips []string) (updated bool) {
 	prevIPs := mcsService.ClusterVIPs.GetAddressesFor(ic.Cluster())
-	if !util.StringSliceEqual(prevIPs, ips) {
+	if !slices.Equal(prevIPs, ips) {
 		// Update the VIPs
 		mcsService.ClusterVIPs.SetAddressesFor(ic.Cluster(), ips)
 		updated = true
@@ -247,7 +250,7 @@ func (ic *serviceImportCacheImpl) genMCSService(realService *model.Service, mcsH
 }
 
 func (ic *serviceImportCacheImpl) getClusterSetIPs(name types.NamespacedName) []string {
-	si, _, _ := ic.filteredInformer.GetIndexer().GetByKey(name.String())
+	si := ic.serviceImports.Get(name.Name, name.Namespace)
 	if si != nil {
 		return GetServiceImportIPs(si.(*unstructured.Unstructured))
 	}
@@ -258,10 +261,7 @@ func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
 	if !ic.started.Load() {
 		return nil
 	}
-	sis, err := ic.filteredInformer.List(metav1.NamespaceAll)
-	if err != nil {
-		return make([]importedService, 0)
-	}
+	sis := ic.serviceImports.List(metav1.NamespaceAll, klabels.Everything())
 
 	// Iterate over the ServiceImport resources in this cluster.
 	out := make([]importedService, 0, len(sis))
@@ -296,31 +296,31 @@ func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
 		return
 	}
 
-	dInformer := ic.client.DynamicInformer().ForResource(mcs.ServiceImportGVR)
-	_ = dInformer.Informer().SetTransform(kubelib.StripUnusedFields)
-	if ic.opts.DiscoveryNamespacesFilter != nil {
-		ic.filteredInformer = informer.NewFilteredSharedIndexInformer(ic.opts.DiscoveryNamespacesFilter.Filter, dInformer.Informer())
-	} else {
-		ic.filteredInformer = informer.NewFilteredSharedIndexInformer(nil, dInformer.Informer())
-	}
-
+	dInformer := ic.client.DynamicInformer().ForResource(mcs.ServiceImportGVR).Informer()
+	ic.serviceImports = kclient.NewUntyped(ic.client, dInformer, kclient.Filter{ObjectFilter: ic.opts.GetFilter()})
 	// Register callbacks for Service events anywhere in the mesh.
 	ic.opts.MeshServiceController.AppendServiceHandlerForCluster(ic.Cluster(), ic.onServiceEvent)
 	// Register callbacks for ServiceImport events in this cluster only.
-	ic.registerHandlers(ic.filteredInformer, "ServiceImports", ic.onServiceImportEvent, nil)
-	go ic.filteredInformer.Run(stop)
-	kubelib.WaitForCacheSync(stop, ic.filteredInformer.HasSynced)
+	registerHandlers(ic.Controller, ic.serviceImports, "ServiceImports", ic.onServiceImportEvent, nil)
+	go dInformer.Run(stop)
+	kubelib.WaitForCacheSync(stop, ic.serviceImports.HasSynced)
 	ic.started.Store(true)
 }
 
 func (ic *serviceImportCacheImpl) HasSynced() bool {
-	// This is called during the initiation of istiod.
-	// 1. If MCS CRD not installed, always return true.
-	// 2. TODO: If MCS CRD installed, we need to wait informer cache synced and also process each item.
-	return true
+	return ic.started.Load()
 }
 
-func (ic *serviceImportCacheImpl) OnCRDEvent(name string) {
+func (ic *serviceImportCacheImpl) HasCRDInstalled() bool {
+	select {
+	case <-ic.serviceImportCh:
+		return true
+	default:
+		return false
+	}
+}
+
+func (ic *serviceImportCacheImpl) onCRDEvent(name string) {
 	if name == mcs.ServiceImportGVR.Resource+"."+mcs.ServiceImportGVR.Group {
 		select {
 		case <-ic.serviceImportCh: // channel already closed
@@ -346,4 +346,6 @@ func (c disabledServiceImportCache) ImportedServices() []importedService {
 	return nil
 }
 
-func (c disabledServiceImportCache) OnCRDEvent(name string) {}
+func (c disabledServiceImportCache) HasCRDInstalled() bool {
+	return false
+}

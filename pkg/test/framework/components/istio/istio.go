@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -95,6 +96,10 @@ type Instance interface {
 	RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.AddrPort, error)
 	// CreateRemoteSecret on the cluster with the given options.
 	CreateRemoteSecret(ctx resource.Context, c cluster.Cluster, opts ...string) (string, error)
+	// InternalDiscoveryAddressFor returns an internal (port-forwarded) address for an Istiod instance in the
+	// cluster.
+	InternalDiscoveryAddressFor(cluster cluster.Cluster) (string, error)
+
 	// Values returns the operator values for the installed control plane.
 	Values() (OperatorValues, error)
 	ValuesOrFail(test.Failer) OperatorValues
@@ -107,6 +112,8 @@ type Instance interface {
 	// PatchMeshConfig with the given patch yaml.
 	PatchMeshConfig(resource.Context, string) error
 	PatchMeshConfigOrFail(resource.Context, test.Failer, string)
+	UpdateInjectionConfig(resource.Context, func(*inject.Config) error, cleanup.Strategy) error
+	InjectionConfig() (*inject.Config, error)
 }
 
 // SetupConfigFn is a setup function that specifies the overrides of the configuration to deploy Istio.

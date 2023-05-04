@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -27,7 +28,7 @@ import (
 
 type analyzer struct {
 	name   string
-	inputs collection.Names
+	inputs []config.GroupVersionKind
 	ran    bool
 }
 
@@ -46,11 +47,11 @@ func (a *analyzer) Analyze(Context) {
 
 type context struct{}
 
-func (ctx *context) Report(collection.Name, diag.Message)                       {}
-func (ctx *context) Find(collection.Name, resource.FullName) *resource.Instance { return nil }
-func (ctx *context) Exists(collection.Name, resource.FullName) bool             { return false }
-func (ctx *context) ForEach(collection.Name, IteratorFn)                        {}
-func (ctx *context) Canceled() bool                                             { return false }
+func (ctx *context) Report(config.GroupVersionKind, diag.Message)                       {}
+func (ctx *context) Find(config.GroupVersionKind, resource.FullName) *resource.Instance { return nil }
+func (ctx *context) Exists(config.GroupVersionKind, resource.FullName) bool             { return false }
+func (ctx *context) ForEach(config.GroupVersionKind, IteratorFn)                        {}
+func (ctx *context) Canceled() bool                                                     { return false }
 
 func TestCombinedAnalyzer(t *testing.T) {
 	g := NewWithT(t)
@@ -60,22 +61,18 @@ func TestCombinedAnalyzer(t *testing.T) {
 	col3 := newSchema("col3")
 	col4 := newSchema("col4")
 
-	a1 := &analyzer{name: "a1", inputs: collection.Names{col1.Name()}}
-	a2 := &analyzer{name: "a2", inputs: collection.Names{col2.Name()}}
-	a3 := &analyzer{name: "a3", inputs: collection.Names{col3.Name()}}
-	a4 := &analyzer{name: "a4", inputs: collection.Names{col4.Name()}}
+	a1 := &analyzer{name: "a1", inputs: []config.GroupVersionKind{col1.GroupVersionKind()}}
+	a2 := &analyzer{name: "a2", inputs: []config.GroupVersionKind{col2.GroupVersionKind()}}
+	a3 := &analyzer{name: "a3", inputs: []config.GroupVersionKind{col3.GroupVersionKind()}}
+	a4 := &analyzer{name: "a4", inputs: []config.GroupVersionKind{col4.GroupVersionKind()}}
 
 	a := Combine("combined", a1, a2, a3, a4)
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Name(), col2.Name(), col3.Name(), col4.Name()))
+	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.GroupVersionKind(), col2.GroupVersionKind(), col3.GroupVersionKind(), col4.GroupVersionKind()))
 
-	avalableSchemas := collection.NewSchemasBuilder()
-	avalableSchemas.Add(&testSchemaImpl{col1.Name()})
-	avalableSchemas.Add(&testSchemaImpl{col2.Name()})
-
-	removed := a.RemoveSkipped(avalableSchemas.Build())
+	removed := a.RemoveSkipped(collection.NewSchemasBuilder().MustAdd(col1).MustAdd(col2).Build())
 
 	g.Expect(removed).To(ConsistOf(a3.Metadata().Name, a4.Metadata().Name))
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Name(), col2.Name()))
+	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.GroupVersionKind(), col2.GroupVersionKind()))
 
 	a.Analyze(&context{})
 
@@ -85,47 +82,11 @@ func TestCombinedAnalyzer(t *testing.T) {
 	g.Expect(a4.ran).To(BeFalse())
 }
 
-func newSchema(name string) collection.Schema {
-	return collection.Builder{
-		Name: name,
-		Resource: resource2.Builder{
-			Kind:         name,
-			Plural:       name + "s",
-			ProtoPackage: "github.com/gogo/protobuf/types",
-			Proto:        "google.protobuf.Empty",
-		}.MustBuild(),
+func newSchema(name string) resource2.Schema {
+	return resource2.Builder{
+		Kind:         name,
+		Plural:       name + "s",
+		ProtoPackage: "github.com/gogo/protobuf/types",
+		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
-}
-
-type testSchemaImpl struct {
-	name collection.Name
-}
-
-// String interface method implementation.
-func (s *testSchemaImpl) String() string {
-	return string(s.Name())
-}
-
-func (s *testSchemaImpl) Name() collection.Name {
-	return s.name
-}
-
-func (s *testSchemaImpl) VariableName() string {
-	panic("implement me")
-}
-
-func (s *testSchemaImpl) Resource() resource2.Schema {
-	panic("implement me")
-}
-
-func (s *testSchemaImpl) IsDisabled() bool {
-	panic("implement me")
-}
-
-func (s *testSchemaImpl) Disable() collection.Schema {
-	panic("implement me")
-}
-
-func (s *testSchemaImpl) Equal(o collection.Schema) bool {
-	panic("implement me")
 }

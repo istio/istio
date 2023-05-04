@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"istio.io/pkg/log"
@@ -27,14 +28,20 @@ import (
 type Task func() error
 
 // Instance of work tickets processed using a rate-limiting loop
-type Instance interface {
+type baseInstance interface {
 	// Push a task.
 	Push(task Task)
 	// Run the loop until a signal on the channel
 	Run(<-chan struct{})
-
 	// Closed returns a chan that will be signaled when the Instance has stopped processing tasks.
 	Closed() <-chan struct{}
+}
+
+type Instance interface {
+	baseInstance
+	// HasSynced returns true once the queue has synced.
+	// Syncing indicates that all items in the queue *before* Run was called have been processed.
+	HasSynced() bool
 }
 
 type queueImpl struct {
@@ -44,7 +51,9 @@ type queueImpl struct {
 	closing   bool
 	closed    chan struct{}
 	closeOnce *sync.Once
-	id        string
+	// initialSync indicates the queue has initially "synced".
+	initialSync *atomic.Bool
+	id          string
 }
 
 // NewQueue instantiates a queue with a processing function
@@ -54,13 +63,14 @@ func NewQueue(errorDelay time.Duration) Instance {
 
 func NewQueueWithID(errorDelay time.Duration, name string) Instance {
 	return &queueImpl{
-		delay:     errorDelay,
-		tasks:     make([]Task, 0),
-		closing:   false,
-		closed:    make(chan struct{}),
-		closeOnce: &sync.Once{},
-		cond:      sync.NewCond(&sync.Mutex{}),
-		id:        name,
+		delay:       errorDelay,
+		tasks:       make([]Task, 0),
+		closing:     false,
+		closed:      make(chan struct{}),
+		closeOnce:   &sync.Once{},
+		initialSync: atomic.NewBool(false),
+		cond:        sync.NewCond(&sync.Mutex{}),
+		id:          name,
 	}
 }
 
@@ -87,7 +97,7 @@ func (q *queueImpl) get() (task Task, shutdown bool) {
 		q.cond.Wait()
 	}
 
-	if q.closing {
+	if q.closing && len(q.tasks) == 0 {
 		// We must be shutting down.
 		return nil, true
 	}
@@ -116,6 +126,10 @@ func (q *queueImpl) processNextItem() bool {
 	return true
 }
 
+func (q *queueImpl) HasSynced() bool {
+	return q.initialSync.Load()
+}
+
 func (q *queueImpl) Run(stop <-chan struct{}) {
 	log.Debugf("started queue %s", q.id)
 	defer func() {
@@ -132,6 +146,10 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 		q.cond.L.Unlock()
 	}()
 
+	q.Push(func() error {
+		q.initialSync.Store(true)
+		return nil
+	})
 	for q.processNextItem() {
 	}
 }
