@@ -151,10 +151,12 @@ type HealthStatus = v1alpha1.IstioCondition
 // NewController create a controller which manages workload lifecycle and health status.
 func NewController(store model.ConfigStoreController, instanceID string, maxConnAge time.Duration) *Controller {
 	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
-		maxConnAge := maxConnAge + maxConnAge/2
-		// if overflow, set it to max int64
-		if maxConnAge < 0 {
-			maxConnAge = time.Duration(math.MaxInt64)
+		if maxConnAge != math.MaxInt64 {
+			maxConnAge += maxConnAge / 2
+			// if overflow, set it to max int64
+			if maxConnAge < 0 {
+				maxConnAge = time.Duration(math.MaxInt64)
+			}
 		}
 		c := &Controller{
 			instanceID:       instanceID,
@@ -357,7 +359,7 @@ func (c *Controller) unregisterWorkload(item any) error {
 			return nil
 		}
 		if c.shouldCleanupEntry(*wle) {
-			c.cleanupEntry(*wle)
+			c.cleanupEntry(*wle, false)
 		}
 		return nil
 	}, features.WorkloadEntryCleanupGracePeriod)
@@ -430,7 +432,7 @@ func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 				wle := wle
 				if c.shouldCleanupEntry(wle) {
 					c.cleanupQueue.Push(func() error {
-						c.cleanupEntry(wle)
+						c.cleanupEntry(wle, true)
 						return nil
 					})
 				}
@@ -456,8 +458,7 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 	if connTime != "" {
 		// handle workload leak when both workload/pilot down at the same time before pilot has a chance to set disconnTime
 		connAt, err := time.Parse(timeFormat, connTime)
-		// if it has been 1.5*maxConnectionAge since workload connected, should delete it.
-		if err == nil && uint64(time.Since(connAt)) > uint64(c.maxConnectionAge)+uint64(c.maxConnectionAge/2) {
+		if err == nil && uint64(time.Since(connAt)) > uint64(c.maxConnectionAge) {
 			return true
 		}
 		return false
@@ -477,7 +478,7 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 	return true
 }
 
-func (c *Controller) cleanupEntry(wle config.Config) {
+func (c *Controller) cleanupEntry(wle config.Config, periodic bool) {
 	if err := c.cleanupLimit.Wait(context.TODO()); err != nil {
 		log.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
 		return
@@ -488,7 +489,7 @@ func (c *Controller) cleanupEntry(wle config.Config) {
 		return
 	}
 	autoRegistrationDeletes.Increment()
-	log.Infof("cleaned up auto-registered WorkloadEntry %s/%s", wle.Namespace, wle.Name)
+	log.Infof("cleaned up auto-registered WorkloadEntry %s/%s periodic:%v", wle.Namespace, wle.Name, periodic)
 }
 
 func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
