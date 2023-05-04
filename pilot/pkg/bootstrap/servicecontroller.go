@@ -58,7 +58,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	}
 
 	// Defer running of the service controllers.
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("service controllers", func(stop <-chan struct{}) error {
 		go serviceControllers.Run(stop)
 		return nil
 	})

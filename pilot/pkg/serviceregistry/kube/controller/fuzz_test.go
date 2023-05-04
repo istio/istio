@@ -37,12 +37,7 @@ func FuzzKubeController(f *testing.F) {
 		controller.pods.onEvent(nil, p, model.EventAdd)
 		s := fuzz.Struct[*corev1.Service](fg)
 		controller.onServiceEvent(nil, s, model.EventAdd)
-		if fco.Mode == EndpointSliceOnly {
-			e := fuzz.Struct[*v1.EndpointSlice](fg)
-			controller.endpoints.(*endpointSliceController).onEvent(nil, e, model.EventAdd)
-		} else {
-			e := fuzz.Struct[*corev1.Endpoints](fg)
-			controller.endpoints.(*endpointsController).onEvent(nil, e, model.EventAdd)
-		}
+		e := fuzz.Struct[*v1.EndpointSlice](fg)
+		controller.endpoints.onEvent(nil, e, model.EventAdd)
 	})
 }

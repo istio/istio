@@ -218,8 +218,8 @@ LINUX_AGENT_BINARIES:=./cni/cmd/istio-cni \
 
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES) $(LINUX_AGENT_BINARIES)
 
-# List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
+# List of binaries that have their size tested
+RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl bug-report envoy ztunnel
 
 .PHONY: build
 build: depend ## Builds all go binaries.
@@ -372,7 +372,7 @@ ${TARGET_OUT}/release/_istioctl: ${LOCAL_OUT}/istioctl
 
 .PHONY: binaries-test
 binaries-test:
-	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${TARGET_OUT} --binaries="$(RELEASE_BINARIES)"
+	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${TARGET_OUT} --binaries="$(RELEASE_SIZE_TEST_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all

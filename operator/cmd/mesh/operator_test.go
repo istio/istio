@@ -170,9 +170,7 @@ func TestOperatorInit(t *testing.T) {
 }
 
 func MockKubernetesClients(_, _ string, _ clog.Logger) (kube.CLIClient, client.Client, error) {
-	extendedClient = kube.MockClient{
-		Interface: fake.NewSimpleClientset(),
-	}
+	extendedClient = kube.NewFakeClient()
 	kubeClient, _ = client.New(&rest.Config{}, client.Options{})
 	return extendedClient, kubeClient, nil
 }

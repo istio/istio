@@ -191,6 +191,9 @@ type Options struct {
 	// when generating private keys. Currently only ECDSA is supported.
 	ECCSigAlg string
 
+	// The type of curve to use when generating private keys with ECC. Currently only ECDSA is supported.
+	ECCCurve string
+
 	// FileMountedCerts indicates whether the proxy is using file
 	// mounted certs created by a foreign CA. Refresh is managed by the external
 	// CA, by updating the Secret or VM file. We will watch the file for changes

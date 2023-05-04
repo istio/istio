@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config/constants"
@@ -195,12 +194,6 @@ var (
 		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
 	).Get()
 
-	EnableWasmTelemetry = env.Register(
-		"ENABLE_WASM_TELEMETRY",
-		false,
-		"If enabled, Wasm-based telemetry will be enabled.",
-	).Get()
-
 	ScopeGatewayToNamespace = env.Register(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,
@@ -366,18 +359,6 @@ var (
 
 	JwtPolicy = env.Register("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.").Get()
-
-	// Default request timeout for virtual services if a timeout is not configured in virtual service. It defaults to zero
-	// which disables timeout when it is not configured, to preserve the current behavior.
-	defaultRequestTimeoutVar = env.Register(
-		"ISTIO_DEFAULT_REQUEST_TIMEOUT",
-		0*time.Millisecond,
-		"Default Http and gRPC Request timeout",
-	)
-
-	DefaultRequestTimeout = func() *durationpb.Duration {
-		return durationpb.New(defaultRequestTimeoutVar.Get())
-	}()
 
 	EnableGatewayAPI = env.Register("PILOT_ENABLE_GATEWAY_API", true,
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
@@ -609,10 +590,6 @@ var (
 	DeltaXds = env.Register("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
-
-	MetadataDiscovery = env.Register("ISTIO_METADATA_DISCOVERY",
-		false,
-		"Enables proxy discovery of the workload metadata to back-fill the telemetry reports.").Get()
 
 	EnableLegacyIstioMutualCredentialName = env.Register("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,

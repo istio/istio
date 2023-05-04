@@ -34,7 +34,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -1092,7 +1091,7 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 // setTimeout sets timeout for a route.
 func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *model.Proxy) {
 	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-	action.Timeout = features.DefaultRequestTimeout
+	action.Timeout = Notimeout
 	if vsTimeout != nil {
 		action.Timeout = vsTimeout
 	}

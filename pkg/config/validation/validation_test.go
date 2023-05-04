@@ -4411,7 +4411,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "", warning: "using deprecated type_url"},
+		}, error: "referenced type unknown (hint: try using the v3 XDS API)"},
 		{name: "deprecated type", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{

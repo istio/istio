@@ -133,9 +133,6 @@ type Options struct {
 	// MeshWatcher observes changes to the mesh config
 	MeshWatcher mesh.Watcher
 
-	// EndpointMode decides what source to use to get endpoint information
-	EndpointMode EndpointMode
-
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32
 
@@ -157,48 +154,6 @@ func (o *Options) GetFilter() namespace.DiscoveryFilter {
 		return o.DiscoveryNamespacesFilter.Filter
 	}
 	return nil
-}
-
-// DetectEndpointMode determines whether to use Endpoints or EndpointSlice based on the
-// feature flag and/or Kubernetes version
-func DetectEndpointMode(kubeClient kubelib.Client) EndpointMode {
-	useEndpointslice, ok := features.EnableEndpointSliceController()
-
-	// we have a client, and flag wasn't set explicitly, auto-detect
-	if kubeClient != nil && !ok && !kubelib.IsLessThanVersion(kubeClient, 21) {
-		useEndpointslice = true
-	}
-
-	if useEndpointslice {
-		return EndpointSliceOnly
-	}
-	return EndpointsOnly
-}
-
-// EndpointMode decides what source to use to get endpoint information
-type EndpointMode int
-
-const (
-	// EndpointsOnly type will use only Kubernetes Endpoints
-	EndpointsOnly EndpointMode = iota
-
-	// EndpointSliceOnly type will use only Kubernetes EndpointSlices
-	EndpointSliceOnly
-
-	// TODO: add other modes. Likely want a mode with Endpoints+EndpointSlices that are not controlled by
-	// Kubernetes Controller (e.g. made by user and not duplicated with Endpoints), or a mode with both that
-	// does deduping. Simply doing both won't work for now, since not all Kubernetes components support EndpointSlice.
-)
-
-var EndpointModes = []EndpointMode{EndpointsOnly, EndpointSliceOnly}
-
-var EndpointModeNames = map[EndpointMode]string{
-	EndpointsOnly:     "EndpointsOnly",
-	EndpointSliceOnly: "EndpointSliceOnly",
-}
-
-func (m EndpointMode) String() string {
-	return EndpointModeNames[m]
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -231,7 +186,7 @@ type Controller struct {
 	namespaces kclient.Client[*v1.Namespace]
 	services   kclient.Client[*v1.Service]
 
-	endpoints kubeEndpointsController
+	endpoints *endpointSliceController
 
 	// Used to watch node accessible from remote cluster.
 	// In multi-cluster(shared control plane multi-networks) scenario, ingress gateway service can be of nodePort type.
@@ -322,15 +277,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	registerHandlers[*v1.Service](c, c.services, "Services", c.onServiceEvent, nil)
 
-	switch options.EndpointMode {
-	case EndpointSliceOnly:
-		c.endpoints = newEndpointSliceController(c)
-	default: // nolint: gocritic
-		log.Errorf("unknown endpoints mode: %v", options.EndpointMode)
-		fallthrough
-	case EndpointsOnly:
-		c.endpoints = newEndpointsController(c)
-	}
+	c.endpoints = newEndpointSliceController(c)
 
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodes = kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: kubelib.StripNodeUnusedFields})
@@ -637,7 +584,7 @@ func (c *Controller) HasSynced() bool {
 func (c *Controller) informersSynced() bool {
 	if !c.namespaces.HasSynced() ||
 		!c.services.HasSynced() ||
-		!c.endpoints.HasSynced() ||
+		!c.endpoints.slices.HasSynced() ||
 		!c.pods.pods.HasSynced() ||
 		!c.nodes.HasSynced() ||
 		(c.crdWatcher != nil && !c.crdWatcher.HasSynced()) {
@@ -752,7 +699,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// First get k8s standard service instances and the workload entry instances
-	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort)
+	outInstances := c.endpoints.InstancesByPort(svc, reqSvcPort)
 	outInstances = append(outInstances, c.serviceInstancesFromWorkloadInstances(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
@@ -914,7 +861,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 				return out
 			}
 			// 2. Headless service without selector
-			return c.endpoints.GetProxyServiceInstances(c, proxy)
+			return c.endpoints.GetProxyServiceInstances(proxy)
 		}
 
 		// 3. The pod is not present when this is called

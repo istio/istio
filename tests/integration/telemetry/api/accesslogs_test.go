@@ -160,7 +160,7 @@ func runAccessLogsTests(t framework.TestContext, expectLogs bool) {
 				return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
 			}
 			return nil
-		}, retry.Timeout(time.Second*10))
+		}, retry.Timeout(framework.TelemetryRetryTimeout))
 		if err != nil {
 			t.Fatalf("expected logs but got nil, err: %v", err)
 		}
@@ -233,7 +233,7 @@ func runAccessLogFilterTests(t framework.TestContext, expectLogs bool) {
 				return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
 			}
 			return nil
-		}, retry.Timeout(time.Second*10))
+		}, retry.Timeout(framework.TelemetryRetryTimeout))
 		if err != nil {
 			t.Fatalf("expected logs but got nil, err: %v", err)
 		}
@@ -292,7 +292,7 @@ func runAccessLogModeTests(t framework.TestContext, exceptClientLog, exceptServe
 		}
 
 		return nil
-	}, retry.Timeout(time.Second*10))
+	}, retry.Timeout(framework.TelemetryRetryTimeout))
 	if err != nil {
 		t.Fatalf("expected logs but got err: %v", err)
 	}

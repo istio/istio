@@ -133,43 +133,6 @@ func getPodServices(allServices []*v1.Service, pod *v1.Pod) []*v1.Service {
 	return services
 }
 
-func portsEqual(a, b []v1.EndpointPort) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i].Name != b[i].Name || a[i].Port != b[i].Port || a[i].Protocol != b[i].Protocol ||
-			ptrValueOrEmpty(a[i].AppProtocol) != ptrValueOrEmpty(b[i].AppProtocol) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func addressesEqual(a, b []v1.EndpointAddress) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i].IP != b[i].IP || a[i].Hostname != b[i].Hostname ||
-			ptrValueOrEmpty(a[i].NodeName) != ptrValueOrEmpty(b[i].NodeName) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func ptrValueOrEmpty(ptr *string) string {
-	if ptr != nil {
-		return *ptr
-	}
-	return ""
-}
-
 func getNodeSelectorsForService(svc *v1.Service) labels.Instance {
 	if nodeSelector := svc.Annotations[kube.NodeSelectorAnnotation]; nodeSelector != "" {
 		var nodeSelectorKV map[string]string

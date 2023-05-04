@@ -222,8 +222,9 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 // nolint: lll
 func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string, _ string) (kube.CLIClient, error) {
 	outFactory := func(_, _ string, _ string) (kube.CLIClient, error) {
-		return kube.MockClient{
-			Results: testResults,
+		return MockClient{
+			CLIClient: kube.NewFakeClient(),
+			Results:   testResults,
 		}, nil
 	}
 
@@ -232,8 +233,9 @@ func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconf
 
 func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kube.CLIClient, error) {
 	outFactory := func(_, _ string) (kube.CLIClient, error) {
-		return kube.MockClient{
-			Results: testResults,
+		return MockClient{
+			CLIClient: kube.NewFakeClient(),
+			Results:   testResults,
 		}, nil
 	}
 

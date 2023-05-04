@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -565,41 +564,6 @@ func TestIstiodCipherSuites(t *testing.T) {
 				close(stop)
 				s.WaitUntilCompletion()
 			}()
-
-			// nolint: gosec // test only code
-			httpsReadyClient := &http.Client{
-				Timeout: time.Second,
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-						CipherSuites:       c.clientCipherSuites,
-						MinVersion:         tls.VersionTLS12,
-						MaxVersion:         tls.VersionTLS12,
-					},
-				},
-			}
-
-			retry.UntilSuccessOrFail(t, func() error {
-				req := &http.Request{
-					Method: http.MethodGet,
-					URL: &url.URL{
-						Scheme: "https",
-						Host:   s.httpsServer.Addr,
-						Path:   HTTPSHandlerReadyPath,
-					},
-				}
-				response, err := httpsReadyClient.Do(req)
-				if c.expectSuccess && err != nil {
-					return fmt.Errorf("expect success but got err %v", err)
-				}
-				if !c.expectSuccess && err == nil {
-					return fmt.Errorf("expect failure but succeeded")
-				}
-				if response != nil {
-					response.Body.Close()
-				}
-				return nil
-			})
 		})
 	}
 }
