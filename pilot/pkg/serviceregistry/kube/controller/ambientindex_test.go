@@ -184,7 +184,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertEvent("testnetwork/127.0.0.3")
 
 	// Non-existent IP should have no response
-	assertAddresses("10.0.0.1")
+	assertAddresses("testnetwork/10.0.0.1")
 	fx.Clear()
 
 	createService(controller, "svc1", "ns1",
@@ -195,20 +195,20 @@ func TestAmbientIndex(t *testing.T) {
 	assertAddresses("", "name1", "name2", "name3", "svc1")
 	assertAddresses("testnetwork/127.0.0.1", "name1")
 	// Now we should be able to look up a VIP as well
-	assertAddresses("10.0.0.1", "name1", "name2", "svc1")
+	assertAddresses("testnetwork/10.0.0.1", "name1", "name2", "svc1")
 	// We should get an event for the new Service and the two *Pod* IPs impacted
-	assertEvent("10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2")
+	assertEvent("testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2")
 
 	// Add a new pod to the service, we should see it
 	addPods("127.0.0.4", "name4", "sa1", map[string]string{"app": "a"}, nil)
 	assertAddresses("", "name1", "name2", "name3", "name4", "svc1")
-	assertAddresses("10.0.0.1", "name1", "name2", "name4", "svc1")
+	assertAddresses("testnetwork/10.0.0.1", "name1", "name2", "name4", "svc1")
 	assertEvent("testnetwork/127.0.0.4")
 
 	// Delete it, should remove from the Service as well
 	deletePod("name4")
 	assertAddresses("", "name1", "name2", "name3", "svc1")
-	assertAddresses("10.0.0.1", "name1", "name2", "svc1")
+	assertAddresses("testnetwork/10.0.0.1", "name1", "name2", "svc1")
 	assertAddresses("testnetwork/127.0.0.4") // Should not be accessible anymore
 	assertEvent("testnetwork/127.0.0.4")
 
@@ -219,27 +219,27 @@ func TestAmbientIndex(t *testing.T) {
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a", "other": "label"}, t)
 	assertAddresses("", "name1", "name2", "name3", "svc1")
-	assertAddresses("10.0.0.1", "name2", "svc1")
+	assertAddresses("testnetwork/10.0.0.1", "name2", "svc1")
 	// Need to update the *old* workload only
-	assertEvent("10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2")
+	assertEvent("testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2")
 	// assertEvent("127.0.0.2") TODO: This should be the event, but we are not efficient here.
 
 	// Update an existing pod into the service
 	addPods("127.0.0.3", "name3", "sa1", map[string]string{"app": "a", "other": "label"}, nil)
 	assertAddresses("", "name1", "name2", "name3", "svc1")
-	assertAddresses("10.0.0.1", "name2", "name3", "svc1")
+	assertAddresses("testnetwork/10.0.0.1", "name2", "name3", "svc1")
 	assertEvent("testnetwork/127.0.0.3")
 
 	// And remove it again
 	addPods("127.0.0.3", "name3", "sa1", map[string]string{"app": "a"}, nil)
 	assertAddresses("", "name1", "name2", "name3", "svc1")
-	assertAddresses("10.0.0.1", "name2", "svc1")
+	assertAddresses("testnetwork/10.0.0.1", "name2", "svc1")
 	assertEvent("testnetwork/127.0.0.3")
 
 	// Delete the service entirely
 	controller.client.Kube().CoreV1().Services("ns1").Delete(context.Background(), "svc1", metav1.DeleteOptions{})
 	assertAddresses("", "name1", "name2", "name3")
-	assertAddresses("10.0.0.1")
+	assertAddresses("testnetwork/10.0.0.1")
 	assertEvent("testnetwork/127.0.0.2")
 	assert.Equal(t, len(controller.ambientIndex.byService), 0)
 
@@ -254,7 +254,7 @@ func TestAmbientIndex(t *testing.T) {
 		[]int32{80}, map[string]string{}, t)
 	assertAddresses("", "name1", "name2", "name3", "waypoint-ns")
 	// All these workloads updated, so push them
-	assertEvent("10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.200", "testnetwork/127.0.0.3")
+	assertEvent("testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.200", "testnetwork/127.0.0.3")
 	// We should now see the waypoint service IP
 	assert.Equal(t, controller.ambientIndex.Lookup("testnetwork/127.0.0.3")[0].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.1").AsSlice())
 
@@ -275,12 +275,12 @@ func TestAmbientIndex(t *testing.T) {
 		map[string]string{},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, t)
-	assertAddresses("10.0.0.1", "name1", "name2", "name3", "svc1")
+	assertAddresses("testnetwork/10.0.0.1", "name1", "name2", "name3", "svc1")
 	// Send update for the workloads as well...
-	assertEvent("10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.200", "testnetwork/127.0.0.201", "testnetwork/127.0.0.3")
+	assertEvent("testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.200", "testnetwork/127.0.0.201", "testnetwork/127.0.0.3")
 	// Make sure Service sees waypoints as well
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("10.0.0.1")[0].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.1").AsSlice())
+		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[0].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.1").AsSlice())
 
 	// Delete a waypoint
 	deletePod("waypoint2-ns")
@@ -291,7 +291,7 @@ func TestAmbientIndex(t *testing.T) {
 		netip.MustParseAddr("10.0.0.1").AsSlice())
 	// As should workload via Service
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("10.0.0.1")[0].Address.GetWorkload().Waypoint.GetAddress().Address,
+		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[0].Address.GetWorkload().Waypoint.GetAddress().Address,
 		netip.MustParseAddr("10.0.0.1").AsSlice())
 
 	addPods("127.0.0.201", "waypoint2-sa", "waypoint-sa",
@@ -319,7 +319,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertEvent("testnetwork/127.0.0.2")
 
 	deleteService("waypoint-ns")
-	assertEvent("svc1.ns1.svc.company.com", "testnetwork/127.0.0.1")
+	assertEvent("svc1.ns1.svc.company.com", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.201", "testnetwork/127.0.0.3")
 
 	addPolicy("global", "istio-system", nil)
 	addPolicy("namespace", "default", nil)
@@ -336,7 +336,7 @@ func TestAmbientIndex(t *testing.T) {
 
 	// Pod not in policy
 	addPods("127.0.0.2", "name2", "sa1", map[string]string{"app": "not-a"}, nil)
-	assertEvent("127.0.0.2")
+	assertEvent("testnetwork/127.0.0.2")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.2")[0].Address.GetWorkload().AuthorizationPolicies,
 		nil)

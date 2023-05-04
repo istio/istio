@@ -846,9 +846,7 @@ func (i AddressInfo) ResourceName() string {
 		name = addr.Workload.Network + "/" + ii.String()
 	case *workloadapi.Address_Service:
 		// TODO GregHanson
-		// handle multiple service addresses
-		ii, _ := netip.AddrFromSlice(addr.Service.Addresses[0].Address)
-		name = addr.Service.Namespace + "/" + ii.String()
+		name = addr.Service.Namespace + "/" + addr.Service.Hostname
 	}
 	return name
 }

@@ -17,6 +17,7 @@ package controller
 import (
 	"fmt"
 	"net/netip"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -75,13 +76,14 @@ func (a *AmbientIndex) Lookup(ip string) []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	// First look at pod...
+	// log.Warnf("gihanson ambient Lookup for %s", ip)
 	if p, f := a.byPod[ip]; f {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
 				Workload: p.Workload,
 			},
 		}
-
+		// log.Warnf("gihanson ambient Lookup found byPod")
 		return []*model.AddressInfo{{Address: addr}}
 	}
 	// Fallback to service. Note: these IP ranges should be non-overlapping
@@ -92,6 +94,7 @@ func (a *AmbientIndex) Lookup(ip string) []*model.AddressInfo {
 				Workload: wl.Workload,
 			},
 		}
+		// log.Warnf("gihanson ambient Lookup found byService")
 		res = append(res, &model.AddressInfo{Address: addr})
 	}
 	if s, exists := a.services[ip]; exists {
@@ -100,7 +103,11 @@ func (a *AmbientIndex) Lookup(ip string) []*model.AddressInfo {
 				Service: s,
 			},
 		}
+		// log.Warnf("gihanson ambient Lookup found services")
 		res = append(res, &model.AddressInfo{Address: addr})
+	}
+	if len(res) == 0 {
+		// log.Warnf("gihanson ambient Lookup found no hits")
 	}
 	return res
 }
@@ -136,7 +143,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 				continue
 			}
 
-			if wl.Waypoint != nil && compareGatewayAddress(wl.Waypoint, addr) {
+			if wl.Waypoint != nil && reflect.DeepEqual(wl.Waypoint, addr) {
 				wl.Waypoint = nil
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -152,7 +159,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 				continue
 			}
 
-			if wl.Waypoint == nil || (wl.Waypoint != nil && !compareGatewayAddress(wl.Waypoint, addr)) {
+			if wl.Waypoint == nil || (wl.Waypoint != nil && !reflect.DeepEqual(wl.Waypoint, addr)) {
 				wl.Waypoint = addr
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -744,7 +751,7 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 			// delete(a.byPod, oldWl.ResourceName())
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
 			for vip := range oldWl.VirtualIps {
-				a.dropWorkloadFromService(vip, oldWl.ResourceName())
+				a.dropWorkloadFromService(oldWl.Network+"/"+vip, oldWl.ResourceName())
 			}
 			log.Debugf("%v: workload removed, pushing", p.Status.PodIP)
 			// TODO: namespace for network?
@@ -762,12 +769,12 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	if oldWl != nil {
 		// For updates, we will drop the VIPs and then add the new ones back. This could be optimized
 		for vip := range oldWl.VirtualIps {
-			a.dropWorkloadFromService(vip, wl.ResourceName())
+			a.dropWorkloadFromService(wl.Network+"/"+vip, wl.ResourceName())
 		}
 	}
 	// Update the VIP indexes as well, as needed
 	for vip := range wl.VirtualIps {
-		a.insertWorkloadToService(vip, wl)
+		a.insertWorkloadToService(wl.Network+"/"+vip, wl)
 	}
 
 	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
@@ -806,7 +813,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		addr := &workloadapi.GatewayAddress{
 			Destination: &workloadapi.GatewayAddress_Address{
 				Address: &workloadapi.NetworkAddress{
-					Network: c.network.String(),
+					Network: c.Network(svcIP.String(), make(labels.Instance, 0)).String(),
 					Address: svcIP.AsSlice(),
 				},
 			},
@@ -814,12 +821,12 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		}
 
 		if isDelete {
-			if compareGatewayAddress(a.waypoints[scope], addr) {
+			if reflect.DeepEqual(a.waypoints[scope], addr) {
 				delete(a.waypoints, scope)
 				updates.Merge(a.updateWaypoint(scope, addr, true, c))
 			}
 		} else {
-			if !compareGatewayAddress(a.waypoints[scope], addr) {
+			if !reflect.DeepEqual(a.waypoints[scope], addr) {
 				a.waypoints[scope] = addr
 				updates.Merge(a.updateWaypoint(scope, addr, false, c))
 			}
@@ -827,6 +834,13 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 	}
 
 	vips := getVIPs(svc)
+	networkVips := make([]networkVip, len(vips))
+	for _, vip := range vips {
+		networkVips = append(networkVips, networkVip{
+			vip:     vip,
+			network: c.Network(vip, make(labels.Instance, 0)).String(),
+		})
+	}
 	pods := c.getPodsInService(svc)
 	var wls []*model.WorkloadInfo
 	for _, p := range pods {
@@ -834,23 +848,23 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		wl := c.extractWorkload(p)
 		if wl != nil {
 			// Update the pod, since it now has new VIP info
-			a.byPod[c.network.String()+"/"+p.Status.PodIP] = wl
+			a.byPod[c.Network(p.Status.PodIP, make(labels.Instance, 0)).String()+"/"+p.Status.PodIP] = wl
 			wls = append(wls, wl)
 		}
 
 	}
 
 	// We send an update for each *workload* IP address previously in the service; they may have changed
-	for _, vip := range vips {
-		for _, wl := range a.byService[vip] {
+	for _, vip := range networkVips {
+		for _, wl := range a.byService[vip.String()] {
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 		}
 	}
 	// Update indexes
 	if isDelete {
-		for _, vip := range vips {
-			delete(a.byService, vip)
-			delete(a.services, vip)
+		for _, vip := range networkVips {
+			delete(a.byService, vip.String())
+			delete(a.services, vip.String())
 		}
 	} else {
 		ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
@@ -860,9 +874,10 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 				TargetPort:  uint32(p.TargetPort.IntVal),
 			})
 		}
-		for _, vip := range vips {
-			a.byService[vip] = wls
-			a.services[vip] = &workloadapi.Service{
+		for _, vip := range networkVips {
+			svcNetwork := c.Network(svcIP.String(), make(labels.Instance, 0)).String()
+			a.byService[vip.String()] = wls
+			ws := &workloadapi.Service{
 				Name:      svc.Name,
 				Namespace: svc.Namespace,
 				Hostname: string(model.ResolveShortnameToFQDN(svc.Name, config.Meta{
@@ -872,17 +887,18 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 				Addresses: []*workloadapi.NetworkAddress{
 					{
 						Address: svcIP.AsSlice(),
-						Network: c.Cluster().String(),
+						Network: svcNetwork,
 					},
 				},
 				Ports: ports,
 			}
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: svcIP.String()})
+			a.services[vip.String()] = ws
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: svcNetwork + "/" + svcIP.String()})
 		}
 	}
 	// Fetch updates again, in case it changed from adding new workloads
-	for _, vip := range vips {
-		for _, wl := range a.byService[vip] {
+	for _, vip := range networkVips {
+		for _, wl := range a.byService[vip.String()] {
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 		}
 	}
@@ -902,32 +918,6 @@ func convertGatewayAddress(gtw *workloadapi.GatewayAddress) string {
 	}
 
 	return fmt.Sprintf("%s:%v", addrValue, gtw.Port)
-}
-
-func compareGatewayAddress(a1, a2 *workloadapi.GatewayAddress) bool {
-	if convertGatewayAddress(a1) == convertGatewayAddress(a2) {
-		return true
-	}
-	return false
-	// if a1 == nil && a2 == nil {
-	// 	return true
-	// }
-	// if (a1 == nil && a2 != nil) || (a1 != nil && a2 == nil) {
-	// 	return false
-	// }
-
-	// if a1.Port != a2.Port {
-	// 	return false
-	// }
-
-	// if !reflect.DeepEqual(a1.GetAddress(), a2.GetAddress()) {
-	// 	return false
-	// }
-
-	// if !reflect.DeepEqual(a1.GetHostname(), a2.GetHostname()) {
-	// 	return false
-	// }
-	// return true
 }
 
 func (c *Controller) getPodsInService(svc *v1.Service) []*v1.Pod {
@@ -1036,6 +1026,15 @@ func parseIP(ip string) []byte {
 		return nil
 	}
 	return addr.AsSlice()
+}
+
+type networkVip struct {
+	network string
+	vip     string
+}
+
+func (n *networkVip) String() string {
+	return n.network + "/" + n.vip
 }
 
 func getVIPs(svc *v1.Service) []string {
