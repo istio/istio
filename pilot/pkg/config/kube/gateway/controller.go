@@ -44,7 +44,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("gateway", "gateway-api controller", 0)
+var log = istiolog.RegisterScope("gateway", "gateway-api controller")
 
 var errUnsupportedOp = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
 

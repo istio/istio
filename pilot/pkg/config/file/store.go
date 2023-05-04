@@ -51,7 +51,7 @@ import (
 
 var (
 	inMemoryKubeNameDiscriminator int64
-	scope                         = log.RegisterScope("file", "File client messages", 0)
+	scope                         = log.RegisterScope("file", "File client messages")
 )
 
 // KubeSource is an in-memory source implementation that can handle K8s style resources.

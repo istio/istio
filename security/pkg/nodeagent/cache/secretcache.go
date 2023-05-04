@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	cacheLog = istiolog.RegisterScope("cache", "cache debugging", 0)
+	cacheLog = istiolog.RegisterScope("cache", "cache debugging")
 	// The total timeout for any credential retrieval process, default value of 10s is used.
 	totalTimeout = time.Second * 10
 )

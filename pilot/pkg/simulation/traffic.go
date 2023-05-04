@@ -43,7 +43,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("simulation", "", 0)
+var log = istiolog.RegisterScope("simulation", "")
 
 type Protocol string
 

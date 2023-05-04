@@ -30,7 +30,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var googleCASClientLog = log.RegisterScope("googlecas", "Google CAS client debugging", 0)
+var googleCASClientLog = log.RegisterScope("googlecas", "Google CAS client debugging")
 
 // GoogleCASClient: Agent side plugin for Google CAS
 type GoogleCASClient struct {

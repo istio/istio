@@ -113,7 +113,7 @@ type HealthCondition struct {
 	condition *v1alpha1.IstioCondition
 }
 
-var log = istiolog.RegisterScope("wle", "wle controller debugging", 0)
+var log = istiolog.RegisterScope("wle", "wle controller debugging")
 
 type Controller struct {
 	instanceID string

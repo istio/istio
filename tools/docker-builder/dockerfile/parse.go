@@ -60,7 +60,7 @@ func BaseDir(dir string) Option {
 	}
 }
 
-var log = istiolog.RegisterScope("dockerfile", "", 0)
+var log = istiolog.RegisterScope("dockerfile", "")
 
 type state struct {
 	args   map[string]string

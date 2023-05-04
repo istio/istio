@@ -29,7 +29,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var rootCertRotatorLog = log.RegisterScope("rootcertrotator", "Self-signed CA root cert rotator log", 0)
+var rootCertRotatorLog = log.RegisterScope("rootcertrotator", "Self-signed CA root cert rotator log")
 
 type SelfSignedCARootCertRotatorConfig struct {
 	certInspector      certutil.CertUtil

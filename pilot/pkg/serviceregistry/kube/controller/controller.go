@@ -70,7 +70,7 @@ const (
 	DefaultNetworkGatewayPort = 15443
 )
 
-var log = istiolog.RegisterScope("kube", "kubernetes service registry controller", 0)
+var log = istiolog.RegisterScope("kube", "kubernetes service registry controller")
 
 var (
 	typeTag  = monitoring.MustCreateLabel("type")

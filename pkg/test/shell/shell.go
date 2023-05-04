@@ -24,7 +24,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("shell", "Shell execution scope", 0)
+var scope = log.RegisterScope("shell", "Shell execution scope")
 
 // Execute the given command.
 func Execute(combinedOutput bool, format string, args ...any) (string, error) {

@@ -23,7 +23,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("retry", "logs for retries", 0)
+var scope = log.RegisterScope("retry", "logs for retries")
 
 const (
 	// DefaultTimeout the default timeout for the entire retry operation
