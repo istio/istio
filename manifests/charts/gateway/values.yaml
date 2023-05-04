@@ -93,4 +93,4 @@ networkGateway: ""
 imagePullSecrets: []
 
 podDisruptionBudget:
-  enabled: true
+  minAvailable: 1
