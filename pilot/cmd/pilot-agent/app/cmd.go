@@ -17,6 +17,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/netip"
 	"os/exec"
 	"strings"
@@ -24,12 +25,14 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
@@ -297,6 +300,9 @@ func initProxy(args []string) (*model.Proxy, error) {
 		proxy.IPAddresses = append(proxy.IPAddresses, localHostIPv4, localHostIPv6)
 	}
 
+	// Apply exclusions from traffic.sidecar.istio.io/excludeInterfaces
+	proxy.IPAddresses = applyExcludeInterfaces(proxy.IPAddresses)
+
 	// After IP addresses are set, let us discover IPMode.
 	proxy.DiscoverIPMode()
 
@@ -309,6 +315,73 @@ func initProxy(args []string) (*model.Proxy, error) {
 	log.WithLabels("ips", proxy.IPAddresses, "type", proxy.Type, "id", proxy.ID, "domain", proxy.DNSDomain).Info("Proxy role")
 
 	return proxy, nil
+}
+
+func applyExcludeInterfaces(ifaces []string) []string {
+	// Get list of excluded interfaces from pod annotation
+	annotations, err := bootstrap.ReadPodAnnotations("")
+	if err != nil {
+		log.Infof("Failed to read pod annotations to find exluded interfaces. Continuing without exclusions. Proxy IPAddresses: %v", ifaces)
+		return ifaces
+	}
+	value, ok := annotations[annotation.SidecarTrafficExcludeInterfaces.Name]
+	if !ok {
+		log.Infof("excludeInterfaces annotation not present. Proxy IPAddresses: %v", ifaces)
+		return ifaces
+	}
+	exclusions := strings.Split(value, ",")
+
+	// Find IP addr of excluded interfaces and add to a map for instant lookup
+	exclusionMap := make(map[string]struct{})
+	for _, ifaceName := range exclusions {
+		iface, err := net.InterfaceByName(ifaceName)
+		if err != nil {
+			log.Warnf("Unable to get interface %s: %s", ifaceName, err.Error())
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			log.Infof("Unable to get IP addr for interface %s: %s", ifaceName, err.Error())
+		}
+
+		for _, addr := range addrs {
+			// Get IP only
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			default:
+				continue
+			}
+
+			// handling ipv4 wrapping in ipv6
+			ipAddr, okay := netip.AddrFromSlice(ip)
+			if !okay {
+				continue
+			}
+			unwrapAddr := ipAddr.Unmap()
+			if !unwrapAddr.IsValid() || unwrapAddr.IsLoopback() || unwrapAddr.IsLinkLocalUnicast() || unwrapAddr.IsLinkLocalMulticast() || unwrapAddr.IsUnspecified() {
+				continue
+			}
+
+			// Add to map
+			exclusionMap[unwrapAddr.String()] = struct{}{}
+		}
+	}
+
+	// Remove excluded IP addresses from the input IP addresses list.
+	var selectedInterfaces []string
+	for _, ip := range ifaces {
+		if _, exists := exclusionMap[ip]; exists {
+			log.Infof("Excluding ip %s from proxy IPaddresses list", ip)
+			continue
+		}
+		selectedInterfaces = append(selectedInterfaces, ip)
+	}
+
+	return selectedInterfaces
 }
 
 func logLimits() {
