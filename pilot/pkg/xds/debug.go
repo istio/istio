@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -143,7 +142,6 @@ type SyncedVersions struct {
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(
 	mux *http.ServeMux,
-	sctl *aggregate.Controller,
 	enableProfiling bool,
 	fetchWebhook func() map[string]string,
 ) *http.ServeMux {

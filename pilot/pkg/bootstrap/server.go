@@ -626,7 +626,7 @@ func (s *Server) initServers(args *PilotArgs) {
 // initIstiodAdminServer initializes monitoring, debug and readiness end points.
 func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]string) error {
 	// Debug Server.
-	internalMux := s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
+	internalMux := s.XDSServer.InitDebug(s.monitoringMux, args.ServerOptions.EnableProfiling, whc)
 	s.internalDebugMux = internalMux
 
 	// Debug handlers are currently added on monitoring mux and readiness mux.
