@@ -177,8 +177,7 @@ type Server struct {
 }
 
 type readinessFlags struct {
-	sidecarInjectorReady atomic.Bool
-
+	sidecarInjectorReady  atomic.Bool
 	configValidationReady atomic.Bool
 }
 
