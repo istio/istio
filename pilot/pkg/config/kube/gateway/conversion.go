@@ -1805,12 +1805,12 @@ func buildSecretReference(ctx ConfigContext, ref k8s.SecretObjectReference, gw c
 	})
 
 	if ctx.Credentials != nil {
-		if key, cert, _, err := ctx.Credentials.GetKeyCertAndStaple(secret.Name, secret.Namespace); err != nil {
+		if certInfo, err := ctx.Credentials.GetCertInfo(secret.Name, secret.Namespace); err != nil {
 			return "", &ConfigError{
 				Reason:  InvalidTLS,
 				Message: fmt.Sprintf("invalid certificate reference %v, %v", objectReferenceString(ref), err),
 			}
-		} else if _, err = tls.X509KeyPair(cert, key); err != nil {
+		} else if _, err = tls.X509KeyPair(certInfo.Cert, certInfo.Key); err != nil {
 			return "", &ConfigError{
 				Reason:  InvalidTLS,
 				Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", objectReferenceString(ref), err),
