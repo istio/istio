@@ -2170,7 +2170,7 @@ func (ps *PushContext) SupportsTunnel(ip string) bool {
 	return false
 }
 
-func (ps *PushContext) WaypointsFor(scope WaypointScope) sets.Set[netip.Addr] {
+func (ps *PushContext) WaypointsFor(scope WaypointScope) []netip.Addr {
 	return ps.ambientIndex.Waypoint(scope)
 }
 

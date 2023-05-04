@@ -45,6 +45,7 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 				"install",
 				"--set", "hub=" + s.Image.Hub,
 				"--set", "tag=" + s.Image.Tag,
+				"--set", "components.cni.enabled=true",
 				"--manifests=" + ManifestPath,
 				"-y",
 			}

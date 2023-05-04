@@ -21,7 +21,7 @@
 set -e
 
 # Match pilot/docker/Dockerfile.proxyv2
-export ISTIO_META_ISTIO_VERSION="1.18.0"
+export ISTIO_META_ISTIO_VERSION="1.19.0"
 
 set -a
 # Load optional config variables

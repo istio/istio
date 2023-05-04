@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -44,7 +45,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
@@ -96,7 +96,7 @@ func init() {
 }
 
 // readinessProbe defines a function that will be used indicate whether a server is ready.
-type readinessProbe func() (bool, error)
+type readinessProbe func() bool
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
@@ -113,10 +113,9 @@ type Server struct {
 	ConfigStores           []model.ConfigStoreController
 	serviceEntryController *serviceentry.Controller
 
-	httpServer       *http.Server // debug, monitoring and readiness Server.
-	httpAddr         string
-	httpsServer      *http.Server // webhooks HTTPS Server.
-	httpsReadyClient *http.Client
+	httpServer  *http.Server // debug, monitoring and readiness Server.
+	httpAddr    string
+	httpsServer *http.Server // webhooks HTTPS Server.
 
 	grpcServer        *grpc.Server
 	grpcAddress       string
@@ -157,6 +156,7 @@ type Server struct {
 	server                  server.Instance
 
 	readinessProbes map[string]readinessProbe
+	readinessFlags  *readinessFlags
 
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
@@ -173,6 +173,11 @@ type Server struct {
 	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreController
+}
+
+type readinessFlags struct {
+	sidecarInjectorReady  atomic.Bool
+	configValidationReady atomic.Bool
 }
 
 type webhookInfo struct {
@@ -227,6 +232,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		httpMux:                 http.NewServeMux(),
 		monitoringMux:           http.NewServeMux(),
 		readinessProbes:         make(map[string]readinessProbe),
+		readinessFlags:          &readinessFlags{},
 		workloadTrustBundle:     tb.NewTrustBundle(nil),
 		server:                  server.New(),
 		shutdownDuration:        args.ShutdownDuration,
@@ -246,9 +252,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	prometheus.EnableHandlingTimeHistogram()
 
 	// make sure we have a readiness probe before serving HTTP to avoid marking ready too soon
-	s.addReadinessProbe("discovery", func() (bool, error) {
-		return s.XDSServer.IsServerReady(), nil
-	})
+	s.initReadinessProbes()
+
 	s.initServers(args)
 	if err := s.initIstiodAdminServer(args, s.webhookInfo.GetTemplates); err != nil {
 		return nil, fmt.Errorf("error initializing debug server: %v", err)
@@ -261,9 +266,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
-
-	// used for both initKubeRegistry and initClusterRegistries
-	args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.DetectEndpointMode(s.kubeClient)
 
 	s.initMeshConfiguration(args, s.fileWatcher)
 	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
@@ -380,7 +382,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	// This must be last, otherwise we will not know which informers to register
 	if s.kubeClient != nil {
-		s.addStartFunc(func(stop <-chan struct{}) error {
+		s.addStartFunc("kube client", func(stop <-chan struct{}) error {
 			s.kubeClient.RunAndWait(stop)
 			return nil
 		})
@@ -566,8 +568,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 // this handler and everything has already initialized.
 func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	for name, fn := range s.readinessProbes {
-		if ready, err := fn(); !ready {
-			log.Warnf("%s is not ready: %v", name, err)
+		if ready := fn(); !ready {
+			log.Warnf("%s is not ready", name)
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -648,7 +650,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 func (s *Server) initDiscoveryService() {
 	log.Infof("starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("xds server", func(stop <-chan struct{}) error {
 		log.Infof("Starting ADS server")
 		s.XDSServer.Start(stop)
 		return nil
@@ -774,7 +776,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
 
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("secure gRPC", func(stop <-chan struct{}) error {
 		go func() {
 			<-stop
 			s.secureGrpcServer.Stop()
@@ -787,8 +789,8 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 
 // addStartFunc appends a function to be run. These are run synchronously in order,
 // so the function should start a go routine if it needs to do anything blocking
-func (s *Server) addStartFunc(fn server.Component) {
-	s.server.RunComponent(fn)
+func (s *Server) addStartFunc(name string, fn server.Component) {
+	s.server.RunComponent(name, fn)
 }
 
 // adds a readiness probe for Istiod Server.
@@ -800,8 +802,8 @@ func (s *Server) addReadinessProbe(name string, fn readinessProbe) {
 // This is useful to do cleanup activities
 // This is does not guarantee they will terminate gracefully - best effort only
 // Function should be synchronous; once it returns it is considered "done"
-func (s *Server) addTerminatingStartFunc(fn server.Component) {
-	s.server.RunComponentAsyncAndWait(fn)
+func (s *Server) addTerminatingStartFunc(name string, fn server.Component) {
+	s.server.RunComponentAsyncAndWait(name, fn)
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
@@ -939,7 +941,7 @@ func (s *Server) initIstiodCertLoader() error {
 		return fmt.Errorf("first time load IstiodCert failed: %v", err)
 	}
 	_, watchCh := s.istiodCertBundleWatcher.AddWatcher()
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("reload certs", func(stop <-chan struct{}) error {
 		go s.reloadIstiodCert(watchCh, stop)
 		return nil
 	})
@@ -1147,7 +1149,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	}
 	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID, s.environment.Watcher)
 	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("multicluster controller", func(stop <-chan struct{}) error {
 		return s.multiclusterController.Run(stop)
 	})
 }
@@ -1203,7 +1205,7 @@ func (s *Server) startCA(caOpts *caOptions) {
 	if s.CA == nil && s.RA == nil {
 		return
 	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("ca", func(stop <-chan struct{}) error {
 		grpcServer := s.secureGrpcServer
 		if s.secureGrpcServer == nil {
 			grpcServer = s.grpcServer
@@ -1267,7 +1269,7 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 		s.XDSServer.ConfigUpdate(pushReq)
 	})
 
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("remote trust anchors", func(stop <-chan struct{}) error {
 		go s.workloadTrustBundle.ProcessRemoteTrustAnchors(stop, tb.RemoteDefaultPollPeriod)
 		return nil
 	})
@@ -1324,7 +1326,7 @@ func (s *Server) isCADisabled() bool {
 }
 
 func (s *Server) initStatusManager(_ *PilotArgs) {
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("status manager", func(stop <-chan struct{}) error {
 		s.statusManager = status.NewManager(s.RWConfigStore)
 		s.statusManager.Start(stop)
 		return nil
@@ -1345,6 +1347,23 @@ func (s *Server) serveHTTP() error {
 	}()
 	s.httpAddr = httpListener.Addr().String()
 	return nil
+}
+
+func (s *Server) initReadinessProbes() {
+	probes := map[string]readinessProbe{
+		"discovery": func() bool {
+			return s.XDSServer.IsServerReady()
+		},
+		"sidecar injector": func() bool {
+			return s.readinessFlags.sidecarInjectorReady.Load()
+		},
+		"config validation": func() bool {
+			return s.readinessFlags.configValidationReady.Load()
+		},
+	}
+	for name, probe := range probes {
+		s.addReadinessProbe(name, probe)
+	}
 }
 
 func serviceUpdateNeedsPush(prev, curr *model.Service) bool {

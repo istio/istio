@@ -840,16 +840,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 	filterChains := make([]*filterChainOpts, 0)
 
 	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
-		if features.EnableLegacyAutoPassthrough {
-			// auto passthrough does not require virtual services. It sets up envoy.filters.network.sni_cluster filter
-			filterChains = append(filterChains, &filterChainOpts{
-				sniHosts:       node.MergedGateway.TLSServerInfo[server].SNIHosts,
-				tlsContext:     nil, // NO TLS context because this is passthrough
-				networkFilters: buildOutboundAutoPassthroughFilterStack(push, node, port),
-			})
-		} else {
-			filterChains = append(filterChains, builtAutoPassthroughFilterChains(push, node, node.MergedGateway.TLSServerInfo[server].SNIHosts)...)
-		}
+		filterChains = append(filterChains, builtAutoPassthroughFilterChains(push, node, node.MergedGateway.TLSServerInfo[server].SNIHosts)...)
 	} else {
 		virtualServices := push.VirtualServicesForGateway(node.ConfigNamespace, gatewayName)
 		for _, v := range virtualServices {

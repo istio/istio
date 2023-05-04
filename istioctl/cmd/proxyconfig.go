@@ -1424,7 +1424,7 @@ func getPodNames(podflag string) ([]string, string, error) {
 	}
 	podNames, ns, err := handlers.InferPodsFromTypedResource(podflag,
 		handlers.HandleNamespace(namespace, defaultNamespace),
-		kubeClient.UtilFactory())
+		MakeKubeFactory(kubeClient))
 	if err != nil {
 		log.Errorf("pods lookup failed")
 		return []string{}, "", err
@@ -1444,7 +1444,7 @@ func getPodNameWithNamespace(podflag, ns string) (string, string, error) {
 	var podName, podNamespace string
 	podName, podNamespace, err = handlers.InferPodInfoFromTypedResource(podflag,
 		handlers.HandleNamespace(namespace, ns),
-		kubeClient.UtilFactory())
+		MakeKubeFactory(kubeClient))
 	if err != nil {
 		return "", "", err
 	}

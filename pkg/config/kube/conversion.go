@@ -54,6 +54,13 @@ func ConvertProtocol(port int32, portName string, proto corev1.Protocol, appProt
 	name := portName
 	if appProto != nil {
 		name = *appProto
+		// Kubernetes has a few AppProtocol specific standard names defined in the Service spec
+		// Handle these only for AppProtocol (name cannot have these values, anyways).
+		switch name {
+		// "http2 over cleartext", which is also what our HTTP2 port is
+		case "kubernetes.io/h2c":
+			return protocol.HTTP2
+		}
 	}
 
 	// Check if the port name prefix is "grpc-web". Need to do this before the general

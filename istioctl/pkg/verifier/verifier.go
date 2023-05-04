@@ -162,9 +162,9 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	if err != nil {
 		return err
 	}
-	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
+	crdCount, istioDeploymentCount, daemonSetCount, err := v.verifyPostInstallIstioOperator(
 		mergedIOP, fmt.Sprintf("in cluster operator %s", mergedIOP.GetName()))
-	return v.reportStatus(crdCount, istioDeploymentCount, err)
+	return v.reportStatus(crdCount, istioDeploymentCount, daemonSetCount, err)
 }
 
 func (v *StatusVerifier) getRevision() (string, error) {
@@ -193,9 +193,9 @@ func (v *StatusVerifier) getRevision() (string, error) {
 }
 
 func (v *StatusVerifier) verifyFinalIOP() error {
-	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
+	crdCount, istioDeploymentCount, daemonSetCount, err := v.verifyPostInstallIstioOperator(
 		v.iop, fmt.Sprintf("IOP:%s", v.iop.GetName()))
-	return v.reportStatus(crdCount, istioDeploymentCount, err)
+	return v.reportStatus(crdCount, istioDeploymentCount, daemonSetCount, err)
 }
 
 func (v *StatusVerifier) verifyInstall() error {
@@ -209,28 +209,28 @@ func (v *StatusVerifier) verifyInstall() error {
 		return r.Err()
 	}
 	visitor := genericclioptions.ResourceFinderForResult(r).Do()
-	crdCount, istioDeploymentCount, err := v.verifyPostInstall(
+	crdCount, istioDeploymentCount, generatedDaemonsets, err := v.verifyPostInstall(
 		visitor, strings.Join(v.filenames, ","))
-	return v.reportStatus(crdCount, istioDeploymentCount, err)
+	return v.reportStatus(crdCount, istioDeploymentCount, generatedDaemonsets, err)
 }
 
-func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOperator, filename string) (int, int, error) {
+func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOperator, filename string) (int, int, int, error) {
 	t := translate.NewTranslator()
 	ver, err := v.client.GetKubernetesVersion()
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	cp, err := controlplane.NewIstioControlPlane(iop.Spec, t, nil, ver)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	if err := cp.Run(); err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 
 	manifests, errs := cp.RenderManifest()
 	if len(errs) > 0 {
-		return 0, 0, errs.ToError()
+		return 0, 0, 0, errs.ToError()
 	}
 
 	builder := resource.NewBuilder(v.client.UtilFactory()).ContinueOnError().Unstructured()
@@ -243,23 +243,24 @@ func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOpera
 	}
 	r := builder.Flatten().Do()
 	if r.Err() != nil {
-		return 0, 0, r.Err()
+		return 0, 0, 0, r.Err()
 	}
 	visitor := genericclioptions.ResourceFinderForResult(r).Do()
 	// Indirectly RECURSE back into verifyPostInstall with the manifest we just generated
-	generatedCrds, generatedDeployments, err := v.verifyPostInstall(
+	generatedCrds, generatedDeployments, generatedDaemonSets, err := v.verifyPostInstall(
 		visitor,
 		fmt.Sprintf("generated from %s", filename))
 	if err != nil {
-		return generatedCrds, generatedDeployments, err
+		return generatedCrds, generatedDeployments, generatedDaemonSets, err
 	}
 
-	return generatedCrds, generatedDeployments, nil
+	return generatedCrds, generatedDeployments, generatedDaemonSets, nil
 }
 
-func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename string) (int, int, error) {
+func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename string) (int, int, int, error) {
 	crdCount := 0
 	istioDeploymentCount := 0
+	daemonSetCount := 0
 	err := visitor.Visit(func(info *resource.Info, err error) error {
 		if err != nil {
 			return err
@@ -350,11 +351,32 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 			if v1alpha1.Namespace(iop.Spec) == "" {
 				v1alpha1.SetNamespace(iop.Spec, v.istioNamespace)
 			}
-			generatedCrds, generatedDeployments, err := v.verifyPostInstallIstioOperator(iop, filename)
+			generatedCrds, generatedDeployments, generatedDaemonSets, err := v.verifyPostInstallIstioOperator(iop, filename)
 			crdCount += generatedCrds
 			istioDeploymentCount += generatedDeployments
+			daemonSetCount += generatedDaemonSets
 			if err != nil {
 				return err
+			}
+		case "DaemonSet":
+			ds := &appsv1.DaemonSet{}
+			err = info.Client.
+				Get().
+				Resource(kinds).
+				Namespace(namespace).
+				Name(name).
+				VersionedParams(&metav1.GetOptions{}, scheme.ParameterCodec).
+				Do(context.TODO()).
+				Into(ds)
+			if err != nil {
+				v.reportFailure(kind, name, namespace, err)
+				return err
+			}
+			daemonSetCount++
+			if err = verifyDaemonSetStatus(ds); err != nil {
+				ivf := istioVerificationFailureError(filename, err)
+				v.reportFailure(kind, name, namespace, ivf)
+				return ivf
 			}
 		default:
 			result := info.Client.
@@ -383,7 +405,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 		v.logger.LogAndPrintf("%s %s: %s.%s checked successfully", v.successMarker, kind, name, namespace)
 		return nil
 	})
-	return crdCount, istioDeploymentCount, err
+	return crdCount, istioDeploymentCount, daemonSetCount, err
 }
 
 // Find Istio injector matching revision.  ("" matches any revision.)
@@ -431,9 +453,12 @@ func (v *StatusVerifier) operatorFromCluster(revision string) (*v1alpha1.IstioOp
 	return nil, fmt.Errorf("control plane revision %q not found", revision)
 }
 
-func (v *StatusVerifier) reportStatus(crdCount, istioDeploymentCount int, err error) error {
+func (v *StatusVerifier) reportStatus(crdCount, istioDeploymentCount, daemonSetCount int, err error) error {
 	v.logger.LogAndPrintf("Checked %v custom resource definitions", crdCount)
 	v.logger.LogAndPrintf("Checked %v Istio Deployments", istioDeploymentCount)
+	if daemonSetCount > 0 {
+		v.logger.LogAndPrintf("Checked %v Istio Daemonsets", daemonSetCount)
+	}
 	if istioDeploymentCount == 0 {
 		if err != nil {
 			v.logger.LogAndPrintf("! No Istio installation found: %v", err)

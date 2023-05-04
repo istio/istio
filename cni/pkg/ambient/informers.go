@@ -27,10 +27,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 )
 
-var ErrLegacyLabel = "Namespace %s has sidecar label istio-injection or istio.io/rev " +
-	"enabled while also setting ambient mode. This is not supported and the namespace will " +
-	"be ignored from the ambient mesh."
-
 func (s *Server) setupHandlers() {
 	s.queue = controllers.NewQueue("ambient",
 		controllers.WithGenericReconciler(s.Reconcile),

@@ -33,7 +33,6 @@ import (
 	istioroute "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
@@ -267,22 +266,6 @@ func buildMongoFilter(statPrefix string) *listener.Filter {
 	}
 
 	return out
-}
-
-// buildOutboundAutoPassthroughFilterStack builds a filter stack with sni_cluster and tcp
-// used by auto_passthrough gateway servers
-func buildOutboundAutoPassthroughFilterStack(push *model.PushContext, node *model.Proxy, port *model.Port) []*listener.Filter {
-	// First build tcp with access logs
-	// then add sni_cluster to the front
-	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(push, node, util.BlackHoleCluster, util.BlackHoleCluster,
-		"", port, nil, tunnelingconfig.Skip)
-	filterstack := make([]*listener.Filter, 0)
-	filterstack = append(filterstack, &listener.Filter{
-		Name: util.SniClusterFilter,
-	})
-	filterstack = append(filterstack, tcpProxy...)
-
-	return filterstack
 }
 
 // buildRedisFilter builds an outbound Envoy RedisProxy filter.
