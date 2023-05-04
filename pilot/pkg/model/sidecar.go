@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -100,7 +101,8 @@ type SidecarScope struct {
 	// corresponds to a service in the services array above. When computing
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
-	destinationRules map[host.Name][]*ConsolidatedDestRule
+	destinationRules       map[host.Name][]*ConsolidatedDestRule
+	serviceDestinationRule map[types.NamespacedName]*Service
 
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
@@ -181,15 +183,16 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
-		Name:               defaultSidecar,
-		Namespace:          configNamespace,
-		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:           defaultEgressListener.services,
-		destinationRules:   make(map[host.Name][]*ConsolidatedDestRule),
-		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
-		configDependencies: make(map[ConfigHash]struct{}),
-		RootNamespace:      ps.Mesh.RootNamespace,
-		Version:            ps.PushVersion,
+		Name:                   defaultSidecar,
+		Namespace:              configNamespace,
+		EgressListeners:        []*IstioEgressListenerWrapper{defaultEgressListener},
+		services:               defaultEgressListener.services,
+		destinationRules:       make(map[host.Name][]*ConsolidatedDestRule),
+		serviceDestinationRule: make(map[types.NamespacedName]*Service),
+		servicesByHostname:     make(map[host.Name]*Service, len(defaultEgressListener.services)),
+		configDependencies:     make(map[ConfigHash]struct{}),
+		RootNamespace:          ps.Mesh.RootNamespace,
+		Version:                ps.PushVersion,
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
@@ -209,6 +212,11 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		out.servicesByHostname[s.Hostname] = s
 		if dr := ps.destinationRule(configNamespace, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
+			for _, cdr := range dr {
+				for _, from := range cdr.from {
+					out.serviceDestinationRule[from] = s
+				}
+			}
 		}
 		out.AddConfigDependencies(ConfigKey{
 			Kind:      kind.ServiceEntry,
@@ -592,6 +600,12 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 		return catchAllDr
 	}
 	return nil
+}
+
+// DestinationRule for name and namespace.
+func (sc *SidecarScope) ServiceForDestinationRule(dr types.NamespacedName) *Service {
+	// TODO: Use WorkloadSelector to filter the destination rules.
+	return sc.serviceDestinationRule[dr]
 }
 
 // Services returns the list of services that are visible to a sidecar.

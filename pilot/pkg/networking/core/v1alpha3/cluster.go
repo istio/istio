@@ -31,6 +31,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -53,7 +54,7 @@ import (
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.New(kind.ServiceEntry.String())
+var deltaConfigTypes = sets.New(kind.ServiceEntry.String(), kind.DestinationRule.String())
 
 const TransportSocketInternalUpstream = "envoy.transport_sockets.internal_upstream"
 
@@ -120,25 +121,31 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 	// In delta, we only care about the services that have changed.
 	for key := range updates.ConfigsUpdated {
-		// get the service that has changed.
-		service := updates.Push.ServiceForHostname(proxy, host.Name(key.Name))
-		// if this service removed, we can conclude that it is a removed cluster.
-		if service == nil {
-			for cluster := range serviceClusters[key.Name] {
-				deletedClusters = append(deletedClusters, cluster)
-			}
-		} else {
-			services = append(services, service)
-			// If servicePorts has this service, that means it is old service.
-			if servicePorts[service.Hostname.String()] != nil {
-				oldPorts := servicePorts[service.Hostname.String()]
-				for port, cluster := range oldPorts {
-					// if this service port is removed, we can conclude that it is a removed cluster.
-					if _, exists := service.Ports.GetByPort(port); !exists {
-						deletedClusters = append(deletedClusters, cluster)
+		switch key.Kind {
+		case kind.ServiceEntry:
+			// get the service that has changed.
+			service := updates.Push.ServiceForHostname(proxy, host.Name(key.Name))
+			// if this service removed, we can conclude that it is a removed cluster.
+			if service == nil {
+				for cluster := range serviceClusters[key.Name] {
+					deletedClusters = append(deletedClusters, cluster)
+				}
+			} else {
+				services = append(services, service)
+				// If servicePorts has this service, that means it is old service.
+				if servicePorts[service.Hostname.String()] != nil {
+					oldPorts := servicePorts[service.Hostname.String()]
+					for port, cluster := range oldPorts {
+						// if this service port is removed, we can conclude that it is a removed cluster.
+						if _, exists := service.Ports.GetByPort(port); !exists {
+							deletedClusters = append(deletedClusters, cluster)
+						}
 					}
 				}
 			}
+		case kind.DestinationRule:
+			svc := proxy.SidecarScope.ServiceForDestinationRule(types.NamespacedName{Namespace: key.Name, Name: key.Namespace})
+			services = append(services, svc)
 		}
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
