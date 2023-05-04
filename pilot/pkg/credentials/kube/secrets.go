@@ -172,7 +172,7 @@ func (s *CredentialsController) GetKeyCertAndStaple(name, namespace string) (key
 		return nil, nil, nil, fmt.Errorf("secret %v/%v not found", namespace, name)
 	}
 
-	return extractKeyCertAndStaple(k8sSecret)
+	return ExtractKeyCertAndStaple(k8sSecret)
 }
 
 func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, err error) {
@@ -223,8 +223,8 @@ func hasValue(d map[string][]byte, keys ...string) bool {
 	return true
 }
 
-// extractKeyCertAndStaple extracts server key, certificate and OCSP staple
-func extractKeyCertAndStaple(scrt *v1.Secret) (key, cert, staple []byte, err error) {
+// ExtractKeyCertAndStaple extracts server key, certificate and OCSP staple
+func ExtractKeyCertAndStaple(scrt *v1.Secret) (key, cert, staple []byte, err error) {
 	if hasValue(scrt.Data, GenericScrtCert, GenericScrtKey) {
 		return scrt.Data[GenericScrtKey], scrt.Data[GenericScrtCert], nil, nil
 	}

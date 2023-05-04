@@ -2857,6 +2857,16 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
+		{name: "empty prefix header match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"emptyprefix": {MatchType: &networking.StringMatch_Prefix{Prefix: ""}},
+				},
+			}},
+		}, valid: false},
 		{name: "nil match", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.bar"},
@@ -4401,7 +4411,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "", warning: "using deprecated type_url"},
+		}, error: "referenced type unknown (hint: try using the v3 XDS API)"},
 		{name: "deprecated type", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{

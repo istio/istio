@@ -911,6 +911,13 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			}
 			// ensure that the struct is valid
 			if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false); err != nil {
+				if strings.Contains(err.Error(), "could not resolve Any message type") {
+					if strings.Contains(err.Error(), ".v2.") {
+						err = fmt.Errorf("referenced type unknown (hint: try using the v3 XDS API): %v", err)
+					} else {
+						err = fmt.Errorf("referenced type unknown: %v", err)
+					}
+				}
 				errs = appendValidation(errs, err)
 			} else {
 				// Run with strict validation, and emit warnings. This helps capture cases like unknown fields
@@ -922,6 +929,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 
 				// Append any deprecation notices
 				if obj != nil {
+					// Note: since we no longer import v2 protos, v2 references will fail during BuildXDSObjectFromStruct.
 					errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
 					errs = appendValidation(errs, validateMissingTypedConfigFilterTypes(obj))
 				}
@@ -3429,6 +3437,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 
 			for _, endpoint := range serviceEntry.Endpoints {
+				if endpoint == nil {
+					errs = appendValidation(errs, errors.New("endpoint cannot be nil"))
+					continue
+				}
 				if !netutil.IsValidIPAddress(endpoint.Address) {
 					if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
 						errs = appendValidation(errs,
@@ -3448,6 +3460,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 			if len(serviceEntry.Addresses) > 0 {
 				for _, port := range serviceEntry.Ports {
+					if port == nil {
+						errs = appendValidation(errs, errors.New("ports cannot be nil"))
+						continue
+					}
 					p := protocol.Parse(port.Protocol)
 					if p.IsTCP() {
 						if len(serviceEntry.Hosts) > 1 {
@@ -3473,6 +3489,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		// (because the hosts are ignored).
 		if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
 			for _, port := range serviceEntry.Ports {
+				if port == nil {
+					errs = appendValidation(errs, errors.New("ports cannot be nil"))
+					continue
+				}
 				p := protocol.Parse(port.Protocol)
 				if !p.IsHTTP() && !p.IsTLS() {
 					errs = appendValidation(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
@@ -3595,7 +3615,7 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 	errs = appendValidation(errs, validateLocalities(srcLocalities))
 
 	if (len(lb.GetFailover()) != 0 || len(lb.GetFailoverPriority()) != 0) && outlier == nil {
-		errs = appendValidation(errs, WrapWarning(fmt.Errorf("outlier detection poicy must be provided for failover")))
+		errs = appendValidation(errs, WrapWarning(fmt.Errorf("outlier detection policy must be provided for failover")))
 	}
 
 	for _, failover := range lb.GetFailover() {

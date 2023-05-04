@@ -26,7 +26,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v23.0.3+incompatible
-	github.com/envoyproxy/go-control-plane v0.11.1-0.20230414193417-178e253923d1
+	github.com/envoyproxy/go-control-plane v0.11.1-0.20230428201957-de1309878321
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.15.0
 	github.com/felixge/fgprof v0.9.3
@@ -88,9 +88,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.11.2
-	istio.io/api v0.0.0-20230414193140-04eb39977e2a
-	istio.io/client-go v1.18.0-alpha.0.0.20230414194936-9bf3f4eb1135
-	istio.io/pkg v0.0.0-20230414193540-2f73360f3fc6
+	istio.io/api v0.0.0-20230503014505-c89927112939
+	istio.io/client-go v1.18.0-alpha.0.0.20230503015001-4af6a07816a2
+	istio.io/pkg v0.0.0-20230501235739-0287eb55fd97
 	k8s.io/api v0.27.0
 	k8s.io/apiextensions-apiserver v0.27.0
 	k8s.io/apimachinery v0.27.0
@@ -152,7 +152,6 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
-	github.com/fvbommel/sortorder v1.0.2 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
@@ -177,7 +176,6 @@ require (
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jonboulle/clockwork v0.3.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/josharian/native v1.1.0
 	github.com/json-iterator/go v1.1.12 // indirect

@@ -68,7 +68,11 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintln(w, "SERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE\tDESTINATION RULE")
+	if includeConfigType {
+		_, _ = fmt.Fprintln(w, "NAME\tSERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE\tDESTINATION RULE")
+	} else {
+		_, _ = fmt.Fprintln(w, "SERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE\tDESTINATION RULE")
+	}
 	for _, c := range clusters {
 		if filter.Verify(c) {
 			if len(strings.Split(c.Name, "|")) > 3 {
@@ -76,11 +80,23 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 				if subset == "" {
 					subset = "-"
 				}
-				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", fqdn, port, subset, direction, c.GetType(),
-					describeManagement(c.GetMetadata()))
+				if includeConfigType {
+					c.Name = fmt.Sprintf("cluster/%s", c.Name)
+					_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%s\t%s\n", c.Name, fqdn, port, subset, direction, c.GetType(),
+						describeManagement(c.GetMetadata()))
+				} else {
+					_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", fqdn, port, subset, direction, c.GetType(),
+						describeManagement(c.GetMetadata()))
+				}
 			} else {
-				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", c.Name, "-", "-", "-", c.GetType(),
-					describeManagement(c.GetMetadata()))
+				if includeConfigType && len(c.Name) > 0 {
+					c.Name = fmt.Sprintf("cluster/%s", c.Name)
+					_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%s\t%s\n", c.Name, c.Name, "-", "-", "-", c.GetType(),
+						describeManagement(c.GetMetadata()))
+				} else {
+					_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", c.Name, "-", "-", "-", c.GetType(),
+						describeManagement(c.GetMetadata()))
+				}
 			}
 		}
 	}

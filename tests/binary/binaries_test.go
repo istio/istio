@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/version"
 )
 
@@ -40,6 +41,9 @@ func TestMain(m *testing.M) {
 
 func TestVersion(t *testing.T) {
 	runBinariesTest(t, func(t *testing.T, name string) {
+		if nonGoBinaries.Contains(name) {
+			return
+		}
 		cmd := path.Join(*releasedir, name)
 		args := []string{"version", "-ojson"}
 		if name == "istioctl" {
@@ -66,9 +70,14 @@ func TestVersion(t *testing.T) {
 	})
 }
 
+var nonGoBinaries = sets.New("ztunnel", "envoy")
+
 // Test that flags do not get polluted with unexpected flags
 func TestFlags(t *testing.T) {
 	runBinariesTest(t, func(t *testing.T, name string) {
+		if nonGoBinaries.Contains(name) {
+			return
+		}
 		cmd := path.Join(*releasedir, name)
 		out, err := exec.Command(cmd, "--help").Output()
 		if err != nil {
@@ -92,10 +101,12 @@ func TestBinarySizes(t *testing.T) {
 		// TODO: shrink the ranges here once the active work to reduce binary size is complete
 		// For now, having two small a range will result in lots of "merge conflicts"
 		"istioctl":    {60, 100},
-		"pilot-agent": {30, 47},
+		"pilot-agent": {30, 44},
 		// TODO(https://github.com/kubernetes/kubernetes/issues/101384) bump this down a bit?
-		"pilot-discovery": {60, 99},
-		"bug-report":      {60, 100},
+		"pilot-discovery": {60, 85},
+		"bug-report":      {60, 85},
+		"envoy":           {60, 110},
+		"ztunnel":         {15, 25},
 	}
 
 	runBinariesTest(t, func(t *testing.T, name string) {

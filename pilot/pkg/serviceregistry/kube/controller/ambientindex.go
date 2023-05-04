@@ -181,22 +181,23 @@ func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.Wo
 }
 
 // Waypoint finds all waypoint IP addresses for a given scope
-func (c *Controller) Waypoint(scope model.WaypointScope) sets.Set[netip.Addr] {
+func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 	a := c.ambientIndex
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	res := sets.New[netip.Addr]()
+	res := make([]netip.Addr, 0, len(a.waypoints[scope]))
 	for ip := range a.waypoints[scope] {
-		res.Insert(netip.MustParseAddr(ip))
+		res = append(res, netip.MustParseAddr(ip))
 	}
 	if len(res) > 0 {
 		// Explicit has precedence
 		return res
 	}
 	// Now look for namespace-wide
+	res = make([]netip.Addr, 0, len(a.waypoints[scope]))
 	scope.ServiceAccount = ""
 	for ip := range a.waypoints[scope] {
-		res.Insert(netip.MustParseAddr(ip))
+		res = append(res, netip.MustParseAddr(ip))
 	}
 
 	return res

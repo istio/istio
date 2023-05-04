@@ -83,8 +83,6 @@ type FakeOptions struct {
 	KubernetesObjectStringByCluster map[cluster.ID]string
 	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes" or DefaultClusterName)
 	KubernetesObjectString string
-	// Endpoint mode for the Kubernetes service registry
-	KubernetesEndpointMode kube.EndpointMode
 	// If provided, these configs will be used directly
 	Configs []config.Config
 	// If provided, the yaml string will be parsed and used as configs
@@ -190,7 +188,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			DomainSuffix:     "cluster.local",
 			XDSUpdater:       xdsUpdater,
 			NetworksWatcher:  opts.NetworksWatcher,
-			Mode:             opts.KubernetesEndpointMode,
 			SkipRun:          true,
 			ConfigController: k8sConfig,
 			ConfigCluster:    k8sCluster == opts.DefaultClusterName,

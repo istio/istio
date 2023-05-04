@@ -88,6 +88,8 @@ message CNIConfig {
   google.protobuf.Struct seccompProfile = 19;
 
   CNIAmbientConfig ambient = 21;
+
+  string provider = 22;
 }
 
 message CNIAmbientConfig {
@@ -620,6 +622,9 @@ message PilotConfig {
 
   // Maximum number of replicas in the HorizontalPodAutoscaler for Pilot.
   uint32 autoscaleMax = 4;
+
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior
+  google.protobuf.Struct autoscaleBehavior = 40;
 
   // Number of replicas in the Pilot Deployment.
   uint32 replicaCount = 5 [deprecated=true];

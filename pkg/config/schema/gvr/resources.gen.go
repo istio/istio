@@ -30,7 +30,7 @@ var (
 	PeerAuthentication             = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}
 	Pod                            = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 	ProxyConfig                    = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "proxyconfigs"}
-	ReferenceGrant                 = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "referencegrants"}
+	ReferenceGrant                 = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "referencegrants"}
 	RequestAuthentication          = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "requestauthentications"}
 	Secret                         = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
 	Service                        = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}

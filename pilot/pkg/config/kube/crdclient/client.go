@@ -344,7 +344,7 @@ func (cl *Client) kind(r config.GroupVersionKind) (*cacheHandler, bool) {
 // knownCRDs returns all CRDs present in the cluster, with timeout and retries.
 func knownCRDs(crdClient apiextensionsclient.Interface) (map[string]struct{}, error) {
 	var res *crd.CustomResourceDefinitionList
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	var err error
 	res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})

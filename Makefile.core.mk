@@ -35,10 +35,10 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.18-dev
+export VERSION ?= 1.19-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2023-04-12T19-02-00
+BASE_VERSION ?= master-2023-04-26T20-45-12
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -218,8 +218,8 @@ LINUX_AGENT_BINARIES:=./cni/cmd/istio-cni \
 
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES) $(LINUX_AGENT_BINARIES)
 
-# List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
+# List of binaries that have their size tested
+RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl bug-report envoy ztunnel
 
 .PHONY: build
 build: depend ## Builds all go binaries.
@@ -372,7 +372,7 @@ ${TARGET_OUT}/release/_istioctl: ${LOCAL_OUT}/istioctl
 
 .PHONY: binaries-test
 binaries-test:
-	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${TARGET_OUT} --binaries="$(RELEASE_BINARIES)"
+	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${TARGET_OUT} --binaries="$(RELEASE_SIZE_TEST_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
