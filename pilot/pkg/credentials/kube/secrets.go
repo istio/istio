@@ -166,13 +166,13 @@ func (s *CredentialsController) Authorize(serviceAccount, namespace string) erro
 	return err
 }
 
-func (s *CredentialsController) GetKeyCertAndStaple(name, namespace string) (key []byte, cert []byte, staple []byte, err error) {
+func (s *CredentialsController) GetCertInfo(name, namespace string) (certInfo *credentials.CertInfo, err error) {
 	k8sSecret := s.secrets.Get(name, namespace)
 	if k8sSecret == nil {
-		return nil, nil, nil, fmt.Errorf("secret %v/%v not found", namespace, name)
+		return nil, fmt.Errorf("secret %v/%v not found", namespace, name)
 	}
 
-	return ExtractKeyCertAndStaple(k8sSecret)
+	return ExtractCertInfo(k8sSecret)
 }
 
 func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, err error) {
@@ -223,26 +223,31 @@ func hasValue(d map[string][]byte, keys ...string) bool {
 	return true
 }
 
-// ExtractKeyCertAndStaple extracts server key, certificate and OCSP staple
-func ExtractKeyCertAndStaple(scrt *v1.Secret) (key, cert, staple []byte, err error) {
+// ExtractCertInfo extracts server key, certificate, and OCSP staple
+func ExtractCertInfo(scrt *v1.Secret) (certInfo *credentials.CertInfo, err error) {
+	ret := &credentials.CertInfo{}
 	if hasValue(scrt.Data, GenericScrtCert, GenericScrtKey) {
-		return scrt.Data[GenericScrtKey], scrt.Data[GenericScrtCert], nil, nil
-	}
-	if hasValue(scrt.Data, TLSSecretCert, TLSSecretKey, TLSSecretOcspStaple) {
-		return scrt.Data[TLSSecretKey], scrt.Data[TLSSecretCert], scrt.Data[TLSSecretOcspStaple], nil
+		ret.Cert = scrt.Data[GenericScrtCert]
+		ret.Key = scrt.Data[GenericScrtKey]
+		return ret, nil
 	}
 	if hasValue(scrt.Data, TLSSecretCert, TLSSecretKey) {
-		return scrt.Data[TLSSecretKey], scrt.Data[TLSSecretCert], nil, nil
+		ret.Cert = scrt.Data[TLSSecretCert]
+		ret.Key = scrt.Data[TLSSecretKey]
+		if hasValue(scrt.Data, TLSSecretOcspStaple) {
+			ret.Staple = scrt.Data[TLSSecretOcspStaple]
+		}
+		return ret, nil
 	}
 	// No cert found. Try to generate a helpful error messsage
 	if hasKeys(scrt.Data, GenericScrtCert, GenericScrtKey) {
-		return nil, nil, nil, fmt.Errorf("found keys %q and %q, but they were empty", GenericScrtCert, GenericScrtKey)
+		return nil, fmt.Errorf("found keys %q and %q, but they were empty", GenericScrtCert, GenericScrtKey)
 	}
 	if hasKeys(scrt.Data, TLSSecretCert, TLSSecretKey) {
-		return nil, nil, nil, fmt.Errorf("found keys %q and %q, but they were empty", TLSSecretCert, TLSSecretKey)
+		return nil, fmt.Errorf("found keys %q and %q, but they were empty", TLSSecretCert, TLSSecretKey)
 	}
 	found := truncatedKeysMessage(scrt.Data)
-	return nil, nil, nil, fmt.Errorf("found secret, but didn't have expected keys (%s and %s) or (%s and %s); found: %s",
+	return nil, fmt.Errorf("found secret, but didn't have expected keys (%s and %s) or (%s and %s); found: %s",
 		GenericScrtCert, GenericScrtKey, TLSSecretCert, TLSSecretKey, found)
 }
 
