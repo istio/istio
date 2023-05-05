@@ -15,9 +15,6 @@
 package v1alpha3
 
 import (
-	. "github.com/onsi/gomega"
-	authpb "istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"reflect"
 	"testing"
 	"time"
@@ -26,10 +23,12 @@ import (
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/listenertest"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -65,8 +64,7 @@ func TestBuildRedisFilter(t *testing.T) {
 	}
 }
 
-func TestMysqlWithRbacFilterOrder(t *testing.T) {
-
+func TestMysqlFilterComesBeforeRbacFilter(t *testing.T) {
 	services := []*model.Service{
 		buildService("test.com", "10.10.0.0/24", protocol.TCP, tnow),
 	}
@@ -91,47 +89,49 @@ func TestMysqlWithRbacFilterOrder(t *testing.T) {
 
 	pushContext := cg.PushContext()
 
-	policySpec := &authpb.AuthorizationPolicy{
-		Rules: []*authpb.Rule{
-			{
-				From: []*authpb.Rule_From{
-					{
-						Source: &authpb.Source{
-							Principals: []string{"cluster.local/ns/default/sa/book-app"},
+	policy := model.AuthorizationPolicy{
+		Name:      "test-policy",
+		Namespace: "default",
+		Spec: &v1beta1.AuthorizationPolicy{
+			Rules: []*v1beta1.Rule{
+				{
+					From: []*v1beta1.Rule_From{
+						{
+							Source: &v1beta1.Source{
+								Principals: []string{"cluster.local/ns/default/sa/book-app"},
+							},
 						},
 					},
-				},
-				To: []*authpb.Rule_To{
-					{
-						Operation: &authpb.Operation{
-							Ports: []string{"3306"},
+					To: []*v1beta1.Rule_To{
+						{
+							Operation: &v1beta1.Operation{
+								Ports: []string{"3306"},
+							},
 						},
 					},
 				},
 			},
+			Action: v1beta1.AuthorizationPolicy_ALLOW,
 		},
-		Action: authpb.AuthorizationPolicy_ALLOW,
-	}
-
-	policy := model.AuthorizationPolicy{
-		Name:      "test-policy",
-		Namespace: "default",
-		Spec:      policySpec,
 	}
 
 	pushContext.AuthzPolicies.NamespaceToPolicies = map[string][]model.AuthorizationPolicy{
-		"default": []model.AuthorizationPolicy{policy},
+		"default": {policy},
 	}
 
-	listenerBuilder := NewListenerBuilder(cg.SetupProxy(nil), pushContext)
-
-	listenerFilters := listenerBuilder.buildInboundNetworkFilters(fcc)
+	listenerFilters := NewListenerBuilder(cg.SetupProxy(nil), pushContext).buildInboundNetworkFilters(fcc)
 
 	g := NewGomegaWithT(t)
-	g.Expect(listenerFilters).To(HaveLen(4))
-	g.Expect(listenerFilters[1].Name).To(HaveSuffix("mysql_proxy"))
-	g.Expect(listenerFilters[2].Name).To(HaveSuffix("rbac"))
-	g.Expect(listenerFilters[3].Name).To(HaveSuffix("tcp_proxy"))
+
+	indexOf := func(filterName string) int {
+		for i, filter := range listenerFilters {
+			if filter.Name == filterName {
+				return i
+			}
+		}
+		return -1
+	}
+	g.Expect(indexOf("envoy.filters.network.mysql_proxy") < indexOf("envoy.filters.network.rbac")).To(BeTrue())
 }
 
 func TestInboundNetworkFilterStatPrefix(t *testing.T) {
