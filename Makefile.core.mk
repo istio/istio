@@ -475,4 +475,15 @@ include tools/packaging/packaging.mk
 #-----------------------------------------------------------------------------
 include tests/integration/tests.mk
 
+#-----------------------------------------------------------------------------
+# Target: bookinfo sample
+#-----------------------------------------------------------------------------
+
+export BOOKINFO_VERSION ?= 1.19.0
+
+.PHONY: bookinfo.build
+
+bookinfo.build:
+	@samples/bookinfo/src/build-services.sh ${BOOKINFO_VERSION} ${HUB}
+
 include common/Makefile.common.mk
