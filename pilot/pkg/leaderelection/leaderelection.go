@@ -47,6 +47,13 @@ const (
 	GatewayStatusController = "istio-gateway-status-leader"
 	StatusController        = "istio-status-leader"
 	AnalyzeController       = "istio-analyze-leader"
+	// GatewayDeploymentController controls translating Kubernetes Gateway objects into various derived
+	// resources (Service, Deployment, etc).
+	// Unlike other types which use ConfigMaps, we use a Lease here. This is because:
+	// * Others use configmap for backwards compatibility
+	// * This type is per-revision, so it is higher cost. Leases are cheaper
+	// * Other types use "prioritized leader election", which isn't implemented for Lease
+	GatewayDeploymentController = "istio-gateway-deployment"
 )
 
 // Leader election key prefix for remote istiod managed clusters
@@ -67,6 +74,7 @@ type LeaderElection struct {
 
 	// Criteria to determine leader priority.
 	revision       string
+	perRevision    bool
 	remote         bool
 	prioritized    bool
 	defaultWatcher revisions.DefaultWatcher
@@ -141,7 +149,7 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 	if l.remote {
 		key = remoteIstiodPrefix + key
 	}
-	lock := k8sresourcelock.ConfigMapLock{
+	var lock k8sresourcelock.Interface = &k8sresourcelock.ConfigMapLock{
 		ConfigMapMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
 		Client:        l.client.CoreV1(),
 		LockConfig: k8sresourcelock.ResourceLockConfig{
@@ -149,9 +157,19 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 			Key:      key,
 		},
 	}
+	if l.perRevision {
+		lock = &k8sresourcelock.LeaseLock{
+			LeaseMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
+			Client:    l.client.CoordinationV1(),
+			// Note: Key is NOT used. This is not implemented in the library for Lease nor needed, since this is already per-revision.
+			LockConfig: k8sresourcelock.ResourceLockConfig{
+				Identity: l.name,
+			},
+		}
+	}
 
 	config := k8sleaderelection.LeaderElectionConfig{
-		Lock:          &lock,
+		Lock:          lock,
 		LeaseDuration: l.ttl,
 		RenewDeadline: l.ttl / 2,
 		RetryPeriod:   l.ttl / 4,
@@ -193,11 +211,22 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderEle
 	return l
 }
 
+// NewLeaderElection creates a leader election instance with the provided ID. This follows standard Kubernetes
+// elections, with one difference: the "default" revision will steal the lock from other revisions.
 func NewLeaderElection(namespace, name, electionID, revision string, client kube.Client) *LeaderElection {
-	return NewLeaderElectionMulticluster(namespace, name, electionID, revision, false, client)
+	return newLeaderElection(namespace, name, electionID, revision, false, false, client)
+}
+
+// NewPerRevisionLeaderElection creates a *per revision* leader election. This means there will be one leader for each revision.
+func NewPerRevisionLeaderElection(namespace, name, electionID, revision string, client kube.Client) *LeaderElection {
+	return newLeaderElection(namespace, name, electionID, revision, true, false, client)
 }
 
 func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, remote bool, client kube.Client) *LeaderElection {
+	return newLeaderElection(namespace, name, electionID, revision, false, true, client)
+}
+
+func newLeaderElection(namespace, name, electionID, revision string, perRevision bool, remote bool, client kube.Client) *LeaderElection {
 	var watcher revisions.DefaultWatcher
 	if features.EnableLeaderElection && features.PrioritizedLeaderElection {
 		watcher = revisions.NewDefaultWatcher(client, revision)
@@ -206,12 +235,16 @@ func NewLeaderElectionMulticluster(namespace, name, electionID, revision string,
 		hn, _ := os.Hostname()
 		name = fmt.Sprintf("unknown-%s", hn)
 	}
+	if perRevision && revision != "" {
+		electionID += "-" + revision
+	}
 	return &LeaderElection{
 		namespace:      namespace,
 		name:           name,
 		client:         client.Kube(),
 		electionID:     electionID,
 		revision:       revision,
+		perRevision:    perRevision,
 		enabled:        features.EnableLeaderElection,
 		remote:         remote,
 		prioritized:    features.PrioritizedLeaderElection,
