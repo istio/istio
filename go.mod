@@ -91,40 +91,28 @@ require (
 	istio.io/api v0.0.0-20230503014505-c89927112939
 	istio.io/client-go v1.18.0-alpha.0.0.20230503015001-4af6a07816a2
 	istio.io/pkg v0.0.0-20230502213535-c350890f6121
-	k8s.io/api v0.27.0
-	k8s.io/apiextensions-apiserver v0.27.0
-	k8s.io/apimachinery v0.27.0
-	k8s.io/apiserver v0.27.0
+	k8s.io/api v0.27.1
+	k8s.io/apiextensions-apiserver v0.27.1
+	k8s.io/apimachinery v0.27.1
+	k8s.io/apiserver v0.27.1
 	k8s.io/cli-runtime v0.27.0
-	k8s.io/client-go v0.27.0
+	k8s.io/client-go v0.27.1
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kube-openapi v0.0.0-20230327201221-f5883ff37f0c
 	k8s.io/kubectl v0.27.0
 	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
-	sigs.k8s.io/controller-runtime v0.13.1-0.20230315234915-a26de2d610c3
-	sigs.k8s.io/gateway-api v0.6.2
+	sigs.k8s.io/controller-runtime v0.15.0-alpha.0
+	sigs.k8s.io/gateway-api v0.7.0-rc1
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
+	cloud.google.com/go v0.110.0 // indirect
 	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/iam v0.13.0 // indirect
-	cloud.google.com/go/longrunning v0.4.1 // indirect
-	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
-	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
-	github.com/google/s2a-go v0.1.2 // indirect
-	github.com/onsi/ginkgo/v2 v2.9.2 // indirect
-	github.com/quic-go/qpack v0.4.0 // indirect
-	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
-	github.com/quic-go/qtls-go1-20 v0.1.1 // indirect
-	go.uber.org/multierr v1.8.0 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
-)
-
-require (
-	cloud.google.com/go v0.110.0 // indirect
 	cloud.google.com/go/logging v1.7.0
+	cloud.google.com/go/longrunning v0.4.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
@@ -133,6 +121,7 @@ require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/alecholmes/xfccparser v0.1.0
 	github.com/alecthomas/participle v0.4.1 // indirect
+	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
@@ -153,6 +142,7 @@ require (
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
@@ -167,6 +157,7 @@ require (
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/pprof v0.0.0-20230228050547-1710fef4ab10 // indirect
+	github.com/google/s2a-go v0.1.2 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.8.0 // indirect
 	github.com/grafana/regexp v0.0.0-20221122212121-6b5c0a4cb7fd // indirect
@@ -203,6 +194,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/onsi/ginkgo/v2 v2.9.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc2 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
@@ -211,6 +203,9 @@ require (
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/prometheus/prom2json v1.3.2 // indirect
 	github.com/prometheus/statsd_exporter v0.23.0 // indirect
+	github.com/quic-go/qpack v0.4.0 // indirect
+	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
+	github.com/quic-go/qtls-go1-20 v0.1.1 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
@@ -230,6 +225,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
 	go.starlark.net v0.0.0-20211013185944-b0039bd2cfe3 // indirect
+	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
@@ -242,7 +238,8 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	k8s.io/component-base v0.27.0 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
+	k8s.io/component-base v0.27.1 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.13.2 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.14.1 // indirect
