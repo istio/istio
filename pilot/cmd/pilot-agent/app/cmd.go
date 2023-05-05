@@ -39,6 +39,7 @@ import (
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
@@ -319,29 +320,31 @@ func initProxy(args []string) (*model.Proxy, error) {
 
 func applyExcludeInterfaces(ifaces []string) []string {
 	// Get list of excluded interfaces from pod annotation
+	// TODO: Discuss other input methods such as env, flag (ssuvasanth)
 	annotations, err := bootstrap.ReadPodAnnotations("")
 	if err != nil {
-		log.Infof("Failed to read pod annotations to find exluded interfaces. Continuing without exclusions. Proxy IPAddresses: %v", ifaces)
+		log.Debugf("Reading podInfoAnnotations file to get excludeInterfaces was unsuccessful. Continuing without exclusions. msg: %v", err)
 		return ifaces
 	}
 	value, ok := annotations[annotation.SidecarTrafficExcludeInterfaces.Name]
 	if !ok {
-		log.Infof("excludeInterfaces annotation not present. Proxy IPAddresses: %v", ifaces)
+		log.Debugf("ExcludeInterfaces annotation is not present. Proxy IPAddresses: %v", ifaces)
 		return ifaces
 	}
 	exclusions := strings.Split(value, ",")
 
 	// Find IP addr of excluded interfaces and add to a map for instant lookup
-	exclusionMap := make(map[string]struct{})
+	exclusionMap := sets.New[string]()
 	for _, ifaceName := range exclusions {
 		iface, err := net.InterfaceByName(ifaceName)
 		if err != nil {
-			log.Warnf("Unable to get interface %s: %s", ifaceName, err.Error())
+			log.Warnf("Unable to get interface %s: %v", ifaceName, err)
 			continue
 		}
 		addrs, err := iface.Addrs()
 		if err != nil {
-			log.Infof("Unable to get IP addr for interface %s: %s", ifaceName, err.Error())
+			log.Warnf("Unable to get IP addr(s) of interface %s: %v", ifaceName, err)
+			continue
 		}
 
 		for _, addr := range addrs {
@@ -367,14 +370,14 @@ func applyExcludeInterfaces(ifaces []string) []string {
 			}
 
 			// Add to map
-			exclusionMap[unwrapAddr.String()] = struct{}{}
+			exclusionMap.Insert(unwrapAddr.String())
 		}
 	}
 
 	// Remove excluded IP addresses from the input IP addresses list.
 	var selectedInterfaces []string
 	for _, ip := range ifaces {
-		if _, exists := exclusionMap[ip]; exists {
+		if exclusionMap.Contains(ip) {
 			log.Infof("Excluding ip %s from proxy IPaddresses list", ip)
 			continue
 		}
