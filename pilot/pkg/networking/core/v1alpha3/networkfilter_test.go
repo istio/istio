@@ -27,7 +27,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/listenertest"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -60,88 +59,6 @@ func TestBuildRedisFilter(t *testing.T) {
 		}
 	} else {
 		t.Errorf("redis filter type is %T not listener.Filter_TypedConfig ", redisFilter.ConfigType)
-	}
-}
-
-func TestMysqlFilterComesBeforeRbacFilter(t *testing.T) {
-	services := []*model.Service{
-		buildService("test.com", "10.10.0.0/24", protocol.TCP, tnow),
-	}
-
-	m := mesh.DefaultMeshConfig()
-	m.InboundClusterStatName = "inbound|8888||"
-
-	cg := NewConfigGenTest(t, TestOptions{
-		Services:   services,
-		MeshConfig: m,
-	})
-
-	features.EnableMysqlFilter = true
-
-	fcc := inboundChainConfig{
-		telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: "v0.default.example.org"},
-		clusterName:       "inbound|8888||",
-		port: ServiceInstancePort{
-			Protocol: protocol.MySQL,
-		},
-	}
-
-	pushContext := cg.PushContext()
-
-	policy := model.AuthorizationPolicy{
-		Name:      "test-policy",
-		Namespace: "default",
-		Spec: &v1beta1.AuthorizationPolicy{
-			Rules: []*v1beta1.Rule{
-				{
-					From: []*v1beta1.Rule_From{
-						{
-							Source: &v1beta1.Source{
-								Principals: []string{"cluster.local/ns/default/sa/book-app"},
-							},
-						},
-					},
-					To: []*v1beta1.Rule_To{
-						{
-							Operation: &v1beta1.Operation{
-								Ports: []string{"3306"},
-							},
-						},
-					},
-				},
-			},
-			Action: v1beta1.AuthorizationPolicy_ALLOW,
-		},
-	}
-
-	pushContext.AuthzPolicies.NamespaceToPolicies = map[string][]model.AuthorizationPolicy{
-		"default": {policy},
-	}
-
-	listenerFilters := NewListenerBuilder(cg.SetupProxy(nil), pushContext).buildInboundNetworkFilters(fcc)
-
-	indexOf := func(filterName string) int {
-		for i, filter := range listenerFilters {
-			if filter.Name == filterName {
-				return i
-			}
-		}
-		return -1
-	}
-
-	idxOfMysql := indexOf("envoy.filters.network.mysql_proxy")
-	if idxOfMysql == -1 {
-		t.Errorf("mysql_proxy filter missing in filter chain")
-		return
-	}
-	idxOfRbac := indexOf("envoy.filters.network.rbac")
-	if idxOfRbac == -1 {
-		t.Errorf("rbac filter missing in filter chain")
-		return
-	}
-
-	if idxOfMysql >= idxOfRbac {
-		t.Errorf("mysql_proxy filter (%v) should come before rbac filter (%v)", idxOfMysql, idxOfRbac)
 	}
 }
 
@@ -214,7 +131,7 @@ func TestInboundNetworkFilterOrder(t *testing.T) {
 			Filters: listenerFilters,
 		}
 		listenertest.VerifyFilterChain(t, listenerFilterChain, listenertest.FilterChainTest{
-			NetworkFilters: []string{"istio_authn", xdsfilters.MxFilterName, RBACTCPFilterName, wellknown.TCPProxy},
+			NetworkFilters: []string{"istio_authn", xdsfilters.MxFilterName, wellknown.TCPProxy, RBACTCPFilterName},
 			TotalMatch:     true,
 		})
 	})
