@@ -194,12 +194,6 @@ var (
 		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
 	).Get()
 
-	EnableWasmTelemetry = env.Register(
-		"ENABLE_WASM_TELEMETRY",
-		false,
-		"If enabled, Wasm-based telemetry will be enabled.",
-	).Get()
-
 	ScopeGatewayToNamespace = env.Register(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,

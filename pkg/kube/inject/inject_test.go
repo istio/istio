@@ -347,6 +347,7 @@ func TestInjection(t *testing.T) {
 	// Precompute injection settings. This may seem like a premature optimization, but due to the size of
 	// YAMLs, with -race this was taking >10min in some cases to generate!
 	if util.Refresh() {
+		cleanupOldFiles(t)
 		writeInjectionSettings(t, "default", nil, "")
 		for i, c := range cases {
 			if c.setFlags != nil || c.inFilePath != "" {

@@ -479,7 +479,7 @@ func initPushContext(env *model.Environment, proxy *model.Proxy) {
 
 var debugGeneration = env.Register("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
 
-var benchmarkScope = istiolog.RegisterScope("benchmark", "", 0)
+var benchmarkScope = istiolog.RegisterScope("benchmark", "")
 
 // Add additional debug info for a test
 func logDebug(b *testing.B, m model.Resources) {

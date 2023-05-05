@@ -44,7 +44,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var authnLog = log.RegisterScope("authn", "authn debugging", 0)
+var authnLog = log.RegisterScope("authn", "authn debugging")
 
 // Implementation of authn.PolicyApplier with v1beta1 API.
 type v1beta1PolicyApplier struct {

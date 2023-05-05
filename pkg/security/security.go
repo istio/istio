@@ -29,7 +29,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var securityLog = istiolog.RegisterScope("security", "security debugging", 0)
+var securityLog = istiolog.RegisterScope("security", "security debugging")
 
 const (
 	// etc/certs files are used with external CA managing the certs,

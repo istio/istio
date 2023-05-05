@@ -29,7 +29,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var repairLog = log.RegisterScope("repair", "CNI race condition repair", 0)
+var repairLog = log.RegisterScope("repair", "CNI race condition repair")
 
 // The pod reconciler struct. Contains state used to reconcile broken pods.
 type brokenPodReconciler struct {

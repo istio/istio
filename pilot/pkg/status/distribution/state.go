@@ -40,7 +40,7 @@ import (
 )
 
 var scope = log.RegisterScope("status",
-	"CRD distribution status debugging", 0)
+	"CRD distribution status debugging")
 
 type Progress struct {
 	AckedInstances int

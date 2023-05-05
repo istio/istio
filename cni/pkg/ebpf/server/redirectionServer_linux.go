@@ -51,7 +51,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("ebpf", "ambient ebpf", 0)
+var log = istiolog.RegisterScope("ebpf", "ambient ebpf")
 
 const (
 	FilesystemTypeBPFFS = unix.BPF_FS_MAGIC

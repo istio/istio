@@ -54,7 +54,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("kube", "Kubernetes client messages", 0)
+var scope = log.RegisterScope("kube", "Kubernetes client messages")
 
 // Client is a client for Istio CRDs, implementing config store cache
 // This is used for CRUD operators on Istio configuration, as well as handling of events on config changes

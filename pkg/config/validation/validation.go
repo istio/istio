@@ -128,7 +128,7 @@ var (
 		http.MethodTrace:   true,
 	}
 
-	scope = log.RegisterScope("validation", "CRD validation debugging", 0)
+	scope = log.RegisterScope("validation", "CRD validation debugging")
 
 	// EmptyValidate is a Validate that does nothing and returns no error.
 	EmptyValidate = registerValidateFunc("EmptyValidate",

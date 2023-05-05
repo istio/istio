@@ -64,7 +64,7 @@ type AmbientIndex struct {
 	waypoints map[model.WaypointScope]sets.String
 
 	// serviceVipIndex maintains an index of VIP -> Service
-	serviceVipIndex *kclient.Index[*v1.Service, string]
+	serviceVipIndex *kclient.Index[string, *v1.Service]
 }
 
 // Lookup finds a given IP address.
@@ -679,7 +679,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		},
 	}
 	c.services.AddEventHandler(serviceHandler)
-	idx.serviceVipIndex = kclient.CreateIndex[*v1.Service](c.services, getVIPs)
+	idx.serviceVipIndex = kclient.CreateIndex[string, *v1.Service](c.services, getVIPs)
 	return &idx
 }
 

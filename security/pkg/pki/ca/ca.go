@@ -72,7 +72,7 @@ type SigningCAFileBundle struct {
 	SigningKeyFile  string
 }
 
-var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
+var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log")
 
 // caTypes is the enum for the CA type.
 type caTypes int
