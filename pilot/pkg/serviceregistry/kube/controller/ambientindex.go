@@ -432,8 +432,8 @@ func handleRule(action workloadapi.Action, rule *v1beta1.Rule) []*workloadapi.Ru
 		rules = append(rules, &workloadapi.Rules{Matches: fromMatches})
 	}
 	for _, when := range rule.When {
-		l7 := l4WhenAttributes.Contains(when.Key)
-		if action == workloadapi.Action_ALLOW && !l7 {
+		l4 := l4WhenAttributes.Contains(when.Key)
+		if action == workloadapi.Action_ALLOW && !l4 {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
 			return nil
