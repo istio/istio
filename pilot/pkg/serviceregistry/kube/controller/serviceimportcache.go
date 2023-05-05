@@ -303,7 +303,7 @@ func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
 	// Register callbacks for ServiceImport events in this cluster only.
 	registerHandlers(ic.Controller, ic.serviceImports, "ServiceImports", ic.onServiceImportEvent, nil)
 	go dInformer.Run(stop)
-	kubelib.WaitForCacheSync(stop, ic.serviceImports.HasSynced)
+	kubelib.WaitForCacheSync("service import", stop, ic.serviceImports.HasSynced)
 	ic.started.Store(true)
 }
 

@@ -215,6 +215,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 
 func (d *DeploymentController) Run(stop <-chan struct{}) {
 	kube.WaitForCacheSync(
+		"deployment controller",
 		stop,
 		d.namespaces.HasSynced,
 		d.deployments.HasSynced,

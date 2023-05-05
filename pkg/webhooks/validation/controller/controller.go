@@ -168,7 +168,7 @@ func (c *Controller) Reconcile(key types.NamespacedName) error {
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	kube.WaitForCacheSync(stop, c.webhooks.HasSynced)
+	kube.WaitForCacheSync("validation", stop, c.webhooks.HasSynced)
 	go c.startCaBundleWatcher(stop)
 	c.queue.Run(stop)
 }

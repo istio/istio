@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // TagWatcher keeps track of the current tags and can notify watchers
@@ -72,8 +71,7 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 }
 
 func (p *tagWatcher) Run(stopCh <-chan struct{}) {
-	if !kube.WaitForCacheSync(stopCh, p.webhooks.HasSynced) {
-		log.Errorf("failed to sync tag watcher")
+	if !kube.WaitForCacheSync("tag watcher", stopCh, p.webhooks.HasSynced) {
 		return
 	}
 	// Notify handlers of initial state

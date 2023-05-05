@@ -151,7 +151,7 @@ type Client interface {
 	RunAndWait(stop <-chan struct{})
 
 	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
-	WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
+	WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool
 
 	// GetKubernetesVersion returns the Kubernetes server version
 	GetKubernetesVersion() (*kubeVersion.Info, error)
@@ -658,7 +658,8 @@ func fastWaitForCacheSync(stop <-chan struct{}, informerFactory reflectInformerS
 // To optimize this, this function performs exponential backoff. This is generally safe because
 // cache.InformerSynced functions are ~always quick to run. However, if the sync functions do perform
 // expensive checks this function may not be suitable.
-func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+func WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) (r bool) {
+	t0 := time.Now()
 	max := time.Millisecond * 100
 	delay := time.Millisecond
 	f := func() bool {
@@ -669,12 +670,21 @@ func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) 
 		}
 		return true
 	}
+	attempt := 0
+	defer func() {
+		if r {
+			log.WithLabels("name", name, "attempt", attempt, "time", time.Since(t0)).Debugf("sync complete")
+		} else {
+			log.WithLabels("name", name, "attempt", attempt, "time", time.Since(t0)).Errorf("sync failed")
+		}
+	}()
 	for {
 		select {
 		case <-stop:
 			return false
 		default:
 		}
+		attempt++
 		res := f()
 		if res {
 			return true
@@ -682,6 +692,11 @@ func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) 
 		delay *= 2
 		if delay > max {
 			delay = max
+		}
+		log.WithLabels("name", name, "attempt", attempt, "time", time.Since(t0)).Debugf("waiting for sync...")
+		if attempt%50 == 0 {
+			// Log every 50th attempt (5s) at info, to avoid too much noisy
+			log.WithLabels("name", name, "attempt", attempt, "time", time.Since(t0)).Infof("waiting for sync...")
 		}
 		if !sleep.Until(stop, delay) {
 			return false
@@ -692,14 +707,14 @@ func WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) 
 // WaitForCacheSync is a specialized version of the general WaitForCacheSync function which also
 // handles fake client syncing.
 // This is only required in cases where fake clients are used without RunAndWait.
-func (c *client) WaitForCacheSync(stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+func (c *client) WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
 	if c.informerWatchesPending == nil {
-		return WaitForCacheSync(stop, cacheSyncs...)
+		return WaitForCacheSync(name, stop, cacheSyncs...)
 	}
 	syncFns := append(cacheSyncs, func() bool {
 		return c.informerWatchesPending.Load() == 0
 	})
-	return WaitForCacheSync(stop, syncFns...)
+	return WaitForCacheSync(name, stop, syncFns...)
 }
 
 func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {

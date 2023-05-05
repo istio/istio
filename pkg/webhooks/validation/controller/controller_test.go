@@ -166,7 +166,7 @@ func createTestController(t *testing.T) (*Controller, *atomic.Pointer[error]) {
 	stop := test.NewStop(t)
 	c.RunAndWait(stop)
 	go control.Run(stop)
-	kube.WaitForCacheSync(stop, control.queue.HasSynced)
+	kube.WaitForCacheSync("test", stop, control.queue.HasSynced)
 
 	gatewayError := atomic.NewPointer[error](nil)
 	c.Istio().(*istiofake.Clientset).PrependReactor("*", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {

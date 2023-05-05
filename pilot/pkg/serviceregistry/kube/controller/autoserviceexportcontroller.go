@@ -78,7 +78,7 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 }
 
 func (c *autoServiceExportController) Run(stopCh <-chan struct{}) {
-	kube.WaitForCacheSync(stopCh, c.services.HasSynced)
+	kube.WaitForCacheSync("auto service export", stopCh, c.services.HasSynced)
 	c.queue.Run(stopCh)
 	c.services.ShutdownHandlers()
 }
