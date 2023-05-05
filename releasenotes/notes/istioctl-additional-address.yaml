@@ -5,4 +5,4 @@ issue: []
 
 releaseNotes:
   - |
-    **Added** output to support additional addresses for dual stack listeners.
+    **Added** support for displaying multiple addresses of listeners in `istioctl proxy-config listeners`.
