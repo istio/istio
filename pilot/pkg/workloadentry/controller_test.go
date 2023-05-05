@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package autoregistration
+package workloadentry
 
 import (
 	"fmt"
@@ -32,6 +32,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/workloadentry/internal/autoregistration"
+	workloadentrystore "istio.io/istio/pilot/pkg/workloadentry/internal/store"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -268,15 +270,15 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 			Namespace:        proxy.Metadata.Namespace,
 			Labels:           wantLabels,
 			Annotations: map[string]string{
-				AutoRegistrationGroupAnnotation: group.Name,
-				"foo":                           "bar",
+				autoregistration.AutoRegistrationGroupAnnotation: group.Name,
+				"foo": "bar",
 			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion: group.GroupVersionKind.GroupVersion(),
 				Kind:       group.GroupVersionKind.Kind,
 				Name:       group.Name,
 				UID:        kubetypes.UID(group.UID),
-				Controller: &workloadGroupIsController,
+				Controller: &autoregistration.WorkloadGroupIsController,
 			}},
 		},
 		Spec: &v1alpha3.WorkloadEntry{
@@ -292,7 +294,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 		},
 	}
 
-	got := workloadEntryFromGroup("test-we", proxy, &group)
+	got := autoregistration.WorkloadEntryFromGroup("test-we", proxy, &group)
 	assert.Equal(t, got, &want)
 }
 
@@ -365,13 +367,13 @@ func checkEntry(
 
 	// check controller annotations
 	if connectedTo != "" {
-		if v := cfg.Annotations[WorkloadControllerAnnotation]; v != connectedTo {
+		if v := cfg.Annotations[workloadentrystore.WorkloadControllerAnnotation]; v != connectedTo {
 			err = multierror.Append(err, fmt.Errorf("expected WorkloadEntry to be updated by %s; got %s", connectedTo, v))
 		}
-		if _, ok := cfg.Annotations[ConnectedAtAnnotation]; !ok {
+		if _, ok := cfg.Annotations[workloadentrystore.ConnectedAtAnnotation]; !ok {
 			err = multierror.Append(err, fmt.Errorf("expected connection timestamp to be set"))
 		}
-	} else if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
+	} else if _, ok := cfg.Annotations[workloadentrystore.DisconnectedAtAnnotation]; !ok {
 		err = multierror.Append(err, fmt.Errorf("expected disconnection timestamp to be set"))
 	}
 
