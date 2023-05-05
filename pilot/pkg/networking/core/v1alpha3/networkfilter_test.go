@@ -23,7 +23,6 @@ import (
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -121,8 +120,6 @@ func TestMysqlFilterComesBeforeRbacFilter(t *testing.T) {
 
 	listenerFilters := NewListenerBuilder(cg.SetupProxy(nil), pushContext).buildInboundNetworkFilters(fcc)
 
-	g := NewGomegaWithT(t)
-
 	indexOf := func(filterName string) int {
 		for i, filter := range listenerFilters {
 			if filter.Name == filterName {
@@ -131,7 +128,21 @@ func TestMysqlFilterComesBeforeRbacFilter(t *testing.T) {
 		}
 		return -1
 	}
-	g.Expect(indexOf("envoy.filters.network.mysql_proxy") < indexOf("envoy.filters.network.rbac")).To(BeTrue())
+
+	idxOfMysql := indexOf("envoy.filters.network.mysql_proxy")
+	if idxOfMysql == -1 {
+		t.Errorf("mysql_proxy filter missing in filter chain")
+		return
+	}
+	idxOfRbac := indexOf("envoy.filters.network.rbac")
+	if idxOfRbac == -1 {
+		t.Errorf("rbac filter missing in filter chain")
+		return
+	}
+
+	if idxOfMysql >= idxOfRbac {
+		t.Errorf("mysql_proxy filter (%v) should come before rbac filter (%v)", idxOfMysql, idxOfRbac)
+	}
 }
 
 func TestInboundNetworkFilterStatPrefix(t *testing.T) {
