@@ -45,7 +45,7 @@ const (
 // - if istio-REVISION exists, will be used, even if the file is present.
 // - the SHARED_MESH_CONFIG config map will also be loaded and merged.
 func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
-	log.Info("initializing mesh configuration ", args.MeshConfigFile)
+	log.Infof("initializing mesh configuration %v", args.MeshConfigFile)
 	defer func() {
 		if s.environment.Watcher != nil {
 			log.Infof("mesh configuration: %s", mesh.PrettyFormatOfMeshConfig(s.environment.Mesh()))

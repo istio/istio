@@ -33,7 +33,7 @@ import (
 )
 
 var scope = log.RegisterScope("status",
-	"status controller for istio", 0)
+	"status controller for istio")
 
 func ResourceFromString(s string) *Resource {
 	pieces := strings.Split(s, "/")

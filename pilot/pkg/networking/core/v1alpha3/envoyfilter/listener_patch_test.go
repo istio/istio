@@ -500,7 +500,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				Value: buildPatchStruct(`
 {"name": "envoy.filters.network.http_connection_manager",
  "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+        "@type": "type.googleapis.com/type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
          "xffNumTrustedHops": "4"
  }
 }`),

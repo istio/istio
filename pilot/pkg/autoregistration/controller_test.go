@@ -16,6 +16,7 @@ package autoregistration
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -24,7 +25,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -43,9 +42,7 @@ import (
 )
 
 func init() {
-	features.WorkloadEntryAutoRegistration = true
-	features.WorkloadEntryHealthChecks = true
-	features.WorkloadEntryCleanupGracePeriod = 200 * time.Millisecond
+	features.WorkloadEntryCleanupGracePeriod = 50 * time.Millisecond
 }
 
 var (
@@ -75,7 +72,7 @@ var (
 
 func TestNonAutoregisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
-	c := NewController(store, "", keepalive.Infinity)
+	c := NewController(store, "", time.Duration(math.MaxInt64))
 	createOrFail(t, store, wgA)
 	stop := make(chan struct{})
 	go c.Run(stop)
@@ -145,8 +142,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		t.Run("same instance", func(t *testing.T) {
 			// disconnect, make sure entry is still there with disconnect meta
 			c1.QueueUnregisterWorkload(p, time.Now())
-			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
-			checkEntryOrFail(t, store, wgA, p, n, "")
+			checkEntryOrFailAfter(t, store, wgA, p, n, "", features.WorkloadEntryCleanupGracePeriod/2)
 			// reconnect, ensure entry is there with the same instance id
 			origConnTime = time.Now()
 			c1.RegisterWorkload(p, origConnTime)
@@ -158,14 +154,12 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			// disconnect (associated with original connect, not the reconnect)
 			// make sure entry is still there with disconnect meta
 			c1.QueueUnregisterWorkload(p, origConnTime)
-			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
-			checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
+			checkEntryOrFailAfter(t, store, wgA, p, n, c1.instanceID, features.WorkloadEntryCleanupGracePeriod/2)
 		})
 		t.Run("different instance", func(t *testing.T) {
 			// disconnect, make sure entry is still there with disconnect metadata
 			c1.QueueUnregisterWorkload(p, time.Now())
-			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
-			checkEntryOrFail(t, store, wgA, p, n, "")
+			checkEntryOrFailAfter(t, store, wgA, p, n, "", features.WorkloadEntryCleanupGracePeriod/2)
 			// reconnect, ensure entry is there with the new instance id
 			origConnTime = time.Now()
 			c2.RegisterWorkload(p, origConnTime)
@@ -304,8 +298,8 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 
 func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreController) {
 	store := memory.NewController(memory.Make(collections.All))
-	c1 := NewController(store, "pilot-1", keepalive.Infinity)
-	c2 := NewController(store, "pilot-2", keepalive.Infinity)
+	c1 := NewController(store, "pilot-1", time.Duration(math.MaxInt64))
+	c2 := NewController(store, "pilot-2", time.Duration(math.MaxInt64))
 	createOrFail(t, store, wgA)
 	return c1, c2, store
 }
@@ -415,6 +409,19 @@ func checkEntryOrFail(
 	}
 }
 
+func checkEntryOrFailAfter(
+	t test.Failer,
+	store model.ConfigStoreController,
+	wg config.Config,
+	proxy *model.Proxy,
+	node *core.Node,
+	connectedTo string,
+	after time.Duration,
+) {
+	time.Sleep(after)
+	checkEntryOrFail(t, store, wg, proxy, node, connectedTo)
+}
+
 func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, healthy bool) (err error) {
 	name := proxy.AutoregisteredWorkloadEntryName
 	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
@@ -449,16 +456,9 @@ func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, hea
 }
 
 func checkHealthOrFail(t test.Failer, store model.ConfigStoreController, proxy *model.Proxy, healthy bool) {
-	err := wait.Poll(100*time.Millisecond, 1*time.Second, func() (done bool, err error) {
-		err2 := checkEntryHealth(store, proxy, healthy)
-		if err2 != nil {
-			return false, nil
-		}
-		return true, nil
+	retry.UntilSuccessOrFail(t, func() error {
+		return checkEntryHealth(store, proxy, healthy)
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func fakeProxy(ip string, wg config.Config, nw network.ID) *model.Proxy {

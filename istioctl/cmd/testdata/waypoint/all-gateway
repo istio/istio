@@ -1,0 +1,3 @@
+NAMESPACE     NAME          SERVICE ACCOUNT     PROGRAMMED     READY
+default       namespace                         True           True
+fake          namespace                         True           True

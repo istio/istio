@@ -64,14 +64,10 @@ var ClusterLocalModes = []ClusterLocalMode{alwaysClusterLocal, meshWide}
 func TestServiceNotExported(t *testing.T) {
 	for _, clusterLocalMode := range ClusterLocalModes {
 		t.Run(clusterLocalMode.String(), func(t *testing.T) {
-			for _, endpointMode := range EndpointModes {
-				t.Run(endpointMode.String(), func(t *testing.T) {
-					// Create and run the controller.
-					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-					// Check that the endpoint is cluster-local
-					ec.checkServiceInstancesOrFail(t, false)
-				})
-			}
+			// Create and run the controller.
+			ec := newTestServiceExportCache(t, clusterLocalMode)
+			// Check that the endpoint is cluster-local
+			ec.checkServiceInstancesOrFail(t, false)
 		})
 	}
 }
@@ -79,17 +75,13 @@ func TestServiceNotExported(t *testing.T) {
 func TestServiceExported(t *testing.T) {
 	for _, clusterLocalMode := range ClusterLocalModes {
 		t.Run(clusterLocalMode.String(), func(t *testing.T) {
-			for _, endpointMode := range EndpointModes {
-				t.Run(endpointMode.String(), func(t *testing.T) {
-					// Create and run the controller.
-					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-					// Export the service.
-					ec.export(t)
+			// Create and run the controller.
+			ec := newTestServiceExportCache(t, clusterLocalMode)
+			// Export the service.
+			ec.export(t)
 
-					// Check that the endpoint is mesh-wide
-					ec.checkServiceInstancesOrFail(t, true)
-				})
-			}
+			// Check that the endpoint is mesh-wide
+			ec.checkServiceInstancesOrFail(t, true)
 		})
 	}
 }
@@ -97,18 +89,14 @@ func TestServiceExported(t *testing.T) {
 func TestServiceUnexported(t *testing.T) {
 	for _, clusterLocalMode := range ClusterLocalModes {
 		t.Run(clusterLocalMode.String(), func(t *testing.T) {
-			for _, endpointMode := range EndpointModes {
-				t.Run(endpointMode.String(), func(t *testing.T) {
-					// Create and run the controller.
-					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-					// Export the service and then unexport it immediately.
-					ec.export(t)
-					ec.unExport(t)
+			// Create and run the controller.
+			ec := newTestServiceExportCache(t, clusterLocalMode)
+			// Export the service and then unexport it immediately.
+			ec.export(t)
+			ec.unExport(t)
 
-					// Check that the endpoint is cluster-local
-					ec.checkServiceInstancesOrFail(t, false)
-				})
-			}
+			// Check that the endpoint is cluster-local
+			ec.checkServiceInstancesOrFail(t, false)
 		})
 	}
 }
@@ -127,7 +115,7 @@ func newServiceExport() *unstructured.Unstructured {
 	return toUnstructured(se)
 }
 
-func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, endpointMode EndpointMode) (ec *serviceExportCacheImpl) {
+func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode) (ec *serviceExportCacheImpl) {
 	t.Helper()
 
 	istiotest.SetForTest(t, &features.EnableMCSServiceDiscovery, true)
@@ -135,7 +123,6 @@ func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, 
 
 	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: testCluster,
-		Mode:      endpointMode,
 	})
 
 	// Create the test service and endpoints.

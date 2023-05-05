@@ -35,10 +35,10 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.18-dev
+export VERSION ?= 1.19-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2023-03-21T19-01-24
+BASE_VERSION ?= master-2023-04-26T20-45-12
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -214,13 +214,12 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
 # These are binaries that require Linux to build, and should
 # be skipped on other platforms. Notably this includes the current Linux-only Istio CNI plugin
 LINUX_AGENT_BINARIES:=./cni/cmd/istio-cni \
-  ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni
 
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES) $(LINUX_AGENT_BINARIES)
 
-# List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
+# List of binaries that have their size tested
+RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl bug-report envoy ztunnel
 
 .PHONY: build
 build: depend ## Builds all go binaries.
@@ -303,7 +302,6 @@ gen: \
 	update-crds \
 	proto \
 	copy-templates \
-	gen-kustomize \
 	gen-addons \
 	update-golden ## Update all generated code.
 
@@ -346,13 +344,6 @@ copy-templates:
 	# copy istio-discovery values, but apply some local customizations
 	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
 	yq -i '.telemetry.enabled=false | .global.externalIstiod=true | .global.omitSidecarInjectorConfigMap=true | .pilot.configMap=false' manifests/charts/istiod-remote/values.yaml
-# Generate kustomize templates.
-gen-kustomize:
-	helm3 template istio --namespace istio-system --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
-	helm3 template istio --namespace istio-system manifests/charts/istio-control/istio-discovery \
-		> manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
-	helm3 template operator --namespace istio-operator manifests/charts/istio-operator \
-		--set hub=gcr.io/istio-testing --set tag=${VERSION} > manifests/charts/istio-operator/files/gen-operator.yaml
 
 #-----------------------------------------------------------------------------
 # Target: go build
@@ -381,7 +372,7 @@ ${TARGET_OUT}/release/_istioctl: ${LOCAL_OUT}/istioctl
 
 .PHONY: binaries-test
 binaries-test:
-	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${TARGET_OUT} --binaries="$(RELEASE_BINARIES)"
+	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${TARGET_OUT} --binaries="$(RELEASE_SIZE_TEST_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all

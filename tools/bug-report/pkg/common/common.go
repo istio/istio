@@ -40,9 +40,10 @@ type kv struct {
 }
 
 type resourceNames struct {
-	discoveryLabels []kv
-	istioDebugURLs  []string
-	proxyDebugURLs  []string
+	discoveryLabels  []kv
+	istioDebugURLs   []string
+	proxyDebugURLs   []string
+	ztunnelDebugURLs []string
 }
 
 var versionMap = map[string]*resourceNames{
@@ -80,6 +81,9 @@ var versionMap = map[string]*resourceNames{
 			"stats/prometheus",
 			"runtime",
 		},
+		ztunnelDebugURLs: []string{
+			"config_dump",
+		},
 	},
 }
 
@@ -91,6 +95,11 @@ func IstiodDebugURLs(clusterVersion string) []string {
 // ProxyDebugURLs returns a list of proxy debug URLs for the given version.
 func ProxyDebugURLs(clusterVersion string) []string {
 	return versionMap[getVersionKey(clusterVersion)].proxyDebugURLs
+}
+
+// ZtunnelDebugURLs returns a list of ztunnel debug URLs for the given version.
+func ZtunnelDebugURLs(clusterVersion string) []string {
+	return versionMap[getVersionKey(clusterVersion)].ztunnelDebugURLs
 }
 
 // IsDiscoveryContainer reports whether the given container is an Istio discovery container for the given version.

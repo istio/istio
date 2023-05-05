@@ -171,6 +171,17 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gatewaySecretValidations",
+		inputFiles: []string{"testdata/gateway-secrets-validation.yaml"},
+		analyzer:   &gateway.SecretAnalyzer{},
+		expected: []message{
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-invalid-keys"},
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-missing-keys"},
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-invalid-cert"},
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-expired"},
+		},
+	},
+	{
 		name:       "conflicting gateways detect",
 		inputFiles: []string{"testdata/conflicting-gateways.yaml"},
 		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
@@ -178,6 +189,12 @@ var testGrid = []testCase{
 			{msg.ConflictingGateways, "Gateway alpha"},
 			{msg.ConflictingGateways, "Gateway beta"},
 		},
+	},
+	{
+		name:       "conflicting gateways detect: no port",
+		inputFiles: []string{"testdata/conflicting-gateways-invalid-port.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected:   []message{},
 	},
 	{
 		name:       "istioInjection",
@@ -931,12 +948,6 @@ func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.Is
 		}
 	}
 
-	// Include default resources
-	err := sa.AddDefaultResources()
-	if err != nil {
-		return nil, fmt.Errorf("error adding default resources: %v", err)
-	}
-
 	// Gather test files
 	var files []local.ReaderSource
 	for _, f := range tc.inputFiles {
@@ -948,9 +959,15 @@ func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.Is
 	}
 
 	// Include resources from test files
-	err = sa.AddReaderKubeSource(files)
+	err := sa.AddTestReaderKubeSource(files)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up file kube source on testcase %s: %v", tc.name, err)
+	}
+
+	// Include default resources
+	err = sa.AddDefaultResources()
+	if err != nil {
+		return nil, fmt.Errorf("error adding default resources: %v", err)
 	}
 
 	return sa, nil

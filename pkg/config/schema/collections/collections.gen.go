@@ -411,14 +411,17 @@ var (
 	}.MustBuild()
 
 	ReferenceGrant = resource.Builder{
-		Identifier:    "ReferenceGrant",
-		Group:         "gateway.networking.k8s.io",
-		Kind:          "ReferenceGrant",
-		Plural:        "referencegrants",
-		Version:       "v1alpha2",
+		Identifier: "ReferenceGrant",
+		Group:      "gateway.networking.k8s.io",
+		Kind:       "ReferenceGrant",
+		Plural:     "referencegrants",
+		Version:    "v1beta1",
+		VersionAliases: []string{
+			"v1alpha2",
+		},
 		Proto:         "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec",
-		ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.ReferenceGrantSpec{}).Elem(),
-		ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec{}).Elem(),
+		ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1beta1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
@@ -584,6 +587,21 @@ var (
 		ValidateProto: validation.ValidateUDPRoute,
 	}.MustBuild()
 
+	ValidatingWebhookConfiguration = resource.Builder{
+		Identifier:    "ValidatingWebhookConfiguration",
+		Group:         "admissionregistration.k8s.io",
+		Kind:          "ValidatingWebhookConfiguration",
+		Plural:        "validatingwebhookconfigurations",
+		Version:       "v1",
+		Proto:         "k8s.io.api.admissionregistration.v1.ValidatingWebhookConfiguration",
+		ReflectType:   reflect.TypeOf(&k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration{}).Elem(),
+		ProtoPackage:  "k8s.io/api/admissionregistration/v1",
+		ClusterScoped: true,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	VirtualService = resource.Builder{
 		Identifier: "VirtualService",
 		Group:      "networking.istio.io",
@@ -690,6 +708,7 @@ var (
 		MustAdd(TLSRoute).
 		MustAdd(Telemetry).
 		MustAdd(UDPRoute).
+		MustAdd(ValidatingWebhookConfiguration).
 		MustAdd(VirtualService).
 		MustAdd(WasmPlugin).
 		MustAdd(WorkloadEntry).
@@ -721,6 +740,7 @@ var (
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).
 		MustAdd(UDPRoute).
+		MustAdd(ValidatingWebhookConfiguration).
 		Build()
 
 	// Pilot contains only collections used by Pilot.

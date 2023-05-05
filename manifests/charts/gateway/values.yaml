@@ -95,3 +95,6 @@ networkGateway: ""
 imagePullPolicy: ""
 
 imagePullSecrets: []
+
+podDisruptionBudget:
+  minAvailable: 1

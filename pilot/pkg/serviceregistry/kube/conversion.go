@@ -157,6 +157,9 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 				}
 			}
 			if len(lbAddrs) > 0 {
+				if istioService.Attributes.ClusterExternalAddresses == nil {
+					istioService.Attributes.ClusterExternalAddresses = &model.AddressMap{}
+				}
 				istioService.Attributes.ClusterExternalAddresses.SetAddressesFor(clusterID, lbAddrs)
 			}
 		}
@@ -165,7 +168,12 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	istioService.Attributes.Type = string(svc.Spec.Type)
 	istioService.Attributes.ExternalName = externalName
 	istioService.Attributes.NodeLocal = nodeLocal
-	istioService.Attributes.ClusterExternalAddresses.AddAddressesFor(clusterID, svc.Spec.ExternalIPs)
+	if len(svc.Spec.ExternalIPs) > 0 {
+		if istioService.Attributes.ClusterExternalAddresses == nil {
+			istioService.Attributes.ClusterExternalAddresses = &model.AddressMap{}
+		}
+		istioService.Attributes.ClusterExternalAddresses.AddAddressesFor(clusterID, svc.Spec.ExternalIPs)
+	}
 
 	return istioService
 }

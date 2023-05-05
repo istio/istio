@@ -8,15 +8,15 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "namespace-istio-waypoint.ns.svc.domain.suffix"
-      not found'
-    reason: NoResources
-    status: "False"
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed
-    reason: Programmed
-    status: "True"
+    message: 'Failed to assign to any requested addresses: hostname "namespace-istio-waypoint.ns.svc.domain.suffix"
+      not found'
+    reason: Invalid
+    status: "False"
     type: Programmed
   listeners:
   - attachedRoutes: 0
@@ -54,15 +54,15 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "invalid-istio-waypoint.ns.svc.domain.suffix"
-      not found'
-    reason: NoResources
-    status: "False"
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed
-    reason: Programmed
-    status: "True"
+    message: 'Failed to assign to any requested addresses: hostname "invalid-istio-waypoint.ns.svc.domain.suffix"
+      not found'
+    reason: Invalid
+    status: "False"
     type: Programmed
   listeners:
   - attachedRoutes: 0

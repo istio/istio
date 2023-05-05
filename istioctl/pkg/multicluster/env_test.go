@@ -19,7 +19,6 @@ import (
 	"os"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -110,8 +109,6 @@ func newFakeEnvironmentOrDie(t *testing.T, minor string, config *api.Config, obj
 	f := &fakeEnvironment{
 		KubeEnvironment: KubeEnvironment{
 			config:     config,
-			stdout:     &wOut,
-			stderr:     &wErr,
 			kubeconfig: "unused",
 		},
 		client:     kube.NewFakeClientWithVersion(minor, objs...),
@@ -130,26 +127,16 @@ func (f *fakeEnvironment) CreateClient(_ string) (kube.CLIClient, error) {
 	return f.client, nil
 }
 
-func (f *fakeEnvironment) Poll(_, _ time.Duration, condition ConditionFunc) error {
-	// TODO - add hooks to inject fake timeouts
-	_, _ = condition()
-	return nil
-}
-
 func TestNewEnvironment(t *testing.T) {
 	context := "" // empty, use current-Context
 	kubeconfig, wantConfig := createFakeKubeconfigFileOrDie(t)
 
-	var wOut, wErr bytes.Buffer
-
 	wantEnv := &KubeEnvironment{
 		config:     wantConfig,
-		stdout:     &wOut,
-		stderr:     &wErr,
 		kubeconfig: kubeconfig,
 	}
 
-	gotEnv, err := NewEnvironment(kubeconfig, context, &wOut, &wErr)
+	gotEnv, err := NewEnvironment(kubeconfig, context)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,23 +149,5 @@ func TestNewEnvironment(t *testing.T) {
 	gotEnv.config = nil
 	if !reflect.DeepEqual(wantEnv, gotEnv) {
 		t.Errorf("bad environment: \n got %v \nwant %v", *gotEnv, *wantEnv)
-	}
-
-	// verify interface
-	if gotEnv.Stderr() != &wErr {
-		t.Errorf("Stderr() returned wrong io.writer")
-	}
-	if gotEnv.Stdout() != &wOut {
-		t.Errorf("Stdout() returned wrong io.writer")
-	}
-	gotEnv.Printf("stdout %v", "test")
-	wantOut := "stdout test"
-	if gotOut := wOut.String(); gotOut != wantOut {
-		t.Errorf("Printf() printed wrong string: got %v want %v", gotOut, wantOut)
-	}
-	gotEnv.Errorf("stderr %v", "test")
-	wantErr := "stderr test"
-	if gotErr := wErr.String(); gotErr != wantErr {
-		t.Errorf("Errorf() printed wrong string: got %v want %v", gotErr, wantErr)
 	}
 }

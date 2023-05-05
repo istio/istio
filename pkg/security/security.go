@@ -29,7 +29,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var securityLog = istiolog.RegisterScope("security", "security debugging", 0)
+var securityLog = istiolog.RegisterScope("security", "security debugging")
 
 const (
 	// etc/certs files are used with external CA managing the certs,
@@ -190,6 +190,9 @@ type Options struct {
 	// The type of Elliptical Signature algorithm to use
 	// when generating private keys. Currently only ECDSA is supported.
 	ECCSigAlg string
+
+	// The type of curve to use when generating private keys with ECC. Currently only ECDSA is supported.
+	ECCCurve string
 
 	// FileMountedCerts indicates whether the proxy is using file
 	// mounted certs created by a foreign CA. Refresh is managed by the external

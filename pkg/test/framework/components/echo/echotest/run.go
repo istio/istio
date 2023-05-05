@@ -55,6 +55,13 @@ func (t *T) Run(testFn oneToOneTest) {
 		t.sources.Services().NamespacedNames().NamesWithNamespacePrefix(),
 		t.destinations.Services().NamespacedNames().NamesWithNamespacePrefix())
 
+	if t.sources.Len() == 0 {
+		t.rootCtx.Error("Sources are empty")
+	}
+	if t.destinations.Len() == 0 {
+		t.rootCtx.Error("Destinations are empty")
+	}
+
 	// Build and apply any completed configuration that does not require to/from params.
 	t.cfg.BuildCompleteSources().Apply()
 

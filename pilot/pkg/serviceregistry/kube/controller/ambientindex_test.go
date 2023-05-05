@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
@@ -57,6 +58,7 @@ func TestAmbientIndex(t *testing.T) {
 		ClusterID:        "cluster0",
 	})
 	controller.network = "testnetwork"
+	pc := clienttest.Wrap(t, controller.podsClient)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
 	addPolicy := func(name, ns string, selector map[string]string) {
@@ -114,9 +116,7 @@ func TestAmbientIndex(t *testing.T) {
 	}
 	deletePod := func(name string) {
 		t.Helper()
-		if err := controller.client.Kube().CoreV1().Pods("ns1").Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
-			t.Fatal(err)
-		}
+		pc.Delete(name, "ns1")
 	}
 	deleteService := func(name string) {
 		t.Helper()
@@ -128,25 +128,17 @@ func TestAmbientIndex(t *testing.T) {
 		t.Helper()
 		pod := generatePod(ip, name, "ns1", sa, "node1", labels, annotations)
 
-		p, _ := controller.client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+		p := pc.Get(name, pod.Namespace)
 		if p == nil {
 			// Apiserver doesn't allow Create to modify the pod status; in real world its a 2 part process
 			pod.Status = corev1.PodStatus{}
-			newPod, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
-			if err != nil {
-				t.Fatalf("Cannot create %s: %v", pod.ObjectMeta.Name, err)
-			}
+			newPod := pc.Create(pod)
 			setPodReady(newPod)
 			newPod.Status.PodIP = ip
 			newPod.Status.Phase = corev1.PodRunning
-			if _, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metav1.UpdateOptions{}); err != nil {
-				t.Fatalf("Cannot update status %s: %v", pod.ObjectMeta.Name, err)
-			}
+			pc.UpdateStatus(newPod)
 		} else {
-			_, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
-			if err != nil {
-				t.Fatalf("Cannot update %s: %v", pod.ObjectMeta.Name, err)
-			}
+			pc.Update(pod)
 		}
 	}
 	addPods("127.0.0.1", "name1", "sa1", map[string]string{"app": "a"}, nil)
@@ -268,7 +260,7 @@ func TestAmbientIndex(t *testing.T) {
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.200")[0].Address.GetWorkload().Waypoint,
 		nil)
 	assert.Equal(t, len(controller.Waypoint(model.WaypointScope{Namespace: "ns1", ServiceAccount: "namespace-wide"})), 1)
-	for k := range controller.Waypoint(model.WaypointScope{Namespace: "ns1", ServiceAccount: "namespace-wide"}) {
+	for _, k := range controller.Waypoint(model.WaypointScope{Namespace: "ns1", ServiceAccount: "namespace-wide"}) {
 		assert.Equal(t, k.AsSlice(), netip.MustParseAddr("10.0.0.1").AsSlice())
 	}
 	createService(controller, "svc1", "ns1",
@@ -277,7 +269,7 @@ func TestAmbientIndex(t *testing.T) {
 		[]int32{80}, map[string]string{"app": "a"}, t)
 	assertAddresses("testnetwork/10.0.0.1", "name1", "name2", "name3", "svc1")
 	// Send update for the workloads as well...
-	assertEvent("testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.200", "testnetwork/127.0.0.201", "testnetwork/127.0.0.3")
+	assertEvent("testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.200", "testnetwork/127.0.0.3")
 	// Make sure Service sees waypoints as well
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[0].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.1").AsSlice())
@@ -319,7 +311,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertEvent("testnetwork/127.0.0.2")
 
 	deleteService("waypoint-ns")
-	assertEvent("svc1.ns1.svc.company.com", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.201", "testnetwork/127.0.0.3")
+	assertEvent("svc1.ns1.svc.company.com", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.3")
 
 	addPolicy("global", "istio-system", nil)
 	addPolicy("namespace", "default", nil)
@@ -375,6 +367,7 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"}),
 	})
+	pc := clienttest.Wrap(t, controller.podsClient)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
 	assertWorkloads := func(lookup string, state workloadapi.WorkloadStatus, names ...string) {
@@ -408,37 +401,29 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 		t.Helper()
 		pod := generatePod(ip, name, "ns1", sa, "node1", labels, nil)
 
-		p, _ := controller.client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+		p := pc.Get(name, pod.Namespace)
 		if p == nil {
 			// Apiserver doesn't allow Create to modify the pod status; in real world its a 2 part process
 			pod.Status = corev1.PodStatus{}
-			newPod, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
-			if err != nil {
-				t.Fatalf("Cannot create %s: %v", pod.ObjectMeta.Name, err)
-			}
+			newPod := pc.Create(pod)
 			if markReady {
 				setPodReady(newPod)
 			}
 			newPod.Status.PodIP = ip
 			newPod.Status.Phase = phase
-			if _, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metav1.UpdateOptions{}); err != nil {
-				t.Fatalf("Cannot update status %s: %v", pod.ObjectMeta.Name, err)
-			}
+			pc.UpdateStatus(newPod)
 		} else {
-			_, err := controller.client.Kube().CoreV1().Pods(pod.Namespace).Update(context.Background(), pod, metav1.UpdateOptions{})
-			if err != nil {
-				t.Fatalf("Cannot update %s: %v", pod.ObjectMeta.Name, err)
-			}
+			pc.Update(pod)
 		}
 	}
 
 	addPods("127.0.0.1", "name1", "sa1", map[string]string{"app": "a"}, true, corev1.PodRunning)
-	assertEvent("127.0.0.1")
+	assertEvent("/127.0.0.1")
 	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1")
 
 	addPods("127.0.0.2", "name2", "sa1", map[string]string{"app": "a", "other": "label"}, false, corev1.PodRunning)
 	addPods("127.0.0.3", "name3", "sa1", map[string]string{"app": "other"}, false, corev1.PodPending)
-	assertEvent("127.0.0.2")
+	assertEvent("/127.0.0.2")
 	// Still healthy
 	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1")
 	// Unhealthy

@@ -44,7 +44,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var sdsServiceLog = log.RegisterScope("sds", "SDS service debugging", 0)
+var sdsServiceLog = log.RegisterScope("sds", "SDS service debugging")
 
 type sdsservice struct {
 	st security.SecretManager

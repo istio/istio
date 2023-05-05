@@ -68,7 +68,7 @@ type AmbientIndex struct {
 	waypoints map[model.WaypointScope]*workloadapi.GatewayAddress
 
 	// serviceVipIndex maintains an index of VIP -> Service
-	serviceVipIndex *kclient.Index[*v1.Service, string]
+	serviceVipIndex *kclient.Index[string, *v1.Service]
 }
 
 // Lookup finds a given IP address.
@@ -210,35 +210,35 @@ func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.Wo
 }
 
 // Waypoint finds all waypoint IP addresses for a given scope
-func (c *Controller) Waypoint(scope model.WaypointScope) sets.Set[netip.Addr] {
+func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 	a := c.ambientIndex
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	res := sets.New[netip.Addr]()
 	if addr, f := a.waypoints[scope]; f {
 		switch address := addr.Destination.(type) {
 		case *workloadapi.GatewayAddress_Address:
 			if ip, ok := netip.AddrFromSlice(address.Address.GetAddress()); ok {
-				return res.Insert(ip)
-			}
-		case *workloadapi.GatewayAddress_Hostname:
-			// TODO
-		}
-	}
-	// Now look for namespace-wide
-	scope.ServiceAccount = ""
-	if addr, f := a.waypoints[scope]; f {
-		switch address := addr.Destination.(type) {
-		case *workloadapi.GatewayAddress_Address:
-			if ip, ok := netip.AddrFromSlice(address.Address.GetAddress()); ok {
-				return res.Insert(ip)
+				return []netip.Addr{ip}
 			}
 		case *workloadapi.GatewayAddress_Hostname:
 			// TODO
 		}
 	}
 
-	return res
+	// Now look for namespace-wide
+	scope.ServiceAccount = ""
+	if addr, f := a.waypoints[scope]; f {
+		switch address := addr.Destination.(type) {
+		case *workloadapi.GatewayAddress_Address:
+			if ip, ok := netip.AddrFromSlice(address.Address.GetAddress()); ok {
+				return []netip.Addr{ip}
+			}
+		case *workloadapi.GatewayAddress_Hostname:
+			// TODO
+		}
+	}
+
+	return []netip.Addr{}
 }
 
 func (a *AmbientIndex) matchesScope(scope model.WaypointScope, w *model.WorkloadInfo) bool {
@@ -718,7 +718,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		},
 	}
 	c.services.AddEventHandler(serviceHandler)
-	idx.serviceVipIndex = kclient.CreateIndex[*v1.Service](c.services, getVIPs)
+	idx.serviceVipIndex = kclient.CreateIndex[string, *v1.Service](c.services, getVIPs)
 	return &idx
 }
 

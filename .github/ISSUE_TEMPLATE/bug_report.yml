@@ -26,7 +26,7 @@ body:
         $ kubectl version --short
         Client Version: v1.0.0
         Server Version: v1.0.0
-      render: prose
+      render: Text
     validations:
       required: true
   - type: textarea

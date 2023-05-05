@@ -131,7 +131,7 @@ func (e *errorWrapper) Cleanup(f func()) {
 }
 
 func (e *errorWrapper) Log(args ...any) {
-	log.Info(args...)
+	log.Info(fmt.Sprint(args...))
 }
 
 func (e *errorWrapper) Logf(format string, args ...any) {

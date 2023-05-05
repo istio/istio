@@ -47,6 +47,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		WorkloadRSAKeySize:             workloadRSAKeySizeEnv,
 		Pkcs8Keys:                      pkcs8KeysEnv,
 		ECCSigAlg:                      eccSigAlgEnv,
+		ECCCurve:                       eccCurvEnv,
 		SecretTTL:                      secretTTLEnv,
 		FileDebounceDuration:           fileDebounceDuration,
 		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
