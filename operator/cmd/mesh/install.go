@@ -196,12 +196,12 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	if iArgs.ShowDiff {
 		diff, err := compareIOPWithInstalledIOP(kubeClient, iop)
 		if err != nil && !errors.IsNotFound(err) {
-			l.LogAndErrorf("Error when comparing installed IOP with the new one: %v", err)
+			l.LogAndErrorf("Error encountered while comparing the current Istio installation with the upgrade configuration: %v", err)
 		} else if diff != "" {
-			l.LogAndPrint("The following differences were found when comparing the installed IOP with the new one:")
+			l.LogAndPrint("The following differences were detected between the current Istio installation and the upgrade configuration:")
 			l.LogAndPrint(diff)
 		} else if diff == "" && !errors.IsNotFound(err) {
-			l.LogAndPrint("No differences found when comparing the installed IOP with the new one.")
+			l.LogAndPrint("No differences found between the current Istio installation and thfe upgrade configuration.")
 		}
 	}
 
