@@ -455,15 +455,6 @@ var (
 		"If not empty, the controller will automatically patch validatingwebhookconfiguration when the CA certificate changes. "+
 			"Only works in kubernetes environment.").Get()
 
-	SpiffeBundleEndpoints = env.Register("SPIFFE_BUNDLE_ENDPOINTS", "",
-		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+
-			"bundle endpoint and uses it to verify client certificates from that trust domain. The endpoint must be "+
-			"compliant to the SPIFFE Bundle Endpoint standard. For details, please refer to "+
-			"https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md . "+
-			"No need to configure this for root certificates issued via Istiod or web-PKI based root certificates. "+
-			"Use || between <trustdomain, endpoint> tuples. Use | as delimiter between trust domain and endpoint in "+
-			"each tuple. For example: foo|https://url/for/foo||bar|https://url/for/bar").Get()
-
 	EnableXDSCaching = env.Register("PILOT_ENABLE_XDS_CACHE", true,
 		"If true, Pilot will cache XDS responses.").Get()
 
