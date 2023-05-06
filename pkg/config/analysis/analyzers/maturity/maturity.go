@@ -17,7 +17,6 @@ package maturity
 import (
 	"strings"
 
-	"istio.io/istio/pkg/config/constants"
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
@@ -25,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
