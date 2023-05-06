@@ -167,12 +167,12 @@ var (
 		"EnableMongoFilter enables injection of `envoy.filters.network.mongo_proxy` in the filter chain.",
 	).Get()
 
-	// UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners so that it picks up the localhost
+	// UseRemoteAddress sets useRemoteAddress to true for sidecar outbound listeners so that it picks up the localhost
 	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
 	UseRemoteAddress = env.Register(
 		"PILOT_SIDECAR_USE_REMOTE_ADDRESS",
 		false,
-		"UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners.",
+		"UseRemoteAddress sets useRemoteAddress to true for sidecar outbound listeners.",
 	).Get()
 
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
