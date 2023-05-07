@@ -15,7 +15,6 @@
 package virtualservice
 
 import (
-	"istio.io/istio/pkg/jwt"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
@@ -27,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/jwt"
 )
 
 type JWTClaimRouteAnalyzer struct{}

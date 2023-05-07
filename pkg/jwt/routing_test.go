@@ -15,7 +15,7 @@
 package jwt
 
 import (
-	"github.com/stretchr/testify/assert"
+	"reflect"
 	"testing"
 )
 
@@ -94,7 +94,7 @@ func TestToRoutingClaim(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ToRoutingClaim(tt.name)
-			if !assert.Equal(t, tt.want, got) {
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("want %v, but got %v", tt.want, got)
 			}
 		})

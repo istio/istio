@@ -16,7 +16,6 @@ package route
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/jwt"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/util/grpc"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
