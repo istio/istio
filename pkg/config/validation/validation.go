@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"istio.io/istio/pkg/jwt"
 	"net"
 	"net/http"
 	"net/netip"
@@ -48,7 +49,6 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -2292,7 +2292,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		if !appliesToGateway {
 			validateJWTClaimRoute := func(headers map[string]*networking.StringMatch) {
 				for key := range headers {
-					if strings.HasPrefix(key, constant.HeaderJWTClaim) {
+					if jwt.ToRoutingClaim(key).Match {
 						msg := fmt.Sprintf("JWT claim based routing (key: %s) is only supported for gateway, found no gateways: %v", key, virtualService.Gateways)
 						errs = appendValidation(errs, errors.New(msg))
 					}

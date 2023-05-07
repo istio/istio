@@ -545,6 +545,25 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			want: authz.MetadataMatcherForJWTClaims([]string{"regex"}, authzmatcher.StringMatcherRegex(".+?\\..+?\\..+?")),
 		},
 		{
+			name: "@request.auth.claims[key1",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+		},
+		{
+			name: "@request.auth.claims]key1",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+		},
+		{
+			// have `@request.auth.claims` prefix, but no separator
+			name: "@request.auth.claimskey1",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+		},
+		{
+			// if `.` exists, use `.` as separator
+			name: "@request.auth.claims.[key1]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"[key1]"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
 			name: "@request.auth.claims[key1]",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"key1"}, authzmatcher.StringMatcher("exact")),

@@ -16,6 +16,7 @@ package route
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/jwt"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,7 +40,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -963,31 +963,21 @@ func isCatchAllStringMatch(in *networking.StringMatch) bool {
 // or the header format is invalid for generating metadata matcher.
 //
 // The currently only supported header is @request.auth.claims for JWT claims matching. Claims of type string or list of string
-// are supported and nested claims are also supported.
-// Examples:
+// are supported and nested claims are also supported using `.` or `[]` as a separator for claim names, `[]` is recommended.
+//
+// Examples using `.` as a separator:
+// - `@request.auth.claims.admin` matches the claim "admin".
+// - `@request.auth.claims.group.id` matches the nested claims "group" and "id".
+//
+// Examples using `[]` as a separator:
 // - `@request.auth.claims[admin]` matches the claim "admin".
 // - `@request.auth.claims[group][id]` matches the nested claims "group" and "id".
 func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.MetadataMatcher {
-	if !strings.HasPrefix(strings.ToLower(name), constant.HeaderJWTClaim) {
+	rc := jwt.ToRoutingClaim(name)
+	if !rc.Match {
 		return nil
 	}
-
-	var claims []string
-	name = name[len(constant.HeaderJWTClaim):]
-	if strings.HasPrefix(name, ".") {
-		// example: request.auth.claims.nested1.nested2
-		// this is for backward compatibility
-		claims = strings.Split(name[1:], ".")
-	} else if strings.HasPrefix(name, "[") && strings.HasSuffix(name, "]") {
-		// example: request.auth.claims[nested1][nested2]
-		name = name[1:]
-		name = name[:len(name)-1]
-		claims = strings.Split(name, "][")
-	} else {
-		return nil
-	}
-
-	return authz.MetadataMatcherForJWTClaims(claims, util.ConvertToEnvoyMatch(in))
+	return authz.MetadataMatcherForJWTClaims(rc.Claims, util.ConvertToEnvoyMatch(in))
 }
 
 // translateHeaderMatch translates to HeaderMatcher
