@@ -24,7 +24,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var authzLog = log.RegisterScope("authorization", "Istio Authorization Policy", 0)
+var authzLog = log.RegisterScope("authorization", "Istio Authorization Policy")
 
 type AuthzLogger struct {
 	debugMsg []string

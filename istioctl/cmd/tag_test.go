@@ -331,12 +331,9 @@ func TestSetTagErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
 
-			client := fake.NewSimpleClientset(tc.webhooksBefore.DeepCopyObject(), tc.namespaces.DeepCopyObject())
-			mockClient := kube.MockClient{
-				Interface: client,
-			}
+			client := kube.NewFakeClient(tc.webhooksBefore.DeepCopyObject(), tc.namespaces.DeepCopyObject())
 			skipConfirmation = true
-			err := setTag(context.Background(), mockClient, tc.tag, tc.revision, "istio-system", false, &out, nil)
+			err := setTag(context.Background(), client, tc.tag, tc.revision, "istio-system", false, &out, nil)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}

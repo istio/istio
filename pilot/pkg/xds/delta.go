@@ -35,7 +35,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var deltaLog = istiolog.RegisterScope("delta", "delta xds debugging", 0)
+var deltaLog = istiolog.RegisterScope("delta", "delta xds debugging")
 
 func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	if knativeEnv != "" && firstRequest.Load() {

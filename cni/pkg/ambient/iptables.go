@@ -131,6 +131,8 @@ func (s *Server) initializeLists() error {
 }
 
 // Flush the chains and lists for ztunnel
+// This method will log warnings if node already clean because chains
+// are not created yet.
 func (s *Server) flushLists() {
 	var err error
 
@@ -159,6 +161,9 @@ func (s *Server) flushLists() {
 	}
 }
 
+// Clean the chains and lists for ztunnel
+// This method will log warnings if node already clean because chains
+// are not created yet.
 func (s *Server) cleanRules() {
 	var err error
 
@@ -275,7 +280,7 @@ func (s *Server) cleanRules() {
 	for _, l := range list {
 		err = execute(l.Cmd, l.Args...)
 		if err != nil {
-			log.Errorf("Error running command %v: %v", l.Cmd, err)
+			log.Warnf("Error running command %v: %v", l.Cmd, err)
 		}
 	}
 }

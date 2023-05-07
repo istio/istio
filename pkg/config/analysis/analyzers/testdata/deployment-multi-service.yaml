@@ -379,5 +379,5 @@ spec:
       serviceAccountName: productpage-istio-waypoint
       containers:
         - name: istio-proxy
-          image: docker.io/istio/proxyv2:1.18.0-dev1
+          image: docker.io/istio/proxyv2:1.19.0-dev1
           imagePullPolicy: IfNotPresent

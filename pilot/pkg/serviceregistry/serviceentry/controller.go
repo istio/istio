@@ -46,7 +46,7 @@ import (
 
 var (
 	_   serviceregistry.Instance = &Controller{}
-	log                          = istiolog.RegisterScope("serviceentry", "ServiceEntry registry", 0)
+	log                          = istiolog.RegisterScope("serviceentry", "ServiceEntry registry")
 )
 
 var (

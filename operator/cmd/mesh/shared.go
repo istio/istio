@@ -39,7 +39,7 @@ import (
 )
 
 // installerScope is the scope for all commands in the mesh package.
-var installerScope = log.RegisterScope("installer", "installer", 0)
+var installerScope = log.RegisterScope("installer", "installer")
 
 type Printer interface {
 	Printf(format string, a ...any)

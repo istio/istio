@@ -411,14 +411,17 @@ var (
 	}.MustBuild()
 
 	ReferenceGrant = resource.Builder{
-		Identifier:    "ReferenceGrant",
-		Group:         "gateway.networking.k8s.io",
-		Kind:          "ReferenceGrant",
-		Plural:        "referencegrants",
-		Version:       "v1alpha2",
+		Identifier: "ReferenceGrant",
+		Group:      "gateway.networking.k8s.io",
+		Kind:       "ReferenceGrant",
+		Plural:     "referencegrants",
+		Version:    "v1beta1",
+		VersionAliases: []string{
+			"v1alpha2",
+		},
 		Proto:         "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec",
-		ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.ReferenceGrantSpec{}).Elem(),
-		ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec{}).Elem(),
+		ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1beta1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,

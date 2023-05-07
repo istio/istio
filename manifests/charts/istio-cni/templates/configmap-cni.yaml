@@ -31,22 +31,3 @@ data:
               "exclude_namespaces": [ {{ range $idx, $ns := .Values.cni.excludeNamespaces }}{{ if $idx }}, {{ end }}{{ quote $ns }}{{ end }} ]
           }
         }
----
-  {{- if .Values.cni.taint.enabled }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: "istio-cni-taint-configmap"
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istio-cni
-    release: {{ .Release.Name }}
-    istio.io/rev: {{ .Values.revision | default "default" }}
-    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
-    operator.istio.io/component: "Cni"
-data:
-  config: |
-        - name: istio-cni
-          selector: k8s-app=istio-cni-node
-          namespace: {{ .Release.Namespace }}
-  {{- end }}

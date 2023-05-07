@@ -1526,11 +1526,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				for _, gw := range gwNames {
 					ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
 				}
-				continue
-			} else if exportToMap[visibility.None] {
-				// not possible
-				continue
-			} else {
+			} else if !exportToMap[visibility.None] {
 				// . or other namespaces
 				for exportTo := range exportToMap {
 					if exportTo == visibility.Private || string(exportTo) == ns {
@@ -2174,7 +2170,7 @@ func (ps *PushContext) SupportsTunnel(ip string) bool {
 	return false
 }
 
-func (ps *PushContext) WaypointsFor(scope WaypointScope) sets.Set[netip.Addr] {
+func (ps *PushContext) WaypointsFor(scope WaypointScope) []netip.Addr {
 	return ps.ambientIndex.Waypoint(scope)
 }
 

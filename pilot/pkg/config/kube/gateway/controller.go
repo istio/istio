@@ -44,7 +44,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("gateway", "gateway-api controller", 0)
+var log = istiolog.RegisterScope("gateway", "gateway-api controller")
 
 var errUnsupportedOp = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
 
@@ -76,7 +76,7 @@ type Controller struct {
 	domain string
 
 	// state is our computed Istio resources. Access is guarded by stateMu. This is updated from Reconcile().
-	state   OutputResources
+	state   IstioResources
 	stateMu sync.RWMutex
 
 	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
@@ -183,7 +183,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
 	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
 
-	input := KubernetesResources{
+	input := GatewayResources{
 		GatewayClass:   deepCopyStatus(gatewayClass),
 		Gateway:        deepCopyStatus(gateway),
 		HTTPRoute:      deepCopyStatus(httpRoute),
@@ -199,7 +199,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 		c.stateMu.Lock()
 		defer c.stateMu.Unlock()
 		// make sure we clear out the state, to handle the last gateway-api resource being removed
-		c.state = OutputResources{}
+		c.state = IstioResources{}
 		return nil
 	}
 
@@ -229,7 +229,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	return nil
 }
 
-func (c *Controller) QueueStatusUpdates(r KubernetesResources) {
+func (c *Controller) QueueStatusUpdates(r GatewayResources) {
 	c.handleStatusUpdates(r.GatewayClass)
 	c.handleStatusUpdates(r.Gateway)
 	c.handleStatusUpdates(r.HTTPRoute)
@@ -394,7 +394,7 @@ func filterNamespace(cfgs []config.Config, namespace string) []config.Config {
 
 // hasResources determines if there are any gateway-api resources created at all.
 // If not, we can short circuit all processing to avoid excessive work.
-func (kr KubernetesResources) hasResources() bool {
+func (kr GatewayResources) hasResources() bool {
 	return len(kr.GatewayClass) > 0 ||
 		len(kr.Gateway) > 0 ||
 		len(kr.HTTPRoute) > 0 ||

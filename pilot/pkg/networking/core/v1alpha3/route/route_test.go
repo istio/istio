@@ -17,7 +17,6 @@ package route_test
 import (
 	"reflect"
 	"testing"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -26,7 +25,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -100,26 +98,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 		}))
-	})
-
-	t.Run("for virtual service with changed default timeout", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-
-		dt := features.DefaultRequestTimeout
-		features.DefaultRequestTimeout = durationpb.New(1 * time.Second)
-		defer func() { features.DefaultRequestTimeout = dt }()
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, serviceRegistry,
-			nil, 8080, gatewayNames, route.RouteOptions{})
-		xdstest.ValidateRoutes(t, routes)
-
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(1))
-		// Validate that when timeout is not specified, we send what is set in the timeout flag.
-		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(1)))
-		// nolint: staticcheck
-		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(1)))
 	})
 
 	t.Run("for virtual service with timeout", func(t *testing.T) {

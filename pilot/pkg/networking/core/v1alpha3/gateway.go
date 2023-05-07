@@ -140,9 +140,19 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				// we will support more cases)
 				newFilterChains = configgen.buildGatewayHTTP3FilterChains(builder, serversForPort, mergedGateway, proxyConfig, opts)
 			}
-			var mutable *MutableListener
+
+			for cnum := range newFilterChains {
+				if util.IsIstioVersionGE117(builder.node.IstioVersion) {
+					newFilterChains[cnum].TCP = append(newFilterChains[cnum].TCP, xdsfilters.IstioNetworkAuthenticationFilter)
+				}
+				if newFilterChains[cnum].ListenerProtocol == istionetworking.ListenerProtocolTCP {
+					newFilterChains[cnum].TCP = append(newFilterChains[cnum].TCP, builder.authzCustomBuilder.BuildTCP()...)
+					newFilterChains[cnum].TCP = append(newFilterChains[cnum].TCP, builder.authzBuilder.BuildTCP()...)
+				}
+			}
+
 			if mopts, exists := mutableopts[lname]; !exists {
-				mutable = &MutableListener{
+				mutable := &MutableListener{
 					MutableObjects: istionetworking.MutableObjects{
 						// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
 						// this is for.
@@ -153,17 +163,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			} else {
 				mopts.opts.filterChainOpts = append(mopts.opts.filterChainOpts, opts.filterChainOpts...)
 				mopts.mutable.MutableObjects.FilterChains = append(mopts.mutable.MutableObjects.FilterChains, newFilterChains...)
-				mutable = mopts.mutable
-			}
-
-			for cnum := range mutable.FilterChains {
-				if util.IsIstioVersionGE117(builder.node.IstioVersion) {
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, xdsfilters.IstioNetworkAuthenticationFilter)
-				}
-				if mutable.FilterChains[cnum].ListenerProtocol == istionetworking.ListenerProtocolTCP {
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, builder.authzCustomBuilder.BuildTCP()...)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, builder.authzBuilder.BuildTCP()...)
-				}
 			}
 		}
 	}
@@ -841,16 +840,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 	filterChains := make([]*filterChainOpts, 0)
 
 	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
-		if features.EnableLegacyAutoPassthrough {
-			// auto passthrough does not require virtual services. It sets up envoy.filters.network.sni_cluster filter
-			filterChains = append(filterChains, &filterChainOpts{
-				sniHosts:       node.MergedGateway.TLSServerInfo[server].SNIHosts,
-				tlsContext:     nil, // NO TLS context because this is passthrough
-				networkFilters: buildOutboundAutoPassthroughFilterStack(push, node, port),
-			})
-		} else {
-			filterChains = append(filterChains, builtAutoPassthroughFilterChains(push, node, node.MergedGateway.TLSServerInfo[server].SNIHosts)...)
-		}
+		filterChains = append(filterChains, builtAutoPassthroughFilterChains(push, node, node.MergedGateway.TLSServerInfo[server].SNIHosts)...)
 	} else {
 		virtualServices := push.VirtualServicesForGateway(node.ConfigNamespace, gatewayName)
 		for _, v := range virtualServices {

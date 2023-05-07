@@ -203,15 +203,23 @@ func TestSecretsController(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			key, cert, staple, err := sc.GetKeyCertAndStaple(tt.name, tt.namespace)
-			if tt.key != string(key) {
-				t.Errorf("got key %q, wanted %q", string(key), tt.key)
+			certInfo, err := sc.GetCertInfo(tt.name, tt.namespace)
+			var actualKey []byte
+			var actualCert []byte
+			var actualStaple []byte
+			if certInfo != nil {
+				actualKey = certInfo.Key
+				actualCert = certInfo.Cert
+				actualStaple = certInfo.Staple
 			}
-			if tt.cert != string(cert) {
-				t.Errorf("got cert %q, wanted %q", string(cert), tt.cert)
+			if tt.key != string(actualKey) {
+				t.Errorf("got key %q, wanted %q", string(actualKey), tt.key)
 			}
-			if tt.staple != string(staple) {
-				t.Errorf("got staple %q, wanted %q", string(staple), tt.staple)
+			if tt.cert != string(actualCert) {
+				t.Errorf("got cert %q, wanted %q", string(actualCert), tt.cert)
+			}
+			if tt.staple != string(actualStaple) {
+				t.Errorf("got staple %q, wanted %q", string(actualStaple), tt.staple)
 			}
 			if tt.expectedError != errString(err) {
 				t.Errorf("got err %q, wanted %q", errString(err), tt.expectedError)
@@ -453,12 +461,18 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			key, cert, _, _ := con.GetKeyCertAndStaple(tt.name, tt.namespace)
-			if tt.key != string(key) {
-				t.Errorf("got key %q, wanted %q", string(key), tt.key)
+			certInfo, _ := con.GetCertInfo(tt.name, tt.namespace)
+			var actualKey []byte
+			var actualCert []byte
+			if certInfo != nil {
+				actualKey = certInfo.Key
+				actualCert = certInfo.Cert
 			}
-			if tt.cert != string(cert) {
-				t.Errorf("got cert %q, wanted %q", string(cert), tt.cert)
+			if tt.key != string(actualKey) {
+				t.Errorf("got key %q, wanted %q", string(actualKey), tt.key)
+			}
+			if tt.cert != string(actualCert) {
+				t.Errorf("got cert %q, wanted %q", string(actualCert), tt.cert)
 			}
 			caCert, err := con.GetCaCert(tt.name, tt.namespace)
 			if tt.caCert != string(caCert) {

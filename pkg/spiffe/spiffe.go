@@ -53,7 +53,7 @@ var (
 
 	firstRetryBackOffTime = time.Millisecond * 50
 
-	spiffeLog = log.RegisterScope("spiffe", "SPIFFE library logging", 0)
+	spiffeLog = log.RegisterScope("spiffe", "SPIFFE library logging")
 
 	totalRetryTimeout = time.Second * 10
 )

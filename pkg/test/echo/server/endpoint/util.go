@@ -24,7 +24,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var epLog = log.RegisterScope("endpoint", "echo serverside", 0)
+var epLog = log.RegisterScope("endpoint", "echo serverside")
 
 const (
 	requestTimeout = 15 * time.Second

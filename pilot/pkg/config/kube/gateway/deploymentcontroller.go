@@ -34,6 +34,7 @@ import (
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -81,7 +82,7 @@ type DeploymentController struct {
 	gateways       kclient.Client[*gateway.Gateway]
 	gatewayClasses kclient.Client[*gateway.GatewayClass]
 
-	clients         map[string]kclient.Untyped
+	clients         map[schema.GroupVersionResource]getter
 	injectConfig    func() inject.WebhookConfig
 	deployments     kclient.Client[*appsv1.Deployment]
 	services        kclient.Client[*corev1.Service]
@@ -102,8 +103,7 @@ type classInfo struct {
 	description string
 	// The key in the templates to use for this class
 	templates string
-	// reportGatewayClassStatus, if enabled, will set the GatewayClass to be accepted when it is first created.
-	// nolint: unused
+	// reportGatewayClassStatus, if enabled, will update the status when it is first created.
 	reportGatewayClassStatus bool
 }
 
@@ -111,7 +111,7 @@ var classInfos = getClassInfos()
 
 func getClassInfos() map[string]classInfo {
 	m := map[string]classInfo{
-		DefaultClassName: {
+		defaultClassName: {
 			controller:  constants.ManagedGatewayController,
 			description: "The default Istio GatewayClass",
 			templates:   "kube-gateway",
@@ -146,7 +146,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 	dc := &DeploymentController{
 		client:    client,
 		clusterID: clusterID,
-		clients:   map[string]kclient.Untyped{},
+		clients:   map[schema.GroupVersionResource]getter{},
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
 			t := true
@@ -171,17 +171,17 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 	// the Gateway to the queue and reconcile the state of the world.
 	parentHandler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
 
-	// Use the full informer, since we are already fetching all Services for other purposes
-	// If we somehow stop watching Services in the future we can add a label selector like below.
 	dc.services = kclient.New[*corev1.Service](client)
 	dc.services.AddEventHandler(parentHandler)
+	dc.clients[gvr.Service] = NewUntypedWrapper(dc.services)
 
-	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
-	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, kclient.Filter{LabelSelector: constants.ManagedGatewayLabel})
+	dc.deployments = kclient.New[*appsv1.Deployment](client)
 	dc.deployments.AddEventHandler(parentHandler)
+	dc.clients[gvr.Deployment] = NewUntypedWrapper(dc.deployments)
 
 	dc.serviceAccounts = kclient.New[*corev1.ServiceAccount](client)
 	dc.serviceAccounts.AddEventHandler(parentHandler)
+	dc.clients[gvr.ServiceAccount] = NewUntypedWrapper(dc.serviceAccounts)
 
 	dc.namespaces = kclient.New[*corev1.Namespace](client)
 	dc.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
@@ -291,20 +291,10 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	log.Info("reconciling")
 
 	defaultName := getDefaultName(gw.Name, &gw.Spec)
-	deploymentName := defaultName
-	if nameOverride, exists := gw.Annotations[gatewayNameOverride]; exists {
-		deploymentName = nameOverride
-	}
-
-	gatewaySA := defaultName
-	if saOverride, exists := gw.Annotations[gatewaySAOverride]; exists {
-		gatewaySA = saOverride
-	}
-
 	input := TemplateInput{
 		Gateway:        &gw,
-		DeploymentName: deploymentName,
-		ServiceAccount: gatewaySA,
+		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
+		ServiceAccount: model.GetOrDefault(gw.Annotations[gatewaySAOverride], defaultName),
 		Ports:          extractServicePorts(gw),
 		ClusterID:      d.clusterID.String(),
 		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
@@ -473,7 +463,7 @@ func (d *DeploymentController) HandleTagChange(newTags sets.Set[string]) {
 // This ensures we don't accidentally take over some resource we weren't supposed to, which could cause outages.
 // Note K8s doesn't have a perfect way to "conditionally SSA", but its close enough (https://github.com/kubernetes/kubernetes/issues/116156).
 func (d *DeploymentController) canManage(gvr schema.GroupVersionResource, name, namespace string) (bool, string) {
-	store, f := d.clients[gvr.GroupVersion().String()]
+	store, f := d.clients[gvr]
 	if !f {
 		log.Warnf("unknown GVR %v", gvr)
 		// Even though we don't know what it is, allow users to put the resource. We won't be able to
@@ -481,13 +471,13 @@ func (d *DeploymentController) canManage(gvr schema.GroupVersionResource, name, 
 		return true, ""
 	}
 	obj := store.Get(name, namespace)
-	if !controllers.IsNil(obj) {
-		_, managed := obj.GetLabels()[constants.ManagedGatewayLabel]
-		// If object already exists, we can only manage it if it has the label
-		return managed, obj.GetResourceVersion()
+	if obj == nil {
+		// no object, we can manage it
+		return true, ""
 	}
-	// no object, we can manage it
-	return true, ""
+	_, managed := obj.GetLabels()[constants.ManagedGatewayLabel]
+	// If object already exists, we can only manage it if it has the label
+	return managed, obj.GetResourceVersion()
 }
 
 type TemplateInput struct {
@@ -528,3 +518,26 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 	}
 	return svcPorts
 }
+
+// UntypedWrapper wraps a typed reader to an untyped one, since Go cannot do it automatically.
+type UntypedWrapper[T controllers.ComparableObject] struct {
+	reader kclient.Reader[T]
+}
+type getter interface {
+	Get(name, namespace string) controllers.Object
+}
+
+func NewUntypedWrapper[T controllers.ComparableObject](c kclient.Client[T]) getter {
+	return UntypedWrapper[T]{c}
+}
+
+func (u UntypedWrapper[T]) Get(name, namespace string) controllers.Object {
+	// DO NOT return u.reader.Get directly, or we run into issues with https://go.dev/tour/methods/12
+	res := u.reader.Get(name, namespace)
+	if controllers.IsNil(res) {
+		return nil
+	}
+	return res
+}
+
+var _ getter = UntypedWrapper[*corev1.Service]{}

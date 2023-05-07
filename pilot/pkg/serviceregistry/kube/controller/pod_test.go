@@ -110,7 +110,7 @@ func TestPodCache(t *testing.T) {
 }
 
 func TestHostNetworkPod(t *testing.T) {
-	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
+	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 	initTestEnv(t, c.client.Kube(), fx)
 	createPod := func(ip, name string) {
 		addPods(t, c, fx, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
@@ -134,7 +134,7 @@ func TestHostNetworkPod(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/20676
 func TestIPReuse(t *testing.T) {
-	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
+	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 	initTestEnv(t, c.client.Kube(), fx)
 
 	createPod := func(ip, name string) {
@@ -198,7 +198,6 @@ func waitForNode(t test.Failer, c *FakeController, name string) {
 
 func testPodCache(t *testing.T) {
 	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		Mode:              EndpointsOnly,
 		WatchedNamespaces: "nsa,nsb",
 	})
 
@@ -247,7 +246,7 @@ func testPodCache(t *testing.T) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 
 	ns := "default"
 	podCache := c.pods

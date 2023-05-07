@@ -136,9 +136,9 @@ func TestDirectoryWithRecursion(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
-			// Recursive is true, so we should see two errors (SchemaValidationError and UnknownAnnotation).
+			// Recursive is true, so we should see one error (SchemaValidationError).
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=true", dirWithConfig)
-			expectMessages(t, g, output, msg.SchemaValidationError, msg.UnknownAnnotation)
+			expectMessages(t, g, output, msg.SchemaValidationError)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
@@ -195,7 +195,8 @@ func TestJsonInputFile(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
 			// Validation error if we have a gateway with invalid selector.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, jsonGatewayFile)
+			applyFileOrFail(t, ns.Name(), jsonGatewayFile)
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
@@ -216,30 +217,18 @@ func TestJsonOutput(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
-			testcases := []struct {
-				name     string
-				args     []string
-				messages []*diag.MessageType
-			}{
-				{
-					name:     "no other output except analysis json output",
-					args:     []string{jsonGatewayFile, jsonOutput},
-					messages: []*diag.MessageType{msg.ReferencedResourceNotFound},
-				},
-				{
-					name:     "invalid file does not output error in stdout",
-					args:     []string{invalidExtensionFile, jsonOutput},
-					messages: []*diag.MessageType{},
-				},
-			}
+			t.NewSubTest("no other output except analysis json output").Run(func(t framework.TestContext) {
+				applyFileOrFail(t, ns.Name(), jsonGatewayFile)
+				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), true, jsonOutput)
+				expectJSONMessages(t, g, stdout, msg.ReferencedResourceNotFound)
+				g.Expect(err).To(BeNil())
+			})
 
-			for _, tc := range testcases {
-				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), false, tc.args...)
-					expectJSONMessages(t, g, stdout, tc.messages...)
-					g.Expect(err).To(BeNil())
-				})
-			}
+			t.NewSubTest("invalid file does not output error in stdout").Run(func(t framework.TestContext) {
+				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), false, invalidExtensionFile, jsonOutput)
+				expectJSONMessages(t, g, stdout)
+				g.Expect(err).To(BeNil())
+			})
 		})
 }
 
@@ -427,7 +416,7 @@ func expectJSONMessages(t test.Failer, g *GomegaWithT, output string, expected .
 
 	var j []map[string]any
 	if err := json.Unmarshal([]byte(output), &j); err != nil {
-		t.Fatal(err)
+		t.Fatal(err, output)
 	}
 
 	g.Expect(j).To(HaveLen(len(expected)))
