@@ -511,7 +511,7 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			name: "request.auth.claims.",
 		},
 		{
-			name: "@request.auth.claims-",
+			name: "@request.auth.claims.",
 		},
 		{
 			name: "@request.auth.claims-abc",

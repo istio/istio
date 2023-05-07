@@ -34,24 +34,23 @@ type RoutingClaim struct {
 	Claims    []string
 }
 
-func ToRoutingClaim(name string) RoutingClaim {
+func ToRoutingClaim(headerName string) RoutingClaim {
 	rc := RoutingClaim{}
-	if !strings.HasPrefix(strings.ToLower(name), HeaderJWTClaim) {
+	if !strings.HasPrefix(strings.ToLower(headerName), HeaderJWTClaim) {
 		return rc
 	}
 
-	name = name[len(HeaderJWTClaim):]
-	if strings.HasPrefix(name, ".") {
+	name := headerName[len(HeaderJWTClaim):]
+	if strings.HasPrefix(name, ".") && len(name) > 1 {
 		// using `.` as a separator
 		rc.Match = true
 		rc.Separator = Dot
 		rc.Claims = strings.Split(name[1:], ".")
-	} else if strings.HasPrefix(name, "[") && strings.HasSuffix(name, "]") {
+	} else if strings.HasPrefix(name, "[") && strings.HasSuffix(name, "]") && len(name) > 2 {
 		// using `[]` as a separator
-		name = name[1 : len(name)-1]
 		rc.Match = true
 		rc.Separator = Square
-		rc.Claims = strings.Split(name, "][")
+		rc.Claims = strings.Split(name[1:len(name)-1], "][")
 	}
 
 	return rc

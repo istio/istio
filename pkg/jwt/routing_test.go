@@ -37,7 +37,7 @@ func TestToRoutingClaim(t *testing.T) {
 			want: RoutingClaim{},
 		},
 		{
-			name: "@request.auth.claims-",
+			name: "@request.auth.claims.",
 			want: RoutingClaim{},
 		},
 		{
@@ -59,6 +59,10 @@ func TestToRoutingClaim(t *testing.T) {
 		{
 			name: "@request.auth.claims.key1-key2",
 			want: RoutingClaim{Match: true, Separator: Dot, Claims: []string{"key1-key2"}},
+		},
+		{
+			name: "@request.auth.claims[]",
+			want: RoutingClaim{},
 		},
 		{
 			name: "@request.auth.claims[key1",
