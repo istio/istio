@@ -864,22 +864,17 @@ func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
 // namespace "" indicates all namespaces
 func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
-	var capacity int
-	if ns == NamespaceAll {
-		capacity = len(ps.ServiceIndex.privateByNamespace) + len(ps.ServiceIndex.public)
-	} else {
-		capacity = len(ps.ServiceIndex.privateByNamespace[ns]) +
-			len(ps.ServiceIndex.exportedToNamespace[ns]) +
-			len(ps.ServiceIndex.public)
-	}
-	out := make([]*Service, 0, capacity)
+	var out []*Service
 
 	// First add private services and explicitly exportedTo services
 	if ns == NamespaceAll {
+		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace)+len(ps.ServiceIndex.public))
 		for _, privateServices := range ps.ServiceIndex.privateByNamespace {
 			out = append(out, privateServices...)
 		}
 	} else {
+		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace[ns])+
+			len(ps.ServiceIndex.exportedToNamespace[ns])+len(ps.ServiceIndex.public))
 		out = append(out, ps.ServiceIndex.privateByNamespace[ns]...)
 		out = append(out, ps.ServiceIndex.exportedToNamespace[ns]...)
 	}
