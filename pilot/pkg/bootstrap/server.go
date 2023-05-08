@@ -820,11 +820,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	// condition where we are marked ready prior to updating the push context, leading to incomplete
 	// pushes.
 	expected := s.XDSServer.InboundUpdates.Load()
-	if !kubelib.WaitForCacheSync("push context", stop, func() bool { return s.pushContextReady(expected) }) {
-		return false
-	}
-
-	return true
+	return kubelib.WaitForCacheSync("push context", stop, func() bool { return s.pushContextReady(expected) })
 }
 
 // pushContextReady indicates whether pushcontext has processed all inbound config updates.
