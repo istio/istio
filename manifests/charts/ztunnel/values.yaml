@@ -53,3 +53,9 @@ meshConfig:
 
 # Ambient redirection mode: "iptables" or "ebpf"
 redirectMode: "iptables"
+
+# This value defines:
+# 1. how many seconds kube waits for ztunnel pod to gracefully exit before forcibly terminating it (this value)
+# 2. how many seconds ztunnel waits to drain its own connections (this value - 1 sec)
+# Default K8S value is 30 seconds
+terminationGracePeriodSeconds: 30
