@@ -102,7 +102,7 @@ var _ model.ConfigStoreController = &Client{}
 func New(client kube.Client, opts Option) (*Client, error) {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
-		schemas = collections.PilotGatewayAPI
+		schemas = collections.PilotGatewayAPI()
 	}
 	return NewForSchemas(client, opts, schemas)
 }

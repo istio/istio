@@ -351,6 +351,7 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 )
 
 func TestConvertResources(t *testing.T) {
+	features.EnableAlphaGatewayAPI = true
 	features.EnableAmbientControllers = true
 	validator := crdvalidation.NewIstioValidator(t)
 	cases := []struct {

@@ -171,7 +171,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
 
-	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI))
+	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
@@ -267,7 +267,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	schemas := collections.Pilot.All()
 	if features.EnableGatewayAPI {
-		schemas = collections.PilotGatewayAPI.All()
+		schemas = collections.PilotGatewayAPI().All()
 	}
 	for _, schema := range schemas {
 		// This resource type was handled in external/servicediscovery.go, no need to rehandle here.

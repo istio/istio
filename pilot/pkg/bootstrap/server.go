@@ -896,7 +896,7 @@ func (s *Server) initRegistryEventHandlers() {
 		}
 		schemas := collections.Pilot.All()
 		if features.EnableGatewayAPI {
-			schemas = collections.PilotGatewayAPI.All()
+			schemas = collections.PilotGatewayAPI().All()
 		}
 		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
