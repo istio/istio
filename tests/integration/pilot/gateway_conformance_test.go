@@ -49,8 +49,6 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"HTTPRouteRedirectPath":          "spec is wrong, pending https://github.com/kubernetes-sigs/gateway-api/pull/1880",
-	"HTTPRouteRedirectHostAndStatus": "spec is wrong, pending https://github.com/kubernetes-sigs/gateway-api/pull/1880",
 	"MeshFrontendHostname":           "https://github.com/istio/istio/issues/44702",
 }
 
