@@ -95,10 +95,6 @@ type RepairConfig struct {
 	// Whether to enable CNI race repair
 	Enabled bool
 
-	// Whether to run CNI as a DaemonSet (i.e. continuously via k8s watch),
-	// or just one-off
-	RunAsDaemon bool
-
 	// The node name that the CNI DaemonSet runs on
 	NodeName string
 
@@ -159,7 +155,6 @@ func (c InstallConfig) String() string {
 func (c RepairConfig) String() string {
 	var b strings.Builder
 	b.WriteString("Enabled: " + fmt.Sprint(c.Enabled) + "\n")
-	b.WriteString("RunAsDaemon: " + fmt.Sprint(c.RunAsDaemon) + "\n")
 	b.WriteString("NodeName: " + c.NodeName + "\n")
 	b.WriteString("LabelKey: " + c.LabelKey + "\n")
 	b.WriteString("LabelValue: " + c.LabelValue + "\n")

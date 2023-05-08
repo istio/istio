@@ -41,7 +41,6 @@ const (
 	RepairEnabled            = "repair-enabled"
 	RepairDeletePods         = "repair-delete-pods"
 	RepairLabelPods          = "repair-label-pods"
-	RepairRunAsDaemon        = "repair-run-as-daemon"
 	RepairLabelKey           = "repair-broken-pod-label-key"
 	RepairLabelValue         = "repair-broken-pod-label-value"
 	RepairNodeName           = "repair-node-name"
