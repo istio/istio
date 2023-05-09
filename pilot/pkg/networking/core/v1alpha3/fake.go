@@ -122,7 +122,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	configs := getConfigs(t, opts)
 	cc := opts.ConfigController
 	if cc == nil {
-		cc = memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI))
+		cc = memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	}
 	controllers := []model.ConfigStoreController{cc}
 	if opts.CreateConfigStore != nil {

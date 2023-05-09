@@ -51,7 +51,7 @@ import (
 
 func TestAmbientIndex(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
-	cfg := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI))
+	cfg := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"}),
@@ -328,7 +328,7 @@ func TestAmbientIndex(t *testing.T) {
 
 func TestPodLifecycleWorkloadGates(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
-	cfg := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI))
+	cfg := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"}),
