@@ -29,13 +29,6 @@ import (
 
 var log = istiolog.RegisterScope("wle", "wle controller debugging")
 
-const (
-	// TODO use status or another proper API instead of annotations
-
-	// WorkloadControllerAnnotation on a WorkloadEntry should store the current/last pilot instance connected to the workload for XDS.
-	WorkloadControllerAnnotation = "istio.io/workloadController"
-)
-
 // Store knows how to keep internal state as part of a WorkloadEntry resource.
 type Store struct {
 	store model.ConfigStoreController
