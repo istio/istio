@@ -88,6 +88,11 @@ message CNIConfig {
   google.protobuf.Struct seccompProfile = 19;
 
   CNIAmbientConfig ambient = 21;
+
+  string provider = 22;
+
+  // K8s rolling update strategy
+  IntOrString rollingMaxUnavailable = 23;
 }
 
 message CNIAmbientConfig {
