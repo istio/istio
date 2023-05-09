@@ -286,6 +286,7 @@ func (s *Server) DelPodFromMesh(pod *corev1.Pod, event controllers.Event) {
 			log.Errorf("failed to del POD ebpf: %v", err)
 		}
 	}
+	// event.New will be nil if the pod is deleted
 	if event.New != nil {
 		if err := AnnotateUnenrollPod(s.kubeClient.Kube(), pod); err != nil {
 			log.Errorf("failed to annotate pod unenrollment: %v", err)
