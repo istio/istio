@@ -129,9 +129,6 @@ type Controller struct {
 	// maxConnectionAge is a duration that workload entry should be cleaned up if it does not reconnects.
 	maxConnectionAge time.Duration
 
-	// healthCondition is a fifo queue used for updating health check status
-	healthCondition controllers.Queue
-
 	stateStore       *state.Store
 	healthController *health.Controller
 }
