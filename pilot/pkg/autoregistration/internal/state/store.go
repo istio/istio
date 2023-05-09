@@ -38,15 +38,23 @@ const (
 
 // Store knows how to keep internal state as part of a WorkloadEntry resource.
 type Store struct {
-	instanceID string
-	store      model.ConfigStoreController
+	store model.ConfigStoreController
+	cb    StoreCallbacks
+}
+
+// StoreCallbacks represents a contract between a Store and
+// a autoregistration.Controller.
+type StoreCallbacks interface {
+	// IsControllerOf returns true if a given WorkloadEntry is connected
+	// to this istiod instance.
+	IsControllerOf(wle *config.Config) bool
 }
 
 // NewStore returns a new Store instance.
-func NewStore(store model.ConfigStoreController, instanceID string) *Store {
+func NewStore(store model.ConfigStoreController, cb StoreCallbacks) *Store {
 	return &Store{
-		instanceID: instanceID,
-		store:      store,
+		store: store,
+		cb:    cb,
 	}
 }
 
@@ -59,7 +67,7 @@ func (s *Store) UpdateHealth(proxyID, entryName, entryNs string, condition *v1al
 		return fmt.Errorf("failed to update health status for %v: WorkloadEntry %v not found", proxyID, entryNs)
 	}
 	// The workloadentry has reconnected to the other istiod
-	if !IsControlledBy(cfg, s.instanceID) {
+	if !s.cb.IsControllerOf(cfg) {
 		return nil
 	}
 

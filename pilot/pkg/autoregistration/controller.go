@@ -84,6 +84,8 @@ const (
 
 	// AutoRegistrationGroupAnnotation on a WorkloadEntry stores the associated WorkloadGroup.
 	AutoRegistrationGroupAnnotation = "istio.io/autoRegistrationGroup"
+	// WorkloadControllerAnnotation on a WorkloadEntry should store the current/last pilot instance connected to the workload for XDS.
+	WorkloadControllerAnnotation = "istio.io/workloadController"
 	// ConnectedAtAnnotation on a WorkloadEntry stores the time in nanoseconds when the associated workload connected to a Pilot instance.
 	ConnectedAtAnnotation = "istio.io/connectedAt"
 	// DisconnectedAtAnnotation on a WorkloadEntry stores the time in nanoseconds when the associated workload disconnected from a Pilot instance.
@@ -97,8 +99,6 @@ const (
 	// 5ms, 10ms, 20ms, 40ms, 80ms
 	maxRetries = 5
 )
-
-var WorkloadControllerAnnotation = state.WorkloadControllerAnnotation
 
 var log = istiolog.RegisterScope("wle", "wle controller debugging")
 
@@ -159,7 +159,7 @@ func NewController(store model.ConfigStoreController, instanceID string, maxConn
 		c.queue = controllers.NewQueue("unregister_workloadentry",
 			controllers.WithMaxAttempts(maxRetries),
 			controllers.WithGenericReconciler(c.unregisterWorkload))
-		c.stateStore = state.NewStore(store, instanceID)
+		c.stateStore = state.NewStore(store, c)
 		c.healthController = health.NewController(c.stateStore, maxRetries)
 		return c
 	}
@@ -571,6 +571,14 @@ func (c *Controller) deleteHealthCondition(wle config.Config, periodic bool) {
 		return
 	}
 	log.Infof("cleaned up health-checked WorkloadEntry %s/%s periodic:%v", wle.Namespace, wle.Name, periodic)
+}
+
+// IsControllerOf implements state.StoreCallbacks.
+func (c *Controller) IsControllerOf(wle *config.Config) bool {
+	if wle == nil {
+		return false
+	}
+	return wle.Annotations[WorkloadControllerAnnotation] == c.instanceID
 }
 
 func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
