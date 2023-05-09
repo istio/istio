@@ -140,7 +140,7 @@ func GetPodIPs(pod *v1.Pod) []string {
 		for _, itemIP := range pod.Status.PodIPs {
 			podIPs = append(podIPs, itemIP.IP)
 		}
-	} else {
+	} else if len(pod.Status.PodIP) > 0 {
 		podIPs = append(podIPs, pod.Status.PodIP)
 	}
 	return podIPs
@@ -254,9 +254,9 @@ func (pc *PodCache) update(ips []string, key types.NamespacedName) {
 	// if the pod has been cached, return
 	var isCachedAll bool
 	for _, itemIP := range ips {
-		if key == pc.podsByIP[itemIP] {
-			isCachedAll = true
-		} else {
+		// make sure that the podsByIP element should be equal
+		// with key for every ip address
+		if key != pc.podsByIP[itemIP] {
 			isCachedAll = false
 		}
 	}
