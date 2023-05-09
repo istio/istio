@@ -20,15 +20,15 @@ import (
 	"istio.io/istio/pkg/config"
 )
 
-// IsElegibleForHealthStatusUpdates returns true if a given WorkloadEntry
+// IsEligibleForHealthStatusUpdates returns true if a given WorkloadEntry
 // is allowed to receive health status updates sent by an Istio Proxy.
 //
-// Consider a workload elegible for health status updates as long as the
+// Consider a workload eligible for health status updates as long as the
 // WorkloadEntryHealthCheckAnnotation is present (no matter what the value is).
 // In case the annotation is present but the value is not "true", the proxy should be allowed
 // to send health status updates, config health condition should be updated accordingly,
 // however reported health status should not come into effect.
-func IsElegibleForHealthStatusUpdates(wle *config.Config) bool {
+func IsEligibleForHealthStatusUpdates(wle *config.Config) bool {
 	if wle == nil {
 		return false
 	}

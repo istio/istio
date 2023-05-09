@@ -223,7 +223,7 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 			return fmt.Errorf("proxy metadata indicates that it must correspond to an existing WorkloadEntry, "+
 				"however WorkloadEntry %s/%s is not found", proxy.Metadata.Namespace, proxy.Metadata.WorkloadEntry)
 		}
-		if health.IsElegibleForHealthStatusUpdates(wle) {
+		if health.IsEligibleForHealthStatusUpdates(wle) {
 			entryName = wle.Name
 		}
 	}
@@ -303,7 +303,7 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 		return fmt.Errorf("auto-registration WorkloadEntry of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 	}
 	hcMessage := ""
-	if health.IsElegibleForHealthStatusUpdates(entry) {
+	if health.IsEligibleForHealthStatusUpdates(entry) {
 		hcMessage = " with health checking enabled"
 	}
 	autoRegistrationSuccess.Increment()
