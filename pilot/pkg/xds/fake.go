@@ -83,8 +83,6 @@ type FakeOptions struct {
 	KubernetesObjectStringByCluster map[cluster.ID]string
 	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes" or DefaultClusterName)
 	KubernetesObjectString string
-	// Endpoint mode for the Kubernetes service registry
-	KubernetesEndpointMode kube.EndpointMode
 	// If provided, these configs will be used directly
 	Configs []config.Config
 	// If provided, the yaml string will be parsed and used as configs
@@ -173,7 +171,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
 
-	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI))
+	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
@@ -190,7 +188,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			DomainSuffix:     "cluster.local",
 			XDSUpdater:       xdsUpdater,
 			NetworksWatcher:  opts.NetworksWatcher,
-			Mode:             opts.KubernetesEndpointMode,
 			SkipRun:          true,
 			ConfigController: k8sConfig,
 			ConfigCluster:    k8sCluster == opts.DefaultClusterName,
@@ -270,7 +267,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	schemas := collections.Pilot.All()
 	if features.EnableGatewayAPI {
-		schemas = collections.PilotGatewayAPI.All()
+		schemas = collections.PilotGatewayAPI().All()
 	}
 	for _, schema := range schemas {
 		// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
@@ -326,7 +323,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	cg.ServiceEntryRegistry.XdsUpdater = s
 	// Now that handlers are added, get everything started
 	cg.Run()
-	kubelib.WaitForCacheSync(stop,
+	kubelib.WaitForCacheSync("fake", stop,
 		cg.Registry.HasSynced,
 		cg.Store().HasSynced)
 	cg.ServiceEntryRegistry.ResyncEDS()
@@ -481,7 +478,7 @@ func (f *FakeDiscoveryServer) EnsureSynced(t test.Failer) {
 // AssertEndpointConsistency compares endpointShards - which are incrementally updated - with
 // InstancesByPort, which rebuilds the same state from the ground up. This ensures the two are kept in sync;
 // out of sync fields typically are bugs.
-func (f *FakeDiscoveryServer) AssertEndpointConsistency() {
+func (f *FakeDiscoveryServer) AssertEndpointConsistency() error {
 	f.t.Helper()
 	mock := &DiscoveryServer{
 		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex()},
@@ -539,8 +536,10 @@ func (f *FakeDiscoveryServer) AssertEndpointConsistency() {
 	if err := util.Compare(have, want); err != nil {
 		f.t.Logf("Endpoint Shards: %v", string(have))
 		f.t.Logf("Instances By Port: %v", string(want))
-		f.t.Fatal(err)
+		return err
 	}
+
+	return nil
 }
 
 func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runtime.Object {

@@ -651,7 +651,7 @@ func TestTelemetryFilters(t *testing.T) {
 			{},
 		},
 	}
-	disbaledAllMetrics := &tpb.Telemetry{
+	disabledAllMetrics := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
 			{
 				Overrides: []*tpb.MetricsOverrides{{
@@ -692,7 +692,7 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 		{
 			"disabled-prometheus",
-			[]config.Config{newTelemetry("istio-system", disbaledAllMetrics)},
+			[]config.Config{newTelemetry("istio-system", disabledAllMetrics)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
@@ -702,7 +702,7 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"disabled-then-empty",
 			[]config.Config{
-				newTelemetry("istio-system", disbaledAllMetrics),
+				newTelemetry("istio-system", disabledAllMetrics),
 				newTelemetry("default", emptyPrometheus),
 			},
 			sidecar,
@@ -714,7 +714,7 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"disabled-then-overrides",
 			[]config.Config{
-				newTelemetry("istio-system", disbaledAllMetrics),
+				newTelemetry("istio-system", disabledAllMetrics),
 				newTelemetry("default", overridesPrometheus),
 			},
 			sidecar,

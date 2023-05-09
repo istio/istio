@@ -26,14 +26,14 @@ import (
 )
 
 // Index maintains a simple index over an informer
-type Index[O controllers.ComparableObject, K comparable] struct {
+type Index[K comparable, O controllers.ComparableObject] struct {
 	mu      sync.RWMutex
 	objects map[K]sets.Set[types.NamespacedName]
-	client  Reader[O]
+	client  Informer[O]
 }
 
 // Lookup finds all objects matching a given key
-func (i *Index[O, K]) Lookup(k K) []O {
+func (i *Index[K, O]) Lookup(k K) []O {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	res := make([]O, 0)
@@ -48,13 +48,17 @@ func (i *Index[O, K]) Lookup(k K) []O {
 	return res
 }
 
-// CreateIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
+// CreateIndexWithDelegate creates a simple index, keyed by key K, over an informer for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
-func CreateIndex[O controllers.ComparableObject, K comparable](
-	client Reader[O],
+// An additional ResourceEventHandler can be passed in that is guaranteed to happen *after* the index is updated.
+// This allows the delegate to depend on the contents of the index.
+// TODO(https://github.com/kubernetes/kubernetes/pull/117046) remove this.
+func CreateIndexWithDelegate[K comparable, O controllers.ComparableObject](
+	client Informer[O],
 	extract func(o O) []K,
-) *Index[O, K] {
-	idx := Index[O, K]{
+	delegate cache.ResourceEventHandler,
+) *Index[K, O] {
+	idx := Index[K, O]{
 		objects: make(map[K]sets.Set[types.NamespacedName]),
 		client:  client,
 		mu:      sync.RWMutex{},
@@ -75,24 +79,42 @@ func CreateIndex[O controllers.ComparableObject, K comparable](
 			sets.DeleteCleanupLast(idx.objects, indexKey, objectKey)
 		}
 	}
-	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) {
+	handler := cache.ResourceEventHandlerDetailedFuncs{
+		AddFunc: func(obj any, initialList bool) {
 			idx.mu.Lock()
-			defer idx.mu.Unlock()
 			addObj(obj)
+			idx.mu.Unlock()
+			if delegate != nil {
+				delegate.OnAdd(obj, initialList)
+			}
 		},
 		UpdateFunc: func(oldObj, newObj any) {
 			idx.mu.Lock()
-			defer idx.mu.Unlock()
 			deleteObj(oldObj)
 			addObj(newObj)
+			idx.mu.Unlock()
+			if delegate != nil {
+				delegate.OnUpdate(oldObj, newObj)
+			}
 		},
 		DeleteFunc: func(obj any) {
 			idx.mu.Lock()
-			defer idx.mu.Unlock()
 			deleteObj(obj)
+			idx.mu.Unlock()
+			if delegate != nil {
+				delegate.OnDelete(obj)
+			}
 		},
 	}
 	client.AddEventHandler(handler)
 	return &idx
+}
+
+// CreateIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
+// Informer.AddIndex, but is easier to use and can be added after an informer has already started.
+func CreateIndex[K comparable, O controllers.ComparableObject](
+	client Informer[O],
+	extract func(o O) []K,
+) *Index[K, O] {
+	return CreateIndexWithDelegate(client, extract, nil)
 }

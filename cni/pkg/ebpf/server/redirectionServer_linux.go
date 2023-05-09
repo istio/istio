@@ -38,6 +38,8 @@ import (
 	"os"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/features"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
@@ -49,7 +51,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("ebpf", "ambient ebpf", 0)
+var log = istiolog.RegisterScope("ebpf", "ambient ebpf")
 
 const (
 	FilesystemTypeBPFFS = unix.BPF_FS_MAGIC
@@ -72,7 +74,7 @@ var isBigEndian = native.IsBigEndian
 
 type RedirectServer struct {
 	redirectArgsChan           chan *RedirectArgs
-	obj                        ambient_redirectObjects
+	obj                        eBPFObjects
 	ztunnelHostingressFd       uint32
 	ztunnelHostingressProgName string
 	ztunnelIngressFd           uint32
@@ -87,6 +89,53 @@ var stringToLevel = map[string]uint32{
 	"debug": EBPFLogLevelDebug,
 	"info":  EBPFLogLevelInfo,
 	"none":  EBPFLogLevelNone,
+}
+
+type eBPFObjects struct {
+	AppInbound         *ebpf.Program
+	AppOutbound        *ebpf.Program
+	ZtunnelHostIngress *ebpf.Program
+	ZtunnelIngress     *ebpf.Program
+	ambient_redirectMaps
+}
+
+func (o *eBPFObjects) Close() error {
+	return _Ambient_redirectClose(
+		o.AppInbound,
+		o.AppOutbound,
+		o.ZtunnelHostIngress,
+		o.ZtunnelIngress,
+		&o.ambient_redirectMaps,
+	)
+}
+
+type eBPFObjectsImplOld struct {
+	AppInbound         *ebpf.Program `ebpf:"app_inbound"`
+	AppOutbound        *ebpf.Program `ebpf:"app_outbound"`
+	ZtunnelHostIngress *ebpf.Program `ebpf:"ztunnel_host_ingress"`
+	ZtunnelIngress     *ebpf.Program `ebpf:"ztunnel_ingress"`
+	ambient_redirectMaps
+}
+type eBPFObjectsImplNew struct {
+	AppInbound         *ebpf.Program `ebpf:"app_inbound"`
+	AppOutbound        *ebpf.Program `ebpf:"app_outbound"`
+	ZtunnelHostIngress *ebpf.Program `ebpf:"ztunnel_host_ingress"`
+	ZtunnelTproxy      *ebpf.Program `ebpf:"ztunnel_tproxy"`
+	ambient_redirectMaps
+}
+
+func EBPFTProxySupport() bool {
+	err := features.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkAssign)
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		log.Infof("FnSkAssign (Linux 5.7 or later) is not supported in current kernel")
+	} else {
+		log.Errorf("failed to query ebpf helper availability: %v", err)
+	}
+
+	return false
 }
 
 func (r *RedirectServer) SetLogLevel(level string) {
@@ -177,23 +226,43 @@ func (r *RedirectServer) initBpfObjects() error {
 	}
 	options.Maps.PinPath = MapsPinpath
 	// load ebpf program
-	obj := ambient_redirectObjects{}
-	if err := loadAmbient_redirectObjects(&obj, &options); err != nil {
-		return fmt.Errorf("loading objects: %v", err)
+	if EBPFTProxySupport() {
+		obj := eBPFObjectsImplNew{}
+		if err := loadAmbient_redirectObjects(&obj, &options); err != nil {
+			return fmt.Errorf("loading objects: %v", err)
+		}
+		r.obj.ambient_redirectMaps = obj.ambient_redirectMaps
+		r.obj.AppInbound = obj.AppInbound
+		r.obj.AppOutbound = obj.AppOutbound
+		r.obj.ZtunnelHostIngress = obj.ZtunnelHostIngress
+		r.obj.ZtunnelIngress = obj.ZtunnelTproxy
+	} else {
+		obj := eBPFObjectsImplOld{}
+		if err := loadAmbient_redirectObjects(&obj, &options); err != nil {
+			return fmt.Errorf("loading objects: %v", err)
+		}
+		r.obj.ambient_redirectMaps = obj.ambient_redirectMaps
+		r.obj.AppInbound = obj.AppInbound
+		r.obj.AppOutbound = obj.AppOutbound
+		r.obj.ZtunnelHostIngress = obj.ZtunnelHostIngress
+		r.obj.ZtunnelIngress = obj.ZtunnelIngress
 	}
-	r.obj = obj
+
 	r.ztunnelHostingressFd = uint32(r.obj.ZtunnelHostIngress.FD())
 	ztunnelHostingressInfo, err := r.obj.ZtunnelHostIngress.Info()
 	if err != nil {
 		return fmt.Errorf("unable to load metadata of bfp prog: %v", err)
 	}
 	r.ztunnelHostingressProgName = ztunnelHostingressInfo.Name
+
 	r.ztunnelIngressFd = uint32(r.obj.ZtunnelIngress.FD())
 	ztunnelIngressInfo, err := r.obj.ZtunnelIngress.Info()
 	if err != nil {
 		return fmt.Errorf("unable to load metadata of bfp prog: %v", err)
 	}
 	r.ztunnelIngressProgName = ztunnelIngressInfo.Name
+
+	log.Infof("ztunnelIngressProgName: %s", r.ztunnelIngressProgName)
 
 	r.inboundFd = uint32(r.obj.AppInbound.FD())
 	inboundInfo, err := r.obj.AppInbound.Info()

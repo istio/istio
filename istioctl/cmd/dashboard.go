@@ -61,7 +61,7 @@ const (
 	defaultKialiPort      = 20001
 	defaultJaegerPort     = 16686
 	defaultZipkinPort     = 9411
-	defaultSkywalkingPort = 12800
+	defaultSkywalkingPort = 8080
 )
 
 // port-forward to Istio System Prometheus; open browser
@@ -297,7 +297,7 @@ func envoyDashCmd() *cobra.Command {
 			} else {
 				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(envoyDashNs, defaultNamespace),
-					client.UtilFactory())
+					MakeKubeFactory(client))
 				if err != nil {
 					return err
 				}
@@ -368,7 +368,7 @@ func controlZDashCmd() *cobra.Command {
 			} else {
 				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(addonNamespace, defaultNamespace),
-					client.UtilFactory())
+					MakeKubeFactory(client))
 				if err != nil {
 					return err
 				}

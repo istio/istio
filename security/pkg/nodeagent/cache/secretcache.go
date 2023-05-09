@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	cacheLog = istiolog.RegisterScope("cache", "cache debugging", 0)
+	cacheLog = istiolog.RegisterScope("cache", "cache debugging")
 	// The total timeout for any credential retrieval process, default value of 10s is used.
 	totalTimeout = time.Second * 10
 )
@@ -580,6 +580,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 		RSAKeySize: sc.configOptions.WorkloadRSAKeySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
+		ECCCurve:   pkiutil.SupportedEllipticCurves(sc.configOptions.ECCCurve),
 	}
 
 	// Generate the cert/key, send CSR to CA.

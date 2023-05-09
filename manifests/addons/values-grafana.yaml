@@ -33,16 +33,16 @@ dashboardProviders:
   dashboardproviders.yaml:
     apiVersion: 1
     providers:
-      - name: 'istio'
+      - name: "istio"
         orgId: 1
-        folder: 'istio'
+        folder: "istio"
         type: file
         disableDeletion: false
         options:
           path: /var/lib/grafana/dashboards/istio
-      - name: 'istio-services'
+      - name: "istio-services"
         orgId: 1
-        folder: 'istio'
+        folder: "istio"
         type: file
         disableDeletion: false
         options:
@@ -63,6 +63,15 @@ datasources:
         url: http://prometheus:9090
         access: proxy
         isDefault: true
+        jsonData:
+          timeInterval: 5s
+        editable: true
+      - name: Loki
+        type: loki
+        orgId: 1
+        url: http://loki:3100
+        access: proxy
+        isDefault: false
         jsonData:
           timeInterval: 5s
         editable: true

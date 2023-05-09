@@ -72,7 +72,7 @@ const (
 )
 
 var (
-	scope      = log.RegisterScope("installer", "installer", 0)
+	scope      = log.RegisterScope("installer", "installer")
 	restConfig *rest.Config
 )
 
@@ -177,12 +177,12 @@ var (
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldIOP, ok := e.ObjectOld.(*iopv1alpha1.IstioOperator)
 			if !ok {
-				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get old IstioOperator")
+				scope.Errorf(errdict.OperatorFailedToGetObjectInCallback, "failed to get old IstioOperator")
 				return false
 			}
 			newIOP, ok := e.ObjectNew.(*iopv1alpha1.IstioOperator)
 			if !ok {
-				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get new IstioOperator")
+				scope.Errorf(errdict.OperatorFailedToGetObjectInCallback, "failed to get new IstioOperator")
 				return false
 			}
 
@@ -277,13 +277,6 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			scope.Infof("Ignoring the IstioOperator CR %s because it is annotated to be ignored for reconcile ", iopName)
 			return reconcile.Result{}, nil
 		}
-	}
-
-	// for backward compatibility, the previous applied installed-state CR does not have the ignore reconcile annotation
-	// TODO(richardwxn): remove this check and rely on annotation check only
-	if strings.HasPrefix(iop.Name, name.InstalledSpecCRPrefix) {
-		scope.Infof("Ignoring the installed-state IstioOperator CR %s ", iopName)
-		return reconcile.Result{}, nil
 	}
 
 	var err error

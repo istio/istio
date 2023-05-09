@@ -39,13 +39,11 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/xds"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -144,7 +142,6 @@ type SyncedVersions struct {
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(
 	mux *http.ServeMux,
-	sctl *aggregate.Controller,
 	enableProfiling bool,
 	fetchWebhook func() map[string]string,
 ) *http.ServeMux {
@@ -917,7 +914,7 @@ func (s *DiscoveryServer) pushStatusHandler(w http.ResponseWriter, req *http.Req
 // PushContextDebug holds debug information for push context.
 type PushContextDebug struct {
 	AuthorizationPolicies *model.AuthorizationPolicies
-	NetworkGateways       map[network.ID][]model.NetworkGateway
+	NetworkGateways       []model.NetworkGateway
 }
 
 // pushContextHandler dumps the current PushContext
@@ -929,7 +926,7 @@ func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Re
 	}
 	push.AuthorizationPolicies = pc.AuthzPolicies
 	if pc.NetworkManager() != nil {
-		push.NetworkGateways = pc.NetworkManager().GatewaysByNetwork()
+		push.NetworkGateways = pc.NetworkManager().AllGateways()
 	}
 
 	writeJSON(w, push, req)

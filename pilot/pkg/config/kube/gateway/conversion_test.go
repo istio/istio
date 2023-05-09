@@ -65,7 +65,7 @@ var services = []*model.Service{
 		Attributes: model.ServiceAttributes{
 			Name:      "istio-ingressgateway",
 			Namespace: "istio-system",
-			ClusterExternalAddresses: model.AddressMap{
+			ClusterExternalAddresses: &model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					"Kubernetes": {"1.2.3.4"},
 				},
@@ -351,6 +351,7 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 )
 
 func TestConvertResources(t *testing.T) {
+	features.EnableAlphaGatewayAPI = true
 	features.EnableAmbientControllers = true
 	validator := crdvalidation.NewIstioValidator(t)
 	cases := []struct {
@@ -622,8 +623,8 @@ func getStatus(t test.Failer, acfgs ...[]config.Config) []byte {
 
 var timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
 
-func splitOutput(configs []config.Config) OutputResources {
-	out := OutputResources{
+func splitOutput(configs []config.Config) IstioResources {
+	out := IstioResources{
 		Gateway:        []config.Config{},
 		VirtualService: []config.Config{},
 	}
@@ -639,8 +640,8 @@ func splitOutput(configs []config.Config) OutputResources {
 	return out
 }
 
-func splitInput(t test.Failer, configs []config.Config) KubernetesResources {
-	out := KubernetesResources{}
+func splitInput(t test.Failer, configs []config.Config) GatewayResources {
+	out := GatewayResources{}
 	namespaces := sets.New[string]()
 	for _, c := range configs {
 		namespaces.Insert(c.Namespace)
@@ -777,7 +778,7 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 		Attributes: model.ServiceAttributes{
 			Name:      "istio-ingressgateway",
 			Namespace: "istio-system",
-			ClusterExternalAddresses: model.AddressMap{
+			ClusterExternalAddresses: &model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					"Kubernetes": {"1.2.3.4"},
 				},
@@ -807,9 +808,9 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator)
 	kr := splitInput(b, input)
 	kr.Context = NewGatewayContext(cg.PushContext())
-	ctx := ConfigContext{
-		KubernetesResources: kr,
-		AllowedReferences:   convertReferencePolicies(kr),
+	ctx := configContext{
+		GatewayResources:  kr,
+		AllowedReferences: convertReferencePolicies(kr),
 	}
 	_, gwMap, _ := convertGateways(ctx)
 	ctx.GatewayReferences = gwMap
@@ -823,5 +824,93 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 		for _, obj := range kr.HTTPRoute {
 			buildHTTPVirtualServices(ctx, obj, gatewayRoutes, meshRoutes)
 		}
+	}
+}
+
+func TestExtractGatewayServices(t *testing.T) {
+	tests := []struct {
+		name             string
+		r                GatewayResources
+		kgw              *k8s.GatewaySpec
+		obj              config.Config
+		gatewayServices  []string
+		skippedAddresses []string
+	}{
+		{
+			name: "managed gateway",
+			r:    GatewayResources{Domain: "cluster.local"},
+			kgw: &k8s.GatewaySpec{
+				GatewayClassName: "istio",
+			},
+			obj: config.Config{
+				Meta: config.Meta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+			},
+			gatewayServices: []string{"foo-istio.default.svc.cluster.local"},
+		},
+		{
+			name: "managed gateway with name overrided",
+			r:    GatewayResources{Domain: "cluster.local"},
+			kgw: &k8s.GatewaySpec{
+				GatewayClassName: "istio",
+			},
+			obj: config.Config{
+				Meta: config.Meta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						gatewayNameOverride: "bar",
+					},
+				},
+			},
+			gatewayServices: []string{"bar.default.svc.cluster.local"},
+		},
+		{
+			name: "unmanaged gateway",
+			r:    GatewayResources{Domain: "domain"},
+			kgw: &k8s.GatewaySpec{
+				GatewayClassName: "istio",
+				Addresses: []k8s.GatewayAddress{
+					{
+						Value: "abc",
+					},
+					{
+						Type: func() *k8s.AddressType {
+							t := k8s.HostnameAddressType
+							return &t
+						}(),
+						Value: "example.com",
+					},
+					{
+						Type: func() *k8s.AddressType {
+							t := k8s.IPAddressType
+							return &t
+						}(),
+						Value: "1.2.3.4",
+					},
+				},
+			},
+			obj: config.Config{
+				Meta: config.Meta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+			},
+			gatewayServices:  []string{"abc.default.svc.domain", "example.com"},
+			skippedAddresses: []string{"1.2.3.4"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gatewayServices, skippedAddresses := extractGatewayServices(tt.r, tt.kgw, tt.obj)
+			if !reflect.DeepEqual(gatewayServices, tt.gatewayServices) {
+				t.Errorf("gatewayServices: got %v, want %v", gatewayServices, tt.gatewayServices)
+			}
+			if !reflect.DeepEqual(skippedAddresses, tt.skippedAddresses) {
+				t.Errorf("skippedAddresses: got %v, want %v", skippedAddresses, tt.skippedAddresses)
+			}
+		})
 	}
 }

@@ -27,10 +27,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 )
 
-var ErrLegacyLabel = "Namespace %s has sidecar label istio-injection or istio.io/rev " +
-	"enabled while also setting ambient mode. This is not supported and the namespace will " +
-	"be ignored from the ambient mesh."
-
 func (s *Server) setupHandlers() {
 	s.queue = controllers.NewQueue("ambient",
 		controllers.WithGenericReconciler(s.Reconcile),
@@ -60,6 +56,7 @@ func (s *Server) ReconcileNamespaces() {
 }
 
 // EnqueueNamespace takes a Namespace and enqueues all Pod objects that make need an update
+// TODO it is sort of pointless/confusing/implicit to populate Old and New with the same reference here
 func (s *Server) EnqueueNamespace(o controllers.Object) {
 	namespace := o.GetName()
 	matchAmbient := o.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient
@@ -75,10 +72,16 @@ func (s *Server) EnqueueNamespace(o controllers.Object) {
 	} else {
 		log.Infof("Namespace %s is disabled from ambient mesh", namespace)
 		for _, pod := range s.pods.List(namespace, klabels.Everything()) {
-			s.queue.Add(controllers.Event{
-				New:   pod,
-				Event: controllers.EventDelete,
-			})
+			// ztunnel pods are never "removed from the mesh", so do not fire
+			// spurious Delete events for them to avoid triggering extra
+			// ztunnel node reconciliation checks.
+			if !ztunnelPod(pod) {
+				s.queue.Add(controllers.Event{
+					New:   pod,
+					Old:   pod,
+					Event: controllers.EventDelete,
+				})
+			}
 		}
 	}
 }

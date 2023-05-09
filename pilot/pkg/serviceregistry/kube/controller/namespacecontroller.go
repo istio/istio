@@ -33,6 +33,13 @@ import (
 const (
 	// CACertNamespaceConfigMap is the name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMap = "istio-ca-root-cert"
+
+	// maxRetries is the number of times a namespace will be retried before it is dropped out of the queue.
+	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the
+	// sequence of delays between successive queuing of a namespace.
+	//
+	// 5ms, 10ms, 20ms, 40ms, 80ms
+	maxRetries = 5
 )
 
 var configMapLabel = map[string]string{"istio.io/config": "true"}
@@ -58,7 +65,9 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		caBundleWatcher:           caBundleWatcher,
 		DiscoveryNamespacesFilter: discoveryNamespacesFilter,
 	}
-	c.queue = controllers.NewQueue("namespace controller", controllers.WithReconciler(c.insertDataForNamespace))
+	c.queue = controllers.NewQueue("namespace controller",
+		controllers.WithReconciler(c.insertDataForNamespace),
+		controllers.WithMaxAttempts(maxRetries))
 
 	c.configmaps = kclient.New[*v1.ConfigMap](kubeClient)
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
@@ -99,8 +108,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 
 // Run starts the NamespaceController until a value is sent to stopCh.
 func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
-	if !kube.WaitForCacheSync(stopCh, nc.namespaces.HasSynced, nc.configmaps.HasSynced) {
-		log.Error("Failed to sync namespace controller cache")
+	if !kube.WaitForCacheSync("namespace controller", stopCh, nc.namespaces.HasSynced, nc.configmaps.HasSynced) {
 		return
 	}
 	go nc.startCaBundleWatcher(stopCh)

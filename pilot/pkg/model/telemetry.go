@@ -32,6 +32,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	sd "istio.io/api/envoy/extensions/stackdriver/config/v1alpha1"
 	"istio.io/api/envoy/extensions/stats"
@@ -82,11 +83,11 @@ type Telemetries struct {
 // telemetryKey defines a key into the computedMetricsFilters cache.
 type telemetryKey struct {
 	// Root stores the Telemetry in the root namespace, if any
-	Root NamespacedName
+	Root types.NamespacedName
 	// Namespace stores the Telemetry in the root namespace, if any
-	Namespace NamespacedName
+	Namespace types.NamespacedName
 	// Workload stores the Telemetry in the root namespace, if any
-	Workload NamespacedName
+	Workload types.NamespacedName
 }
 
 // loggingKey defines a key into the computedLoggingConfig cache.
@@ -399,7 +400,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	if t.RootNamespace != "" {
 		telemetry := t.namespaceWideTelemetryConfig(t.RootNamespace)
 		if telemetry != (Telemetry{}) {
-			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
+			key.Root = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
 			if len(telemetry.Spec.GetAccessLogging()) != 0 {
 				ls = append(ls, &computedAccessLogging{
@@ -416,7 +417,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	if namespace != t.RootNamespace {
 		telemetry := t.namespaceWideTelemetryConfig(namespace)
 		if telemetry != (Telemetry{}) {
-			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
+			key.Namespace = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
 			if len(telemetry.Spec.GetAccessLogging()) != 0 {
 				ls = append(ls, &computedAccessLogging{
@@ -437,12 +438,12 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		}
 		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
 		if selector.SubsetOf(proxy.Labels) {
-			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
+			key.Workload = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
 			if len(telemetry.Spec.GetAccessLogging()) != 0 {
 				ls = append(ls, &computedAccessLogging{
 					telemetryKey: telemetryKey{
-						Workload: NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
+						Workload: types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
 					},
 					Logging: telemetry.Spec.GetAccessLogging(),
 				})
@@ -897,7 +898,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			sdCfg := generateSDConfig(class, cfg)
-			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
+			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
 			wasmConfig := &httpwasm.Wasm{
@@ -943,7 +944,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			cfg := generateSDConfig(class, telemetryCfg)
-			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
+			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
 			wasmConfig := &wasmfilter.Wasm{

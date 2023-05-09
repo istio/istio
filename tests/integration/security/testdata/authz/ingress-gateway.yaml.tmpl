@@ -5,7 +5,7 @@
 # and denies access to "remoteipattr.{{ .To.ServiceName }}.company.com" when the
 # remote ip is 10.242.5.7 or in the network 10.124.99.0/24.
 
-apiVersion: security.istio.io/v1
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy-{{ .To.ServiceName }}
@@ -14,7 +14,7 @@ spec:
   action: DENY
   selector:
     matchLabels:
-      app: istio-ingressgateway
+      app: {{.GatewayIstioLabel | default "istio-ingressgateway"}}
   rules:
     - to:
         - operation:

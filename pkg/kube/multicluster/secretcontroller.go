@@ -63,9 +63,11 @@ func init() {
 }
 
 var (
-	timeouts = monitoring.NewSum(
+	clusterLabel = monitoring.MustCreateLabel("cluster")
+	timeouts     = monitoring.NewSum(
 		"remote_cluster_sync_timeouts_total",
 		"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
+		monitoring.WithLabels(clusterLabel),
 	)
 
 	clusterType = monitoring.MustCreateLabel("cluster_type")
@@ -179,8 +181,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 
 		go c.informer.Run(stopCh)
 
-		if !kube.WaitForCacheSync(stopCh, c.informer.HasSynced) {
-			log.Error("Failed to sync multicluster remote secrets controller cache")
+		if !kube.WaitForCacheSync("multicluster remote secrets", stopCh, c.informer.HasSynced) {
 			return
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))

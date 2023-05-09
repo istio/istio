@@ -97,7 +97,7 @@ func (rc *Controller) mayAddToWorkQueue(obj any) {
 
 func (rc *Controller) Run(stopCh <-chan struct{}) {
 	go rc.podController.Run(stopCh)
-	if !kube.WaitForCacheSync(stopCh, rc.podController.HasSynced) {
+	if !kube.WaitForCacheSync("repair controller", stopCh, rc.podController.HasSynced) {
 		repairLog.Error("timed out waiting for pod caches to sync")
 		return
 	}
