@@ -41,7 +41,7 @@ func TestTagWatcher(t *testing.T) {
 		track.Record(strings.Join(sets.SortedList(s), ","))
 	})
 	go tw.Run(stop)
-	kube.WaitForCacheSync(stop, tw.HasSynced)
+	kube.WaitForCacheSync("test", stop, tw.HasSynced)
 	track.WaitOrdered("revision")
 	assert.Equal(t, tw.GetMyTags(), sets.New("revision"))
 

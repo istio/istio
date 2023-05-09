@@ -331,8 +331,8 @@ var (
 		MustAdd(WorkloadGroup).
 		Build()
 
-	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
-	PilotGatewayAPI = collection.NewSchemasBuilder().
+	// pilotGatewayAPI contains only collections used by Pilot, including the full Gateway API.
+	pilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(AuthorizationPolicy).
 			MustAdd(DestinationRule).
 			MustAdd(EnvoyFilter).
@@ -348,4 +348,22 @@ var (
 			MustAdd(WorkloadEntry).
 			MustAdd(WorkloadGroup).
 			Build()
+
+	// PilotStableGatewayAPI contains only collections used by Pilot, including beta+ Gateway API.
+	pilotStableGatewayAPI = collection.NewSchemasBuilder().
+				MustAdd(AuthorizationPolicy).
+				MustAdd(DestinationRule).
+				MustAdd(EnvoyFilter).
+				MustAdd(Gateway).
+				MustAdd(PeerAuthentication).
+				MustAdd(ProxyConfig).
+				MustAdd(RequestAuthentication).
+				MustAdd(ServiceEntry).
+				MustAdd(Sidecar).
+				MustAdd(Telemetry).
+				MustAdd(VirtualService).
+				MustAdd(WasmPlugin).
+				MustAdd(WorkloadEntry).
+				MustAdd(WorkloadGroup).
+				Build()
 )

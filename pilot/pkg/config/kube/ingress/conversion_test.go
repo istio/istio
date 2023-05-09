@@ -492,6 +492,6 @@ func createFakeClient(t test.Failer, objects ...runtime.Object) kclient.Client[*
 	stop := test.NewStop(t)
 	services := kclient.New[*corev1.Service](kc)
 	kc.RunAndWait(stop)
-	kube.WaitForCacheSync(stop, services.HasSynced)
+	kube.WaitForCacheSync("test", stop, services.HasSynced)
 	return services
 }

@@ -102,7 +102,7 @@ var _ model.ConfigStoreController = &Client{}
 func New(client kube.Client, opts Option) (*Client, error) {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
-		schemas = collections.PilotGatewayAPI
+		schemas = collections.PilotGatewayAPI()
 	}
 	return NewForSchemas(client, opts, schemas)
 }
@@ -195,7 +195,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 
 	cl.stop = stop
 
-	if !kube.WaitForCacheSync(stop, cl.informerSynced) {
+	if !kube.WaitForCacheSync("crdclient", stop, cl.informerSynced) {
 		cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
 		return
 	}

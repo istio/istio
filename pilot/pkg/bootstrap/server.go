@@ -809,7 +809,7 @@ func (s *Server) addTerminatingStartFunc(name string, fn server.Component) {
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	start := time.Now()
 	log.Info("Waiting for caches to be synced")
-	if !kubelib.WaitForCacheSync(stop, s.cachesSynced) {
+	if !kubelib.WaitForCacheSync("server", stop, s.cachesSynced) {
 		log.Errorf("Failed waiting for cache sync")
 		return false
 	}
@@ -820,12 +820,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	// condition where we are marked ready prior to updating the push context, leading to incomplete
 	// pushes.
 	expected := s.XDSServer.InboundUpdates.Load()
-	if !kubelib.WaitForCacheSync(stop, func() bool { return s.pushContextReady(expected) }) {
-		log.Errorf("Failed waiting for push context initialization")
-		return false
-	}
-
-	return true
+	return kubelib.WaitForCacheSync("push context", stop, func() bool { return s.pushContextReady(expected) })
 }
 
 // pushContextReady indicates whether pushcontext has processed all inbound config updates.
@@ -896,7 +891,7 @@ func (s *Server) initRegistryEventHandlers() {
 		}
 		schemas := collections.Pilot.All()
 		if features.EnableGatewayAPI {
-			schemas = collections.PilotGatewayAPI.All()
+			schemas = collections.PilotGatewayAPI().All()
 		}
 		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
@@ -1027,7 +1022,7 @@ func getDNSNames(args *PilotArgs, host string) []string {
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
 	customTLSCertsExists, _, _, caCertPath := hasCustomTLSCerts(tlsOptions)
-	if !customTLSCertsExists && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isCADisabled() {
+	if !customTLSCertsExists && s.CA == nil && !s.isCADisabled() {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
@@ -1058,15 +1053,6 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 		if err != nil {
 			return nil, fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
 		}
-	}
-
-	if features.SpiffeBundleEndpoints != "" {
-		certMap, err := spiffe.RetrieveSpiffeBundleRootCertsFromStringInput(
-			features.SpiffeBundleEndpoints, []*x509.Certificate{})
-		if err != nil {
-			return nil, err
-		}
-		peerCertVerifier.AddMappings(certMap)
 	}
 
 	return peerCertVerifier, nil
