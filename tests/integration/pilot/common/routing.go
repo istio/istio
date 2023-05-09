@@ -4254,7 +4254,6 @@ spec:
 			Check: check.Status(http.StatusNotFound),
 		},
 	})
-
 }
 
 func LocationHeader(expected string) echo.Checker {
