@@ -252,7 +252,7 @@ func (pc *PodCache) deleteIPs(ips []string, podKey types.NamespacedName) bool {
 func (pc *PodCache) update(ips []string, key types.NamespacedName) {
 	pc.Lock()
 	// if the pod has been cached, return
-	var isCachedAll bool
+	isCachedAll := true
 	for _, itemIP := range ips {
 		// make sure that the podsByIP element should be equal
 		// with key for every ip address
