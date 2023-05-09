@@ -83,10 +83,32 @@ values:
         DNS_PROXY_ADDR: "0.0.0.0:15053"
     accessLogFile: /dev/stdout`
 
+var ControlPlaneValuesForEbpf = `
+profile: ambient
+components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: true
+values:
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_DNS_CAPTURE: "false"
+        DNS_PROXY_ADDR: "0.0.0.0:15053"
+    accessLogFile: /dev/stdout
+  cni:
+    ambient:
+      redirectMode: "ebpf"`
+
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
+	controlPlaneValues := ControlPlaneValues
+	if os.Getenv("AMBIENT_REDIRECT_MODE") == "ebpf" {
+		controlPlaneValues = ControlPlaneValuesForEbpf
+	}
+	controlPlaneValues = ControlPlaneValuesForEbpf
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
@@ -99,7 +121,7 @@ func TestMain(m *testing.M) {
 		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployEastWestGW = false
-			cfg.ControlPlaneValues = ControlPlaneValues
+			cfg.ControlPlaneValues = controlPlaneValues
 		})).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
