@@ -450,11 +450,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						}
 					}
 					newVHost := &route.VirtualHost{
-						Name:                       util.DomainName(string(hostname), port),
-						Domains:                    buildGatewayVirtualHostDomains(node, string(hostname), port),
-						Routes:                     routes,
-						TypedPerFilterConfig:       perRouteFilters,
-						IncludeRequestAttemptCount: true,
+						Name:                          util.DomainName(string(hostname), port),
+						Domains:                       buildGatewayVirtualHostDomains(node, string(hostname), port),
+						Routes:                        routes,
+						TypedPerFilterConfig:          perRouteFilters,
+						IncludeRequestAttemptCount:    true,
+						IncludeAttemptCountInResponse: true,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
 						newVHost.RequireTls = route.VirtualHost_ALL
@@ -475,10 +476,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				continue
 			}
 			newVHost := &route.VirtualHost{
-				Name:                       util.DomainName(hostname, port),
-				Domains:                    buildGatewayVirtualHostDomains(node, hostname, port),
-				IncludeRequestAttemptCount: true,
-				RequireTls:                 route.VirtualHost_ALL,
+				Name:                          util.DomainName(hostname, port),
+				Domains:                       buildGatewayVirtualHostDomains(node, hostname, port),
+				IncludeRequestAttemptCount:    true,
+				IncludeAttemptCountInResponse: true,
+				RequireTls:                    route.VirtualHost_ALL,
 			}
 			vHostDedupMap[host.Name(hostname)] = newVHost
 		}
@@ -577,6 +579,9 @@ func collapseDuplicateRoutes(input map[host.Name]*route.VirtualHost) map[host.Na
 // We explicitly do not check domains or name, as those are the keys for the merge
 func vhostMergeable(a, b *route.VirtualHost) bool {
 	if a.IncludeRequestAttemptCount != b.IncludeRequestAttemptCount {
+		return false
+	}
+	if a.IncludeAttemptCountInResponse != b.IncludeAttemptCountInResponse {
 		return false
 	}
 	if a.RequireTls != b.RequireTls {

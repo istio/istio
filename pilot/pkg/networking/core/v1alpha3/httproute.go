@@ -444,11 +444,12 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 				perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
 			}
 			return &route.VirtualHost{
-				Name:                       name,
-				Domains:                    domains,
-				Routes:                     vhwrapper.Routes,
-				IncludeRequestAttemptCount: true,
-				TypedPerFilterConfig:       perRouteFilters,
+				Name:                          name,
+				Domains:                       domains,
+				Routes:                        vhwrapper.Routes,
+				IncludeRequestAttemptCount:    true,
+				IncludeAttemptCountInResponse: true,
+				TypedPerFilterConfig:          perRouteFilters,
 			}
 		}
 
@@ -797,7 +798,8 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 					},
 				},
 			},
-			IncludeRequestAttemptCount: true,
+			IncludeRequestAttemptCount:    true,
+			IncludeAttemptCountInResponse: true,
 		}
 	}
 
@@ -817,7 +819,8 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 				},
 			},
 		},
-		IncludeRequestAttemptCount: true,
+		IncludeRequestAttemptCount:    true,
+		IncludeAttemptCountInResponse: true,
 	}
 }
 
