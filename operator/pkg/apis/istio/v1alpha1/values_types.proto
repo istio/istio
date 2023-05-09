@@ -90,6 +90,9 @@ message CNIConfig {
   CNIAmbientConfig ambient = 21;
 
   string provider = 22;
+
+  // K8s rolling update strategy
+  IntOrString rollingMaxUnavailable = 23;
 }
 
 message CNIAmbientConfig {
