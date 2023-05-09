@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/util/sets"
@@ -32,7 +33,7 @@ type DiscoveryFilter func(obj any) bool
 // DiscoveryNamespacesFilter tracks the set of namespaces selected for discovery, which are updated by the discovery namespace controller.
 // It exposes a filter function used for filtering out objects that don't reside in namespaces selected for discovery.
 type DiscoveryNamespacesFilter interface {
-	// Filter returns true if the input object resides in a namespace selected for discovery
+	// Filter returns true if the input object or namespace string resides in a namespace selected for discovery
 	Filter(obj any) bool
 	// FilterNamespace returns true if the input namespace is a namespace selected for discovery
 	FilterNamespace(nsMeta metav1.ObjectMeta) bool
@@ -48,6 +49,8 @@ type DiscoveryNamespacesFilter interface {
 	NamespaceDeleted(ns metav1.ObjectMeta) (membershipChanged bool)
 	// GetMembers returns the namespaces selected for discovery
 	GetMembers() sets.String
+	// AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected by discovery selector change.
+	AddHandler(func(ns string, event model.Event))
 }
 
 type discoveryNamespacesFilter struct {
@@ -55,20 +58,49 @@ type discoveryNamespacesFilter struct {
 	namespaces          kclient.Client[*corev1.Namespace]
 	discoveryNamespaces sets.String
 	discoverySelectors  []labels.Selector // nil if discovery selectors are not specified, permits all namespaces for discovery
+	handlers            []func(ns string, event model.Event)
 }
 
 func NewDiscoveryNamespacesFilter(
 	namespaces kclient.Client[*corev1.Namespace],
 	discoverySelectors []*metav1.LabelSelector,
 ) DiscoveryNamespacesFilter {
-	discoveryNamespacesFilter := &discoveryNamespacesFilter{
+	f := &discoveryNamespacesFilter{
 		namespaces: namespaces,
 	}
 
 	// initialize discovery namespaces filter
-	discoveryNamespacesFilter.SelectorsChanged(discoverySelectors)
+	f.SelectorsChanged(discoverySelectors)
 
-	return discoveryNamespacesFilter
+	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
+		AddFunc: func(ns *corev1.Namespace) {
+			if f.NamespaceCreated(ns.ObjectMeta) {
+				f.lock.RLock()
+				defer f.lock.RUnlock()
+				f.notifyNamespaceHandlers(ns.Name, model.EventAdd)
+			}
+		},
+		UpdateFunc: func(old, new *corev1.Namespace) {
+			membershipChanged, namespaceAdded := f.NamespaceUpdated(old.ObjectMeta, new.ObjectMeta)
+			if membershipChanged {
+				if namespaceAdded {
+					f.lock.RLock()
+					defer f.lock.RUnlock()
+					f.notifyNamespaceHandlers(new.Name, model.EventAdd)
+				} else {
+					f.lock.RLock()
+					defer f.lock.RUnlock()
+					f.notifyNamespaceHandlers(new.Name, model.EventDelete)
+				}
+			}
+		},
+		DeleteFunc: func(ns *corev1.Namespace) {
+			f.NamespaceDeleted(ns.ObjectMeta)
+			// no need to invoke object handlers since objects within the namespace will trigger delete events
+		},
+	})
+
+	return f
 }
 
 func (d *discoveryNamespacesFilter) Filter(obj any) bool {
@@ -79,14 +111,21 @@ func (d *discoveryNamespacesFilter) Filter(obj any) bool {
 		return true
 	}
 
+	if ns, ok := obj.(string); ok {
+		return d.discoveryNamespaces.Contains(ns)
+	}
+
 	// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
 	object := controllers.ExtractObject(obj)
 	if object == nil {
 		return false
 	}
-
+	ns := object.GetNamespace()
+	if _, ok := object.(*corev1.Namespace); ok {
+		ns = object.GetName()
+	}
 	// permit if object resides in a namespace labeled for discovery
-	return d.discoveryNamespaces.Contains(object.GetNamespace())
+	return d.discoveryNamespaces.Contains(ns)
 }
 
 func (d *discoveryNamespacesFilter) FilterNamespace(nsMeta metav1.ObjectMeta) bool {
@@ -132,12 +171,23 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 	oldDiscoveryNamespaces := d.discoveryNamespaces
 	selectedNamespaces = sets.SortedList(newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces))
 	deselectedNamespaces = sets.SortedList(oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces))
-
+	for _, ns := range selectedNamespaces {
+		d.notifyNamespaceHandlers(ns, model.EventAdd)
+	}
+	for _, ns := range deselectedNamespaces {
+		d.notifyNamespaceHandlers(ns, model.EventDelete)
+	}
 	// update filter state
 	d.discoveryNamespaces = newDiscoveryNamespaces
 	d.discoverySelectors = selectors
 
 	return
+}
+
+func (d *discoveryNamespacesFilter) notifyNamespaceHandlers(ns string, event model.Event) {
+	for _, h := range d.handlers {
+		h(ns, event)
+	}
 }
 
 func (d *discoveryNamespacesFilter) SyncNamespaces() error {
@@ -204,6 +254,13 @@ func (d *discoveryNamespacesFilter) GetMembers() sets.String {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	return d.discoveryNamespaces.Copy()
+}
+
+// AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected by discovery selector change.
+func (d *discoveryNamespacesFilter) AddHandler(f func(ns string, event model.Event)) {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	d.handlers = append(d.handlers, f)
 }
 
 func (d *discoveryNamespacesFilter) addNamespace(ns string) {
