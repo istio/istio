@@ -89,7 +89,7 @@ func newWebhookPatcherQueue(reconciler controllers.ReconcilerFn) controllers.Que
 // Run runs the WebhookCertPatcher
 func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
 	go w.startCaBundleWatcher(stopChan)
-	kubelib.WaitForCacheSync(stopChan, w.webhooks.HasSynced)
+	kubelib.WaitForCacheSync("webhook patcher", stopChan, w.webhooks.HasSynced)
 	w.queue.Run(stopChan)
 }
 

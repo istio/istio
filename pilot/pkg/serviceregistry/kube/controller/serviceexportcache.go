@@ -207,7 +207,7 @@ func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
 	// Register callbacks for events.
 	registerHandlers(ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)
 	go dInformer.Run(stop)
-	kube.WaitForCacheSync(stop, ec.serviceExports.HasSynced)
+	kube.WaitForCacheSync("service export", stop, ec.serviceExports.HasSynced)
 	ec.started.Store(true)
 }
 

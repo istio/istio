@@ -56,7 +56,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCont
 	}
 	go config.Run(stop)
 	fake.RunAndWait(stop)
-	kube.WaitForCacheSync(stop, config.HasSynced)
+	kube.WaitForCacheSync("test", stop, config.HasSynced)
 	return config, fake
 }
 
@@ -366,7 +366,7 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 	fake.RunAndWait(stop)
 	go store.Run(stop)
 
-	kube.WaitForCacheSync(stop, store.HasSynced)
+	kube.WaitForCacheSync("test", stop, store.HasSynced)
 
 	// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
 	sortFunc := func(a, b config.Config) bool {
@@ -428,7 +428,7 @@ func TestClientSync(t *testing.T) {
 	})
 	go c.Run(stop)
 	fake.RunAndWait(stop)
-	kube.WaitForCacheSync(stop, c.HasSynced)
+	kube.WaitForCacheSync("test", stop, c.HasSynced)
 	// This MUST have been called by the time HasSynced returns true
 	assert.Equal(t, events.Load(), 1)
 }

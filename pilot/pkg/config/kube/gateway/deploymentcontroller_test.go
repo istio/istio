@@ -222,7 +222,7 @@ func TestVersionManagement(t *testing.T) {
 	go tw.Run(stop)
 	go d.Run(stop)
 	c.RunAndWait(stop)
-	kube.WaitForCacheSync(stop, d.queue.HasSynced)
+	kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 	// Create a gateway, we should mark our ownership
 	defaultGateway := &v1beta1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{

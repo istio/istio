@@ -82,7 +82,7 @@ func initController(client kube.CLIClient, ns string, stop <-chan struct{}, mc *
 	sc := multicluster.NewController(client, ns, "cluster-1", mesh.NewFixedWatcher(nil))
 	sc.AddHandler(mc)
 	_ = sc.Run(stop)
-	kube.WaitForCacheSync(stop, sc.HasSynced)
+	kube.WaitForCacheSync("test", stop, sc.HasSynced)
 }
 
 func Test_KubeSecretController(t *testing.T) {
