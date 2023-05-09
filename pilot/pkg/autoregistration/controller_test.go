@@ -29,6 +29,7 @@ import (
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/autoregistration/internal/autoregistration"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -293,7 +294,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 				Kind:       group.GroupVersionKind.Kind,
 				Name:       group.Name,
 				UID:        kubetypes.UID(group.UID),
-				Controller: &workloadGroupIsController,
+				Controller: &autoregistration.WorkloadGroupIsController,
 			}},
 		},
 		Spec: &v1alpha3.WorkloadEntry{
@@ -309,7 +310,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 		},
 	}
 
-	got := workloadEntryFromGroup("test-we", proxy, &group)
+	got := autoregistration.WorkloadEntryFromGroup("test-we", proxy, &group)
 	assert.Equal(t, got, &want)
 }
 

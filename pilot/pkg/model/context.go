@@ -327,8 +327,8 @@ type Proxy struct {
 	// XdsNode is the xDS node identifier
 	XdsNode *core.Node
 
-	WorkloadEntryName        string
-	WorkloadEntryAutoCreated bool
+	WorkloadEntryName           string
+	WorkloadEntryAutoRegistered bool
 
 	// LastPushContext stores the most recent push context for this proxy. This will be monotonically
 	// increasing in version. Requests should send config based on this context; not the global latest.

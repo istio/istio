@@ -23,67 +23,27 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
-	"google.golang.org/grpc/codes"
-	grpcstatus "google.golang.org/grpc/status"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/autoregistration/internal/autoregistration"
+	"istio.io/istio/pilot/pkg/autoregistration/internal/externalregistration"
 	"istio.io/istio/pilot/pkg/autoregistration/internal/health"
 	"istio.io/istio/pilot/pkg/autoregistration/internal/state"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/status"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/queue"
 	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
-)
-
-func init() {
-	monitoring.MustRegister(autoRegistrationSuccess)
-	monitoring.MustRegister(autoRegistrationUpdates)
-	monitoring.MustRegister(autoRegistrationUnregistrations)
-	monitoring.MustRegister(autoRegistrationDeletes)
-	monitoring.MustRegister(autoRegistrationErrors)
-}
-
-var (
-	autoRegistrationSuccess = monitoring.NewSum(
-		"auto_registration_success_total",
-		"Total number of successful auto registrations.",
-	)
-
-	autoRegistrationUpdates = monitoring.NewSum(
-		"auto_registration_updates_total",
-		"Total number of auto registration updates.",
-	)
-
-	autoRegistrationUnregistrations = monitoring.NewSum(
-		"auto_registration_unregister_total",
-		"Total number of unregistrations.",
-	)
-
-	autoRegistrationDeletes = monitoring.NewSum(
-		"auto_registration_deletes_total",
-		"Total number of auto registration cleaned up by periodic timer.",
-	)
-
-	autoRegistrationErrors = monitoring.NewSum(
-		"auto_registration_errors_total",
-		"Total number of auto registration errors.",
-	)
 )
 
 const (
 	// TODO use status or another proper API instead of annotations
 
 	// AutoRegistrationGroupAnnotation on a WorkloadEntry stores the associated WorkloadGroup.
-	AutoRegistrationGroupAnnotation = "istio.io/autoRegistrationGroup"
+	AutoRegistrationGroupAnnotation = autoregistration.AutoRegistrationGroupAnnotation
 	// WorkloadControllerAnnotation on a WorkloadEntry should store the current/last pilot instance connected to the workload for XDS.
 	WorkloadControllerAnnotation = "istio.io/workloadController"
 	// ConnectedAtAnnotation on a WorkloadEntry stores the time in nanoseconds when the associated workload connected to a Pilot instance.
@@ -98,10 +58,14 @@ const (
 	//
 	// 5ms, 10ms, 20ms, 40ms, 80ms
 	maxRetries = 5
+
+	// convenience constant for better readability
+	periodicCleanup = true
 )
 
 var log = istiolog.RegisterScope("wle", "wle controller debugging")
 
+// Controller manages connect/disconnect/cleanup lifecycle of a workload.
 type Controller struct {
 	instanceID string
 	// TODO move WorkloadEntry related tasks into their own object and give InternalGen a reference.
@@ -129,8 +93,37 @@ type Controller struct {
 	// maxConnectionAge is a duration that workload entry should be cleaned up if it does not reconnects.
 	maxConnectionAge time.Duration
 
-	stateStore       *state.Store
-	healthController *health.Controller
+	stateStore           *state.Store
+	healthController     *health.Controller
+	autoregistration     *autoregistration.Controller
+	externalregistration *externalregistration.Controller
+}
+
+// WorkloadEntryRegistrationStrategy represents a strategy of WorkloadEntry registration, e.g.
+// auto-registration or external registration.
+type WorkloadEntryRegistrationStrategy interface {
+	// OnWorkloadConnect is called on workload connect to update the respective WorkloadEntry resource
+	// appropriately.
+	OnWorkloadConnect(entryName, entryNs string, proxy *model.Proxy, conTime time.Time) error
+	// OnWorkloadDisconnect is called on workload disconnect to update the respective WorkloadEntry resource
+	// appropriately.
+	OnWorkloadDisconnect(entryName, entryNs string, disconTime, origConTime time.Time) (changed bool, err error)
+
+	WorkloadEntryCleaner
+}
+
+// WorkloadEntryCleaner knows how to cleanup WorkloadEntry(s) managed by this controller.
+//
+// E.g. in the case of auto-registration it is necessary to remove WorkloadEntry resource completely,
+// while in the case of health-checked WorkloadEntry(s) that are not using auto-registration it is
+// necessary to remove the health condition only.
+type WorkloadEntryCleaner interface {
+	// GetCleanupGracePeriod returns a grace period to wait prior to cleanup.
+	GetCleanupGracePeriod() time.Duration
+	// ShouldCleanup returns true if a given WorkloadEntry is eligible for cleanup.
+	ShouldCleanup(wle *config.Config) bool
+	// Cleanup performs respective cleanup actions on a given WorkloadEntry.
+	Cleanup(wle *config.Config, periodic bool)
 }
 
 type HealthEvent = health.HealthEvent
@@ -158,6 +151,8 @@ func NewController(store model.ConfigStoreController, instanceID string, maxConn
 			controllers.WithGenericReconciler(c.unregisterWorkload))
 		c.stateStore = state.NewStore(store, c)
 		c.healthController = health.NewController(c.stateStore, maxRetries)
+		c.autoregistration = autoregistration.NewController(store, c)
+		c.externalregistration = externalregistration.NewController(c.stateStore, c)
 		return c
 	}
 	return nil
@@ -179,11 +174,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 // workItem contains the state of a "disconnect" event used to unregister a workload.
 type workItem struct {
-	entryName   string
-	autoCreated bool
-	proxy       *model.Proxy
-	disConTime  time.Time
-	origConTime time.Time
+	entryName      string
+	autoRegistered bool
+	proxy          *model.Proxy
+	disConTime     time.Time
+	origConTime    time.Time
 }
 
 func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
@@ -211,112 +206,62 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 		return nil
 	}
 	var entryName string
-	var autoCreate bool
-	if features.WorkloadEntryAutoRegistration && proxy.Metadata.AutoRegisterGroup != "" {
-		entryName = autoregisteredWorkloadEntryName(proxy)
-		autoCreate = true
-	} else if features.WorkloadEntryHealthChecks && proxy.Metadata.WorkloadEntry != "" {
-		// a non-empty value of the `WorkloadEntry` field indicates that proxy must correspond to the WorkloadEntry
-		wle := c.store.Get(gvk.WorkloadEntry, proxy.Metadata.WorkloadEntry, proxy.Metadata.Namespace)
-		if wle == nil {
-			// either invalid proxy configuration or config propagation delay
-			return fmt.Errorf("proxy metadata indicates that it must correspond to an existing WorkloadEntry, "+
-				"however WorkloadEntry %s/%s is not found", proxy.Metadata.Namespace, proxy.Metadata.WorkloadEntry)
+	var autoRegistered bool
+	if c.autoregistration.IsApplicableTo(proxy) {
+		entryName = c.autoregistration.GenerateWorkloadEntryName(proxy)
+		autoRegistered = true
+	} else if c.externalregistration.IsApplicableTo(proxy) {
+		wleName, err := c.externalregistration.GetWorkloadEntryName(proxy)
+		if err != nil {
+			return err
 		}
-		if health.IsEligibleForHealthStatusUpdates(wle) {
-			entryName = wle.Name
-		}
+		entryName = wleName
 	}
 	if entryName == "" {
 		return nil
 	}
 	proxy.WorkloadEntryName = entryName
-	proxy.WorkloadEntryAutoCreated = autoCreate
+	proxy.WorkloadEntryAutoRegistered = autoRegistered
 
 	c.mutex.Lock()
 	c.adsConnections[makeProxyKey(proxy)]++
 	c.mutex.Unlock()
 
-	err := c.onWorkloadConnect(entryName, proxy, conTime, autoCreate)
+	strategy := c.getRegistrationStrategy(autoRegistered)
+	err := strategy.OnWorkloadConnect(entryName, proxy.Metadata.Namespace, proxy, conTime)
 	if err != nil {
 		log.Error(err)
 	}
 	return err
 }
 
-// onWorkloadConnect creates/updates WorkloadEntry of the connecting workload.
+func (c *Controller) getRegistrationStrategy(autoRegistered bool) WorkloadEntryRegistrationStrategy {
+	if autoRegistered {
+		return c.autoregistration
+	}
+	return c.externalregistration
+}
+
+// GetWorkloadEntry implements externalregistration.ControllerCallbacks.
+func (c *Controller) GetWorkloadEntry(entryName, entryNs string) *config.Config {
+	return c.store.Get(gvk.WorkloadEntry, entryName, entryNs)
+}
+
+// CreateConnectedWorkloadEntry implements autoregistration.ControllerCallbacks.
+func (c *Controller) CreateConnectedWorkloadEntry(wle config.Config, conTime time.Time) error {
+	setConnectMeta(&wle, c.instanceID, conTime)
+	_, err := c.store.Create(wle)
+	return err
+}
+
+// ChangeWorkloadEntryStateToConnected implements autoregistration.ControllerCallbacks.
+// ChangeWorkloadEntryStateToConnected implements externalregistration.ControllerCallbacks.
 //
-// If workload is using auto-registration, WorkloadEntry will be created automatically.
-//
-// If workload is not using auto-registration, WorkloadEntry must already exist.
-func (c *Controller) onWorkloadConnect(entryName string, proxy *model.Proxy, conTime time.Time, autoCreate bool) error {
-	if autoCreate {
-		return c.registerWorkload(entryName, proxy, conTime)
-	}
-	return c.becomeControllerOf(entryName, proxy, conTime)
-}
-
-// becomeControllerOf updates an existing WorkloadEntry of a workload that is not using
-// auto-registration.
-func (c *Controller) becomeControllerOf(entryName string, proxy *model.Proxy, conTime time.Time) error {
-	changed, err := c.changeWorkloadEntryStateToConnected(entryName, proxy, conTime)
-	if err != nil {
-		return err
-	}
-	if !changed {
-		return nil
-	}
-	log.Infof("updated health-checked WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
-	return nil
-}
-
-// registerWorkload creates or updates a WorkloadEntry of a workload that is using
-// auto-registration.
-func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conTime time.Time) error {
-	wle := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
-	if wle != nil {
-		changed, err := c.changeWorkloadEntryStateToConnected(entryName, proxy, conTime)
-		if err != nil {
-			autoRegistrationErrors.Increment()
-			return err
-		}
-		if !changed {
-			return nil
-		}
-		autoRegistrationUpdates.Increment()
-		log.Infof("updated auto-registered WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
-		return nil
-	}
-
-	// No WorkloadEntry, create one using fields from the associated WorkloadGroup
-	groupCfg := c.store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
-	if groupCfg == nil {
-		autoRegistrationErrors.Increment()
-		return grpcstatus.Errorf(codes.FailedPrecondition, "auto-registration WorkloadEntry of %v failed: cannot find WorkloadGroup %s/%s",
-			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
-	}
-	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
-	setConnectMeta(entry, c.instanceID, conTime)
-	_, err := c.store.Create(*entry)
-	if err != nil {
-		autoRegistrationErrors.Increment()
-		return fmt.Errorf("auto-registration WorkloadEntry of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
-	}
-	hcMessage := ""
-	if health.IsEligibleForHealthStatusUpdates(entry) {
-		hcMessage = " with health checking enabled"
-	}
-	autoRegistrationSuccess.Increment()
-	log.Infof("auto-registered WorkloadEntry %s/%s%s", proxy.Metadata.Namespace, entryName, hcMessage)
-	return nil
-}
-
-// changeWorkloadEntryStateToConnected updates given WorkloadEntry to reflect that
-// it is now connected to this particular `istiod` instance.
-func (c *Controller) changeWorkloadEntryStateToConnected(entryName string, proxy *model.Proxy, conTime time.Time) (bool, error) {
-	wle := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+// Updates given WorkloadEntry to reflect that it is now connected to this particular `istiod` instance.
+func (c *Controller) ChangeWorkloadEntryStateToConnected(entryName, entryNs string, conTime time.Time) (bool, error) {
+	wle := c.store.Get(gvk.WorkloadEntry, entryName, entryNs)
 	if wle == nil {
-		return false, fmt.Errorf("failed updating WorkloadEntry %s/%s: WorkloadEntry not found", proxy.Metadata.Namespace, entryName)
+		return false, fmt.Errorf("failed updating WorkloadEntry %s/%s: WorkloadEntry not found", entryNs, entryName)
 	}
 	lastConTime, _ := time.Parse(timeFormat, wle.Annotations[ConnectedAtAnnotation])
 	// the proxy has reconnected to another pilot, not belong to this one.
@@ -329,21 +274,23 @@ func (c *Controller) changeWorkloadEntryStateToConnected(entryName string, proxy
 		return cfg, kubetypes.MergePatchType
 	})
 	if err != nil {
-		return false, fmt.Errorf("failed updating WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
+		return false, fmt.Errorf("failed updating WorkloadEntry %s/%s err: %v", entryNs, entryName, err)
 	}
 	return true, nil
 }
 
-// changeWorkloadEntryStateToDisconnected updates given WorkloadEntry to reflect that
-// it is no longer connected to this particular `istiod` instance.
-func (c *Controller) changeWorkloadEntryStateToDisconnected(entryName string, proxy *model.Proxy, disconTime, origConnTime time.Time) (bool, error) {
+// ChangeWorkloadEntryStateToConnected implements autoregistration.ControllerCallbacks.
+// ChangeWorkloadEntryStateToConnected implements externalregistration.ControllerCallbacks.
+//
+// Updates given WorkloadEntry to reflect that it is no longer connected to this particular `istiod` instance.
+func (c *Controller) ChangeWorkloadEntryStateToDisconnected(entryName, entryNs string, disconTime, origConnTime time.Time) (bool, error) {
 	// unset controller, set disconnect time
-	cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
+	cfg := c.store.Get(gvk.WorkloadEntry, entryName, entryNs)
 	if cfg == nil {
 		log.Infof("workloadentry %s/%s is not found, maybe deleted or because of propagate latency",
-			proxy.Metadata.Namespace, entryName)
+			entryNs, entryName)
 		// return error and backoff retry to prevent workloadentry leak
-		return false, fmt.Errorf("workloadentry %s/%s is not found", proxy.Metadata.Namespace, entryName)
+		return false, fmt.Errorf("workloadentry %s/%s is not found", entryNs, entryName)
 	}
 
 	// only queue a delete if this disconnect event is associated with the last connect event written to the workload entry
@@ -354,7 +301,7 @@ func (c *Controller) changeWorkloadEntryStateToDisconnected(entryName string, pr
 		}
 	}
 	// The wle has reconnected to another istiod and controlled by it.
-	if cfg.Annotations[WorkloadControllerAnnotation] != c.instanceID {
+	if !c.IsControllerOf(cfg) {
 		return false, nil
 	}
 
@@ -371,7 +318,7 @@ func (c *Controller) changeWorkloadEntryStateToDisconnected(entryName string, pr
 	// use update instead of patch to prevent race condition
 	_, err := c.store.Update(wle)
 	if err != nil {
-		return false, fmt.Errorf("disconnect: failed updating WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
+		return false, fmt.Errorf("disconnect: failed updating WorkloadEntry %s/%s: %v", entryNs, entryName, err)
 	}
 	return true, nil
 }
@@ -415,11 +362,11 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 	c.mutex.Unlock()
 
 	workload := &workItem{
-		entryName:   entryName,
-		autoCreated: proxy.WorkloadEntryAutoCreated,
-		proxy:       proxy,
-		disConTime:  time.Now(),
-		origConTime: origConnect,
+		entryName:      entryName,
+		autoRegistered: proxy.WorkloadEntryAutoRegistered,
+		proxy:          proxy,
+		disConTime:     time.Now(),
+		origConTime:    origConnect,
 	}
 	// queue has max retry itself
 	c.queue.Add(workload)
@@ -430,33 +377,39 @@ func (c *Controller) unregisterWorkload(item any) error {
 	if !ok {
 		return nil
 	}
+	entryName, entryNs := workItem.entryName, workItem.proxy.Metadata.Namespace
 
-	changed, err := c.changeWorkloadEntryStateToDisconnected(workItem.entryName, workItem.proxy, workItem.disConTime, workItem.origConTime)
+	strategy := c.getRegistrationStrategy(workItem.autoRegistered)
+
+	changed, err := strategy.OnWorkloadDisconnect(entryName, entryNs, workItem.disConTime, workItem.origConTime)
 	if err != nil {
-		autoRegistrationErrors.Increment()
 		return err
 	}
 	if !changed {
 		return nil
 	}
 
-	if workItem.autoCreated {
-		autoRegistrationUnregistrations.Increment()
-	}
-
 	// after grace period, check if the workload ever reconnected
-	ns := workItem.proxy.Metadata.Namespace
-	c.cleanupQueue.PushDelayed(func() error {
-		wle := c.store.Get(gvk.WorkloadEntry, workItem.entryName, ns)
+	c.cleanupQueue.PushDelayed(c.newCleanupTask(entryName, entryNs, strategy, !periodicCleanup), strategy.GetCleanupGracePeriod())
+	return nil
+}
+
+func (c *Controller) newCleanupTask(entryName, entryNs string, cleaner WorkloadEntryCleaner, periodic bool) queue.Task {
+	return func() error {
+		wle := c.store.Get(gvk.WorkloadEntry, entryName, entryNs)
 		if wle == nil {
 			return nil
 		}
-		if c.shouldCleanupEntry(*wle) {
-			c.cleanupEntry(*wle, false)
+		if !cleaner.ShouldCleanup(wle) {
+			return nil
 		}
+		if err := c.cleanupLimit.Wait(context.TODO()); err != nil {
+			log.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
+			return nil
+		}
+		cleaner.Cleanup(wle, periodic)
 		return nil
-	}, features.WorkloadEntryCleanupGracePeriod)
-	return nil
+	}
 }
 
 // QueueWorkloadEntryHealth enqueues the associated WorkloadEntries health status.
@@ -480,11 +433,12 @@ func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 			wles := c.store.List(gvk.WorkloadEntry, metav1.NamespaceAll)
 			for _, wle := range wles {
 				wle := wle
-				if c.shouldCleanupEntry(wle) {
-					c.cleanupQueue.Push(func() error {
-						c.cleanupEntry(wle, true)
-						return nil
-					})
+				if c.autoregistration.ShouldCleanup(&wle) {
+					c.cleanupQueue.Push(c.newCleanupTask(wle.Name, wle.Namespace, c.autoregistration, periodicCleanup))
+					continue
+				}
+				if c.externalregistration.ShouldCleanup(&wle) {
+					c.cleanupQueue.Push(c.newCleanupTask(wle.Name, wle.Namespace, c.externalregistration, periodicCleanup))
 				}
 			}
 		case <-stopCh:
@@ -493,14 +447,11 @@ func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 	}
 }
 
-func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
-	// don't clean up if WorkloadEntry is neither auto-registered
-	// nor health-checked
-	if !isAutoRegisteredWorkloadEntry(&wle) &&
-		!(isHealthCheckedWorkloadEntry(&wle) && health.HasHealthCondition(&wle)) {
-		return false
-	}
-
+// IsExpired implements autoregistration.ControllerCallbacks.
+// IsExpired implements externalregistration.ControllerCallbacks.
+//
+// IsExpired returns true if a given WorkloadEntry is eligible for cleanup.
+func (c *Controller) IsExpired(wle *config.Config, cleanupGracePeriod time.Duration) bool {
 	// If there is ConnectedAtAnnotation set, don't cleanup this workload entry.
 	// This may happen when the workload fast reconnects to the same istiod.
 	// 1. disconnect: the workload entry has been updated
@@ -523,51 +474,21 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 
 	disconnAt, err := time.Parse(timeFormat, disconnTime)
 	// if we haven't passed the grace period, don't cleanup
-	if err == nil && time.Since(disconnAt) < features.WorkloadEntryCleanupGracePeriod {
+	if err == nil && time.Since(disconnAt) < cleanupGracePeriod {
 		return false
 	}
 
 	return true
 }
 
-// cleanupEntry performs clean-up actions on a WorkloadEntry of a proxy that hasn't
-// reconnected within a grace period.
-func (c *Controller) cleanupEntry(wle config.Config, periodic bool) {
-	if err := c.cleanupLimit.Wait(context.TODO()); err != nil {
-		log.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
-		return
+// IsControlled implements externalregistration.ControllerCallbacks.
+//
+// IsControlled returns true if a given WorkloadEntry is/was connected to one of the `istiod` instances.
+func (c *Controller) IsControlled(wle *config.Config) bool {
+	if wle == nil {
+		return false
 	}
-	if isAutoRegisteredWorkloadEntry(&wle) {
-		c.deleteEntry(wle, periodic)
-		return
-	}
-	if isHealthCheckedWorkloadEntry(&wle) && health.HasHealthCondition(&wle) {
-		c.deleteHealthCondition(wle, periodic)
-		return
-	}
-}
-
-// deleteEntry removes WorkloadEntry that was created automatically for a workload
-// that is using auto-registration.
-func (c *Controller) deleteEntry(wle config.Config, periodic bool) {
-	if err := c.store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace, &wle.ResourceVersion); err != nil && !errors.IsNotFound(err) {
-		log.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
-		autoRegistrationErrors.Increment()
-		return
-	}
-	autoRegistrationDeletes.Increment()
-	log.Infof("cleaned up auto-registered WorkloadEntry %s/%s periodic:%v", wle.Namespace, wle.Name, periodic)
-}
-
-// deleteHealthCondition updates WorkloadEntry of a workload that is not using auto-registration
-// to remove information about the health status (since we can no longer be certain about it).
-func (c *Controller) deleteHealthCondition(wle config.Config, periodic bool) {
-	err := c.stateStore.DeleteHealthCondition(wle)
-	if err != nil {
-		log.Warnf("failed cleaning up health-checked WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
-		return
-	}
-	log.Infof("cleaned up health-checked WorkloadEntry %s/%s periodic:%v", wle.Namespace, wle.Name, periodic)
+	return wle.Annotations[WorkloadControllerAnnotation] != ""
 }
 
 // IsControllerOf implements state.StoreCallbacks.
@@ -578,104 +499,6 @@ func (c *Controller) IsControllerOf(wle *config.Config) bool {
 	return wle.Annotations[WorkloadControllerAnnotation] == c.instanceID
 }
 
-func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
-	if proxy.Metadata.AutoRegisterGroup == "" {
-		return ""
-	}
-	if len(proxy.IPAddresses) == 0 {
-		log.Errorf("auto-registration of %v failed: missing IP addresses", proxy.ID)
-		return ""
-	}
-	if len(proxy.Metadata.Namespace) == 0 {
-		log.Errorf("auto-registration of %v failed: missing namespace", proxy.ID)
-		return ""
-	}
-	p := []string{proxy.Metadata.AutoRegisterGroup, sanitizeIP(proxy.IPAddresses[0])}
-	if proxy.Metadata.Network != "" {
-		p = append(p, string(proxy.Metadata.Network))
-	}
-
-	name := strings.Join(p, "-")
-	if len(name) > 253 {
-		name = name[len(name)-253:]
-		log.Warnf("generated WorkloadEntry name is too long, consider making the WorkloadGroup name shorter. Shortening from beginning to: %s", name)
-	}
-	return name
-}
-
-// sanitizeIP ensures an IP address (IPv6) can be used in Kubernetes resource name
-func sanitizeIP(s string) string {
-	return strings.ReplaceAll(s, ":", "-")
-}
-
-func mergeLabels(labels ...map[string]string) map[string]string {
-	if len(labels) == 0 {
-		return map[string]string{}
-	}
-	out := make(map[string]string, len(labels)*len(labels[0]))
-	for _, lm := range labels {
-		for k, v := range lm {
-			out[k] = v
-		}
-	}
-	return out
-}
-
-var workloadGroupIsController = true
-
-func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Config) *config.Config {
-	group := groupCfg.Spec.(*v1alpha3.WorkloadGroup)
-	entry := group.Template.DeepCopy()
-	entry.Address = proxy.IPAddresses[0]
-	// TODO move labels out of entry
-	// node metadata > WorkloadGroup.Metadata > WorkloadGroup.Template
-	if group.Metadata != nil && group.Metadata.Labels != nil {
-		entry.Labels = mergeLabels(entry.Labels, group.Metadata.Labels)
-	}
-	// Explicitly do not use proxy.Labels, as it is only initialized *after* we register the workload,
-	// and it would be circular, as it will set the labels based on the WorkloadEntry -- but we are creating
-	// the workload entry.
-	if proxy.Metadata.Labels != nil {
-		entry.Labels = mergeLabels(entry.Labels, proxy.Metadata.Labels)
-	}
-
-	annotations := map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name}
-	if group.Metadata != nil && group.Metadata.Annotations != nil {
-		annotations = mergeLabels(annotations, group.Metadata.Annotations)
-	}
-
-	if proxy.Metadata.Network != "" {
-		entry.Network = string(proxy.Metadata.Network)
-	}
-	// proxy.Locality is unset when auto registration takes place, because its
-	// state is not fully initialized. Therefore, we check the bootstrap node.
-	if proxy.XdsNode.Locality != nil {
-		entry.Locality = util.LocalityToString(proxy.XdsNode.Locality)
-	}
-	if proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.ReadinessProbe != nil {
-		annotations[status.WorkloadEntryHealthCheckAnnotation] = "true"
-	}
-	return &config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.WorkloadEntry,
-			Name:             name,
-			Namespace:        proxy.Metadata.Namespace,
-			Labels:           entry.Labels,
-			Annotations:      annotations,
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion: groupCfg.GroupVersionKind.GroupVersion(),
-				Kind:       groupCfg.GroupVersionKind.Kind,
-				Name:       groupCfg.Name,
-				UID:        kubetypes.UID(groupCfg.UID),
-				Controller: &workloadGroupIsController,
-			}},
-		},
-		Spec: entry,
-		// TODO status fields used for garbage collection
-		Status: nil,
-	}
-}
-
 func makeProxyKey(proxy *model.Proxy) string {
 	key := strings.Join([]string{
 		string(proxy.Metadata.Network),
@@ -684,12 +507,4 @@ func makeProxyKey(proxy *model.Proxy) string {
 		proxy.Metadata.Namespace,
 	}, "~")
 	return key
-}
-
-func isAutoRegisteredWorkloadEntry(wle *config.Config) bool {
-	return wle != nil && wle.Annotations[AutoRegistrationGroupAnnotation] != ""
-}
-
-func isHealthCheckedWorkloadEntry(wle *config.Config) bool {
-	return wle != nil && wle.Annotations[WorkloadControllerAnnotation] != "" && !isAutoRegisteredWorkloadEntry(wle)
 }
