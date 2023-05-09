@@ -93,6 +93,14 @@ func TestToRoutingClaim(t *testing.T) {
 			name: "@request.auth.claims[key1] [key2]",
 			want: RoutingClaim{Match: true, Separator: Square, Claims: []string{"key1] [key2"}},
 		},
+		{
+			name: "@request.auth.claims[test-issuer-2@istio.io]",
+			want: RoutingClaim{Match: true, Separator: Square, Claims: []string{"test-issuer-2@istio.io"}},
+		},
+		{
+			name: "@request.auth.claims[test-issuer-2@istio.io][key1]",
+			want: RoutingClaim{Match: true, Separator: Square, Claims: []string{"test-issuer-2@istio.io", "key1"}},
+		},
 	}
 
 	for _, tt := range cases {

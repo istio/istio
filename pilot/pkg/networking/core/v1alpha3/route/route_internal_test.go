@@ -573,6 +573,16 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"key1", "key2"}, authzmatcher.StringMatcher("exact")),
 		},
+		{
+			name: "@request.auth.claims[test-issuer-2@istio.io]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims[test-issuer-2@istio.io][key1]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io", "key1"}, authzmatcher.StringMatcher("exact")),
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
