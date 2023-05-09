@@ -545,7 +545,7 @@ func findProtocolForPort(port *corev1.ServicePort) string {
 }
 
 func isMeshed(pod *corev1.Pod) bool {
-	return inject.FindSidecar(pod.Spec.Containers) != nil || inject.FindSidecar(pod.Spec.InitContainers) != nil
+	return inject.FindSidecar(pod) != nil
 }
 
 // Extract value of key out of Struct, but always return a Struct, even if the value isn't one

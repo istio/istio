@@ -232,6 +232,7 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 
 		log.Debugf("ambientConf.ZTunnelReady: %v", ambientConf.ZTunnelReady)
 		added := false
+
 		podIPs, err := getPodIPs(args.IfName, conf.PrevResult)
 		if err != nil {
 			log.Errorf("istio-cni cmdAdd failed to get pod IPs: %s", err)

@@ -17,8 +17,8 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        proxy.istio.io/overrides: '{"containers":[{"name":"istio-proxy","resources":{"limits":{"cpu":"3"},"requests":{"cpu":"123m"}},"volumeMounts":[{"name":"certs","mountPath":"/etc/certs"}],"livenessProbe":{"httpGet":{"path":"/healthz/ready","port":15021},"initialDelaySeconds":10,"timeoutSeconds":3,"periodSeconds":2,"failureThreshold":30},"lifecycle":{"preStop":{"exec":{"command":["sleep","10"]}}},"terminationMessagePath":"/foo/bar","securityContext":{"readOnlyRootFilesystem":false,"allowPrivilegeEscalation":true},"tty":true}],"initContainers":[{"name":"istio-init","image":"fake/custom-image","args":["my","custom","args"],"resources":{}}]}'
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        proxy.istio.io/overrides: '{"initContainers":[{"name":"istio-init","image":"fake/custom-image","args":["my","custom","args"],"resources":{}}]}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
         app: hello
@@ -30,6 +30,62 @@ spec:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         name: hello
         resources: {}
+      - image: auto
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - sleep
+              - "10"
+        livenessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+          initialDelaySeconds: 10
+          periodSeconds: 2
+          timeoutSeconds: 3
+        name: istio-proxy
+        resources:
+          limits:
+            cpu: "3"
+          requests:
+            cpu: 123m
+        securityContext:
+          allowPrivilegeEscalation: true
+          readOnlyRootFilesystem: false
+        terminationMessagePath: /foo/bar
+        tty: true
+        volumeMounts:
+        - mountPath: /etc/certs
+          name: certs
+      initContainers:
+      - args:
+        - my
+        - custom
+        - args
+        image: fake/custom-image
+        name: istio-init
+        resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       - args:
         - proxy
         - sidecar
@@ -96,26 +152,30 @@ spec:
         - name: TRUST_DOMAIN
           value: cluster.local
         image: gcr.io/istio-testing/proxyv2:latest
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - sleep
-              - "10"
-        livenessProbe:
-          failureThreshold: 30
-          httpGet:
-            path: /healthz/ready
-            port: 15021
-          initialDelaySeconds: 10
-          periodSeconds: 2
-          timeoutSeconds: 3
         name: istio-proxy
         ports:
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
-        readinessProbe:
+        resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        restartPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+        startupProbe:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
@@ -123,25 +183,6 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 2
           timeoutSeconds: 3
-        resources:
-          limits:
-            cpu: "3"
-            memory: 1Gi
-          requests:
-            cpu: 123m
-            memory: 128Mi
-        securityContext:
-          allowPrivilegeEscalation: true
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: false
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
-        terminationMessagePath: /foo/bar
-        tty: true
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket
@@ -159,35 +200,6 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
-        - mountPath: /etc/certs
-          name: certs
-      initContainers:
-      - args:
-        - my
-        - custom
-        - args
-        image: fake/custom-image
-        name: istio-init
-        resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
       volumes:
       - name: workload-socket
       - name: credential-socket

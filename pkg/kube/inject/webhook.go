@@ -265,6 +265,15 @@ func modifyContainers(cl []corev1.Container, name string, modifier ContainerReor
 	}
 }
 
+func hasContainer(cl []corev1.Container, name string) bool {
+	for _, c := range cl {
+		if c.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) bool {
 	// If annotation is present, we look there first
 	if val, f := anno[annotation.PrometheusMergeMetrics.Name]; f {
@@ -608,7 +617,7 @@ func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParame
 		pod.Labels = map[string]string{}
 	}
 
-	overwriteClusterInfo(pod.Spec.Containers, req)
+	overwriteClusterInfo(pod, req)
 
 	if err := applyPrometheusMerge(pod, req.meshConfig); err != nil {
 		return err
@@ -665,17 +674,30 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	// Proxy container should be last, unless HoldApplicationUntilProxyStarts is set
 	// This is to ensure `kubectl exec` and similar commands continue to default to the user's container
 	pod.Spec.Containers = modifyContainers(pod.Spec.Containers, ProxyContainerName, proxyLocation)
-	// Validation container must be first to block any user containers
-	pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, ValidationContainerName, MoveFirst)
-	// Init container must be last to allow any traffic to pass before iptables is setup
-	pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, InitContainerName, MoveLast)
-	pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, EnableCoreDumpName, MoveLast)
+
+	if hasContainer(pod.Spec.InitContainers, ProxyContainerName) {
+		// This is using native sidecar support in K8s.
+		// We want istio to be first in this case, so init containers are part of the mesh
+		// This is {istio-init/istio-validation} => proxy => rest.
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, EnableCoreDumpName, MoveFirst)
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, ProxyContainerName, MoveFirst)
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, ValidationContainerName, MoveFirst)
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, InitContainerName, MoveFirst)
+	} else {
+		// Else, we want iptables setup last so we do not blackhole init containers
+		// This is istio-validation => rest => istio-init (note: only one of istio-init or istio-validation should be present)
+		// Validation container must be first to block any user containers
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, ValidationContainerName, MoveFirst)
+		// Init container must be last to allow any traffic to pass before iptables is setup
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, InitContainerName, MoveLast)
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, EnableCoreDumpName, MoveLast)
+	}
 
 	return nil
 }
 
 func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
-	sidecar := FindSidecar(pod.Spec.Containers)
+	sidecar := FindSidecar(pod)
 	if sidecar == nil {
 		return nil
 	}
@@ -747,7 +769,7 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 			}
 		}
 		scrape := getPrometheusScrapeConfiguration(pod)
-		sidecar := FindSidecar(pod.Spec.Containers)
+		sidecar := FindSidecar(pod)
 		if sidecar != nil && scrape != emptyScrape {
 			by, err := json.Marshal(scrape)
 			if err != nil {

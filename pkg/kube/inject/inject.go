@@ -815,15 +815,14 @@ func potentialPodName(metadata metav1.ObjectMeta) string {
 
 // overwriteClusterInfo updates cluster name and network from url path
 // This is needed when webconfig config runs on a different cluster than webhook
-func overwriteClusterInfo(containers []corev1.Container, params InjectionParameters) {
+func overwriteClusterInfo(pod *corev1.Pod, params InjectionParameters) {
+	c := FindSidecar(pod)
+	if c == nil {
+		return
+	}
 	if len(params.proxyEnvs) > 0 {
 		log.Debugf("Updating cluster envs based on inject url: %s\n", params.proxyEnvs)
-		for i, c := range containers {
-			if c.Name == ProxyContainerName {
-				updateClusterEnvs(&containers[i], params.proxyEnvs)
-				break
-			}
-		}
+		updateClusterEnvs(c, params.proxyEnvs)
 	}
 }
 

@@ -2,6 +2,10 @@ module istio.io/istio
 
 go 1.20
 
+replace k8s.io/api => github.com/SergeyKanzhelev/kubernetes/staging/src/k8s.io/api v0.0.0-20230702004215-8de5a854d208
+
+replace k8s.io/apimachinery => github.com/SergeyKanzhelev/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20230702004215-8de5a854d208
+
 // https://github.com/containerd/containerd/issues/5781
 exclude k8s.io/kubernetes v1.13.0
 

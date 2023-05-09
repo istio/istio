@@ -22,7 +22,7 @@ spec:
         readiness.status.sidecar.istio.io/failureThreshold: "300"
         readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
         readiness.status.sidecar.istio.io/periodSeconds: "200"
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
         status.sidecar.istio.io/port: "123"
       creationTimestamp: null
       labels:
@@ -38,6 +38,48 @@ spec:
         - containerPort: 80
           name: http
         resources: {}
+      initContainers:
+      - args:
+        - istio-iptables
+        - -p
+        - "15001"
+        - -z
+        - "15006"
+        - -u
+        - "1337"
+        - -m
+        - REDIRECT
+        - -i
+        - '*'
+        - -x
+        - ""
+        - -b
+        - '*'
+        - -d
+        - 15090,15021,123
+        - --log_output_level=default:info
+        image: gcr.io/istio-testing/proxyv2:latest
+        name: istio-init
+        resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       - args:
         - proxy
         - sidecar
@@ -110,14 +152,6 @@ spec:
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
-        readinessProbe:
-          failureThreshold: 300
-          httpGet:
-            path: /healthz/ready
-            port: 15021
-          initialDelaySeconds: 100
-          periodSeconds: 200
-          timeoutSeconds: 3
         resources:
           limits:
             cpu: "2"
@@ -125,6 +159,7 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        restartPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -135,6 +170,14 @@ spec:
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
+        startupProbe:
+          failureThreshold: 300
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+          initialDelaySeconds: 100
+          periodSeconds: 200
+          timeoutSeconds: 3
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket
@@ -152,48 +195,6 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
-      initContainers:
-      - args:
-        - istio-iptables
-        - -p
-        - "15001"
-        - -z
-        - "15006"
-        - -u
-        - "1337"
-        - -m
-        - REDIRECT
-        - -i
-        - '*'
-        - -x
-        - ""
-        - -b
-        - '*'
-        - -d
-        - 15090,15021,123
-        - --log_output_level=default:info
-        image: gcr.io/istio-testing/proxyv2:latest
-        name: istio-init
-        resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
       volumes:
       - name: workload-socket
       - name: credential-socket

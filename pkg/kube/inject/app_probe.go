@@ -41,8 +41,11 @@ func ShouldRewriteAppHTTPProbers(annotations map[string]string, specSetting bool
 }
 
 // FindSidecar returns the pointer to the first container whose name matches the "istio-proxy".
-func FindSidecar(containers []corev1.Container) *corev1.Container {
-	return FindContainer(ProxyContainerName, containers)
+func FindSidecar(pod *corev1.Pod) *corev1.Container {
+	if c := FindContainer(ProxyContainerName, pod.Spec.Containers); c != nil {
+		return c
+	}
+	return FindContainer(ProxyContainerName, pod.Spec.InitContainers)
 }
 
 // FindContainer returns the pointer to the first container whose name matches.

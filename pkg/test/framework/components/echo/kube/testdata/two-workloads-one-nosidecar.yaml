@@ -39,11 +39,6 @@ spec:
       imagePullSecrets:
       - name: myregistrykey
       containers:
-      - name: istio-proxy
-        image: auto
-        imagePullPolicy: Always
-        securityContext: # to allow core dumps
-          readOnlyRootFilesystem: false
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always

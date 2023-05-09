@@ -195,13 +195,13 @@ templates:
           runAsNonRoot: false
           runAsUser: 0
       {{ end }}
-      containers:
       - name: istio-proxy
       {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
         image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
       {{- else }}
         image: "{{ .ProxyImage }}"
       {{- end }}
+        restartPolicy: Always
         ports:
         - containerPort: 15090
           protocol: TCP
@@ -335,7 +335,7 @@ templates:
         {{- end }}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
-        readinessProbe:
+        startupProbe:
           httpGet:
             path: /healthz/ready
             port: 15021
