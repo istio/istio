@@ -41,7 +41,16 @@ func (s *Server) setupHandlers() {
 
 	// Namespaces could be anything though, so we watch all of those
 	s.namespaces = kclient.New[*corev1.Namespace](s.kubeClient)
-	s.namespaces.AddEventHandler(controllers.ObjectHandler(s.EnqueueNamespace))
+	s.namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
+		AddFunc: func(ns *corev1.Namespace) {
+			s.EnqueueNamespace(ns)
+		},
+		UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
+			if oldNs.Labels[constants.DataplaneMode] != newNs.Labels[constants.DataplaneMode] {
+				s.EnqueueNamespace(newNs)
+			}
+		},
+	})
 }
 
 func (s *Server) Run(stop <-chan struct{}) {
