@@ -113,7 +113,6 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 		log.Errorf("collection %s could not be found", col.String())
 		return
 	}
-	// TODO: this needs to include file source as well
 	cfgs := i.store.List(colschema.GroupVersionKind(), "")
 	broken := false
 	cache := map[resource.FullName]*resource.Instance{}
