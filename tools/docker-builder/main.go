@@ -169,6 +169,8 @@ func ReadPlan(a Args) (Args, error) {
 			data["SIDECAR"] = "envoy"
 			if _, f := os.LookupEnv("DEBUG_IMAGE"); f {
 				data["RELEASE_MODE"] = "debug"
+			} else if _, f := os.LookupEnv("ASAN_IMAGE"); f {
+				data["RELEASE_MODE"] = "asan"
 			} else {
 				data["RELEASE_MODE"] = "release"
 			}

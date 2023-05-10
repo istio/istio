@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -43,6 +44,9 @@ func createArgs(args Args, target string, variant string, architecture string) m
 	baseDist := variant
 	if baseDist == DefaultVariant {
 		baseDist = PrimaryVariant
+	}
+	if _, f := os.LookupEnv("ASAN_IMAGE"); f {
+		baseDist = DebugVariant
 	}
 	m := map[string]string{
 		// Base version defines the tag of the base image to use. Typically, set in the Makefile and not overridden.
