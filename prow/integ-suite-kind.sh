@@ -40,7 +40,7 @@ TOPOLOGY=SINGLE_CLUSTER
 NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.27.0"
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
-ASAN_IMAGE="true"
+export ASAN_IMAGE="true"
 
 export FAST_VM_BUILDS=true
 if [[ -z "${ASAN_IMAGE:-}" ]]; then
