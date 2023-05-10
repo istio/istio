@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/netip"
 	"reflect"
 	"strconv"
@@ -56,7 +55,8 @@ type AmbientIndex struct {
 	byService map[string][]*model.WorkloadInfo
 	// byPod indexes by Pod IP address.
 	byPod map[string]*model.WorkloadInfo
-
+	// services are indexed by the network/clusterIP
+	// TODO: GregHanson index by service hostname+port?
 	services map[string]*workloadapi.Service
 
 	// Map of ServiceAccount -> IP
@@ -72,43 +72,37 @@ type AmbientIndex struct {
 }
 
 // Lookup finds a given IP address.
-func (a *AmbientIndex) Lookup(ip string) []*model.AddressInfo {
+func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	// First look at pod...
-	// log.Warnf("gihanson ambient Lookup for %s", ip)
-	if p, f := a.byPod[ip]; f {
+	if p, f := a.byPod[key]; f {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
 				Workload: p.Workload,
 			},
 		}
-		// log.Warnf("gihanson ambient Lookup found byPod")
 		return []*model.AddressInfo{{Address: addr}}
 	}
 	// Fallback to service. Note: these IP ranges should be non-overlapping
 	res := []*model.AddressInfo{}
-	for _, wl := range a.byService[ip] {
+	for _, wl := range a.byService[key] {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
 				Workload: wl.Workload,
 			},
 		}
-		// log.Warnf("gihanson ambient Lookup found byService")
 		res = append(res, &model.AddressInfo{Address: addr})
 	}
-	if s, exists := a.services[ip]; exists {
+	if s, exists := a.services[key]; exists {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Service{
 				Service: s,
 			},
 		}
-		// log.Warnf("gihanson ambient Lookup found services")
 		res = append(res, &model.AddressInfo{Address: addr})
 	}
-	if len(res) == 0 {
-		// log.Warnf("gihanson ambient Lookup found no hits")
-	}
+
 	return res
 }
 
@@ -159,7 +153,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 				continue
 			}
 
-			if wl.Waypoint == nil || (wl.Waypoint != nil && !reflect.DeepEqual(wl.Waypoint, addr)) {
+			if wl.Waypoint == nil || !reflect.DeepEqual(wl.Waypoint, addr) {
 				wl.Waypoint = addr
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -903,21 +897,6 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		}
 	}
 	return updates
-}
-
-func convertGatewayAddress(gtw *workloadapi.GatewayAddress) string {
-	if gtw == nil {
-		return ""
-	}
-	addrValue := ""
-	switch addr := gtw.Destination.(type) {
-	case *workloadapi.GatewayAddress_Address:
-		addrValue = addr.Address.Network + "/" + string(addr.Address.Address)
-	case *workloadapi.GatewayAddress_Hostname:
-		addrValue = addr.Hostname.Hostname + "." + addr.Hostname.Namespace
-	}
-
-	return fmt.Sprintf("%s:%v", addrValue, gtw.Port)
 }
 
 func (c *Controller) getPodsInService(svc *v1.Service) []*v1.Pod {
