@@ -357,6 +357,12 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		})
 	}
 
+	extraVMCommand := ""
+	// Asan Envoy image requires dynamically linked libc++ in the VM
+	if _, f := os.LookupEnv("ASAN_IMAGE"); f {
+		extraVMCommand = "sudo apt-get update && sudo apt-get install -qqy --no-install-recommends libc++-dev"
+	}
+
 	params := map[string]any{
 		"ImageHub":                settings.Image.Hub,
 		"ImageTag":                strings.TrimSuffix(settings.Image.Tag, "-distroless"),
@@ -383,6 +389,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"WorkloadClass":           cfg.WorkloadClass(),
 		"OverlayIstioProxy":       canCreateIstioProxy(settings.Revisions.Minimum()) && !settings.Ambient,
 		"Ambient":                 settings.Ambient,
+		"ExtraVMCommand":          extraVMCommand,
 	}
 
 	vmIstioHost, vmIstioIP := "", ""
