@@ -486,4 +486,7 @@ export BOOKINFO_VERSION ?= 1.19.0
 bookinfo.build:
 	@samples/bookinfo/src/build-services.sh ${BOOKINFO_VERSION} ${HUB}
 
+bookinfo.push:
+	@samples/bookinfo/build_push_update_images.sh ${BOOKINFO_VERSION} --prefix=${HUB}
+
 include common/Makefile.common.mk
