@@ -424,6 +424,7 @@ func TestXdsProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
+			const timeoutFlag = "--timeout=10s"
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
 			podID, err := getPodID(apps.A[0])
@@ -443,7 +444,7 @@ func TestXdsProxyStatus(t *testing.T) {
 			}
 
 			retry.UntilSuccessOrFail(t, func() error {
-				args := []string{"x", "proxy-status"}
+				args := []string{"x", "proxy-status", timeoutFlag}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
 					return err
@@ -455,7 +456,7 @@ func TestXdsProxyStatus(t *testing.T) {
 
 			retry.UntilSuccessOrFail(t, func() error {
 				args := []string{
-					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
+					"x", "proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), timeoutFlag,
 				}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
@@ -474,7 +475,7 @@ func TestXdsProxyStatus(t *testing.T) {
 				err = os.WriteFile(filename, dump, os.ModePerm)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				args := []string{
-					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename,
+					"x", "proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename, timeoutFlag,
 				}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
