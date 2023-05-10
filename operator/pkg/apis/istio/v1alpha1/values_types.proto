@@ -87,6 +87,14 @@ message CNIConfig {
   // See: https://kubernetes.io/docs/tutorials/security/seccomp/
   google.protobuf.Struct seccompProfile = 19;
 
+  reserved "ambient";
+  reserved 21;
+
+  reserved "provider";
+  reserved 22;
+
+  // K8s rolling update strategy
+  IntOrString rollingMaxUnavailable = 23;
 }
 
 
