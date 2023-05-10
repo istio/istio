@@ -60,8 +60,7 @@ func NewController(stateStore *state.Store, maxRetries int) *Controller {
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	go c.healthCondition.Run(stop)
-	<-stop
+	c.healthCondition.Run(stop)
 }
 
 // QueueWorkloadEntryHealth enqueues the associated WorkloadEntries health status.
