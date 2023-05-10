@@ -3,7 +3,7 @@ chardet==3.0.4
 Click==7.0
 contextlib2==0.5.5
 dominate==2.3.5
-Flask==2.1.1
+Flask==2.2.5
 Flask-Bootstrap==3.3.7.1
 Flask-JSON==0.3.3
 future==0.18.3
