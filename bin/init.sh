@@ -145,6 +145,9 @@ fi
 if [[ -n "${ASAN_IMAGE:-}" ]]; then
   # Download and extract the Envoy linux sanitized binary.
   download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_ASAN_URL}" "$ISTIO_ENVOY_LINUX_ASAN_PATH" "${SIDECAR}"
+
+  echo "Copying ${ISTIO_ENVOY_LINUX_ASAN_PATH} to ${TARGET_OUT}/${SIDECAR}"
+  cp -f "${ISTIO_ENVOY_LINUX_ASAN_PATH}" "${TARGET_OUT}/${SIDECAR}"
 else
   echo "Skipping envoy Asan build. Set ASAN_IMAGE to download."
   # Download and extract the Envoy linux release binary.
