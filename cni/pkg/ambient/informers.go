@@ -41,7 +41,16 @@ func (s *Server) setupHandlers() {
 
 	// Namespaces could be anything though, so we watch all of those
 	s.namespaces = kclient.New[*corev1.Namespace](s.kubeClient)
-	s.namespaces.AddEventHandler(controllers.ObjectHandler(s.EnqueueNamespace))
+	s.namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
+		AddFunc: func(ns *corev1.Namespace) {
+			s.EnqueueNamespace(ns)
+		},
+		UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
+			if oldNs.Labels[constants.DataplaneMode] != newNs.Labels[constants.DataplaneMode] {
+				s.EnqueueNamespace(newNs)
+			}
+		},
+	})
 }
 
 func (s *Server) Run(stop <-chan struct{}) {
@@ -56,24 +65,24 @@ func (s *Server) ReconcileNamespaces() {
 }
 
 // EnqueueNamespace takes a Namespace and enqueues all Pod objects that make need an update
+// TODO it is sort of pointless/confusing/implicit to populate Old and New with the same reference here
 func (s *Server) EnqueueNamespace(o controllers.Object) {
 	namespace := o.GetName()
 	matchAmbient := o.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient
 	if matchAmbient {
 		log.Infof("Namespace %s is enabled in ambient mesh", namespace)
-		for _, pod := range s.pods.List(namespace, klabels.Everything()) {
+	} else {
+		log.Infof("Namespace %s is disabled from ambient mesh", namespace)
+	}
+	for _, pod := range s.pods.List(namespace, klabels.Everything()) {
+		// ztunnel pods are never "added to/removed from the mesh", so do not fire
+		// spurious events for them to avoid triggering extra
+		// ztunnel node reconciliation checks.
+		if !ztunnelPod(pod) {
 			s.queue.Add(controllers.Event{
 				New:   pod,
 				Old:   pod,
 				Event: controllers.EventUpdate,
-			})
-		}
-	} else {
-		log.Infof("Namespace %s is disabled from ambient mesh", namespace)
-		for _, pod := range s.pods.List(namespace, klabels.Everything()) {
-			s.queue.Add(controllers.Event{
-				New:   pod,
-				Event: controllers.EventDelete,
 			})
 		}
 	}
@@ -100,7 +109,7 @@ func (s *Server) Reconcile(input any) error {
 		nowEnabled := ambientpod.PodZtunnelEnabled(ns, newPod)
 		if wasEnabled && !nowEnabled {
 			log.Debugf("Pod %s no longer matches, removing from mesh", newPod.Name)
-			s.DelPodFromMesh(newPod)
+			s.DelPodFromMesh(newPod, event)
 		}
 
 		if !wasEnabled && nowEnabled {
@@ -108,14 +117,7 @@ func (s *Server) Reconcile(input any) error {
 			s.AddPodToMesh(pod)
 		}
 	case controllers.EventDelete:
-		if s.redirectMode == IptablesMode && IsPodInIpset(pod) {
-			log.Infof("Pod %s/%s is now stopped... cleaning up.", pod.Namespace, pod.Name)
-			s.DelPodFromMesh(pod)
-		} else if s.redirectMode == EbpfMode {
-			log.Debugf("Pod %s/%s is now stopped or opt out... cleaning up.", pod.Namespace, pod.Name)
-			s.DelPodFromMesh(pod)
-		}
-		return nil
+		s.DelPodFromMesh(pod, event)
 	}
 	return nil
 }

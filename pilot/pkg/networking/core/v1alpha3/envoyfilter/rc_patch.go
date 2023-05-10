@@ -150,10 +150,11 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap,
 ) {
+	clonedVhostRoutes := false
 	routesRemoved := false
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
-		patchHTTPRoute(patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved, portMap)
+		patchHTTPRoute(patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved, portMap, &clonedVhostRoutes)
 	}
 
 	// now for the adds
@@ -242,6 +243,7 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool, portMap model.GatewayPortMap,
+	clonedVhostRoutes *bool,
 ) {
 	for _, rp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
 		applied := false
@@ -249,12 +251,16 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) &&
 			virtualHostMatch(virtualHost, rp) &&
 			routeMatch(virtualHost.Routes[routeIndex], rp) {
+			if !*clonedVhostRoutes {
+				// different virtualHosts may share same routes pointer
+				virtualHost.Routes = cloneVhostRoutes(virtualHost.Routes)
+				*clonedVhostRoutes = true
+			}
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				virtualHost.Routes[routeIndex] = nil
 				*routesRemoved = true
 				return
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				cloneVhostRouteByRouteIndex(virtualHost, routeIndex)
 				merge.Merge(virtualHost.Routes[routeIndex], rp.Value)
 			}
 			applied = true
@@ -389,6 +395,11 @@ func routeMatch(httpRoute *route.Route, rp *model.EnvoyFilterConfigPatchWrapper)
 	return true
 }
 
-func cloneVhostRouteByRouteIndex(virtualHost *route.VirtualHost, routeIndex int) {
-	virtualHost.Routes[routeIndex] = proto.Clone(virtualHost.Routes[routeIndex]).(*route.Route)
+func cloneVhostRoutes(routes []*route.Route) []*route.Route {
+	out := make([]*route.Route, len(routes))
+	for i := 0; i < len(routes); i++ {
+		clone := proto.Clone(routes[i]).(*route.Route)
+		out[i] = clone
+	}
+	return out
 }

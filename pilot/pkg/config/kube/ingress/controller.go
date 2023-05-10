@@ -116,7 +116,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
-	kube.WaitForCacheSync(stop, c.ingress.HasSynced, c.services.HasSynced, c.classes.HasSynced)
+	kube.WaitForCacheSync("ingress", stop, c.ingress.HasSynced, c.services.HasSynced, c.classes.HasSynced)
 	c.queue.Run(stop)
 	controllers.ShutdownAll(c.ingress, c.services, c.classes)
 }

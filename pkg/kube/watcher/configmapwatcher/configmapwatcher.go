@@ -29,7 +29,6 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/pkg/log"
 )
 
 // Controller watches a ConfigMap and calls the given callback when the ConfigMap changes.
@@ -73,8 +72,7 @@ func NewController(client kube.Client, namespace, name string, callback func(*v1
 
 func (c *Controller) Run(stop <-chan struct{}) {
 	go c.informer.Informer().Run(stop)
-	if !kube.WaitForCacheSync(stop, c.informer.Informer().HasSynced) {
-		log.Error("failed to wait for cache sync")
+	if !kube.WaitForCacheSync("configmap "+c.configMapName, stop, c.informer.Informer().HasSynced) {
 		return
 	}
 	c.queue.Run(stop)

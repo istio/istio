@@ -464,8 +464,8 @@ func handleRule(action security.Action, rule *v1beta1.Rule) []*security.Rules {
 		rules = append(rules, &security.Rules{Matches: fromMatches})
 	}
 	for _, when := range rule.When {
-		l7 := l4WhenAttributes.Contains(when.Key)
-		if action == security.Action_ALLOW && !l7 {
+		l4 := l4WhenAttributes.Contains(when.Key)
+		if action == security.Action_ALLOW && !l4 {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
 			return nil
