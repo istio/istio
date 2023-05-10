@@ -104,11 +104,6 @@ values:
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
-	controlPlaneValues := ControlPlaneValues
-	if os.Getenv("AMBIENT_REDIRECT_MODE") == "ebpf" {
-		controlPlaneValues = ControlPlaneValuesForEbpf
-	}
-	controlPlaneValues = ControlPlaneValuesForEbpf
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
@@ -121,7 +116,12 @@ func TestMain(m *testing.M) {
 		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployEastWestGW = false
-			cfg.ControlPlaneValues = controlPlaneValues
+			if ctx.Settings().AmbientEbpf {
+				cfg.ControlPlaneValues = ControlPlaneValuesForEbpf
+			} else {
+				cfg.ControlPlaneValues = ControlPlaneValues
+			}
+
 		})).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)

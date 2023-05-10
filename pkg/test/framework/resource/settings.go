@@ -141,6 +141,9 @@ type Settings struct {
 	// Ambient mesh is being used
 	Ambient bool
 
+	// Ambient mesh eBPF redirection is being used
+	AmbientEbpf bool
+
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
 	// on different control plane versions.

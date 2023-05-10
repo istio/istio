@@ -181,6 +181,9 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.Ambient, "istio.test.ambient", settingsFromCommandLine.Ambient,
 		"Indicate the use of ambient mesh.")
 
+	flag.BoolVar(&settingsFromCommandLine.AmbientEbpf, "istio.test.ambientEbpf", settingsFromCommandLine.AmbientEbpf,
+		"Indicate the use of ambient mesh ebpf redirection mode.")
+
 	flag.BoolVar(&settingsFromCommandLine.Compatibility, "istio.test.compatibility", settingsFromCommandLine.Compatibility,
 		"Transparently deploy echo instances pointing to each revision set in `Revisions`")
 
