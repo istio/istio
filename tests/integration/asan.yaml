@@ -1,0 +1,24 @@
+# This file provides some defaults for integration testing with Asan builds.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: asan
+spec:
+  values:
+    global:
+      proxy:
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 2048Mi
+    gateways:
+      istio-ingressgateway:
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 2048Mi
+      istio-egressgateway:
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 2048Mi

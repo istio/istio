@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -100,6 +101,11 @@ func (c *Caller) Close() error {
 func (c *Caller) CallEcho(from echo.Caller, opts echo.CallOptions) (echo.CallResult, error) {
 	if err := opts.FillDefaults(); err != nil {
 		return echo.CallResult{}, err
+	}
+
+	// Override timeout for slower Asan builds
+	if _, f := os.LookupEnv("ASAN_IMAGE"); f {
+		opts.Timeout = time.Minute
 	}
 
 	send := func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {

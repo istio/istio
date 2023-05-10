@@ -20,13 +20,22 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"time"
 )
 
-const (
-	// HTTP client time out.
-	httpTimeOut = 5 * time.Second
+// GetDefaultRequestTimeOut provides request timeout for the test Envoy build.
+func GetDefaultRequestTimeOut() time.Duration {
+	if _, f := os.LookupEnv("ASAN_IMAGE"); f {
+		return 1 * time.Minute
+	}
+	return 5 * time.Second
+}
 
+// RequestTimeOut is the HTTP client request time out.
+var RequestTimeOut = GetDefaultRequestTimeOut()
+
+const (
 	// Maximum number of ping the server to wait.
 	maxAttempts = 30
 )
@@ -34,7 +43,7 @@ const (
 // HTTPGet send GET
 func HTTPGet(url string) (code int, respBody string, err error) {
 	log.Println("HTTP GET", url)
-	client := &http.Client{Timeout: httpTimeOut}
+	client := &http.Client{Timeout: RequestTimeOut}
 	resp, err := client.Get(url)
 	if err != nil {
 		log.Println(err)

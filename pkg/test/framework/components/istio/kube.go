@@ -584,12 +584,18 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 		baseIOP = filepath.Join(testenv.IstioSrc, baseIOP)
 	}
 
+	files := []string{
+		baseIOP,
+		defaultsIOPFile,
+		iopFile,
+	}
+
+	if _, f := os.LookupEnv("ASAN_IMAGE"); f {
+		files = append(files, filepath.Join(testenv.IstioSrc, "tests/integration/asan.yaml"))
+	}
+
 	args := installArgs{
-		Files: []string{
-			baseIOP,
-			defaultsIOPFile,
-			iopFile,
-		},
+		Files: files,
 		Set: []string{
 			"values.global.imagePullPolicy=" + ctx.Settings().Image.PullPolicy,
 		},
