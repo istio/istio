@@ -18,7 +18,9 @@
 package security
 
 import (
+	"os"
 	"testing"
+	"time"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/echo/common/scheme"
