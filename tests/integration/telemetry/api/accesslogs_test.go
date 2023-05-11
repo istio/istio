@@ -79,6 +79,10 @@ func TestAccessLogsMode(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("client").Run(func(t framework.TestContext) {
 				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-client.yaml").ApplyOrFail(t)
+				// Add extra timeout to prevent old log flush.
+				if _, f := os.LookupEnv("ASAN_IMAGE"); f {
+					time.Sleep(15 * time.Second)
+				}
 				runAccessLogModeTests(t, true, false)
 			})
 			t.NewSubTest("server").Run(func(t framework.TestContext) {
