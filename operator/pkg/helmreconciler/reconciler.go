@@ -527,10 +527,9 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		yml, err := GenerateTagWebhookYAML(h.kubeClient, h.iop)
 		if err == nil {
 			tagWebhookK8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(yml)
-			if err != nil {
-				return err
+			if err == nil {
+				webhookObjects = append(webhookObjects, tagWebhookK8sObjects...)
 			}
-			webhookObjects = append(webhookObjects, tagWebhookK8sObjects...)
 		}
 	}
 
