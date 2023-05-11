@@ -84,7 +84,13 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 		}
 		return []*model.AddressInfo{{Address: addr}}
 	}
+	
 	// Fallback to service. Note: these IP ranges should be non-overlapping
+	// cannot distunagish between Service lookup and Workloads for a Service lookup
+	// since the same newtork/vip key is used.  Both Service and Workloads are
+	// returned in this case
+	// TODO any service to exclude in the future? for example with affinity, 
+	// per-node, etc - where simply load balancing will break?
 	res := []*model.AddressInfo{}
 	for _, wl := range a.byService[key] {
 		addr := &workloadapi.Address{
@@ -203,11 +209,13 @@ func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.Wo
 	return res
 }
 
-// Waypoint finds all waypoint IP addresses for a given scope
+// Waypoint finds all waypoint IP addresses for a given scope.  Performs first a Namespace+ServiceAccount
+// then falls back to any Namespace wide waypoints 
 func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 	a := c.ambientIndex
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+	// TODO need to handle case where waypoints are dualstack/have multiple addresses
 	if addr, f := a.waypoints[scope]; f {
 		switch address := addr.Destination.(type) {
 		case *workloadapi.GatewayAddress_Address:
@@ -792,6 +800,9 @@ func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
 func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
 	svc := controllers.Extract[*v1.Service](obj)
 	updates := sets.New[model.ConfigKey]()
+	
+	// TODO get IP+Port from the Gateway CRD
+	// https://github.com/istio/istio/issues/44230
 	if svc.Spec.ClusterIP == "None" {
 		// TODO handle headless Service
 		return updates
@@ -800,9 +811,6 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 
 	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		scope := model.WaypointScope{Namespace: svc.Namespace, ServiceAccount: svc.Annotations[constants.WaypointServiceAccount]}
-
-		// TODO get IP+Port from the Gateway CRD
-		// https://github.com/istio/istio/issues/44230
 
 		addr := &workloadapi.GatewayAddress{
 			Destination: &workloadapi.GatewayAddress_Address{
@@ -828,6 +836,8 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 	}
 
 	vips := getVIPs(svc)
+	// vips are iterated over multiple times, perform their network lookup only once
+	// TODO does this need to be performed for each vip?  or should every vip for a service be on the same network?
 	networkVips := make([]networkVip, len(vips))
 	for _, vip := range vips {
 		networkVips = append(networkVips, networkVip{

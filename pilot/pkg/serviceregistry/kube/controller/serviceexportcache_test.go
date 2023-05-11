@@ -127,7 +127,7 @@ func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode) 
 
 	// Create the test service and endpoints.
 	createService(c, serviceExportName, serviceExportNamespace, map[string]string{}, map[string]string{},
-		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+		[]int32{8080}, map[string]string{"app": "prod-app"}, "10.0.0.1", t)
 	createEndpoints(t, c, serviceExportName, serviceExportNamespace, []string{"tcp-port"}, []string{serviceExportPodIP}, nil, nil)
 
 	ec = c.exports.(*serviceExportCacheImpl)

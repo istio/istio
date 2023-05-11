@@ -858,7 +858,7 @@ func (i AddressInfo) ResourceName() string {
 		ii, _ := netip.AddrFromSlice(addr.Workload.Address)
 		name = addr.Workload.Network + "/" + ii.String()
 	case *workloadapi.Address_Service:
-		// TODO GregHanson
+		// TODO GregHanson currently not supported in ztunnel
 		name = addr.Service.Namespace + "/" + addr.Service.Hostname
 	}
 	return name

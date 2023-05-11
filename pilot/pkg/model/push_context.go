@@ -2170,6 +2170,8 @@ func (ps *PushContext) SupportsTunnel(ip string) bool {
 			if addr.Workload.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
 				return true
 			}
+		case *workloadapi.Address_Service:
+			// TODO GregHanson
 		}
 	}
 	return false

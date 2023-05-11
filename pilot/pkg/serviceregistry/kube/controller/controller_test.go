@@ -1242,10 +1242,10 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 	// service event handlers should not trigger for svc3 and svc4
 	createService(controller, "svc3", nsB,
 		map[string]string{}, map[string]string{},
-		[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
+		[]int32{8082}, map[string]string{"test-app": "test-app-3"}, "10.0.0.1", t)
 	createService(controller, "svc4", nsB,
 		map[string]string{}, map[string]string{},
-		[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
+		[]int32{8083}, map[string]string{"test-app": "test-app-4"}, "10.0.0.1", t)
 
 	expectedSvcList := []*model.Service{svc1, svc2}
 	eventually(t, func() bool {
@@ -2012,13 +2012,20 @@ func createServiceWithTargetPorts(controller *FakeController, name, namespace st
 func createServiceWait(controller *FakeController, name, namespace string, labels, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T,
 ) {
-	createService(controller, name, namespace, labels, annotations, ports, selector, t)
+	createService(controller, name, namespace, labels, annotations, ports, selector, "10.0.0.1", t)
 	controller.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "service")
 }
 
 func createService(controller *FakeController, name, namespace string, labels, annotations map[string]string,
-	ports []int32, selector map[string]string, t *testing.T,
+	ports []int32, selector map[string]string, ip string, t *testing.T,
 ) {
+	service := generateService(name, namespace, labels, annotations, ports, selector, ip)
+	clienttest.Wrap(t, controller.services).CreateOrUpdate(service)
+}
+
+func generateService(name, namespace string, labels, annotations map[string]string,
+	ports []int32, selector map[string]string, ip string,
+) *corev1.Service {
 	svcPorts := make([]corev1.ServicePort, 0)
 	for _, p := range ports {
 		svcPorts = append(svcPorts, corev1.ServicePort{
@@ -2027,7 +2034,8 @@ func createService(controller *FakeController, name, namespace string, labels, a
 			Protocol: "http",
 		})
 	}
-	service := &corev1.Service{
+
+	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   namespace,
@@ -2035,15 +2043,20 @@ func createService(controller *FakeController, name, namespace string, labels, a
 			Labels:      labels,
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "10.0.0.1", // FIXME: generate?
+			ClusterIP: ip,
 			Ports:     svcPorts,
 			Selector:  selector,
 			Type:      corev1.ServiceTypeClusterIP,
 		},
 	}
-
-	clienttest.Wrap(t, controller.services).CreateOrUpdate(service)
 }
+
+// func deleteServiceWait(controller *FakeController, name, namespace string, labels, annotations map[string]string,
+// 	ports []int32, selector map[string]string, ip string, t *testing.T,
+// ) {
+// 	deleteService(controller, name, namespace, labels, annotations, ports, selector, ip, t)
+// 	controller.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "service")
+// }
 
 func createVirtualService(controller *FakeController, name, namespace string,
 	annotations map[string]string,
