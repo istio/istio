@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	revtag "istio.io/istio/istioctl/pkg/tag"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -520,6 +522,18 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return nil
 	}
 
+	var webhookObjects []*object.K8sObject
+	if DetectIfTagWebhookIsNeeded(h.kubeClient, h.iop) {
+		yml, err := GenerateTagWebhookYAML(h.kubeClient, h.iop)
+		if err == nil {
+			tagWebhookK8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(yml)
+			if err != nil {
+				return err
+			}
+			webhookObjects = append(webhookObjects, tagWebhookK8sObjects...)
+		}
+	}
+
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
 		SkipServiceCheck: true,
 	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil)
@@ -530,17 +544,40 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		if err != nil {
 			return err
 		}
-		objYaml, err := k8sObjects.YAMLManifest()
+		addedObjects := make([]*object.K8sObject, 0)
+		for _, obj := range k8sObjects {
+			// skip resources which are not webhooks
+			if obj.GroupVersionKind() != gvk.ValidatingWebhookConfiguration.Kubernetes() &&
+				obj.GroupVersionKind() != gvk.MutatingWebhookConfiguration.Kubernetes() {
+				continue
+			}
+			var find bool
+			for _, whObject := range webhookObjects {
+				if obj.GroupVersionKind() != whObject.GroupVersionKind() {
+					continue
+				}
+				if obj.Name != whObject.Name && obj.Namespace != whObject.Namespace {
+					continue
+				}
+				addedObjects = append(addedObjects, whObject)
+				find = true
+			}
+			if !find {
+				addedObjects = append(addedObjects, obj)
+			}
+		}
+		objYAML, err := object.K8sObjects(addedObjects).YAMLManifest()
 		if err != nil {
 			return err
 		}
 		whReaderSource := local.ReaderSource{
 			Name:   "",
-			Reader: strings.NewReader(objYaml),
+			Reader: strings.NewReader(objYAML),
 		}
 		localWebhookYAMLReaders = append(localWebhookYAMLReaders, whReaderSource)
-		parsedK8sObjects = append(parsedK8sObjects, k8sObjects...)
+		parsedK8sObjects = append(parsedK8sObjects, addedObjects...)
 	}
+
 	err := sa.AddReaderKubeSource(localWebhookYAMLReaders)
 	if err != nil {
 		return err
@@ -580,4 +617,73 @@ func (h *HelmReconciler) networkName() string {
 		return ""
 	}
 	return nw
+}
+
+func DetectIfTagWebhookIsNeeded(kc kube.Client, iop *istioV1Alpha1.IstioOperator) bool {
+	exists := revtag.PreviousInstallExists(context.Background(), kc.Kube())
+	rev := iop.Spec.Revision
+	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
+	operatorManageWebhooks := operatorManageWebhooks(iop)
+	return !operatorManageWebhooks && (!exists || isDefaultInstallation)
+}
+
+func GenerateTagWebhookYAML(kc kube.Client, iop *istioV1Alpha1.IstioOperator) (string, error) {
+	rev := iop.Spec.Revision
+	if rev == "" {
+		rev = revtag.DefaultRevisionName
+	}
+	autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
+
+	o := &revtag.GenerateOptions{
+		Tag:                  revtag.DefaultRevisionName,
+		Revision:             rev,
+		Overwrite:            true,
+		AutoInjectNamespaces: autoInjectNamespaces,
+	}
+	// If tag cannot be created could be remote cluster install, don't fail out.
+	ns := iop.Spec.GetNamespace()
+	if ns == "" {
+		ns = constants.IstioSystemNamespace
+	}
+	tagManifests, err := revtag.Generate(context.Background(), kc, o, ns)
+	if err != nil {
+		return "", err
+	}
+	return tagManifests, nil
+}
+
+// operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
+func operatorManageWebhooks(iop *istioV1Alpha1.IstioOperator) bool {
+	if iop.Spec.GetValues() == nil {
+		return false
+	}
+	globalValues := iop.Spec.Values.AsMap()["global"]
+	global, ok := globalValues.(map[string]any)
+	if !ok {
+		return false
+	}
+	omw, ok := global["operatorManageWebhooks"].(bool)
+	if !ok {
+		return false
+	}
+	return omw
+}
+
+// validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
+// Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
+func validateEnableNamespacesByDefault(iop *istioV1Alpha1.IstioOperator) bool {
+	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
+		return false
+	}
+	sidecarValues := iop.Spec.Values.AsMap()["sidecarInjectorWebhook"]
+	sidecarMap, ok := sidecarValues.(map[string]any)
+	if !ok {
+		return false
+	}
+	autoInjectNamespaces, ok := sidecarMap["enableNamespacesByDefault"].(bool)
+	if !ok {
+		return false
+	}
+
+	return autoInjectNamespaces
 }
