@@ -22,8 +22,6 @@ import (
 	"sync"
 	"time"
 
-	revtag "istio.io/istio/istioctl/pkg/tag"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +31,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
+	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/metrics"
@@ -47,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/version"
 )
