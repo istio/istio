@@ -219,7 +219,7 @@ LINUX_AGENT_BINARIES:=./cni/cmd/istio-cni \
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES) $(LINUX_AGENT_BINARIES)
 
 # List of binaries that have their size tested
-RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl bug-report envoy ztunnel
+RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl bug-report envoy ztunnel client server
 
 .PHONY: build
 build: depend ## Builds all go binaries.
