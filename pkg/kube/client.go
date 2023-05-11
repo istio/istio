@@ -225,12 +225,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	s := FakeIstioScheme
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
-	// Support some galley tests using basicmetadata
-	// If you are adding something to this list, consider other options like adding to the scheme.
-	gvrToListKind := map[schema.GroupVersionResource]string{
-		{Group: "testdata.istio.io", Version: "v1alpha1", Resource: "Kind1s"}: "Kind1List",
-	}
-	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(s, gvrToListKind)
+	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = istiofake.NewSimpleClientset()
 	c.gatewayapi = gatewayapifake.NewSimpleClientset()
 	c.extSet = extfake.NewSimpleClientset()
