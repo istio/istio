@@ -206,7 +206,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 
 	if helmreconciler.DetectIfTagWebhookIsNeeded(kubeClient, iop) {
 		p.Println("Making this installation the default for injection and validation.")
-		tagManifests, err := helmreconciler.GenerateTagWebhookYAML(kubeClient, iop)
+		tagManifests, err := helmreconciler.GenerateTagWebhookYAML(kubeClient, iop, false)
 		if err == nil && !rootArgs.DryRun {
 			if err = revtag.Create(kubeClient, tagManifests, ns); err != nil {
 				return fmt.Errorf("failed to create revision tag: %v", err)

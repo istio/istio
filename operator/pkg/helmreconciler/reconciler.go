@@ -524,7 +524,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 
 	var webhookObjects []*object.K8sObject
 	if DetectIfTagWebhookIsNeeded(h.kubeClient, h.iop) {
-		yml, err := GenerateTagWebhookYAML(h.kubeClient, h.iop)
+		yml, err := GenerateTagWebhookYAML(h.kubeClient, h.iop, true)
 		if err == nil {
 			tagWebhookK8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(yml)
 			if err == nil {
@@ -626,7 +626,7 @@ func DetectIfTagWebhookIsNeeded(kc kube.Client, iop *istioV1Alpha1.IstioOperator
 	return !operatorManageWebhooks && (!exists || isDefaultInstallation)
 }
 
-func GenerateTagWebhookYAML(kc kube.Client, iop *istioV1Alpha1.IstioOperator) (string, error) {
+func GenerateTagWebhookYAML(kc kube.Client, iop *istioV1Alpha1.IstioOperator, generate bool) (string, error) {
 	rev := iop.Spec.Revision
 	if rev == "" {
 		rev = revtag.DefaultRevisionName
@@ -638,6 +638,7 @@ func GenerateTagWebhookYAML(kc kube.Client, iop *istioV1Alpha1.IstioOperator) (s
 		Revision:             rev,
 		Overwrite:            true,
 		AutoInjectNamespaces: autoInjectNamespaces,
+		Generate:             generate,
 	}
 	// If tag cannot be created could be remote cluster install, don't fail out.
 	ns := iop.Spec.GetNamespace()
