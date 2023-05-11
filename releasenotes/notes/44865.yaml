@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Fixed** an issue where the analysis webhook process before installation threw unexpected overlapping webhook messages when the webhook was not actually overlapping.
