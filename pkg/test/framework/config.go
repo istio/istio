@@ -17,7 +17,9 @@ package framework
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
@@ -262,6 +264,12 @@ func (c *configPlan) Apply(opts ...apply.Option) error {
 					"failed waiting for YAML %v: %v", y, err)
 			}
 		}
+	}
+
+	// Asan Envoy takes longer to process xDS, so add a buffer after every config application.
+	if _, f := os.LookupEnv("ASAN_IMAGE"); f {
+		scopes.Framework.Debug("Waiting for xDS to be applied on Envoy workers")
+		time.Sleep(5 * time.Second)
 	}
 	return nil
 }
