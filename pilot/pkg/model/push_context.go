@@ -904,6 +904,24 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 	return nil
 }
 
+// ServicesForHostname returns a list of services that fall under the hostname provided. This hostname
+// can be a wildcard.
+func (ps *PushContext) ServicesForHostname(proxy *Proxy, hostname host.Name, namespace string) []*Service {
+	if proxy == nil || proxy.SidecarScope == nil {
+		return nil
+	}
+	if !hostname.IsWildCarded() {
+		return []*Service{proxy.SidecarScope.servicesByHostname[hostname]}
+	}
+	services := make([]*Service, 0)
+	for _, svc := range proxy.SidecarScope.services {
+		if hostname.Matches(svc.Hostname) {
+			services = append(services, svc)
+		}
+	}
+	return services
+}
+
 // IsServiceVisible returns true if the input service is visible to the given namespace.
 func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool {
 	if service == nil {
@@ -1115,6 +1133,26 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	}
 
 	return nil
+}
+
+func (ps *PushContext) DestinationRuleByName(proxy *Proxy, name, namespace string) *config.Config {
+	if proxy == nil || proxy.SidecarScope == nil {
+		return nil
+	}
+	return proxy.SidecarScope.destinationRulesByNames[types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}]
+}
+
+func (ps *PushContext) PrevDestinationRuleByName(proxy *Proxy, name, namespace string) *config.Config {
+	if proxy == nil || proxy.PrevSidecarScope == nil {
+		return nil
+	}
+	return proxy.PrevSidecarScope.destinationRulesByNames[types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}]
 }
 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*ConsolidatedDestRule {

@@ -2801,3 +2801,35 @@ func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
 		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
 	}))
 }
+
+func TestRemovedClusterNames(t *testing.T) {
+	tests := []struct {
+		desc     string
+		resNames []string
+		subsets  []string
+		target   string
+		expected []string
+	}{
+		{
+			desc:     "removed cluster, no subsets",
+			resNames: []string{"outbound|80||foo.com", "outbound|80||bar.com", "outbound|80||istio.io"},
+			subsets:  []string{},
+			target:   "istio.io",
+			expected: []string{"outbound|80||istio.io"},
+		},
+		{
+			desc:     "removed cluster, subsets",
+			resNames: []string{"outbound|80|ss|foo.com", "outbound|80|baz|bar.com", "outbound|80||istio.io"},
+			subsets:  []string{"ss", "baz"},
+			target:   "bar.com",
+			expected: []string{"outbound|80|baz|bar.com"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if removed := removedClusterNames(tt.resNames, tt.subsets, tt.target); !reflect.DeepEqual(tt.expected, removed) {
+				t.Fatalf("%s => expected %s, got %s", tt.desc, tt.expected, removed)
+			}
+		})
+	}
+}

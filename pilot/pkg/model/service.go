@@ -232,10 +232,13 @@ type TrafficDirection string
 
 const (
 	// TrafficDirectionInbound indicates inbound traffic
-	TrafficDirectionInbound    TrafficDirection = "inbound"
+	TrafficDirectionInbound TrafficDirection = "inbound"
+	// TrafficDirectionOutbound indicates inbound traffic for vip
 	TrafficDirectionInboundVIP TrafficDirection = "inbound-vip"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
+	// TrafficDirectionAny indicates any inbound/outbound traffic
+	TrafficDirectionAny TrafficDirection = "any"
 
 	// trafficDirectionOutboundSrvPrefix the prefix for a DNS SRV type subset key
 	trafficDirectionOutboundSrvPrefix = string(TrafficDirectionOutbound) + "_"
