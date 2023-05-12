@@ -123,7 +123,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	for key := range updates.ConfigsUpdated {
 		switch key.Kind {
 		case kind.ServiceEntry:
-			services, deletedClusters = configgen.deltaFromServices(key, proxy, updates.Push, watched.ResourceNames)
+			services, deletedClusters = configgen.deltaFromServices(key, proxy, updates.Push, watched.ResourceNames, serviceClusters, servicePorts)
 		case kind.DestinationRule:
 			services, deletedClusters = configgen.deltaFromDestinationRules(key, proxy, updates.Push, watched.ResourceNames)
 		}
@@ -134,10 +134,10 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 // deltaFromServices computes the delta clusters from the updated services.
 func (configgen *ConfigGeneratorImpl) deltaFromServices(updatedService model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
-	watched []string,
+	watched []string, serviceClusters map[string]sets.String, servicePorts map[string]map[int]string,
 ) ([]*model.Service, []string) {
-	deletedClusters := make([]string, 0)
-	services := make([]*model.Service, 0)
+	var deletedClusters []string
+	var services []*model.Service
 	service := push.ServiceForHostname(proxy, host.Name(updatedService.Name))
 	// push.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
 	// we can cross-reference with WatchedResources to figure out which services were deleted.
@@ -158,6 +158,16 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(updatedService model.Con
 		}
 	} else {
 		services = append(services, service)
+		// If servicePorts has this service, that means it is old service.
+		if servicePorts[service.Hostname.String()] != nil {
+			oldPorts := servicePorts[service.Hostname.String()]
+			for port, cluster := range oldPorts {
+				// if this service port is removed, we can conclude that it is a removed cluster.
+				if _, exists := service.Ports.GetByPort(port); !exists {
+					deletedClusters = append(deletedClusters, cluster)
+				}
+			}
+		}
 	}
 	return services, deletedClusters
 }

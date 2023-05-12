@@ -2734,7 +2734,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		{
 			name:                 "config update that is not delta aware",
 			services:             []*model.Service{testService1, testService2},
-			configUpdated:        sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}),
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "test.com", Namespace: TestServiceNamespace}),
 			watchedResourceNames: []string{"outbound|7070||test.com"},
 			usedDelta:            false,
 			removedClusters:      nil,
