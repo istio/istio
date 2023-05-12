@@ -161,6 +161,8 @@ spec:
         - name: ISTIO_META_NETWORK
           value: "{{ .Values.global.network }}"
         {{- end }}
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: {{.DeploymentName|quote}}
         {{- if .Values.global.meshID }}
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.meshID }}"
