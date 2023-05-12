@@ -207,8 +207,14 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 		// see https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-matches
 		vs := ingressByHost[host].Spec.(*networking.VirtualService)
 		sort.SliceStable(vs.Http, func(i, j int) bool {
-			r1Len, r1Ex := getMatchURILength(vs.Http[i].Match[0])
-			r2Len, r2Ex := getMatchURILength(vs.Http[j].Match[0])
+			var r1Len, r2Len int
+			var r1Ex, r2Ex bool
+			if vs.Http[i].Match != nil || len(vs.Http[i].Match) != 0 {
+				r1Len, r1Ex = getMatchURILength(vs.Http[i].Match[0])
+			}
+			if vs.Http[j].Match != nil || len(vs.Http[j].Match) != 0 {
+				r2Len, r2Ex = getMatchURILength(vs.Http[j].Match[0])
+			}
 			// TODO: default at the end
 			if r1Len == r2Len {
 				return r1Ex && !r2Ex
