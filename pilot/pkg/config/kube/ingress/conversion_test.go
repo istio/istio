@@ -305,7 +305,7 @@ func TestConversion(t *testing.T) {
 				t.Error("Unexpected rules", vs.Http)
 			}
 			if vs.Http[0].Match != nil {
-				t.Error("Expected HTTPMatchRequest to be nil")
+				t.Error("Expected HTTPMatchRequest to be nil, got {}")
 			}
 		}
 	}
