@@ -83,8 +83,6 @@ spec:
       value: REDIRECT
     - name: ISTIO_META_WORKLOAD_NAME
       value: hellopod
-    - name: ISTIO_META_OWNER
-      value: kubernetes://apis/v1/namespaces/default/pods/hellopod
     - name: ISTIO_META_MESH_ID
       value: cluster.local
     - name: TRUST_DOMAIN

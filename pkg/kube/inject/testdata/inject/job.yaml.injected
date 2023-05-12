@@ -89,8 +89,6 @@ spec:
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
           value: pi
-        - name: ISTIO_META_OWNER
-          value: kubernetes://apis/batch/v1/namespaces/default/jobs/pi
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: TRUST_DOMAIN

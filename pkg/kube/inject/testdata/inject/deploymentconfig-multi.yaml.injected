@@ -110,8 +110,6 @@ items:
             value: REDIRECT
           - name: ISTIO_META_WORKLOAD_NAME
             value: hello
-          - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps.openshift.io/v1/namespaces/default/deploymentconfigs/hello
           - name: ISTIO_META_MESH_ID
             value: cluster.local
           - name: TRUST_DOMAIN

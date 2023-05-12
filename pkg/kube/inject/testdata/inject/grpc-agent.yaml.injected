@@ -102,8 +102,6 @@ spec:
               fieldPath: spec.nodeName
         - name: ISTIO_META_WORKLOAD_NAME
           value: grpc
-        - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/default/deployments/grpc
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: TRUST_DOMAIN
