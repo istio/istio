@@ -20,7 +20,6 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/istio/pkg/config/schema/gvr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +42,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
-	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -410,84 +408,6 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	return reconcile.Result{}, err
 }
 
-func ProcessDefaultWebhook(client kube.Client, iop *iopv1alpha1.IstioOperator, ns string) (processed bool, err error) {
-	// Detect whether previous installation exists prior to performing the installation.
-	exists := revtag.PreviousInstallExists(context.Background(), client.Kube())
-	rev := iop.Spec.Revision
-	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
-	operatorManageWebhooks := operatorManageWebhooks(iop)
-	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
-		if rev == "" {
-			rev = revtag.DefaultRevisionName
-		}
-		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
-
-		o := &revtag.GenerateOptions{
-			Tag:                  revtag.DefaultRevisionName,
-			Revision:             rev,
-			Overwrite:            true,
-			AutoInjectNamespaces: autoInjectNamespaces,
-		}
-		// If tag cannot be created could be remote cluster install, don't fail out.
-		tagManifests, err := revtag.Generate(context.Background(), client, o, ns)
-		if err == nil {
-			if err = applyManifests(client, tagManifests); err != nil {
-				return false, err
-			}
-		}
-		processed = true
-	}
-	return processed, nil
-}
-
-func applyManifests(kubeClient kube.Client, manifests string) error {
-	yamls := strings.Split(manifests, revtag.Separator)
-	for _, yml := range yamls {
-		if strings.TrimSpace(yml) == "" {
-			continue
-		}
-
-		obj := &unstructured.Unstructured{}
-
-		if err := yaml.Unmarshal([]byte(yml), obj); err != nil {
-			return fmt.Errorf("failed to unmarshal YAML: %w", err)
-		}
-		var ogvr schema.GroupVersionResource
-		if obj.GetKind() == name.MutatingWebhookConfigurationStr {
-			ogvr = gvr.MutatingWebhookConfiguration
-		} else if obj.GetKind() == name.ValidatingWebhookConfigurationStr {
-			ogvr = gvr.ValidatingWebhookConfiguration
-		}
-
-		_, err := kubeClient.Dynamic().Resource(ogvr).Namespace(obj.GetNamespace()).Patch(
-			context.TODO(), obj.GetName(), types.ApplyPatchType, []byte(yml), metav1.PatchOptions{
-				Force:        nil,
-				FieldManager: "install",
-			})
-		if err != nil {
-			return fmt.Errorf("failed to apply YAML: %w", err)
-		}
-	}
-	return nil
-}
-
-// operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
-func operatorManageWebhooks(iop *iopv1alpha1.IstioOperator) bool {
-	if iop.Spec.GetValues() == nil {
-		return false
-	}
-	globalValues := iop.Spec.Values.AsMap()["global"]
-	global, ok := globalValues.(map[string]any)
-	if !ok {
-		return false
-	}
-	omw, ok := global["operatorManageWebhooks"].(bool)
-	if !ok {
-		return false
-	}
-	return omw
-}
-
 func processDefaultWebhookAfterReconcile(iop *iopv1alpha1.IstioOperator, client kube.Client) error {
 	var ns string
 	if configuredNamespace := iopv1alpha1.Namespace(iop.Spec); configuredNamespace != "" {
@@ -495,29 +415,10 @@ func processDefaultWebhookAfterReconcile(iop *iopv1alpha1.IstioOperator, client 
 	} else {
 		ns = constants.IstioSystemNamespace
 	}
-	if _, err := ProcessDefaultWebhook(client, iop, ns); err != nil {
+	if _, err := helmreconciler.ProcessDefaultWebhook(client, iop, ns); err != nil {
 		return fmt.Errorf("failed to process default webhook: %v", err)
 	}
 	return nil
-}
-
-// validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
-// Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
-func validateEnableNamespacesByDefault(iop *iopv1alpha1.IstioOperator) bool {
-	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
-		return false
-	}
-	sidecarValues := iop.Spec.Values.AsMap()["sidecarInjectorWebhook"]
-	sidecarMap, ok := sidecarValues.(map[string]any)
-	if !ok {
-		return false
-	}
-	autoInjectNamespaces, ok := sidecarMap["enableNamespacesByDefault"].(bool)
-	if !ok {
-		return false
-	}
-
-	return autoInjectNamespaces
 }
 
 // mergeIOPSWithProfile overlays the values in iop on top of the defaults for the profile given by iop.profile and

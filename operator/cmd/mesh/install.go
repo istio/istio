@@ -202,7 +202,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
-	if processed, err := istiocontrolplane.ProcessDefaultWebhook(kubeClient, iop, ns); err != nil {
+	if processed, err := helmreconciler.ProcessDefaultWebhook(kubeClient, iop, ns); err != nil {
 		return fmt.Errorf("failed to process default webhook: %v", err)
 	} else if processed {
 		p.Println("Made this installation the default for injection and validation.")

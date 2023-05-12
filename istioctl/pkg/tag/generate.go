@@ -41,8 +41,6 @@ const (
 	vwhTemplateName         = "validatingwebhook.yaml"
 
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
-
-	Separator = "---\n"
 )
 
 // tagWebhookConfig holds config needed to render a tag webhook.
@@ -141,7 +139,7 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 		}
 		tagWhYAML = fmt.Sprintf(`%s
 %s
-%s`, tagWhYAML, Separator, vwhYAML)
+%s`, tagWhYAML, helm.YAMLSeparator, vwhYAML)
 	}
 
 	return tagWhYAML, nil
