@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -62,9 +63,11 @@ func init() {
 }
 
 var (
-	timeouts = monitoring.NewSum(
+	clusterLabel = monitoring.MustCreateLabel("cluster")
+	timeouts     = monitoring.NewSum(
 		"remote_cluster_sync_timeouts_total",
 		"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
+		monitoring.WithLabels(clusterLabel),
 	)
 
 	clusterType = monitoring.MustCreateLabel("cluster_type")
@@ -114,7 +117,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		}
 		log.Info("Successfully retrieved incluster config.")
 
-		localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(config))
+		localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(config), clusterID)
 		if err != nil {
 			log.Errorf("Could not create a client to access local cluster API server: %v", err)
 			return nil
@@ -150,10 +153,8 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		informer:            secretsInformer,
 	}
 
-	nsInformer := kubeclientset.KubeInformer().Core().V1().Namespaces().Informer()
-	_ = nsInformer.SetTransform(kube.StripUnusedFields)
-	nsLister := kubeclientset.KubeInformer().Core().V1().Namespaces().Lister()
-	controller.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(nsLister, meshWatcher.Mesh().GetDiscoverySelectors())
+	namespaces := kclient.New[*corev1.Namespace](kubeclientset)
+	controller.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(namespaces, meshWatcher.Mesh().GetDiscoverySelectors())
 	controller.queue = controllers.NewQueue("multicluster secret",
 		controllers.WithMaxAttempts(maxRetries),
 		controllers.WithReconciler(controller.processItem))
@@ -180,8 +181,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 
 		go c.informer.Run(stopCh)
 
-		if !kube.WaitForCacheSync(stopCh, c.informer.HasSynced) {
-			log.Error("Failed to sync multicluster remote secrets controller cache")
+		if !kube.WaitForCacheSync("multicluster remote secrets", stopCh, c.informer.HasSynced) {
 			return
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
@@ -190,7 +190,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-func (c *Controller) hasSynced() bool {
+func (c *Controller) HasSynced() bool {
 	if !c.queue.HasSynced() {
 		log.Debug("secret controller did not sync secrets presented at startup")
 		// we haven't finished processing the secrets that were present at startup
@@ -208,14 +208,6 @@ func (c *Controller) hasSynced() bool {
 	}
 
 	return true
-}
-
-func (c *Controller) HasSynced() bool {
-	synced := c.hasSynced()
-	if synced {
-		return true
-	}
-	return synced
 }
 
 func (c *Controller) processItem(key types.NamespacedName) error {
@@ -239,7 +231,7 @@ func (c *Controller) processItem(key types.NamespacedName) error {
 }
 
 // BuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overridden for testing only
-var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID) (kube.Client, error) {
 	if len(kubeConfig) == 0 {
 		return nil, errors.New("kubeconfig is empty")
 	}
@@ -258,7 +250,7 @@ var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 
 	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
 
-	clients, err := kube.NewClient(clientConfig)
+	clients, err := kube.NewClient(clientConfig, clusterId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
@@ -326,7 +318,7 @@ func sanitizeKubeConfig(config api.Config, allowlist sets.String) error {
 }
 
 func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*Cluster, error) {
-	clients, err := BuildClientsFromConfig(kubeConfig)
+	clients, err := BuildClientsFromConfig(kubeConfig, cluster.ID(clusterID))
 	if err != nil {
 		return nil, err
 	}

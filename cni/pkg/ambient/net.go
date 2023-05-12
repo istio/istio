@@ -23,17 +23,18 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	pconstants "istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("ambient", "ambient controller", 0)
+var log = istiolog.RegisterScope("ambient", "ambient controller")
 
 func RouteExists(rte []string) bool {
 	output, err := executeOutput(
@@ -51,10 +52,6 @@ func RouteExists(rte []string) bool {
 
 func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) {
 	addPodToMeshWithIptables(pod, ip)
-
-	if err := AnnotateEnrolledPod(client, pod); err != nil {
-		log.Errorf("failed to annotate pod enrollment: %v", err)
-	}
 }
 
 func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
@@ -146,6 +143,9 @@ func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
 			annotationRemovePatch,
 			metav1.PatchOptions{},
 		)
+	if errors.IsNotFound(err) {
+		return nil
+	}
 	return err
 }
 
@@ -174,22 +174,14 @@ func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
 			log.Warnf("Failed to delete route (%s) for pod %s: %v", rte, pod.Name, err)
 		}
 	}
-
-	if err := AnnotateUnenrollPod(client, pod); err != nil {
-		log.Errorf("failed to annotate pod unenrollment: %v", err)
-	}
 }
 
 // GetHostIPByRoute get the automatically chosen host ip to the Pod's CIDR
-func GetHostIPByRoute(podLister listerv1.PodLister) (string, error) {
+func GetHostIPByRoute(pods kclient.Client[*corev1.Pod]) (string, error) {
 	// We assume per node POD's CIDR is the same block, so the route to the POD
 	// from host should be "same". Otherwise, there may multiple host IPs will be
 	// used as source to dial to PODs.
-	pods, err := podLister.List(labels.Set{"app": "ztunnel"}.AsSelector())
-	if err != nil {
-		return "", fmt.Errorf("error getting ztunnel pod: %v", err)
-	}
-	for _, pod := range pods {
+	for _, pod := range pods.List(metav1.NamespaceAll, ztunnelLabels) {
 		targetIP := pod.Status.PodIP
 		if hostIP := getOutboundIP(targetIP); hostIP != nil {
 			return hostIP.String(), nil
@@ -274,13 +266,14 @@ func (s *Server) AddPodToMesh(pod *corev1.Pod) {
 		if err := s.updatePodEbpfOnNode(pod); err != nil {
 			log.Errorf("failed to update POD ebpf: %v", err)
 		}
-		if err := AnnotateEnrolledPod(s.kubeClient.Kube(), pod); err != nil {
-			log.Errorf("failed to annotate pod enrollment: %v", err)
-		}
+	}
+	if err := AnnotateEnrolledPod(s.kubeClient.Kube(), pod); err != nil {
+		log.Errorf("failed to annotate pod enrollment: %v", err)
 	}
 }
 
-func (s *Server) DelPodFromMesh(pod *corev1.Pod) {
+func (s *Server) DelPodFromMesh(pod *corev1.Pod, event controllers.Event) {
+	log.Debugf("Pod %s/%s is now stopped or opt out... cleaning up.", pod.Namespace, pod.Name)
 	switch s.redirectMode {
 	case IptablesMode:
 		DelPodFromMesh(s.kubeClient.Kube(), pod)
@@ -292,6 +285,9 @@ func (s *Server) DelPodFromMesh(pod *corev1.Pod) {
 		if err := s.delPodEbpfOnNode(pod.Status.PodIP); err != nil {
 			log.Errorf("failed to del POD ebpf: %v", err)
 		}
+	}
+	// event.New will be nil if the pod is deleted
+	if event.New != nil {
 		if err := AnnotateUnenrollPod(s.kubeClient.Kube(), pod); err != nil {
 			log.Errorf("failed to annotate pod unenrollment: %v", err)
 		}

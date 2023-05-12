@@ -70,7 +70,7 @@ func (c Config) String() string {
 }
 
 var (
-	serverLog           = log.RegisterScope("server", "echo server", 0)
+	serverLog           = log.RegisterScope("server", "echo server")
 	_         io.Closer = &Instance{}
 )
 

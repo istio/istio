@@ -33,7 +33,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/model"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/validation"
@@ -153,8 +152,9 @@ func buildExtAuthzHTTP(push *model.PushContext,
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	hostname, cluster, err := extensionproviders.LookupCluster(push, config.Service, port)
+	hostname, cluster, err := model.LookupCluster(push, config.Service, port)
 	if err != nil {
+		model.IncLookupClusterFailures("authz")
 		errs = multierror.Append(errs, err)
 	}
 	status, err := parseStatusOnError(config.StatusOnError)
@@ -197,7 +197,7 @@ func buildExtAuthzGRPC(push *model.PushContext,
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	_, cluster, err := extensionproviders.LookupCluster(push, config.Service, port)
+	_, cluster, err := model.LookupCluster(push, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -266,10 +266,9 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 			Value: config.IncludeAdditionalHeadersInCheck[k],
 		})
 	}
-	if allowedHeaders != nil || len(headersToAdd) != 0 {
+	if len(headersToAdd) != 0 {
 		service.AuthorizationRequest = &extauthzhttp.AuthorizationRequest{
-			AllowedHeaders: allowedHeaders,
-			HeadersToAdd:   headersToAdd,
+			HeadersToAdd: headersToAdd,
 		}
 	}
 
@@ -290,6 +289,9 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		},
 		FilterEnabledMetadata: generateFilterMatcher(wellknown.HTTPRoleBasedAccessControl),
 		WithRequestBody:       withBodyRequest(config.IncludeRequestBodyInCheck),
+	}
+	if allowedHeaders != nil {
+		http.AllowedHeaders = allowedHeaders
 	}
 	return &builtExtAuthz{http: http}
 }

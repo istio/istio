@@ -1031,6 +1031,8 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 
 func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	totalInjections.Increment()
+	t0 := time.Now()
+	defer func() { injectionTime.Record(time.Since(t0).Seconds()) }()
 	var body []byte
 	if r.Body != nil {
 		if data, err := kube.HTTPConfigReader(r); err == nil {

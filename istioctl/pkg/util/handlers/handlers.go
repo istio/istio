@@ -175,7 +175,7 @@ func SelectorsForObject(object runtime.Object) (namespace string, selector label
 		namespace = t.Namespace
 		selector, err = labels.Parse(constants.GatewayNameLabel + "=" + t.Name)
 	case *gatewayapibeta.Gateway:
-		if !gateway.IsManagedBeta(&t.Spec) {
+		if !gateway.IsManaged(&t.Spec) {
 			return "", nil, fmt.Errorf("gateway is not a managed gateway")
 		}
 		namespace = t.Namespace

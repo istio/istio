@@ -12,8 +12,8 @@ FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION} as debug
 # This image is a custom built debian11 distroless image with multiarchitecture support.
 # It is built on the base distroless image, with iptables binary and libraries added
 # The source can be found at https://github.com/istio/distroless/tree/iptables
-# This version is from commit a8b3fb577adb785211ce704fdf892983fc268b11.
-FROM gcr.io/istio-release/iptables@sha256:4be99c4dbc0a158fc4404d66198bf18f321292ffeff55201e9c8fa518a54b81e as distroless
+# This version is from commit 5bf244c0cf5dd11e4113d564272ed657d4784f95.
+FROM ${ISTIO_BASE_REGISTRY}/iptables@sha256:608afdf41f35f1b971d4d90431634a99507e039b9e40072dd31b8b19397ec459 as distroless
 
 # This will build the final image based on either debug or distroless from above
 # hadolint ignore=DL3006

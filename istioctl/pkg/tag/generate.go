@@ -76,7 +76,7 @@ type GenerateOptions struct {
 }
 
 // Generate generates the manifests for a revision tag pointed the given revision.
-func Generate(ctx context.Context, client kube.CLIClient, opts *GenerateOptions, istioNS string) (string, error) {
+func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, istioNS string) (string, error) {
 	// abort if there exists a revision with the target tag name
 	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Tag)
 	if err != nil {
@@ -159,8 +159,8 @@ func fixWhConfig(whConfig *tagWebhookConfig) *tagWebhookConfig {
 }
 
 // Create applies the given tag manifests.
-func Create(client kube.CLIClient, manifests string) error {
-	if err := applyYAML(client, manifests, "istio-system"); err != nil {
+func Create(client kube.CLIClient, manifests, ns string) error {
+	if err := applyYAML(client, manifests, ns); err != nil {
 		return fmt.Errorf("failed to apply tag manifests to cluster: %v", err)
 	}
 	return nil

@@ -607,6 +607,18 @@ func readInjectionSettings(t testing.TB, fname string) (*Config, ValuesConfig, *
 	return &cfg, vc, meshConfig
 }
 
+func cleanupOldFiles(t testing.TB) {
+	files, err := filepath.Glob(filepath.Join("testdata", "inputs", "*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		if err := os.Remove(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // loadInjectionSettings will render the charts using the operator, with given yaml overrides.
 // This allows us to fully simulate what will actually happen at run time.
 func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFilePath string) {
@@ -775,7 +787,7 @@ func normalizeAndCompareDeployments(got, want *corev1.Pod, ignoreIstioMetaJSONAn
 
 	for _, c := range got.Spec.Containers {
 		for _, env := range c.Env {
-			if env.ValueFrom != nil {
+			if env.ValueFrom != nil && env.ValueFrom.FieldRef != nil {
 				env.ValueFrom.FieldRef.APIVersion = ""
 			}
 			// check if metajson is encoded correctly

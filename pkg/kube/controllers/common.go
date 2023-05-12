@@ -30,13 +30,24 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("controllers", "common controller logic", 0)
+var log = istiolog.RegisterScope("controllers", "common controller logic")
 
 // Object is a union of runtime + meta objects. Essentially every k8s object meets this interface.
 // and certainly all that we care about.
 type Object interface {
 	metav1.Object
 	runtime.Object
+}
+
+type ComparableObject interface {
+	comparable
+	Object
+}
+
+// IsNil works around comparing generic types
+func IsNil[O ComparableObject](o O) bool {
+	var t O
+	return o == t
 }
 
 // UnstructuredToGVR extracts the GVR of an unstructured resource. This is useful when using dynamic
@@ -296,7 +307,7 @@ type EventHandler[T Object] struct {
 	DeleteFunc func(obj T)
 }
 
-func (e EventHandler[T]) OnAdd(obj interface{}) {
+func (e EventHandler[T]) OnAdd(obj interface{}, _ bool) {
 	if e.AddFunc != nil {
 		e.AddFunc(Extract[T](obj))
 	}
@@ -315,3 +326,14 @@ func (e EventHandler[T]) OnDelete(obj interface{}) {
 }
 
 var _ cache.ResourceEventHandler = EventHandler[Object]{}
+
+type Shutdowner interface {
+	ShutdownHandlers()
+}
+
+// ShutdownAll is a simple helper to shutdown all informers
+func ShutdownAll(s ...Shutdowner) {
+	for _, h := range s {
+		h.ShutdownHandlers()
+	}
+}

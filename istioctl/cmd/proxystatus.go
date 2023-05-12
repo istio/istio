@@ -74,7 +74,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			if len(args) > 0 {
 				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(namespace, defaultNamespace),
-					kubeClient.UtilFactory())
+					MakeKubeFactory(kubeClient))
 				if err != nil {
 					return err
 				}
@@ -200,7 +200,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			if len(args) > 0 {
 				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(namespace, defaultNamespace),
-					kubeClient.UtilFactory())
+					MakeKubeFactory(kubeClient))
 				if err != nil {
 					return err
 				}

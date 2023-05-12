@@ -16,25 +16,16 @@ package ambient
 
 import (
 	"fmt"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	informersv1 "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
-	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/cni/pkg/ambient/ambientpod"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 )
-
-var ErrLegacyLabel = "Namespace %s has sidecar label istio-injection or istio.io/rev " +
-	"enabled while also setting ambient mode. This is not supported and the namespace will " +
-	"be ignored from the ambient mesh."
 
 func (s *Server) setupHandlers() {
 	s.queue = controllers.NewQueue("ambient",
@@ -43,24 +34,23 @@ func (s *Server) setupHandlers() {
 	)
 
 	// We only need to handle pods on our node
-	podInformer := s.kubeClient.KubeInformer().InformerFor(&corev1.Pod{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
-		return informersv1.NewFilteredPodInformer(
-			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
-			func(options *metav1.ListOptions) {
-				options.FieldSelector = "spec.nodeName=" + NodeName
-			},
-		)
-	})
-	_ = podInformer.SetTransform(kube.StripUnusedFields)
-	_, _ = podInformer.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
+	s.pods = kclient.NewFiltered[*corev1.Pod](s.kubeClient, kclient.Filter{FieldSelector: "spec.nodeName=" + NodeName})
+	s.pods.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
 		s.queue.Add(o)
 	}))
-	s.podLister = listerv1.NewPodLister(podInformer.GetIndexer())
 
 	// Namespaces could be anything though, so we watch all of those
-	ns := s.kubeClient.KubeInformer().Core().V1().Namespaces()
-	s.nsLister = ns.Lister()
-	_, _ = ns.Informer().AddEventHandler(controllers.ObjectHandler(s.EnqueueNamespace))
+	s.namespaces = kclient.New[*corev1.Namespace](s.kubeClient)
+	s.namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
+		AddFunc: func(ns *corev1.Namespace) {
+			s.EnqueueNamespace(ns)
+		},
+		UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
+			if oldNs.Labels[constants.DataplaneMode] != newNs.Labels[constants.DataplaneMode] {
+				s.EnqueueNamespace(newNs)
+			}
+		},
+	})
 }
 
 func (s *Server) Run(stop <-chan struct{}) {
@@ -69,32 +59,30 @@ func (s *Server) Run(stop <-chan struct{}) {
 }
 
 func (s *Server) ReconcileNamespaces() {
-	namespaces, _ := s.nsLister.List(klabels.Everything())
-	for _, ns := range namespaces {
+	for _, ns := range s.namespaces.List(metav1.NamespaceAll, klabels.Everything()) {
 		s.EnqueueNamespace(ns)
 	}
 }
 
 // EnqueueNamespace takes a Namespace and enqueues all Pod objects that make need an update
+// TODO it is sort of pointless/confusing/implicit to populate Old and New with the same reference here
 func (s *Server) EnqueueNamespace(o controllers.Object) {
 	namespace := o.GetName()
 	matchAmbient := o.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient
-	pods, _ := s.podLister.Pods(namespace).List(klabels.Everything())
 	if matchAmbient {
 		log.Infof("Namespace %s is enabled in ambient mesh", namespace)
-		for _, pod := range pods {
+	} else {
+		log.Infof("Namespace %s is disabled from ambient mesh", namespace)
+	}
+	for _, pod := range s.pods.List(namespace, klabels.Everything()) {
+		// ztunnel pods are never "added to/removed from the mesh", so do not fire
+		// spurious events for them to avoid triggering extra
+		// ztunnel node reconciliation checks.
+		if !ztunnelPod(pod) {
 			s.queue.Add(controllers.Event{
 				New:   pod,
 				Old:   pod,
 				Event: controllers.EventUpdate,
-			})
-		}
-	} else {
-		log.Infof("Namespace %s is disabled from ambient mesh", namespace)
-		for _, pod := range pods {
-			s.queue.Add(controllers.Event{
-				New:   pod,
-				Event: controllers.EventDelete,
 			})
 		}
 	}
@@ -113,7 +101,7 @@ func (s *Server) Reconcile(input any) error {
 		// For update, we just need to handle opt outs
 		newPod := event.New.(*corev1.Pod)
 		oldPod := event.Old.(*corev1.Pod)
-		ns, _ := s.nsLister.Get(newPod.Namespace)
+		ns := s.namespaces.Get(newPod.Namespace, "")
 		if ns == nil {
 			return fmt.Errorf("failed to find namespace %v", ns)
 		}
@@ -121,7 +109,7 @@ func (s *Server) Reconcile(input any) error {
 		nowEnabled := ambientpod.PodZtunnelEnabled(ns, newPod)
 		if wasEnabled && !nowEnabled {
 			log.Debugf("Pod %s no longer matches, removing from mesh", newPod.Name)
-			s.DelPodFromMesh(newPod)
+			s.DelPodFromMesh(newPod, event)
 		}
 
 		if !wasEnabled && nowEnabled {
@@ -129,14 +117,7 @@ func (s *Server) Reconcile(input any) error {
 			s.AddPodToMesh(pod)
 		}
 	case controllers.EventDelete:
-		if s.redirectMode == IptablesMode && IsPodInIpset(pod) {
-			log.Infof("Pod %s/%s is now stopped... cleaning up.", pod.Namespace, pod.Name)
-			s.DelPodFromMesh(pod)
-		} else if s.redirectMode == EbpfMode {
-			log.Debugf("Pod %s/%s is now stopped or opt out... cleaning up.", pod.Namespace, pod.Name)
-			s.DelPodFromMesh(pod)
-		}
-		return nil
+		s.DelPodFromMesh(pod, event)
 	}
 	return nil
 }

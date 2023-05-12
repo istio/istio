@@ -45,4 +45,12 @@ func init() {
 		settingsFromCommandline.IngressGatewayServiceName,
 		`Specifies the name of the ingressgateway service to use when running tests in a preinstalled istio installation.
 		Should only be set when istio.test.kube.deploy=false`)
+	flag.StringVar(&settingsFromCommandline.IngressGatewayServiceNamespace, "istio.test.kube.ingressGatewayServiceNamespace",
+		settingsFromCommandline.IngressGatewayServiceNamespace,
+		`Specifies the namespace of the ingressgateway service to use when running tests in a preinstalled istio installation.
+		Should only be set when istio.test.kube.deploy=false`)
+	flag.StringVar(&settingsFromCommandline.IngressGatewayIstioLabel, "istio.test.kube.ingressGatewayIstioLabel",
+		settingsFromCommandline.IngressGatewayIstioLabel,
+		`Specifies the istio label of the ingressgateway to search for when running tests in a preinstalled istio installation.
+		Should only be set when istio.test.kube.deploy=false`)
 }

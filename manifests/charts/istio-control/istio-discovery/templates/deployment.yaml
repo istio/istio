@@ -150,10 +150,6 @@ spec:
             value: "{{ $val }}"
           {{- end }}
           {{- end }}
-{{- if semverCompare "<1.19" .Capabilities.KubeVersion.GitVersion }}
-          - name: ENABLE_LEGACY_FSGROUP_INJECTION
-            value: "true"
-{{- end }}
 {{- if .Values.pilot.traceSampling }}
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.pilot.traceSampling }}"
@@ -168,6 +164,10 @@ spec:
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.memory
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}

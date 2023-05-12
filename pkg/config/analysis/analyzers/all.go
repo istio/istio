@@ -67,6 +67,7 @@ func All() []analysis.Analyzer {
 		&telemetry.ProdiverAnalyzer{},
 		&telemetry.SelectorAnalyzer{},
 		&telemetry.DefaultSelectorAnalyzer{},
+		&telemetry.LightstepAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)

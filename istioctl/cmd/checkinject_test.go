@@ -51,6 +51,11 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Revision: "1-16",
 					Reason:   "No matching namespace labels (istio.io/rev=1-16) or pod labels (istio.io/rev=1-16)",
 				},
+				{
+					Name:     "istio-sidecar-injector-deactivated",
+					Revision: "default",
+					Reason:   "The injection webhook is deactivated, and will never match labels.",
+				},
 			},
 		},
 		{
@@ -68,6 +73,11 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Name:     "istio-sidecar-injector-1-16",
 					Revision: "1-16",
 					Reason:   "No matching namespace labels (istio.io/rev=1-16) or pod labels (istio.io/rev=1-16)",
+				},
+				{
+					Name:     "istio-sidecar-injector-deactivated",
+					Revision: "default",
+					Reason:   "The injection webhook is deactivated, and will never match labels.",
 				},
 			},
 		},
@@ -88,6 +98,11 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Injected: true,
 					Reason:   "Namespace label istio.io/rev=1-16 matches",
 				},
+				{
+					Name:     "istio-sidecar-injector-deactivated",
+					Revision: "default",
+					Reason:   "The injection webhook is deactivated, and will never match labels.",
+				},
 			},
 		},
 		{
@@ -105,6 +120,11 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Revision: "1-16",
 					Injected: true,
 					Reason:   "Pod label istio.io/rev=1-16 matches",
+				},
+				{
+					Name:     "istio-sidecar-injector-deactivated",
+					Revision: "default",
+					Reason:   "The injection webhook is deactivated, and will never match labels.",
 				},
 			},
 		},
@@ -124,6 +144,11 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Revision: "1-16",
 					Reason:   "No matching namespace labels (istio.io/rev=1-16) or pod labels (istio.io/rev=1-16)",
 				},
+				{
+					Name:     "istio-sidecar-injector-deactivated",
+					Revision: "default",
+					Reason:   "The injection webhook is deactivated, and will never match labels.",
+				},
 			},
 		},
 		{
@@ -141,6 +166,11 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Name:     "istio-sidecar-injector-1-16",
 					Revision: "1-16",
 					Reason:   "No matching namespace labels (istio.io/rev=1-16) or pod labels (istio.io/rev=1-16)",
+				},
+				{
+					Name:     "istio-sidecar-injector-deactivated",
+					Revision: "default",
+					Reason:   "The injection webhook is deactivated, and will never match labels.",
 				},
 			},
 		},
@@ -161,6 +191,11 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Injected: true,
 					Reason:   "Namespace label istio.io/rev=1-16 matches",
 				},
+				{
+					Name:     "istio-sidecar-injector-deactivated",
+					Revision: "default",
+					Reason:   "The injection webhook is deactivated, and will never match labels.",
+				},
 			},
 		},
 		{
@@ -178,6 +213,11 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Revision: "1-16",
 					Injected: false,
 					Reason:   "Namespace has istio-injection=disabled label, preventing injection",
+				},
+				{
+					Name:     "istio-sidecar-injector-deactivated",
+					Revision: "default",
+					Reason:   "The injection webhook is deactivated, and will never match labels.",
 				},
 			},
 		},
@@ -198,6 +238,11 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Injected: false,
 					Reason:   "No matching namespace labels (istio.io/rev=1-16) or pod labels (istio.io/rev=1-16)",
 				},
+				{
+					Name:     "istio-sidecar-injector-deactivated",
+					Revision: "default",
+					Reason:   "The injection webhook is deactivated, and will never match labels.",
+				},
 			},
 		},
 		{
@@ -216,6 +261,11 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Revision: "1-16",
 					Injected: false,
 					Reason:   "No matching namespace labels (istio.io/rev=1-16) or pod labels (istio.io/rev=1-16)",
+				},
+				{
+					Name:     "istio-sidecar-injector-deactivated",
+					Revision: "default",
+					Reason:   "The injection webhook is deactivated, and will never match labels.",
 				},
 			},
 		},
@@ -237,28 +287,34 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 					Injected: false,
 					Reason:   "Pod has sidecar.istio.io/inject=false label, preventing injection",
 				},
+				{
+					Name:     "istio-sidecar-injector-deactivated",
+					Revision: "default",
+					Reason:   "The injection webhook is deactivated, and will never match labels.",
+				},
 			},
 		},
 	}
-	defaultFile, err := os.ReadFile("testdata/check-inject/default-injector.yaml")
-	if err != nil {
-		t.Fatal(err)
+	whFiles := []string{
+		"testdata/check-inject/default-injector.yaml",
+		"testdata/check-inject/rev-16-injector.yaml",
+		"testdata/check-inject/never-match-injector.yaml",
 	}
-	var defaultWh *admitv1.MutatingWebhookConfiguration
-	if err := yaml.Unmarshal(defaultFile, &defaultWh); err != nil {
-		t.Fatal(err)
-	}
-	revFile, err := os.ReadFile("testdata/check-inject/rev-16-injector.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var revWh *admitv1.MutatingWebhookConfiguration
-	if err := yaml.Unmarshal(revFile, &revWh); err != nil {
-		t.Fatal(err)
+	var whs []admitv1.MutatingWebhookConfiguration
+	for _, whName := range whFiles {
+		file, err := os.ReadFile(whName)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var wh *admitv1.MutatingWebhookConfiguration
+		if err := yaml.Unmarshal(file, &wh); err != nil {
+			t.Fatal(err)
+		}
+		whs = append(whs, *wh)
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			checkResults := analyzeRunningWebhooks([]admitv1.MutatingWebhookConfiguration{*defaultWh, *revWh},
+			checkResults := analyzeRunningWebhooks(whs,
 				c.pod.Labels, c.ns.Labels)
 			assert.Equal(t, c.expectedMessages, checkResults)
 		})

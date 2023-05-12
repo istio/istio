@@ -23,8 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
@@ -41,11 +39,12 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("gateway", "gateway-api controller", 0)
+var log = istiolog.RegisterScope("gateway", "gateway-api controller")
 
 var errUnsupportedOp = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
 
@@ -64,9 +63,8 @@ type Controller struct {
 	cache model.ConfigStoreController
 
 	// Gateway-api types reference namespace labels directly, so we need access to these
-	namespaceLister   listerv1.NamespaceLister
-	namespaceInformer cache.SharedIndexInformer
-	namespaceHandler  model.EventHandler
+	namespaces       kclient.Client[*corev1.Namespace]
+	namespaceHandler model.EventHandler
 
 	// Gateway-api types reference secrets directly, so we need access to these
 	credentialsController credentials.MulticlusterController
@@ -78,7 +76,7 @@ type Controller struct {
 	domain string
 
 	// state is our computed Istio resources. Access is guarded by stateMu. This is updated from Reconcile().
-	state   OutputResources
+	state   IstioResources
 	stateMu sync.RWMutex
 
 	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
@@ -87,14 +85,12 @@ type Controller struct {
 	statusEnabled    *atomic.Bool
 
 	waitForCRD func(class config.GroupVersionKind, stop <-chan struct{}) bool
-
-	started atomic.Bool
 }
 
 var _ model.GatewayController = &Controller{}
 
 func NewController(
-	client kube.Client,
+	kc kube.Client,
 	c model.ConfigStoreController,
 	waitForCRD func(class config.GroupVersionKind, stop <-chan struct{}) bool,
 	credsController credentials.MulticlusterController,
@@ -102,12 +98,11 @@ func NewController(
 ) *Controller {
 	var ctl *status.Controller
 
-	nsInformer := client.KubeInformer().Core().V1().Namespaces().Informer()
+	namespaces := kclient.New[*corev1.Namespace](kc)
 	gatewayController := &Controller{
-		client:                client,
+		client:                kc,
 		cache:                 c,
-		namespaceLister:       client.KubeInformer().Core().V1().Namespaces().Lister(),
-		namespaceInformer:     nsInformer,
+		namespaces:            namespaces,
 		credentialsController: credsController,
 		cluster:               options.ClusterID,
 		domain:                options.DomainSuffix,
@@ -117,7 +112,7 @@ func NewController(
 		waitForCRD:    waitForCRD,
 	}
 
-	_, _ = nsInformer.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
+	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
 		AddFunc: func(ns *corev1.Namespace) {
 			gatewayController.namespaceEvent(nil, ns)
 		},
@@ -188,7 +183,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
 	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
 
-	input := KubernetesResources{
+	input := GatewayResources{
 		GatewayClass:   deepCopyStatus(gatewayClass),
 		Gateway:        deepCopyStatus(gateway),
 		HTTPRoute:      deepCopyStatus(httpRoute),
@@ -204,14 +199,11 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 		c.stateMu.Lock()
 		defer c.stateMu.Unlock()
 		// make sure we clear out the state, to handle the last gateway-api resource being removed
-		c.state = OutputResources{}
+		c.state = IstioResources{}
 		return nil
 	}
 
-	nsl, err := c.namespaceLister.List(klabels.Everything())
-	if err != nil {
-		return fmt.Errorf("failed to list type Namespaces: %v", err)
-	}
+	nsl := c.namespaces.List("", klabels.Everything())
 	namespaces := make(map[string]*corev1.Namespace, len(nsl))
 	for _, ns := range nsl {
 		namespaces[ns.Name] = ns
@@ -237,7 +229,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	return nil
 }
 
-func (c *Controller) QueueStatusUpdates(r KubernetesResources) {
+func (c *Controller) QueueStatusUpdates(r GatewayResources) {
 	c.handleStatusUpdates(r.GatewayClass)
 	c.handleStatusUpdates(r.Gateway)
 	c.handleStatusUpdates(r.HTTPRoute)
@@ -288,12 +280,7 @@ func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler m
 	// For all other types, do nothing as c.cache has been registered
 }
 
-func (c *Controller) HasStarted() bool {
-	return c.started.Load()
-}
-
 func (c *Controller) Run(stop <-chan struct{}) {
-	c.started.Store(true)
 	go func() {
 		if c.waitForCRD(gvk.GatewayClass, stop) {
 			gcc := NewClassController(c.client)
@@ -301,15 +288,10 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			gcc.Run(stop)
 		}
 	}()
-	kube.WaitForCacheSync(stop, c.namespaceInformer.HasSynced)
-}
-
-func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
-	return c.cache.SetWatchErrorHandler(handler)
 }
 
 func (c *Controller) HasSynced() bool {
-	return c.cache.HasSynced()
+	return c.cache.HasSynced() && c.namespaces.HasSynced()
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
@@ -412,7 +394,7 @@ func filterNamespace(cfgs []config.Config, namespace string) []config.Config {
 
 // hasResources determines if there are any gateway-api resources created at all.
 // If not, we can short circuit all processing to avoid excessive work.
-func (kr KubernetesResources) hasResources() bool {
+func (kr GatewayResources) hasResources() bool {
 	return len(kr.GatewayClass) > 0 ||
 		len(kr.Gateway) > 0 ||
 		len(kr.HTTPRoute) > 0 ||

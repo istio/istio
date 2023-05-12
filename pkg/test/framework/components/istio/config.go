@@ -157,12 +157,20 @@ type Config struct {
 	// custom deployment for ingress and egress gateway on remote clusters.
 	GatewayValues string
 
-	// Custom deploymeny for east-west gateway
+	// Custom deployment for east-west gateway
 	EastWestGatewayValues string
 
 	// IngressGatewayServiceName is the service name to use to reference the ingressgateway
 	// This field should only be set when DeployIstio is false
 	IngressGatewayServiceName string
+
+	// IngressGatewayServiceNamespace allows overriding the namespace of the ingressgateway service (defaults to SystemNamespace)
+	// This field should only be set when DeployIstio is false
+	IngressGatewayServiceNamespace string
+
+	// IngressGatewayIstioLabel allows overriding the selector of the ingressgateway service (defaults to istio=ingressgateway)
+	// This field should only be set when DeployIstio is false
+	IngressGatewayIstioLabel string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {
@@ -332,6 +340,8 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("OperatorOptions:                %v\n", c.OperatorOptions)
 	result += fmt.Sprintf("EnableCNI:                      %v\n", c.EnableCNI)
 	result += fmt.Sprintf("IngressGatewayServiceName:      %v\n", c.IngressGatewayServiceName)
+	result += fmt.Sprintf("IngressGatewayServiceNamespace: %v\n", c.IngressGatewayServiceNamespace)
+	result += fmt.Sprintf("IngressGatewayIstioLabel:     	 %v\n", c.IngressGatewayIstioLabel)
 
 	return result
 }

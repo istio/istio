@@ -409,17 +409,12 @@ type Locality struct {
 type HealthStatus int32
 
 const (
-	// TODO: change the value to 1,2 to match HealthStatus proto
-
 	// Healthy.
-	Healthy HealthStatus = 0
+	Healthy HealthStatus = 1
 	// Unhealthy.
-	UnHealthy HealthStatus = 1
+	UnHealthy HealthStatus = 2
 	// Draining - the constant matches envoy
 	Draining HealthStatus = 3
-	// Not used in Istio
-	Timeout  HealthStatus = 4
-	Degraded HealthStatus = 5
 )
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
@@ -454,7 +449,7 @@ type IstioEndpoint struct {
 
 	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
 	// avoid recomputation
-	EnvoyEndpoint *endpoint.LbEndpoint
+	EnvoyEndpoint *endpoint.LbEndpoint `json:"-"`
 
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string
@@ -490,7 +485,7 @@ type IstioEndpoint struct {
 	// Determines the discoverability of this endpoint throughout the mesh.
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
 
-	// Indicatesthe endpoint health status.
+	// Indicates the endpoint health status.
 	HealthStatus HealthStatus
 
 	// If in k8s, the node where the pod resides
@@ -517,6 +512,19 @@ func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 		return true
 	}
 	return ep.DiscoverabilityPolicy.IsDiscoverableFromProxy(ep, p)
+}
+
+// MetadataClone returns the cloned endpoint metadata used for telemetry purposes.
+// This should be used when the endpoint labels should be updated.
+func (ep *IstioEndpoint) MetadataClone() *EndpointMetadata {
+	return &EndpointMetadata{
+		Network:      ep.Network,
+		TLSMode:      ep.TLSMode,
+		WorkloadName: ep.WorkloadName,
+		Namespace:    ep.Namespace,
+		Labels:       maps.Clone(ep.Labels),
+		ClusterID:    ep.Locality.ClusterID,
+	}
 }
 
 // Metadata returns the endpoint metadata used for telemetry purposes.
@@ -617,7 +625,7 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses AddressMap
+	ClusterExternalAddresses *AddressMap
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
@@ -712,11 +720,11 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 		return false
 	}
 
-	if len(s.ClusterExternalAddresses.Addresses) != len(other.ClusterExternalAddresses.Addresses) {
+	if len(s.ClusterExternalAddresses.GetAddresses()) != len(other.ClusterExternalAddresses.GetAddresses()) {
 		return false
 	}
 
-	for k, v1 := range s.ClusterExternalAddresses.Addresses {
+	for k, v1 := range s.ClusterExternalAddresses.GetAddresses() {
 		if v2, ok := other.ClusterExternalAddresses.Addresses[k]; !ok || !slices.Equal(v1, v2) {
 			return false
 		}
@@ -805,7 +813,7 @@ type AmbientIndexes interface {
 		currentSubs sets.Set[types.NamespacedName],
 	) sets.Set[types.NamespacedName]
 	Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization
-	Waypoint(scope WaypointScope) sets.Set[netip.Addr]
+	Waypoint(scope WaypointScope) []netip.Addr
 	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
 }
 
@@ -828,7 +836,7 @@ func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*workloadapi.Authori
 	return nil
 }
 
-func (u NoopAmbientIndexes) Waypoint(WaypointScope) sets.Set[netip.Addr] {
+func (u NoopAmbientIndexes) Waypoint(WaypointScope) []netip.Addr {
 	return nil
 }
 
@@ -1099,7 +1107,7 @@ func (s *Service) DeepCopy() *Service {
 		out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
 		copy(out.ServiceAccounts, s.ServiceAccounts)
 	}
-	out.ClusterVIPs = s.ClusterVIPs.DeepCopy()
+	out.ClusterVIPs = *s.ClusterVIPs.DeepCopy()
 	return &out
 }
 

@@ -5,4 +5,4 @@ issue:
   - 43893
 releaseNotes:
   - |
-    **Fixed** `ValidatingWebhookConfiguration` is not generated correctly with operator installation when the revision is not set.
+    **Fixed** `ValidatingWebhookConfiguration` not being generated correctly with operator installation when the revision is not set.

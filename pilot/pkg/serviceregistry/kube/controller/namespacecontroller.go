@@ -19,14 +19,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/kclient"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/security/pkg/k8s"
 )
@@ -34,24 +33,28 @@ import (
 const (
 	// CACertNamespaceConfigMap is the name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMap = "istio-ca-root-cert"
+
+	// maxRetries is the number of times a namespace will be retried before it is dropped out of the queue.
+	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the
+	// sequence of delays between successive queuing of a namespace.
+	//
+	// 5ms, 10ms, 20ms, 40ms, 80ms
+	maxRetries = 5
 )
 
 var configMapLabel = map[string]string{"istio.io/config": "true"}
 
 // NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {
-	client          corev1.CoreV1Interface
 	caBundleWatcher *keycertbundle.Watcher
 
-	queue              controllers.Queue
-	namespacesInformer cache.SharedInformer
-	configMapInformer  cache.SharedInformer
-	namespaceLister    listerv1.NamespaceLister
-	configmapLister    listerv1.ConfigMapLister
+	queue controllers.Queue
+
+	namespaces kclient.Client[*v1.Namespace]
+	configmaps kclient.Client[*v1.ConfigMap]
 
 	// if meshConfig.DiscoverySelectors specified, DiscoveryNamespacesFilter tracks the namespaces to be watched by this controller.
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
-	handlers                  *controllers.InformerHandler
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
@@ -59,20 +62,17 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
 ) *NamespaceController {
 	c := &NamespaceController{
-		client:                    kubeClient.Kube().CoreV1(),
 		caBundleWatcher:           caBundleWatcher,
 		DiscoveryNamespacesFilter: discoveryNamespacesFilter,
-		handlers:                  controllers.NewInformerHandler(),
 	}
-	c.queue = controllers.NewQueue("namespace controller", controllers.WithReconciler(c.insertDataForNamespace))
+	c.queue = controllers.NewQueue("namespace controller",
+		controllers.WithReconciler(c.insertDataForNamespace),
+		controllers.WithMaxAttempts(maxRetries))
 
-	c.configMapInformer = kubeClient.KubeInformer().Core().V1().ConfigMaps().Informer()
-	_ = c.configMapInformer.SetTransform(kube.StripUnusedFields)
-	c.configmapLister = kubeClient.KubeInformer().Core().V1().ConfigMaps().Lister()
-	c.namespacesInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
-	c.namespaceLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
+	c.configmaps = kclient.New[*v1.ConfigMap](kubeClient)
+	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
-	c.handlers.RegisterEventHandler(c.configMapInformer, controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+	c.configmaps.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		if o.GetName() != CACertNamespaceConfigMap {
 			// This is a change to a configmap we don't watch, ignore it
 			return false
@@ -87,7 +87,11 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		}
 		return true
 	}))
-	c.handlers.RegisterEventHandler(c.namespacesInformer, controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+	c.namespaces.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+		if features.InformerWatchNamespace != "" && features.InformerWatchNamespace != o.GetName() {
+			// We are only watching one namespace, and its not this one
+			return false
+		}
 		if inject.IgnoredNamespaces.Contains(o.GetName()) {
 			// skip special kubernetes system namespaces
 			return false
@@ -104,13 +108,12 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 
 // Run starts the NamespaceController until a value is sent to stopCh.
 func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
-	if !kube.WaitForCacheSync(stopCh, nc.namespacesInformer.HasSynced, nc.configMapInformer.HasSynced) {
-		log.Error("Failed to sync namespace controller cache")
+	if !kube.WaitForCacheSync("namespace controller", stopCh, nc.namespaces.HasSynced, nc.configmaps.HasSynced) {
 		return
 	}
 	go nc.startCaBundleWatcher(stopCh)
 	nc.queue.Run(stopCh)
-	nc.handlers.Cleanup()
+	controllers.ShutdownAll(nc.configmaps, nc.namespaces)
 }
 
 // startCaBundleWatcher listens for updates to the CA bundle and update cm in each namespace
@@ -120,8 +123,7 @@ func (nc *NamespaceController) startCaBundleWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case <-watchCh:
-			namespaceList, _ := nc.namespaceLister.List(labels.Everything())
-			for _, ns := range namespaceList {
+			for _, ns := range nc.namespaces.List("", labels.Everything()) {
 				nc.namespaceChange(ns)
 			}
 		case <-stop:
@@ -144,7 +146,7 @@ func (nc *NamespaceController) insertDataForNamespace(o types.NamespacedName) er
 		Namespace: ns,
 		Labels:    configMapLabel,
 	}
-	return k8s.InsertDataToConfigMap(nc.client, nc.configmapLister, meta, nc.caBundleWatcher.GetCABundle())
+	return k8s.InsertDataToConfigMap(nc.configmaps, meta, nc.caBundleWatcher.GetCABundle())
 }
 
 // On namespace change, update the config map.

@@ -38,6 +38,8 @@ type PodInfo struct {
 	Labels            map[string]string
 	Annotations       map[string]string
 	ProxyEnvironments map[string]string
+	ProxyUID          *int64
+	ProxyGID          *int64
 }
 
 // newK8sClient returns a Kubernetes client
@@ -84,6 +86,12 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 			for _, e := range container.Env {
 				pi.ProxyEnvironments[e.Name] = e.Value
 			}
+
+			if container.SecurityContext != nil {
+				pi.ProxyUID = container.SecurityContext.RunAsUser
+				pi.ProxyGID = container.SecurityContext.RunAsGroup
+			}
+
 			continue
 		}
 	}

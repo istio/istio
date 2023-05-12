@@ -11,6 +11,7 @@ import (
 
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
@@ -47,6 +48,21 @@ var (
 		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateAuthorizationPolicy,
+	}.MustBuild()
+
+	CertificateSigningRequest = resource.Builder{
+		Identifier: "CertificateSigningRequest",
+		Group:      "certificates.k8s.io",
+		Kind:       "CertificateSigningRequest",
+		Plural:     "certificatesigningrequests",
+		Version:    "v1",
+		Proto:      "k8s.io.api.certificates.v1.CertificateSigningRequestSpec", StatusProto: "k8s.io.api.certificates.v1.CertificateSigningRequestStatus",
+		ReflectType: reflect.TypeOf(&k8sioapicertificatesv1.CertificateSigningRequestSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapicertificatesv1.CertificateSigningRequestStatus{}).Elem(),
+		ProtoPackage: "k8s.io/api/certificates/v1", StatusPackage: "k8s.io/api/certificates/v1",
+		ClusterScoped: true,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	ConfigMap = resource.Builder{
@@ -395,14 +411,17 @@ var (
 	}.MustBuild()
 
 	ReferenceGrant = resource.Builder{
-		Identifier:    "ReferenceGrant",
-		Group:         "gateway.networking.k8s.io",
-		Kind:          "ReferenceGrant",
-		Plural:        "referencegrants",
-		Version:       "v1alpha2",
+		Identifier: "ReferenceGrant",
+		Group:      "gateway.networking.k8s.io",
+		Kind:       "ReferenceGrant",
+		Plural:     "referencegrants",
+		Version:    "v1beta1",
+		VersionAliases: []string{
+			"v1alpha2",
+		},
 		Proto:         "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec",
-		ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.ReferenceGrantSpec{}).Elem(),
-		ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec{}).Elem(),
+		ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1beta1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
@@ -568,6 +587,21 @@ var (
 		ValidateProto: validation.ValidateUDPRoute,
 	}.MustBuild()
 
+	ValidatingWebhookConfiguration = resource.Builder{
+		Identifier:    "ValidatingWebhookConfiguration",
+		Group:         "admissionregistration.k8s.io",
+		Kind:          "ValidatingWebhookConfiguration",
+		Plural:        "validatingwebhookconfigurations",
+		Version:       "v1",
+		Proto:         "k8s.io.api.admissionregistration.v1.ValidatingWebhookConfiguration",
+		ReflectType:   reflect.TypeOf(&k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration{}).Elem(),
+		ProtoPackage:  "k8s.io/api/admissionregistration/v1",
+		ClusterScoped: true,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	VirtualService = resource.Builder{
 		Identifier: "VirtualService",
 		Group:      "networking.istio.io",
@@ -640,6 +674,7 @@ var (
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
+		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
 		MustAdd(Deployment).
@@ -673,6 +708,7 @@ var (
 		MustAdd(TLSRoute).
 		MustAdd(Telemetry).
 		MustAdd(UDPRoute).
+		MustAdd(ValidatingWebhookConfiguration).
 		MustAdd(VirtualService).
 		MustAdd(WasmPlugin).
 		MustAdd(WorkloadEntry).
@@ -681,6 +717,7 @@ var (
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
+		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
 		MustAdd(Deployment).
@@ -703,6 +740,7 @@ var (
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).
 		MustAdd(UDPRoute).
+		MustAdd(ValidatingWebhookConfiguration).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -723,8 +761,8 @@ var (
 		MustAdd(WorkloadGroup).
 		Build()
 
-	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
-	PilotGatewayAPI = collection.NewSchemasBuilder().
+	// pilotGatewayAPI contains only collections used by Pilot, including the full Gateway API.
+	pilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(AuthorizationPolicy).
 			MustAdd(DestinationRule).
 			MustAdd(EnvoyFilter).
@@ -748,4 +786,26 @@ var (
 			MustAdd(WorkloadEntry).
 			MustAdd(WorkloadGroup).
 			Build()
+
+	// PilotStableGatewayAPI contains only collections used by Pilot, including beta+ Gateway API.
+	pilotStableGatewayAPI = collection.NewSchemasBuilder().
+				MustAdd(AuthorizationPolicy).
+				MustAdd(DestinationRule).
+				MustAdd(EnvoyFilter).
+				MustAdd(Gateway).
+				MustAdd(GatewayClass).
+				MustAdd(HTTPRoute).
+				MustAdd(KubernetesGateway).
+				MustAdd(PeerAuthentication).
+				MustAdd(ProxyConfig).
+				MustAdd(ReferenceGrant).
+				MustAdd(RequestAuthentication).
+				MustAdd(ServiceEntry).
+				MustAdd(Sidecar).
+				MustAdd(Telemetry).
+				MustAdd(VirtualService).
+				MustAdd(WasmPlugin).
+				MustAdd(WorkloadEntry).
+				MustAdd(WorkloadGroup).
+				Build()
 )

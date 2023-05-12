@@ -143,7 +143,7 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 		return nil, err
 	}
 
-	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), "")
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func checkGatewayAPIs(cli kube.CLIClient) (diag.Messages, error) {
 		return nil, err
 	}
 
-	betaKinds := sets.New(gvk.KubernetesGateway.Kind, gvk.GatewayClass.Kind, gvk.HTTPRoute.Kind)
+	betaKinds := sets.New(gvk.KubernetesGateway.Kind, gvk.GatewayClass.Kind, gvk.HTTPRoute.Kind, gvk.ReferenceGrant.Kind)
 	for _, r := range res.Items {
 		if r.Spec.Group != gvk.KubernetesGateway.Group {
 			continue

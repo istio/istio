@@ -18,11 +18,28 @@
 
 #include "ambient_redirect.h"
 
-#define dbg(fmt, ...)                               \
-    ({                                              \
-        bpf_printk("[Debug]: " fmt, ##__VA_ARGS__); \
+#define dbg(fmt, ...)                                   \
+    ({                                                  \
+        if (log_level && *log_level >= LOG_DEBUG)       \
+            bpf_printk("[Debug]: " fmt, ##__VA_ARGS__); \
     })
 
+
+/* This is an array to store log level
+|-----------------------------------------------------------------|
+|             |                 Val(log level)                    |
+|-----------------------------------------------------------------|
+|  0          | 0:none, 1:fatal, 2:error, 3:warn, 4:info, 5:debug |
+|-----------------------------------------------------------------|
+*/
+
+struct {
+        __uint(type, BPF_MAP_TYPE_ARRAY);
+        __uint(max_entries, 1);
+        __type(key, __u32);
+        __type(value, __u32);
+        __uint(pinning, LIBBPF_PIN_BY_NAME);
+} log_level SEC(".maps");
 
 /* This is an array to store host network(ip) info
 |--------------------------------------------------------------|
@@ -94,6 +111,11 @@ static __inline struct ztunnel_info * get_ztunnel_info()
     return bpf_map_lookup_elem(&ztunnel_info, &key);
 }
 
+static __inline __u32 * get_log_level()
+{
+    uint32_t key = 0;
+    return bpf_map_lookup_elem(&log_level, &key);
+}
 
 // For app pod veth pair(in host ns) ingress hook
 SEC("tc")
@@ -107,6 +129,7 @@ int app_outbound(struct __sk_buff *skb)
     struct ztunnel_info *zi = get_ztunnel_info();
     uint8_t capture_dns = 0;
     struct host_info *host_info = NULL;
+    __u32 *log_level = get_log_level();
 
     if (!zi || zi->ifindex == 0)
         return TC_ACT_OK;
@@ -158,6 +181,7 @@ int app_inbound(struct __sk_buff *skb)
     struct udphdr *udph;
     struct ztunnel_info *zi = NULL;
     struct host_info *host_info = NULL;
+    __u32 *log_level = get_log_level();
 
     if (skb->cb[4] == BYPASS_CB)
         return TC_ACT_OK;
@@ -212,6 +236,7 @@ int ztunnel_host_ingress(struct __sk_buff *skb)
     void *data_end = (void *)(long)skb->data_end;
     struct iphdr *iph = NULL;
     struct app_info *pi = NULL;
+    __u32 *log_level = get_log_level();
 
     if (data + sizeof(*eth) > data_end)
         return TC_ACT_OK;
@@ -253,6 +278,10 @@ int ztunnel_ingress(struct __sk_buff *skb)
     size_t tuple_len;
     struct bpf_sock *sk;
     int skip_mark = 0;
+    __u32 *log_level = get_log_level();
+
+    if (skb->cb[4] != OUTBOUND_CB && skb->cb[4] != INBOUND_CB)
+        return TC_ACT_OK;
 
     if (data + sizeof(*eth) > data_end)
         return TC_ACT_OK;
@@ -307,6 +336,83 @@ int ztunnel_ingress(struct __sk_buff *skb)
     }
 
     return TC_ACT_OK;
+}
+
+// For ztunnel pod veth pair(in pod ns) ingress hook
+// prog name disp limits to 15 bytes
+SEC("tc")
+int ztunnel_tproxy(struct __sk_buff *skb)
+{
+    void *data = (void *)(long)skb->data;
+    struct ethhdr  *eth = data;
+    void *data_end = (void *)(long)skb->data_end;
+    struct bpf_sock_tuple *tuple;
+    size_t tuple_len;
+    struct bpf_sock *sk;
+    __u32 *log_level = get_log_level();
+    struct bpf_sock_tuple proxy_tup;
+    __be16 proxy_port;
+    int ret;
+
+    if (skb->cb[4] != OUTBOUND_CB && skb->cb[4] != INBOUND_CB)
+        return TC_ACT_OK;
+
+    if (data + sizeof(*eth) > data_end)
+        return TC_ACT_OK;
+
+    if (eth->h_proto != bpf_htons(ETH_P_IP))
+        return TC_ACT_OK;
+
+    struct iphdr *iph = data + sizeof(*eth);
+    if (data + sizeof(*eth) + sizeof(*iph) > data_end)
+        return TC_ACT_OK;
+
+    // TODO: support UDP tunneling
+    if (iph->protocol != IPPROTO_TCP)
+        return TC_ACT_OK;
+
+    tuple = (struct bpf_sock_tuple *)&iph->saddr;
+    tuple_len = sizeof(tuple->ipv4);
+    if ((void *)tuple + sizeof(tuple->ipv4) > (void *)(long)skb->data_end)
+        return TC_ACT_SHOT;
+
+    sk = bpf_skc_lookup_tcp(skb, tuple, tuple_len, BPF_F_CURRENT_NETNS, 0);
+    if (sk && sk->state == BPF_TCP_LISTEN) {
+        bpf_sk_release(sk);
+        sk = NULL;
+    }
+    if (!sk) {
+        // No exisiting connection, try to find listner
+        __builtin_memset(&proxy_tup, 0, sizeof(proxy_tup));
+
+        if (skb->cb[4] == OUTBOUND_CB) {
+            proxy_port = bpf_htons(ZTUNNEL_OUTBOUND_PORT);
+        } else {
+            if (tuple->ipv4.dport != bpf_htons(ZTUNNEL_INBOUND_PORT)) {
+                // for plaintext case
+                proxy_port = bpf_htons(ZTUNNEL_INBOUND_PLAINTEXT_PORT);
+            } else {
+                proxy_port = bpf_htons(ZTUNNEL_INBOUND_PORT);
+            }
+        }
+
+        proxy_tup.ipv4.dport = proxy_port;
+
+        sk = bpf_skc_lookup_tcp(skb, &proxy_tup, tuple_len, BPF_F_CURRENT_NETNS, 0);
+        if (sk && sk->state != BPF_TCP_LISTEN) {
+            bpf_sk_release(sk);
+            sk = NULL;
+        }
+    }
+    if (!sk) {
+        return TC_ACT_OK;
+    }
+
+    ret = bpf_sk_assign(skb, sk, 0);
+    bpf_sk_release(sk);
+
+    skb->mark = ZTUNNEL_TPROXY_MARK;
+    return ret == 0 ? TC_ACT_OK : TC_ACT_SHOT;
 }
 
 char __license[] SEC("license") = "Dual BSD/GPL";

@@ -17,7 +17,6 @@ package inject
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -35,7 +34,6 @@ import (
 	meshapi "istio.io/api/mesh/v1alpha1"
 	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
@@ -253,14 +251,6 @@ func TestInjection(t *testing.T) {
 			expectedError: "excludeoutboundports",
 		},
 		{
-			in:   "hello.yaml",
-			want: "hello-no-seccontext.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableLegacyFSGroupInjection, false)
-				test.SetEnvForTest(t, "ENABLE_LEGACY_FSGROUP_INJECTION", "false")
-			},
-		},
-		{
 			in:   "traffic-annotations.yaml",
 			want: "traffic-annotations.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
@@ -296,13 +286,6 @@ func TestInjection(t *testing.T) {
 			want: "tcp-probes.yaml.injected",
 		},
 		{
-			in:   "tcp-probes.yaml",
-			want: "tcp-probes-disabled.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.RewriteTCPProbes, false)
-			},
-		},
-		{
 			in:          "hello-host-network-with-ns.yaml",
 			want:        "hello-host-network-with-ns.yaml.injected",
 			expectedLog: "Skipping injection because Deployment \"sample/hello-host-network\" has host networking enabled",
@@ -313,6 +296,13 @@ func TestInjection(t *testing.T) {
 			want: "merge-probers.yaml.injected",
 			setFlags: []string{
 				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
+			},
+		},
+		{
+			in:   "hello-tracing-disabled.yaml",
+			want: "hello-tracing-disabled.yaml.injected",
+			mesh: func(m *meshapi.MeshConfig) {
+				m.DefaultConfig.Tracing = &meshapi.Tracing{}
 			},
 		},
 	}
@@ -357,6 +347,7 @@ func TestInjection(t *testing.T) {
 	// Precompute injection settings. This may seem like a premature optimization, but due to the size of
 	// YAMLs, with -race this was taking >10min in some cases to generate!
 	if util.Refresh() {
+		cleanupOldFiles(t)
 		writeInjectionSettings(t, "default", nil, "")
 		for i, c := range cases {
 			if c.setFlags != nil || c.inFilePath != "" {
@@ -937,40 +928,6 @@ func Test_updateClusterEnvs(t *testing.T) {
 			updateClusterEnvs(tt.args.container, tt.args.newKVs)
 			if !cmp.Equal(tt.args.container.Env, tt.want.Env) {
 				t.Fatalf("updateClusterEnvs got \n%+v, expected \n%+v", tt.args.container.Env, tt.want.Env)
-			}
-		})
-	}
-}
-
-func TestQuantityConversion(t *testing.T) {
-	for _, tt := range []struct {
-		in  string
-		out int
-		err error
-	}{
-		{
-			in:  "4000m",
-			out: 4,
-		},
-		{
-			in:  "6500m",
-			out: 7,
-		},
-		{
-			in:  "200mi",
-			err: errors.New("unable to parse"),
-		},
-	} {
-		t.Run(tt.in, func(t *testing.T) {
-			got, err := quantityToConcurrency(tt.in)
-			if err != nil {
-				if tt.err == nil {
-					t.Errorf("expected no error, got %v", err)
-				}
-			} else {
-				if tt.out != got {
-					t.Errorf("got %v, want %v", got, tt.out)
-				}
 			}
 		})
 	}

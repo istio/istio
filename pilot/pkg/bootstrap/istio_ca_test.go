@@ -15,7 +15,6 @@
 package bootstrap
 
 import (
-	"context"
 	"os"
 	"path"
 	"testing"
@@ -25,11 +24,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/security/pkg/pki/ca"
 )
 
-const namespace = "istio-system"
+const testNamespace = "istio-system"
 
 func TestRemoteCerts(t *testing.T) {
 	g := NewWithT(t)
@@ -40,7 +41,7 @@ func TestRemoteCerts(t *testing.T) {
 		kubeClient: kube.NewFakeClient(),
 	}
 	caOpts := &caOptions{
-		Namespace: namespace,
+		Namespace: testNamespace,
 	}
 
 	// Should do nothing because cacerts doesn't exist.
@@ -51,8 +52,7 @@ func TestRemoteCerts(t *testing.T) {
 	g.Expect(os.IsNotExist(err)).Should(Equal(true))
 
 	// Should load remote cacerts successfully.
-	err = createCASecret(s.kubeClient)
-	g.Expect(err).Should(BeNil())
+	createCASecret(t, s.kubeClient)
 
 	err = s.loadCACerts(caOpts, dir)
 	g.Expect(err).Should(BeNil())
@@ -76,7 +76,7 @@ func TestRemoteTLSCerts(t *testing.T) {
 		kubeClient: kube.NewFakeClient(),
 	}
 	caOpts := &caOptions{
-		Namespace: namespace,
+		Namespace: testNamespace,
 	}
 
 	// Should do nothing because cacerts doesn't exist.
@@ -87,8 +87,7 @@ func TestRemoteTLSCerts(t *testing.T) {
 	g.Expect(os.IsNotExist(err)).Should(Equal(true))
 
 	// Should load remote cacerts successfully.
-	err = createCATLSSecret(s.kubeClient)
-	g.Expect(err).Should(BeNil())
+	createCATLSSecret(t, s.kubeClient)
 
 	err = s.loadCACerts(caOpts, dir)
 	g.Expect(err).Should(BeNil())
@@ -103,23 +102,22 @@ func TestRemoteTLSCerts(t *testing.T) {
 	g.Expect(err).Should(BeNil())
 }
 
-func createCATLSSecret(client kube.Client) error {
+func createCATLSSecret(t test.Failer, client kube.Client) {
 	var caCert, caKey, rootCert []byte
 	var err error
 	if caCert, err = readSampleCertFromFile("ca-cert.pem"); err != nil {
-		return err
+		t.Fatal(err)
 	}
 	if caKey, err = readSampleCertFromFile("ca-key.pem"); err != nil {
-		return err
+		t.Fatal(err)
 	}
 	if rootCert, err = readSampleCertFromFile("root-cert.pem"); err != nil {
-		return err
+		t.Fatal(err)
 	}
 
-	secrets := client.Kube().CoreV1().Secrets(namespace)
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
+			Namespace: testNamespace,
 			Name:      "cacerts",
 		},
 		Type: v1.SecretTypeTLS,
@@ -129,32 +127,28 @@ func createCATLSSecret(client kube.Client) error {
 			"ca.crt":  rootCert,
 		},
 	}
-	if _, err = secrets.Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
-		return err
-	}
-	return nil
+	clienttest.NewWriter[*v1.Secret](t, client).Create(secret)
 }
 
-func createCASecret(client kube.Client) error {
+func createCASecret(t test.Failer, client kube.Client) {
 	var caCert, caKey, certChain, rootCert []byte
 	var err error
 	if caCert, err = readSampleCertFromFile("ca-cert.pem"); err != nil {
-		return err
+		t.Fatal(err)
 	}
 	if caKey, err = readSampleCertFromFile("ca-key.pem"); err != nil {
-		return err
+		t.Fatal(err)
 	}
 	if certChain, err = readSampleCertFromFile("cert-chain.pem"); err != nil {
-		return err
+		t.Fatal(err)
 	}
 	if rootCert, err = readSampleCertFromFile("root-cert.pem"); err != nil {
-		return err
+		t.Fatal(err)
 	}
 
-	secrets := client.Kube().CoreV1().Secrets(namespace)
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
+			Namespace: testNamespace,
 			Name:      "cacerts",
 		},
 		Data: map[string][]byte{
@@ -164,10 +158,8 @@ func createCASecret(client kube.Client) error {
 			ca.RootCertFile:     rootCert,
 		},
 	}
-	if _, err = secrets.Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
-		return err
-	}
-	return nil
+
+	clienttest.NewWriter[*v1.Secret](t, client).Create(secret)
 }
 
 func readSampleCertFromFile(f string) ([]byte, error) {

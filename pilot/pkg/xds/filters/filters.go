@@ -263,7 +263,7 @@ var (
 func buildHTTPMxFilter() *hcm.HttpFilter {
 	httpMxConfigProto := &httpwasm.Wasm{
 		Config: &wasm.PluginConfig{
-			Vm:            model.ConstructVMConfig("/etc/istio/extensions/metadata-exchange-filter.compiled.wasm", "envoy.wasm.metadata_exchange"),
+			Vm:            model.ConstructVMConfig("envoy.wasm.metadata_exchange"),
 			Configuration: protoconv.MessageToAny(&metadata_exchange.MetadataExchange{}),
 		},
 	}

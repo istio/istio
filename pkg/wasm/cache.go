@@ -35,7 +35,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var wasmLog = log.RegisterScope("wasm", "", 0)
+var wasmLog = log.RegisterScope("wasm", "")
 
 const (
 	// oci URL prefix

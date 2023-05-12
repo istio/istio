@@ -38,7 +38,7 @@ const (
 	hostHeader = "Host"
 )
 
-var fwLog = log.RegisterScope("forwarder", "echo clientside", 0)
+var fwLog = log.RegisterScope("forwarder", "echo clientside")
 
 func writeForwardedHeaders(out *bytes.Buffer, requestID int, header http.Header) {
 	for key, values := range header {

@@ -18,12 +18,14 @@ import (
 	"fmt"
 	"sort"
 
+	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
@@ -35,7 +37,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
 	// removing gateway references when they are removed), without mangling other Controller's status.
 	for _, r := range current {
-		if r.ControllerName != ControllerName {
+		if r.ControllerName != constants.ManagedGatewayController {
 			// We don't own this status, so keep it around
 			gws = append(gws, r)
 		}
@@ -137,10 +139,18 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 				Message: gw.DeniedReason.Message,
 			}
 		}
+
+		var currentConditions []metav1.Condition
+		idx := slices.IndexFunc(current, func(s k8sbeta.RouteParentStatus) bool {
+			return parentRefString(s.ParentRef) == parentRefString(gw.OriginalReference)
+		})
+		if idx != -1 {
+			currentConditions = current[idx].Conditions
+		}
 		gws = append(gws, k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
-			ControllerName: ControllerName,
-			Conditions:     setConditions(obj.Generation, nil, conds),
+			ControllerName: constants.ManagedGatewayController,
+			Conditions:     setConditions(obj.Generation, currentConditions, conds),
 		})
 	}
 	// Ensure output is deterministic.
@@ -184,6 +194,7 @@ const (
 	InvalidListenerRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8sbeta.ListenerReasonRefNotPermitted)
 	// InvalidConfiguration indicates a generic error for all other invalid configurations
 	InvalidConfiguration ConfigErrorReason = "InvalidConfiguration"
+	InvalidResources     ConfigErrorReason = ConfigErrorReason(k8sbeta.GatewayReasonNoResources)
 )
 
 // ParentError represents that a parent could not be referenced
@@ -261,14 +272,6 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 		}
 	}
 	return existingConditions
-}
-
-func reportGatewayCondition(obj config.Config, conditions map[string]*condition) {
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		gs := s.(*k8s.GatewayStatus)
-		gs.Conditions = setConditions(obj.Generation, gs.Conditions, conditions)
-		return gs
-	})
 }
 
 func reportListenerAttachedRoutes(index int, obj config.Config, i int32) {

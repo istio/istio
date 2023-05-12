@@ -25,7 +25,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var k8sControllerLog = log.RegisterScope("secretcontroller", "Citadel kubernetes controller log", 0)
+var k8sControllerLog = log.RegisterScope("secretcontroller", "Citadel kubernetes controller log")
 
 // CaSecretController manages the self-signed signing CA secret.
 type CaSecretController struct {

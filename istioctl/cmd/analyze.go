@@ -135,7 +135,7 @@ func Analyze() *cobra.Command {
 
 			// check whether selected namespace exists.
 			if namespace != "" && useKube {
-				client, err := kube.NewClient(kube.BuildClientCmd(kubeconfig, configContext))
+				client, err := kube.NewClient(kube.BuildClientCmd(kubeconfig, configContext), "")
 				if err != nil {
 					return err
 				}
@@ -189,7 +189,7 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
+				k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), "")
 				if err != nil {
 					return err
 				}

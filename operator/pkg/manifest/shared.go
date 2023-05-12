@@ -45,7 +45,7 @@ import (
 )
 
 // installerScope is the scope for shared manifest package.
-var installerScope = log.RegisterScope("installer", "installer", 0)
+var installerScope = log.RegisterScope("installer", "installer")
 
 // GenManifests generates a manifest map, keyed by the component name, from input file list and a YAML tree
 // representation of path-values passed through the --set flag.

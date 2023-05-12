@@ -23,54 +23,28 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
-func SkipExcludedCollections(requiredCols []config.GroupVersionKind, excludedResourceKinds []string) collection.Schemas {
+func ConvertInputsToSchemas(inputs []config.GroupVersionKind) collection.Schemas {
 	resultBuilder := collection.NewSchemasBuilder()
-	for _, gv := range requiredCols {
+	for _, gv := range inputs {
 		s, f := collections.All.FindByGroupVersionKind(gv)
 		if !f {
 			continue
 		}
-		disabled := false
-		if isKindExcluded(excludedResourceKinds, s.Kind()) {
-			// Found a matching exclude directive for this KubeResource. Disable the resource.
-			disabled = true
-
-			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
-			if IsRequiredForServiceDiscovery(s) {
-				// This is needed for service discovery. Re-enable.
-				disabled = false
-			}
-		}
-
-		if disabled {
-			continue
-		}
-
 		_ = resultBuilder.Add(s)
 	}
 
 	return resultBuilder.Build()
 }
 
-// DefaultExcludedResourceKinds returns the default list of resource kinds to exclude.
-func DefaultExcludedResourceKinds() []string {
-	resources := make([]string, 0)
+func DefaultExcludedSchemas() collection.Schemas {
+	resultBuilder := collection.NewSchemasBuilder()
 	for _, r := range collections.Kube.All() {
 		if IsDefaultExcluded(r) {
-			resources = append(resources, r.Kind())
-		}
-	}
-	return resources
-}
-
-func isKindExcluded(excludedResourceKinds []string, kind string) bool {
-	for _, excludedKind := range excludedResourceKinds {
-		if kind == excludedKind {
-			return true
+			_ = resultBuilder.Add(r)
 		}
 	}
 
-	return false
+	return resultBuilder.Build()
 }
 
 // the following code minimally duplicates logic from galley/pkg/config/source/kube/rt/known.go
@@ -91,12 +65,8 @@ func asTypesKey(group, kind string) string {
 	return fmt.Sprintf("%s/%s", group, kind)
 }
 
-func IsRequiredForServiceDiscovery(res resource.Schema) bool {
+func IsDefaultExcluded(res resource.Schema) bool {
 	key := asTypesKey(res.Group(), res.Kind())
 	_, ok := knownTypes[key]
 	return ok
-}
-
-func IsDefaultExcluded(res resource.Schema) bool {
-	return IsRequiredForServiceDiscovery(res)
 }

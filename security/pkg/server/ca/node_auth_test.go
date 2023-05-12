@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 type pod struct {
@@ -131,7 +130,7 @@ func TestNodeAuthorizer(t *testing.T) {
 			trustedAccounts:         allowZtunnel,
 			requestedIdentityString: podSameNode.Identity(),
 			pods:                    []pod{podSameNode},
-			wantErr:                 "failed to lookup pod",
+			wantErr:                 "pod istio-system/ztunnel-a not found",
 		},
 		{
 			name: "bad UID",
@@ -173,22 +172,12 @@ func TestNodeAuthorizer(t *testing.T) {
 				})
 			}
 			c := kube.NewFakeClient(pods...)
-			na, err := NewNodeAuthorizer(c, tt.trustedAccounts)
+			na, err := NewNodeAuthorizer(c, nil, tt.trustedAccounts)
 			if err != nil {
 				t.Fatal(err)
 			}
 			c.RunAndWait(test.NewStop(t))
-			// TODO(https://github.com/kubernetes/kubernetes/pull/113985) pull in proper hasSynced
-			// For now, we can manually check
-			for _, pod := range tt.pods {
-				retry.UntilOrFail(t, func() bool {
-					pods := na.podIndexer.Lookup(SaNode{Node: pod.node, ServiceAccount: types.NamespacedName{
-						Namespace: pod.namespace,
-						Name:      pod.account,
-					}})
-					return len(pods) > 0
-				})
-			}
+			kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
 
 			err = na.authenticateImpersonation(tt.caller, tt.requestedIdentityString)
 			if tt.wantErr == "" && err != nil {

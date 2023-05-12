@@ -34,6 +34,17 @@ type ConfigWriter struct {
 	configDump *configdump.Wrapper
 }
 
+// includeConfigType is a flag to indicate whether to include the config type in the output
+var includeConfigType bool
+
+func SetPrintConfigTypeInSummary(p bool) {
+	includeConfigType = p
+}
+
+func PrintConfigTypeInSummary() bool {
+	return includeConfigType
+}
+
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
 	cd := &adminv3.ConfigDump{}
@@ -115,7 +126,7 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 	return secretWriter.PrintSecretItems(secretItems)
 }
 
-func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf RouteFilter) error {
+func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf RouteFilter, epf EndpointFilter) error {
 	if err := c.PrintClusterSummary(cf); err != nil {
 		return err
 	}
@@ -129,6 +140,10 @@ func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf 
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
 	if err := c.PrintSecretSummary(); err != nil {
+		return err
+	}
+	_, _ = c.Stdout.Write([]byte("\n"))
+	if err := c.PrintEndpointsSummary(epf); err != nil {
 		return err
 	}
 	return nil

@@ -18,6 +18,7 @@ package loadbalancer
 import (
 	"math"
 	"sort"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -26,6 +27,10 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+)
+
+const (
+	FailoverPriorityLabelDefaultSeparator = '='
 )
 
 func GetLocalityLbSetting(
@@ -245,6 +250,22 @@ func applyPriorityFailover(
 	loadAssignment.Endpoints = localityLbEndpoints
 }
 
+// Returning the label names in a separate array as the iteration of map is not ordered.
+func priorityLabelOverrides(labels []string) ([]string, map[string]string) {
+	priorityLabels := make([]string, 0, len(labels))
+	overriddenValueByLabel := make(map[string]string, len(labels))
+	var tempStrings []string
+	for _, labelWithValue := range labels {
+		tempStrings = strings.Split(labelWithValue, string(FailoverPriorityLabelDefaultSeparator))
+		priorityLabels = append(priorityLabels, tempStrings[0])
+		if len(tempStrings) == 2 {
+			overriddenValueByLabel[tempStrings[0]] = tempStrings[1]
+			continue
+		}
+	}
+	return priorityLabels, overriddenValueByLabel
+}
+
 // set loadbalancing priority by failover priority label.
 // split one LocalityLbEndpoints to multiple LocalityLbEndpoints based on failover priorities.
 func applyPriorityFailoverPerLocality(
@@ -255,11 +276,16 @@ func applyPriorityFailoverPerLocality(
 	lowestPriority := len(failoverPriorities)
 	// key is priority, value is the index of LocalityLbEndpoints.LbEndpoints
 	priorityMap := map[int][]int{}
+	priorityLabels, priorityLabelOverrides := priorityLabelOverrides(failoverPriorities)
 	for i, istioEndpoint := range ep.IstioEndpoints {
 		var priority int
 		// failoverPriority labels match
-		for j, label := range failoverPriorities {
-			if proxyLabels[label] != istioEndpoint.Labels[label] {
+		for j, label := range priorityLabels {
+			valueForProxy, ok := priorityLabelOverrides[label]
+			if !ok {
+				valueForProxy = proxyLabels[label]
+			}
+			if valueForProxy != istioEndpoint.Labels[label] {
 				priority = lowestPriority - j
 				break
 			}

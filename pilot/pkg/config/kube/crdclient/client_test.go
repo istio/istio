@@ -15,12 +15,12 @@
 package crdclient
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	"golang.org/x/exp/slices"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -55,7 +56,7 @@ func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCont
 	}
 	go config.Run(stop)
 	fake.RunAndWait(stop)
-	kube.WaitForCacheSync(stop, config.HasSynced)
+	kube.WaitForCacheSync("test", stop, config.HasSynced)
 	return config, fake
 }
 
@@ -138,11 +139,11 @@ func TestClientDelayedCRDs(t *testing.T) {
 
 // CheckIstioConfigTypes validates that an empty store can do CRUD operators on all given types
 func TestClient(t *testing.T) {
-	store, _ := makeClient(t, collections.PilotGatewayAPI.Union(collections.Kube))
+	store, _ := makeClient(t, collections.PilotGatewayAPI().Union(collections.Kube))
 	configName := "test"
 	configNamespace := "test-ns"
 	timeout := retry.Timeout(time.Millisecond * 200)
-	for _, r := range collections.PilotGatewayAPI.All() {
+	for _, r := range collections.PilotGatewayAPI().All() {
 		name := r.Kind()
 		t.Run(name, func(t *testing.T) {
 			configMeta := config.Meta{
@@ -338,9 +339,8 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 			},
 			Spec: v1alpha3.ServiceEntry{},
 		}
-		_, err := fake.Istio().NetworkingV1alpha3().ServiceEntries(obj.Namespace).Create(
-			context.TODO(), obj, metav1.CreateOptions{})
-		assert.NoError(t, err)
+
+		clienttest.NewWriter[*clientnetworkingv1alpha3.ServiceEntry](t, fake).Create(obj)
 		// Only SEs from the default revision should generate events.
 		if selectedLabels == nil {
 			expectedCfgs = append(expectedCfgs, TranslateObject(obj, gvk.ServiceEntry, ""))
@@ -364,11 +364,9 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 
 	stop := test.NewStop(t)
 	fake.RunAndWait(stop)
+	go store.Run(stop)
 
-	// We don't call Run() and immediately close the stop channel as it occasionally leads to
-	// duplicate add events from the informer that cause test flakes. Instead, just call SyncAll()
-	// to only trigger the initial bootstrap sync.
-	store.SyncAll()
+	kube.WaitForCacheSync("test", stop, store.HasSynced)
 
 	// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
 	sortFunc := func(a, b config.Config) bool {
@@ -387,9 +385,7 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 			Name: fmt.Sprintf("%s.%s", r.Plural(), r.Group()),
 		},
 	}
-	if _, err := client.Ext().ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{}); err != nil {
-		t.Fatal(err)
-	}
+	clienttest.NewWriter[*v1.CustomResourceDefinition](t, client).Create(crd)
 
 	// Metadata client fake is not kept in sync, so if using a fake client update that as well
 	fmc, ok := client.Metadata().(*metadatafake.FakeMetadataClient)
@@ -407,4 +403,32 @@ func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
 	}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestClientSync(t *testing.T) {
+	obj := &clientnetworkingv1alpha3.ServiceEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-service-entry",
+			Namespace: "test",
+		},
+		Spec: v1alpha3.ServiceEntry{},
+	}
+	fake := kube.NewFakeClient()
+	clienttest.NewWriter[*clientnetworkingv1alpha3.ServiceEntry](t, fake).Create(obj)
+	for _, s := range collections.Pilot.All() {
+		createCRD(t, fake, s)
+	}
+	stop := test.NewStop(t)
+	c, err := New(fake, Option{})
+	assert.NoError(t, err)
+
+	events := atomic.NewInt64(0)
+	c.RegisterEventHandler(gvk.ServiceEntry, func(c config.Config, c2 config.Config, event model.Event) {
+		events.Inc()
+	})
+	go c.Run(stop)
+	fake.RunAndWait(stop)
+	kube.WaitForCacheSync("test", stop, c.HasSynced)
+	// This MUST have been called by the time HasSynced returns true
+	assert.Equal(t, events.Load(), 1)
 }

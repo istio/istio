@@ -34,6 +34,16 @@ resources:
     proto: "k8s.io.api.admissionregistration.v1.MutatingWebhookConfiguration"
     protoPackage: "k8s.io/api/admissionregistration/v1"
 
+  - kind: "ValidatingWebhookConfiguration"
+    plural: "validatingwebhookconfigurations"
+    group: "admissionregistration.k8s.io"
+    version: "v1"
+    clusterScoped: true
+    builtin: true
+    specless: true
+    proto: "k8s.io.api.admissionregistration.v1.ValidatingWebhookConfiguration"
+    protoPackage: "k8s.io/api/admissionregistration/v1"
+
   - kind: "Deployment"
     plural: "deployments"
     group: "apps"
@@ -111,6 +121,17 @@ resources:
     specless: true
     proto: "k8s.io.api.core.v1.ServiceAccount"
     protoPackage: "k8s.io/api/core/v1"
+
+  - kind: "CertificateSigningRequest"
+    plural: "certificatesigningrequests"
+    group: "certificates.k8s.io"
+    version: "v1"
+    builtin: true
+    clusterScoped: true
+    proto: "k8s.io.api.certificates.v1.CertificateSigningRequestSpec"
+    protoPackage: "k8s.io/api/certificates/v1"
+    statusProto: "k8s.io.api.certificates.v1.CertificateSigningRequestStatus"
+    statusProtoPackage: "k8s.io/api/certificates/v1"
 
   - kind: "Ingress"
     plural: "ingresses"
@@ -206,8 +227,10 @@ resources:
   - kind: "ReferenceGrant"
     plural: "referencegrants"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    version: "v1beta1"
+    versionAliases:
+    - "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec"
 
   ## Istio resources
