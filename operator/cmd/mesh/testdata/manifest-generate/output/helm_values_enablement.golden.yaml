@@ -126,8 +126,6 @@ spec:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
             value: istio-egressgateway
-          - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-egressgateway
           - name: ISTIO_META_MESH_ID
             value: "cluster.local"
           - name: TRUST_DOMAIN

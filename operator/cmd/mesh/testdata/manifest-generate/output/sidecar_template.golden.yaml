@@ -465,10 +465,6 @@ data:
             - name: ISTIO_META_WORKLOAD_NAME
               value: "{{ .DeploymentMeta.Name }}"
             {{ end }}
-            {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
-            - name: ISTIO_META_OWNER
-              value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `default` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
-            {{- end}}
             {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
             - name: ISTIO_BOOTSTRAP_OVERRIDE
               value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
@@ -794,10 +790,6 @@ data:
             - name: ISTIO_META_WORKLOAD_NAME
               value: "{{ .DeploymentMeta.Name }}"
             {{ end }}
-            {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
-            - name: ISTIO_META_OWNER
-              value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `default` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
-            {{- end}}
             {{- if .Values.global.meshID }}
             - name: ISTIO_META_MESH_ID
               value: "{{ .Values.global.meshID }}"
@@ -1133,10 +1125,6 @@ data:
             - name: ISTIO_META_WORKLOAD_NAME
               value: "{{ .DeploymentMeta.Name }}"
             {{ end }}
-            {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
-            - name: ISTIO_META_OWNER
-              value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `default` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
-            {{- end}}
             {{- if .Values.global.meshID }}
             - name: ISTIO_META_MESH_ID
               value: "{{ .Values.global.meshID }}"
@@ -1422,8 +1410,6 @@ data:
                   value: REDIRECT
                 - name: ISTIO_META_WORKLOAD_NAME
                   value: {{.DeploymentName}}
-                - name: ISTIO_META_OWNER
-                  value: kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.DeploymentName}}
                 {{- if .Values.global.meshID }}
                 - name: ISTIO_META_MESH_ID
                   value: "{{ .Values.global.meshID }}"
@@ -1677,8 +1663,6 @@ data:
                 {{- end }}
                 - name: ISTIO_META_WORKLOAD_NAME
                   value: {{.DeploymentName|quote}}
-                - name: ISTIO_META_OWNER
-                  value: "kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.DeploymentName}}"
                 {{- if .Values.global.meshID }}
                 - name: ISTIO_META_MESH_ID
                   value: "{{ .Values.global.meshID }}"
