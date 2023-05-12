@@ -1115,3 +1115,53 @@ func TestPatchHTTPRoute(t *testing.T) {
 		})
 	}
 }
+
+func TestCloneVhostRouteByRouteIndex(t *testing.T) {
+	type args struct {
+		vh1 *route.VirtualHost
+		vh2 *route.VirtualHost
+	}
+	cloneRouter := route.Route{
+		Name: "clone",
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				PrefixRewrite: "/clone",
+			},
+		},
+	}
+	tests := []struct {
+		name      string
+		args      args
+		wantClone bool
+	}{
+		{
+			name: "clone",
+			args: args{
+				vh1: &route.VirtualHost{
+					Name:    "vh1",
+					Domains: []string{"*"},
+					Routes: []*route.Route{
+						&cloneRouter,
+					},
+				},
+				vh2: &route.VirtualHost{
+					Name:    "vh2",
+					Domains: []string{"*"},
+					Routes: []*route.Route{
+						&cloneRouter,
+					},
+				},
+			},
+			wantClone: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cloneRouter.Name = "test"
+			cloneVhostRouteByRouteIndex(tt.args.vh1, 0)
+			if tt.args.vh1.Routes[0].Name != tt.args.vh2.Routes[0].Name && tt.wantClone {
+				t.Errorf("CloneVhostRouteByRouteIndex(): %s (-wantClone +got):%v", tt.name, tt.wantClone)
+			}
+		})
+	}
+}
