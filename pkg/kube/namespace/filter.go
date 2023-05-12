@@ -180,8 +180,6 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 	// update filter state
 	d.discoveryNamespaces = newDiscoveryNamespaces
 	d.discoverySelectors = selectors
-
-	return
 }
 
 func (d *discoveryNamespacesFilter) notifyNamespaceHandlers(ns string, event model.Event) {

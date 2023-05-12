@@ -80,11 +80,8 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
 	c.configmaps.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
-		if inject.IgnoredNamespaces.Contains(o.GetNamespace()) {
-			// skip special kubernetes system namespaces
-			return false
-		}
-		return true
+		// skip special kubernetes system namespaces
+		return !inject.IgnoredNamespaces.Contains(o.GetNamespace())
 	}))
 	c.namespaces.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		if features.InformerWatchNamespace != "" && features.InformerWatchNamespace != o.GetName() {
