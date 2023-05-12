@@ -163,6 +163,7 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 					}
 				default:
 					// Fallback to the legacy string matching
+					// If the httpPath.Path is a wildcard path, Uri will be nil
 					httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
 				}
 			} else {
@@ -174,7 +175,10 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 				log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
 				continue
 			}
-			httpRoute.Match = []*networking.HTTPMatchRequest{httpMatch}
+			// Only create a match if Uri is not nil. HttpMatchRequest cannot be empty
+			if httpMatch.Uri != nil {
+				httpRoute.Match = []*networking.HTTPMatchRequest{httpMatch}
+			}
 			httpRoutes = append(httpRoutes, httpRoute)
 		}
 
@@ -319,7 +323,8 @@ func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *knetwor
 }
 
 func createFallbackStringMatch(s string) *networking.StringMatch {
-	if s == "" {
+	// If the string is empty or a wildcard, return nil
+	if s == "" || s == "*" || s == "/*" || s == ".*" {
 		return nil
 	}
 
