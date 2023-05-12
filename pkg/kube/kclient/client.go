@@ -21,10 +21,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/config/schema/kubeclient"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -172,15 +172,7 @@ func New[T controllers.ComparableObject](c kube.Client) Client[T] {
 // This means there must only be one filter configuration for a given type using the same kube.Client (generally, this means the whole program).
 // Use with caution.
 func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) Client[T] {
-	var inf cache.SharedIndexInformer
-	if filter.LabelSelector == "" && filter.FieldSelector == "" {
-		inf = kubeclient.GetInformer[T](c)
-	} else {
-		inf = kubeclient.GetInformerFiltered[T](c, kubetypes.InformerOptions{
-			LabelSelector: filter.LabelSelector,
-			FieldSelector: filter.FieldSelector,
-		})
-	}
+	inf := kubeclient.GetInformerFiltered[T](c, toOpts(c, filter))
 
 	return &fullClient[T]{
 		writeClient:    writeClient[T]{client: c},
@@ -188,16 +180,25 @@ func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) C
 	}
 }
 
-// NewUntyped returns an untyped client for a given informer. This is read-only.
-//
-// Warning: because the informer is already created, only client side filters are supported.
-func NewUntyped(c kube.Client, inf cache.SharedIndexInformer, filter Filter) Untyped {
-	if filter.LabelSelector != "" {
-		panic("invalid filter supplied, LabelSelector not allowed")
-	}
-	if filter.FieldSelector != "" {
-		panic("invalid filter supplied, FieldSelector not allowed")
-	}
+// NewUntyped returns an untyped client for a given GVR. This is read-only.
+func NewUntyped(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
+	inf := kubeclient.GetInformerFilteredFromGVR(c, toOpts(c, filter), gvr)
+	return ptr.Of(newInformerClient[controllers.Object](c, inf, filter))
+}
+
+// NewDynamic returns a dynamic client for a given GVR. This is read-only.
+func NewDynamic(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
+	opts := toOpts(c, filter)
+	opts.InformerType = kubetypes.DynamicInformer
+	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
+	return ptr.Of(newInformerClient[controllers.Object](c, inf, filter))
+}
+
+// NewMetadata returns a metadata client for a given GVR. This is read-only.
+func NewMetadata(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
+	opts := toOpts(c, filter)
+	opts.InformerType = kubetypes.MetadataInformer
+	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
 	return ptr.Of(newInformerClient[controllers.Object](c, inf, filter))
 }
 
@@ -215,15 +216,6 @@ func newInformerClient[T controllers.ComparableObject](c kube.Client, inf cache.
 		}
 		log.Warn(err)
 	}
-	if filter.ObjectTransform != nil {
-		_ = inf.SetTransform(filter.ObjectTransform)
-	} else {
-		_ = inf.SetTransform(kube.StripUnusedFields)
-	}
-
-	if err := inf.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.ClusterID())); err != nil {
-		log.Debugf("failed to set watch handler, informer may already be started: %v", err)
-	}
 	return informerClient[T]{
 		informer: inf,
 		filter:   filter.ObjectFilter,
@@ -237,4 +229,13 @@ func keyFunc(name, namespace string) string {
 		return name
 	}
 	return namespace + "/" + name
+}
+
+func toOpts(c kube.Client, filter Filter) kubetypes.InformerOptions {
+	return kubetypes.InformerOptions{
+		LabelSelector:   filter.LabelSelector,
+		FieldSelector:   filter.FieldSelector,
+		ObjectTransform: filter.ObjectTransform,
+		Cluster:         c.ClusterID(),
+	}
 }

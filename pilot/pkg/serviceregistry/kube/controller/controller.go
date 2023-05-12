@@ -596,12 +596,12 @@ func (c *Controller) informersSynced() bool {
 	// Because crdWatcher.HasSynced only indicates the cache synced, but does not guarantee the event handler called.
 	// So we wait get the CRD explicitly and if MCS installed, we wait until serviceImports and serviceExports sync.
 	if c.crdWatcher != nil {
-		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceImportGVR.Resource + "." + mcs.ServiceImportGVR.Group); exists {
+		if c.crdWatcher.Exists(mcs.ServiceImportGVR.Resource + "." + mcs.ServiceImportGVR.Group) {
 			if !c.imports.HasSynced() {
 				return false
 			}
 		}
-		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceExportGVR.Resource + "." + mcs.ServiceExportGVR.Group); exists {
+		if c.crdWatcher.Exists(mcs.ServiceExportGVR.Resource + "." + mcs.ServiceExportGVR.Group) {
 			if !c.exports.HasSynced() {
 				return false
 			}

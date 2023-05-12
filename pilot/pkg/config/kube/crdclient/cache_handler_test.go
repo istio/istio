@@ -17,7 +17,6 @@ package crdclient
 import (
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -26,8 +25,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -155,9 +156,7 @@ func buildClientAndCacheHandler(t test.Failer, schema resource.Schema) (*Client,
 
 	// The informer isn't actually used in the test, but a real one is needed for
 	// constructing the cache handler, so just use an arbitrary one.
-	informer, err := cl.client.KubeInformer().ForResource(corev1.SchemeGroupVersion.WithResource("pods"))
-	assert.NoError(t, err)
-
+	informer := kclient.NewUntyped(cl.client, gvr.Pod, kclient.Filter{})
 	h := createCacheHandler(cl, schema, informer)
 
 	return cl, h

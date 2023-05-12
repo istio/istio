@@ -16,7 +16,6 @@ package crdclient
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
 	"k8s.io/client-go/tools/cache"
@@ -81,12 +80,12 @@ func (h *cacheHandler) callHandlers(old config.Config, curr config.Config, event
 	}
 }
 
-func createCacheHandler(cl *Client, schema resource.Schema, i informers.GenericInformer) *cacheHandler {
+func createCacheHandler(cl *Client, schema resource.Schema, i kclient.Untyped) *cacheHandler {
 	scope.Debugf("registered CRD %v", schema.GroupVersionKind())
 	h := &cacheHandler{
 		client:   cl,
 		schema:   schema,
-		informer: kclient.NewUntyped(cl.client, i.Informer(), kclient.Filter{ObjectFilter: cl.namespacesFilter}),
+		informer: i,
 	}
 
 	kind := schema.Kind()
