@@ -500,10 +500,6 @@ type BootstrapNodeMetadata struct {
 	// replaces POD_NAME
 	InstanceName string `json:"NAME,omitempty"`
 
-	// Owner specifies the workload owner (opaque string). Typically, this is the owning controller of
-	// of the workload instance (ex: k8s deployment for a k8s pod).
-	Owner string `json:"OWNER,omitempty"`
-
 	// PilotSAN is the list of subject alternate names for the xDS server.
 	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`
 

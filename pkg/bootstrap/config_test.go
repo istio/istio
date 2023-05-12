@@ -83,14 +83,11 @@ other: setting`,
 }
 
 func TestGetNodeMetaData(t *testing.T) {
-	inputOwner := "test"
 	inputWorkloadName := "workload"
 
-	expectOwner := "test"
 	expectWorkloadName := "workload"
 	expectExitOnZeroActiveConnections := model.StringBool(true)
 
-	t.Setenv(IstioMetaPrefix+"OWNER", inputOwner)
 	t.Setenv(IstioMetaPrefix+"WORKLOAD_NAME", inputWorkloadName)
 
 	dir, _ := os.Getwd()
@@ -109,10 +106,8 @@ func TestGetNodeMetaData(t *testing.T) {
 
 	g := NewWithT(t)
 	g.Expect(err).Should(BeNil())
-	g.Expect(node.Metadata.Owner).To(Equal(expectOwner))
 	g.Expect(node.Metadata.WorkloadName).To(Equal(expectWorkloadName))
 	g.Expect(node.Metadata.ExitOnZeroActiveConnections).To(Equal(expectExitOnZeroActiveConnections))
-	g.Expect(node.RawMetadata["OWNER"]).To(Equal(expectOwner))
 	g.Expect(node.RawMetadata["WORKLOAD_NAME"]).To(Equal(expectWorkloadName))
 	g.Expect(node.Metadata.Labels[model.LocalityLabel]).To(Equal("region/zone/subzone"))
 }
@@ -128,12 +123,9 @@ func TestConvertNodeMetadata(t *testing.T) {
 					},
 				},
 			},
-			Owner: "real-owner",
 		},
 		RawMetadata: map[string]any{},
 	}
-	node.Metadata.Owner = "real-owner"
-	node.RawMetadata["OWNER"] = "fake-owner"
 	node.RawMetadata["UNKNOWN"] = "new-field"
 	node.RawMetadata["A"] = 1
 	node.RawMetadata["B"] = map[string]any{"b": 1}
@@ -145,7 +137,7 @@ func TestConvertNodeMetadata(t *testing.T) {
 			t.Fatalf("failed to marshal: %v", err)
 		}
 		// nolint: lll
-		want := `{"id":"test","cluster":"cluster","metadata":{"A":1,"B":{"b":1},"OWNER":"real-owner","PROXY_CONFIG":{"serviceCluster":"cluster"},"UNKNOWN":"new-field"}}`
+		want := `{"id":"test","cluster":"cluster","metadata":{"A":1,"B":{"b":1},"PROXY_CONFIG":{"serviceCluster":"cluster"},"UNKNOWN":"new-field"}}`
 		test.JSONEquals(t, want, string(b))
 	}
 
@@ -156,7 +148,7 @@ func TestConvertNodeMetadata(t *testing.T) {
 			t.Fatalf("failed to marshal: %v", err)
 		}
 		// nolint: lll
-		want := `{"ID":"test","Metadata":{"PROXY_CONFIG":{"serviceCluster":"cluster"},"OWNER":"real-owner"},"RawMetadata":null,"Locality":null}`
+		want := `{"ID":"test","Metadata":{"PROXY_CONFIG":{"serviceCluster":"cluster"}},"RawMetadata":null,"Locality":null}`
 		if want != string(got) {
 			t.Fatalf("ConvertXDSNodeToNode: got %q, want %q", string(got), want)
 		}

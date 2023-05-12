@@ -118,8 +118,6 @@ spec:
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
           value: {{.DeploymentName}}
-        - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.DeploymentName}}
         {{- if .Values.global.meshID }}
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.meshID }}"

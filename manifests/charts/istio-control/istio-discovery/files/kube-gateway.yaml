@@ -161,10 +161,6 @@ spec:
         - name: ISTIO_META_NETWORK
           value: "{{ .Values.global.network }}"
         {{- end }}
-        - name: ISTIO_META_WORKLOAD_NAME
-          value: {{.DeploymentName|quote}}
-        - name: ISTIO_META_OWNER
-          value: "kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.DeploymentName}}"
         {{- if .Values.global.meshID }}
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.meshID }}"

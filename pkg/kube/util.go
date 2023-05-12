@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" //  allow out of cluster authentication
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -87,19 +86,6 @@ func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.Con
 	}
 
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-}
-
-// CreateClientset is a helper function that builds a kubernetes Clienset from a kubeconfig
-// filepath. See `BuildClientConfig` for kubeconfig loading rules.
-func CreateClientset(kubeconfig, context string, fns ...func(*rest.Config)) (*kubernetes.Clientset, error) {
-	c, err := BuildClientConfig(kubeconfig, context)
-	if err != nil {
-		return nil, fmt.Errorf("build client config: %v", err)
-	}
-	for _, fn := range fns {
-		fn(c)
-	}
-	return kubernetes.NewForConfig(c)
 }
 
 // DefaultRestConfig returns the rest.Config for the given kube config file and context.
@@ -263,9 +249,7 @@ func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) 
 				if jn := cronJobNameRegexp.FindStringSubmatch(controllerRef.Name); len(jn) == 2 {
 					deployMeta.Name = jn[1]
 					typeMetadata.Kind = "CronJob"
-					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
-					// Cronjob is not GA yet and latest version is v1beta1: https://github.com/kubernetes/enhancements/pull/978
-					typeMetadata.APIVersion = "batch/v1beta1"
+					typeMetadata.APIVersion = "batch/v1"
 				}
 			}
 		}
