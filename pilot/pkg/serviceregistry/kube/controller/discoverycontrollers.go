@@ -71,33 +71,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(discoveryNamespacesFilter fi
 // for membership changes
 func (c *Controller) initMeshWatcherHandler(meshWatcher mesh.Watcher, discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) {
 	meshWatcher.AddMeshHandler(func() {
-		newSelectedNamespaces, deselectedNamespaces := discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
-
-		for _, nsName := range newSelectedNamespaces {
-			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
-			c.queue.Push(func() error {
-				c.handleSelectedNamespace(nsName)
-				return nil
-			})
-		}
-
-		for _, nsName := range deselectedNamespaces {
-			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
-			c.queue.Push(func() error {
-				c.handleDeselectedNamespace(nsName)
-				return nil
-			})
-		}
-
-		if features.EnableEnhancedResourceScoping && len(newSelectedNamespaces) > 0 || len(deselectedNamespaces) > 0 {
-			c.queue.Push(func() error {
-				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:   true,
-					Reason: []model.TriggerReason{model.GlobalUpdate},
-				})
-				return nil
-			})
-		}
+		discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
 	})
 }
 
@@ -135,7 +109,7 @@ func (c *Controller) handleSelectedNamespace(ns string) {
 func (c *Controller) handleDeselectedNamespace(ns string) {
 	var errs *multierror.Error
 
-	// for each resource type, issue delete events for objects in the delabled namespace
+	// for each resource type, issue delete events for objects in the deselected namespace
 	for _, svc := range c.services.ListUnfiltered(ns, labels.Everything()) {
 		errs = multierror.Append(errs, c.onServiceEvent(nil, svc, model.EventDelete))
 	}

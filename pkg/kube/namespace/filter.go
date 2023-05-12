@@ -37,8 +37,8 @@ type DiscoveryNamespacesFilter interface {
 	Filter(obj any) bool
 	// FilterNamespace returns true if the input namespace is a namespace selected for discovery
 	FilterNamespace(nsMeta metav1.ObjectMeta) bool
-	// SelectorsChanged is invoked when meshConfig's discoverySelectors change, returns any newly selected namespaces and deselected namespaces
-	SelectorsChanged(discoverySelectors []*metav1.LabelSelector) (selectedNamespaces []string, deselectedNamespaces []string)
+	// SelectorsChanged is invoked when meshConfig's discoverySelectors change
+	SelectorsChanged(discoverySelectors []*metav1.LabelSelector)
 	// SyncNamespaces is invoked when namespace informer hasSynced before other controller SyncAll
 	SyncNamespaces() error
 	// NamespaceCreated returns true if the created namespace is selected for discovery
@@ -49,7 +49,7 @@ type DiscoveryNamespacesFilter interface {
 	NamespaceDeleted(ns metav1.ObjectMeta) (membershipChanged bool)
 	// GetMembers returns the namespaces selected for discovery
 	GetMembers() sets.String
-	// AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected by discovery selector change.
+	// AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected.
 	AddHandler(func(ns string, event model.Event))
 }
 
@@ -135,7 +135,7 @@ func (d *discoveryNamespacesFilter) FilterNamespace(nsMeta metav1.ObjectMeta) bo
 // SelectorsChanged initializes the discovery filter state with the discovery selectors and selected namespaces
 func (d *discoveryNamespacesFilter) SelectorsChanged(
 	discoverySelectors []*metav1.LabelSelector,
-) (selectedNamespaces []string, deselectedNamespaces []string) {
+) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	var selectors []labels.Selector
@@ -169,8 +169,8 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 	}
 
 	oldDiscoveryNamespaces := d.discoveryNamespaces
-	selectedNamespaces = sets.SortedList(newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces))
-	deselectedNamespaces = sets.SortedList(oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces))
+	selectedNamespaces := sets.SortedList(newDiscoveryNamespaces.Difference(oldDiscoveryNamespaces))
+	deselectedNamespaces := sets.SortedList(oldDiscoveryNamespaces.Difference(newDiscoveryNamespaces))
 	for _, ns := range selectedNamespaces {
 		d.notifyNamespaceHandlers(ns, model.EventAdd)
 	}
