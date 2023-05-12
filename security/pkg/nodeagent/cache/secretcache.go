@@ -683,15 +683,10 @@ func (sc *SecretManagerClient) handleFileWatch() {
 				resources[k] = v
 			}
 			sc.certMutex.RUnlock()
-			// Trigger callbacks for all resources referencing this file. This is practically always
-			// a single resource.
 			cacheLog.Infof("event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
-			for k := range resources {
-				if k.Filename == event.Name {
-					sc.OnSecretUpdate(k.ResourceName)
-				}
-			}
 			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
+			// The cleanup should happen first before triggering callbacks, as the callbacks are async and
+			// we may get generate call before cleanup is done and we will end up not watching the file.
 			if isRemove(event) {
 				sc.certMutex.Lock()
 				for fc := range sc.fileCerts {
@@ -702,6 +697,13 @@ func (sc *SecretManagerClient) handleFileWatch() {
 					}
 				}
 				sc.certMutex.Unlock()
+			}
+			// Trigger callbacks for all resources referencing this file. This is practically always
+			// a single resource.
+			for k := range resources {
+				if k.Filename == event.Name {
+					sc.OnSecretUpdate(k.ResourceName)
+				}
 			}
 		case err, ok := <-sc.certWatcher.Errors:
 			// Channel is closed.
