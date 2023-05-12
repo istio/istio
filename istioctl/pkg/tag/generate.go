@@ -51,6 +51,7 @@ type tagWebhookConfig struct {
 	Path           string
 	CABundle       string
 	IstioNamespace string
+	Labels         map[string]string
 }
 
 // GenerateOptions is the group of options needed to generate a tag webhook.
@@ -269,6 +270,10 @@ istiodRemote:
 		decodedWh.Name = webhookName
 	}
 
+	for k, v := range config.Labels {
+		decodedWh.Labels[k] = v
+	}
+
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
 		return "", err
@@ -316,6 +321,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 		CABundle:       caBundle,
 		IstioNamespace: istioNS,
 		Path:           path,
+		Labels:         wh.Labels,
 	}, nil
 }
 
