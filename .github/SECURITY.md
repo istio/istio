@@ -9,8 +9,8 @@ Information about supported Istio versions can be found on the
 
 Instructions for reporting a vulnerability can be found on the
 [Istio Security Vulnerabilities] page. The Istio Product Security Working Group receives
-vulnerability and security issue reports. For information on who makes up that group,
-please refer to the [Early Disclosure Membership].
+vulnerability and security issue reports, and the company affiliation of the members of
+the group can be found at [Early Disclosure Membership]..
 
 ## Security Bulletins
 
