@@ -69,14 +69,10 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		controllers.WithReconciler(c.insertDataForNamespace),
 		controllers.WithMaxAttempts(maxRetries))
 
-	c.configmaps = kclient.New[*v1.ConfigMap](kubeClient)
+	c.configmaps = kclient.NewFiltered[*v1.ConfigMap](kubeClient, kclient.Filter{FieldSelector: "metadata.name=" + CACertNamespaceConfigMap})
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
 	c.configmaps.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
-		if o.GetName() != CACertNamespaceConfigMap {
-			// This is a change to a configmap we don't watch, ignore it
-			return false
-		}
 		if inject.IgnoredNamespaces.Contains(o.GetNamespace()) {
 			// skip special kubernetes system namespaces
 			return false
