@@ -102,6 +102,12 @@ func TestMain(m *testing.M) {
 			cfg.ControlPlaneValues = ControlPlaneValues
 		})).
 		Setup(func(t resource.Context) error {
+			gatewayConformanceInputs.Client = t.Clusters().Default()
+			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
+
+			return nil
+		}).
+		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
 		Run()
