@@ -906,7 +906,7 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 
 // ServicesForHostname returns a list of services that fall under the hostname provided. This hostname
 // can be a wildcard.
-func (ps *PushContext) ServicesForHostname(proxy *Proxy, hostname host.Name, namespace string) []*Service {
+func (ps *PushContext) ServicesForHostname(proxy *Proxy, hostname host.Name) []*Service {
 	if proxy == nil || proxy.SidecarScope == nil {
 		return nil
 	}

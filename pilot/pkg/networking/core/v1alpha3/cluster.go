@@ -28,7 +28,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -103,69 +102,77 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 	var deletedClusters []string
 	var services []*model.Service
-	// holds clusters per service, keyed by hostname.
+	// Holds clusters per service, keyed by hostname.
 	serviceClusters := make(map[string]sets.String)
-	// holds service ports, keyed by hostname.
-	// inner map holds port and its cluster name.
-	servicePorts := make(map[string]map[int]string)
+	// Holds service ports, keyed by hostname.Inner map port and its cluster name.
+	// This is mainly used when service is updated and a port has been removed.
+	servicePortClusters := make(map[string]map[int]string)
+	// Holds subset clusters per service, keyed by hostname.
+	subsetClusters := make(map[string]sets.String)
 
 	for _, cluster := range watched.ResourceNames {
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>).
-		_, _, svcHost, port := model.ParseSubsetKey(cluster)
-		sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
-		if servicePorts[string(svcHost)] == nil {
-			servicePorts[string(svcHost)] = make(map[int]string)
+		// check with the name of our service (cluster names are in the format outbound|<port>|<subset>|<hostname>).
+		_, subset, svcHost, port := model.ParseSubsetKey(cluster)
+		if subset == "" {
+			sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
+		} else {
+			sets.InsertOrNew(subsetClusters, string(svcHost), cluster)
 		}
-		servicePorts[string(svcHost)][port] = cluster
+		if servicePortClusters[string(svcHost)] == nil {
+			servicePortClusters[string(svcHost)] = make(map[int]string)
+		}
+		servicePortClusters[string(svcHost)][port] = cluster
 	}
 
 	for key := range updates.ConfigsUpdated {
 		switch key.Kind {
 		case kind.ServiceEntry:
-			services, deletedClusters = configgen.deltaFromServices(key, proxy, updates.Push, watched.ResourceNames, serviceClusters, servicePorts)
+			services, deletedClusters = configgen.deltaFromServices(key, proxy, updates.Push, watched.ResourceNames,
+				serviceClusters, servicePortClusters, subsetClusters)
 		case kind.DestinationRule:
-			services, deletedClusters = configgen.deltaFromDestinationRules(key, proxy, updates.Push, watched.ResourceNames)
+			services, deletedClusters = configgen.deltaFromDestinationRules(key, proxy, updates.Push, watched.ResourceNames,
+				serviceClusters, subsetClusters)
 		}
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
-	return clusters, deletedClusters, log, true
+	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
+	// When clusters are rebuilt, it rebuilts the subset clusters as well. So, we know what
+	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
+	var finalDeletedClusters []string
+	builtClusters := sets.New[string]()
+	for _, c := range clusters {
+		builtClusters.Insert(c.Name)
+	}
+	for _, deleted := range deletedClusters {
+		if !builtClusters.Contains(deleted) {
+			finalDeletedClusters = append(finalDeletedClusters, deleted)
+		}
+	}
+	return clusters, finalDeletedClusters, log, true
 }
 
 // deltaFromServices computes the delta clusters from the updated services.
-func (configgen *ConfigGeneratorImpl) deltaFromServices(updatedService model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
-	watched []string, serviceClusters map[string]sets.String, servicePorts map[string]map[int]string,
+func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
+	watched []string,
+	serviceClusters map[string]sets.String, servicePortClusters map[string]map[int]string, subsetClusters map[string]sets.String,
 ) ([]*model.Service, []string) {
 	var deletedClusters []string
 	var services []*model.Service
-	service := push.ServiceForHostname(proxy, host.Name(updatedService.Name))
+	service := push.ServiceForHostname(proxy, host.Name(key.Name))
 	// push.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
 	// we can cross-reference with WatchedResources to figure out which services were deleted.
 	if service == nil {
-		// We assume a service was deleted, it doesn't hurt to have positives for removedResources when a resource included
-		// does not exist.
-		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>
-		// so, we can check if the cluster names contains the service name, and determine if it is deleted.
-		deletedClusters = append(deletedClusters, removedClusterNames(watched, nil, updatedService.Name)...)
-		// Remove all subsets whenever a service is deleted there is usually only one service here.
-		cfg := proxy.SidecarScope.DestinationRuleConfig(model.TrafficDirectionAny, proxy, host.Name(updatedService.Name))
-		if cfg != nil {
-			dr := cfg.Spec.(*networking.DestinationRule)
-			for _, subset := range dr.GetSubsets() {
-				deletedClusters = append(deletedClusters, subset.GetName())
-			}
-		}
+		// We assume a service was deleted and delete all clusters for that service.
+		deletedClusters = append(deletedClusters, serviceClusters[key.Name].UnsortedList()...)
+		deletedClusters = append(deletedClusters, subsetClusters[key.Name].UnsortedList()...)
 	} else {
+		// Service exists. If the service update has port change, we need to the corresponding port clusters.
 		services = append(services, service)
-		// If servicePorts has this service, that means it is old service.
-		if servicePorts[service.Hostname.String()] != nil {
-			oldPorts := servicePorts[service.Hostname.String()]
-			for port, cluster := range oldPorts {
-				// if this service port is removed, we can conclude that it is a removed cluster.
-				if _, exists := service.Ports.GetByPort(port); !exists {
-					deletedClusters = append(deletedClusters, cluster)
-				}
+		for port, cluster := range servicePortClusters[service.Hostname.String()] {
+			// if this service port is removed, we can conclude that it is a removed cluster.
+			if _, exists := service.Ports.GetByPort(port); !exists {
+				deletedClusters = append(deletedClusters, cluster)
 			}
 		}
 	}
@@ -175,92 +182,32 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(updatedService model.Con
 // deltaFromDestinationRules computes the delta clusters from the updated destination rules.
 func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
 	watched []string,
+	serviceClusters map[string]sets.String, subsetClusters map[string]sets.String,
 ) ([]*model.Service, []string) {
-	deletedClusters := make([]string, 0)
-	services := make([]*model.Service, 0)
+	var deletedClusters []string
+	var services []*model.Service
 	cfg := push.DestinationRuleByName(proxy, updatedDr.Name, updatedDr.Namespace)
 	if cfg == nil {
-		// subset clusters need to be removed, actual cluster needs to be updated
-		// a destinationrule was deleted, get the populated destinationRule from PrevSidecarScope
+		// Destinationrule was deleted. Find matching services from previous destinationrule.
 		prevCfg := push.PrevDestinationRuleByName(proxy, updatedDr.Name, updatedDr.Namespace)
 		if prevCfg == nil {
 			// something went wrong, skip -- we shouldn't be nil here
 			log.Warnf("Prev DestinationRule form PrevSidecarScope is nil for %v", updatedDr.String())
 			return nil, nil
 		}
-		// populate removed clusters ONLY for subsets.
 		dr := prevCfg.Spec.(*networking.DestinationRule)
-		deletedClusters = append(deletedClusters, removedClusterNames(subsetClusters(watched), nil, dr.Host)...)
-
-		// for non-subset destinationrule deletion -- generate the cluster as it changed
-		matched := push.ServicesForHostname(proxy, host.Name(dr.Host), prevCfg.Namespace)
-		services = append(services, matched...)
+		services = append(services, push.ServicesForHostname(proxy, host.Name(dr.Host))...)
 	} else {
-		// destination exists, was updated
-		// generate cluster based on service associated with destinationrule
-		// hostName can be a wildcard, and can match to multiple services
+		// Destinationrule was updated. Find matching services from updated destinationrule.
 		dr := cfg.Spec.(*networking.DestinationRule)
-		matchedSvcs := push.ServicesForHostname(proxy, host.Name(dr.Host), cfg.Meta.Namespace)
-		services = append(services, matchedSvcs...)
-		// check for removed subsets
-		prevCfg := push.PrevDestinationRuleByName(proxy, updatedDr.Name, updatedDr.Namespace)
-		if prevCfg == nil {
-			log.Warnf("Prev DestinationRule form PrevSidecarScope is nil for %v", updatedDr.String())
-			return nil, nil
-		}
-		prevDr := prevCfg.Spec.(*networking.DestinationRule)
-		// detecting added/updated subsets works, we just need to track deletions
-		prevDrSubsets := subsetNames(prevDr.GetSubsets())
-		currDrSubsets := subsetNames(dr.GetSubsets())
-		if !slices.Equal(prevDrSubsets, currDrSubsets) {
-			// subsets changed, did something delete?
-			deletedSubsetNames := deletedSubsets(prevDr.GetSubsets(), dr.GetSubsets())
-			if len(deletedSubsetNames) > 0 {
-				removedSubsets := removedClusterNames(watched, deletedSubsetNames, dr.Host)
-				deletedClusters = append(deletedClusters, removedSubsets...)
-			}
-		}
+		services = append(services, push.ServicesForHostname(proxy, host.Name(dr.Host))...)
+	}
+	// Remove all matched service subsets. When we rebuild clusters, we will rebuild the subset clusters as well.
+	// We can reconcile the actual subsets that are needed when we rebuild the clusters.
+	for _, matchedSvc := range services {
+		deletedClusters = append(deletedClusters, subsetClusters[matchedSvc.Hostname.String()].UnsortedList()...)
 	}
 	return services, deletedClusters
-}
-
-// getRemovedClusterName finds the name of the removed cluster given a hostname and list of cluster names.
-// subsets is ignored if it is nil
-func removedClusterNames(resNames []string, subsets []string, target string) []string {
-	removed := make([]string, 0)
-	for _, n := range resNames {
-		_, sub, svcHost, _ := model.ParseSubsetKey(n)
-		if svcHost == host.Name(target) && (len(subsets) == 0 || contains(subsets, sub)) {
-			removed = append(removed, n)
-		}
-	}
-	return removed
-}
-
-func subsetClusters(resNames []string) []string {
-	ss := make([]string, 0)
-	for _, n := range resNames {
-		_, sub, _, _ := model.ParseSubsetKey(n)
-		if sub != "" {
-			ss = append(ss, n)
-		}
-	}
-	return ss
-}
-
-// deletedSubsets detects deleted subsets and returns those names
-func deletedSubsets(orig []*networking.Subset, after []*networking.Subset) []string {
-	origSub := sets.New(subsetNames(orig)...)
-	newSub := sets.New(subsetNames(after)...)
-	return origSub.Difference(newSub).UnsortedList()
-}
-
-func subsetNames(subsets []*networking.Subset) []string {
-	names := make([]string, len(subsets))
-	for _, v := range subsets {
-		names = append(names, v.GetName())
-	}
-	return names
 }
 
 // buildClusters builds clusters for the proxy with the services passed.

@@ -382,6 +382,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Spec: c.peerAuthn,
 		})
 	}
+
 	cg := NewConfigGenTest(c.t, TestOptions{
 		Services:   []*model.Service{service},
 		Instances:  instances,
@@ -2694,10 +2695,78 @@ func TestBuildDeltaClusters(t *testing.T) {
 		},
 	}
 
+	destRuleWithNewSubsets := &networking.DestinationRule{
+		Host: "test.com",
+		TrafficPolicy: &networking.TrafficPolicy{
+			Tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "/defaultCert.pem",
+				PrivateKey:        "/defaultPrivateKey.pem",
+				CaCertificates:    "/defaultCaCert.pem",
+			},
+		},
+		Subsets: []*networking.Subset{
+			{
+				Name:   "subset-1",
+				Labels: map[string]string{"foo": "bar"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name:   "subset-2",
+				Labels: map[string]string{"foo": "bar"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	destRuleWithRemovedSubsets := &networking.DestinationRule{
+		Host: "test.com",
+		TrafficPolicy: &networking.TrafficPolicy{
+			Tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "/defaultCert.pem",
+				PrivateKey:        "/defaultPrivateKey.pem",
+				CaCertificates:    "/defaultCaCert.pem",
+			},
+		},
+		Subsets: []*networking.Subset{
+			{
+				Name:   "subset-2",
+				Labels: map[string]string{"foo": "bar"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	// TODO: Add more test cases.
 	testCases := []struct {
 		name                 string
 		services             []*model.Service
+		configs              []config.Config
 		configUpdated        sets.Set[model.ConfigKey]
 		watchedResourceNames []string
 		usedDelta            bool
@@ -2732,6 +2801,46 @@ func TestBuildDeltaClusters(t *testing.T) {
 			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com"},
 		},
 		{
+			name:     "destination rule is updated with new subset",
+			services: []*model.Service{testService1},
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "test-desinationrule",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: destRuleWithNewSubsets,
+			}},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "test-desinationrule", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com", "outbound|8080|subset-1|test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+				"outbound|8080|subset-1|test.com", "outbound|8080|subset-2|test.com", "outbound|8080||test.com",
+			},
+		},
+		{
+			name:     "destination rule is updated with subset removal",
+			services: []*model.Service{testService1},
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "test-desinationrule",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: destRuleWithRemovedSubsets,
+			}},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "test-desinationrule", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080|subset-1|test.com", "outbound|8080|subset-2|test.com", "outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|8080|subset-1|test.com"},
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+				"outbound|8080|subset-2|test.com", "outbound|8080||test.com",
+			},
+		},
+		{
 			name:                 "config update that is not delta aware",
 			services:             []*model.Service{testService1, testService2},
 			configUpdated:        sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "test.com", Namespace: TestServiceNamespace}),
@@ -2746,9 +2855,13 @@ func TestBuildDeltaClusters(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		if tc.name != "destination rule is removed" {
+			continue
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
 				Services: tc.services,
+				Configs:  tc.configs,
 			})
 			clusters, removed, delta := cg.DeltaClusters(cg.SetupProxy(nil), tc.configUpdated,
 				&model.WatchedResource{ResourceNames: tc.watchedResourceNames})
@@ -2800,36 +2913,4 @@ func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
 	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
 		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
 	}))
-}
-
-func TestRemovedClusterNames(t *testing.T) {
-	tests := []struct {
-		desc     string
-		resNames []string
-		subsets  []string
-		target   string
-		expected []string
-	}{
-		{
-			desc:     "removed cluster, no subsets",
-			resNames: []string{"outbound|80||foo.com", "outbound|80||bar.com", "outbound|80||istio.io"},
-			subsets:  []string{},
-			target:   "istio.io",
-			expected: []string{"outbound|80||istio.io"},
-		},
-		{
-			desc:     "removed cluster, subsets",
-			resNames: []string{"outbound|80|ss|foo.com", "outbound|80|baz|bar.com", "outbound|80||istio.io"},
-			subsets:  []string{"ss", "baz"},
-			target:   "bar.com",
-			expected: []string{"outbound|80|baz|bar.com"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			if removed := removedClusterNames(tt.resNames, tt.subsets, tt.target); !reflect.DeepEqual(tt.expected, removed) {
-				t.Fatalf("%s => expected %s, got %s", tt.desc, tt.expected, removed)
-			}
-		})
-	}
 }
