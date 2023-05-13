@@ -2855,9 +2855,6 @@ func TestBuildDeltaClusters(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		if tc.name != "destination rule is removed" {
-			continue
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
 				Services: tc.services,
