@@ -128,11 +128,10 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	for key := range updates.ConfigsUpdated {
 		switch key.Kind {
 		case kind.ServiceEntry:
-			services, deletedClusters = configgen.deltaFromServices(key, proxy, updates.Push, watched.ResourceNames,
-				serviceClusters, servicePortClusters, subsetClusters)
+			services, deletedClusters = configgen.deltaFromServices(key, proxy, updates.Push, serviceClusters,
+				servicePortClusters, subsetClusters)
 		case kind.DestinationRule:
-			services, deletedClusters = configgen.deltaFromDestinationRules(key, proxy, updates.Push, watched.ResourceNames,
-				serviceClusters, subsetClusters)
+			services, deletedClusters = configgen.deltaFromDestinationRules(key, proxy, updates.Push, subsetClusters)
 		}
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
@@ -154,7 +153,6 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 // deltaFromServices computes the delta clusters from the updated services.
 func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
-	watched []string,
 	serviceClusters map[string]sets.String, servicePortClusters map[string]map[int]string, subsetClusters map[string]sets.String,
 ) ([]*model.Service, []string) {
 	var deletedClusters []string
@@ -181,8 +179,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, pro
 
 // deltaFromDestinationRules computes the delta clusters from the updated destination rules.
 func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
-	watched []string,
-	serviceClusters map[string]sets.String, subsetClusters map[string]sets.String,
+	subsetClusters map[string]sets.String,
 ) ([]*model.Service, []string) {
 	var deletedClusters []string
 	var services []*model.Service
