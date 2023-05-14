@@ -616,8 +616,9 @@ func (sc *SidecarScope) Services() []*Service {
 // Testing Only. This allows tests to inject a config without having the mock.
 func (sc *SidecarScope) SetDestinationRulesForTesting(configs []config.Config) {
 	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
-	for _, config := range configs {
-		sc.destinationRulesByNames[types.NamespacedName{Name: config.Name, Namespace: config.Namespace}] = &config
+	for _, c := range configs {
+		c := c
+		sc.destinationRulesByNames[types.NamespacedName{Name: c.Name, Namespace: c.Namespace}] = &c
 	}
 }
 
