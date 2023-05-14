@@ -2762,11 +2762,92 @@ func TestBuildDeltaClusters(t *testing.T) {
 		},
 	}
 
+	destRuleWithMatchingWildcardHosts := &networking.DestinationRule{
+		Host: "*.com",
+		TrafficPolicy: &networking.TrafficPolicy{
+			Tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "/defaultCert.pem",
+				PrivateKey:        "/defaultPrivateKey.pem",
+				CaCertificates:    "/defaultCaCert.pem",
+			},
+		},
+		Subsets: []*networking.Subset{
+			{
+				Name:   "subset-1",
+				Labels: map[string]string{"foo": "bar"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name:   "subset-2",
+				Labels: map[string]string{"foo": "bar"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	destRuleWithNonMatchingWildcardHosts := &networking.DestinationRule{
+		Host: "*.org",
+		TrafficPolicy: &networking.TrafficPolicy{
+			Tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "/defaultCert.pem",
+				PrivateKey:        "/defaultPrivateKey.pem",
+				CaCertificates:    "/defaultCaCert.pem",
+			},
+		},
+		Subsets: []*networking.Subset{
+			{
+				Name:   "subset-1",
+				Labels: map[string]string{"foo": "bar"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name:   "subset-2",
+				Labels: map[string]string{"foo": "bar"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	// TODO: Add more test cases.
 	testCases := []struct {
 		name                 string
 		services             []*model.Service
 		configs              []config.Config
+		prevConfigs          []config.Config
 		configUpdated        sets.Set[model.ConfigKey]
 		watchedResourceNames []string
 		usedDelta            bool
@@ -2841,6 +2922,62 @@ func TestBuildDeltaClusters(t *testing.T) {
 			},
 		},
 		{
+			name:     "destination rule is removed",
+			services: []*model.Service{testService1},
+			prevConfigs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "test-desinationrule",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: destRuleWithRemovedSubsets,
+			}},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "test-desinationrule", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080|subset-2|test.com", "outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|8080|subset-2|test.com"},
+			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com"},
+		},
+		{
+			name:     "destination rule with wildcard matching hosts",
+			services: []*model.Service{testService1},
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "test-desinationrule",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: destRuleWithMatchingWildcardHosts,
+			}},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "test-desinationrule", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+				"outbound|8080|subset-1|test.com", "outbound|8080|subset-2|test.com", "outbound|8080||test.com",
+			},
+		},
+		{
+			name:     "destination rule with wildcard non matching hosts",
+			services: []*model.Service{testService1},
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "test-desinationrule",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: destRuleWithNonMatchingWildcardHosts,
+			}},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "test-desinationrule", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com",
+			},
+		},
+		{
 			name:                 "config update that is not delta aware",
 			services:             []*model.Service{testService1, testService2},
 			configUpdated:        sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "test.com", Namespace: TestServiceNamespace}),
@@ -2860,7 +2997,12 @@ func TestBuildDeltaClusters(t *testing.T) {
 				Services: tc.services,
 				Configs:  tc.configs,
 			})
-			clusters, removed, delta := cg.DeltaClusters(cg.SetupProxy(nil), tc.configUpdated,
+			proxy := cg.SetupProxy(nil)
+			if tc.prevConfigs != nil {
+				proxy.PrevSidecarScope = &model.SidecarScope{}
+				proxy.PrevSidecarScope.SetDestinationRulesForTesting(tc.prevConfigs)
+			}
+			clusters, removed, delta := cg.DeltaClusters(proxy, tc.configUpdated,
 				&model.WatchedResource{ResourceNames: tc.watchedResourceNames})
 			if delta != tc.usedDelta {
 				t.Errorf("un expected delta, want %v got %v", tc.usedDelta, delta)

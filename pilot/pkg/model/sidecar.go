@@ -613,6 +613,14 @@ func (sc *SidecarScope) Services() []*Service {
 	return sc.services
 }
 
+// Testing Only. This allows tests to inject a config without having the mock.
+func (sc *SidecarScope) SetDestinationRulesForTesting(configs []config.Config) {
+	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
+	for _, config := range configs {
+		sc.destinationRulesByNames[types.NamespacedName{Name: config.Name, Namespace: config.Namespace}] = &config
+	}
+}
+
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string, hosts map[string][]host.Name) []*Service {

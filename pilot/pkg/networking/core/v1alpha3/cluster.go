@@ -134,6 +134,10 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			services, deletedClusters = configgen.deltaFromDestinationRules(key, proxy, updates.Push, subsetClusters)
 		}
 	}
+	if services == nil {
+		// No matching services, just rebuild with all services.
+		services = proxy.SidecarScope.Services()
+	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
 	// When clusters are rebuilt, it rebuilts the subset clusters as well. So, we know what
@@ -187,9 +191,9 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 	if cfg == nil {
 		// Destinationrule was deleted. Find matching services from previous destinationrule.
 		prevCfg := push.PrevDestinationRuleByName(proxy, updatedDr.Name, updatedDr.Namespace)
+		// PreviousConfig can be nil if the destination rule hosts were updated with non matching hosts.
 		if prevCfg == nil {
-			// something went wrong, skip -- we shouldn't be nil here
-			log.Warnf("Prev DestinationRule form PrevSidecarScope is nil for %v", updatedDr.String())
+			log.Debugf("Prev DestinationRule form PrevSidecarScope is missing for %s/%s", updatedDr.Namespace, updatedDr.Name)
 			return nil, nil
 		}
 		dr := prevCfg.Spec.(*networking.DestinationRule)
