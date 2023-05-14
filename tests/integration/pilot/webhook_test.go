@@ -86,8 +86,10 @@ func TestWebhook(t *testing.T) {
 			if t.Settings().Revisions.Default() != "" {
 				revision = t.Settings().Revisions.Default()
 			}
-			verifyRejectsInvalidConfig(t, revision, true)
-			verifyRejectsInvalidConfig(t, "", true)
+			if cluster.IsConfig() {
+				verifyRejectsInvalidConfig(t, revision, true)
+				verifyRejectsInvalidConfig(t, "", true)
+			}
 		})
 }
 

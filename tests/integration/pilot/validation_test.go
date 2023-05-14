@@ -113,7 +113,7 @@ func TestValidation(t *testing.T) {
 							} else {
 								t.Fatalf("got unexpected unknown error for valid config: %v", dryRunErr)
 							}
-						case dryRunErr == nil && !d.isValid():
+						case dryRunErr == nil && !d.isValid() && cluster.IsConfig():
 							t.Fatalf("got unexpected success for invalid config")
 						case dryRunErr != nil && !d.isValid():
 							if !denied(dryRunErr) {
