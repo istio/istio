@@ -207,6 +207,8 @@ base:
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 	}
+	mergeMaps(decodedWh.Annotations, config.Annotations)
+	mergeMaps(decodedWh.Labels, config.Labels)
 
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
@@ -214,6 +216,19 @@ base:
 	}
 
 	return whBuf.String(), nil
+}
+
+func mergeMaps(m1, m2 map[string]string) map[string]string {
+	if m1 == nil {
+		return m2
+	}
+	if m2 == nil {
+		return m1
+	}
+	for k, v := range m2 {
+		m1[k] = v
+	}
+	return m1
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
@@ -270,19 +285,8 @@ istiodRemote:
 	if webhookName != "" {
 		decodedWh.Name = webhookName
 	}
-
-	if decodedWh.Labels == nil {
-		decodedWh.Labels = make(map[string]string)
-	}
-	for k, v := range config.Labels {
-		decodedWh.Labels[k] = v
-	}
-	if decodedWh.Annotations == nil {
-		decodedWh.Annotations = make(map[string]string)
-	}
-	for k, v := range config.Annotations {
-		decodedWh.Annotations[k] = v
-	}
+	mergeMaps(decodedWh.Labels, config.Labels)
+	mergeMaps(decodedWh.Annotations, config.Annotations)
 
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
