@@ -77,6 +77,7 @@ import (
 type DeploymentController struct {
 	client         kube.Client
 	clusterID      cluster.ID
+	env            *model.Environment
 	queue          controllers.Queue
 	patcher        patcher
 	gateways       kclient.Client[*gateway.Gateway]
@@ -138,7 +139,7 @@ var knownControllers = func() sets.String {
 
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
-func NewDeploymentController(client kube.Client, clusterID cluster.ID,
+func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *model.Environment,
 	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher, revision string,
 ) *DeploymentController {
 	gateways := kclient.New[*gateway.Gateway](client)
@@ -147,6 +148,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 		client:    client,
 		clusterID: clusterID,
 		clients:   map[schema.GroupVersionResource]getter{},
+		env:       env,
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
 			t := true
@@ -389,14 +391,29 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 	if template == nil {
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
+	proxyConfig := cfg.MeshConfig.GetDefaultConfig()
+	if d.env.PushContext != nil && d.env.PushContext.ProxyConfigs != nil {
+		if generatedProxyConfig := d.env.PushContext.ProxyConfigs.EffectiveProxyConfig(
+			&model.NodeMetadata{
+				Namespace: mi.Namespace,
+				// We need deployment labels here, so we have to check if the deployment exists and if so, get its labels.
+				// However, it won't exist on first creation of a gateway, so we might fall back
+				// to the default labels from the template: service.istio.io/canonical-name, istio.io/gateway-name.
+				Labels: mi.Labels,
+				// Not supported?
+				// Annotations: mi.Annotations,
+			}, cfg.MeshConfig); generatedProxyConfig != nil {
+			proxyConfig = generatedProxyConfig
+		}
+	}
 	input := derivedInput{
 		TemplateInput: mi,
 		ProxyImage: inject.ProxyImage(
 			cfg.Values.Struct(),
-			cfg.MeshConfig.GetDefaultConfig().GetImage(),
+			proxyConfig.GetImage(),
 			mi.Annotations,
 		),
-		ProxyConfig: cfg.MeshConfig.GetDefaultConfig(),
+		ProxyConfig: proxyConfig,
 		MeshConfig:  cfg.MeshConfig,
 		Values:      cfg.Values.Map(),
 	}
