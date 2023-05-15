@@ -15,6 +15,7 @@
 package processlog
 
 import (
+	"encoding/json"
 	"regexp"
 	"strings"
 	"time"
@@ -52,16 +53,28 @@ func (s *Stats) Importance() int {
 
 // Process processes logStr based on the supplied config and returns the processed log along with statistics on it.
 func Process(config *config.BugReportConfig, logStr string) (string, *Stats) {
-	out := getTimeRange(logStr, config.StartTime, config.EndTime)
-	return out, getStats(config, out)
+	isLogAsJson := false
+	if strings.HasPrefix(logStr, "{") {
+		isLogAsJson = true
+	}
+	out := getTimeRange(logStr, config.StartTime, config.EndTime, isLogAsJson)
+	return out, getStats(config, out, isLogAsJson)
 }
 
 // getTimeRange returns the log lines that fall inside the start to end time range, inclusive.
-func getTimeRange(logStr string, start, end time.Time) string {
+func getTimeRange(logStr string, start, end time.Time, isLogAsJson bool) string {
 	var sb strings.Builder
 	write := false
 	for _, l := range strings.Split(logStr, "\n") {
-		t, _, _, valid := processLogLine(l)
+		var t *time.Time
+		var valid bool
+
+		if isLogAsJson {
+			t, _, _, valid = parseJsonLog(l)
+		} else {
+			t, _, _, valid = processPlainLog(l)
+		}
+
 		if valid {
 			write = false
 			if (t.Equal(start) || t.After(start)) && (t.Equal(end) || t.Before(end)) {
@@ -78,10 +91,17 @@ func getTimeRange(logStr string, start, end time.Time) string {
 }
 
 // getStats returns statistics for the given log string.
-func getStats(config *config.BugReportConfig, logStr string) *Stats {
+func getStats(config *config.BugReportConfig, logStr string, isLogAsJson bool) *Stats {
 	out := &Stats{}
 	for _, l := range strings.Split(logStr, "\n") {
-		_, level, text, valid := processLogLine(l)
+		var level, text string
+		var valid bool
+		if isLogAsJson {
+			_, level, text, valid = parseJsonLog(l)
+		} else {
+			_, level, text, valid = processPlainLog(l)
+		}
+
 		if !valid {
 			continue
 		}
@@ -104,7 +124,7 @@ func getStats(config *config.BugReportConfig, logStr string) *Stats {
 	return out
 }
 
-func processLogLine(line string) (timeStamp *time.Time, level string, text string, valid bool) {
+func processPlainLog(line string) (timeStamp *time.Time, level string, text string, valid bool) {
 	lv := strings.Split(line, "\t")
 	if len(lv) < 3 {
 		// maybe ztunnel logs
@@ -129,4 +149,67 @@ func processLogLine(line string) (timeStamp *time.Time, level string, text strin
 	text = strings.Join(lv[2:], "\t")
 	valid = true
 	return
+}
+
+type logJson struct {
+	Time  string
+	Level string
+	//Text  map[string]interface{}
+	Msg string
+}
+
+func parseJsonLog(line string) (timeStamp *time.Time, level string, text string, valid bool) {
+	//Todo: add for ztunnel log like above for plain logs
+	lj := logJson{}
+
+	err := json.Unmarshal([]byte(line), &lj)
+	if err != nil {
+		return nil, "", "", false
+	}
+
+	//todo: add logging for err
+	m := lj.Msg
+	if m == "" {
+		return nil, "", "", false
+	}
+
+	t := lj.Time
+	ts, err := time.Parse(time.RFC3339Nano, t)
+	if err != nil {
+		return nil, "", "", false
+	}
+
+	l := lj.Level
+	switch l {
+	case levelFatal, levelError, levelWarn, levelInfo, levelDebug, levelTrace:
+	default:
+		return nil, "", "", false
+	}
+	return &ts, l, m, true
+	/*
+		var sb strings.Builder
+		for _, v := range m {
+			fmt.Print(v)
+			switch reflect.ValueOf(v).Kind() {
+			case reflect.Slice:
+				for _, i := range v.([]interface{}) {
+					sb.WriteString(i.(string))
+				}
+			//case reflect.Float64:
+			//sb.WriteString(Float.toString(v))
+			default:
+				_, err = sb.WriteString(v.String())
+				if err != nil {
+					fmt.Print(v)
+				}
+			}
+			if reflect.ValueOf(v).Kind() == reflect.Slice {
+				for _, i := range v.([]interface{}) {
+					sb.WriteString(i.(string))
+				}
+			} else {
+
+			}
+		}
+	*/
 }
