@@ -83,28 +83,24 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		// skip special kubernetes system namespaces
 		return !inject.IgnoredNamespaces.Contains(o.GetNamespace())
 	}))
-	c.namespaces.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
-		if features.InformerWatchNamespace != "" && features.InformerWatchNamespace != o.GetName() {
-			// We are only watching one namespace, and its not this one
-			return false
-		}
-		if inject.IgnoredNamespaces.Contains(o.GetName()) {
-			// skip special kubernetes system namespaces
-			return false
-		}
-		if c.DiscoveryNamespacesFilter != nil && !c.DiscoveryNamespacesFilter.FilterNamespace(o.(*v1.Namespace).ObjectMeta) {
-			// This is a change to a namespace we don't watch, ignore it
-			return false
-		}
-		return true
-	}))
 
 	if c.DiscoveryNamespacesFilter != nil {
 		c.DiscoveryNamespacesFilter.AddHandler(func(ns string, _ model.Event) {
 			c.syncNamespace(ns)
 		})
+	} else {
+		c.namespaces.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+			if features.InformerWatchNamespace != "" && features.InformerWatchNamespace != o.GetName() {
+				// We are only watching one namespace, and its not this one
+				return false
+			}
+			if inject.IgnoredNamespaces.Contains(o.GetName()) {
+				// skip special kubernetes system namespaces
+				return false
+			}
+			return true
+		}))
 	}
-
 	return c
 }
 
@@ -120,6 +116,7 @@ func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
 	if !kube.WaitForCacheSync("namespace controller", stopCh, nc.namespaces.HasSynced, nc.configmaps.HasSynced) {
 		return
 	}
+
 	go nc.startCaBundleWatcher(stopCh)
 	nc.queue.Run(stopCh)
 	controllers.ShutdownAll(nc.configmaps, nc.namespaces)

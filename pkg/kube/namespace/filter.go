@@ -35,8 +35,6 @@ type DiscoveryFilter func(obj any) bool
 type DiscoveryNamespacesFilter interface {
 	// Filter returns true if the input object or namespace string resides in a namespace selected for discovery
 	Filter(obj any) bool
-	// FilterNamespace returns true if the input namespace is a namespace selected for discovery
-	FilterNamespace(nsMeta metav1.ObjectMeta) bool
 	// SelectorsChanged is invoked when meshConfig's discoverySelectors change
 	SelectorsChanged(discoverySelectors []*metav1.LabelSelector)
 	// SyncNamespaces is invoked when namespace informer hasSynced before other controller SyncAll
@@ -59,13 +57,20 @@ func NewDiscoveryNamespacesFilter(
 	namespaces kclient.Client[*corev1.Namespace],
 	discoverySelectors []*metav1.LabelSelector,
 ) DiscoveryNamespacesFilter {
-	f := &discoveryNamespacesFilter{
-		namespaces: namespaces,
+	// convert LabelSelectors to Selectors
+	var selectors = make([]labels.Selector, 0, len(discoverySelectors))
+	for _, selector := range discoverySelectors {
+		ls, err := metav1.LabelSelectorAsSelector(selector)
+		if err != nil {
+			log.Errorf("error initializing discovery namespaces filter, invalid discovery selector: %v", err)
+		}
+		selectors = append(selectors, ls)
 	}
-
-	// initialize discovery namespaces filter
-	// However this may not take any effect when namespace informer has not started.
-	f.SelectorsChanged(discoverySelectors)
+	f := &discoveryNamespacesFilter{
+		namespaces:          namespaces,
+		discoveryNamespaces: sets.New[string](),
+		discoverySelectors:  selectors,
+	}
 
 	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
 		AddFunc: func(ns *corev1.Namespace) {
@@ -121,10 +126,6 @@ func (d *discoveryNamespacesFilter) Filter(obj any) bool {
 	}
 	// permit if object resides in a namespace labeled for discovery
 	return d.discoveryNamespaces.Contains(ns)
-}
-
-func (d *discoveryNamespacesFilter) FilterNamespace(nsMeta metav1.ObjectMeta) bool {
-	return d.isSelected(nsMeta.Labels)
 }
 
 // SelectorsChanged initializes the discovery filter state with the discovery selectors and selected namespaces
