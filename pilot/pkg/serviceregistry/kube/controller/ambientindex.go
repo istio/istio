@@ -15,8 +15,8 @@
 package controller
 
 import (
+	"fmt"
 	"net/netip"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -56,7 +56,6 @@ type AmbientIndex struct {
 	// byPod indexes by Pod IP address.
 	byPod map[string]*model.WorkloadInfo
 	// services are indexed by the network/clusterIP
-	// TODO: GregHanson index by service hostname+port?
 	services map[string]*workloadapi.Service
 
 	// Map of ServiceAccount -> IP
@@ -84,12 +83,12 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 		}
 		return []*model.AddressInfo{{Address: addr}}
 	}
-	
+
 	// Fallback to service. Note: these IP ranges should be non-overlapping
 	// cannot distunagish between Service lookup and Workloads for a Service lookup
 	// since the same newtork/vip key is used.  Both Service and Workloads are
 	// returned in this case
-	// TODO any service to exclude in the future? for example with affinity, 
+	// TODO any service to exclude in the future? for example with affinity,
 	// per-node, etc - where simply load balancing will break?
 	res := []*model.AddressInfo{}
 	for _, wl := range a.byService[key] {
@@ -107,6 +106,9 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 			},
 		}
 		res = append(res, &model.AddressInfo{Address: addr})
+	} else if len(res) > 0 {
+		// there are Workloads for a Service that does not exist, which should never happen
+		log.Warnf("workload(s) found for %q but no service exists", key)
 	}
 
 	return res
@@ -132,6 +134,25 @@ func (a *AmbientIndex) insertWorkloadToService(svcAddress string, workload *mode
 	a.byService[svcAddress] = append(a.byService[svcAddress], workload)
 }
 
+func compareGatewayAddress(w1, w2 *workloadapi.GatewayAddress) bool {
+	return gatewayAddressToString(w1) == gatewayAddressToString(w2)
+}
+
+// converts GatewayAddress to string for easy comparison
+func gatewayAddressToString(gtw1 *workloadapi.GatewayAddress) string {
+	if gtw1 == nil {
+		return ""
+	}
+	res := ""
+	switch gtw1.Destination.(type) {
+	case *workloadapi.GatewayAddress_Hostname:
+		res = gtw1.GetHostname().Namespace + "/" + gtw1.GetHostname().Hostname
+	case *workloadapi.GatewayAddress_Address:
+		res = gtw1.GetAddress().Network + "/" + string(gtw1.GetAddress().Address)
+	}
+	return fmt.Sprintf("%s/%v", res, gtw1.Port)
+}
+
 func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloadapi.GatewayAddress, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
 	updates := sets.New[model.ConfigKey]()
 	if isDelete {
@@ -143,7 +164,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 				continue
 			}
 
-			if wl.Waypoint != nil && reflect.DeepEqual(wl.Waypoint, addr) {
+			if wl.Waypoint != nil && compareGatewayAddress(wl.Waypoint, addr) {
 				wl.Waypoint = nil
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -159,7 +180,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 				continue
 			}
 
-			if wl.Waypoint == nil || !reflect.DeepEqual(wl.Waypoint, addr) {
+			if wl.Waypoint == nil || !compareGatewayAddress(wl.Waypoint, addr) {
 				wl.Waypoint = addr
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -210,7 +231,7 @@ func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.Wo
 }
 
 // Waypoint finds all waypoint IP addresses for a given scope.  Performs first a Namespace+ServiceAccount
-// then falls back to any Namespace wide waypoints 
+// then falls back to any Namespace wide waypoints
 func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 	a := c.ambientIndex
 	a.mu.RLock()
@@ -748,9 +769,9 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	oldWl := a.byPod[c.Network(p.Status.PodIP, p.Labels).String()+"/"+p.Status.PodIP]
 	if wl == nil {
 		// This is an explicit delete event, or there is no longer a Workload to create (pod NotReady, etc)
-		delete(a.byPod, c.Network(p.Status.PodIP, p.Labels).String()+"/"+p.Status.PodIP)
+
 		if oldWl != nil {
-			// delete(a.byPod, oldWl.ResourceName())
+			delete(a.byPod, oldWl.ResourceName())
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
 			for vip := range oldWl.VirtualIps {
 				a.dropWorkloadFromService(oldWl.Network+"/"+vip, oldWl.ResourceName())
@@ -761,10 +782,12 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 			return updates
 		}
 		// It was a 'delete' for a resource we didn't know yet, no need to send an event
+
 		return updates
 	}
 	if oldWl != nil && proto.Equal(wl.Workload, oldWl.Workload) {
 		log.Debugf("%v: no change, skipping", wl.ResourceName())
+
 		return updates
 	}
 	a.byPod[wl.ResourceName()] = wl
@@ -781,6 +804,7 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 
 	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
 	updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
+
 	return updates
 }
 
@@ -800,18 +824,17 @@ func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
 func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
 	svc := controllers.Extract[*v1.Service](obj)
 	updates := sets.New[model.ConfigKey]()
-	
-	// TODO get IP+Port from the Gateway CRD
-	// https://github.com/istio/istio/issues/44230
-	if svc.Spec.ClusterIP == "None" {
-		// TODO handle headless Service
-		return updates
-	}
-	svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
 
 	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		scope := model.WaypointScope{Namespace: svc.Namespace, ServiceAccount: svc.Annotations[constants.WaypointServiceAccount]}
 
+		// TODO get IP+Port from the Gateway CRD
+		// https://github.com/istio/istio/issues/44230
+		if svc.Spec.ClusterIP == "None" {
+			// TODO handle headless Service
+			return updates
+		}
+		svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
 		addr := &workloadapi.GatewayAddress{
 			Destination: &workloadapi.GatewayAddress_Address{
 				Address: &workloadapi.NetworkAddress{
@@ -823,12 +846,12 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		}
 
 		if isDelete {
-			if reflect.DeepEqual(a.waypoints[scope], addr) {
+			if compareGatewayAddress(a.waypoints[scope], addr) {
 				delete(a.waypoints, scope)
 				updates.Merge(a.updateWaypoint(scope, addr, true, c))
 			}
 		} else {
-			if !reflect.DeepEqual(a.waypoints[scope], addr) {
+			if !compareGatewayAddress(a.waypoints[scope], addr) {
 				a.waypoints[scope] = addr
 				updates.Merge(a.updateWaypoint(scope, addr, false, c))
 			}
@@ -838,9 +861,9 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 	vips := getVIPs(svc)
 	// vips are iterated over multiple times, perform their network lookup only once
 	// TODO does this need to be performed for each vip?  or should every vip for a service be on the same network?
-	networkVips := make([]networkVip, len(vips))
+	networkAddrs := make([]networkAddress, 0, len(vips))
 	for _, vip := range vips {
-		networkVips = append(networkVips, networkVip{
+		networkAddrs = append(networkAddrs, networkAddress{
 			vip:     vip,
 			network: c.Network(vip, make(labels.Instance, 0)).String(),
 		})
@@ -852,23 +875,24 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		wl := c.extractWorkload(p)
 		if wl != nil {
 			// Update the pod, since it now has new VIP info
-			a.byPod[c.Network(p.Status.PodIP, make(labels.Instance, 0)).String()+"/"+p.Status.PodIP] = wl
+			a.byPod[wl.ResourceName()] = wl
 			wls = append(wls, wl)
 		}
 
 	}
 
 	// We send an update for each *workload* IP address previously in the service; they may have changed
-	for _, vip := range networkVips {
-		for _, wl := range a.byService[vip.String()] {
+	for _, networkAddr := range networkAddrs {
+		for _, wl := range a.byService[networkAddr.String()] {
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 		}
 	}
 	// Update indexes
 	if isDelete {
-		for _, vip := range networkVips {
-			delete(a.byService, vip.String())
-			delete(a.services, vip.String())
+		for _, networkAddr := range networkAddrs {
+			delete(a.byService, networkAddr.String())
+			delete(a.services, networkAddr.String())
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
 	} else {
 		ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
@@ -878,35 +902,42 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 				TargetPort:  uint32(p.TargetPort.IntVal),
 			})
 		}
-		for _, vip := range networkVips {
-			svcNetwork := c.Network(svcIP.String(), make(labels.Instance, 0)).String()
-			a.byService[vip.String()] = wls
-			ws := &workloadapi.Service{
-				Name:      svc.Name,
+		ws := &workloadapi.Service{
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+			Hostname: string(model.ResolveShortnameToFQDN(svc.Name, config.Meta{
 				Namespace: svc.Namespace,
-				Hostname: string(model.ResolveShortnameToFQDN(svc.Name, config.Meta{
-					Namespace: svc.Namespace,
-					Domain:    "cluster.local",
-				})),
-				Addresses: []*workloadapi.NetworkAddress{
-					{
-						Address: svcIP.AsSlice(),
-						Network: svcNetwork,
-					},
-				},
-				Ports: ports,
-			}
-			a.services[vip.String()] = ws
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: svcNetwork + "/" + svcIP.String()})
+				Domain:    "cluster.local",
+			})),
+			Addresses: networkVipToNetworkAddress(networkAddrs),
+			Ports:     ports,
+		}
+		for _, networkAddr := range networkAddrs {
+			a.byService[networkAddr.String()] = wls
+
+			a.services[networkAddr.String()] = ws
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
 	}
 	// Fetch updates again, in case it changed from adding new workloads
-	for _, vip := range networkVips {
-		for _, wl := range a.byService[vip.String()] {
+	for _, networkAddr := range networkAddrs {
+		for _, wl := range a.byService[networkAddr.String()] {
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 		}
 	}
+
 	return updates
+}
+
+func networkVipToNetworkAddress(vips []networkAddress) []*workloadapi.NetworkAddress {
+	res := make([]*workloadapi.NetworkAddress, 0, len(vips))
+	for _, vip := range vips {
+		res = append(res, &workloadapi.NetworkAddress{
+			Network: vip.network,
+			Address: netip.MustParseAddr(vip.vip).AsSlice(),
+		})
+	}
+	return res
 }
 
 func (c *Controller) getPodsInService(svc *v1.Service) []*v1.Pod {
@@ -1017,12 +1048,13 @@ func parseIP(ip string) []byte {
 	return addr.AsSlice()
 }
 
-type networkVip struct {
+// internal object used for
+type networkAddress struct {
 	network string
 	vip     string
 }
 
-func (n *networkVip) String() string {
+func (n *networkAddress) String() string {
 	return n.network + "/" + n.vip
 }
 

@@ -62,7 +62,8 @@ message Service {
   // TODO: support this field
   string hostname = 3;
   // Address represents the addresses the service can be reached at.
-  // There may be multiple addresses for a single service if it resides in multiple networks.
+  // There may be multiple addresses for a single service if it resides in multiple networks,
+  // multiple clusters, and/or if it's dual stack (TODO: support dual stack).
   repeated NetworkAddress addresses = 4;
   // Ports for the service.
   // The target_port may be overridden on a per-workload basis.
@@ -71,13 +72,6 @@ message Service {
   // Typically, this is not set and per-workload identity is used to verfiy
   // TODO: support this field
   repeated string subject_alt_names = 6;
-  // The presence of the opaque_service field indicates this service is an "Opaque Service".
-  // This means that the service is not associated with any Workloads, and should instead be reached
-  // directly by its address/hostname.
-  // This field serves both to indicate that this is an "Opaque Service", as well as how to connect to
-  // it; typical services do not need these properties as they are expressed on the workloads themselves.
-  // TODO: support this field
-  OpaqueEndpoint opaque_endpoint = 7;
 }
 
 message OpaqueEndpoint {
@@ -86,6 +80,8 @@ message OpaqueEndpoint {
 }
 
 message Workload {
+  // UID represents a globally unique opaque identifier for this workload.
+  string uid = 20;
   // Name represents the name for the workload.
   // For Kubernetes, this is the pod name.
   // This is just for debugging and may be elided as an optimization.
@@ -97,8 +93,18 @@ message Workload {
   // Address represents the IPv4/IPv6 address for the workload.
   // This should be globally unique.
   // This should not have a port number.
+  // Each workload must have at least either an address or hostname; not both.
   // TODO: support dual stack by making this repeated
   bytes address = 3;
+
+  // The hostname for the workload to be resolved by the ztunnel.
+  // DNS queries are sent on-demand by default.
+  // If the resolved DNS query has several endpoints, the request will be forwarded
+  // to the first response.
+  // Each workload must have at least either an address or hostname; not both.
+  // TODO: support this field
+  string hostname = 21;
+
   // Network represents the network this workload is on. This may be elided for the default network.
   // A (network,address) pair makeup a unique key for a workload *at a point in time*.
   string network = 4;
@@ -142,12 +148,12 @@ message Workload {
   // Typically these represent Service ClusterIPs.
   // The key is a NetworkAddress string of the format network/IP, or just an IP if network
   // of the service desired matches the network of the workload.
-  // TODO: add support for network-prefixed IPs so services can select workloads in another network
   map<string, PortList> virtual_ips = 15;
 
   // A list of authorization policies applicable to this workload.
   // NOTE: this *only* includes Selector based policies. Namespace and global polices
   // are returned out of band.
+  // Authorization policies are only valid for workloads with `addresses` rather than `hostname`.
   repeated string authorization_policies = 16;
 
   WorkloadStatus status = 17;
