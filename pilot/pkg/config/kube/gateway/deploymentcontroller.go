@@ -397,10 +397,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput, dep
 	// Default labels are required to properly match a proxy config with a gateway in case where the proxy config was created
 	// before the gateway. This is because in such a case, the gateway deployment would be nil and newly created gateway
 	// would not be matched with the proxy config.
-	podLabels := map[string]string{
-		"istio.io/gateway-name":           mi.Name,
-		"service.istio.io/canonical-name": mi.DeploymentName,
-	}
+	podLabels := map[string]string{"istio.io/gateway-name": mi.Name}
 	if deployment != nil && deployment.Spec.Template.Labels != nil {
 		podLabels = deployment.Spec.Template.Labels
 	}
