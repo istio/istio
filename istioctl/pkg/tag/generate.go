@@ -207,8 +207,6 @@ base:
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 	}
-	decodedWh.Annotations = mergeMaps(decodedWh.Annotations, config.Annotations)
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, config.Labels)
 
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
