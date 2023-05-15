@@ -410,10 +410,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput, dep
 		if generatedProxyConfig := d.env.PushContext.ProxyConfigs.EffectiveProxyConfig(
 			&model.NodeMetadata{
 				Namespace: mi.Namespace,
-				// We need deployment labels here, so we have to check if the deployment exists and if so, get its labels.
-				// However, it won't exist on first creation of a gateway, so we might fall back
-				// to the default labels from the template: service.istio.io/canonical-name, istio.io/gateway-name.
-				Labels: podLabels,
+				Labels:    podLabels,
 				// Not supported?
 				// Annotations: mi.Annotations,
 			}, cfg.MeshConfig); generatedProxyConfig != nil {
