@@ -37,21 +37,11 @@ const (
 )
 
 var (
-	sidecarScopeKnownConfigTypes = map[kind.Kind]struct{}{
-		kind.ServiceEntry:    {},
-		kind.VirtualService:  {},
-		kind.DestinationRule: {},
-		kind.Sidecar:         {},
-	}
+	sidecarScopedKnownConfigTypes = sets.New(kind.ServiceEntry, kind.VirtualService, kind.DestinationRule, kind.Sidecar)
 
-	// clusterScopedConfigTypes includes configs when they are in root namespace,
+	// clusterScopedKnownConfigTypes includes configs when they are in root namespace,
 	// they will be applied to all namespaces within the cluster.
-	clusterScopedConfigTypes = map[kind.Kind]struct{}{
-		kind.EnvoyFilter:           {},
-		kind.AuthorizationPolicy:   {},
-		kind.RequestAuthentication: {},
-		kind.WasmPlugin:            {},
-	}
+	clusterScopedKnownConfigTypes = sets.New(kind.EnvoyFilter, kind.AuthorizationPolicy, kind.RequestAuthentication, kind.WasmPlugin)
 )
 
 // SidecarScope is a wrapper over the Sidecar resource with some
@@ -531,12 +521,12 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 	}
 
 	// This kind of config will trigger a change if made in the root namespace or the same namespace
-	if _, f := clusterScopedConfigTypes[config.Kind]; f {
+	if _, f := clusterScopedKnownConfigTypes[config.Kind]; f {
 		return config.Namespace == sc.RootNamespace || config.Namespace == sc.Namespace
 	}
 
 	// This kind of config is unknown to sidecarScope.
-	if _, f := sidecarScopeKnownConfigTypes[config.Kind]; !f {
+	if _, f := sidecarScopedKnownConfigTypes[config.Kind]; !f {
 		return true
 	}
 
