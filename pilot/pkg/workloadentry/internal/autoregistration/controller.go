@@ -26,11 +26,11 @@ import (
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/autoregistration/internal/health"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/workloadentry/internal/health"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	istiolog "istio.io/pkg/log"

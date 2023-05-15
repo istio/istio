@@ -21,9 +21,9 @@ import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/workloadentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -81,7 +81,7 @@ func FuzzWE(data []byte) int {
 	}
 
 	store := memory.NewController(memory.Make(collections.All))
-	c := autoregistration.NewController(store, "", keepalive.Infinity)
+	c := workloadentry.NewController(store, "", keepalive.Infinity)
 	err = createStore(store, wgA)
 	if err != nil {
 		fmt.Println(err)
@@ -97,7 +97,7 @@ func FuzzWE(data []byte) int {
 	}
 	c.QueueUnregisterWorkload(proxy, time.Now())
 
-	he := autoregistration.HealthEvent{}
+	he := workloadentry.HealthEvent{}
 	err = f.GenerateStruct(&he)
 	if err != nil {
 		return 0

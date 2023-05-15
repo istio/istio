@@ -18,9 +18,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"istio.io/api/meta/v1alpha1"
-	"istio.io/istio/pilot/pkg/autoregistration/internal/state"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
+	"istio.io/istio/pilot/pkg/workloadentry/internal/state"
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/pkg/log"
 )

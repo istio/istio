@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package autoregistration
+package workloadentry
 
 import (
 	"context"
@@ -26,12 +26,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/pilot/pkg/autoregistration/internal/autoregistration"
-	"istio.io/istio/pilot/pkg/autoregistration/internal/externalregistration"
-	"istio.io/istio/pilot/pkg/autoregistration/internal/health"
-	"istio.io/istio/pilot/pkg/autoregistration/internal/state"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/workloadentry/internal/autoregistration"
+	"istio.io/istio/pilot/pkg/workloadentry/internal/externalregistration"
+	"istio.io/istio/pilot/pkg/workloadentry/internal/health"
+	"istio.io/istio/pilot/pkg/workloadentry/internal/state"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"

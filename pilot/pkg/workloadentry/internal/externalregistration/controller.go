@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pilot/pkg/autoregistration/internal/autoregistration"
-	"istio.io/istio/pilot/pkg/autoregistration/internal/health"
-	"istio.io/istio/pilot/pkg/autoregistration/internal/state"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/workloadentry/internal/autoregistration"
+	"istio.io/istio/pilot/pkg/workloadentry/internal/health"
+	"istio.io/istio/pilot/pkg/workloadentry/internal/state"
 	"istio.io/istio/pkg/config"
 	istiolog "istio.io/pkg/log"
 )
