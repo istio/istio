@@ -159,10 +159,6 @@ func delPodFromMeshWithIptables(client kubernetes.Interface, pod *corev1.Pod) {
 	} else {
 		log.Infof("Pod '%s/%s' (%s) is not in ipset", pod.Name, pod.Namespace, string(pod.UID))
 	}
-
-	if err := AnnotateUnenrollPod(client, pod); err != nil {
-		log.Errorf("failed to annotate pod unenrollment: %v", err)
-	}
 }
 
 func delIPsetAndRoute(ip string) {
