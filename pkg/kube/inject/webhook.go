@@ -983,17 +983,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		}
 	}
 
-	proxyConfig := mesh.DefaultProxyConfig()
-	if wh.env.PushContext != nil && wh.env.PushContext.ProxyConfigs != nil {
-		if generatedProxyConfig := wh.env.PushContext.ProxyConfigs.EffectiveProxyConfig(
-			&model.NodeMetadata{
-				Namespace:   pod.Namespace,
-				Labels:      pod.Labels,
-				Annotations: pod.Annotations,
-			}, wh.meshConfig); generatedProxyConfig != nil {
-			proxyConfig = generatedProxyConfig
-		}
-	}
+	proxyConfig := wh.env.GetProxyConfigOrDefault(pod.Namespace, pod.Labels, pod.Annotations, wh.meshConfig)
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
 	params := InjectionParameters{
 		pod:                 &pod,

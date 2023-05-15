@@ -409,17 +409,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput, dep
 		podAnnotations = deployment.Spec.Template.Annotations
 	}
 
-	proxyConfig := cfg.MeshConfig.GetDefaultConfig()
-	if d.env.PushContext != nil && d.env.PushContext.ProxyConfigs != nil {
-		if generatedProxyConfig := d.env.PushContext.ProxyConfigs.EffectiveProxyConfig(
-			&model.NodeMetadata{
-				Namespace:   mi.Namespace,
-				Labels:      podLabels,
-				Annotations: podAnnotations,
-			}, cfg.MeshConfig); generatedProxyConfig != nil {
-			proxyConfig = generatedProxyConfig
-		}
-	}
+	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, podLabels, podAnnotations, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
 		ProxyImage: inject.ProxyImage(
