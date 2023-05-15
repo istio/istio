@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,14 +30,20 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	istioio_networking_v1beta1 "istio.io/api/networking/v1beta1"
+	istio_type_v1beta1 "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test"
@@ -51,13 +58,34 @@ func TestConfigureIstioGateway(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	// Recompute with ambient enabled
 	classInfos = getClassInfos()
+	store := model.NewFakeStore()
+	if _, err := store.Create(config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.ProxyConfig,
+			Name:             "test",
+			Namespace:        "default",
+		},
+		Spec: &istioio_networking_v1beta1.ProxyConfig{
+			Selector: &istio_type_v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"istio.io/gateway-name": "default",
+				},
+			},
+			Image: &istioio_networking_v1beta1.ProxyImage{
+				ImageType: "distroless",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("failed to create ProxyConfigs: %s", err)
+	}
 	tests := []struct {
 		name string
 		gw   v1beta1.Gateway
+		pcs  *model.ProxyConfigs
 	}{
 		{
-			"simple",
-			v1beta1.Gateway{
+			name: "simple",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -68,8 +96,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 			},
 		},
 		{
-			"manual-sa",
-			v1beta1.Gateway{
+			name: "manual-sa",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -81,8 +109,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 			},
 		},
 		{
-			"manual-ip",
-			v1beta1.Gateway{
+			name: "manual-ip",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -98,8 +126,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 			},
 		},
 		{
-			"cluster-ip",
-			v1beta1.Gateway{
+			name: "cluster-ip",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -119,8 +147,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 			},
 		},
 		{
-			"multinetwork",
-			v1beta1.Gateway{
+			name: "multinetwork",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -138,8 +166,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 			},
 		},
 		{
-			"waypoint",
-			v1beta1.Gateway{
+			name: "waypoint",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "namespace",
 					Namespace: "default",
@@ -154,15 +182,35 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "custom-proxy-image",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: defaultClassName,
+				},
+			},
+			pcs: model.GetProxyConfigs(store, mesh.DefaultMeshConfig()),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
+			client := kube.NewFakeClient(
+				&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}},
+				&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}},
+			)
 			d := &DeploymentController{
-				client: kube.NewFakeClient(
-					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}},
-					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}},
-				),
+				client: client,
+				env: &model.Environment{
+					PushContext: &model.PushContext{
+						ProxyConfigs: tt.pcs,
+					},
+				},
+				deployments:  kclient.New[*appsv1.Deployment](client),
 				clusterID:    cluster.ID(features.ClusterName),
 				injectConfig: testInjectionConfig(t),
 				patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
@@ -195,7 +243,8 @@ func TestVersionManagement(t *testing.T) {
 		},
 	})
 	tw := revisions.NewTagWatcher(c, "default")
-	d := NewDeploymentController(c, "", testInjectionConfig(t), func(fn func()) {}, tw, "")
+	env := &model.Environment{}
+	d := NewDeploymentController(c, "", env, testInjectionConfig(t), func(fn func()) {}, tw, "")
 	reconciles := atomic.NewInt32(0)
 	wantReconcile := int32(0)
 	expectReconciled := func() {
