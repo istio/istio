@@ -86,6 +86,10 @@ const (
 	// Envoy Stateful Session Filter
 	// TODO: Move to well known.
 	StatefulSessionFilter = "envoy.filters.http.stateful_session"
+
+	// AlpnOverrideMetadataKey is the key under which metadata is added
+	// to indicate whether Istio rewrite the ALPN headers
+	AlpnOverrideMetadataKey = "alpn_override"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -403,6 +407,30 @@ func AddSubsetToMetadata(md *core.Metadata, subset string) {
 			},
 		}
 	}
+}
+
+// AddALPNOverrideToMetadata adds whether the the ALPN prefix should be added to the header
+// to the given core.Metadata struct, if metadata is not initialized, build a new metadata.
+func AddALPNOverrideToMetadata(metadata *core.Metadata, alpnOverride bool) *core.Metadata {
+	if metadata == nil {
+		metadata = &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{},
+		}
+	}
+
+	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
+		metadata.FilterMetadata[IstioMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
+		}
+	}
+
+	metadata.FilterMetadata[IstioMetadataKey].Fields["alpn_override"] = &structpb.Value{
+		Kind: &structpb.Value_StringValue{
+			StringValue: strconv.FormatBool(alpnOverride),
+		},
+	}
+
+	return metadata
 }
 
 // IsHTTPFilterChain returns true if the filter chain contains a HTTP connection manager filter
