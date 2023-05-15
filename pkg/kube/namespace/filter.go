@@ -58,7 +58,7 @@ func NewDiscoveryNamespacesFilter(
 	discoverySelectors []*metav1.LabelSelector,
 ) DiscoveryNamespacesFilter {
 	// convert LabelSelectors to Selectors
-	var selectors = make([]labels.Selector, 0, len(discoverySelectors))
+	selectors := make([]labels.Selector, 0, len(discoverySelectors))
 	for _, selector := range discoverySelectors {
 		ls, err := metav1.LabelSelectorAsSelector(selector)
 		if err != nil {
