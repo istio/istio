@@ -1142,7 +1142,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 				log.Error(err)
 				os.Exit(1)
 			}
-			// because multi cluster controller will init the config cluster service registry, we need to run the client after the informer created.
+			// because multi cluster controller.Run will init the config cluster service registry, we need to run the client after the informer created.
 			s.kubeClient.RunAndWait(stop)
 		}()
 		return nil

@@ -122,12 +122,6 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 	createNamespace(t, client.Kube(), nsA, map[string]string{"discovery-selectors": "enabled"})
 	// Create a namespace without discovery selector enabled
 	createNamespace(t, client.Kube(), nsB, map[string]string{})
-	ns1, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsA, metav1.GetOptions{})
-	ns2, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsB, metav1.GetOptions{})
-	discoveryNamespacesFilter.NamespaceCreated(ns1.ObjectMeta)
-
-	discoveryNamespacesFilter.NamespaceCreated(ns2.ObjectMeta)
-	// config map should be created for discovery selector enabled namespace
 	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, nsA, expectedData)
 	// config map should not be created for discovery selector disabled namespace
 	expectConfigMapNotExist(t, nc.configmaps, nsB)
@@ -160,11 +154,7 @@ func TestNamespaceControllerDiscovery(t *testing.T) {
 	}
 	createNamespace(t, client.Kube(), "not-selected", map[string]string{"kubernetes.io/metadata.name": "not-selected"})
 	createNamespace(t, client.Kube(), "selected", map[string]string{"kubernetes.io/metadata.name": "selected"})
-	ns1, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), "not-selected", metav1.GetOptions{})
-	ns2, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), "selected", metav1.GetOptions{})
-	fmt.Println(ns1.ObjectMeta)
-	discoveryNamespacesFilter.NamespaceCreated(ns1.ObjectMeta)
-	discoveryNamespacesFilter.NamespaceCreated(ns2.ObjectMeta)
+
 	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "selected", expectedData)
 	expectConfigMapNotExist(t, nc.configmaps, "not-selected")
 
