@@ -1022,7 +1022,11 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 	} else {
 		// "When empty, port (if specified) of the request is used."
 		// this differs from Istio default
-		resp.RedirectPort = &istio.HTTPRedirect_DerivePort{DerivePort: istio.HTTPRedirect_FROM_REQUEST_PORT}
+		if filter.Scheme != nil {
+			resp.RedirectPort = &istio.HTTPRedirect_DerivePort{DerivePort: istio.HTTPRedirect_FROM_PROTOCOL_DEFAULT}
+		} else {
+			resp.RedirectPort = &istio.HTTPRedirect_DerivePort{DerivePort: istio.HTTPRedirect_FROM_REQUEST_PORT}
+		}
 	}
 	if filter.Path != nil {
 		switch filter.Path.Type {

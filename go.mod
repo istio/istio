@@ -26,7 +26,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v23.0.6+incompatible
-	github.com/envoyproxy/go-control-plane v0.11.1-0.20230505175422-aaf76b5f96d0
+	github.com/envoyproxy/go-control-plane v0.11.1-0.20230512191503-8f629004dc9a
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.15.0
 	github.com/felixge/fgprof v0.9.3
@@ -88,8 +88,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.12.0
-	istio.io/api v0.0.0-20230511193058-044e6e6ce64a
-	istio.io/client-go v1.18.0-alpha.0.0.20230511193858-fb215eeeccf4
+	istio.io/api v0.0.0-20230512140303-8ba6dc2ef1d7
+	istio.io/client-go v1.18.0-alpha.0.0.20230512140703-13c628057d5b
 	istio.io/pkg v0.0.0-20230511142518-848e2e7f3941
 	k8s.io/api v0.27.1
 	k8s.io/apiextensions-apiserver v0.27.1
@@ -102,7 +102,7 @@ require (
 	k8s.io/kubectl v0.27.1
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 	sigs.k8s.io/controller-runtime v0.15.0-alpha.0
-	sigs.k8s.io/gateway-api v0.7.0-rc1
+	sigs.k8s.io/gateway-api v0.7.0-rc2
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -133,7 +133,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d // indirect
-	github.com/docker/distribution v2.8.1+incompatible // indirect
+	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v23.0.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
