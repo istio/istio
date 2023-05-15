@@ -567,7 +567,7 @@ func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction st
 				},
 			},
 		}
-		if err := rtnl.Filter().Add(&filterIngress); err != nil && !errors.Is(err, os.ErrExist) {
+		if err := rtnl.Filter().Replace(&filterIngress); err != nil {
 			log.Warnf("could not attach ingress eBPF: %v\n", err)
 			return err
 		}
@@ -592,7 +592,7 @@ func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction st
 			},
 		}
 
-		if err := rtnl.Filter().Add(&filterEgress); err != nil && !errors.Is(err, os.ErrExist) {
+		if err := rtnl.Filter().Replace(&filterEgress); err != nil {
 			log.Warnf("could not attach egress eBPF: %v", err)
 			return err
 		}
