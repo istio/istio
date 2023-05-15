@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kubeclient"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/pkg/log"
@@ -44,6 +45,7 @@ type writeClient[T controllers.Object] struct {
 
 type informerClient[T controllers.Object] struct {
 	informer           cache.SharedIndexInformer
+	startInformer      func(stopCh <-chan struct{})
 	filter             func(t any) bool
 	registeredHandlers []cache.ResourceEventHandlerRegistration
 }
@@ -68,6 +70,10 @@ func (n *informerClient[T]) applyFilter(t T) bool {
 		return true
 	}
 	return n.filter(t)
+}
+
+func (n *informerClient[T]) Start(stopCh <-chan struct{}) {
+	n.startInformer(stopCh)
 }
 
 func (n *writeClient[T]) Create(object T) (T, error) {
@@ -207,7 +213,7 @@ func NewWriteClient[T controllers.ComparableObject](c kube.Client) Writer[T] {
 	return &writeClient[T]{client: c}
 }
 
-func newInformerClient[T controllers.ComparableObject](c kube.Client, inf cache.SharedIndexInformer, filter Filter) informerClient[T] {
+func newInformerClient[T controllers.ComparableObject](c kube.Client, inf informerfactory.StartableInformer, filter Filter) informerClient[T] {
 	i := *new(T)
 	t := reflect.TypeOf(i)
 	if err := c.RegisterFilter(t, filter); err != nil {
@@ -217,8 +223,9 @@ func newInformerClient[T controllers.ComparableObject](c kube.Client, inf cache.
 		log.Warn(err)
 	}
 	return informerClient[T]{
-		informer: inf,
-		filter:   filter.ObjectFilter,
+		informer:      inf.Informer,
+		startInformer: inf.Start,
+		filter:        filter.ObjectFilter,
 	}
 }
 
@@ -232,9 +239,14 @@ func keyFunc(name, namespace string) string {
 }
 
 func toOpts(c kube.Client, filter Filter) kubetypes.InformerOptions {
+	ns := filter.Namespace
+	if ns == "" {
+		ns = features.InformerWatchNamespace
+	}
 	return kubetypes.InformerOptions{
 		LabelSelector:   filter.LabelSelector,
 		FieldSelector:   filter.FieldSelector,
+		Namespace:       ns,
 		ObjectTransform: filter.ObjectTransform,
 		Cluster:         c.ClusterID(),
 	}

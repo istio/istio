@@ -25,21 +25,32 @@ limitations under the License.
 //
 // Added functionality:
 // * Single factory for any type, including dynamic informers, meta informers, typed informers, etc.
-// * TODO: ability to run a single informer rather than all of them.
-// * TODO: ability to create multiple informers of the same type but with different filters.
+// * Ability to create multiple informers of the same type but with different filters.
+// * Ability to run a single informer rather than all of them.
 package informerfactory
 
 import (
+	"fmt"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // NewInformerFunc returns a SharedIndexInformer.
 type NewInformerFunc func() cache.SharedIndexInformer
+
+type StartableInformer struct {
+	Informer cache.SharedIndexInformer
+	start    func(stopCh <-chan struct{})
+}
+
+func (s StartableInformer) Start(stopCh <-chan struct{}) {
+	s.start(stopCh)
+}
 
 // InformerFactory provides access to a shared informer factory
 type InformerFactory interface {
@@ -48,7 +59,7 @@ type InformerFactory interface {
 	Start(stopCh <-chan struct{})
 
 	// InformerFor returns the SharedIndexInformer the provided type.
-	InformerFor(resource schema.GroupVersionResource, newFunc NewInformerFunc) cache.SharedIndexInformer
+	InformerFor(resource schema.GroupVersionResource, opts kubetypes.InformerOptions, newFunc NewInformerFunc) StartableInformer
 
 	// WaitForCacheSync blocks until all started informers' caches were synced
 	// or the stop channel gets closed.
@@ -75,8 +86,13 @@ func NewSharedInformerFactory() InformerFactory {
 	}
 }
 
+// InformerKey represents a unique informer
 type informerKey struct {
-	gvr schema.GroupVersionResource
+	gvr           schema.GroupVersionResource
+	labelSelector string
+	fieldSelector string
+	informerType  kubetypes.InformerType
+	namespace     string
 }
 
 type informerFactory struct {
@@ -95,22 +111,58 @@ type informerFactory struct {
 
 var _ InformerFactory = &informerFactory{}
 
-func (f *informerFactory) InformerFor(resource schema.GroupVersionResource, newFunc NewInformerFunc) cache.SharedIndexInformer {
+func (f *informerFactory) InformerFor(resource schema.GroupVersionResource, opts kubetypes.InformerOptions, newFunc NewInformerFunc) StartableInformer {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
 	key := informerKey{
-		gvr: resource,
+		gvr:           resource,
+		labelSelector: opts.LabelSelector,
+		fieldSelector: opts.FieldSelector,
+		informerType:  opts.InformerType,
+		namespace:     opts.Namespace,
 	}
 	informer, exists := f.informers[key]
 	if exists {
-		return informer
+		return StartableInformer{
+			Informer: informer,
+			start: func(stopCh <-chan struct{}) {
+				f.startOne(stopCh, key)
+			},
+		}
 	}
 
 	informer = newFunc()
 	f.informers[key] = informer
 
-	return informer
+	return StartableInformer{
+		Informer: informer,
+		start: func(stopCh <-chan struct{}) {
+			f.startOne(stopCh, key)
+		},
+	}
+}
+
+func (f *informerFactory) startOne(stopCh <-chan struct{}, informerType informerKey) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	if f.shuttingDown {
+		return
+	}
+
+	informer, ff := f.informers[informerType]
+	if !ff {
+		panic(fmt.Sprintf("bug: informer key %+v not found", informerType))
+	}
+	if !f.startedInformers.Contains(informerType) {
+		f.wg.Add(1)
+		go func() {
+			defer f.wg.Done()
+			informer.Run(stopCh)
+		}()
+		f.startedInformers.Insert(informerType)
+	}
 }
 
 // Start initializes all requested informers.

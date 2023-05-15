@@ -30,7 +30,6 @@ import (
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/informerfactory"
@@ -61,11 +60,11 @@ type ClientGetter interface {
 	Informers() informerfactory.InformerFactory
 }
 
-func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerOptions) cache.SharedIndexInformer {
+func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerOptions) informerfactory.StartableInformer {
 	return GetInformerFilteredFromGVR(c, opts, kubetypes.GetGVR[T]())
 }
 
-func GetInformerFilteredFromGVR(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) cache.SharedIndexInformer {
+func GetInformerFilteredFromGVR(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) informerfactory.StartableInformer {
 	switch opts.InformerType {
 	case ktypes.DynamicInformer:
 		return getInformerFilteredDynamic(c, opts, g)
@@ -76,17 +75,17 @@ func GetInformerFilteredFromGVR(c ClientGetter, opts ktypes.InformerOptions, g s
 	}
 }
 
-func getInformerFilteredDynamic(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) cache.SharedIndexInformer {
-	return c.Informers().InformerFor(g, func() cache.SharedIndexInformer {
+func getInformerFilteredDynamic(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) informerfactory.StartableInformer {
+	return c.Informers().InformerFor(g, opts, func() cache.SharedIndexInformer {
 		inf := cache.NewSharedIndexInformerWithOptions(
 			&cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					return c.Dynamic().Resource(g).Namespace(features.InformerWatchNamespace).List(context.Background(), options)
+					return c.Dynamic().Resource(g).Namespace(opts.Namespace).List(context.Background(), options)
 				},
 				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-					return c.Dynamic().Resource(g).Namespace(features.InformerWatchNamespace).Watch(context.Background(), options)
+					return c.Dynamic().Resource(g).Namespace(opts.Namespace).Watch(context.Background(), options)
 				},
 			},
 			&unstructured.Unstructured{},
@@ -101,17 +100,17 @@ func getInformerFilteredDynamic(c ClientGetter, opts ktypes.InformerOptions, g s
 	})
 }
 
-func getInformerFilteredMetadata(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) cache.SharedIndexInformer {
-	return c.Informers().InformerFor(g, func() cache.SharedIndexInformer {
+func getInformerFilteredMetadata(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) informerfactory.StartableInformer {
+	return c.Informers().InformerFor(g, opts, func() cache.SharedIndexInformer {
 		inf := cache.NewSharedIndexInformerWithOptions(
 			&cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
-					return c.Metadata().Resource(g).Namespace(features.InformerWatchNamespace).List(context.Background(), options)
+					return c.Metadata().Resource(g).Namespace(opts.Namespace).List(context.Background(), options)
 				},
 				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-					return c.Metadata().Resource(g).Namespace(features.InformerWatchNamespace).Watch(context.Background(), options)
+					return c.Metadata().Resource(g).Namespace(opts.Namespace).Watch(context.Background(), options)
 				},
 			},
 			&metav1.PartialObjectMetadata{},

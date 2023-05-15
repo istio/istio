@@ -30,6 +30,8 @@ type InformerOptions struct {
 	LabelSelector string
 	// A selector to restrict the list of returned objects by their fields.
 	FieldSelector string
+	// Namespace to watch.
+	Namespace string
 	// Cluster name for watch error handlers
 	Cluster cluster.ID
 	// ObjectTransform allows arbitrarily modifying objects stored in the underlying cache.
@@ -55,6 +57,9 @@ type Filter struct {
 	// A selector to restrict the list of returned objects by their fields.
 	// This is a *server side* filter.
 	FieldSelector string
+	// Namespace to watch.
+	// This is a *server side* filter.
+	Namespace string
 	// ObjectFilter allows arbitrary filtering logic.
 	// This is a *client side* filter. This means CPU/memory costs are still present for filtered objects.
 	// Use LabelSelector or FieldSelector instead, if possible.
