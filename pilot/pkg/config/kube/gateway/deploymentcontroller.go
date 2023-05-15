@@ -404,15 +404,18 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput, dep
 	if deployment != nil && deployment.Spec.Template.Labels != nil {
 		podLabels = deployment.Spec.Template.Labels
 	}
+	podAnnotations := map[string]string{}
+	if deployment != nil && deployment.Spec.Template.Annotations != nil {
+		podAnnotations = deployment.Spec.Template.Annotations
+	}
 
 	proxyConfig := cfg.MeshConfig.GetDefaultConfig()
 	if d.env.PushContext != nil && d.env.PushContext.ProxyConfigs != nil {
 		if generatedProxyConfig := d.env.PushContext.ProxyConfigs.EffectiveProxyConfig(
 			&model.NodeMetadata{
-				Namespace: mi.Namespace,
-				Labels:    podLabels,
-				// Not supported?
-				// Annotations: mi.Annotations,
+				Namespace:   mi.Namespace,
+				Labels:      podLabels,
+				Annotations: podAnnotations,
 			}, cfg.MeshConfig); generatedProxyConfig != nil {
 			proxyConfig = generatedProxyConfig
 		}

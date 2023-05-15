@@ -25,6 +25,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -58,6 +59,9 @@ func TestConfigureIstioGateway(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	// Recompute with ambient enabled
 	classInfos = getClassInfos()
+	defaultIstio := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}}
+	customSA := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}}
+	defaultObjects := []runtime.Object{defaultIstio, customSA}
 	store := model.NewFakeStore()
 	if _, err := store.Create(config.Config{
 		Meta: config.Meta{
@@ -78,10 +82,12 @@ func TestConfigureIstioGateway(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("failed to create ProxyConfigs: %s", err)
 	}
+	proxyConfig := model.GetProxyConfigs(store, mesh.DefaultMeshConfig())
 	tests := []struct {
-		name string
-		gw   v1beta1.Gateway
-		pcs  *model.ProxyConfigs
+		name    string
+		gw      v1beta1.Gateway
+		objects []runtime.Object
+		pcs     *model.ProxyConfigs
 	}{
 		{
 			name: "simple",
@@ -94,6 +100,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					GatewayClassName: defaultClassName,
 				},
 			},
+			objects: defaultObjects,
 		},
 		{
 			name: "manual-sa",
@@ -107,6 +114,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					GatewayClassName: defaultClassName,
 				},
 			},
+			objects: defaultObjects,
 		},
 		{
 			name: "manual-ip",
@@ -124,6 +132,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					}},
 				},
 			},
+			objects: defaultObjects,
 		},
 		{
 			name: "cluster-ip",
@@ -145,6 +154,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					}},
 				},
 			},
+			objects: defaultObjects,
 		},
 		{
 			name: "multinetwork",
@@ -164,6 +174,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					}},
 				},
 			},
+			objects: defaultObjects,
 		},
 		{
 			name: "waypoint",
@@ -181,9 +192,10 @@ func TestConfigureIstioGateway(t *testing.T) {
 					}},
 				},
 			},
+			objects: defaultObjects,
 		},
 		{
-			name: "custom-proxy-image",
+			name: "proxy-config-annotation",
 			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
@@ -193,16 +205,49 @@ func TestConfigureIstioGateway(t *testing.T) {
 					GatewayClassName: defaultClassName,
 				},
 			},
-			pcs: model.GetProxyConfigs(store, mesh.DefaultMeshConfig()),
+			objects: append(defaultObjects, &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default-istio",
+					Namespace: "default",
+					Labels: map[string]string{
+						"gateway.istio.io/managed": "istio.io-gateway-controller",
+					},
+				},
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"proxy.istio.io/config": `{"concurrency":5}`,
+							},
+						},
+					},
+				},
+			}),
+			pcs: &model.ProxyConfigs{},
+		},
+		{
+			name: "proxy-config-crd",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: defaultClassName,
+				},
+			},
+			objects: defaultObjects,
+			pcs:     proxyConfig,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
-			client := kube.NewFakeClient(
-				&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}},
-				&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}},
-			)
+			client := kube.NewFakeClient(tt.objects...)
+			deployments := kclient.New[*appsv1.Deployment](client)
+			stop := test.NewStop(t)
+			client.RunAndWait(stop)
+			kube.WaitForCacheSync("test", stop, deployments.HasSynced)
 			d := &DeploymentController{
 				client: client,
 				env: &model.Environment{
@@ -210,7 +255,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 						ProxyConfigs: tt.pcs,
 					},
 				},
-				deployments:  kclient.New[*appsv1.Deployment](client),
+				deployments:  deployments,
 				clusterID:    cluster.ID(features.ClusterName),
 				injectConfig: testInjectionConfig(t),
 				patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
