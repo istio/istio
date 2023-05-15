@@ -236,8 +236,8 @@ func mergeMaps(m1, m2 map[string]string) map[string]string {
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
-func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string, autoInjectNamespaces bool,
-	customLabels map[string]string) (string, error) {
+func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string,
+	autoInjectNamespaces bool, customLabels map[string]string) (string, error) {
 	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace, nil)
 
 	if err := r.Run(); err != nil {
