@@ -25,3 +25,5 @@ EXPOSE 9080
 WORKDIR /opt/microservices
 
 CMD ["ruby", "details.rb", "9080"]
+
+USER 1000
