@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
+	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -382,6 +383,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	if r.options != nil {
 		helmReconcilerOptions.Force = r.options.Force
 	}
+	exists := revtag.PreviousInstallExists(context.Background(), r.kubeClient.Kube())
 	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.kubeClient, iopMerged, helmReconcilerOptions)
 	if err != nil {
 		scope.Errorf("Error during reconcile. Error: %s", err)
@@ -395,7 +397,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	if err != nil {
 		scope.Errorf("Error during reconcile: %s", err)
 	}
-	if err = processDefaultWebhookAfterReconcile(iopMerged, r.kubeClient); err != nil {
+	if err = processDefaultWebhookAfterReconcile(iopMerged, r.kubeClient, exists); err != nil {
 		scope.Errorf("Error during reconcile: %s", err)
 		return reconcile.Result{}, err
 	}
@@ -408,14 +410,14 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	return reconcile.Result{}, err
 }
 
-func processDefaultWebhookAfterReconcile(iop *iopv1alpha1.IstioOperator, client kube.Client) error {
+func processDefaultWebhookAfterReconcile(iop *iopv1alpha1.IstioOperator, client kube.Client, exists bool) error {
 	var ns string
 	if configuredNamespace := iopv1alpha1.Namespace(iop.Spec); configuredNamespace != "" {
 		ns = configuredNamespace
 	} else {
 		ns = constants.IstioSystemNamespace
 	}
-	if _, err := helmreconciler.ProcessDefaultWebhook(client, iop, ns); err != nil {
+	if _, err := helmreconciler.ProcessDefaultWebhook(client, iop, ns, exists, false); err != nil {
 		return fmt.Errorf("failed to process default webhook: %v", err)
 	}
 	return nil

@@ -30,6 +30,7 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -198,11 +199,12 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
+	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
 	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
-	if processed, err := helmreconciler.ProcessDefaultWebhook(kubeClient, iop, ns); err != nil {
+	if processed, err := helmreconciler.ProcessDefaultWebhook(kubeClient, iop, ns, exists, rootArgs.DryRun); err != nil {
 		return fmt.Errorf("failed to process default webhook: %v", err)
 	} else if processed {
 		p.Println("Made this installation the default for injection and validation.")
