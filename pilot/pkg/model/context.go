@@ -191,6 +191,20 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
 }
 
+func (e *Environment) GetProxyConfigOrDefault(ns string, labels, annotations map[string]string, meshConfig *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
+	if e.PushContext != nil && e.PushContext.ProxyConfigs != nil {
+		if generatedProxyConfig := e.PushContext.ProxyConfigs.EffectiveProxyConfig(
+			&NodeMetadata{
+				Namespace:   ns,
+				Labels:      labels,
+				Annotations: annotations,
+			}, meshConfig); generatedProxyConfig != nil {
+			return generatedProxyConfig
+		}
+	}
+	return mesh.DefaultProxyConfig()
+}
+
 // Resources is an alias for array of marshaled resources.
 type Resources = []*discovery.Resource
 
