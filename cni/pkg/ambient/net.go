@@ -151,7 +151,7 @@ func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
 	return err
 }
 
-func delPodFromMeshWithIptables(client kubernetes.Interface, pod *corev1.Pod) {
+func delPodFromMeshWithIptables(pod *corev1.Pod) {
 	log.Debugf("Removing pod '%s/%s' (%s) from mesh", pod.Name, pod.Namespace, string(pod.UID))
 	if IsPodInIpset(pod) {
 		log.Infof("Removing pod '%s' (%s) from ipset and related route", pod.Name, string(pod.UID))
@@ -281,7 +281,7 @@ func (s *Server) DelPodFromMesh(pod *corev1.Pod, event controllers.Event) {
 	log.Debugf("Pod %s/%s is now stopped or opt out... cleaning up.", pod.Namespace, pod.Name)
 	switch s.redirectMode {
 	case IptablesMode:
-		delPodFromMeshWithIptables(s.kubeClient.Kube(), pod)
+		delPodFromMeshWithIptables(pod)
 	case EbpfMode:
 		if pod.Spec.HostNetwork {
 			log.Debugf("pod(%s/%s) is using host network, skip it", pod.Namespace, pod.Name)
