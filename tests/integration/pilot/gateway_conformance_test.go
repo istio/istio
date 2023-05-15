@@ -20,6 +20,7 @@ package pilot
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/label"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
@@ -56,6 +57,7 @@ func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.gateway").
+		Label(label.IPv4). // Need https://github.com/kubernetes-sigs/gateway-api/pull/2024 in 0.7.1
 		Run(func(ctx framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(ctx)
 
