@@ -312,7 +312,9 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	} else {
 		log.Debugf("controller version existing=%v, no action needed", existingControllerVersion)
 	}
-	rendered, err := d.render(gi.templates, input)
+
+	gwDeployment := d.deployments.Get(model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName), gw.Namespace)
+	rendered, err := d.render(gi.templates, input, gwDeployment)
 	if err != nil {
 		return fmt.Errorf("failed to render template: %v", err)
 	}
@@ -384,13 +386,25 @@ type derivedInput struct {
 	Values      map[string]any
 }
 
-func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]string, error) {
+func (d *DeploymentController) render(templateName string, mi TemplateInput, deployment *appsv1.Deployment) ([]string, error) {
 	cfg := d.injectConfig()
 
 	template := cfg.Templates[templateName]
 	if template == nil {
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
+
+	// Default labels are required to properly match a proxy config with a gateway in case where the proxy config was created
+	// before the gateway. This is because in such a case, the gateway deployment would be nil and newly created gateway
+	// would not be matched with the proxy config.
+	podLabels := map[string]string{
+		"istio.io/gateway-name":           mi.Name,
+		"service.istio.io/canonical-name": mi.DeploymentName,
+	}
+	if deployment != nil && deployment.Spec.Template.Labels != nil {
+		podLabels = deployment.Spec.Template.Labels
+	}
+
 	proxyConfig := cfg.MeshConfig.GetDefaultConfig()
 	if d.env.PushContext != nil && d.env.PushContext.ProxyConfigs != nil {
 		if generatedProxyConfig := d.env.PushContext.ProxyConfigs.EffectiveProxyConfig(
@@ -399,7 +413,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 				// We need deployment labels here, so we have to check if the deployment exists and if so, get its labels.
 				// However, it won't exist on first creation of a gateway, so we might fall back
 				// to the default labels from the template: service.istio.io/canonical-name, istio.io/gateway-name.
-				Labels: mi.Labels,
+				Labels: podLabels,
 				// Not supported?
 				// Annotations: mi.Annotations,
 			}, cfg.MeshConfig); generatedProxyConfig != nil {
