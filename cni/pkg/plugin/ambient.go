@@ -29,10 +29,6 @@ import (
 )
 
 func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName, podNamespace, podIfname, podNetNs string, podIPs []net.IPNet) (bool, error) {
-	if !ambientConfig.ZTunnelReady {
-		return false, fmt.Errorf("ztunnel not ready")
-	}
-
 	client, err := newKubeClient(conf)
 	if err != nil {
 		return false, err

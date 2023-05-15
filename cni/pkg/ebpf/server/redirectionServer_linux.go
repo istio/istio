@@ -48,6 +48,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"istio.io/istio/pkg/util/istiomultierror"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -362,6 +363,41 @@ func (r *RedirectServer) Start(stop <-chan struct{}) {
 	}()
 }
 
+func (r *RedirectServer) parseIPs(ipAddrs []netip.Addr) ([][]byte, error) {
+	if len(ipAddrs) == 0 {
+		return nil, fmt.Errorf("nil ipAddrs inputed")
+	}
+	// TODO: support multiple IPs and IPv6
+	ipAddr := ipAddrs[0]
+	// ip slice is just in network endian
+	ip := ipAddr.AsSlice()
+	if len(ip) != 4 {
+		return nil, fmt.Errorf("invalid ip addr(%s), ipv4 is supported", ipAddr.String())
+	}
+	return [][]byte{ip}, nil
+}
+
+func (r *RedirectServer) RemovePod(ipAddrs []netip.Addr, ifIndex uint32) error {
+	multiErr := istiomultierror.New()
+
+	ips, err := r.parseIPs(ipAddrs)
+	if err != nil {
+		return err
+	}
+	ip := ips[0]
+	if ifIndex != 0 {
+		if err := r.detachTCForWorkload(ifIndex); err != nil {
+			multiErr = multierror.Append(multiErr, err)
+		}
+	} else {
+		log.Debugf("zero ifindex for app removal")
+	}
+	if err := r.obj.AppInfo.Delete(ip); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+		multiErr = multierror.Append(multiErr, err)
+	}
+	return multiErr.ErrorOrNil()
+}
+
 func (r *RedirectServer) handleRequest(args *RedirectArgs) error {
 	var mapInfo mapInfo
 	multiErr := istiomultierror.New()
@@ -417,28 +453,16 @@ func (r *RedirectServer) handleRequest(args *RedirectArgs) error {
 			}
 		}
 	} else {
-		if len(ipAddrs) == 0 {
-			return fmt.Errorf("nil ipAddrs inputed")
-		}
-		// TODO: support multiple IPs and IPv6
-		ipAddr := ipAddrs[0]
-		// ip slice is just in network endian
-		ip := ipAddr.AsSlice()
-		if len(ip) != 4 {
-			return fmt.Errorf("invalid ip addr(%s), ipv4 is supported", ipAddr.String())
-		}
 		if remove {
-			if ifindex != 0 {
-				if err := r.detachTCForWorkload(ifindex); err != nil {
-					multiErr = multierror.Append(multiErr, err)
-				}
-			} else {
-				log.Debugf("zero ifindex for app removal")
-			}
-			if err := r.obj.AppInfo.Delete(ip); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+			if err := r.RemovePod(ipAddrs, ifindex); err != nil {
 				multiErr = multierror.Append(multiErr, err)
 			}
 		} else {
+			ips, err := r.parseIPs(ipAddrs)
+			if err != nil {
+				return err
+			}
+			ip := ips[0]
 			if err := r.attachTCForWorkLoad(ifindex); err != nil {
 				multiErr = multierror.Append(multiErr, err)
 				if err := r.detachTCForWorkload(ifindex); err != nil {
@@ -650,19 +674,16 @@ func (r *RedirectServer) dumpZtunnelInfo() (*mapInfo, error) {
 	return &info, nil
 }
 
-//nolint:unused
-func (r *RedirectServer) dumpAppInfo() ([]uint32, []mapInfo) {
-	var keyOut uint32
+func (r *RedirectServer) DumpAppIPs() sets.Set[string] {
+	var keyOut [4]byte
 	var valueOut mapInfo
-	var values []mapInfo
-	var keys []uint32
+	m := sets.New[string]()
 	mapIter := r.obj.AppInfo.Iterate()
 	for mapIter.Next(&keyOut, &valueOut) {
-		keys = append(keys, keyOut)
-		values = append(values, valueOut)
-
+		ipAddr := netip.AddrFrom4(keyOut)
+		m.Insert(ipAddr.String())
 	}
-	return keys, values
+	return m
 }
 
 func htons(a uint16) uint16 {

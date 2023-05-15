@@ -25,12 +25,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	pconstants "istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/util/sets"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -73,7 +75,7 @@ func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
 		log.Infof("Pod '%s/%s' (%s) is in ipset", pod.Name, pod.Namespace, string(pod.UID))
 	}
 
-	rte, err := buildRouteFromPod(pod, ip)
+	rte, err := buildRouteForPod(ip)
 	if err != nil {
 		log.Errorf("Failed to build route for pod %s: %v", pod.Name, err)
 	}
@@ -149,20 +151,23 @@ func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
 	return err
 }
 
-func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
+func delPodFromMeshWithIptables(pod *corev1.Pod) {
 	log.Debugf("Removing pod '%s/%s' (%s) from mesh", pod.Name, pod.Namespace, string(pod.UID))
 	if IsPodInIpset(pod) {
-		log.Infof("Removing pod '%s' (%s) from ipset", pod.Name, string(pod.UID))
-		err := Ipset.DeleteIP(net.ParseIP(pod.Status.PodIP).To4())
-		if err != nil {
-			log.Errorf("Failed to delete pod %s from ipset list: %v", pod.Name, err)
-		}
+		log.Infof("Removing pod '%s' (%s) from ipset and related route", pod.Name, string(pod.UID))
+		delIPsetAndRoute(pod.Status.PodIP)
 	} else {
 		log.Infof("Pod '%s/%s' (%s) is not in ipset", pod.Name, pod.Namespace, string(pod.UID))
 	}
-	rte, err := buildRouteFromPod(pod, "")
+}
+
+func delIPsetAndRoute(ip string) {
+	if err := Ipset.DeleteIP(net.ParseIP(ip).To4()); err != nil {
+		log.Errorf("Failed to delete %s from ipset list: %v", ip, err)
+	}
+	rte, err := buildRouteForPod(ip)
 	if err != nil {
-		log.Errorf("Failed to build route for pod %s: %v", pod.Name, err)
+		log.Errorf("Failed to build route for %s: %v", ip, err)
 	}
 	if RouteExists(rte) {
 		log.Infof("Removing route: %+v", rte)
@@ -171,7 +176,7 @@ func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
 		// err = netlink.RouteDel(rte)
 		err = execute("ip", append([]string{"route", "del"}, rte...)...)
 		if err != nil {
-			log.Warnf("Failed to delete route (%s) for pod %s: %v", rte, pod.Name, err)
+			log.Warnf("Failed to delete route (%s): %v", rte, err)
 		}
 	}
 }
@@ -276,13 +281,13 @@ func (s *Server) DelPodFromMesh(pod *corev1.Pod, event controllers.Event) {
 	log.Debugf("Pod %s/%s is now stopped or opt out... cleaning up.", pod.Namespace, pod.Name)
 	switch s.redirectMode {
 	case IptablesMode:
-		DelPodFromMesh(s.kubeClient.Kube(), pod)
+		delPodFromMeshWithIptables(pod)
 	case EbpfMode:
 		if pod.Spec.HostNetwork {
 			log.Debugf("pod(%s/%s) is using host network, skip it", pod.Namespace, pod.Name)
 			return
 		}
-		if err := s.delPodEbpfOnNode(pod.Status.PodIP); err != nil {
+		if err := s.delPodEbpfOnNode(pod.Status.PodIP, false); err != nil {
 			log.Errorf("failed to del POD ebpf: %v", err)
 		}
 	}
@@ -296,4 +301,40 @@ func (s *Server) DelPodFromMesh(pod *corev1.Pod, event controllers.Event) {
 
 func SetProc(path string, value string) error {
 	return os.WriteFile(path, []byte(value), 0o644)
+}
+
+func (s *Server) cleanStaleIPs(stales sets.Set[string]) {
+	log.Infof("Ambient stale Pod IPs to be cleaned: %s", stales)
+	switch s.redirectMode {
+	case IptablesMode:
+		for ip := range stales {
+			delIPsetAndRoute(ip)
+		}
+	case EbpfMode:
+		for ip := range stales {
+			if err := s.delPodEbpfOnNode(ip, false); err != nil {
+				log.Errorf("failed to cleanup POD(%s) ebpf: %v", ip, err)
+			}
+		}
+	}
+}
+
+func (s *Server) cleanupPodsEbpfOnNode() error {
+	if s.ebpfServer == nil {
+		return fmt.Errorf("uninitialized ebpf server")
+	}
+	for _, ns := range s.namespaces.List(
+		metav1.NamespaceAll, klabels.Set{pconstants.DataplaneMode: pconstants.DataplaneModeAmbient}.AsSelector()) {
+		namespace := ns.GetName()
+		for _, pod := range s.pods.List(namespace, klabels.Everything()) {
+			log.Infof("cleanup Pod %s in %s", pod.Name, namespace)
+			if err := s.delPodEbpfOnNode(pod.Status.PodIP, true); err != nil {
+				log.Errorf("failed to cleanup pod ebpf: %v", err)
+			}
+			if err := AnnotateUnenrollPod(s.kubeClient.Kube(), pod); err != nil {
+				log.Errorf("failed to annotate pod unenrollment: %v", err)
+			}
+		}
+	}
+	return nil
 }
