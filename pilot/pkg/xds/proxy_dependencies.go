@@ -44,7 +44,7 @@ func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 	}
 
 	for config := range req.ConfigsUpdated {
-		if isProxyDependentOnConfig(proxy, config, req.Push) {
+		if proxyDependentOnConfig(proxy, config, req.Push) {
 			return true
 		}
 	}
@@ -52,7 +52,7 @@ func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 	return false
 }
 
-func isProxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *model.PushContext) bool {
+func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *model.PushContext) bool {
 	// Skip config dependency check based on proxy type for certain configs.
 	if UnAffectedConfigKinds[proxy.Type].Contains(config.Kind) {
 		return false
