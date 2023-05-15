@@ -126,9 +126,13 @@ func TestDashboard(t *testing.T) {
 }
 
 func mockExecClientDashboard(_, _, _ string) (kube.CLIClient, error) {
-	return kube.MockClient{}, nil
+	return MockClient{
+		CLIClient: kube.NewFakeClient(),
+	}, nil
 }
 
 func mockEnvoyClientDashboard(_, _ string) (kube.CLIClient, error) {
-	return kube.MockClient{}, nil
+	return MockClient{
+		CLIClient: kube.NewFakeClient(),
+	}, nil
 }

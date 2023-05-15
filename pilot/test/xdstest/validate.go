@@ -23,6 +23,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
+	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -227,6 +228,11 @@ func ValidateRouteConfiguration(t testing.TB, l *route.RouteConfiguration) {
 	t.Helper()
 	if err := l.Validate(); err != nil {
 		t.Errorf("route configuration %v is invalid: %v", l.Name, err)
+	}
+
+	if l.MaxDirectResponseBodySizeBytes.Value != istio_route.DefaultMaxDirectResponseBodySizeBytes.Value {
+		t.Errorf("expected MaxDirectResponseBodySizeBytes %v, got %v",
+			istio_route.DefaultMaxDirectResponseBodySizeBytes, l.MaxDirectResponseBodySizeBytes)
 	}
 	validateRouteConfigurationDomains(t, l)
 }

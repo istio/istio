@@ -32,7 +32,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var healthCheckLog = log.RegisterScope("healthcheck", "Health Checks performed by Istio-Agent", 0)
+var healthCheckLog = log.RegisterScope("healthcheck", "Health Checks performed by Istio-Agent")
 
 type Prober interface {
 	// Probe will healthcheck and return whether or not the target is healthy.

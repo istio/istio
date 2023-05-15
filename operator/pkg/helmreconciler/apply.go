@@ -162,8 +162,10 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 		return errs.ToError()
 	}
 
-	if err := kubectlutil.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme); err != nil {
-		scope.Errorf("unexpected error adding apply annotation to object: %s", err)
+	if !serverSideApply {
+		if err := kubectlutil.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme); err != nil {
+			scope.Errorf("unexpected error adding apply annotation to object: %s", err)
+		}
 	}
 
 	objectKey := client.ObjectKeyFromObject(obj)

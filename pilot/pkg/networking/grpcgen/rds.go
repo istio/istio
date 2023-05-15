@@ -43,7 +43,7 @@ func buildHTTPRoute(node *model.Proxy, push *model.PushContext, routeName string
 	// TODO use route-style naming instead of cluster naming
 	_, _, hostname, port := model.ParseSubsetKey(routeName)
 	if hostname == "" || port == 0 {
-		log.Warn("Failed to parse ", routeName)
+		log.Warnf("failed to parse %v", routeName)
 		return nil
 	}
 

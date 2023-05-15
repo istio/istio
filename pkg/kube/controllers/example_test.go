@@ -98,7 +98,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	// First, wait for pods to sync. Once this is complete, we know the event handler for Pods will have
 	// ran for each item and enqueued everything.
-	kube.WaitForCacheSync(stop, c.pods.HasSynced)
+	kube.WaitForCacheSync("pod controller", stop, c.pods.HasSynced)
 
 	// Now we can run the queue. This will block until `stop` is closed.
 	c.queue.Run(stop)
@@ -149,7 +149,7 @@ func Example() {
 	// Now run our controller (in goroutine)
 	go controller.Run(stop)
 	// Wait for it to be ready
-	kube.WaitForCacheSync(stop, controller.HasSynced)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 
 	// In a test, we can also use a wrapped client that calls t.Fatal on errors
 	// pods := clienttest.Wrap(t, controller.pods)

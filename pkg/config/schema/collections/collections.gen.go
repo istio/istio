@@ -411,14 +411,17 @@ var (
 	}.MustBuild()
 
 	ReferenceGrant = resource.Builder{
-		Identifier:    "ReferenceGrant",
-		Group:         "gateway.networking.k8s.io",
-		Kind:          "ReferenceGrant",
-		Plural:        "referencegrants",
-		Version:       "v1alpha2",
+		Identifier: "ReferenceGrant",
+		Group:      "gateway.networking.k8s.io",
+		Kind:       "ReferenceGrant",
+		Plural:     "referencegrants",
+		Version:    "v1beta1",
+		VersionAliases: []string{
+			"v1alpha2",
+		},
 		Proto:         "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec",
-		ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.ReferenceGrantSpec{}).Elem(),
-		ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec{}).Elem(),
+		ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1beta1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
@@ -758,8 +761,8 @@ var (
 		MustAdd(WorkloadGroup).
 		Build()
 
-	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
-	PilotGatewayAPI = collection.NewSchemasBuilder().
+	// pilotGatewayAPI contains only collections used by Pilot, including the full Gateway API.
+	pilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(AuthorizationPolicy).
 			MustAdd(DestinationRule).
 			MustAdd(EnvoyFilter).
@@ -783,4 +786,26 @@ var (
 			MustAdd(WorkloadEntry).
 			MustAdd(WorkloadGroup).
 			Build()
+
+	// PilotStableGatewayAPI contains only collections used by Pilot, including beta+ Gateway API.
+	pilotStableGatewayAPI = collection.NewSchemasBuilder().
+				MustAdd(AuthorizationPolicy).
+				MustAdd(DestinationRule).
+				MustAdd(EnvoyFilter).
+				MustAdd(Gateway).
+				MustAdd(GatewayClass).
+				MustAdd(HTTPRoute).
+				MustAdd(KubernetesGateway).
+				MustAdd(PeerAuthentication).
+				MustAdd(ProxyConfig).
+				MustAdd(ReferenceGrant).
+				MustAdd(RequestAuthentication).
+				MustAdd(ServiceEntry).
+				MustAdd(Sidecar).
+				MustAdd(Telemetry).
+				MustAdd(VirtualService).
+				MustAdd(WasmPlugin).
+				MustAdd(WorkloadEntry).
+				MustAdd(WorkloadGroup).
+				Build()
 )

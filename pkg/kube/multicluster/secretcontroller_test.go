@@ -191,7 +191,7 @@ func Test_SecretController(t *testing.T) {
 	t.Run("sync timeout", func(t *testing.T) {
 		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	})
-	kube.WaitForCacheSync(stopCh, c.informer.HasSynced)
+	kube.WaitForCacheSync("test", stopCh, c.informer.HasSynced)
 	clientset.RunAndWait(stopCh)
 
 	for _, step := range steps {

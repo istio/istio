@@ -40,7 +40,7 @@ import (
 const hubIDPPrefix = "https://gkehub.googleapis.com/"
 
 var (
-	googleCAClientLog = log.RegisterScope("googleca", "Google CA client debugging", 0)
+	googleCAClientLog = log.RegisterScope("googleca", "Google CA client debugging")
 	envGkeClusterURL  = env.Register("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 )
 

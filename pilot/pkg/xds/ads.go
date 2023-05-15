@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	log = istiolog.RegisterScope("ads", "ads debugging", 0)
+	log = istiolog.RegisterScope("ads", "ads debugging")
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)

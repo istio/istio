@@ -21,6 +21,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
@@ -80,6 +81,10 @@ func (*K8sAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context,
 outer:
 	for ann, value := range r.Metadata.Annotations {
 		if !istioAnnotation(ann) {
+			continue
+		}
+
+		if maturity.AlwaysIgnoredAnnotations[ann] {
 			continue
 		}
 

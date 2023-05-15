@@ -280,6 +280,9 @@ int ztunnel_ingress(struct __sk_buff *skb)
     int skip_mark = 0;
     __u32 *log_level = get_log_level();
 
+    if (skb->cb[4] != OUTBOUND_CB && skb->cb[4] != INBOUND_CB)
+        return TC_ACT_OK;
+
     if (data + sizeof(*eth) > data_end)
         return TC_ACT_OK;
 
@@ -333,6 +336,83 @@ int ztunnel_ingress(struct __sk_buff *skb)
     }
 
     return TC_ACT_OK;
+}
+
+// For ztunnel pod veth pair(in pod ns) ingress hook
+// prog name disp limits to 15 bytes
+SEC("tc")
+int ztunnel_tproxy(struct __sk_buff *skb)
+{
+    void *data = (void *)(long)skb->data;
+    struct ethhdr  *eth = data;
+    void *data_end = (void *)(long)skb->data_end;
+    struct bpf_sock_tuple *tuple;
+    size_t tuple_len;
+    struct bpf_sock *sk;
+    __u32 *log_level = get_log_level();
+    struct bpf_sock_tuple proxy_tup;
+    __be16 proxy_port;
+    int ret;
+
+    if (skb->cb[4] != OUTBOUND_CB && skb->cb[4] != INBOUND_CB)
+        return TC_ACT_OK;
+
+    if (data + sizeof(*eth) > data_end)
+        return TC_ACT_OK;
+
+    if (eth->h_proto != bpf_htons(ETH_P_IP))
+        return TC_ACT_OK;
+
+    struct iphdr *iph = data + sizeof(*eth);
+    if (data + sizeof(*eth) + sizeof(*iph) > data_end)
+        return TC_ACT_OK;
+
+    // TODO: support UDP tunneling
+    if (iph->protocol != IPPROTO_TCP)
+        return TC_ACT_OK;
+
+    tuple = (struct bpf_sock_tuple *)&iph->saddr;
+    tuple_len = sizeof(tuple->ipv4);
+    if ((void *)tuple + sizeof(tuple->ipv4) > (void *)(long)skb->data_end)
+        return TC_ACT_SHOT;
+
+    sk = bpf_skc_lookup_tcp(skb, tuple, tuple_len, BPF_F_CURRENT_NETNS, 0);
+    if (sk && sk->state == BPF_TCP_LISTEN) {
+        bpf_sk_release(sk);
+        sk = NULL;
+    }
+    if (!sk) {
+        // No exisiting connection, try to find listner
+        __builtin_memset(&proxy_tup, 0, sizeof(proxy_tup));
+
+        if (skb->cb[4] == OUTBOUND_CB) {
+            proxy_port = bpf_htons(ZTUNNEL_OUTBOUND_PORT);
+        } else {
+            if (tuple->ipv4.dport != bpf_htons(ZTUNNEL_INBOUND_PORT)) {
+                // for plaintext case
+                proxy_port = bpf_htons(ZTUNNEL_INBOUND_PLAINTEXT_PORT);
+            } else {
+                proxy_port = bpf_htons(ZTUNNEL_INBOUND_PORT);
+            }
+        }
+
+        proxy_tup.ipv4.dport = proxy_port;
+
+        sk = bpf_skc_lookup_tcp(skb, &proxy_tup, tuple_len, BPF_F_CURRENT_NETNS, 0);
+        if (sk && sk->state != BPF_TCP_LISTEN) {
+            bpf_sk_release(sk);
+            sk = NULL;
+        }
+    }
+    if (!sk) {
+        return TC_ACT_OK;
+    }
+
+    ret = bpf_sk_assign(skb, sk, 0);
+    bpf_sk_release(sk);
+
+    skb->mark = ZTUNNEL_TPROXY_MARK;
+    return ret == 0 ? TC_ACT_OK : TC_ACT_SHOT;
 }
 
 char __license[] SEC("license") = "Dual BSD/GPL";

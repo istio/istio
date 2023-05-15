@@ -41,7 +41,6 @@ import (
 	"google.golang.org/grpc/xds"
 	"k8s.io/utils/env"
 
-	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -202,7 +201,7 @@ func (s *grpcInstance) certsFromBootstrapForReady() (cert string, key string, ca
 	} else if data := os.Getenv("GRPC_XDS_BOOTSTRAP_CONFIG"); len(data) > 0 {
 		bootstrapData = []byte(data)
 	}
-	var bootstrap grpcxds.Bootstrap
+	var bootstrap Bootstrap
 	if uerr := json.Unmarshal(bootstrapData, &bootstrap); uerr != nil {
 		err = uerr
 		return

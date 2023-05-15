@@ -54,7 +54,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("kube", "Kubernetes client messages", 0)
+var scope = log.RegisterScope("kube", "Kubernetes client messages")
 
 // Client is a client for Istio CRDs, implementing config store cache
 // This is used for CRUD operators on Istio configuration, as well as handling of events on config changes
@@ -102,7 +102,7 @@ var _ model.ConfigStoreController = &Client{}
 func New(client kube.Client, opts Option) (*Client, error) {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
-		schemas = collections.PilotGatewayAPI
+		schemas = collections.PilotGatewayAPI()
 	}
 	return NewForSchemas(client, opts, schemas)
 }
@@ -195,7 +195,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 
 	cl.stop = stop
 
-	if !kube.WaitForCacheSync(stop, cl.informerSynced) {
+	if !kube.WaitForCacheSync("crdclient", stop, cl.informerSynced) {
 		cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
 		return
 	}
@@ -344,7 +344,7 @@ func (cl *Client) kind(r config.GroupVersionKind) (*cacheHandler, bool) {
 // knownCRDs returns all CRDs present in the cluster, with timeout and retries.
 func knownCRDs(crdClient apiextensionsclient.Interface) (map[string]struct{}, error) {
 	var res *crd.CustomResourceDefinitionList
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	var err error
 	res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})

@@ -615,7 +615,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 		},
 	}
 	if err := mutable.build(lb, opts); err != nil {
-		log.Warn("buildHTTPProxy filter chain error  ", err.Error())
+		log.Warnf("buildHTTPProxy filter chain: %v", err)
 		return nil
 	}
 	return l
@@ -1000,7 +1000,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 
 	// Filters are serialized one time into an opaque struct once we have the complete list.
 	if err := mutable.build(lb, listenerOpts); err != nil {
-		log.Warn("buildSidecarOutboundListeners: ", err.Error())
+		log.Warnf("buildSidecarOutboundListeners: %v", err)
 		return
 	}
 
@@ -1320,7 +1320,6 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				QuicOptions:            &listener.QuicProtocolOptions{},
 				DownstreamSocketConfig: &core.UdpSocketConfig{},
 			},
-			EnableReusePort: proto.BoolTrue,
 		}
 		// add extra addresses for the listener
 		if features.EnableDualStack && len(opts.extraBind) > 0 {

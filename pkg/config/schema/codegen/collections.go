@@ -358,12 +358,25 @@ type ClientGetter interface {
 	ExtInformer() kubeextinformer.SharedInformerFactory
 }
 
-func GetClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
+func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
 	switch any(ptr.Empty[T]()).(type) {
 {{- range .Entries }}
 	{{- if not .Resource.Synthetic }}
 	case *{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}:
 		return  c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}namespace{{end}}).(ktypes.WriteAPI[T])
+	{{- end }}
+{{- end }}
+  default:
+    panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
+	}
+}
+
+func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.ReadWriteAPI[T, TL] {
+	switch any(ptr.Empty[T]()).(type) {
+{{- range .Entries }}
+	{{- if not .Resource.Synthetic }}
+	case *{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}:
+		return  c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}namespace{{end}}).(ktypes.ReadWriteAPI[T, TL])
 	{{- end }}
 {{- end }}
   default:
@@ -541,10 +554,24 @@ var (
 	{{- end }}
 		Build()
 
-	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
-	PilotGatewayAPI = collection.NewSchemasBuilder().
+	// pilotGatewayAPI contains only collections used by Pilot, including the full Gateway API.
+	pilotGatewayAPI = collection.NewSchemasBuilder().
 	{{- range .Entries }}
 		{{- if or (contains .Resource.Group "istio.io") (contains .Resource.Group "gateway.networking.k8s.io") }}
+		MustAdd({{ .Resource.Identifier }}).
+		{{- end}}
+	{{- end }}
+		Build()
+
+	// PilotStableGatewayAPI contains only collections used by Pilot, including beta+ Gateway API.
+	pilotStableGatewayAPI = collection.NewSchemasBuilder().
+	{{- range .Entries }}
+		{{- if or
+       (contains .Resource.Group "istio.io")
+       (and
+          (contains .Resource.Group "gateway.networking.k8s.io")
+          (not (contains .Resource.Version "alpha")))
+    }}
 		MustAdd({{ .Resource.Identifier }}).
 		{{- end}}
 	{{- end }}

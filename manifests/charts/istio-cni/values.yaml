@@ -44,6 +44,10 @@ cni:
   # Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift)
   privileged: false
 
+  # Custom configuration happens based on the CNI provider.
+  # Possible values: "default", "multus"
+  provider: "default"
+
   # Configure ambient settings
   ambient:
     # If enabled, ambient redirection will be enabled
@@ -72,13 +76,16 @@ cni:
       cpu: 100m
       memory: 100Mi
 
-  # Experimental taint controller for further race condition mitigation
-  taint:
-    enabled: false
-
   resourceQuotas:
     enabled: false
     pods: 5000
+
+  # The number of pods that can be unavailable during rolling update (see
+  # `updateStrategy.rollingUpdate.maxUnavailable` here:
+  # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).
+  # May be specified as a number of pods or as a percent of the total number
+  # of pods at the start of the update.
+  rollingMaxUnavailable: 1
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""

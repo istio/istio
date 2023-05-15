@@ -27,7 +27,7 @@ import (
 	anypb "github.com/golang/protobuf/ptypes/any"
 	"sigs.k8s.io/yaml"
 
-	protio "istio.io/istio/istioctl/pkg/util/proto"
+	"istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
@@ -92,7 +92,7 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string
 	if err != nil {
 		return err
 	}
-	marshaller := make(protio.MessageSlice, 0, len(dump))
+	marshaller := make(proto.MessageSlice, 0, len(dump))
 	for _, eds := range dump {
 		marshaller = append(marshaller, eds)
 	}
@@ -112,7 +112,7 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string
 func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
 
-	fmt.Fprintln(w, "ENDPOINT\tSTATUS\tLOCALITY\tCLUSTER")
+	fmt.Fprintln(w, "NAME\tSTATUS\tLOCALITY\tCLUSTER")
 	dump, err := c.retrieveSortedEndpointsSlice(filter)
 	if err != nil {
 		return err
@@ -120,8 +120,12 @@ func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 	for _, eds := range dump {
 		for _, llb := range eds.Endpoints {
 			for _, ep := range llb.LbEndpoints {
+				addr := retrieveEndpointAddress(ep)
+				if includeConfigType {
+					addr = fmt.Sprintf("endpoint/%s", addr)
+				}
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",
-					retrieveEndpointAddress(ep),
+					addr,
 					ep.GetHealthStatus().String(),
 					util.LocalityToString(llb.Locality),
 					eds.ClusterName,

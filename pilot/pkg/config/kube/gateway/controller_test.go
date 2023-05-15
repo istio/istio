@@ -206,7 +206,7 @@ func TestNamespaceEvent(t *testing.T) {
 
 	stop := test.NewStop(t)
 	c.Run(stop)
-	kube.WaitForCacheSync(stop, c.HasSynced)
+	kube.WaitForCacheSync("test", stop, c.HasSynced)
 	c.state.ReferencedNamespaceKeys = sets.String{"allowed": struct{}{}}
 
 	ns1 := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{

@@ -103,7 +103,7 @@ var rootCmd = &cobra.Command{
 
 		installer := install.NewInstaller(&cfg.InstallConfig, isReady)
 
-		repair.StartRepair(ctx, &cfg.RepairConfig)
+		repair.StartRepair(ctx, cfg.RepairConfig)
 
 		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -173,7 +173,6 @@ func init() {
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
 	registerBooleanParameter(constants.RepairLabelPods, false, "Controller will label pods when detecting pod broken by race condition")
-	registerBooleanParameter(constants.RepairRunAsDaemon, false, "Controller will run in a loop")
 	registerStringParameter(constants.RepairLabelKey, "cni.istio.io/uninitialized",
 		"The key portion of the label which will be set by the ace repair if label pods is true")
 	registerStringParameter(constants.RepairLabelValue, "true",
@@ -274,7 +273,6 @@ func constructConfig() (*config.Config, error) {
 		Enabled:            viper.GetBool(constants.RepairEnabled),
 		DeletePods:         viper.GetBool(constants.RepairDeletePods),
 		LabelPods:          viper.GetBool(constants.RepairLabelPods),
-		RunAsDaemon:        viper.GetBool(constants.RepairRunAsDaemon),
 		LabelKey:           viper.GetString(constants.RepairLabelKey),
 		LabelValue:         viper.GetString(constants.RepairLabelValue),
 		NodeName:           viper.GetString(constants.RepairNodeName),

@@ -17,12 +17,13 @@ package xds
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -86,13 +87,13 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	var buffer bytes.Buffer
 	if proxy.VerifiedIdentity == nil {
 		log.Warnf("proxy %s is not authorized to receive debug. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
-		return nil, model.DefaultXdsLogDetails, fmt.Errorf("authentication required")
+		return nil, model.DefaultXdsLogDetails, status.Error(codes.Unauthenticated, "authentication required")
 	}
 	if w.ResourceNames == nil {
-		return res, model.DefaultXdsLogDetails, fmt.Errorf("debug type is required")
+		return res, model.DefaultXdsLogDetails, status.Error(codes.InvalidArgument, "debug type is required")
 	}
 	if len(w.ResourceNames) != 1 {
-		return res, model.DefaultXdsLogDetails, fmt.Errorf("only one debug request is allowed")
+		return res, model.DefaultXdsLogDetails, status.Error(codes.InvalidArgument, "only one debug request is allowed")
 	}
 	resourceName := w.ResourceNames[0]
 	u, _ := url.Parse(resourceName)
@@ -104,7 +105,7 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 			shouldAllow = true
 		}
 		if !shouldAllow {
-			return res, model.DefaultXdsLogDetails, fmt.Errorf("the debug info is not available for current identity: %q", identity)
+			return res, model.DefaultXdsLogDetails, status.Errorf(codes.PermissionDenied, "the debug info is not available for current identity: %q", identity)
 		}
 	}
 	debugURL := "/debug/" + resourceName

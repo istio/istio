@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
@@ -62,7 +63,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: DefaultClassName,
+					GatewayClassName: defaultClassName,
 				},
 			},
 		},
@@ -75,7 +76,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Annotations: map[string]string{gatewaySAOverride: "custom-sa"},
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: DefaultClassName,
+					GatewayClassName: defaultClassName,
 				},
 			},
 		},
@@ -88,7 +89,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
 				Spec: v1beta1.GatewaySpec{
-					GatewayClassName: DefaultClassName,
+					GatewayClassName: defaultClassName,
 					Addresses: []v1beta1.GatewayAddress{{
 						Type:  func() *v1beta1.AddressType { x := v1beta1.IPAddressType; return &x }(),
 						Value: "1.2.3.4",
@@ -108,7 +109,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					},
 				},
 				Spec: v1beta1.GatewaySpec{
-					GatewayClassName: DefaultClassName,
+					GatewayClassName: defaultClassName,
 					Listeners: []v1beta1.Listener{{
 						Name:     "http",
 						Port:     v1beta1.PortNumber(80),
@@ -127,7 +128,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
 				Spec: v1beta1.GatewaySpec{
-					GatewayClassName: DefaultClassName,
+					GatewayClassName: defaultClassName,
 					Listeners: []v1beta1.Listener{{
 						Name:     "http",
 						Port:     v1beta1.PortNumber(80),
@@ -188,8 +189,13 @@ func TestConfigureIstioGateway(t *testing.T) {
 func TestVersionManagement(t *testing.T) {
 	log.SetOutputLevel(istiolog.DebugLevel)
 	writes := make(chan string, 10)
-	c := kube.NewFakeClient()
-	d := NewDeploymentController(c, "", testInjectionConfig(t), func(fn func()) {})
+	c := kube.NewFakeClient(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+	})
+	tw := revisions.NewTagWatcher(c, "default")
+	d := NewDeploymentController(c, "", testInjectionConfig(t), func(fn func()) {}, tw, "")
 	reconciles := atomic.NewInt32(0)
 	wantReconcile := int32(0)
 	expectReconciled := func() {
@@ -213,16 +219,17 @@ func TestVersionManagement(t *testing.T) {
 	}
 	stop := test.NewStop(t)
 	gws := clienttest.Wrap(t, d.gateways)
+	go tw.Run(stop)
 	go d.Run(stop)
 	c.RunAndWait(stop)
-
+	kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 	// Create a gateway, we should mark our ownership
 	defaultGateway := &v1beta1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "gw",
 			Namespace: "default",
 		},
-		Spec: v1beta1.GatewaySpec{GatewayClassName: DefaultClassName},
+		Spec: v1beta1.GatewaySpec{GatewayClassName: defaultClassName},
 	}
 	gws.Create(defaultGateway)
 	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))

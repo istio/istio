@@ -43,7 +43,7 @@ type KubernetesRA struct {
 	mutex sync.RWMutex
 }
 
-var pkiRaLog = log.RegisterScope("pkira", "Istiod RA log", 0)
+var pkiRaLog = log.RegisterScope("pkira", "Istiod RA log")
 
 // NewKubernetesRA : Create a RA that interfaces with K8S CSR CA
 func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {

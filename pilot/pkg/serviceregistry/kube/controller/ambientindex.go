@@ -64,7 +64,7 @@ type AmbientIndex struct {
 	waypoints map[model.WaypointScope]sets.String
 
 	// serviceVipIndex maintains an index of VIP -> Service
-	serviceVipIndex *kclient.Index[*v1.Service, string]
+	serviceVipIndex *kclient.Index[string, *v1.Service]
 }
 
 // Lookup finds a given IP address.
@@ -181,22 +181,23 @@ func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.Wo
 }
 
 // Waypoint finds all waypoint IP addresses for a given scope
-func (c *Controller) Waypoint(scope model.WaypointScope) sets.Set[netip.Addr] {
+func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 	a := c.ambientIndex
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	res := sets.New[netip.Addr]()
+	res := make([]netip.Addr, 0, len(a.waypoints[scope]))
 	for ip := range a.waypoints[scope] {
-		res.Insert(netip.MustParseAddr(ip))
+		res = append(res, netip.MustParseAddr(ip))
 	}
 	if len(res) > 0 {
 		// Explicit has precedence
 		return res
 	}
 	// Now look for namespace-wide
+	res = make([]netip.Addr, 0, len(a.waypoints[scope]))
 	scope.ServiceAccount = ""
 	for ip := range a.waypoints[scope] {
-		res.Insert(netip.MustParseAddr(ip))
+		res = append(res, netip.MustParseAddr(ip))
 	}
 
 	return res
@@ -431,8 +432,8 @@ func handleRule(action workloadapi.Action, rule *v1beta1.Rule) []*workloadapi.Ru
 		rules = append(rules, &workloadapi.Rules{Matches: fromMatches})
 	}
 	for _, when := range rule.When {
-		l7 := l4WhenAttributes.Contains(when.Key)
-		if action == workloadapi.Action_ALLOW && !l7 {
+		l4 := l4WhenAttributes.Contains(when.Key)
+		if action == workloadapi.Action_ALLOW && !l4 {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
 			return nil
@@ -678,7 +679,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		},
 	}
 	c.services.AddEventHandler(serviceHandler)
-	idx.serviceVipIndex = kclient.CreateIndex[*v1.Service](c.services, getVIPs)
+	idx.serviceVipIndex = kclient.CreateIndex[string, *v1.Service](c.services, getVIPs)
 	return &idx
 }
 

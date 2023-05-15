@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
 	diskcached "k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -31,19 +30,17 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"k8s.io/kubectl/pkg/cmd/util"
-	"k8s.io/kubectl/pkg/util/openapi"
-	"k8s.io/kubectl/pkg/validation"
 
 	"istio.io/istio/pkg/lazy"
 )
 
-var _ util.Factory = &clientFactory{}
+var _ PartialFactory = &clientFactory{}
 
-// clientFactory implements the kubectl util.Factory, which is provides access to various k8s clients.
+// clientFactory partially implements the kubectl util.Factory, which is provides access to various k8s clients.
+// The full Factory can be built with MakeKubeFactory.
+// This split is to avoid huge dependencies.
 type clientFactory struct {
 	clientConfig clientcmd.ClientConfig
-	factory      util.Factory
 
 	expander lazy.Lazy[meta.RESTMapper]
 	mapper   lazy.Lazy[meta.ResettableRESTMapper]
@@ -57,7 +54,6 @@ func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool) *clie
 		clientConfig: clientConfig,
 	}
 
-	out.factory = util.NewFactory(out)
 	out.discoveryClient = lazy.NewWithRetry(func() (discovery.CachedDiscoveryInterface, error) {
 		restConfig, err := out.ToRESTConfig()
 		if err != nil {
@@ -151,29 +147,33 @@ func (c *clientFactory) KubernetesClientSet() (*kubernetes.Clientset, error) {
 }
 
 func (c *clientFactory) RESTClient() (*rest.RESTClient, error) {
-	return c.factory.RESTClient()
+	clientConfig, err := c.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+	return rest.RESTClientFor(clientConfig)
 }
 
-func (c *clientFactory) NewBuilder() *resource.Builder {
-	return c.factory.NewBuilder()
+type rESTClientGetter interface {
+	// ToRESTConfig returns restconfig
+	ToRESTConfig() (*rest.Config, error)
+	// ToDiscoveryClient returns discovery client
+	ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error)
+	// ToRESTMapper returns a restmapper
+	ToRESTMapper() (meta.RESTMapper, error)
+	// ToRawKubeConfigLoader return kubeconfig loader as-is
+	ToRawKubeConfigLoader() clientcmd.ClientConfig
 }
 
-func (c *clientFactory) ClientForMapping(mapping *meta.RESTMapping) (resource.RESTClient, error) {
-	return c.factory.ClientForMapping(mapping)
-}
+type PartialFactory interface {
+	rESTClientGetter
 
-func (c *clientFactory) UnstructuredClientForMapping(mapping *meta.RESTMapping) (resource.RESTClient, error) {
-	return c.factory.UnstructuredClientForMapping(mapping)
-}
+	// DynamicClient returns a dynamic client ready for use
+	DynamicClient() (dynamic.Interface, error)
 
-func (c *clientFactory) Validator(validationDirective string, verifier *resource.QueryParamVerifier) (validation.Schema, error) {
-	return c.factory.Validator(validationDirective, verifier)
-}
+	// KubernetesClientSet gives you back an external clientset
+	KubernetesClientSet() (*kubernetes.Clientset, error)
 
-func (c *clientFactory) OpenAPISchema() (openapi.Resources, error) {
-	return c.factory.OpenAPISchema()
-}
-
-func (c *clientFactory) OpenAPIGetter() discovery.OpenAPISchemaInterface {
-	return c.factory.OpenAPIGetter()
+	// Returns a RESTClient for accessing Kubernetes resources or an error.
+	RESTClient() (*rest.RESTClient, error)
 }

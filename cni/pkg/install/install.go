@@ -30,7 +30,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var installLog = log.RegisterScope("install", "CNI install", 0)
+var installLog = log.RegisterScope("install", "CNI install")
 
 type Installer struct {
 	cfg                *config.InstallConfig

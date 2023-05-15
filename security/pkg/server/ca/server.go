@@ -34,7 +34,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var serverCaLog = log.RegisterScope("serverca", "Citadel server log", 0)
+var serverCaLog = log.RegisterScope("serverca", "Citadel server log")
 
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {

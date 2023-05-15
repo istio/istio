@@ -42,6 +42,9 @@ func TestProxyConfig(t *testing.T) {
 		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
 		"ztunnel-9v7nw":               []byte("current log level is debug"),
 	}
+	isZtunnelPod = func(podName, _ string) bool {
+		return strings.HasPrefix(podName, "ztunnel")
+	}
 	cases := []execTestCase{
 		{
 			args:           strings.Split("proxy-config", " "),
@@ -219,8 +222,9 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 // nolint: lll
 func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string, _ string) (kube.CLIClient, error) {
 	outFactory := func(_, _ string, _ string) (kube.CLIClient, error) {
-		return kube.MockClient{
-			Results: testResults,
+		return MockClient{
+			CLIClient: kube.NewFakeClient(),
+			Results:   testResults,
 		}, nil
 	}
 
@@ -229,8 +233,9 @@ func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconf
 
 func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kube.CLIClient, error) {
 	outFactory := func(_, _ string) (kube.CLIClient, error) {
-		return kube.MockClient{
-			Results: testResults,
+		return MockClient{
+			CLIClient: kube.NewFakeClient(),
+			Results:   testResults,
 		}, nil
 	}
 

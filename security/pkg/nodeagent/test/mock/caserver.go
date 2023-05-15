@@ -35,7 +35,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var caServerLog = log.RegisterScope("ca", "CA service debugging", 0)
+var caServerLog = log.RegisterScope("ca", "CA service debugging")
 
 // CAServer is a mock CA server.
 type CAServer struct {
