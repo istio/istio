@@ -85,7 +85,8 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 	}))
 
 	if c.DiscoveryNamespacesFilter != nil {
-		c.DiscoveryNamespacesFilter.AddHandler(func(ns string, _ model.Event) {
+		c.DiscoveryNamespacesFilter.AddHandler(func(ns string, event model.Event) {
+			log.Infof("zhonghu: namespace %s %s", ns, event)
 			c.syncNamespace(ns)
 		})
 	} else {
@@ -157,6 +158,7 @@ func (nc *NamespaceController) reconcileCACert(o types.NamespacedName) error {
 		return nil
 	}
 
+	log.Infof("zhonghu: reconcile ca cert for namespace %s ", ns)
 	meta := metav1.ObjectMeta{
 		Name:      CACertNamespaceConfigMap,
 		Namespace: ns,
