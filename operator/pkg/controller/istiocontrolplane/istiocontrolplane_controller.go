@@ -417,7 +417,15 @@ func processDefaultWebhookAfterReconcile(iop *iopv1alpha1.IstioOperator, client 
 	} else {
 		ns = constants.IstioSystemNamespace
 	}
-	if _, err := helmreconciler.ProcessDefaultWebhook(client, iop, ns, exists, false); err != nil {
+	ignorePruneLabel := map[string]string{
+		helmreconciler.OwningResourceNotPruned: "true",
+	}
+	opts := &helmreconciler.ProcessDefaultWebhookOptions{
+		Namespace:    ns,
+		DryRun:       false,
+		CustomLabels: ignorePruneLabel,
+	}
+	if _, err := helmreconciler.ProcessDefaultWebhook(client, iop, exists, opts); err != nil {
 		return fmt.Errorf("failed to process default webhook: %v", err)
 	}
 	return nil

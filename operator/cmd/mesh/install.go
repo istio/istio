@@ -204,7 +204,11 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
-	if processed, err := helmreconciler.ProcessDefaultWebhook(kubeClient, iop, ns, exists, rootArgs.DryRun); err != nil {
+	opts := &helmreconciler.ProcessDefaultWebhookOptions{
+		Namespace: ns,
+		DryRun:    rootArgs.DryRun,
+	}
+	if processed, err := helmreconciler.ProcessDefaultWebhook(kubeClient, iop, exists, opts); err != nil {
 		return fmt.Errorf("failed to process default webhook: %v", err)
 	} else if processed {
 		p.Println("Made this installation the default for injection and validation.")

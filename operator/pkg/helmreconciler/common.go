@@ -37,6 +37,8 @@ const (
 	OwningResourceName = MetadataNamespace + "/owning-resource"
 	// OwningResourceNamespace represents the namespace of the owner to which the resource relates
 	OwningResourceNamespace = MetadataNamespace + "/owning-resource-namespace"
+	// OwningResourceNotPruned indicates that the resource should not be pruned
+	OwningResourceNotPruned = MetadataNamespace + "/owning-resource-not-pruned"
 	// operatorLabelStr indicates Istio operator is managing this resource.
 	operatorLabelStr = name.OperatorAPINamespace + "/managed"
 	// operatorReconcileStr indicates that the operator will reconcile the resource.

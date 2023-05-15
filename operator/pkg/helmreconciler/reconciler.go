@@ -588,7 +588,13 @@ func (h *HelmReconciler) networkName() string {
 	return nw
 }
 
-func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, ns string, exists, dryRun bool) (processed bool, err error) {
+type ProcessDefaultWebhookOptions struct {
+	Namespace    string
+	DryRun       bool
+	CustomLabels map[string]string
+}
+
+func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
 	// Detect whether previous installation exists prior to performing the installation.
 	rev := iop.Spec.Revision
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
@@ -604,10 +610,11 @@ func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator,
 			Revision:             rev,
 			Overwrite:            true,
 			AutoInjectNamespaces: autoInjectNamespaces,
+			CustomLabels:         opt.CustomLabels,
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
-		tagManifests, err := revtag.Generate(context.Background(), client, o, ns)
-		if err == nil && !dryRun {
+		tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)
+		if err == nil && !opt.DryRun {
 			if err = applyManifests(client, tagManifests); err != nil {
 				return false, err
 			}
