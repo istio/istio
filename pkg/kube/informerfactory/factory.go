@@ -1,18 +1,16 @@
-/*
-Copyright 2018 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // Package informerfactory provides a "factory" to generate informers. This allows users to create the
 // same informers in multiple different locations, while still using the same underlying resources.
@@ -31,13 +29,16 @@ package informerfactory
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 )
 
 // NewInformerFunc returns a SharedIndexInformer.
@@ -81,7 +82,7 @@ type InformerFactory interface {
 // NewSharedInformerFactory constructs a new instance of informerFactory for all namespaces.
 func NewSharedInformerFactory() InformerFactory {
 	return &informerFactory{
-		informers:        map[informerKey]cache.SharedIndexInformer{},
+		informers:        map[informerKey]builtInformer{},
 		startedInformers: sets.New[informerKey](),
 	}
 }
@@ -95,9 +96,14 @@ type informerKey struct {
 	namespace     string
 }
 
+type builtInformer struct {
+	informer        cache.SharedIndexInformer
+	objectTransform func(obj any) (any, error)
+}
+
 type informerFactory struct {
 	lock      sync.Mutex
-	informers map[informerKey]cache.SharedIndexInformer
+	informers map[informerKey]builtInformer
 	// startedInformers is used for tracking which informers have been started.
 	// This allows Start() to be called multiple times safely.
 	startedInformers sets.Set[informerKey]
@@ -122,19 +128,33 @@ func (f *informerFactory) InformerFor(resource schema.GroupVersionResource, opts
 		informerType:  opts.InformerType,
 		namespace:     opts.Namespace,
 	}
-	informer, exists := f.informers[key]
+	inf, exists := f.informers[key]
 	if exists {
-		return StartableInformer{
-			Informer: informer,
-			start: func(stopCh <-chan struct{}) {
-				f.startOne(stopCh, key)
-			},
-		}
+		checkInformerOverlap(inf, resource, opts)
+		return f.makeStartedInformer(inf.informer, key)
 	}
 
-	informer = newFunc()
-	f.informers[key] = informer
+	informer := newFunc()
+	f.informers[key] = builtInformer{
+		informer:        informer,
+		objectTransform: opts.ObjectTransform,
+	}
 
+	return f.makeStartedInformer(informer, key)
+}
+
+func checkInformerOverlap(inf builtInformer, resource schema.GroupVersionResource, opts kubetypes.InformerOptions) {
+	if fmt.Sprintf("%p", inf.objectTransform) == fmt.Sprintf("%p", opts.ObjectTransform) {
+		return
+	}
+	l := log.Warnf
+	if features.EnableUnsafeAssertions {
+		l = log.Fatalf
+	}
+	l("for type %v, registered conflicting ObjectTransform. Stack: %v", resource, string(debug.Stack()))
+}
+
+func (f *informerFactory) makeStartedInformer(informer cache.SharedIndexInformer, key informerKey) StartableInformer {
 	return StartableInformer{
 		Informer: informer,
 		start: func(stopCh <-chan struct{}) {
@@ -159,7 +179,7 @@ func (f *informerFactory) startOne(stopCh <-chan struct{}, informerType informer
 		f.wg.Add(1)
 		go func() {
 			defer f.wg.Done()
-			informer.Run(stopCh)
+			informer.informer.Run(stopCh)
 		}()
 		f.startedInformers.Insert(informerType)
 	}
@@ -183,7 +203,7 @@ func (f *informerFactory) Start(stopCh <-chan struct{}) {
 			informer := informer
 			go func() {
 				defer f.wg.Done()
-				informer.Run(stopCh)
+				informer.informer.Run(stopCh)
 			}()
 			f.startedInformers.Insert(informerType)
 		}
@@ -198,7 +218,7 @@ func (f *informerFactory) WaitForCacheSync(stopCh <-chan struct{}) bool {
 		informers := make([]cache.SharedIndexInformer, 0, len(f.informers))
 		for informerKey, informer := range f.informers {
 			if f.startedInformers.Contains(informerKey) {
-				informers = append(informers, informer)
+				informers = append(informers, informer.informer)
 			}
 		}
 		return informers

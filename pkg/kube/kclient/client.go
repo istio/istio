@@ -17,7 +17,6 @@ package kclient
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -182,14 +181,14 @@ func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) C
 
 	return &fullClient[T]{
 		writeClient:    writeClient[T]{client: c},
-		informerClient: newInformerClient[T](c, inf, filter),
+		informerClient: newInformerClient[T](inf, filter),
 	}
 }
 
 // NewUntyped returns an untyped client for a given GVR. This is read-only.
 func NewUntyped(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
 	inf := kubeclient.GetInformerFilteredFromGVR(c, toOpts(c, filter), gvr)
-	return ptr.Of(newInformerClient[controllers.Object](c, inf, filter))
+	return ptr.Of(newInformerClient[controllers.Object](inf, filter))
 }
 
 // NewDynamic returns a dynamic client for a given GVR. This is read-only.
@@ -197,7 +196,7 @@ func NewDynamic(c kube.Client, gvr schema.GroupVersionResource, filter Filter) U
 	opts := toOpts(c, filter)
 	opts.InformerType = kubetypes.DynamicInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
-	return ptr.Of(newInformerClient[controllers.Object](c, inf, filter))
+	return ptr.Of(newInformerClient[controllers.Object](inf, filter))
 }
 
 // NewMetadata returns a metadata client for a given GVR. This is read-only.
@@ -205,7 +204,7 @@ func NewMetadata(c kube.Client, gvr schema.GroupVersionResource, filter Filter) 
 	opts := toOpts(c, filter)
 	opts.InformerType = kubetypes.MetadataInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
-	return ptr.Of(newInformerClient[controllers.Object](c, inf, filter))
+	return ptr.Of(newInformerClient[controllers.Object](inf, filter))
 }
 
 // NewWriteClient is exposed for testing.
@@ -213,15 +212,7 @@ func NewWriteClient[T controllers.ComparableObject](c kube.Client) Writer[T] {
 	return &writeClient[T]{client: c}
 }
 
-func newInformerClient[T controllers.ComparableObject](c kube.Client, inf informerfactory.StartableInformer, filter Filter) informerClient[T] {
-	i := *new(T)
-	t := reflect.TypeOf(i)
-	if err := c.RegisterFilter(t, filter); err != nil {
-		if features.EnableUnsafeAssertions {
-			log.Fatal(err)
-		}
-		log.Warn(err)
-	}
+func newInformerClient[T controllers.ComparableObject](inf informerfactory.StartableInformer, filter Filter) informerClient[T] {
 	return informerClient[T]{
 		informer:      inf.Informer,
 		startInformer: inf.Start,
