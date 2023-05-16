@@ -394,19 +394,14 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput, dep
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
 
-	// Default labels are required to properly match a proxy config with a gateway in case where the proxy config was created
-	// before the gateway. This is because in such a case, the gateway deployment would be nil and newly created gateway
-	// would not be matched with the proxy config.
-	podLabels := map[string]string{"istio.io/gateway-name": mi.Name}
-	if deployment != nil && deployment.Spec.Template.Labels != nil {
-		podLabels = deployment.Spec.Template.Labels
-	}
+	// istio.io/gateway is the only label that allows to attach ProxyConfig to a Gateway
+	workloadLabels := map[string]string{"istio.io/gateway-name": mi.Name}
 	podAnnotations := map[string]string{}
 	if deployment != nil && deployment.Spec.Template.Annotations != nil {
 		podAnnotations = deployment.Spec.Template.Annotations
 	}
 
-	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, podLabels, podAnnotations, cfg.MeshConfig)
+	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, workloadLabels, podAnnotations, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
 		ProxyImage: inject.ProxyImage(
