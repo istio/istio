@@ -132,10 +132,11 @@ func (s *secretItemBuilder) Build() (SecretItem, error) {
 			return result, nil
 		}
 		result.SecretMeta = meta
-		result.Valid = true
+		result.Valid = meta.Valid
 		return result, nil
+	} else {
+		result.Valid = false
 	}
-	result.Valid = false
 	return result, nil
 }
 
@@ -222,10 +223,12 @@ func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {
 		certType = "Cert Chain"
 	}
 
+	today := time.Now()
 	return SecretMeta{
 		SerialNumber: fmt.Sprintf("%x", cert.SerialNumber),
 		NotAfter:     cert.NotAfter.Format(time.RFC3339),
 		NotBefore:    cert.NotBefore.Format(time.RFC3339),
 		Type:         certType,
+		Valid:        today.After(cert.NotBefore) && today.Before(cert.NotAfter),
 	}, nil
 }
