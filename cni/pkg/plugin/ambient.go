@@ -29,7 +29,12 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func checkAmbient(client *kubernetes.Clientset, ambientConfig ambient.AmbientConfigFile, podName, podNamespace, podIfname, podNetNs string, podIPs []net.IPNet) (bool, error) {
+func checkAmbient(
+	client *kubernetes.Clientset,
+	ambientConfig ambient.AmbientConfigFile,
+	podName, podNamespace, podIfname, podNetNs string,
+	podIPs []net.IPNet,
+) (bool, error) {
 	pod, err := client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
