@@ -646,7 +646,7 @@ func applyManifests(kubeClient kube.Client, manifests string) error {
 		_, err := kubeClient.Dynamic().Resource(ogvr).Namespace(obj.GetNamespace()).Patch(
 			context.TODO(), obj.GetName(), types.ApplyPatchType, []byte(yml), metav1.PatchOptions{
 				Force:        nil,
-				FieldManager: "istio-operator",
+				FieldManager: fieldOwnerOperator,
 			})
 		if err != nil {
 			return fmt.Errorf("failed to apply YAML: %w", err)

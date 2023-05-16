@@ -255,7 +255,12 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 		if err != nil {
 			t.Fatalf("webhook parsing failed with error: %v", err)
 		}
-		webhookYAML, err := generateMutatingWebhook(webhookConfig, "", filepath.Join(env.IstioSrc, "manifests"), false, nil)
+		webhookYAML, err := generateMutatingWebhook(webhookConfig, &GenerateOptions{
+			WebhookName:          "",
+			ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
+			AutoInjectNamespaces: false,
+			CustomLabels:         nil,
+		})
 		if err != nil {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 		}
