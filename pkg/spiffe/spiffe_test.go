@@ -82,6 +82,33 @@ var (
 	]
 }`
 
+	// nolint: lll
+	validSpiffeX509BundleWithMultipleCerts = `
+{
+  "keys": [
+    {
+      "use": "x509-svid",
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "HFlg42KnDPaiGvQrAIaKWDqJw_4ngCwZ_687jLrBUVE",
+      "y": "ActNT7SNmcX3tQD9YZgRueiajOgmYv-rANQ8_H8GBEU",
+      "x5c": [
+        "MIIBnTCCAUOgAwIBAgIBAjAKBggqhkjOPQQDAjAkMSIwIAYDVQQDExlSb290IENBIGZvciB0cnVzdGRvbWFpbi5iMB4XDTA5MTExMDIzMDAwMFoXDTEwMTExMDIzMDAwMFowJDEiMCAGA1UEAxMZUm9vdCBDQSBmb3IgdHJ1c3Rkb21haW4uYjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABBxZYONipwz2ohr0KwCGilg6icP+J4AsGf+vO4y6wVFRActNT7SNmcX3tQD9YZgRueiajOgmYv+rANQ8/H8GBEWjZjBkMA4GA1UdDwEB/wQEAwICBDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBTR41Rmvs/3JBw24dDjlwgLuFB13zAfBgNVHR4BAf8EFTAToBEwD4YNdHJ1c3Rkb21haW4uYjAKBggqhkjOPQQDAgNIADBFAiEA243KZVSU5IUTmoj0OCvcBYnKo3a1p/kQal1qqFcE0BgCIBZB+2OJU/dPRs1AoGilH6AZqVC5KZlSPZq9bv6Pm5UG"
+      ]
+    },
+    {
+      "use": "x509-svid",
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "vzhUQgVXLcdwrDmP6REclI3lusWR6MHM6i5bXXq87Pk",
+      "y": "-407emssjw1NjyK1gs33mczZapiqHoWMesi2sUudgsw",
+      "x5c": [
+        "MIIBnTCCAUOgAwIBAgIBAjAKBggqhkjOPQQDAjAkMSIwIAYDVQQDExlSb290IENBIGZvciB0cnVzdGRvbWFpbi5iMB4XDTA5MTExMDIzMDAwMFoXDTEwMTExMDIzMDAwMFowJDEiMCAGA1UEAxMZUm9vdCBDQSBmb3IgdHJ1c3Rkb21haW4uYjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABL84VEIFVy3HcKw5j+kRHJSN5brFkejBzOouW116vOz5+407emssjw1NjyK1gs33mczZapiqHoWMesi2sUudgsyjZjBkMA4GA1UdDwEB/wQEAwICBDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQSZLzOBu77lDJGEP5uxqAJgze0+zAfBgNVHR4BAf8EFTAToBEwD4YNdHJ1c3Rkb21haW4uYjAKBggqhkjOPQQDAgNIADBFAiA9KU1cfQilqatMt7cWoIPUeq72rso1B0RAN9MxcZV9ugIhAOHbu0dHR1Pq3iuHCrwSCiM1xQ+fnay6m64B/Hv78q2W"
+      ]
+    }
+  ]
+}`
+
 	invalidSpiffeX509Bundle = `
 {
 	"spiffe_sequence": 1,
@@ -215,29 +242,41 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 	inputStringTemplate2 := `foo|URL1||bar|URL2`
 	totalRetryTimeout = time.Millisecond * 50
 	testCases := []struct {
-		name        string
-		template    string
-		trustCert   bool
-		status      int
-		body        string
-		twoServers  bool
-		errContains string
+		name         string
+		template     string
+		trustCert    bool
+		status       int
+		body         string
+		twoServers   bool
+		errContains  string
+		wantNumCerts int
 	}{
 		{
-			name:       "success",
-			template:   inputStringTemplate1,
-			trustCert:  true,
-			status:     http.StatusOK,
-			body:       validSpiffeX509Bundle,
-			twoServers: false,
+			name:         "success",
+			template:     inputStringTemplate1,
+			trustCert:    true,
+			status:       http.StatusOK,
+			body:         validSpiffeX509Bundle,
+			twoServers:   false,
+			wantNumCerts: 1,
 		},
 		{
-			name:       "success",
-			template:   inputStringTemplate2,
-			trustCert:  true,
-			status:     http.StatusOK,
-			body:       validSpiffeX509Bundle,
-			twoServers: true,
+			name:         "success",
+			template:     inputStringTemplate2,
+			trustCert:    true,
+			status:       http.StatusOK,
+			body:         validSpiffeX509Bundle,
+			twoServers:   true,
+			wantNumCerts: 1,
+		},
+		{
+			name:         "Success when response contains multiple certs",
+			template:     inputStringTemplate1,
+			trustCert:    true,
+			status:       http.StatusOK,
+			body:         validSpiffeX509BundleWithMultipleCerts,
+			twoServers:   false,
+			wantNumCerts: 2,
 		},
 		{
 			name:        "Invalid input 1",
@@ -341,6 +380,11 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 			}
 			if rootCertMap == nil {
 				t.Errorf("returned root cert map is nil")
+			}
+			for k, v := range rootCertMap {
+				if len(v) != testCase.wantNumCerts {
+					t.Errorf("got %d certs for %s; wanted %d certs", len(v), k, testCase.wantNumCerts)
+				}
 			}
 		})
 	}
