@@ -1,0 +1,13 @@
+// GENERATED FILE -- DO NOT EDIT
+//
+
+package {{.PackageName}}
+
+import (
+)
+
+var (
+{{- range .Entries }}
+	{{.Resource.Identifier}} = schema.GroupVersionResource{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Resource: "{{.Resource.Plural}}"}
+{{- end }}
+)
