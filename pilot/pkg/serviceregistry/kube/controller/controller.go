@@ -393,8 +393,12 @@ func (c *Controller) Cleanup() error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) error {
+func (c *Controller) onServiceEvent(prev, curr *v1.Service, event model.Event) error {
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
+
+	if event == model.EventUpdate && serviceEqual(prev, curr) {
+		return nil
+	}
 
 	// Create the standard (cluster.local) service.
 	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster())

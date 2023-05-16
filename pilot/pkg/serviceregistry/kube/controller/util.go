@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"strings"
 
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -27,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
@@ -190,4 +193,256 @@ func labelRequirement(key string, op selection.Operator, vals []string, opts ...
 		panic(fmt.Sprintf("failed creating requirements for Service: %v", err))
 	}
 	return out
+}
+
+func serviceEqual(first, second *v1.Service) bool {
+	if first == nil {
+		return second == nil
+	}
+	if second == nil {
+		return first == nil
+	}
+
+	if first.Name != second.Name ||
+		first.Namespace != second.Namespace {
+		return false
+	}
+
+	if !maps.Equal(first.Labels, second.Labels) {
+		return false
+	}
+
+	if !serviceSpecEqual(&first.Spec, &second.Spec) {
+		return false
+	}
+
+	if !serviceStatusEqual(&first.Status, &second.Status) {
+		return false
+	}
+
+	ann1 := map[string]string{}
+	ann2 := map[string]string{}
+	for key, value := range first.Annotations {
+		if istioAnnotation(key) || lookupAnnotation(key) != nil {
+			ann1[key] = value
+		}
+	}
+	for key, value := range second.Annotations {
+		if istioAnnotation(key) || lookupAnnotation(key) != nil {
+			ann2[key] = value
+		}
+	}
+	return maps.Equal(ann1, ann2)
+}
+
+func serviceSpecEqual(first, second *v1.ServiceSpec) bool {
+	if !slices.EqualFunc[v1.ServicePort, v1.ServicePort](first.Ports, second.Ports, servicePortEqual) {
+		return false
+	}
+
+	if !maps.Equal(first.Selector, second.Selector) {
+		return false
+	}
+
+	if first.ClusterIP != second.ClusterIP {
+		return false
+	}
+
+	if !slices.EqualFunc[string, string](first.ClusterIPs, second.ClusterIPs, func(s1, s2 string) bool { return s1 == s2 }) {
+		return false
+	}
+
+	if first.Type != second.Type {
+		return false
+	}
+
+	if !slices.EqualFunc[string, string](first.ExternalIPs, second.ExternalIPs, func(s1, s2 string) bool { return s1 == s2 }) {
+		return false
+	}
+
+	if first.ExternalName != second.ExternalName {
+		return false
+	}
+
+	if first.SessionAffinity != second.SessionAffinity {
+		return false
+	}
+
+	if first.LoadBalancerIP != second.LoadBalancerIP {
+		return false
+	}
+
+	if !slices.EqualFunc[string, string](first.LoadBalancerSourceRanges, second.LoadBalancerSourceRanges, func(s1, s2 string) bool { return s1 == s2 }) {
+		return false
+	}
+
+	if first.ExternalTrafficPolicy != second.ExternalTrafficPolicy {
+		return false
+	}
+
+	if first.HealthCheckNodePort != second.HealthCheckNodePort {
+		return false
+	}
+
+	if first.PublishNotReadyAddresses != second.PublishNotReadyAddresses {
+		return false
+	}
+
+	if !serviceSessionAffinityConfigEqual(first.SessionAffinityConfig, second.SessionAffinityConfig) {
+		return false
+	}
+
+	if !slices.EqualFunc[v1.IPFamily, v1.IPFamily](first.IPFamilies, second.IPFamilies, func(s1, s2 v1.IPFamily) bool { return s1 == s2 }) {
+		return false
+	}
+
+	if !dataPointerEqual[v1.IPFamilyPolicy](first.IPFamilyPolicy, second.IPFamilyPolicy) {
+		return false
+	}
+
+	if !dataPointerEqual[bool](first.AllocateLoadBalancerNodePorts, second.AllocateLoadBalancerNodePorts) {
+		return false
+	}
+
+	if !dataPointerEqual[string](first.LoadBalancerClass, second.LoadBalancerClass) {
+		return false
+	}
+
+	if !dataPointerEqual[v1.ServiceInternalTrafficPolicy](first.InternalTrafficPolicy, second.InternalTrafficPolicy) {
+		return false
+	}
+
+	return true
+}
+
+func servicePortEqual(first, second v1.ServicePort) bool {
+	if first.Name != second.Name {
+		return false
+	}
+
+	if first.Protocol != second.Protocol {
+		return false
+	}
+
+	if !dataPointerEqual[string](first.AppProtocol, second.AppProtocol) {
+		return false
+	}
+
+	if first.Port != second.Port {
+		return false
+	}
+
+	if first.TargetPort != second.TargetPort {
+		return false
+	}
+
+	if first.NodePort != second.NodePort {
+		return false
+	}
+
+	return true
+}
+
+func serviceSessionAffinityConfigEqual(first, second *v1.SessionAffinityConfig) bool {
+	if first == nil {
+		return second == nil
+	}
+	if second == nil {
+		return first == nil
+	}
+
+	if first.ClientIP == nil {
+		return second.ClientIP == nil
+	}
+	if second.ClientIP == nil {
+		return first.ClientIP == nil
+	}
+
+	if first.ClientIP.TimeoutSeconds == nil {
+		return second.ClientIP.TimeoutSeconds == nil
+	}
+	if second.ClientIP.TimeoutSeconds == nil {
+		return first.ClientIP.TimeoutSeconds == nil
+	}
+
+	return *first.ClientIP.TimeoutSeconds == *second.ClientIP.TimeoutSeconds
+}
+
+func serviceStatusEqual(first, second *v1.ServiceStatus) bool {
+	ingress1 := first.LoadBalancer.Ingress
+	ingress2 := second.LoadBalancer.Ingress
+	return slices.EqualFunc[v1.LoadBalancerIngress, v1.LoadBalancerIngress](ingress1, ingress2, serviceLoadBalancerIngress)
+}
+
+func serviceLoadBalancerIngress(first, second v1.LoadBalancerIngress) bool {
+	if first.IP != second.IP {
+		return false
+	}
+
+	if first.Hostname != second.Hostname {
+		return false
+	}
+
+	if !slices.EqualFunc[v1.PortStatus, v1.PortStatus](first.Ports, second.Ports, servicePortStatus) {
+		return false
+	}
+
+	return true
+}
+
+func servicePortStatus(first, second v1.PortStatus) bool {
+	if first.Port != second.Port {
+		return false
+	}
+
+	if first.Protocol != second.Protocol {
+		return false
+	}
+
+	if !dataPointerEqual[string](first.Error, second.Error) {
+		return false
+	}
+
+	return true
+}
+
+func dataPointerEqual[E comparable](first, second *E) bool {
+	if first == nil {
+		return second == nil
+	}
+	if second == nil {
+		return first == nil
+	}
+
+	return *first == *second
+}
+
+// istioAnnotation is true if the annotation is in Istio's namespace
+func istioAnnotation(ann string) bool {
+	// We document this Kubernetes annotation, we should analyze it as well
+	if ann == "kubernetes.io/ingress.class" {
+		return true
+	}
+
+	parts := strings.Split(ann, "/")
+	if len(parts) == 0 {
+		return false
+	}
+
+	if !strings.HasSuffix(parts[0], "istio.io") {
+		return false
+	}
+
+	return true
+}
+
+func lookupAnnotation(ann string) *annotation.Instance {
+	istioAnnotations := annotation.AllResourceAnnotations()
+	for _, candidate := range istioAnnotations {
+		if candidate.Name == ann {
+			return candidate
+		}
+	}
+
+	return nil
 }

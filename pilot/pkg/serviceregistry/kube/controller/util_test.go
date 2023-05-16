@@ -202,3 +202,619 @@ func makeFakeSvc(nodeSelector string) *v1.Service {
 	}
 	return svc
 }
+
+func getDataPointer[E comparable](d E) *E {
+	p := new(E)
+	*p = d
+	return p
+}
+
+func TestServiceEqual(t *testing.T) {
+	type args struct {
+		first  *v1.Service
+		second *v1.Service
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Test two identical services",
+			args: args{
+				first: &v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"app":     "nginx",
+							"version": "1.0",
+						},
+						Labels: map[string]string{
+							"app":     "nginx",
+							"version": "1.0",
+						},
+						Name:      "nginx",
+						Namespace: "default",
+					},
+					Spec: v1.ServiceSpec{
+						Selector: map[string]string{
+							"app": "nginx",
+						},
+						Ports: []v1.ServicePort{
+							{
+								Name: "http",
+								Port: 80,
+							},
+						},
+						Type:       v1.ServiceTypeClusterIP,
+						ClusterIP:  "10.0.0.1",
+						ClusterIPs: []string{"10.0.0.1", "10.0.0.2"},
+						ExternalIPs: []string{
+							"192.168.0.1",
+							"192.168.0.2",
+						},
+						LoadBalancerIP: "192.168.0.3",
+						LoadBalancerSourceRanges: []string{
+							"10.0.0.0/16",
+							"192.168.0.0/24",
+						},
+						ExternalName:    "example.com",
+						SessionAffinity: v1.ServiceAffinityClientIP,
+						SessionAffinityConfig: &v1.SessionAffinityConfig{
+							ClientIP: &v1.ClientIPConfig{
+								TimeoutSeconds: getDataPointer[int32](10),
+							},
+						},
+						PublishNotReadyAddresses:      true,
+						IPFamilies:                    []v1.IPFamily{v1.IPv6Protocol, v1.IPv4Protocol},
+						IPFamilyPolicy:                getDataPointer[v1.IPFamilyPolicy](v1.IPFamilyPolicySingleStack),
+						ExternalTrafficPolicy:         v1.ServiceExternalTrafficPolicyCluster,
+						HealthCheckNodePort:           100,
+						AllocateLoadBalancerNodePorts: getDataPointer[bool](true),
+						LoadBalancerClass:             getDataPointer[string]("test"),
+						InternalTrafficPolicy:         getDataPointer[v1.ServiceInternalTrafficPolicy](v1.ServiceInternalTrafficPolicyCluster),
+					},
+					Status: v1.ServiceStatus{
+						LoadBalancer: v1.LoadBalancerStatus{
+							Ingress: []v1.LoadBalancerIngress{
+								{
+									IP:       "192.168.0.1",
+									Hostname: "example.com",
+									Ports: []v1.PortStatus{
+										{
+											Protocol: "http",
+											Port:     80,
+											Error:    getDataPointer[string]("err"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				second: &v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"app":     "nginx",
+							"version": "1.0",
+						},
+						Labels: map[string]string{
+							"app":     "nginx",
+							"version": "1.0",
+						},
+						Name:      "nginx",
+						Namespace: "default",
+					},
+					Spec: v1.ServiceSpec{
+						Selector: map[string]string{
+							"app": "nginx",
+						},
+						Ports: []v1.ServicePort{
+							{
+								Name: "http",
+								Port: 80,
+							},
+						},
+						Type:       v1.ServiceTypeClusterIP,
+						ClusterIP:  "10.0.0.1",
+						ClusterIPs: []string{"10.0.0.1", "10.0.0.2"},
+						ExternalIPs: []string{
+							"192.168.0.1",
+							"192.168.0.2",
+						},
+						LoadBalancerIP: "192.168.0.3",
+						LoadBalancerSourceRanges: []string{
+							"10.0.0.0/16",
+							"192.168.0.0/24",
+						},
+						ExternalName:    "example.com",
+						SessionAffinity: v1.ServiceAffinityClientIP,
+						SessionAffinityConfig: &v1.SessionAffinityConfig{
+							ClientIP: &v1.ClientIPConfig{
+								TimeoutSeconds: getDataPointer[int32](10),
+							},
+						},
+						PublishNotReadyAddresses:      true,
+						IPFamilies:                    []v1.IPFamily{v1.IPv6Protocol, v1.IPv4Protocol},
+						IPFamilyPolicy:                getDataPointer[v1.IPFamilyPolicy](v1.IPFamilyPolicySingleStack),
+						ExternalTrafficPolicy:         v1.ServiceExternalTrafficPolicyCluster,
+						HealthCheckNodePort:           100,
+						AllocateLoadBalancerNodePorts: getDataPointer[bool](true),
+						LoadBalancerClass:             getDataPointer[string]("test"),
+						InternalTrafficPolicy:         getDataPointer[v1.ServiceInternalTrafficPolicy](v1.ServiceInternalTrafficPolicyCluster),
+					},
+					Status: v1.ServiceStatus{
+						LoadBalancer: v1.LoadBalancerStatus{
+							Ingress: []v1.LoadBalancerIngress{
+								{
+									IP:       "192.168.0.1",
+									Hostname: "example.com",
+									Ports: []v1.PortStatus{
+										{
+											Protocol: "http",
+											Port:     80,
+											Error:    getDataPointer[string]("err"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Test two services with different Names",
+			args: args{
+				first: &v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "nginx",
+					},
+				},
+				second: &v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "apache",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different Namespaces",
+			args: args{
+				first: &v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "default",
+					},
+				},
+				second: &v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "kube-system",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different Annotations",
+			args: args{
+				first: &v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"app":     "nginx",
+							"version": "1.0",
+						},
+					},
+				},
+				second: &v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"app":     "apache",
+							"version": "2.0",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Test two services with different Labels",
+			args: args{
+				first: &v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"app":     "nginx",
+							"version": "1.0",
+						},
+					},
+				},
+				second: &v1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"app":     "apache",
+							"version": "2.0",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different selectors",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						Selector: map[string]string{
+							"app": "nginx",
+						},
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						Selector: map[string]string{
+							"app": "apache",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different ports",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						Ports: []v1.ServicePort{
+							{
+								Name: "http",
+								Port: 80,
+							},
+						},
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						Ports: []v1.ServicePort{
+							{
+								Name: "https",
+								Port: 443,
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different types",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						Type: v1.ServiceTypeClusterIP,
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						Type: v1.ServiceTypeNodePort,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different ClusterIP",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						ClusterIP: "10.0.0.1",
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						ClusterIP: "10.0.0.2",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different ClusterIPs",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						ClusterIPs: []string{"10.0.0.1", "10.0.0.2"},
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						ClusterIPs: []string{"10.0.0.2", "10.0.0.3"},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different ExternalIPs",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						ExternalIPs: []string{
+							"192.168.0.1",
+							"192.168.0.2",
+						},
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						ExternalIPs: []string{
+							"192.168.0.3",
+							"192.168.0.4",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different AllocateLoadBalancerNodePorts",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						AllocateLoadBalancerNodePorts: getDataPointer[bool](true),
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						AllocateLoadBalancerNodePorts: getDataPointer[bool](false),
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different LoadBalancerIP",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						LoadBalancerIP: "192.168.0.1",
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						LoadBalancerIP: "192.168.0.2",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different LoadBalancerSourceRanges",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						LoadBalancerSourceRanges: []string{
+							"10.0.0.0/16",
+							"192.168.0.0/24",
+						},
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						LoadBalancerSourceRanges: []string{
+							"10.0.0.0/8",
+							"192.168.0.0/16",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different ExternalNames",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						ExternalName: "example.com",
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						ExternalName: "example.org",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different ExternalTrafficPolicy",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyCluster,
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyLocal,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different HealthCheckNodePort",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						HealthCheckNodePort: 10000,
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						HealthCheckNodePort: 20000,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different SessionAffinity",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						SessionAffinity: v1.ServiceAffinityClientIP,
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						SessionAffinity: v1.ServiceAffinityNone,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different SessionAffinityConfig",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						SessionAffinityConfig: &v1.SessionAffinityConfig{
+							ClientIP: &v1.ClientIPConfig{
+								TimeoutSeconds: getDataPointer[int32](10),
+							},
+						},
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						SessionAffinityConfig: &v1.SessionAffinityConfig{
+							ClientIP: &v1.ClientIPConfig{
+								TimeoutSeconds: getDataPointer[int32](20),
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different PublishNotReadyAddresses",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						PublishNotReadyAddresses: true,
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						PublishNotReadyAddresses: false,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different IPFamilies",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						IPFamilies: []v1.IPFamily{v1.IPv6Protocol},
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						IPFamilies: []v1.IPFamily{v1.IPv4Protocol},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different IPFamilyPolicy",
+			args: args{
+				first: &v1.Service{
+					Spec: v1.ServiceSpec{
+						IPFamilyPolicy: getDataPointer[v1.IPFamilyPolicy](v1.IPFamilyPolicySingleStack),
+					},
+				},
+				second: &v1.Service{
+					Spec: v1.ServiceSpec{
+						IPFamilyPolicy: getDataPointer[v1.IPFamilyPolicy](v1.IPFamilyPolicyPreferDualStack),
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different LoadBalancer",
+			args: args{
+				first: &v1.Service{
+					Status: v1.ServiceStatus{
+						LoadBalancer: v1.LoadBalancerStatus{
+							Ingress: []v1.LoadBalancerIngress{
+								{
+									IP:       "192.168.0.1",
+									Hostname: "example1.com",
+									Ports: []v1.PortStatus{{
+										Port:     8080,
+										Protocol: "http",
+										Error:    getDataPointer[string]("err1"),
+									}},
+								},
+							},
+						},
+					},
+				},
+				second: &v1.Service{
+					Status: v1.ServiceStatus{
+						LoadBalancer: v1.LoadBalancerStatus{
+							Ingress: []v1.LoadBalancerIngress{
+								{
+									IP:       "192.168.0.1",
+									Hostname: "example1.com",
+									Ports: []v1.PortStatus{{
+										Port:     8080,
+										Protocol: "http",
+										Error:    getDataPointer[string]("err2"),
+									}},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Test two services with different Conditions",
+			args: args{
+				first: &v1.Service{
+					Status: v1.ServiceStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type: "type1",
+							},
+						},
+					},
+				},
+				second: &v1.Service{
+					Status: v1.ServiceStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type: "type2",
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := serviceEqual(tt.args.first, tt.args.second); got != tt.want {
+				t.Errorf("EqualServices() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
