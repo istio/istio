@@ -82,9 +82,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 	}))
 
 	if c.DiscoveryNamespacesFilter != nil {
-		log.Infof("zhonghu: add ns filter handler")
 		c.DiscoveryNamespacesFilter.AddHandler(func(ns string, event model.Event) {
-			log.Infof("zhonghu: namespace %s %s", ns, event)
 			c.syncNamespace(ns)
 		})
 	} else {
@@ -128,7 +126,6 @@ func (nc *NamespaceController) startCaBundleWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case <-watchCh:
-			log.Infof("zhonghu: ca cert changed")
 			for _, ns := range nc.namespaces.List("", labels.Everything()) {
 				nc.namespaceChange(ns)
 			}
@@ -148,12 +145,10 @@ func (nc *NamespaceController) reconcileCACert(o types.NamespacedName) error {
 		ns = o.Name
 	}
 	if nc.DiscoveryNamespacesFilter != nil && !nc.DiscoveryNamespacesFilter.Filter(ns) {
-		log.Infof("zhonghu: ignore namespace %s ", ns)
 		// donot delete the configmap, maybe it is owned by another control plane
 		return nil
 	}
 
-	log.Infof("zhonghu: reconcile ca cert for namespace %s ", ns)
 	meta := metav1.ObjectMeta{
 		Name:      CACertNamespaceConfigMap,
 		Namespace: ns,

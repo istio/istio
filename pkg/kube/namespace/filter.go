@@ -42,6 +42,7 @@ type DiscoveryNamespacesFilter interface {
 	// GetMembers returns the namespaces selected for discovery
 	GetMembers() sets.String
 	// AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected.
+	// If the namespaces have been synced, it will trigger the new added handler.
 	AddHandler(func(ns string, event model.Event))
 }
 
@@ -248,10 +249,14 @@ func (d *discoveryNamespacesFilter) GetMembers() sets.String {
 	return d.discoveryNamespaces.Copy()
 }
 
-// AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected by discovery selector change.
+// AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected.
+// If the namespaces have been synced, trigger the new added handler.
 func (d *discoveryNamespacesFilter) AddHandler(f func(ns string, event model.Event)) {
-	d.lock.RLock()
-	defer d.lock.RUnlock()
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	for ns :=range d.discoveryNamespaces{
+		f(ns, model.EventAdd)
+	}
 	d.handlers = append(d.handlers, f)
 }
 
