@@ -15,10 +15,7 @@
 package controller
 
 import (
-	"fmt"
-
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -85,6 +82,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 	}))
 
 	if c.DiscoveryNamespacesFilter != nil {
+		log.Infof("zhonghu: add ns filter handler")
 		c.DiscoveryNamespacesFilter.AddHandler(func(ns string, event model.Event) {
 			log.Infof("zhonghu: namespace %s %s", ns, event)
 			c.syncNamespace(ns)
@@ -130,6 +128,7 @@ func (nc *NamespaceController) startCaBundleWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case <-watchCh:
+			log.Infof("zhonghu: ca cert changed")
 			for _, ns := range nc.namespaces.List("", labels.Everything()) {
 				nc.namespaceChange(ns)
 			}
@@ -149,12 +148,8 @@ func (nc *NamespaceController) reconcileCACert(o types.NamespacedName) error {
 		ns = o.Name
 	}
 	if nc.DiscoveryNamespacesFilter != nil && !nc.DiscoveryNamespacesFilter.Filter(ns) {
-		// delete the configmap
-		if err := nc.configmaps.Delete(CACertNamespaceConfigMap, ns); err != nil {
-			if !errors.IsNotFound(err) {
-				return fmt.Errorf("delete configmap %s in namespace %s failed: %v", CACertNamespaceConfigMap, ns, err)
-			}
-		}
+		log.Infof("zhonghu: ignore namespace %s ", ns)
+		// donot delete the configmap, maybe it is owned by another control plane
 		return nil
 	}
 
