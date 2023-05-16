@@ -18,7 +18,7 @@ WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 
-set -eux
+set -eux -o pipefail
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
@@ -38,11 +38,14 @@ GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 # Use a pinned version in case breaking changes are needed
 BUILDER_SHA=a85593d26d52fcd77032bde5438cc04e7e9cb81c
 
+: "${VERSION:?"Please set the VERSION variable"}"
+# Transform a VERSION like "1.19-dev" into "1.19"
+NEXT_VERSION=$(echo "${VERSION}" | cut -d- -f1)
+
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
-NEXT_VERSION=1.18
 TAG=$(git rev-parse HEAD)
-VERSION="${NEXT_VERSION}-alpha.${TAG}"
+VERSION_COMMIT="${NEXT_VERSION}-alpha.${TAG}"
 
 # In CI we want to store the outputs to artifacts, which will preserve the build
 # If not specified, we can just create a temporary directory
@@ -50,7 +53,7 @@ WORK_DIR="$(mktemp -d)/build"
 mkdir -p "${WORK_DIR}"
 
 MANIFEST=$(cat <<EOF
-version: ${VERSION}
+version: ${VERSION_COMMIT}
 docker: ${DOCKER_HUB}
 directory: ${WORK_DIR}
 ignoreVulnerability: true
@@ -108,5 +111,5 @@ release-builder validate --release "${WORK_DIR}/out"
 if [[ -z "${DRY_RUN:-}" ]]; then
   release-builder publish --release "${WORK_DIR}/out" \
     --gcsbucket "${GCS_BUCKET}" --gcsaliases "${NEXT_VERSION}-dev,latest" \
-    --dockerhub "${DOCKER_HUB}" --dockertags "${VERSION},${NEXT_VERSION}-dev,latest"
+    --dockerhub "${DOCKER_HUB}" --dockertags "${VERSION_COMMIT},${NEXT_VERSION}-dev,latest"
 fi

@@ -486,4 +486,16 @@ export BOOKINFO_VERSION ?= 1.19.0
 bookinfo.build:
 	@samples/bookinfo/src/build-services.sh ${BOOKINFO_VERSION} ${HUB}
 
+#-----------------------------------------------------------------------------
+# Target: release scripts
+#-----------------------------------------------------------------------------
+
+.PHONY: release.commit release.test
+
+release.commit:
+	@prow/release-commit.sh
+
+release.test:
+	@prow/release-test.sh
+
 include common/Makefile.common.mk
