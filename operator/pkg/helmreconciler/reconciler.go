@@ -589,9 +589,8 @@ func (h *HelmReconciler) networkName() string {
 }
 
 type ProcessDefaultWebhookOptions struct {
-	Namespace    string
-	DryRun       bool
-	CustomLabels map[string]string
+	Namespace string
+	DryRun    bool
 }
 
 func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
@@ -605,12 +604,16 @@ func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator,
 		}
 		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
 
+		ignorePruneLabel := map[string]string{
+			OwningResourceNotPruned: "true",
+		}
+
 		o := &revtag.GenerateOptions{
 			Tag:                  revtag.DefaultRevisionName,
 			Revision:             rev,
 			Overwrite:            true,
 			AutoInjectNamespaces: autoInjectNamespaces,
-			CustomLabels:         opt.CustomLabels,
+			CustomLabels:         ignorePruneLabel,
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)

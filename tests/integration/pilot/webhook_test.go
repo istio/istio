@@ -31,7 +31,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pkg/test/framework"
-	cluster2 "istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -48,15 +47,7 @@ func TestWebhook(t *testing.T) {
 			webhooks := []string{vwcName, "istiod-default-validator"}
 
 			// clear the updated fields and verify istiod updates them
-			var cluster cluster2.Cluster
-			for _, c := range t.Clusters() {
-				if c.IsConfig() {
-					cluster = c
-				}
-			}
-			if cluster == nil {
-				t.Fatalf("no cluster found")
-			}
+			cluster := t.Clusters().Default()
 			for _, vwcName := range webhooks {
 				retry.UntilSuccessOrFail(t, func() error {
 					got, err := getValidatingWebhookConfiguration(cluster.Kube(), vwcName)

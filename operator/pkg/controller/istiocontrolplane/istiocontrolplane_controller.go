@@ -417,17 +417,9 @@ func processDefaultWebhookAfterReconcile(iop *iopv1alpha1.IstioOperator, client 
 	} else {
 		ns = constants.IstioSystemNamespace
 	}
-	// The operator webhook differs slightly from istioctl, as it continuously reconciles.
-	// We don't want to prune the resources unnecessarily, so we add a label to them
-	// indicating they should not be pruned during the reconciliation cycles.
-	// This will not affect the pruning behavior when their owning resource is deleted.
-	ignorePruneLabel := map[string]string{
-		helmreconciler.OwningResourceNotPruned: "true",
-	}
 	opts := &helmreconciler.ProcessDefaultWebhookOptions{
-		Namespace:    ns,
-		DryRun:       false,
-		CustomLabels: ignorePruneLabel,
+		Namespace: ns,
+		DryRun:    false,
 	}
 	if _, err := helmreconciler.ProcessDefaultWebhook(client, iop, exists, opts); err != nil {
 		return fmt.Errorf("failed to process default webhook: %v", err)
