@@ -254,7 +254,7 @@ func (d *discoveryNamespacesFilter) GetMembers() sets.String {
 func (d *discoveryNamespacesFilter) AddHandler(f func(ns string, event model.Event)) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	for ns :=range d.discoveryNamespaces{
+	for ns := range d.discoveryNamespaces {
 		f(ns, model.EventAdd)
 	}
 	d.handlers = append(d.handlers, f)
