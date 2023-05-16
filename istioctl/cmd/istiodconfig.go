@@ -30,6 +30,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -147,11 +148,16 @@ func (ga *getAllLogLevelsState) run(out io.Writer) error {
 			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", sll.ScopeName, sll.Description, sll.LogLevel)
 		}
 		return w.Flush()
-	case "json":
+	case "json", "yaml":
 		outputBytes, err := json.MarshalIndent(&resultScopeLogLevel, "", "  ")
 		outputBytes = append(outputBytes, []byte("\n")...)
 		if err != nil {
 			return err
+		}
+		if ga.outputFormat == "yaml" {
+			if outputBytes, err = yaml.JSONToYAML(outputBytes); err != nil {
+				return err
+			}
 		}
 		_, err = out.Write(outputBytes)
 		return err
@@ -377,7 +383,7 @@ func istiodLogCmd() *cobra.Command {
 	outputFormat := "short"
 
 	logCmd := &cobra.Command{
-		Use:   "log [<pod-name>]|[-r|--revision] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[--reset]|[--output|-o short|yaml]",
+		Use:   "log [<pod-name>]|[-r|--revision] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[--reset]|[--output|-o short|json|yaml]",
 		Short: "Manage istiod logging.",
 		Long:  "Retrieve or update logging levels of istiod components.",
 		Example: `  # Retrieve information about istiod logging levels.
@@ -479,6 +485,6 @@ func istiodLogCmd() *cobra.Command {
 		"Comma-separated list of stack trace level  for scopes in format <scope>:<stack-trace-level>[,<scope>:<stack-trace-level>,...] "+
 			"Possible values for <stack-trace-level>: none, error, warn, info, debug")
 	logCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o",
-		outputFormat, "Output format: one of json|short")
+		outputFormat, "Output format: one of json|yaml|short")
 	return logCmd
 }
