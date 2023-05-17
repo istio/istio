@@ -394,7 +394,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput, dep
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
 
-	// istio.io/gateway is the only label that allows to attach ProxyConfig to a Gateway
+	// istio.io/gateway-name is the only label that allows to attach ProxyConfig to a Gateway
 	workloadLabels := map[string]string{"istio.io/gateway-name": mi.Name}
 	podAnnotations := map[string]string{}
 	if deployment != nil && deployment.Spec.Template.Annotations != nil {
