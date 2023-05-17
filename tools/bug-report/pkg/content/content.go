@@ -196,6 +196,9 @@ func GetProxyInfo(p *Params) (map[string]string, error) {
 		}
 		ret[url] = out
 	}
+	if len(errStr) == 0 {
+		return ret, nil
+	}
 	return ret, fmt.Errorf(strings.Join(errStr, "\n"))
 }
 
