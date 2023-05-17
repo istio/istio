@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -106,9 +105,6 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 			},
 		}
 		res = append(res, &model.AddressInfo{Address: addr})
-	} else if len(res) > 0 {
-		// there are Workloads for a Service that does not exist, which should never happen
-		log.Warnf("workload(s) found for %q but no service exists", key)
 	}
 
 	return res
@@ -134,25 +130,6 @@ func (a *AmbientIndex) insertWorkloadToService(svcAddress string, workload *mode
 	a.byService[svcAddress] = append(a.byService[svcAddress], workload)
 }
 
-func compareGatewayAddress(w1, w2 *workloadapi.GatewayAddress) bool {
-	return gatewayAddressToString(w1) == gatewayAddressToString(w2)
-}
-
-// converts GatewayAddress to string for easy comparison
-func gatewayAddressToString(gtw1 *workloadapi.GatewayAddress) string {
-	if gtw1 == nil {
-		return ""
-	}
-	res := ""
-	switch gtw1.Destination.(type) {
-	case *workloadapi.GatewayAddress_Hostname:
-		res = gtw1.GetHostname().Namespace + "/" + gtw1.GetHostname().Hostname
-	case *workloadapi.GatewayAddress_Address:
-		res = gtw1.GetAddress().Network + "/" + string(gtw1.GetAddress().Address)
-	}
-	return fmt.Sprintf("%s/%v", res, gtw1.Port)
-}
-
 func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloadapi.GatewayAddress, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
 	updates := sets.New[model.ConfigKey]()
 	if isDelete {
@@ -164,7 +141,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 				continue
 			}
 
-			if wl.Waypoint != nil && compareGatewayAddress(wl.Waypoint, addr) {
+			if wl.Waypoint != nil && wl.Waypoint.String() == addr.String() {
 				wl.Waypoint = nil
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -180,7 +157,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 				continue
 			}
 
-			if wl.Waypoint == nil || !compareGatewayAddress(wl.Waypoint, addr) {
+			if wl.Waypoint == nil || wl.Waypoint.String() != addr.String() {
 				wl.Waypoint = addr
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -846,12 +823,12 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		}
 
 		if isDelete {
-			if compareGatewayAddress(a.waypoints[scope], addr) {
+			if a.waypoints[scope].String() == addr.String() {
 				delete(a.waypoints, scope)
 				updates.Merge(a.updateWaypoint(scope, addr, true, c))
 			}
 		} else {
-			if !compareGatewayAddress(a.waypoints[scope], addr) {
+			if a.waypoints[scope].String() != addr.String() {
 				a.waypoints[scope] = addr
 				updates.Merge(a.updateWaypoint(scope, addr, false, c))
 			}
@@ -1094,6 +1071,14 @@ func (c *Controller) AdditionalPodSubscriptions(
 						break
 					}
 				}
+			case *workloadapi.Address_Service:
+				for _, networkAddress := range addr.Service.Addresses {
+					t := types.NamespacedName{Name: string(networkAddress.Address)}
+					if currentSubs.Contains(t) {
+						shouldSubscribe.Insert(types.NamespacedName{Name: wl.ResourceName()})
+						break
+					}
+				}
 			}
 		}
 	}
@@ -1110,6 +1095,9 @@ func (c *Controller) AdditionalPodSubscriptions(
 					}
 					shouldSubscribe.Insert(n)
 				}
+			case *workloadapi.Address_Service:
+				// Services are not constrained to a particular node
+				continue
 			}
 		}
 	}

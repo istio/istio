@@ -74,11 +74,6 @@ message Service {
   repeated string subject_alt_names = 6;
 }
 
-message OpaqueEndpoint {
-  // Tunneling protocol to use when connecting to the service, if any.
-  TunnelProtocol tunnel_protocol = 1;
-}
-
 message Workload {
   // UID represents a globally unique opaque identifier for this workload.
   string uid = 20;
@@ -95,6 +90,7 @@ message Workload {
   // This should not have a port number.
   // Each workload must have at least either an address or hostname; not both.
   // TODO: support dual stack by making this repeated
+  // TODO: when this is repeated, update xds primary key from network/IP to network/UID
   bytes address = 3;
 
   // The hostname for the workload to be resolved by the ztunnel.

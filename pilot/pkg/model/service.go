@@ -855,10 +855,11 @@ func (i AddressInfo) ResourceName() string {
 	var name string
 	switch addr := i.Type.(type) {
 	case *workloadapi.Address_Workload:
+		// TODO per design doc, primary xds key is UID and secondary keys are network/vip
+		// primary key is not implemented yet
 		ii, _ := netip.AddrFromSlice(addr.Workload.Address)
 		name = addr.Workload.Network + "/" + ii.String()
 	case *workloadapi.Address_Service:
-		// TODO GregHanson currently not supported in ztunnel
 		name = addr.Service.Namespace + "/" + addr.Service.Hostname
 	}
 	return name
@@ -878,6 +879,8 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 }
 
 func (i WorkloadInfo) ResourceName() string {
+	// TODO per design doc, primary xds key is UID and secondary keys are network/vip
+	// primary key is not implemented yet
 	ii, _ := netip.AddrFromSlice(i.Address)
 	name := i.Network + "/" + ii.String()
 	return name

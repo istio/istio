@@ -70,7 +70,7 @@ func TestWorkloadReconnect(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	expect := buildExpect(t)
 	s := NewFakeDiscoveryServer(t, FakeOptions{})
-	ads := s.ConnectDeltaADS().WithType(v3.WorkloadType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+	ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 	createPod(s, "pod", "sa", "127.0.0.1", "not-node")
 	ads.Request(&discovery.DeltaDiscoveryRequest{
 		ResourceNamesSubscribe:   []string{"*"},
@@ -86,7 +86,7 @@ func TestWorkloadReconnect(t *testing.T) {
 	ads.Cleanup()
 
 	// Reconnect
-	ads = s.ConnectDeltaADS().WithType(v3.WorkloadType)
+	ads = s.ConnectDeltaADS().WithType(v3.AddressType)
 	ads.Request(&discovery.DeltaDiscoveryRequest{
 		ResourceNamesSubscribe:   []string{"*"},
 		ResourceNamesUnsubscribe: []string{"*"},
@@ -103,7 +103,7 @@ func TestWorkload(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
-		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe:   []string{"*"},
@@ -176,7 +176,7 @@ func TestWorkload(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
-		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe: []string{"*"},

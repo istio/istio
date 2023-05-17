@@ -2051,13 +2051,6 @@ func generateService(name, namespace string, labels, annotations map[string]stri
 	}
 }
 
-// func deleteServiceWait(controller *FakeController, name, namespace string, labels, annotations map[string]string,
-// 	ports []int32, selector map[string]string, ip string, t *testing.T,
-// ) {
-// 	deleteService(controller, name, namespace, labels, annotations, ports, selector, ip, t)
-// 	controller.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "service")
-// }
-
 func createVirtualService(controller *FakeController, name, namespace string,
 	annotations map[string]string,
 	t *testing.T,

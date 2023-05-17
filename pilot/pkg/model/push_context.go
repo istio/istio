@@ -2171,7 +2171,8 @@ func (ps *PushContext) SupportsTunnel(ip string) bool {
 				return true
 			}
 		case *workloadapi.Address_Service:
-			// TODO GregHanson
+			// Services do not directly support tunneling, their individual Workloads can though
+			continue
 		}
 	}
 	return false
