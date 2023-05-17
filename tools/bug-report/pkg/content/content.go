@@ -183,18 +183,20 @@ func GetIstiodInfo(p *Params) (map[string]string, error) {
 
 // GetProxyInfo returns internal proxy debug info.
 func GetProxyInfo(p *Params) (map[string]string, error) {
+	var errStr []string
 	if p.Namespace == "" || p.Pod == "" {
-		return nil, fmt.Errorf("getIstiodInfo requires namespace and pod")
+		return nil, fmt.Errorf("getProxyInfo requires namespace and pod")
 	}
 	ret := make(map[string]string)
 	for _, url := range common.ProxyDebugURLs(p.ClusterVersion) {
 		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun)
 		if err != nil {
-			return nil, err
+			errStr = append(errStr, err.Error())
+			continue
 		}
 		ret[url] = out
 	}
-	return ret, nil
+	return ret, fmt.Errorf(strings.Join(errStr, "\n"))
 }
 
 func GetZtunnelInfo(p *Params) (map[string]string, error) {
