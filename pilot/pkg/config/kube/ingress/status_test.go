@@ -135,6 +135,7 @@ func TestStatusController(t *testing.T) {
 	c := makeStatusSyncer(t, "istio-ingress")
 	ing := clienttest.Wrap(t, c.ingresses)
 	svc := clienttest.Wrap(t, c.services)
+	ingc := clienttest.Wrap(t, c.ingressClasses)
 	ing.Create(&knetworking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "ingress",
@@ -168,6 +169,30 @@ func TestStatusController(t *testing.T) {
 		},
 	})
 	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{})
+
+	ingressClassName := "istio"
+	// Set IngressClassName
+	ing.Update(&knetworking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ingress",
+			Namespace: "default",
+		},
+		Spec: knetworking.IngressSpec{
+			IngressClassName: &ingressClassName,
+		},
+	})
+	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{})
+
+	// Create IngressClass
+	ingc.Create(&knetworking.IngressClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: ingressClassName,
+		},
+		Spec: knetworking.IngressClassSpec{
+			Controller: IstioIngressController,
+		},
+	})
+	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{"5.6.7.8"})
 }
 
 func TestRunningAddresses(t *testing.T) {

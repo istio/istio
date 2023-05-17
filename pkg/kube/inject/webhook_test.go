@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	sutil "istio.io/istio/security/pkg/nodeagent/util"
@@ -734,7 +735,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	}
 }
 
-func convertToJSON(i any, t *testing.T) []byte {
+func convertToJSON(i any, t test.Failer) []byte {
 	t.Helper()
 	outputJSON, err := json.Marshal(i)
 	if err != nil {
@@ -743,7 +744,7 @@ func convertToJSON(i any, t *testing.T) []byte {
 	return prettyJSON(outputJSON, t)
 }
 
-func prettyJSON(inputJSON []byte, t *testing.T) []byte {
+func prettyJSON(inputJSON []byte, t test.Failer) []byte {
 	t.Helper()
 	// Pretty-print the JSON
 	var prettyBuffer bytes.Buffer
