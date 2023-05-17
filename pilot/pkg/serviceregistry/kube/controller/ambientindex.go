@@ -49,13 +49,13 @@ import (
 // These are intentionally pre-computed based on events such that lookups are efficient.
 type AmbientIndex struct {
 	mu sync.RWMutex
-	// byService indexes by Service (virtual) *IP address*. A given Service may have multiple IPs, thus
+	// byService indexes by network/Service (virtual) *IP address*. A given Service may have multiple IPs, thus
 	// multiple entries in the map. A given IP can have many workloads associated.
-	byService map[string][]*model.WorkloadInfo
-	// byPod indexes by Pod IP address.
+	byService map[networkAddress][]*model.WorkloadInfo
+	// byPod indexes by network/podIP address.
 	byPod map[string]*model.WorkloadInfo
 	// services are indexed by the network/clusterIP
-	services map[string]*workloadapi.Service
+	services map[networkAddress]*workloadapi.Service
 
 	// Map of ServiceAccount -> IP
 	// TODO: currently, this is derived from pods. To be agnostic to the implementation,
@@ -89,8 +89,15 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	// returned in this case
 	// TODO any service to exclude in the future? for example with affinity,
 	// per-node, etc - where simply load balancing will break?
+
 	res := []*model.AddressInfo{}
-	for _, wl := range a.byService[key] {
+	network, vip, found := strings.Cut(key, "/")
+	if !found {
+		log.Warnf("key(%v) did not contain the expected \"/\" character", key)
+		return res
+	}
+	networkAddr := networkAddress{network: network, vip: vip}
+	for _, wl := range a.byService[networkAddr] {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
 				Workload: wl.Workload,
@@ -98,7 +105,7 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 		}
 		res = append(res, &model.AddressInfo{Address: addr})
 	}
-	if s, exists := a.services[key]; exists {
+	if s, exists := a.services[networkAddr]; exists {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Service{
 				Service: s,
@@ -110,7 +117,7 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	return res
 }
 
-func (a *AmbientIndex) dropWorkloadFromService(svcAddress, workloadAddress string) {
+func (a *AmbientIndex) dropWorkloadFromService(svcAddress networkAddress, workloadAddress string) {
 	wls := a.byService[svcAddress]
 	// TODO: this is inefficient, but basically we are trying to update a keyed element in a list
 	// Probably we want a Map? But the list is nice for fast lookups
@@ -123,7 +130,7 @@ func (a *AmbientIndex) dropWorkloadFromService(svcAddress, workloadAddress strin
 	a.byService[svcAddress] = filtered
 }
 
-func (a *AmbientIndex) insertWorkloadToService(svcAddress string, workload *model.WorkloadInfo) {
+func (a *AmbientIndex) insertWorkloadToService(svcAddress networkAddress, workload *model.WorkloadInfo) {
 	// For simplicity, to insert we drop it then add it to the end.
 	// TODO: optimize this
 	a.dropWorkloadFromService(svcAddress, workload.ResourceName())
@@ -141,7 +148,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 				continue
 			}
 
-			if wl.Waypoint != nil && wl.Waypoint.String() == addr.String() {
+			if wl.Waypoint != nil && proto.Equal(wl.Waypoint, addr) {
 				wl.Waypoint = nil
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -157,7 +164,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 				continue
 			}
 
-			if wl.Waypoint == nil || wl.Waypoint.String() != addr.String() {
+			if wl.Waypoint == nil || !proto.Equal(wl.Waypoint, addr) {
 				wl.Waypoint = addr
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
@@ -636,10 +643,10 @@ func (c *Controller) updateEndpointsOnWaypointChange(wl *model.WorkloadInfo) set
 
 func (c *Controller) setupIndex() *AmbientIndex {
 	idx := AmbientIndex{
-		byService: map[string][]*model.WorkloadInfo{},
+		byService: map[networkAddress][]*model.WorkloadInfo{},
 		byPod:     map[string]*model.WorkloadInfo{},
 		waypoints: map[model.WaypointScope]*workloadapi.GatewayAddress{},
-		services:  map[string]*workloadapi.Service{},
+		services:  map[networkAddress]*workloadapi.Service{},
 	}
 
 	podHandler := cache.ResourceEventHandlerFuncs{
@@ -751,7 +758,7 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 			delete(a.byPod, oldWl.ResourceName())
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
 			for vip := range oldWl.VirtualIps {
-				a.dropWorkloadFromService(oldWl.Network+"/"+vip, oldWl.ResourceName())
+				a.dropWorkloadFromService(networkAddress{network: oldWl.Network, vip: vip}, oldWl.ResourceName())
 			}
 			log.Debugf("%v: workload removed, pushing", p.Status.PodIP)
 			// TODO: namespace for network?
@@ -771,12 +778,12 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	if oldWl != nil {
 		// For updates, we will drop the VIPs and then add the new ones back. This could be optimized
 		for vip := range oldWl.VirtualIps {
-			a.dropWorkloadFromService(wl.Network+"/"+vip, wl.ResourceName())
+			a.dropWorkloadFromService(networkAddress{network: oldWl.Network, vip: vip}, oldWl.ResourceName())
 		}
 	}
 	// Update the VIP indexes as well, as needed
 	for vip := range wl.VirtualIps {
-		a.insertWorkloadToService(wl.Network+"/"+vip, wl)
+		a.insertWorkloadToService(networkAddress{network: wl.Network, vip: vip}, wl)
 	}
 
 	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
@@ -823,12 +830,12 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		}
 
 		if isDelete {
-			if a.waypoints[scope].String() == addr.String() {
+			if proto.Equal(a.waypoints[scope], addr) {
 				delete(a.waypoints, scope)
 				updates.Merge(a.updateWaypoint(scope, addr, true, c))
 			}
 		} else {
-			if a.waypoints[scope].String() != addr.String() {
+			if !proto.Equal(a.waypoints[scope], addr) {
 				a.waypoints[scope] = addr
 				updates.Merge(a.updateWaypoint(scope, addr, false, c))
 			}
@@ -860,15 +867,15 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 
 	// We send an update for each *workload* IP address previously in the service; they may have changed
 	for _, networkAddr := range networkAddrs {
-		for _, wl := range a.byService[networkAddr.String()] {
+		for _, wl := range a.byService[networkAddr] {
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 		}
 	}
 	// Update indexes
 	if isDelete {
 		for _, networkAddr := range networkAddrs {
-			delete(a.byService, networkAddr.String())
-			delete(a.services, networkAddr.String())
+			delete(a.byService, networkAddr)
+			delete(a.services, networkAddr)
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
 	} else {
@@ -890,15 +897,15 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 			Ports:     ports,
 		}
 		for _, networkAddr := range networkAddrs {
-			a.byService[networkAddr.String()] = wls
+			a.byService[networkAddr] = wls
 
-			a.services[networkAddr.String()] = ws
+			a.services[networkAddr] = ws
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
 	}
 	// Fetch updates again, in case it changed from adding new workloads
 	for _, networkAddr := range networkAddrs {
-		for _, wl := range a.byService[networkAddr.String()] {
+		for _, wl := range a.byService[networkAddr] {
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 		}
 	}
