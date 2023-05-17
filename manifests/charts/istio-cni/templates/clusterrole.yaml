@@ -12,6 +12,11 @@ rules:
 - apiGroups: [""]
   resources: ["pods","nodes","namespaces"]
   verbs: ["get", "list", "watch"]
+{{- if .Values.cni.ambient.enabled }}
+- apiGroups: ["apps"]
+  resources: ["daemonsets"]
+  verbs: ["get", "list", "watch"]
+{{- end }}
 ---
 {{- if .Values.cni.repair.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1

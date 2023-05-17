@@ -140,6 +140,16 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
             - name: LOG_LEVEL
               value: {{ .Values.cni.logLevel | quote }}
             {{- if .Values.cni.ambient.enabled }}

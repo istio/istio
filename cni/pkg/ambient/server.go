@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -130,9 +131,47 @@ func (s *Server) Start() {
 	}()
 }
 
+func (s *Server) needCleanupNode() bool {
+	ns := PodNamespace
+	selfName := PodName
+	pod, err := s.kubeClient.Kube().CoreV1().Pods(ns).Get(context.Background(), selfName, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("failed to get current pod info: %v", err)
+		return true
+	}
+
+	ownerName := ""
+	for _, owner := range pod.OwnerReferences {
+		if owner.Controller != nil && *owner.Controller {
+			ownerName = owner.Name
+			break
+		}
+	}
+	if ownerName == "" {
+		log.Infof("No controller owner found")
+		return true
+	}
+
+	if ds, err := s.kubeClient.Kube().AppsV1().DaemonSets(ns).Get(context.Background(), ownerName, metav1.GetOptions{}); err == nil {
+		if ds.DeletionTimestamp == nil {
+			log.Infof("%s daemonset is not deleting, skip ambient node level cleanup", ownerName)
+			return false
+		}
+	} else if errors.IsNotFound(err) {
+		log.Infof("Owner %s has already been deleted by background cascading deletion", ownerName)
+	} else {
+		log.Error(err)
+	}
+
+	log.Infof("%s daemonset is deleting or deleted, continue ambient node level cleanup", ownerName)
+	return true
+}
+
 func (s *Server) Stop() {
-	log.Info("CNI ambient server terminating, cleaning up node net rules")
-	s.cleanupNode()
+	if s.needCleanupNode() {
+		log.Info("CNI ambient server terminating, cleaning up node net rules")
+		s.cleanupNode()
+	}
 }
 
 func (s *Server) UpdateConfig() {
