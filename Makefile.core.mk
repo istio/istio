@@ -35,7 +35,18 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.19-dev
+# Version can be defined:
+# (1) in a $VERSION shell variable, which takes precedence; or
+# (2) in the VERSION file, in which we will append "-dev" to it
+ifeq ($(VERSION),)
+VERSION_FROM_FILE := $(shell cat VERSION)
+ifeq ($(VERSION_FROM_FILE),)
+$(error VERSION not detected. Make sure it's stored in the VERSION file or defined in VERSION variable)
+endif
+VERSION := $(VERSION_FROM_FILE)-dev
+endif
+
+export VERSION
 
 # Base version of Istio image to use
 BASE_VERSION ?= master-2023-04-26T20-45-12
