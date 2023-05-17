@@ -134,9 +134,8 @@ func (s *secretItemBuilder) Build() (SecretItem, error) {
 		result.SecretMeta = meta
 		result.Valid = meta.Valid
 		return result, nil
-	} else {
-		result.Valid = false
 	}
+	result.Valid = false
 	return result, nil
 }
 
