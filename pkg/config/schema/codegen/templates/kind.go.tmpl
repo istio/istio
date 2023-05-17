@@ -1,0 +1,43 @@
+// GENERATED FILE -- DO NOT EDIT
+//
+
+package {{.PackageName}}
+
+import (
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
+)
+
+const (
+{{- range $index, $element := .Entries }}
+	{{- if (eq $index 0) }}
+	{{.Resource.Identifier}} Kind = iota
+	{{- else }}
+	{{.Resource.Identifier}}
+	{{- end }}
+{{- end }}
+)
+
+func (k Kind) String() string {
+	switch k {
+{{- range .Entries }}
+	case {{.Resource.Identifier}}:
+		return "{{.Resource.Kind}}"
+{{- end }}
+	default:
+		return "Unknown"
+	}
+}
+
+func MustFromGVK(g config.GroupVersionKind) Kind {
+	switch g {
+{{- range .Entries }}
+	{{- if not (eq .Resource.Identifier "Address") }}
+		case gvk.{{.Resource.Identifier}}:
+			return {{.Resource.Identifier}}
+	{{- end }}
+{{- end }}
+	}
+
+	panic("unknown kind: " + g.String())
+}
