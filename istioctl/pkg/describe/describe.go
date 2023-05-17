@@ -471,6 +471,11 @@ func printPod(writer io.Writer, pod *corev1.Pod, revision string) {
 			fmt.Fprintf(writer, "WARNING: Pod %s Container %s NOT READY\n", kname(pod.ObjectMeta), containerStatus.Name)
 		}
 	}
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
+		if !containerStatus.Ready {
+			fmt.Fprintf(writer, "WARNING: Pod %s Init Container %s NOT READY\n", kname(pod.ObjectMeta), containerStatus.Name)
+		}
+	}
 
 	if ignoreUnmeshed {
 		return
@@ -538,13 +543,7 @@ func findProtocolForPort(port *corev1.ServicePort) string {
 }
 
 func isMeshed(pod *corev1.Pod) bool {
-	var sidecar bool
-
-	for _, container := range pod.Spec.Containers {
-		sidecar = sidecar || (container.Name == inject.ProxyContainerName)
-	}
-
-	return sidecar
+	return inject.FindSidecar(pod.Spec.Containers) != nil || inject.FindSidecar(pod.Spec.InitContainers) != nil
 }
 
 // Extract value of key out of Struct, but always return a Struct, even if the value isn't one
@@ -1215,6 +1214,11 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 
 func containerReady(pod *corev1.Pod, containerName string) (bool, error) {
 	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == containerName {
+			return containerStatus.Ready, nil
+		}
+	}
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
 		if containerStatus.Name == containerName {
 			return containerStatus.Ready, nil
 		}
