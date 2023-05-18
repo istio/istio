@@ -45,7 +45,7 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// input config
 	cmd.PersistentFlags().StringVarP(&configFile, "filename", "f", "",
 		"Path to a file containing configuration in YAML format. The file contents are applied over the default "+
-				"values and flag settings, with lists being replaced per JSON merge semantics.")
+			"values and flag settings, with lists being replaced per JSON merge semantics.")
 
 	// dry run
 	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false,
@@ -62,31 +62,31 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// timeouts and max sizes
 	cmd.PersistentFlags().DurationVar(&commandTimeout, "timeout", bugReportDefaultTimeout,
 		"Maximum amount of time to spend fetching logs. When timeout is reached "+
-				"only the logs captured so far are saved to the archive.")
+			"only the logs captured so far are saved to the archive.")
 	// include / exclude specs
 	cmd.PersistentFlags().StringSliceVar(&included, "include", bugReportDefaultInclude,
 		"Spec for which pod's proxy logs to include in the archive. See above for format and examples.")
 	cmd.PersistentFlags().StringSliceVar(&excluded, "exclude", bugReportDefaultExclude,
 		"Spec for which pod's proxy logs to exclude from the archive, after the include spec "+
-				"is processed. See above for format and examples.")
+			"is processed. See above for format and examples.")
 
 	// log time ranges
 	cmd.PersistentFlags().StringVar(&startTime, "start-time", "",
 		"Start time for the range of log entries to include in the archive. "+
-				"Default is the infinite past. If set, --duration must be unset.")
+			"Default is the infinite past. If set, --duration must be unset.")
 	cmd.PersistentFlags().StringVar(&endTime, "end-time", "",
 		"End time for the range of log entries to include in the archive. Default is now.")
 	cmd.PersistentFlags().DurationVar(&since, "duration", 0,
 		"How far to go back in time from end-time for log entries to include in the archive. "+
-				"Default is infinity. If set, --start-time must be unset.")
+			"Default is infinity. If set, --start-time must be unset.")
 
 	// log error control
 	cmd.PersistentFlags().StringSliceVar(&args.CriticalErrors, "critical-errs", nil,
 		"List of comma separated glob patterns to match against log error strings. "+
-				"If any pattern matches an error in the log, the logs is given the highest priority for archive inclusion.")
+			"If any pattern matches an error in the log, the logs is given the highest priority for archive inclusion.")
 	cmd.PersistentFlags().StringSliceVar(&args.IgnoredErrors, "ignore-errs", nil,
 		"List of comma separated glob patterns to match against log error strings. "+
-				"Any error matching these patterns is ignored when calculating the log importance heuristic.")
+			"Any error matching these patterns is ignored when calculating the log importance heuristic.")
 
 	// working dir to store temporary artifacts
 	cmd.PersistentFlags().StringVar(&tempDir, "dir", "",
@@ -98,7 +98,7 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// requests per second limit
 	cmd.PersistentFlags().IntVar(&args.RequestsPerSecondLimit, "rps-limit", 0,
 		"Requests per second limit to the Kubernetes API server, defaults to 10."+
-				"A higher limit can make bug report collection much faster.")
+			"A higher limit can make bug report collection much faster.")
 }
 
 func parseConfig() (*config2.BugReportConfig, error) {
@@ -145,7 +145,7 @@ func parseConfig() (*config2.BugReportConfig, error) {
 }
 
 func parseTimes(config *config2.BugReportConfig, startTime, endTime string, duration time.Duration) error {
-	if (startTime == "" && endTime == "" && config.Since == 0) {
+	if startTime == "" && endTime == "" {
 		config.TimeFilterApplied = false
 	} else {
 		config.TimeFilterApplied = true
