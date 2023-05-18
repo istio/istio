@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 )
 
 // newKubeClient is a unit test override variable for interface create.
@@ -102,11 +103,7 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 
 func (pi PodInfo) String() string {
 	var b strings.Builder
-	icn := make([]string, 0, len(pi.InitContainers))
-	for n := range pi.InitContainers {
-		icn = append(icn, n)
-	}
-	b.WriteString(fmt.Sprintf("  Init Containers: %v\n", icn))
+	b.WriteString(fmt.Sprintf("  Init Containers: %v\n", maps.Keys(pi.InitContainers)))
 	b.WriteString(fmt.Sprintf("  Containers: %v\n", pi.Containers))
 	b.WriteString(fmt.Sprintf("  Labels: %+v\n", pi.Labels))
 	b.WriteString(fmt.Sprintf("  Annotations: %+v\n", pi.Annotations))
