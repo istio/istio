@@ -19,6 +19,3 @@ spec:
       provider: "multus"
     global:
       platform: openshift
-    sidecarInjectorWebhook:
-      injectedAnnotations:
-        k8s.v1.cni.cncf.io/networks: default/istio-cni
