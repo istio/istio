@@ -65,15 +65,7 @@ func getTimeRange(logStr string, start, end time.Time) string {
 	var sb strings.Builder
 	write := false
 	for _, l := range strings.Split(logStr, "\n") {
-		var t *time.Time
-		var valid bool
-
-		if isJSONLog(logStr) {
-			t, _, _, valid = parseJSONLog(l)
-		} else {
-			t, _, _, valid = processPlainLog(l)
-		}
-
+		t, _, _, valid := parseLog(l)
 		if valid {
 			write = false
 			if (t.Equal(start) || t.After(start)) && (t.Equal(end) || t.Before(end)) {
@@ -93,14 +85,7 @@ func getTimeRange(logStr string, start, end time.Time) string {
 func getStats(config *config.BugReportConfig, logStr string) *Stats {
 	out := &Stats{}
 	for _, l := range strings.Split(logStr, "\n") {
-		var level, text string
-		var valid bool
-		if isJSONLog(logStr) {
-			_, level, text, valid = parseJSONLog(l)
-		} else {
-			_, level, text, valid = processPlainLog(l)
-		}
-
+		_, level, text, valid := parseLog(l)
 		if !valid {
 			continue
 		}
@@ -121,6 +106,14 @@ func getStats(config *config.BugReportConfig, logStr string) *Stats {
 		}
 	}
 	return out
+}
+
+func parseLog(line string) (timeStamp *time.Time, level string, text string, valid bool) {
+	if isJSONLog(line) {
+		return parseJSONLog(line)
+	} else {
+		return processPlainLog(line)
+	}
 }
 
 func processPlainLog(line string) (timeStamp *time.Time, level string, text string, valid bool) {
