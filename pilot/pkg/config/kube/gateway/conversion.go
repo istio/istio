@@ -1773,11 +1773,12 @@ func objectReferenceString(ref k8s.SecretObjectReference) string {
 }
 
 func parentRefString(ref k8s.ParentReference) string {
-	return fmt.Sprintf("%s/%s/%s/%s.%s",
+	return fmt.Sprintf("%s/%s/%s/%s/%d.%s",
 		ptr.OrEmpty(ref.Group),
 		ptr.OrEmpty(ref.Kind),
 		ref.Name,
 		ptr.OrEmpty(ref.SectionName),
+		ptr.OrEmpty(ref.Port),
 		ptr.OrEmpty(ref.Namespace))
 }
 
