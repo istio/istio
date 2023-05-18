@@ -330,6 +330,14 @@ func (c Config) DeepCopy() Config {
 	return clone
 }
 
+func (c Config) GetName() string {
+	return c.Name
+}
+
+func (c Config) GetNamespace() string {
+	return c.Namespace
+}
+
 var _ fmt.Stringer = GroupVersionKind{}
 
 type GroupVersionKind struct {
@@ -371,3 +379,15 @@ func (g GroupVersionKind) CanonicalGroup() string {
 // PatchFunc provides the cached config as a base for modification. Only diff the between the cfg
 // parameter and the returned Config will be applied.
 type PatchFunc func(cfg Config) (Config, kubetypes.PatchType)
+
+type Namer interface {
+	GetName() string
+	GetNamespace() string
+}
+
+func NamespacedName(n Namer) kubetypes.NamespacedName {
+	return kubetypes.NamespacedName{
+		Namespace: n.GetNamespace(),
+		Name:      n.GetName(),
+	}
+}
