@@ -202,7 +202,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: defaultClassName,
+					GatewayClassName: DefaultClassName,
 				},
 			},
 			objects: defaultObjects,
@@ -216,7 +216,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 			deployments := kclient.New[*appsv1.Deployment](client)
 			stop := test.NewStop(t)
 			client.RunAndWait(stop)
-			kube.WaitForCacheSync("test", stop, deployments.HasSynced)
+			kube.WaitForCacheSync(stop, deployments.HasSynced)
 			d := &DeploymentController{
 				client: client,
 				env: &model.Environment{
