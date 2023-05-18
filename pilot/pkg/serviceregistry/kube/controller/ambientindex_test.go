@@ -193,7 +193,7 @@ func TestAmbientIndex(t *testing.T) {
 	// Now we should be able to look up a VIP as well
 	assertAddresses("testnetwork/10.0.0.1", "name1", "name2", "svc1")
 	// We should get an event for the new Service and the two *Pod* IPs impacted
-	assertEvent("testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2")
+	assertEvent("ns1/svc1.ns1.svc.cluster.local", "testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2")
 
 	// Add a new pod to the service, we should see it
 	addPods("127.0.0.4", "name4", "sa1", map[string]string{"app": "a"}, nil)
@@ -217,7 +217,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertAddresses("", "name1", "name2", "name3", "svc1")
 	assertAddresses("testnetwork/10.0.0.1", "name2", "svc1")
 	// Need to update the *old* workload only
-	assertEvent("testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2")
+	assertEvent("ns1/svc1.ns1.svc.cluster.local", "testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2")
 	// assertEvent("127.0.0.2") TODO: This should be the event, but we are not efficient here.
 
 	// Update an existing pod into the service
@@ -236,7 +236,7 @@ func TestAmbientIndex(t *testing.T) {
 	deleteService("svc1")
 	assertAddresses("", "name1", "name2", "name3")
 	assertAddresses("testnetwork/10.0.0.1")
-	assertEvent("testnetwork/10.0.0.1", "testnetwork/127.0.0.2")
+	assertEvent("ns1/svc1.ns1.svc.cluster.local", "testnetwork/10.0.0.1", "testnetwork/127.0.0.2")
 	assert.Equal(t, len(controller.ambientIndex.byService), 0)
 
 	// Add a waypoint proxy pod for namespace
@@ -250,7 +250,7 @@ func TestAmbientIndex(t *testing.T) {
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
 	assertAddresses("", "name1", "name2", "name3", "waypoint-ns")
 	// All these workloads updated, so push them
-	assertEvent("testnetwork/10.0.0.2", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.200", "testnetwork/127.0.0.3")
+	assertEvent("ns1/waypoint-ns.ns1.svc.cluster.local", "testnetwork/10.0.0.2", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.200", "testnetwork/127.0.0.3")
 	// We should now see the waypoint service IP
 	assert.Equal(t, controller.ambientIndex.Lookup("testnetwork/127.0.0.3")[0].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.2").AsSlice())
 
@@ -287,7 +287,7 @@ func TestAmbientIndex(t *testing.T) {
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 	assertAddresses("testnetwork/10.0.0.1", "name1", "name2", "name3", "svc1")
 	// Send update for the workloads as well...
-	assertEvent("testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.3")
+	assertEvent("ns1/svc1.ns1.svc.cluster.local", "testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.3")
 	// Make sure Service sees waypoints as well
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[0].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.2").AsSlice())
@@ -329,7 +329,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertEvent("testnetwork/127.0.0.2")
 
 	deleteService("waypoint-ns")
-	assertEvent("svc1.ns1.svc.company.com", "testnetwork/10.0.0.2", "testnetwork/127.0.0.1", "testnetwork/127.0.0.200")
+	assertEvent("ns1/waypoint-ns.ns1.svc.cluster.local", "svc1.ns1.svc.company.com", "testnetwork/10.0.0.2", "testnetwork/127.0.0.1", "testnetwork/127.0.0.200")
 
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[0].Address.GetWorkload().Waypoint,

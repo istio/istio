@@ -55,7 +55,7 @@ type AmbientIndex struct {
 	// byPod indexes by network/podIP address.
 	byPod map[string]*model.WorkloadInfo
 	// services are indexed by the network/clusterIP
-	services map[networkAddress]*workloadapi.Service
+	services map[networkAddress]*model.ServiceInfo
 
 	// Map of ServiceAccount -> IP
 	// TODO: currently, this is derived from pods. To be agnostic to the implementation,
@@ -89,7 +89,6 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	// returned in this case
 	// TODO any service to exclude in the future? for example with affinity,
 	// per-node, etc - where simply load balancing will break?
-
 	res := []*model.AddressInfo{}
 	network, vip, found := strings.Cut(key, "/")
 	if !found {
@@ -108,7 +107,7 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	if s, exists := a.services[networkAddr]; exists {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Service{
-				Service: s,
+				Service: s.Service,
 			},
 		}
 		res = append(res, &model.AddressInfo{Address: addr})
@@ -192,7 +191,7 @@ func (a *AmbientIndex) All() []*model.AddressInfo {
 	for _, s := range a.services {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Service{
-				Service: s,
+				Service: s.Service,
 			},
 		}
 		res = append(res, &model.AddressInfo{Address: addr})
@@ -593,6 +592,38 @@ func stringToIP(rules []string) []*security.Address {
 	return res
 }
 
+func (c *Controller) constructService(svc *v1.Service) *model.ServiceInfo {
+	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
+	for _, p := range svc.Spec.Ports {
+		ports = append(ports, &workloadapi.Port{
+			ServicePort: uint32(p.Port),
+			TargetPort:  uint32(p.TargetPort.IntVal),
+		})
+	}
+
+	vips := getVIPs(svc)
+	addrs := make([]*workloadapi.NetworkAddress, 0, len(vips))
+	for _, vip := range vips {
+		addrs = append(addrs, &workloadapi.NetworkAddress{
+			Network: c.Network(vip, make(labels.Instance, 0)).String(),
+			Address: netip.MustParseAddr(vip).AsSlice(),
+		})
+	}
+
+	return &model.ServiceInfo{
+		Service: &workloadapi.Service{
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+			Hostname: string(model.ResolveShortnameToFQDN(svc.Name, config.Meta{
+				Namespace: svc.Namespace,
+				Domain:    spiffe.GetTrustDomain(),
+			})),
+			Addresses: addrs,
+			Ports:     ports,
+		},
+	}
+}
+
 func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	if p == nil || !IsPodRunning(p) || p.Spec.HostNetwork {
 		return nil
@@ -646,7 +677,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		byService: map[networkAddress][]*model.WorkloadInfo{},
 		byPod:     map[string]*model.WorkloadInfo{},
 		waypoints: map[model.WaypointScope]*workloadapi.GatewayAddress{},
-		services:  map[networkAddress]*workloadapi.Service{},
+		services:  map[networkAddress]*model.ServiceInfo{},
 	}
 
 	podHandler := cache.ResourceEventHandlerFuncs{
@@ -842,15 +873,15 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		}
 	}
 
-	vips := getVIPs(svc)
-	// vips are iterated over multiple times, perform their network lookup only once
-	// TODO does this need to be performed for each vip?  or should every vip for a service be on the same network?
-	networkAddrs := make([]networkAddress, 0, len(vips))
-	for _, vip := range vips {
-		networkAddrs = append(networkAddrs, networkAddress{
-			vip:     vip,
-			network: c.Network(vip, make(labels.Instance, 0)).String(),
-		})
+	si := c.constructService(svc)
+	networkAddrs := make([]networkAddress, 0, len(si.Addresses))
+	for _, addr := range si.Addresses {
+		if vip, ok := netip.AddrFromSlice(addr.Address); ok {
+			networkAddrs = append(networkAddrs, networkAddress{
+				vip:     vip.String(),
+				network: addr.Network,
+			})
+		}
 	}
 	pods := c.getPodsInService(svc)
 	var wls []*model.WorkloadInfo
@@ -878,30 +909,14 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 			delete(a.services, networkAddr)
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
+		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
 	} else {
-		ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
-		for _, p := range svc.Spec.Ports {
-			ports = append(ports, &workloadapi.Port{
-				ServicePort: uint32(p.Port),
-				TargetPort:  uint32(p.TargetPort.IntVal),
-			})
-		}
-		ws := &workloadapi.Service{
-			Name:      svc.Name,
-			Namespace: svc.Namespace,
-			Hostname: string(model.ResolveShortnameToFQDN(svc.Name, config.Meta{
-				Namespace: svc.Namespace,
-				Domain:    "cluster.local",
-			})),
-			Addresses: networkVipToNetworkAddress(networkAddrs),
-			Ports:     ports,
-		}
 		for _, networkAddr := range networkAddrs {
 			a.byService[networkAddr] = wls
-
-			a.services[networkAddr] = ws
+			a.services[networkAddr] = si
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
+		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
 	}
 	// Fetch updates again, in case it changed from adding new workloads
 	for _, networkAddr := range networkAddrs {

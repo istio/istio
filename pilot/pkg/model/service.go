@@ -855,12 +855,31 @@ func (i AddressInfo) ResourceName() string {
 	var name string
 	switch addr := i.Type.(type) {
 	case *workloadapi.Address_Workload:
+		name = GetResourceName(addr.Workload)
+	case *workloadapi.Address_Service:
+		name = GetResourceName(addr.Service)
+	}
+	return name
+}
+
+type ServiceInfo struct {
+	*workloadapi.Service
+}
+
+func (i ServiceInfo) ResourceName() string {
+	return GetResourceName(i.Service)
+}
+
+func GetResourceName(resource interface{}) string {
+	var name string
+	switch addr := resource.(type) {
+	case *workloadapi.Workload:
 		// TODO per design doc, primary xds key is UID and secondary keys are network/vip
 		// primary key is not implemented yet
-		ii, _ := netip.AddrFromSlice(addr.Workload.Address)
-		name = addr.Workload.Network + "/" + ii.String()
-	case *workloadapi.Address_Service:
-		name = addr.Service.Namespace + "/" + addr.Service.Hostname
+		ii, _ := netip.AddrFromSlice(addr.Address)
+		name = addr.Network + "/" + ii.String()
+	case *workloadapi.Service:
+		name = addr.Namespace + "/" + addr.Hostname
 	}
 	return name
 }
@@ -879,11 +898,7 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 }
 
 func (i WorkloadInfo) ResourceName() string {
-	// TODO per design doc, primary xds key is UID and secondary keys are network/vip
-	// primary key is not implemented yet
-	ii, _ := netip.AddrFromSlice(i.Address)
-	name := i.Network + "/" + ii.String()
-	return name
+	return GetResourceName(i.Workload)
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
