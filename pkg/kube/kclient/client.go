@@ -185,8 +185,8 @@ func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) C
 	}
 }
 
-// NewUntyped returns an untyped client for a given GVR. This is read-only.
-func NewUntyped(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
+// NewUntypedInformer returns an untyped client for a given GVR. This is read-only.
+func NewUntypedInformer(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
 	inf := kubeclient.GetInformerFilteredFromGVR(c, toOpts(c, filter), gvr)
 	return ptr.Of(newInformerClient[controllers.Object](inf, filter))
 }

@@ -125,7 +125,6 @@ type Client interface {
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
-	Run(stop <-chan struct{})
 
 	// WaitForCacheSync waits for all cache functions to sync, as well as all informers started by the *fake* client.
 	WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool

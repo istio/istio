@@ -156,7 +156,7 @@ func buildClientAndCacheHandler(t test.Failer, schema resource.Schema) (*Client,
 
 	// The informer isn't actually used in the test, but a real one is needed for
 	// constructing the cache handler, so just use an arbitrary one.
-	informer := kclient.NewUntyped(cl.client, gvr.Pod, kclient.Filter{})
+	informer := kclient.NewUntypedInformer(cl.client, gvr.Pod, kclient.Filter{})
 	h := createCacheHandler(cl, schema, informer)
 
 	return cl, h

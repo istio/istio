@@ -85,6 +85,8 @@ func getInformerFilteredDynamic(c ClientGetter, opts ktypes.InformerOptions, g s
 					return c.Dynamic().Resource(g).Namespace(opts.Namespace).List(context.Background(), options)
 				},
 				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+					options.FieldSelector = opts.FieldSelector
+					options.LabelSelector = opts.LabelSelector
 					return c.Dynamic().Resource(g).Namespace(opts.Namespace).Watch(context.Background(), options)
 				},
 			},
@@ -110,6 +112,8 @@ func getInformerFilteredMetadata(c ClientGetter, opts ktypes.InformerOptions, g 
 					return c.Metadata().Resource(g).Namespace(opts.Namespace).List(context.Background(), options)
 				},
 				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+					options.FieldSelector = opts.FieldSelector
+					options.LabelSelector = opts.LabelSelector
 					return c.Metadata().Resource(g).Namespace(opts.Namespace).Watch(context.Background(), options)
 				},
 			},

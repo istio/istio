@@ -131,7 +131,7 @@ func (f *informerFactory) InformerFor(resource schema.GroupVersionResource, opts
 	inf, exists := f.informers[key]
 	if exists {
 		checkInformerOverlap(inf, resource, opts)
-		return f.makeStartedInformer(inf.informer, key)
+		return f.makeStartableInformer(inf.informer, key)
 	}
 
 	informer := newFunc()
@@ -140,7 +140,7 @@ func (f *informerFactory) InformerFor(resource schema.GroupVersionResource, opts
 		objectTransform: opts.ObjectTransform,
 	}
 
-	return f.makeStartedInformer(informer, key)
+	return f.makeStartableInformer(informer, key)
 }
 
 func checkInformerOverlap(inf builtInformer, resource schema.GroupVersionResource, opts kubetypes.InformerOptions) {
@@ -154,7 +154,7 @@ func checkInformerOverlap(inf builtInformer, resource schema.GroupVersionResourc
 	l("for type %v, registered conflicting ObjectTransform. Stack: %v", resource, string(debug.Stack()))
 }
 
-func (f *informerFactory) makeStartedInformer(informer cache.SharedIndexInformer, key informerKey) StartableInformer {
+func (f *informerFactory) makeStartableInformer(informer cache.SharedIndexInformer, key informerKey) StartableInformer {
 	return StartableInformer{
 		Informer: informer,
 		start: func(stopCh <-chan struct{}) {

@@ -421,7 +421,7 @@ func handleCRDAdd(cl *Client, name string) {
 		cl.logger.Debugf("added resource that already exists: %v", resourceGVK)
 		return
 	}
-	inf := kclient.NewUntyped(cl.client, gvr, kclient.Filter{ObjectFilter: cl.namespacesFilter})
+	inf := kclient.NewUntypedInformer(cl.client, gvr, kclient.Filter{ObjectFilter: cl.namespacesFilter})
 	cl.kinds[resourceGVK] = createCacheHandler(cl, s, inf)
 	if w, f := cl.crdWatches[resourceGVK]; f {
 		cl.logger.Infof("notifying watchers %v was created", resourceGVK)
@@ -433,6 +433,6 @@ func handleCRDAdd(cl *Client, name string) {
 	// we will start all factories once we are ready to initialize.
 	// For dynamically added CRDs, we need to start immediately though
 	if cl.stop != nil {
-		cl.client.Run(cl.stop)
+		inf.Start(cl.stop)
 	}
 }

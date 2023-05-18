@@ -301,7 +301,7 @@ func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
 	ic.opts.MeshServiceController.AppendServiceHandlerForCluster(ic.Cluster(), ic.onServiceEvent)
 	// Register callbacks for ServiceImport events in this cluster only.
 	registerHandlers(ic.Controller, ic.serviceImports, "ServiceImports", ic.onServiceImportEvent, nil)
-	ic.client.Run(stop)
+	ic.serviceImports.Start(stop)
 	kubelib.WaitForCacheSync("service import", stop, ic.serviceImports.HasSynced)
 	ic.started.Store(true)
 }
