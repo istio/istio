@@ -53,7 +53,7 @@ type AmbientIndex struct {
 	// multiple entries in the map. A given IP can have many workloads associated.
 	byService map[networkAddress][]*model.WorkloadInfo
 	// byPod indexes by network/podIP address.
-	byPod map[string]*model.WorkloadInfo
+	byPod map[networkAddress]*model.WorkloadInfo
 	// services are indexed by the network/clusterIP
 	services map[networkAddress]*model.ServiceInfo
 
@@ -73,8 +73,14 @@ type AmbientIndex struct {
 func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+	network, ip, found := strings.Cut(key, "/")
+	if !found {
+		log.Warnf("key(%v) did not contain the expected \"/\" character", key)
+		return []*model.AddressInfo{}
+	}
+	networkAddr := networkAddress{network: network, ip: ip}
 	// First look at pod...
-	if p, f := a.byPod[key]; f {
+	if p, f := a.byPod[networkAddr]; f {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
 				Workload: p.Workload,
@@ -84,18 +90,10 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	}
 
 	// Fallback to service. Note: these IP ranges should be non-overlapping
-	// cannot distunagish between Service lookup and Workloads for a Service lookup
-	// since the same newtork/vip key is used.  Both Service and Workloads are
-	// returned in this case
+	// When a Service lookup is performed, but it and its workloads are returned
 	// TODO any service to exclude in the future? for example with affinity,
 	// per-node, etc - where simply load balancing will break?
 	res := []*model.AddressInfo{}
-	network, vip, found := strings.Cut(key, "/")
-	if !found {
-		log.Warnf("key(%v) did not contain the expected \"/\" character", key)
-		return res
-	}
-	networkAddr := networkAddress{network: network, vip: vip}
 	for _, wl := range a.byService[networkAddr] {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
@@ -359,8 +357,9 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 		newWl := c.extractWorkload(pod)
 		if newWl != nil {
 			// Update the pod, since it now has new VIP info
+			networkAddr := networkAddressFromWorkload(newWl)
 			c.ambientIndex.mu.Lock()
-			c.ambientIndex.byPod[newWl.ResourceName()] = newWl
+			c.ambientIndex.byPod[networkAddr] = newWl
 			c.ambientIndex.mu.Unlock()
 			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
 		}
@@ -675,7 +674,7 @@ func (c *Controller) updateEndpointsOnWaypointChange(wl *model.WorkloadInfo) set
 func (c *Controller) setupIndex() *AmbientIndex {
 	idx := AmbientIndex{
 		byService: map[networkAddress][]*model.WorkloadInfo{},
-		byPod:     map[string]*model.WorkloadInfo{},
+		byPod:     map[networkAddress]*model.WorkloadInfo{},
 		waypoints: map[model.WaypointScope]*workloadapi.GatewayAddress{},
 		services:  map[networkAddress]*model.ServiceInfo{},
 	}
@@ -781,15 +780,16 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	if !isDelete {
 		wl = c.extractWorkload(p)
 	}
-	oldWl := a.byPod[c.Network(p.Status.PodIP, p.Labels).String()+"/"+p.Status.PodIP]
+	oldNetwork := c.Network(p.Status.PodIP, p.Labels).String()
+	oldNetworkAddr := networkAddress{network: oldNetwork, ip: p.Status.PodIP}
+	oldWl := a.byPod[oldNetworkAddr]
 	if wl == nil {
 		// This is an explicit delete event, or there is no longer a Workload to create (pod NotReady, etc)
-
+		delete(a.byPod, oldNetworkAddr)
 		if oldWl != nil {
-			delete(a.byPod, oldWl.ResourceName())
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
 			for vip := range oldWl.VirtualIps {
-				a.dropWorkloadFromService(networkAddress{network: oldWl.Network, vip: vip}, oldWl.ResourceName())
+				a.dropWorkloadFromService(networkAddress{network: oldWl.Network, ip: vip}, oldWl.ResourceName())
 			}
 			log.Debugf("%v: workload removed, pushing", p.Status.PodIP)
 			// TODO: namespace for network?
@@ -805,22 +805,27 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 
 		return updates
 	}
-	a.byPod[wl.ResourceName()] = wl
+	a.byPod[networkAddressFromWorkload(wl)] = wl
 	if oldWl != nil {
 		// For updates, we will drop the VIPs and then add the new ones back. This could be optimized
 		for vip := range oldWl.VirtualIps {
-			a.dropWorkloadFromService(networkAddress{network: oldWl.Network, vip: vip}, oldWl.ResourceName())
+			a.dropWorkloadFromService(networkAddress{network: oldWl.Network, ip: vip}, oldWl.ResourceName())
 		}
 	}
 	// Update the VIP indexes as well, as needed
 	for vip := range wl.VirtualIps {
-		a.insertWorkloadToService(networkAddress{network: wl.Network, vip: vip}, wl)
+		a.insertWorkloadToService(networkAddress{network: wl.Network, ip: vip}, wl)
 	}
 
 	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
 	updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 
 	return updates
+}
+
+func networkAddressFromWorkload(wl *model.WorkloadInfo) networkAddress {
+	ip, _ := netip.AddrFromSlice(wl.Address)
+	return networkAddress{network: wl.Network, ip: ip.String()}
 }
 
 func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
@@ -847,7 +852,14 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		// https://github.com/istio/istio/issues/44230
 		if svc.Spec.ClusterIP == "None" {
 			// TODO handle headless Service
+			log.Warn("headless service currently not supported as a waypoint")
 			return updates
+		}
+		waypointPort := uint32(15008)
+		for _, p := range svc.Spec.Ports {
+			if strings.Contains(p.Name, "hbone") {
+				waypointPort = uint32(p.Port)
+			}
 		}
 		svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
 		addr := &workloadapi.GatewayAddress{
@@ -857,7 +869,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 					Address: svcIP.AsSlice(),
 				},
 			},
-			Port: uint32(svc.Spec.Ports[0].Port),
+			Port: waypointPort,
 		}
 
 		if isDelete {
@@ -878,7 +890,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 	for _, addr := range si.Addresses {
 		if vip, ok := netip.AddrFromSlice(addr.Address); ok {
 			networkAddrs = append(networkAddrs, networkAddress{
-				vip:     vip.String(),
+				ip:      vip.String(),
 				network: addr.Network,
 			})
 		}
@@ -890,7 +902,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		wl := c.extractWorkload(p)
 		if wl != nil {
 			// Update the pod, since it now has new VIP info
-			a.byPod[wl.ResourceName()] = wl
+			a.byPod[networkAddressFromWorkload(wl)] = wl
 			wls = append(wls, wl)
 		}
 
@@ -928,17 +940,6 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 	return updates
 }
 
-func networkVipToNetworkAddress(vips []networkAddress) []*workloadapi.NetworkAddress {
-	res := make([]*workloadapi.NetworkAddress, 0, len(vips))
-	for _, vip := range vips {
-		res = append(res, &workloadapi.NetworkAddress{
-			Network: vip.network,
-			Address: netip.MustParseAddr(vip.vip).AsSlice(),
-		})
-	}
-	return res
-}
-
 func (c *Controller) getPodsInService(svc *v1.Service) []*v1.Pod {
 	if svc.Spec.Selector == nil {
 		// services with nil selectors match nothing, not everything.
@@ -960,7 +961,7 @@ func (c *Controller) AddressInformation(addresses sets.Set[types.NamespacedName]
 		wname := p.Name
 		// GenerateDeltas has the formatted wname from the xds request, but not sure if other callers
 		// have the format enforced
-		if found := strings.Count(p.Name, "/"); found == 0 {
+		if _, _, found := strings.Cut(p.Name, "/"); !found {
 			cNetwork := c.Network(p.Name, make(labels.Instance, 0)).String()
 			wname = cNetwork + "/" + p.Name
 		}
@@ -1047,14 +1048,14 @@ func parseIP(ip string) []byte {
 	return addr.AsSlice()
 }
 
-// internal object used for
+// internal object used for indexing in ambientindex maps
 type networkAddress struct {
 	network string
-	vip     string
+	ip      string
 }
 
 func (n *networkAddress) String() string {
-	return n.network + "/" + n.vip
+	return n.network + "/" + n.ip
 }
 
 func getVIPs(svc *v1.Service) []string {
