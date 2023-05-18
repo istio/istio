@@ -76,7 +76,7 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 	}
 	for _, c := range containers(pod) {
 		pi.Containers.Insert(c.Name)
-		if c.Name == "istio-proxy" {
+		if c.Name == ISTIOPROXY {
 			// don't include ports from istio-proxy in the redirect ports
 			// Get proxy container env variable, and extract out ProxyConfig from it.
 			for _, e := range c.Env {
@@ -96,6 +96,9 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 	return pi, nil
 }
 
+// containers fetches all containers in the pod.
+// This is used to extract init containers (istio-init and istio-validation), and the sidecar.
+// The sidecar can be a normal container or init in Kubernetes 1.28+
 func containers(pod *v1.Pod) []v1.Container {
 	res := make([]v1.Container, 0, len(pod.Spec.Containers)+len(pod.Spec.InitContainers))
 	res = append(res, pod.Spec.InitContainers...)
