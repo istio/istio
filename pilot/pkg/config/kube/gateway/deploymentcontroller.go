@@ -313,8 +313,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		log.Debugf("controller version existing=%v, no action needed", existingControllerVersion)
 	}
 
-	gwDeployment := d.deployments.Get(model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName), gw.Namespace)
-	rendered, err := d.render(gi.templates, input, gwDeployment)
+	rendered, err := d.render(gi.templates, input)
 	if err != nil {
 		return fmt.Errorf("failed to render template: %v", err)
 	}
@@ -386,7 +385,7 @@ type derivedInput struct {
 	Values      map[string]any
 }
 
-func (d *DeploymentController) render(templateName string, mi TemplateInput, deployment *appsv1.Deployment) ([]string, error) {
+func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]string, error) {
 	cfg := d.injectConfig()
 
 	template := cfg.Templates[templateName]
@@ -394,14 +393,8 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput, dep
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
 
-	// istio.io/gateway-name is the only label that allows to attach ProxyConfig to a Gateway
-	workloadLabels := map[string]string{"istio.io/gateway-name": mi.Name}
-	podAnnotations := map[string]string{}
-	if deployment != nil && deployment.Spec.Template.Annotations != nil {
-		podAnnotations = deployment.Spec.Template.Annotations
-	}
-
-	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, workloadLabels, podAnnotations, cfg.MeshConfig)
+	labelToMatch := map[string]string{"istio.io/gateway-name": mi.Name}
+	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
 		ProxyImage: inject.ProxyImage(
