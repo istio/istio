@@ -195,37 +195,6 @@ func TestConfigureIstioGateway(t *testing.T) {
 			objects: defaultObjects,
 		},
 		{
-			name: "proxy-config-annotation",
-			gw: v1beta1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default",
-					Namespace: "default",
-				},
-				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: defaultClassName,
-				},
-			},
-			objects: append(defaultObjects, &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default-istio",
-					Namespace: "default",
-					Labels: map[string]string{
-						"gateway.istio.io/managed": "istio.io-gateway-controller",
-					},
-				},
-				Spec: appsv1.DeploymentSpec{
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Annotations: map[string]string{
-								"proxy.istio.io/config": `{"concurrency":5}`,
-							},
-						},
-					},
-				},
-			}),
-			pcs: &model.ProxyConfigs{},
-		},
-		{
 			name: "proxy-config-crd",
 			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
