@@ -145,6 +145,12 @@ func parseConfig() (*config2.BugReportConfig, error) {
 }
 
 func parseTimes(config *config2.BugReportConfig, startTime, endTime string, duration time.Duration) error {
+	if startTime == "" && endTime == "" {
+		config.TimeFilterApplied = false
+	} else {
+		config.TimeFilterApplied = true
+	}
+
 	config.EndTime = time.Now()
 	config.Since = config2.Duration(duration)
 	if endTime != "" {
