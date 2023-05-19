@@ -463,12 +463,16 @@ func (sc *SecretManagerClient) keyCertSecretItem(cert, key, resource string) (*s
 // readFileWithTimeout reads the given file with timeout. It returns error
 // if it is not able to read file after timeout.
 func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) {
-	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
+	retryBackoffInMS := int64(firstRetryBackOffInMilliSec * time.Millisecond)
 	timeout := time.After(totalTimeout)
 	for {
 		cert, err := os.ReadFile(path)
 		if err == nil {
 			return cert, nil
+		}
+		// permanent error
+		if os.IsNotExist(err) {
+			return nil, err
 		}
 		select {
 		case <-time.After(time.Duration(retryBackoffInMS)):
