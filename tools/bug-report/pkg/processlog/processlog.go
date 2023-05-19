@@ -157,7 +157,7 @@ func parseJSONLog(line string) (timeStamp *time.Time, level string, text string,
 		return nil, "", "", false
 	}
 
-	//todo: add logging for err
+	// todo: add logging for err
 	m := lj.Msg
 	if m == "" {
 		return nil, "", "", false
