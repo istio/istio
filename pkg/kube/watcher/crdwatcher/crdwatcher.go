@@ -22,15 +22,16 @@ import (
 
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/pkg/log"
 )
 
 // Controller watches a ConfigMap and calls the given callback when the ConfigMap changes.
 // The ConfigMap is passed to the callback, or nil if it doesn't exist.
 type Controller struct {
-	informer  cache.SharedIndexInformer
 	mutex     sync.RWMutex
 	callbacks []func(name string)
+	crds      kclient.Untyped
 }
 
 // NewController returns a new CRD watcher controller.
@@ -39,9 +40,9 @@ func NewController(client kube.Client, callbacks ...func(name string)) *Controll
 		callbacks: callbacks,
 	}
 
-	crdMetadataInformer := client.MetadataInformer().ForResource(gvr.CustomResourceDefinition).Informer()
-	_ = crdMetadataInformer.SetTransform(kube.StripUnusedFields)
-	_, _ = crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.crds = kclient.NewMetadata(client, gvr.CustomResourceDefinition, kclient.Filter{})
+
+	c.crds.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			crd, ok := obj.(*metav1.PartialObjectMetadata)
 			if !ok {
@@ -59,27 +60,17 @@ func NewController(client kube.Client, callbacks ...func(name string)) *Controll
 		DeleteFunc: nil,
 	})
 
-	c.informer = crdMetadataInformer
 	return c
-}
-
-func (c *Controller) Run(stop <-chan struct{}) {
-	go c.informer.Run(stop)
 }
 
 // HasSynced returns whether the underlying cache has synced and the callback has been called at least once.
 func (c *Controller) HasSynced() bool {
-	return c.informer.HasSynced()
+	return c.crds.HasSynced()
 }
 
-// List returns a list of all the currently non-empty accumulators
-func (c *Controller) List() []any {
-	return c.informer.GetIndexer().List()
-}
-
-// GetByKey returns the accumulator associated with the given key
-func (c *Controller) GetByKey(key string) (item any, exists bool, err error) {
-	return c.informer.GetIndexer().GetByKey(key)
+// Exists returns whether the CRD exists
+func (c *Controller) Exists(key string) bool {
+	return c.crds.Get(key, metav1.NamespaceAll) != nil
 }
 
 func (c *Controller) AddCallBack(cb func(name string)) {

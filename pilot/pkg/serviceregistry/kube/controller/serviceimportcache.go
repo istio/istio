@@ -296,13 +296,12 @@ func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
 		return
 	}
 
-	dInformer := ic.client.DynamicInformer().ForResource(mcs.ServiceImportGVR).Informer()
-	ic.serviceImports = kclient.NewUntyped(ic.client, dInformer, kclient.Filter{ObjectFilter: ic.opts.GetFilter()})
+	ic.serviceImports = kclient.NewDynamic(ic.client, mcs.ServiceImportGVR, kclient.Filter{ObjectFilter: ic.opts.GetFilter()})
 	// Register callbacks for Service events anywhere in the mesh.
 	ic.opts.MeshServiceController.AppendServiceHandlerForCluster(ic.Cluster(), ic.onServiceEvent)
 	// Register callbacks for ServiceImport events in this cluster only.
 	registerHandlers(ic.Controller, ic.serviceImports, "ServiceImports", ic.onServiceImportEvent, nil)
-	go dInformer.Run(stop)
+	ic.serviceImports.Start(stop)
 	kubelib.WaitForCacheSync("service import", stop, ic.serviceImports.HasSynced)
 	ic.started.Store(true)
 }

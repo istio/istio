@@ -17,17 +17,17 @@ package kclient
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/config/schema/kubeclient"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/pkg/log"
@@ -44,6 +44,7 @@ type writeClient[T controllers.Object] struct {
 
 type informerClient[T controllers.Object] struct {
 	informer           cache.SharedIndexInformer
+	startInformer      func(stopCh <-chan struct{})
 	filter             func(t any) bool
 	registeredHandlers []cache.ResourceEventHandlerRegistration
 }
@@ -68,6 +69,10 @@ func (n *informerClient[T]) applyFilter(t T) bool {
 		return true
 	}
 	return n.filter(t)
+}
+
+func (n *informerClient[T]) Start(stopCh <-chan struct{}) {
+	n.startInformer(stopCh)
 }
 
 func (n *writeClient[T]) Create(object T) (T, error) {
@@ -172,33 +177,34 @@ func New[T controllers.ComparableObject](c kube.Client) Client[T] {
 // This means there must only be one filter configuration for a given type using the same kube.Client (generally, this means the whole program).
 // Use with caution.
 func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) Client[T] {
-	var inf cache.SharedIndexInformer
-	if filter.LabelSelector == "" && filter.FieldSelector == "" {
-		inf = kubeclient.GetInformer[T](c)
-	} else {
-		inf = kubeclient.GetInformerFiltered[T](c, kubetypes.InformerOptions{
-			LabelSelector: filter.LabelSelector,
-			FieldSelector: filter.FieldSelector,
-		})
-	}
+	inf := kubeclient.GetInformerFiltered[T](c, toOpts(c, filter))
 
 	return &fullClient[T]{
 		writeClient:    writeClient[T]{client: c},
-		informerClient: newInformerClient[T](c, inf, filter),
+		informerClient: newInformerClient[T](inf, filter),
 	}
 }
 
-// NewUntyped returns an untyped client for a given informer. This is read-only.
-//
-// Warning: because the informer is already created, only client side filters are supported.
-func NewUntyped(c kube.Client, inf cache.SharedIndexInformer, filter Filter) Untyped {
-	if filter.LabelSelector != "" {
-		panic("invalid filter supplied, LabelSelector not allowed")
-	}
-	if filter.FieldSelector != "" {
-		panic("invalid filter supplied, FieldSelector not allowed")
-	}
-	return ptr.Of(newInformerClient[controllers.Object](c, inf, filter))
+// NewUntypedInformer returns an untyped client for a given GVR. This is read-only.
+func NewUntypedInformer(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
+	inf := kubeclient.GetInformerFilteredFromGVR(c, toOpts(c, filter), gvr)
+	return ptr.Of(newInformerClient[controllers.Object](inf, filter))
+}
+
+// NewDynamic returns a dynamic client for a given GVR. This is read-only.
+func NewDynamic(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
+	opts := toOpts(c, filter)
+	opts.InformerType = kubetypes.DynamicInformer
+	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
+	return ptr.Of(newInformerClient[controllers.Object](inf, filter))
+}
+
+// NewMetadata returns a metadata client for a given GVR. This is read-only.
+func NewMetadata(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
+	opts := toOpts(c, filter)
+	opts.InformerType = kubetypes.MetadataInformer
+	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
+	return ptr.Of(newInformerClient[controllers.Object](inf, filter))
 }
 
 // NewWriteClient is exposed for testing.
@@ -206,27 +212,11 @@ func NewWriteClient[T controllers.ComparableObject](c kube.Client) Writer[T] {
 	return &writeClient[T]{client: c}
 }
 
-func newInformerClient[T controllers.ComparableObject](c kube.Client, inf cache.SharedIndexInformer, filter Filter) informerClient[T] {
-	i := *new(T)
-	t := reflect.TypeOf(i)
-	if err := c.RegisterFilter(t, filter); err != nil {
-		if features.EnableUnsafeAssertions {
-			log.Fatal(err)
-		}
-		log.Warn(err)
-	}
-	if filter.ObjectTransform != nil {
-		_ = inf.SetTransform(filter.ObjectTransform)
-	} else {
-		_ = inf.SetTransform(kube.StripUnusedFields)
-	}
-
-	if err := inf.SetWatchErrorHandler(informermetric.ErrorHandlerForCluster(c.ClusterID())); err != nil {
-		log.Debugf("failed to set watch handler, informer may already be started: %v", err)
-	}
+func newInformerClient[T controllers.ComparableObject](inf informerfactory.StartableInformer, filter Filter) informerClient[T] {
 	return informerClient[T]{
-		informer: inf,
-		filter:   filter.ObjectFilter,
+		informer:      inf.Informer,
+		startInformer: inf.Start,
+		filter:        filter.ObjectFilter,
 	}
 }
 
@@ -237,4 +227,18 @@ func keyFunc(name, namespace string) string {
 		return name
 	}
 	return namespace + "/" + name
+}
+
+func toOpts(c kube.Client, filter Filter) kubetypes.InformerOptions {
+	ns := filter.Namespace
+	if ns == "" {
+		ns = features.InformerWatchNamespace
+	}
+	return kubetypes.InformerOptions{
+		LabelSelector:   filter.LabelSelector,
+		FieldSelector:   filter.FieldSelector,
+		Namespace:       ns,
+		ObjectTransform: filter.ObjectTransform,
+		Cluster:         c.ClusterID(),
+	}
 }

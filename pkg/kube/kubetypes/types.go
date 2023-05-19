@@ -21,6 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+
+	"istio.io/istio/pkg/cluster"
 )
 
 type InformerOptions struct {
@@ -28,7 +30,24 @@ type InformerOptions struct {
 	LabelSelector string
 	// A selector to restrict the list of returned objects by their fields.
 	FieldSelector string
+	// Namespace to watch.
+	Namespace string
+	// Cluster name for watch error handlers
+	Cluster cluster.ID
+	// ObjectTransform allows arbitrarily modifying objects stored in the underlying cache.
+	// If unset, a default transform is provided to remove ManagedFields (high cost, low value)
+	ObjectTransform func(obj any) (any, error)
+	// InformerType dictates the type of informer that should be created.
+	InformerType InformerType
 }
+
+type InformerType int
+
+const (
+	StandardInformer InformerType = iota
+	DynamicInformer
+	MetadataInformer
+)
 
 // Filter allows filtering read operations
 type Filter struct {
@@ -38,6 +57,9 @@ type Filter struct {
 	// A selector to restrict the list of returned objects by their fields.
 	// This is a *server side* filter.
 	FieldSelector string
+	// Namespace to watch.
+	// This is a *server side* filter.
+	Namespace string
 	// ObjectFilter allows arbitrary filtering logic.
 	// This is a *client side* filter. This means CPU/memory costs are still present for filtered objects.
 	// Use LabelSelector or FieldSelector instead, if possible.
