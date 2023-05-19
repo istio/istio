@@ -425,7 +425,9 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 		}
 		return err
 	}
-	if err := b.RetryWithContext(context.TODO(), secretValid); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), totalTimeout)
+	defer cancel()
+	if err := b.RetryWithContext(ctx, secretValid); err != nil {
 		return nil, err
 	}
 	if permanentErr != nil {
