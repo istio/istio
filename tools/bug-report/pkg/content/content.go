@@ -19,12 +19,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
 	"istio.io/pkg/log"
@@ -183,7 +185,7 @@ func GetIstiodInfo(p *Params) (map[string]string, error) {
 
 // GetProxyInfo returns internal proxy debug info.
 func GetProxyInfo(p *Params) (map[string]string, error) {
-	var errStr []string
+	errs := istiomultierror.New()
 	if p.Namespace == "" || p.Pod == "" {
 		return nil, fmt.Errorf("getProxyInfo requires namespace and pod")
 	}
@@ -191,15 +193,15 @@ func GetProxyInfo(p *Params) (map[string]string, error) {
 	for _, url := range common.ProxyDebugURLs(p.ClusterVersion) {
 		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun)
 		if err != nil {
-			errStr = append(errStr, err.Error())
+			errs = multierror.Append(errs, err)
 			continue
 		}
 		ret[url] = out
 	}
-	if len(errStr) == 0 {
-		return ret, nil
+	if errs.ErrorOrNil() != nil {
+		return nil, errs
 	}
-	return ret, fmt.Errorf(strings.Join(errStr, "\n"))
+	return ret, nil
 }
 
 func GetZtunnelInfo(p *Params) (map[string]string, error) {
