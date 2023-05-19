@@ -35,21 +35,14 @@ type DiscoveryFilter func(obj any) bool
 type DiscoveryNamespacesFilter interface {
 	// Filter returns true if the input object or namespace string resides in a namespace selected for discovery
 	Filter(obj any) bool
-	// FilterNamespace returns true if the input namespace is a namespace selected for discovery
-	FilterNamespace(nsMeta metav1.ObjectMeta) bool
 	// SelectorsChanged is invoked when meshConfig's discoverySelectors change
 	SelectorsChanged(discoverySelectors []*metav1.LabelSelector)
 	// SyncNamespaces is invoked when namespace informer hasSynced before other controller SyncAll
-	SyncNamespaces() error
-	// NamespaceCreated returns true if the created namespace is selected for discovery
-	NamespaceCreated(ns metav1.ObjectMeta) (membershipChanged bool)
-	// NamespaceUpdated : membershipChanged will be true if the updated namespace is newly selected or deselected for discovery
-	NamespaceUpdated(oldNs, newNs metav1.ObjectMeta) (membershipChanged bool, namespaceAdded bool)
-	// NamespaceDeleted returns true if the deleted namespace was selected for discovery
-	NamespaceDeleted(ns metav1.ObjectMeta) (membershipChanged bool)
+	SyncNamespaces()
 	// GetMembers returns the namespaces selected for discovery
 	GetMembers() sets.String
 	// AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected.
+	// If the namespaces have been synced, it will trigger the new added handler.
 	AddHandler(func(ns string, event model.Event))
 }
 
@@ -65,23 +58,31 @@ func NewDiscoveryNamespacesFilter(
 	namespaces kclient.Client[*corev1.Namespace],
 	discoverySelectors []*metav1.LabelSelector,
 ) DiscoveryNamespacesFilter {
-	f := &discoveryNamespacesFilter{
-		namespaces: namespaces,
+	// convert LabelSelectors to Selectors
+	selectors := make([]labels.Selector, 0, len(discoverySelectors))
+	for _, selector := range discoverySelectors {
+		ls, err := metav1.LabelSelectorAsSelector(selector)
+		if err != nil {
+			log.Errorf("error initializing discovery namespaces filter, invalid discovery selector: %v", err)
+		}
+		selectors = append(selectors, ls)
 	}
-
-	// initialize discovery namespaces filter
-	f.SelectorsChanged(discoverySelectors)
+	f := &discoveryNamespacesFilter{
+		namespaces:          namespaces,
+		discoveryNamespaces: sets.New[string](),
+		discoverySelectors:  selectors,
+	}
 
 	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
 		AddFunc: func(ns *corev1.Namespace) {
-			if f.NamespaceCreated(ns.ObjectMeta) {
+			if f.namespaceCreated(ns.ObjectMeta) {
 				f.lock.RLock()
 				defer f.lock.RUnlock()
 				f.notifyNamespaceHandlers(ns.Name, model.EventAdd)
 			}
 		},
 		UpdateFunc: func(old, new *corev1.Namespace) {
-			membershipChanged, namespaceAdded := f.NamespaceUpdated(old.ObjectMeta, new.ObjectMeta)
+			membershipChanged, namespaceAdded := f.namespaceUpdated(old.ObjectMeta, new.ObjectMeta)
 			if membershipChanged {
 				if namespaceAdded {
 					f.lock.RLock()
@@ -95,7 +96,7 @@ func NewDiscoveryNamespacesFilter(
 			}
 		},
 		DeleteFunc: func(ns *corev1.Namespace) {
-			f.NamespaceDeleted(ns.ObjectMeta)
+			f.namespaceDeleted(ns.ObjectMeta)
 			// no need to invoke object handlers since objects within the namespace will trigger delete events
 		},
 	})
@@ -126,10 +127,6 @@ func (d *discoveryNamespacesFilter) Filter(obj any) bool {
 	}
 	// permit if object resides in a namespace labeled for discovery
 	return d.discoveryNamespaces.Contains(ns)
-}
-
-func (d *discoveryNamespacesFilter) FilterNamespace(nsMeta metav1.ObjectMeta) bool {
-	return d.isSelected(nsMeta.Labels)
 }
 
 // SelectorsChanged initializes the discovery filter state with the discovery selectors and selected namespaces
@@ -188,7 +185,7 @@ func (d *discoveryNamespacesFilter) notifyNamespaceHandlers(ns string, event mod
 	}
 }
 
-func (d *discoveryNamespacesFilter) SyncNamespaces() error {
+func (d *discoveryNamespacesFilter) SyncNamespaces() {
 	namespaceList := d.namespaces.List("", labels.Everything())
 
 	d.lock.Lock()
@@ -212,12 +209,10 @@ func (d *discoveryNamespacesFilter) SyncNamespaces() error {
 
 	// update filter state
 	d.discoveryNamespaces = newDiscoveryNamespaces
-
-	return nil
 }
 
-// NamespaceCreated : if newly created namespace is selected, update namespace membership
-func (d *discoveryNamespacesFilter) NamespaceCreated(ns metav1.ObjectMeta) (membershipChanged bool) {
+// namespaceCreated : if newly created namespace is selected, update namespace membership
+func (d *discoveryNamespacesFilter) namespaceCreated(ns metav1.ObjectMeta) (membershipChanged bool) {
 	if d.isSelected(ns.Labels) {
 		d.addNamespace(ns.Name)
 		return true
@@ -225,8 +220,8 @@ func (d *discoveryNamespacesFilter) NamespaceCreated(ns metav1.ObjectMeta) (memb
 	return false
 }
 
-// NamespaceUpdated : if updated namespace was a member and no longer selected, or was not a member and now selected, update namespace membership
-func (d *discoveryNamespacesFilter) NamespaceUpdated(oldNs, newNs metav1.ObjectMeta) (membershipChanged bool, namespaceAdded bool) {
+// namespaceUpdated : if updated namespace was a member and no longer selected, or was not a member and now selected, update namespace membership
+func (d *discoveryNamespacesFilter) namespaceUpdated(oldNs, newNs metav1.ObjectMeta) (membershipChanged bool, namespaceAdded bool) {
 	if d.hasNamespace(oldNs.Name) && !d.isSelected(newNs.Labels) {
 		d.removeNamespace(oldNs.Name)
 		return true, false
@@ -238,8 +233,8 @@ func (d *discoveryNamespacesFilter) NamespaceUpdated(oldNs, newNs metav1.ObjectM
 	return false, false
 }
 
-// NamespaceDeleted : if deleted namespace was a member, remove it
-func (d *discoveryNamespacesFilter) NamespaceDeleted(ns metav1.ObjectMeta) (membershipChanged bool) {
+// namespaceDeleted : if deleted namespace was a member, remove it
+func (d *discoveryNamespacesFilter) namespaceDeleted(ns metav1.ObjectMeta) (membershipChanged bool) {
 	if d.isSelected(ns.Labels) {
 		d.removeNamespace(ns.Name)
 		return true
@@ -254,10 +249,14 @@ func (d *discoveryNamespacesFilter) GetMembers() sets.String {
 	return d.discoveryNamespaces.Copy()
 }
 
-// AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected by discovery selector change.
+// AddHandler registers a handler on namespace, which will be triggered when namespace selected or deselected.
+// If the namespaces have been synced, trigger the new added handler.
 func (d *discoveryNamespacesFilter) AddHandler(f func(ns string, event model.Event)) {
-	d.lock.RLock()
-	defer d.lock.RUnlock()
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	for ns := range d.discoveryNamespaces {
+		f(ns, model.EventAdd)
+	}
 	d.handlers = append(d.handlers, f)
 }
 
