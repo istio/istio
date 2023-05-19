@@ -164,6 +164,7 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 					}
 				default:
 					// Fallback to the legacy string matching
+					// If the httpPath.Path is a wildcard path, Uri will be nil
 					httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
 				}
 			} else {
@@ -175,7 +176,10 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 				log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
 				continue
 			}
-			httpRoute.Match = []*networking.HTTPMatchRequest{httpMatch}
+			// Only create a match if Uri is not nil. HttpMatchRequest cannot be empty
+			if httpMatch.Uri != nil {
+				httpRoute.Match = []*networking.HTTPMatchRequest{httpMatch}
+			}
 			httpRoutes = append(httpRoutes, httpRoute)
 		}
 
@@ -218,8 +222,14 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 			// see https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-matches
 			vs := ingressByHost[host].Spec.(*networking.VirtualService)
 			sort.SliceStable(vs.Http, func(i, j int) bool {
-				r1Len, r1Ex := getMatchURILength(vs.Http[i].Match[0])
-				r2Len, r2Ex := getMatchURILength(vs.Http[j].Match[0])
+				var r1Len, r2Len int
+				var r1Ex, r2Ex bool
+				if vs.Http[i].Match != nil || len(vs.Http[i].Match) != 0 {
+					r1Len, r1Ex = getMatchURILength(vs.Http[i].Match[0])
+				}
+				if vs.Http[j].Match != nil || len(vs.Http[j].Match) != 0 {
+					r2Len, r2Ex = getMatchURILength(vs.Http[j].Match[0])
+				}
 				// TODO: default at the end
 				if r1Len == r2Len {
 					return r1Ex && !r2Ex
@@ -335,7 +345,8 @@ func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *knetwor
 }
 
 func createFallbackStringMatch(s string) *networking.StringMatch {
-	if s == "" {
+	// If the string is empty or a wildcard, return nil
+	if s == "" || s == "*" || s == "/*" || s == ".*" {
 		return nil
 	}
 
