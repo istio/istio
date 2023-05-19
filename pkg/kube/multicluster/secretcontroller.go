@@ -159,13 +159,13 @@ func (c *Controller) AddHandler(h ClusterHandler) {
 
 // Run starts the controller until it receives a message over stopCh
 func (c *Controller) Run(stopCh <-chan struct{}) error {
-	// wait for namespace informer synced
+	// Normally, we let informers start after all controllers. However, in this case we need namespaces to start and sync
+	// first, so we have DiscoveryNamespacesFilter ready to go. This avoids processing objects that would be filtered during startup.
+	c.namespaces.Start(stopCh)
+	// Wait for namespace informer synced, which implies discovery filter is synced as well
 	if !kube.WaitForCacheSync("namespace", stopCh, c.namespaces.HasSynced) {
 		return fmt.Errorf("failed to sync namespaces")
 	}
-	// run discovery namespace filter initiation before kube registry run
-	// otherwise istio may do some useless xds push for partial resources before namespace filter has been been completely initiated.
-	c.DiscoveryNamespacesFilter.SyncNamespaces()
 	// run handlers for the config cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
 	configCluster := &Cluster{Client: c.configClusterClient, ID: c.configClusterID}
