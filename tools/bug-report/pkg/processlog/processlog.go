@@ -111,9 +111,8 @@ func getStats(config *config.BugReportConfig, logStr string) *Stats {
 func parseLog(line string) (timeStamp *time.Time, level string, text string, valid bool) {
 	if isJSONLog(line) {
 		return parseJSONLog(line)
-	} else {
-		return processPlainLog(line)
 	}
+	return processPlainLog(line)
 }
 
 func processPlainLog(line string) (timeStamp *time.Time, level string, text string, valid bool) {
@@ -179,8 +178,5 @@ func parseJSONLog(line string) (timeStamp *time.Time, level string, text string,
 }
 
 func isJSONLog(logStr string) bool {
-	if strings.HasPrefix(logStr, "{") {
-		return true
-	}
-	return false
+	return strings.HasPrefix(logStr, "{")
 }
