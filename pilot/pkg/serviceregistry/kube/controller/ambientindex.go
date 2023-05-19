@@ -54,8 +54,10 @@ type AmbientIndex struct {
 	byService map[networkAddress][]*model.WorkloadInfo
 	// byPod indexes by network/podIP address.
 	byPod map[networkAddress]*model.WorkloadInfo
-	// services are indexed by the network/clusterIP
-	services map[networkAddress]*model.ServiceInfo
+	// serviceByAddr are indexed by the network/clusterIP
+	serviceByAddr map[networkAddress]*model.ServiceInfo
+	// serviceByHostname are indexed by the namespace/hostname
+	serviceByHostname map[string]*model.ServiceInfo
 
 	// Map of ServiceAccount -> IP
 	// TODO: currently, this is derived from pods. To be agnostic to the implementation,
@@ -78,6 +80,19 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 		log.Warnf("key(%v) did not contain the expected \"/\" character", key)
 		return []*model.AddressInfo{}
 	}
+
+	if _, err := netip.ParseAddr(ip); err != nil {
+		// this must be namespace/hostname format
+		if svc, f := a.serviceByHostname[key]; f {
+			addr := &workloadapi.Address{
+				Type: &workloadapi.Address_Service{
+					Service: svc.Service,
+				},
+			}
+			return []*model.AddressInfo{{Address: addr}}
+		}
+	}
+
 	networkAddr := networkAddress{network: network, ip: ip}
 	// First look at pod...
 	if p, f := a.byPod[networkAddr]; f {
@@ -102,7 +117,7 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 		}
 		res = append(res, &model.AddressInfo{Address: addr})
 	}
-	if s, exists := a.services[networkAddr]; exists {
+	if s, exists := a.serviceByAddr[networkAddr]; exists {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Service{
 				Service: s.Service,
@@ -176,7 +191,7 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 func (a *AmbientIndex) All() []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	res := make([]*model.AddressInfo, 0, len(a.byPod)+len(a.services))
+	res := make([]*model.AddressInfo, 0, len(a.byPod)+len(a.serviceByAddr))
 	// byPod will not have any duplicates, so we can just iterate over that.
 	for _, wl := range a.byPod {
 		addr := &workloadapi.Address{
@@ -186,7 +201,7 @@ func (a *AmbientIndex) All() []*model.AddressInfo {
 		}
 		res = append(res, &model.AddressInfo{Address: addr})
 	}
-	for _, s := range a.services {
+	for _, s := range a.serviceByAddr {
 		addr := &workloadapi.Address{
 			Type: &workloadapi.Address_Service{
 				Service: s.Service,
@@ -673,10 +688,11 @@ func (c *Controller) updateEndpointsOnWaypointChange(wl *model.WorkloadInfo) set
 
 func (c *Controller) setupIndex() *AmbientIndex {
 	idx := AmbientIndex{
-		byService: map[networkAddress][]*model.WorkloadInfo{},
-		byPod:     map[networkAddress]*model.WorkloadInfo{},
-		waypoints: map[model.WaypointScope]*workloadapi.GatewayAddress{},
-		services:  map[networkAddress]*model.ServiceInfo{},
+		byService:         map[networkAddress][]*model.WorkloadInfo{},
+		byPod:             map[networkAddress]*model.WorkloadInfo{},
+		waypoints:         map[model.WaypointScope]*workloadapi.GatewayAddress{},
+		serviceByAddr:     map[networkAddress]*model.ServiceInfo{},
+		serviceByHostname: map[string]*model.ServiceInfo{},
 	}
 
 	podHandler := cache.ResourceEventHandlerFuncs{
@@ -918,16 +934,18 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 	if isDelete {
 		for _, networkAddr := range networkAddrs {
 			delete(a.byService, networkAddr)
-			delete(a.services, networkAddr)
+			delete(a.serviceByAddr, networkAddr)
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
+		delete(a.serviceByHostname, si.ResourceName())
 		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
 	} else {
 		for _, networkAddr := range networkAddrs {
 			a.byService[networkAddr] = wls
-			a.services[networkAddr] = si
+			a.serviceByAddr[networkAddr] = si
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
+		a.serviceByHostname[si.ResourceName()] = si
 		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
 	}
 	// Fetch updates again, in case it changed from adding new workloads

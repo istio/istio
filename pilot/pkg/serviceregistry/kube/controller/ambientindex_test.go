@@ -267,6 +267,11 @@ func TestAmbientIndex(t *testing.T) {
 			assert.Equal(t, k.Address.GetService().Name, "waypoint-ns")
 		}
 	}
+	// Lookup for service via namespace/hostname returns only Service AddressInfo
+	assert.Equal(t,
+		len(controller.ambientIndex.Lookup("ns1/waypoint-ns.ns1.svc.cluster.local")), 1)
+	assert.Equal(t, controller.ambientIndex.Lookup("ns1/waypoint-ns.ns1.svc.cluster.local")[0].GetService().Hostname,
+		"waypoint-ns.ns1.svc.cluster.local")
 
 	// Add another waypoint pod, expect no updates for other pods since waypoint address refers to service IP
 	addPods("127.0.0.201", "waypoint2-ns", "namespace-wide", map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel, constants.GatewayNameLabel: "namespace-wide"}, nil)
