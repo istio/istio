@@ -506,8 +506,9 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		allKeys.Insert(k)
 	}
 
-	rotationInterval := metricRotationInterval()
-	gracefulDeletionInterval := metricGracefulDeletionInterval()
+	rotationInterval := getInterval(features.MetricRotationInterval, defaultMetricRotationInterval)
+	gracefulDeletionInterval := getInterval(features.MetricGracefulDeletionInterval, defaultMetricGracefulDeletionInterval)
+
 	m := make([]telemetryFilterConfig, 0, allKeys.Len())
 	for _, k := range sets.SortedList(allKeys) {
 		p := t.fetchProvider(k)
@@ -543,6 +544,20 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	// Update cache
 	t.computedMetricsFilters[key] = res
 	return res
+}
+
+var (
+	defaultMetricRotationInterval         = 0 * time.Second // https://github.com/istio/proxy/blob/master/source/extensions/filters/http/istio_stats/config.proto#L116
+	defaultMetricGracefulDeletionInterval = 5 * time.Minute // https://github.com/istio/proxy/blob/master/source/extensions/filters/http/istio_stats/config.proto#L120
+)
+
+// getInterval return nil to reduce the size of the config, when equal to the default.
+func getInterval(input, defaultValue time.Duration) *durationpb.Duration {
+	if input == defaultValue {
+		return nil
+	}
+
+	return durationpb.New(input)
 }
 
 // mergeLogs returns the set of providers for the given logging configuration.
@@ -1094,22 +1109,6 @@ var metricToPrometheusMetric = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "response_messages_total",
 }
 
-func metricRotationInterval() *durationpb.Duration {
-	if features.MetricRotationInterval == 0*time.Second {
-		return nil
-	}
-
-	return durationpb.New(features.MetricRotationInterval)
-}
-
-func metricGracefulDeletionInterval() *durationpb.Duration {
-	if features.MetricGracefulDeletionInterval == 5*time.Minute {
-		return nil
-	}
-
-	return durationpb.New(features.MetricGracefulDeletionInterval)
-}
-
 func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryFilterConfig) *anypb.Any {
 	if !filterConfig.Metrics {
 		// No metric for prometheus
@@ -1125,8 +1124,8 @@ func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryF
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 		TcpReportingDuration:      filterConfig.ReportingInterval,
-		RotationInterval:          metricRotationInterval(),
-		GracefulDeletionInterval:  metricGracefulDeletionInterval(),
+		RotationInterval:          filterConfig.RotationInterval,
+		GracefulDeletionInterval:  filterConfig.GracefulDeletionInterval,
 	}
 
 	for _, override := range listenerCfg.Overrides {
