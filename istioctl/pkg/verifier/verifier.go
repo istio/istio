@@ -39,11 +39,13 @@ import (
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
+	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 )
 
 var istioOperatorGVR = apimachinery_schema.GroupVersionResource{
@@ -226,6 +228,7 @@ func (v *StatusVerifier) verifyInstall() error {
 }
 
 func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOperator, filename string) (int, int, int, error) {
+	v.iop = iop
 	t := translate.NewTranslator()
 	ver, err := v.client.GetKubernetesVersion()
 	if err != nil {
@@ -306,6 +309,9 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 				v.reportFailure(kind, name, namespace, err)
 				return err
 			}
+			if !managedByIOP(deployment, v.iop) {
+				return nil
+			}
 			if err = verifyDeploymentStatus(deployment); err != nil {
 				ivf := istioVerificationFailureError(filename, err)
 				v.reportFailure(kind, name, namespace, ivf)
@@ -327,6 +333,9 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 			if err != nil {
 				v.reportFailure(kind, name, namespace, err)
 				return err
+			}
+			if !managedByIOP(job, v.iop) {
+				return nil
 			}
 			if err := verifyJobPostInstall(job); err != nil {
 				ivf := istioVerificationFailureError(filename, err)
@@ -383,6 +392,9 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 				v.reportFailure(kind, name, namespace, err)
 				return err
 			}
+			if !managedByIOP(ds, v.iop) {
+				return nil
+			}
 			daemonSetCount++
 			if err = verifyDaemonSetStatus(ds); err != nil {
 				ivf := istioVerificationFailureError(filename, err)
@@ -390,24 +402,29 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 				return ivf
 			}
 		default:
-			result := info.Client.
+			obj := &unstructured.Unstructured{}
+			err = info.Client.
 				Get().
 				Resource(kinds).
 				Name(name).
-				Do(context.TODO())
-			if result.Error() != nil {
-				result = info.Client.
+				Do(context.TODO()).Into(obj)
+			if err != nil {
+				err = info.Client.
 					Get().
 					Resource(kinds).
 					Namespace(namespace).
 					Name(name).
-					Do(context.TODO())
-				if result.Error() != nil {
-					v.reportFailure(kind, name, namespace, result.Error())
+					Do(context.TODO()).
+					Into(obj)
+				if err != nil {
+					v.reportFailure(kind, name, namespace, err)
 					return istioVerificationFailureError(filename,
 						fmt.Errorf("the required %s:%s is not ready due to: %v",
-							kind, name, result.Error()))
+							kind, name, err))
 				}
+			}
+			if !managedByIOP(obj, v.iop) {
+				return nil
 			}
 			if kind == "CustomResourceDefinition" {
 				crdCount++
@@ -417,6 +434,15 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 		return nil
 	})
 	return crdCount, istioDeploymentCount, daemonSetCount, err
+}
+
+func managedByIOP(un controllers.Object, iop *v1alpha1.IstioOperator) bool {
+	owning := un.GetLabels()[helmreconciler.OwningResourceName]
+	// Unknown is for backward compatibility.
+	if owning == "" || owning == "unknown" {
+		return true
+	}
+	return owning == iop.Name
 }
 
 // Find Istio injector matching revision.  ("" matches any revision.)
