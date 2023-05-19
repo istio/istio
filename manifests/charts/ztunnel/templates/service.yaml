@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ztunnel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- .Values.labels | toYaml | nindent 4}}
+  annotations:
+    {{- .Values.annotations | toYaml | nindent 4 }}
+spec:
+  internalTrafficPolicy: Local
+  ports:
+  - name: tcp-socks5
+    port: 15080
+  selector:
+    app: ztunnel
