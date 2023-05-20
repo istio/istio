@@ -116,13 +116,13 @@ var stringToLevel = map[string]Level{
 }
 
 var (
-	loggerLevelString = ""
-	reset             = false
-	client, _         = kubeClient(kubeconfig, configContext)
+	loggerLevelString         = ""
+	reset                     = false
+	isZtunnelPodKubeClient, _ = kubeClient(kubeconfig, configContext)
 )
 
 var isZtunnelPod = func(podName, podNamespace string) bool {
-	return ambientutil.IsZtunnelPod(client, podName, podNamespace)
+	return ambientutil.IsZtunnelPod(isZtunnelPodKubeClient, podName, podNamespace)
 }
 
 func ztunnelLogLevel(level string) string {
