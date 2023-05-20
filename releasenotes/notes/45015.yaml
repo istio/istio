@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Added** yaml format output support for `istioctl x revison list` and `istioctl x revison tag list`.

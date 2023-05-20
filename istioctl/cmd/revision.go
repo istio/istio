@@ -62,6 +62,7 @@ const (
 	podsSection            = "PODS"
 
 	jsonFormat  = "json"
+	yamlFormat  = "yaml"
 	tableFormat = "table"
 )
 
@@ -69,6 +70,7 @@ var (
 	validFormats = map[string]bool{
 		tableFormat: true,
 		jsonFormat:  true,
+		yamlFormat:  true,
 	}
 
 	defaultSections = []string{
@@ -109,7 +111,7 @@ func revisionCommand() *cobra.Command {
 	revisionCmd.PersistentFlags().StringVarP(&revArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
 	revisionCmd.PersistentFlags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Enable verbose output")
 	revisionCmd.PersistentFlags().StringVarP(&revArgs.output, "output", "o", tableFormat, "Output format for revision description "+
-		"(available formats: table,json)")
+		"(available formats: table,json,yaml)")
 
 	revisionCmd.AddCommand(revisionListCommand())
 	revisionCmd.AddCommand(revisionDescribeCommand())
@@ -243,8 +245,8 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 	}
 
 	switch revArgs.output {
-	case jsonFormat:
-		return printJSON(writer, revisions)
+	case jsonFormat, yamlFormat:
+		return printJSONYAML(writer, revisions, revArgs.output)
 	case tableFormat:
 		if len(revisions) == 0 {
 			_, err = fmt.Fprintln(writer, "No Istio installation found.\n"+
@@ -535,8 +537,8 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 		}
 	}
 	switch revArgs.output {
-	case jsonFormat:
-		return printJSON(w, revDescription)
+	case jsonFormat, yamlFormat:
+		return printJSONYAML(w, revDescription, revArgs.output)
 	case tableFormat:
 		sections := defaultSections
 		if args.verbose {
@@ -654,10 +656,15 @@ func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 	return revDescription
 }
 
-func printJSON(w io.Writer, res any) error {
+func printJSONYAML(w io.Writer, res any, outformat string) error {
 	out, err := json.MarshalIndent(res, "", "\t")
 	if err != nil {
 		return fmt.Errorf("error while marshaling to JSON: %v", err)
+	}
+	if outformat == yamlFormat {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return fmt.Errorf("error while marshaling to YAML: %v", err)
+		}
 	}
 	fmt.Fprintln(w, string(out))
 	return nil

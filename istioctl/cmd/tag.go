@@ -410,8 +410,8 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	}
 
 	switch revArgs.output {
-	case jsonFormat:
-		return printJSON(writer, tags)
+	case jsonFormat, yamlFormat:
+		return printJSONYAML(writer, tags, revArgs.output)
 	case tableFormat:
 	default:
 		return fmt.Errorf("unknown format: %s", revArgs.output)
