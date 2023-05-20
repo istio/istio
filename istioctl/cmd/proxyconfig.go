@@ -879,7 +879,9 @@ func logCmd() *cobra.Command {
 							return fmt.Errorf("unrecognized logging level: %v", ol)
 						}
 					} else {
-						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
+						logParts := strings.Split(ol, "::") // account for any specified namespace
+						loggerAndLevelOnly := logParts[len(logParts)-1]
+						loggerLevel := regexp.MustCompile(`[:=]`).Split(loggerAndLevelOnly, 2)
 						for logName, typ := range loggerNames {
 							if typ == Ztunnel {
 								// TODO validate ztunnel logger name when available: https://github.com/istio/ztunnel/issues/426
