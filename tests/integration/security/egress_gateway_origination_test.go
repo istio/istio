@@ -80,7 +80,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				{
 					name:            "simple",
 					statusCode:      http.StatusOK,
-					credentialToUse: strings.TrimSuffix(credName, "-cacert"),
+					credentialToUse: credName,
 					useGateway:      true,
 				},
 				// Use CA certificate stored as k8s secret with different issuing CA as server's CA.
@@ -88,7 +88,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				{
 					name:            "fake root",
 					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
+					credentialToUse: fakeCredName,
 					useGateway:      false,
 				},
 
@@ -97,7 +97,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				{
 					name:            "missing secret",
 					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
+					credentialToUse: credNameMissing,
 					useGateway:      false,
 				},
 			}
@@ -172,7 +172,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				{
 					name:            "generic",
 					statusCode:      http.StatusOK,
-					credentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
+					credentialToUse: credNameGeneric,
 					useGateway:      true,
 				},
 				// Use CA certificate and client certs stored as k8s secret with the same issuing CA as server's CA.
@@ -181,7 +181,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				{
 					name:            "non-generic",
 					statusCode:      http.StatusOK,
-					credentialToUse: strings.TrimSuffix(credNameNotGeneric, "-cacert"),
+					credentialToUse: credNameNotGeneric,
 					useGateway:      true,
 				},
 				// Use CA certificate and client certs stored as k8s secret with the same issuing CA as server's CA.
@@ -190,7 +190,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				{
 					name:            "invalid client cert",
 					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: strings.TrimSuffix(fakeCredNameA, "-cacert"),
+					credentialToUse: fakeCredNameA,
 					useGateway:      false,
 				},
 
@@ -199,13 +199,13 @@ func TestMutualTlsOrigination(t *testing.T) {
 				{
 					name:            "missing",
 					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
+					credentialToUse: credNameMissing,
 					useGateway:      false,
 				},
 				{
 					name:            "no client certs",
 					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
+					credentialToUse: simpleCredName,
 					useGateway:      false,
 				},
 			}
