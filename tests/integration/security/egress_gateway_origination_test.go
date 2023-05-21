@@ -80,7 +80,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				{
 					name:            "simple",
 					statusCode:      http.StatusOK,
-					credentialToUse: credName,
+					credentialToUse: strings.TrimSuffix(credName, "-cacert"),
 					useGateway:      true,
 				},
 				// Use CA certificate stored as k8s secret with different issuing CA as server's CA.
@@ -88,7 +88,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				{
 					name:            "fake root",
 					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: fakeCredName,
+					credentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
 					useGateway:      false,
 				},
 
@@ -205,7 +205,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				{
 					name:            "no client certs",
 					statusCode:      http.StatusServiceUnavailable,
-					credentialToUse: simpleCredName,
+					credentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
 					useGateway:      false,
 				},
 			}
