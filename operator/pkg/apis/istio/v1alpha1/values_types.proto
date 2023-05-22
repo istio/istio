@@ -89,7 +89,8 @@ message CNIConfig {
 
   CNIAmbientConfig ambient = 21;
 
-  string provider = 22;
+  reserved 22;
+  reserved "provider";
 
   // K8s rolling update strategy
   IntOrString rollingMaxUnavailable = 23;
