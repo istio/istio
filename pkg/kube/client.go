@@ -48,6 +48,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apiserver/pkg/storage/names"
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/dynamic"
@@ -259,6 +260,20 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 			return true, watch, nil
 		}
 	}
+	// https://github.com/kubernetes/client-go/issues/439
+	createReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		ret = action.(clienttesting.CreateAction).GetObject()
+		meta, ok := ret.(metav1.Object)
+		if !ok {
+			return
+		}
+
+		if meta.GetName() == "" && meta.GetGenerateName() != "" {
+			meta.SetName(names.SimpleNameGenerator.GenerateName(meta.GetGenerateName()))
+		}
+
+		return
+	}
 	for _, fc := range []fakeClient{
 		c.kube.(*fake.Clientset),
 		c.istio.(*istiofake.Clientset),
@@ -268,6 +283,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	} {
 		fc.PrependReactor("list", "*", listReactor)
 		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
+		fc.PrependReactor("create", "*", createReactor)
 	}
 
 	c.fastSync = true
