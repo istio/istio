@@ -175,10 +175,10 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	go func() {
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
-
-		// TODO: do we really need to start here, or can we use the global factory start?
-		c.secrets.Start(stopCh)
-
+		// we need to start here when local cluster secret watcher enabled
+		if features.LocalClusterSecretWatcher && features.ExternalIstiod {
+			c.secrets.Start(stopCh)
+		}
 		if !kube.WaitForCacheSync("multicluster remote secrets", stopCh, c.secrets.HasSynced) {
 			return
 		}
