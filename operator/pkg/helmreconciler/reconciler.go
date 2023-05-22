@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
@@ -555,7 +556,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	if err != nil {
 		return err
 	}
-	relevantMessages := res.Messages.FilterOutBasedOnResources(parsedK8sObjects)
+	relevantMessages := filterOutBasedOnResources(res.Messages, parsedK8sObjects)
 	if len(relevantMessages) > 0 {
 		o, err := formatting.Print(relevantMessages, formatting.LogFormat, false)
 		if err != nil {
@@ -564,6 +565,19 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return fmt.Errorf("creating default tag would conflict:\n%v", o)
 	}
 	return nil
+}
+
+func filterOutBasedOnResources(ms diag.Messages, resources object.K8sObjects) diag.Messages {
+	outputMessages := diag.Messages{}
+	for _, m := range ms {
+		for _, rs := range resources {
+			if rs.Name == m.Resource.Metadata.FullName.Name.String() {
+				outputMessages = append(outputMessages, m)
+				break
+			}
+		}
+	}
+	return outputMessages
 }
 
 func (h *HelmReconciler) networkName() string {
