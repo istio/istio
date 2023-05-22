@@ -506,6 +506,7 @@ func (c *client) Shutdown() {
 func (c *client) Run(stop <-chan struct{}) {
 	c.informerFactory.Start(stop)
 	c.started.Store(true)
+	log.Infof("cluster %q kube client started", c.clusterID)
 }
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
