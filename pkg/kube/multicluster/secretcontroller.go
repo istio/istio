@@ -165,6 +165,10 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	go func() {
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
+		// we need to start here when local cluster secret watcher enabled
+		if features.LocalClusterSecretWatcher && features.ExternalIstiod {
+			c.secrets.Start(stopCh)
+		}
 		if !kube.WaitForCacheSync("multicluster remote secrets", stopCh, c.secrets.HasSynced) {
 			return
 		}
