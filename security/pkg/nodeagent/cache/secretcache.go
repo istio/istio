@@ -48,9 +48,9 @@ var (
 )
 
 const (
-	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
+	// firstRetryBackOffDuration is the initial backoff time interval when hitting
 	// non-retryable error in CSR request or while there is an error in reading file mounts.
-	firstRetryBackOffInMilliSec = 50
+	firstRetryBackOffDuration = 50 * time.Millisecond
 )
 
 // SecretManagerClient a SecretManager that signs CSRs using a provided security.Client. The primary
@@ -465,20 +465,16 @@ func (sc *SecretManagerClient) keyCertSecretItem(cert, key, resource string) (*s
 // readFileWithTimeout reads the given file with timeout. It returns error
 // if it is not able to read file after timeout.
 func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) {
-	retryBackoffInMS := int64(firstRetryBackOffInMilliSec * time.Millisecond)
+	retryBackoff := firstRetryBackOffDuration
 	timeout := time.After(totalTimeout)
 	for {
 		cert, err := os.ReadFile(path)
 		if err == nil {
 			return cert, nil
 		}
-		// permanent error
-		if os.IsNotExist(err) {
-			return nil, err
-		}
 		select {
-		case <-time.After(time.Duration(retryBackoffInMS)):
-			retryBackoffInMS *= 2
+		case <-time.After(retryBackoff):
+			retryBackoff *= 2
 		case <-timeout:
 			return nil, err
 		case <-sc.stop:
