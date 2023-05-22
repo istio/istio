@@ -17,7 +17,9 @@ package kclient
 import (
 	"context"
 	"fmt"
+	"sync"
 
+	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -43,9 +45,11 @@ type writeClient[T controllers.Object] struct {
 }
 
 type informerClient[T controllers.Object] struct {
-	informer           cache.SharedIndexInformer
-	startInformer      func(stopCh <-chan struct{})
-	filter             func(t any) bool
+	informer      cache.SharedIndexInformer
+	startInformer func(stopCh <-chan struct{})
+	filter        func(t any) bool
+
+	handlerMu          sync.RWMutex
 	registeredHandlers []cache.ResourceEventHandlerRegistration
 }
 
@@ -99,6 +103,8 @@ func (n *writeClient[T]) Delete(name, namespace string) error {
 }
 
 func (n *informerClient[T]) ShutdownHandlers() {
+	n.handlerMu.Lock()
+	defer n.handlerMu.Unlock()
 	for _, c := range n.registeredHandlers {
 		_ = n.informer.RemoveEventHandler(c)
 	}
@@ -115,6 +121,8 @@ func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 		Handler: h,
 	}
 	reg, _ := n.informer.AddEventHandler(fh)
+	n.handlerMu.Lock()
+	defer n.handlerMu.Unlock()
 	n.registeredHandlers = append(n.registeredHandlers, reg)
 }
 
@@ -122,7 +130,10 @@ func (n *informerClient[T]) HasSynced() bool {
 	if !n.informer.HasSynced() {
 		return false
 	}
-	for _, g := range n.registeredHandlers {
+	n.handlerMu.RLock()
+	handlers := slices.Clone(n.registeredHandlers)
+	n.handlerMu.RUnlock()
+	for _, g := range handlers {
 		if !g.HasSynced() {
 			return false
 		}
