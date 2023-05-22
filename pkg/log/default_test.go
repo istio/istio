@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"testing"
 
-	"istio.io/pkg/structured"
+	"istio.io/istio/pkg/structured"
 )
 
 func testOptions() *Options {

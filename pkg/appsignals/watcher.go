@@ -22,7 +22,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var handlers struct {

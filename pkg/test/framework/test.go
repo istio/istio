@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/pkg/log"
 )
 
 type Test interface {

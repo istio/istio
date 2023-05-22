@@ -46,11 +46,11 @@ import (
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/shellescape"
-	"istio.io/pkg/log"
 )
 
 var (

@@ -35,7 +35,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type flagState interface {

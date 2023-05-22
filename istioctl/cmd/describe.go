@@ -63,7 +63,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type myProtoValue struct {

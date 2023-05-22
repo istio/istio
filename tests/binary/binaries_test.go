@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/version"
 )
 
 var (

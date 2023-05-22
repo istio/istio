@@ -24,8 +24,8 @@ import (
 	"github.com/prometheus/prom2json"
 	"go.opencensus.io/stats/view"
 
-	"istio.io/pkg/ctrlz/fw"
-	"istio.io/pkg/ctrlz/topics/assets"
+	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics/assets"
 )
 
 type metricsTopic struct{}

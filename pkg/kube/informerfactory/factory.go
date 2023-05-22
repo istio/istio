@@ -37,8 +37,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // NewInformerFunc returns a SharedIndexInformer.

@@ -45,8 +45,8 @@ import (
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/pkg/collateral/metrics"
-	"istio.io/pkg/env"
+	"istio.io/istio/pkg/collateral/metrics"
+	"istio.io/istio/pkg/env"
 )
 
 // Control determines the behavior of the EmitCollateral function

@@ -29,9 +29,9 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // ApplyListenerPatches applies patches to LDS output

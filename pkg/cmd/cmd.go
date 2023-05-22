@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // WaitSignal awaits for SIGINT or SIGTERM and closes the channel

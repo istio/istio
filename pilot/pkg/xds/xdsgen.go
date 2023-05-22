@@ -27,9 +27,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/lazy"
-	"istio.io/pkg/env"
-	istioversion "istio.io/pkg/version"
+	istioversion "istio.io/istio/pkg/version"
 )
 
 // IstioControlPlaneInstance defines the format Istio uses for when creating Envoy config.core.v3.ControlPlane.identifier

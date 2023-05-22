@@ -49,9 +49,9 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	kubelabels "istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/strcase"
-	"istio.io/pkg/log"
 )
 
 const (

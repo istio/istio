@@ -20,8 +20,8 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 )
 
 var DryRunFilePath = env.Register("DRY_RUN_FILE_PATH", "", "If provided, StdoutStubDependencies will write the input from stdin to the given file.")

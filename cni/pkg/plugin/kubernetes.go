@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // newKubeClient is a unit test override variable for interface create.

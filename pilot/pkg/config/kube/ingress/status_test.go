@@ -27,9 +27,9 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
-	istiolog "istio.io/pkg/log"
 )
 
 var (

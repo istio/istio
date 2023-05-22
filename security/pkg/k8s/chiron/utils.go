@@ -34,8 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 const (

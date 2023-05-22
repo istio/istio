@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // This is a very basic benchmark on unit test data, so it doesn't tell us anything about how an analyzer performs at scale

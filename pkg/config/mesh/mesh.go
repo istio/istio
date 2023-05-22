@@ -29,10 +29,10 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // DefaultProxyConfig for individual proxies

@@ -23,8 +23,8 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/pkg/ctrlz/fw"
-	"istio.io/pkg/ctrlz/topics/assets"
+	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics/assets"
 )
 
 // ReadableCollection is a staticCollection collection of entries to be exposed via CtrlZ.

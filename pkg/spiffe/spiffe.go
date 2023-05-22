@@ -30,8 +30,8 @@ import (
 	"gopkg.in/square/go-jose.v2"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 const (

@@ -37,8 +37,8 @@ import (
 	"istio.io/istio/pkg/config/analysis/incluster"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
-	"istio.io/pkg/log"
 )
 
 // URL schemes supported by the config store

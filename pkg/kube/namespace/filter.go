@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 type DiscoveryFilter func(obj any) bool

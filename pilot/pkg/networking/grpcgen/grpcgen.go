@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
 // Support generation of 'ApiListener' LDS responses, used for native support of gRPC.

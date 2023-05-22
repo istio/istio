@@ -20,10 +20,10 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/wasm"
-	"istio.io/pkg/env"
 )
 
 var (

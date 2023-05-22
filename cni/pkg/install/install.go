@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var installLog = log.RegisterScope("install", "CNI install")

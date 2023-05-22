@@ -18,7 +18,7 @@ package common
 import (
 	"fmt"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

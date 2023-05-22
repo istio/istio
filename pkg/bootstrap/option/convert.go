@@ -36,8 +36,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
-	"istio.io/pkg/log"
 )
 
 // TransportSocket wraps UpstreamTLSContext

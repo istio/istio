@@ -44,11 +44,11 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/proto"
 	secconst "istio.io/istio/pkg/security"
 	netutil "istio.io/istio/pkg/util/net"
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (

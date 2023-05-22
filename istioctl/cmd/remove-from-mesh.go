@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 func removeFromMeshCmd() *cobra.Command {

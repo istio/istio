@@ -26,8 +26,8 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/monitoring"
 )
 
 var enableStats = func() bool {

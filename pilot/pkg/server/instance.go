@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type Component func(stop <-chan struct{}) error

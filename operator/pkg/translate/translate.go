@@ -39,7 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/version"
 	oversion "istio.io/istio/operator/version"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

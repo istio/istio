@@ -17,8 +17,8 @@ package metrics
 import (
 	"time"
 
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 )
 
 var (

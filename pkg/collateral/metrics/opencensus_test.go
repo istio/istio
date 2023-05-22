@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/pkg/collateral/metrics"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/collateral/metrics"
+	"istio.io/istio/pkg/monitoring"
 )
 
 func TestExportedMetrics(t *testing.T) {

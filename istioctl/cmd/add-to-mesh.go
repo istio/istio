@@ -45,8 +45,8 @@ import (
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
-	"istio.io/pkg/log"
 )
 
 var crdFactory = createDynamicInterface

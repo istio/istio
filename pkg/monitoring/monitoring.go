@@ -27,7 +27,7 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type (

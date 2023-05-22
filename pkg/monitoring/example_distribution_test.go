@@ -13,7 +13,7 @@
 // limitations under the License.
 package monitoring_test
 
-import "istio.io/pkg/monitoring"
+import "istio.io/istio/pkg/monitoring"
 
 var (
 	method = monitoring.MustCreateLabel("method")

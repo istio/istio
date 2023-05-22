@@ -19,9 +19,9 @@ import (
 	"net/http"
 	"syscall"
 
-	"istio.io/pkg/appsignals"
-	"istio.io/pkg/ctrlz/fw"
-	"istio.io/pkg/ctrlz/topics/assets"
+	"istio.io/istio/pkg/appsignals"
+	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics/assets"
 )
 
 type signalsTopic struct{}

@@ -36,10 +36,10 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"istio.io/pkg/ctrlz/assets"
-	"istio.io/pkg/ctrlz/fw"
-	"istio.io/pkg/ctrlz/topics"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/ctrlz/assets"
+	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics"
+	"istio.io/istio/pkg/log"
 )
 
 var coreTopics = []fw.Topic{

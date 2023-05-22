@@ -25,8 +25,8 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"istio.io/pkg/ctrlz/assets"
-	"istio.io/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/assets"
+	"istio.io/istio/pkg/ctrlz/fw"
 )
 
 var mimeTypes = map[string]string{

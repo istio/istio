@@ -40,8 +40,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
-	"istio.io/pkg/log"
 )
 
 var (

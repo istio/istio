@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Controller watches a ConfigMap and calls the given callback when the ConfigMap changes.

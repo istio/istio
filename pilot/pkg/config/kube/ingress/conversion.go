@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

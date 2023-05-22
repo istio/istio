@@ -82,10 +82,10 @@ import (
 	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/lazy"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/version"
 )
 
 const (

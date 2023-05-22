@@ -25,7 +25,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"k8s.io/klog/v2"
 
-	"istio.io/pkg/structured"
+	"istio.io/istio/pkg/structured"
 )
 
 func runTest(t *testing.T, f func()) []string {

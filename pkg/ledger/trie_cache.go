@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/cache"
+	"istio.io/istio/pkg/cache"
 )
 
 type cacheDB struct {

@@ -37,7 +37,7 @@ import (
 	"istio.io/api/label"
 	istioStatus "istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

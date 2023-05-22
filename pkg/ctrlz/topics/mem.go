@@ -19,8 +19,8 @@ import (
 	"net/http"
 	"runtime"
 
-	"istio.io/pkg/ctrlz/fw"
-	"istio.io/pkg/ctrlz/topics/assets"
+	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/ctrlz/topics/assets"
 )
 
 type memTopic struct{}

@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/cache"
+	"istio.io/istio/pkg/cache"
 )
 
 // The smt is derived from https://github.com/aergoio/SMT with modifications

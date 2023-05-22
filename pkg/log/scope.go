@@ -20,7 +20,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"istio.io/pkg/structured"
+	"istio.io/istio/pkg/structured"
 )
 
 // Scope constrains logging control to a named scope level. It gives users a fine grained control over output severity

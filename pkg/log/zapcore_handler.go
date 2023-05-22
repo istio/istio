@@ -23,7 +23,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"istio.io/pkg/structured"
+	"istio.io/istio/pkg/structured"
 )
 
 var (

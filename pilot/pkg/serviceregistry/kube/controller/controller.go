@@ -48,11 +48,11 @@ import (
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/kube/watcher/crdwatcher"
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/queue"
-	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (

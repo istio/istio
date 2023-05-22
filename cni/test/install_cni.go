@@ -32,9 +32,9 @@ import (
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 const (

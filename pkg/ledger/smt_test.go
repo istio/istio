@@ -25,7 +25,7 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	"istio.io/pkg/cache"
+	"istio.io/istio/pkg/cache"
 )
 
 func TestSmtEmptyTrie(t *testing.T) {

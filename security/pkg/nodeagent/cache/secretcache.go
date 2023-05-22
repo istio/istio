@@ -31,6 +31,7 @@ import (
 
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/file"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
@@ -38,7 +39,6 @@ import (
 	"istio.io/istio/security/pkg/monitoring"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	istiolog "istio.io/pkg/log"
 )
 
 var (
