@@ -64,9 +64,6 @@ ${DEPENDENCIES:-$(cat <<EOD
   proxy:
     git: https://github.com/istio/proxy
     auto: deps
-  pkg:
-    git: https://github.com/istio/pkg
-    auto: modules
   client-go:
     git: https://github.com/istio/client-go
     branch: master
