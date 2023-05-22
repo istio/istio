@@ -82,6 +82,7 @@ func initController(client kube.CLIClient, ns string, stop <-chan struct{}, mc *
 	sc := multicluster.NewController(client, ns, "cluster-1", mesh.NewFixedWatcher(nil))
 	sc.AddHandler(mc)
 	_ = sc.Run(stop)
+	client.RunAndWait(stop)
 	kube.WaitForCacheSync("test", stop, sc.HasSynced)
 }
 
@@ -99,7 +100,6 @@ func Test_KubeSecretController(t *testing.T) {
 		MeshServiceController: mockserviceController,
 	}, nil, nil, nil, "default", false, nil, s)
 	initController(clientset, testSecretNameSpace, stop, mc)
-	clientset.RunAndWait(stop)
 	_ = s.Start(stop)
 	go func() {
 		_ = mc.Run(stop)
