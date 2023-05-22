@@ -50,8 +50,6 @@ type ExponentialBackOff struct {
 const (
 	defaultInitialInterval = 500 * time.Millisecond
 	defaultMaxInterval     = 60 * time.Second
-	// set MaxElapsedTime mean it never stops
-	defaultMaxElapsedTime = 0
 )
 
 func DefaultOption() Option {
@@ -68,13 +66,16 @@ func NewExponentialBackOff(o Option) BackOff {
 	b.exponentialBackOff = backoff.NewExponentialBackOff()
 	b.exponentialBackOff.InitialInterval = o.InitialInterval
 	b.exponentialBackOff.MaxInterval = o.MaxInterval
-	b.exponentialBackOff.MaxElapsedTime = defaultMaxElapsedTime
 	b.Reset()
 	return b
 }
 
 func (b ExponentialBackOff) NextBackOff() time.Duration {
 	duration := b.exponentialBackOff.NextBackOff()
+	// always return maxInterval after it reaches MaxElapsedTime
+	if duration == b.exponentialBackOff.Stop {
+		return b.exponentialBackOff.MaxInterval
+	}
 	return duration
 }
 
