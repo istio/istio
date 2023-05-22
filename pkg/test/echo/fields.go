@@ -30,6 +30,12 @@ func (f Field) Write(out io.StringWriter, value string) {
 	_, _ = out.WriteString(fmt.Sprintf("%s=%s\n", f, value))
 }
 
+func (f Field) WriteNonEmpty(out io.StringWriter, value string) {
+	if value != "" {
+		_, _ = out.WriteString(fmt.Sprintf("%s=%s\n", f, value))
+	}
+}
+
 func (f Field) WriteKeyValue(out io.StringWriter, key, value string) {
 	f.Write(out, key+":"+value)
 }
@@ -61,6 +67,7 @@ const (
 	ForwarderHeaderField  Field = "Header"
 	HostField             Field = "Host"
 	HostnameField         Field = "Hostname"
+	NamespaceField        Field = "Namespace"
 	MethodField           Field = "Method"
 	ProtocolField         Field = "Proto"
 	AlpnField             Field = "Alpn"

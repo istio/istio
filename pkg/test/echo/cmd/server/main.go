@@ -141,6 +141,7 @@ var (
 				Version:               version,
 				Cluster:               cluster,
 				IstioVersion:          istioVersion,
+				Namespace:             os.Getenv("NAMESPACE"),
 				UDSServer:             uds,
 				DisableALPN:           disableALPN,
 			})
