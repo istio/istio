@@ -80,7 +80,7 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 				{
 					name:            "authorized sidecar",
 					statusCode:      http.StatusOK,
-					credentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
+					credentialToUse: credNameGeneric,
 					from:            apps.Ns1.A,
 					drSelector:      "a",
 				},
@@ -89,7 +89,7 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 				{
 					name:            "unauthorized sidecar",
 					statusCode:      http.StatusBadRequest,
-					credentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
+					credentialToUse: credNameGeneric,
 					from:            apps.Ns1.B,
 					drSelector:      "b",
 				},
@@ -98,7 +98,7 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 				{
 					name:            "invalid client cert",
 					statusCode:      http.StatusBadRequest,
-					credentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
+					credentialToUse: fakeCredName,
 					from:            apps.Ns1.C,
 					drSelector:      "c",
 				},

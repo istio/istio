@@ -24,9 +24,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -37,7 +35,6 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
-	kubeExtInformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,18 +48,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apiserver/pkg/storage/names"
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	kubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/metadata"
 	metadatafake "k8s.io/client-go/metadata/fake"
-	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -72,7 +67,6 @@ import (
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
-	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -83,12 +77,10 @@ import (
 	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
-	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 	"istio.io/istio/operator/pkg/apis"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/lazy"
 	"istio.io/istio/pkg/sleep"
@@ -128,23 +120,8 @@ type Client interface {
 	// GatewayAPI returns the gateway-api kube client.
 	GatewayAPI() gatewayapiclient.Interface
 
-	// KubeInformer returns an informer for core kube client
-	KubeInformer() informers.SharedInformerFactory
-
-	// DynamicInformer returns an informer for dynamic client
-	DynamicInformer() dynamicinformer.DynamicSharedInformerFactory
-
-	// MetadataInformer returns an informer for metadata client
-	MetadataInformer() metadatainformer.SharedInformerFactory
-
-	// IstioInformer returns an informer for the istio client
-	IstioInformer() istioinformer.SharedInformerFactory
-
-	// GatewayAPIInformer returns an informer for the gateway-api client
-	GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory
-
-	// ExtInformer returns an informer for the extension client
-	ExtInformer() kubeExtInformers.SharedInformerFactory
+	// Informers returns an informer factory
+	Informers() informerfactory.InformerFactory
 
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
@@ -161,10 +138,6 @@ type Client interface {
 
 	// ClusterID returns the cluster this client is connected to
 	ClusterID() cluster.ID
-
-	// RegisterFilter registers that we have taken out a shared informer watch against type t, with the given filter.
-	// This allows detecting conflicting filters, as the informers are shared.
-	RegisterFilter(t reflect.Type, filter kubetypes.Filter) error
 }
 
 // CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
@@ -242,36 +215,21 @@ var (
 	_ CLIClient = &client{}
 )
 
-const resyncInterval = 0
-
 // NewFakeClient creates a new, fake, client
 func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c := &client{
 		informerWatchesPending: atomic.NewInt32(0),
-		filters:                map[reflect.Type]kubetypes.Filter{},
 	}
 	c.kube = fake.NewSimpleClientset(objects...)
-	c.kubeInformer = informers.NewSharedInformerFactory(c.kube, resyncInterval)
+
+	c.informerFactory = informerfactory.NewSharedInformerFactory()
 	s := FakeIstioScheme
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
-	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
-	// Support some galley tests using basicmetadata
-	// If you are adding something to this list, consider other options like adding to the scheme.
-	gvrToListKind := map[schema.GroupVersionResource]string{
-		{Group: "testdata.istio.io", Version: "v1alpha1", Resource: "Kind1s"}: "Kind1List",
-	}
-	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(s, gvrToListKind)
-	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
-
+	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = istiofake.NewSimpleClientset()
-	c.istioInformer = istioinformer.NewSharedInformerFactoryWithOptions(c.istio, resyncInterval)
-
 	c.gatewayapi = gatewayapifake.NewSimpleClientset()
-	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
-
 	c.extSet = extfake.NewSimpleClientset()
-	c.extInformer = kubeExtInformers.NewSharedInformerFactory(c.extSet, resyncInterval)
 
 	// https://github.com/kubernetes/kubernetes/issues/95372
 	// There is a race condition in the client fakes, where events that happen between the List and Watch
@@ -297,6 +255,20 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 			return true, watch, nil
 		}
 	}
+	// https://github.com/kubernetes/client-go/issues/439
+	createReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		ret = action.(clienttesting.CreateAction).GetObject()
+		meta, ok := ret.(metav1.Object)
+		if !ok {
+			return
+		}
+
+		if meta.GetName() == "" && meta.GetGenerateName() != "" {
+			meta.SetName(names.SimpleNameGenerator.GenerateName(meta.GetGenerateName()))
+		}
+
+		return
+	}
 	for _, fc := range []fakeClient{
 		c.kube.(*fake.Clientset),
 		c.istio.(*istiofake.Clientset),
@@ -306,6 +278,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	} {
 		fc.PrependReactor("list", "*", listReactor)
 		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
+		fc.PrependReactor("create", "*", createReactor)
 	}
 
 	c.fastSync = true
@@ -333,23 +306,14 @@ type client struct {
 	config        *rest.Config
 	clusterID     cluster.ID
 
-	extSet      kubeExtClient.Interface
-	extInformer kubeExtInformers.SharedInformerFactory
+	informerFactory informerfactory.InformerFactory
 
-	kube         kubernetes.Interface
-	kubeInformer informers.SharedInformerFactory
-
-	dynamic         dynamic.Interface
-	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
-
-	metadata         metadata.Interface
-	metadataInformer metadatainformer.SharedInformerFactory
-
-	istio         istioclient.Interface
-	istioInformer istioinformer.SharedInformerFactory
-
-	gatewayapi         gatewayapiclient.Interface
-	gatewayapiInformer gatewayapiinformer.SharedInformerFactory
+	extSet     kubeExtClient.Interface
+	kube       kubernetes.Interface
+	dynamic    dynamic.Interface
+	metadata   metadata.Interface
+	istio      istioclient.Interface
+	gatewayapi gatewayapiclient.Interface
 
 	started atomic.Bool
 	// If enabled, will wait for cache syncs with extremely short delay. This should be used only for tests
@@ -366,9 +330,6 @@ type client struct {
 
 	portManager PortManager
 
-	filtersMu sync.Mutex
-	filters   map[reflect.Type]kubetypes.Filter
-
 	// http is a client for HTTP requests
 	http *http.Client
 }
@@ -377,7 +338,6 @@ type client struct {
 func newClientInternal(clientFactory *clientFactory, revision string) (*client, error) {
 	var c client
 	var err error
-	c.filters = map[reflect.Type]kubetypes.Filter{}
 
 	c.clientFactory = clientFactory
 
@@ -402,46 +362,37 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 		return nil, err
 	}
 
+	c.informerFactory = informerfactory.NewSharedInformerFactory()
+
 	c.kube, err = kubernetes.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.kubeInformer = informers.NewSharedInformerFactoryWithOptions(c.kube, resyncInterval, informers.WithNamespace(features.InformerWatchNamespace))
 
 	c.metadata, err = metadata.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.metadataInformer = metadatainformer.NewFilteredSharedInformerFactory(c.metadata, resyncInterval, features.InformerWatchNamespace, nil)
 
 	c.dynamic, err = dynamic.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.dynamicInformer = dynamicinformer.NewFilteredDynamicSharedInformerFactory(c.dynamic, resyncInterval, features.InformerWatchNamespace, nil)
 
 	c.istio, err = istioclient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.istioInformer = istioinformer.NewSharedInformerFactoryWithOptions(c.istio, resyncInterval, istioinformer.WithNamespace(features.InformerWatchNamespace))
 
 	c.gatewayapi, err = gatewayapiclient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactoryWithOptions(
-		c.gatewayapi,
-		resyncInterval,
-		gatewayapiinformer.WithNamespace(features.InformerWatchNamespace),
-	)
 
 	c.extSet, err = kubeExtClient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.extInformer = kubeExtInformers.NewSharedInformerFactoryWithOptions(c.extSet, resyncInterval, kubeExtInformers.WithNamespace(features.InformerWatchNamespace))
-
 	c.portManager = defaultAvailablePort
 
 	c.http = &http.Client{
@@ -513,45 +464,20 @@ func (c *client) GatewayAPI() gatewayapiclient.Interface {
 	return c.gatewayapi
 }
 
-func (c *client) KubeInformer() informers.SharedInformerFactory {
-	return c.kubeInformer
-}
-
-func (c *client) DynamicInformer() dynamicinformer.DynamicSharedInformerFactory {
-	return c.dynamicInformer
-}
-
-func (c *client) MetadataInformer() metadatainformer.SharedInformerFactory {
-	return c.metadataInformer
-}
-
-func (c *client) IstioInformer() istioinformer.SharedInformerFactory {
-	return c.istioInformer
-}
-
-func (c *client) GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory {
-	return c.gatewayapiInformer
-}
-
-func (c *client) ExtInformer() kubeExtInformers.SharedInformerFactory {
-	return c.extInformer
+func (c *client) Informers() informerfactory.InformerFactory {
+	return c.informerFactory
 }
 
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
-	c.startInformer(stop)
+	c.Run(stop)
 
 	if c.fastSync {
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
 		// Instead, we add an aggressive sync polling
-		fastWaitForCacheSync(stop, c.kubeInformer)
-		fastWaitForCacheSyncDynamic(stop, c.dynamicInformer)
-		fastWaitForCacheSyncDynamic(stop, c.metadataInformer)
-		fastWaitForCacheSync(stop, c.istioInformer)
-		fastWaitForCacheSync(stop, c.gatewayapiInformer)
-		fastWaitForCacheSync(stop, c.extInformer)
+		fastWaitForCacheSync(stop, c.informerFactory)
 		_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(ctx context.Context) (bool, error) {
 			select {
 			case <-stop:
@@ -564,74 +490,31 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 			return false, nil
 		})
 	} else {
-		c.kubeInformer.WaitForCacheSync(stop)
-		c.dynamicInformer.WaitForCacheSync(stop)
-		c.metadataInformer.WaitForCacheSync(stop)
-		c.istioInformer.WaitForCacheSync(stop)
-		c.gatewayapiInformer.WaitForCacheSync(stop)
-		c.extInformer.WaitForCacheSync(stop)
+		c.informerFactory.WaitForCacheSync(stop)
 	}
 }
 
 func (c *client) Shutdown() {
-	c.kubeInformer.Shutdown()
-	// TODO: use these once they are implemented
-	// c.dynamicInformer.Shutdown()
-	// c.metadataInformer.Shutdown()
-	c.istioInformer.Shutdown()
-	c.gatewayapiInformer.Shutdown()
-	c.extInformer.Shutdown()
+	c.informerFactory.Shutdown()
 }
 
-func (c *client) startInformer(stop <-chan struct{}) {
-	c.kubeInformer.Start(stop)
-	c.dynamicInformer.Start(stop)
-	c.metadataInformer.Start(stop)
-	c.istioInformer.Start(stop)
-	c.gatewayapiInformer.Start(stop)
-	c.extInformer.Start(stop)
+func (c *client) Run(stop <-chan struct{}) {
+	c.informerFactory.Start(stop)
 	c.started.Store(true)
+	log.Infof("cluster %q kube client started", c.clusterID)
 }
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 	return c.version.Get()
 }
 
-func (c *client) RegisterFilter(t reflect.Type, filter kubetypes.Filter) error {
-	if t == nil {
-		// Type may not be available when using untyped clients
-		return nil
-	}
-	c.filtersMu.Lock()
-	defer c.filtersMu.Unlock()
-	existing, f := c.filters[t]
-	if f {
-		if filter.FieldSelector != existing.FieldSelector ||
-			filter.LabelSelector != existing.LabelSelector ||
-			fmt.Sprintf("%p", filter.ObjectTransform) != fmt.Sprintf("%p", existing.ObjectTransform) {
-			return fmt.Errorf("for type %v, registered conflicting filter %+v (existing: %+v)", t, filter, existing)
-		}
-	} else {
-		c.filters[t] = filter
-	}
-	return nil
-}
-
 func (c *client) ClusterID() cluster.ID {
 	return c.clusterID
 }
 
-type reflectInformerSync interface {
-	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
-}
-
-type dynamicInformerSync interface {
-	WaitForCacheSync(stopCh <-chan struct{}) map[schema.GroupVersionResource]bool
-}
-
 // Wait for cache sync immediately, rather than with 100ms delay which slows tests
 // See https://github.com/kubernetes/kubernetes/issues/95262#issuecomment-703141573
-func fastWaitForCacheSync(stop <-chan struct{}, informerFactory reflectInformerSync) {
+func fastWaitForCacheSync(stop <-chan struct{}, informerFactory informerfactory.InformerFactory) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
 	_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
@@ -640,12 +523,7 @@ func fastWaitForCacheSync(stop <-chan struct{}, informerFactory reflectInformerS
 			return false, fmt.Errorf("channel closed")
 		default:
 		}
-		for _, synced := range informerFactory.WaitForCacheSync(returnImmediately) {
-			if !synced {
-				return false, nil
-			}
-		}
-		return true, nil
+		return informerFactory.WaitForCacheSync(returnImmediately), nil
 	})
 }
 
@@ -715,24 +593,6 @@ func (c *client) WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs 
 		return c.informerWatchesPending.Load() == 0
 	})
 	return WaitForCacheSync(name, stop, syncFns...)
-}
-
-func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {
-	returnImmediately := make(chan struct{})
-	close(returnImmediately)
-	_ = wait.PollUntilContextTimeout(context.Background(), time.Microsecond*100, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
-		select {
-		case <-stop:
-			return false, fmt.Errorf("channel closed")
-		default:
-		}
-		for _, synced := range informerFactory.WaitForCacheSync(returnImmediately) {
-			if !synced {
-				return false, nil
-			}
-		}
-		return true, nil
-	})
 }
 
 func (c *client) Revision() string {

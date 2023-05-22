@@ -36,3 +36,5 @@ WORKDIR /opt/microservices
 RUN python -m unittest discover
 
 CMD ["python", "productpage.py", "9080"]
+
+USER 1000

@@ -12,9 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package constant
+package kubetypes
 
-const (
-	// HeaderJWTClaim is the special header name used in virtual service for routing based on JWT claims.
-	HeaderJWTClaim = "@request.auth.claims."
+import (
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"istio.io/istio/pkg/config/schema/gvk"
 )
+
+func GetGVR[T runtime.Object]() schema.GroupVersionResource {
+	gk := GetGVK[T]()
+	gr, ok := gvk.ToGVR(gk)
+	if !ok {
+		panic(fmt.Sprintf("unknow GVR for GVK %v", gk))
+	}
+	return gr
+}

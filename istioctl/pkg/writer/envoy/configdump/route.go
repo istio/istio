@@ -26,7 +26,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"sigs.k8s.io/yaml"
 
-	protio "istio.io/istio/istioctl/pkg/util/proto"
+	"istio.io/istio/istioctl/pkg/util/proto"
 	pilot_util "istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/util/sets"
@@ -176,7 +176,7 @@ func (c *ConfigWriter) PrintRouteDump(filter RouteFilter, outputFormat string) e
 	if err != nil {
 		return err
 	}
-	filteredRoutes := make(protio.MessageSlice, 0, len(routes))
+	filteredRoutes := make(proto.MessageSlice, 0, len(routes))
 	for _, route := range routes {
 		if filter.Verify(route) {
 			filteredRoutes = append(filteredRoutes, route)

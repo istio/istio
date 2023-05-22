@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
-	"k8s.io/client-go/informers"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
 
@@ -49,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/watcher/crdwatcher"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
@@ -421,31 +421,8 @@ func handleCRDAdd(cl *Client, name string) {
 		cl.logger.Debugf("added resource that already exists: %v", resourceGVK)
 		return
 	}
-	var i informers.GenericInformer
-	var ifactory starter
-	var err error
-	switch s.Group() {
-	case gvk.KubernetesGateway.Group:
-		ifactory = cl.client.GatewayAPIInformer()
-		i, err = cl.client.GatewayAPIInformer().ForResource(gvr)
-	case gvk.Pod.Group, gvk.Deployment.Group, gvk.MutatingWebhookConfiguration.Group:
-		ifactory = cl.client.KubeInformer()
-		i, err = cl.client.KubeInformer().ForResource(gvr)
-	case gvk.CustomResourceDefinition.Group:
-		ifactory = cl.client.ExtInformer()
-		i, err = cl.client.ExtInformer().ForResource(gvr)
-	default:
-		ifactory = cl.client.IstioInformer()
-		i, err = cl.client.IstioInformer().ForResource(gvr)
-	}
-	if err != nil {
-		// Shouldn't happen
-		cl.logger.Errorf("failed to create informer for %v: %v", resourceGVK, err)
-		return
-	}
-	_ = i.Informer().SetTransform(kube.StripUnusedFields)
-
-	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)
+	inf := kclient.NewUntypedInformer(cl.client, gvr, kclient.Filter{ObjectFilter: cl.namespacesFilter})
+	cl.kinds[resourceGVK] = createCacheHandler(cl, s, inf)
 	if w, f := cl.crdWatches[resourceGVK]; f {
 		cl.logger.Infof("notifying watchers %v was created", resourceGVK)
 		w.once.Do(func() {
@@ -456,10 +433,6 @@ func handleCRDAdd(cl *Client, name string) {
 	// we will start all factories once we are ready to initialize.
 	// For dynamically added CRDs, we need to start immediately though
 	if cl.stop != nil {
-		ifactory.Start(cl.stop)
+		inf.Start(cl.stop)
 	}
-}
-
-type starter interface {
-	Start(stopCh <-chan struct{})
 }

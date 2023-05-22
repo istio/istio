@@ -59,7 +59,7 @@ These manifests can be found in [gen-istio.yaml](../charts/istio-control/istio-d
 To regenerate the manifests, run:
 
 ```bash
-$ make copy-templates gen-kustomize update-golden
+$ make copy-templates update-golden
 ```
 
 ## Step 5. Create a PR using outputs from Steps 1 to 4

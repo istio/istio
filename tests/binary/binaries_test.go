@@ -44,6 +44,9 @@ func TestVersion(t *testing.T) {
 		if nonGoBinaries.Contains(name) {
 			return
 		}
+		if nonVersionBinaries.Contains(name) {
+			return
+		}
 		cmd := path.Join(*releasedir, name)
 		args := []string{"version", "-ojson"}
 		if name == "istioctl" {
@@ -70,7 +73,10 @@ func TestVersion(t *testing.T) {
 	})
 }
 
-var nonGoBinaries = sets.New("ztunnel", "envoy")
+var (
+	nonGoBinaries      = sets.New("ztunnel", "envoy")
+	nonVersionBinaries = sets.New("client", "server")
+)
 
 // Test that flags do not get polluted with unexpected flags
 func TestFlags(t *testing.T) {
@@ -105,6 +111,8 @@ func TestBinarySizes(t *testing.T) {
 		// TODO(https://github.com/kubernetes/kubernetes/issues/101384) bump this down a bit?
 		"pilot-discovery": {60, 85},
 		"bug-report":      {60, 85},
+		"client":          {20, 30},
+		"server":          {20, 30},
 		"envoy":           {60, 110},
 		"ztunnel":         {15, 25},
 	}
