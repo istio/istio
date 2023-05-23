@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/pkg/url"
 )
 
-var depNote = "Note: Operator is deprecated, " +
+var depNote = "Note: Operator has been deprecated, " +
 	"and this command will be removed in the future. See " + url.DocsURL + "setup/install/operator/ for more details."
 
 // OperatorCmd is a group of commands related to installation and management of the operator controller.
