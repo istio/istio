@@ -30,7 +30,6 @@ import (
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -167,7 +166,6 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 			}
-			updates.Merge(c.updateEndpointsOnWaypointChange(wl))
 		}
 	} else {
 		for _, wl := range a.byPod {
@@ -183,7 +181,6 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 			}
-			updates.Merge(c.updateEndpointsOnWaypointChange(wl))
 		}
 	}
 	return updates
@@ -656,25 +653,6 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 		Workload: wl,
 		Labels:   p.Labels,
 	}
-}
-
-// updateEndpointsOnWaypointChange ensures that endpoints are synced for Envoy clients. Envoy clients
-// maintain information about waypoints for each destination in metadata. If the waypoint changes, we need
-// to sync this metadata again (add/remove waypoint IP).
-// This is only needed for waypoints, as a normal workload update will already trigger and EDS push.
-func (c *Controller) updateEndpointsOnWaypointChange(wl *model.WorkloadInfo) sets.Set[model.ConfigKey] {
-	updates := sets.New[model.ConfigKey]()
-	// For each VIP, trigger and EDS update
-	for vip := range wl.VirtualIps {
-		for _, svc := range c.ambientIndex.serviceVipIndex.Lookup(vip) {
-			updates.Insert(model.ConfigKey{
-				Kind:      kind.ServiceEntry,
-				Name:      string(kube.ServiceHostname(svc.Name, svc.Namespace, c.opts.DomainSuffix)),
-				Namespace: svc.Namespace,
-			})
-		}
-	}
-	return updates
 }
 
 func (c *Controller) setupIndex() *AmbientIndex {
