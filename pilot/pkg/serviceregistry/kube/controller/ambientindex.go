@@ -974,10 +974,6 @@ func (c *Controller) AdditionalPodSubscriptions(
 }
 
 func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
-	if len(pod.GenerateName) == 0 {
-		return pod.Name, workloadapi.WorkloadType_POD
-	}
-
 	objMeta, typeMeta := kubeutil.GetDeployMetaFromPod(pod)
 	switch typeMeta.Kind {
 	case "Deployment":
