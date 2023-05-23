@@ -59,71 +59,73 @@ type AmbientIndex struct {
 	// serviceByHostname are indexed by the namespace/hostname
 	serviceByHostname map[string]*model.ServiceInfo
 
-	// Map of ServiceAccount -> IP
-	// TODO: currently, this is derived from pods. To be agnostic to the implementation,
-	// we should actually be looking at Gateway.status.addresses.
-	// This may be an external address (possibly even a DNS name we need to resolve), an arbitrary IP,
-	// or a reference to a service.
-	// If its a reference to a Service then we can find the underlying pods in that service, as an optimization.
+	// Map of Scope -> address
 	waypoints map[model.WaypointScope]*workloadapi.GatewayAddress
 
 	// serviceVipIndex maintains an index of VIP -> Service
 	serviceVipIndex *kclient.Index[string, *v1.Service]
 }
 
-// Lookup finds a given IP address.
+func workloadToAddressInfo(w *workloadapi.Workload) *model.AddressInfo {
+	return &model.AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Workload{
+				Workload: w,
+			},
+		},
+	}
+}
+
+func serviceToAddressInfo(s *workloadapi.Service) *model.AddressInfo {
+	return &model.AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Service{
+				Service: s,
+			},
+		},
+	}
+}
+
+// Lookup finds the list of AddressInfos for a given key.
+// network/IP -> return associated pod Workload or the Service and its corresponding Workloads
+// namespace/hostname -> return the Service and its corresponding Workloads
 func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	network, ip, found := strings.Cut(key, "/")
 	if !found {
-		log.Warnf("key(%v) did not contain the expected \"/\" character", key)
-		return []*model.AddressInfo{}
+		log.Warnf(`key (%v) did not contain the expected "/" character`, key)
+		return nil
 	}
-
+	res := []*model.AddressInfo{}
 	if _, err := netip.ParseAddr(ip); err != nil {
 		// this must be namespace/hostname format
+		// lookup Service and any Workloads for that Service for each of the network addresses
 		if svc, f := a.serviceByHostname[key]; f {
-			addr := &workloadapi.Address{
-				Type: &workloadapi.Address_Service{
-					Service: svc.Service,
-				},
+			res = append(res, serviceToAddressInfo(svc.Service))
+			for _, addr := range svc.Addresses {
+				ii, _ := netip.AddrFromSlice(addr.Address)
+				networkAddr := networkAddress{network: addr.Network, ip: ii.String()}
+				for _, wl := range a.byService[networkAddr] {
+					res = append(res, workloadToAddressInfo(wl.Workload))
+				}
 			}
-			return []*model.AddressInfo{{Address: addr}}
 		}
 	}
 
 	networkAddr := networkAddress{network: network, ip: ip}
 	// First look at pod...
 	if p, f := a.byPod[networkAddr]; f {
-		addr := &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{
-				Workload: p.Workload,
-			},
-		}
-		return []*model.AddressInfo{{Address: addr}}
+		return []*model.AddressInfo{workloadToAddressInfo(p.Workload)}
 	}
 
 	// Fallback to service. Note: these IP ranges should be non-overlapping
 	// When a Service lookup is performed, but it and its workloads are returned
-	// TODO any service to exclude in the future? for example with affinity,
-	// per-node, etc - where simply load balancing will break?
-	res := []*model.AddressInfo{}
 	for _, wl := range a.byService[networkAddr] {
-		addr := &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{
-				Workload: wl.Workload,
-			},
-		}
-		res = append(res, &model.AddressInfo{Address: addr})
+		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
 	if s, exists := a.serviceByAddr[networkAddr]; exists {
-		addr := &workloadapi.Address{
-			Type: &workloadapi.Address_Service{
-				Service: s.Service,
-			},
-		}
-		res = append(res, &model.AddressInfo{Address: addr})
+		res = append(res, serviceToAddressInfo(s.Service))
 	}
 
 	return res
@@ -194,20 +196,10 @@ func (a *AmbientIndex) All() []*model.AddressInfo {
 	res := make([]*model.AddressInfo, 0, len(a.byPod)+len(a.serviceByAddr))
 	// byPod will not have any duplicates, so we can just iterate over that.
 	for _, wl := range a.byPod {
-		addr := &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{
-				Workload: wl.Workload,
-			},
-		}
-		res = append(res, &model.AddressInfo{Address: addr})
+		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
 	for _, s := range a.serviceByAddr {
-		addr := &workloadapi.Address{
-			Type: &workloadapi.Address_Service{
-				Service: s.Service,
-			},
-		}
-		res = append(res, &model.AddressInfo{Address: addr})
+		res = append(res, serviceToAddressInfo(s.Service))
 	}
 	return res
 }
@@ -257,7 +249,7 @@ func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 		}
 	}
 
-	return []netip.Addr{}
+	return nil
 }
 
 func (a *AmbientIndex) matchesScope(scope model.WaypointScope, w *model.WorkloadInfo) bool {
@@ -645,7 +637,6 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	var waypoint *workloadapi.GatewayAddress
 	if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		// Waypoints do not have waypoints
-		waypoint = nil
 	} else {
 		// First check for a waypoint for our SA explicit
 		// TODO: this is not robust against temporary waypoint downtime. We also need the users intent (Gateway).
@@ -796,12 +787,12 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	if !isDelete {
 		wl = c.extractWorkload(p)
 	}
-	oldNetwork := c.Network(p.Status.PodIP, p.Labels).String()
-	oldNetworkAddr := networkAddress{network: oldNetwork, ip: p.Status.PodIP}
-	oldWl := a.byPod[oldNetworkAddr]
+	wlNetwork := c.Network(p.Status.PodIP, p.Labels).String()
+	networkAddr := networkAddress{network: wlNetwork, ip: p.Status.PodIP}
+	oldWl := a.byPod[networkAddr]
 	if wl == nil {
 		// This is an explicit delete event, or there is no longer a Workload to create (pod NotReady, etc)
-		delete(a.byPod, oldNetworkAddr)
+		delete(a.byPod, networkAddr)
 		if oldWl != nil {
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
 			for vip := range oldWl.VirtualIps {
@@ -866,7 +857,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 
 		// TODO get IP+Port from the Gateway CRD
 		// https://github.com/istio/istio/issues/44230
-		if svc.Spec.ClusterIP == "None" {
+		if svc.Spec.ClusterIP == v1.ClusterIPNone {
 			// TODO handle headless Service
 			log.Warn("headless service currently not supported as a waypoint")
 			return updates
@@ -1078,7 +1069,7 @@ func (n *networkAddress) String() string {
 
 func getVIPs(svc *v1.Service) []string {
 	res := []string{}
-	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != "None" {
+	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
 		res = append(res, svc.Spec.ClusterIP)
 	}
 	for _, ing := range svc.Status.LoadBalancer.Ingress {

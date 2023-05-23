@@ -240,15 +240,15 @@ func TestAmbientIndex(t *testing.T) {
 	assert.Equal(t, len(controller.ambientIndex.byService), 0)
 
 	// Add a waypoint proxy pod for namespace
-	addPods("127.0.0.200", "waypoint-ns", "namespace-wide", map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel, constants.GatewayNameLabel: "namespace-wide"}, nil)
-	assertAddresses("", "name1", "name2", "name3", "waypoint-ns")
+	addPods("127.0.0.200", "waypoint-ns-pod", "namespace-wide", map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel, constants.GatewayNameLabel: "namespace-wide"}, nil)
+	assertAddresses("", "name1", "name2", "name3", "waypoint-ns-pod")
 	assertEvent("testnetwork/127.0.0.200")
 	// create the waypoint service
 	addService("waypoint-ns", "ns1",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
-	assertAddresses("", "name1", "name2", "name3", "waypoint-ns")
+	assertAddresses("", "name1", "name2", "name3", "waypoint-ns", "waypoint-ns-pod")
 	// All these workloads updated, so push them
 	assertEvent("ns1/waypoint-ns.ns1.svc.cluster.local", "testnetwork/10.0.0.2", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.200", "testnetwork/127.0.0.3")
 	// We should now see the waypoint service IP
@@ -261,20 +261,27 @@ func TestAmbientIndex(t *testing.T) {
 	for _, k := range controller.ambientIndex.Lookup("testnetwork/10.0.0.2") {
 		switch k.Type.(type) {
 		case *workloadapi.Address_Workload:
-			assert.Equal(t, k.Address.GetWorkload().Name, "waypoint-ns")
+			assert.Equal(t, k.Address.GetWorkload().Name, "waypoint-ns-pod")
 			assert.Equal(t, k.Address.GetWorkload().Waypoint, nil)
 		case *workloadapi.Address_Service:
 			assert.Equal(t, k.Address.GetService().Name, "waypoint-ns")
 		}
 	}
-	// Lookup for service via namespace/hostname returns only Service AddressInfo
+	// Lookup for service via namespace/hostname returns Service and Workload AddressInfo
 	assert.Equal(t,
-		len(controller.ambientIndex.Lookup("ns1/waypoint-ns.ns1.svc.cluster.local")), 1)
-	assert.Equal(t, controller.ambientIndex.Lookup("ns1/waypoint-ns.ns1.svc.cluster.local")[0].GetService().Hostname,
-		"waypoint-ns.ns1.svc.cluster.local")
+		len(controller.ambientIndex.Lookup("ns1/waypoint-ns.ns1.svc.cluster.local")), 2)
+	for _, k := range controller.ambientIndex.Lookup("ns1/waypoint-ns.ns1.svc.cluster.local") {
+		switch k.Type.(type) {
+		case *workloadapi.Address_Workload:
+			assert.Equal(t, k.Address.GetWorkload().Name, "waypoint-ns-pod")
+			assert.Equal(t, k.Address.GetWorkload().Waypoint, nil)
+		case *workloadapi.Address_Service:
+			assert.Equal(t, k.Address.GetService().Hostname, "waypoint-ns.ns1.svc.cluster.local")
+		}
+	}
 
 	// Add another waypoint pod, expect no updates for other pods since waypoint address refers to service IP
-	addPods("127.0.0.201", "waypoint2-ns", "namespace-wide", map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel, constants.GatewayNameLabel: "namespace-wide"}, nil)
+	addPods("127.0.0.201", "waypoint2-ns-pod", "namespace-wide", map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel, constants.GatewayNameLabel: "namespace-wide"}, nil)
 	assertEvent("testnetwork/127.0.0.201")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.3")[0].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.2").AsSlice())
@@ -298,7 +305,7 @@ func TestAmbientIndex(t *testing.T) {
 		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[0].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.2").AsSlice())
 
 	// Delete a waypoint
-	deletePod("waypoint2-ns")
+	deletePod("waypoint2-ns-pod")
 	assertEvent("testnetwork/127.0.0.201")
 	// Workload should not be updated since service has not changed
 	assert.Equal(t,

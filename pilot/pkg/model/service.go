@@ -855,9 +855,9 @@ func (i AddressInfo) ResourceName() string {
 	var name string
 	switch addr := i.Type.(type) {
 	case *workloadapi.Address_Workload:
-		name = GetResourceName(addr.Workload)
+		name = workloadResourceName(addr.Workload)
 	case *workloadapi.Address_Service:
-		name = GetResourceName(addr.Service)
+		name = serviceResourceName(addr.Service)
 	}
 	return name
 }
@@ -867,27 +867,24 @@ type ServiceInfo struct {
 }
 
 func (i ServiceInfo) ResourceName() string {
-	return GetResourceName(i.Service)
+	return serviceResourceName(i.Service)
 }
 
-func GetResourceName(resource interface{}) string {
-	var name string
-	switch addr := resource.(type) {
-	case *workloadapi.Workload:
-		// TODO per design doc, primary xds key is UID and secondary keys are network/vip
-		// primary key is not implemented yet
-		ii, _ := netip.AddrFromSlice(addr.Address)
-		name = addr.Network + "/" + ii.String()
-	case *workloadapi.Service:
-		name = addr.Namespace + "/" + addr.Hostname
-	}
-	return name
+func serviceResourceName(s *workloadapi.Service) string {
+	return s.Namespace + "/" + s.Hostname
 }
 
 type WorkloadInfo struct {
 	*workloadapi.Workload
 	// Labels for the workload. Note these are only used internally, not sent over XDS
 	Labels map[string]string
+}
+
+func workloadResourceName(w *workloadapi.Workload) string {
+	// TODO per design doc, primary xds key is UID and secondary keys are network/address
+	// but address is repeated. primary key is not implemented yet
+	ii, _ := netip.AddrFromSlice(w.Address)
+	return w.Network + "/" + ii.String()
 }
 
 func (i *WorkloadInfo) Clone() *WorkloadInfo {
@@ -898,7 +895,7 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 }
 
 func (i WorkloadInfo) ResourceName() string {
-	return GetResourceName(i.Workload)
+	return workloadResourceName(i.Workload)
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
