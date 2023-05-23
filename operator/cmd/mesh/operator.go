@@ -22,8 +22,8 @@ import (
 	"istio.io/istio/pkg/url"
 )
 
-var depNote = "Note: Operator has been deprecated, " +
-	"and this command will be removed in the future. See " + url.DocsURL + "setup/install/operator/ for more details."
+var depNote = "Note: This command has been deprecated, and will be removed in the future. " +
+	"See " + url.DocsURL + "setup/install/operator/ for more details on why the use of the Operator is not recommended."
 
 // OperatorCmd is a group of commands related to installation and management of the operator controller.
 func OperatorCmd() *cobra.Command {
