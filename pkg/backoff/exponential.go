@@ -72,6 +72,10 @@ func NewExponentialBackOff(o Option) BackOff {
 
 func (b ExponentialBackOff) NextBackOff() time.Duration {
 	duration := b.exponentialBackOff.NextBackOff()
+	// always return maxInterval after it reaches MaxElapsedTime
+	if duration == b.exponentialBackOff.Stop {
+		return b.exponentialBackOff.MaxInterval
+	}
 	return duration
 }
 
