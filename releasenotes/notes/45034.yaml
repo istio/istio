@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: 
+  - 45034
+releaseNotes:
+  - |
+    **Fixed** issue with Istio overwriting existing annotations in webhook.
