@@ -149,7 +149,7 @@ func (ic *injectConfig) UpdateInjectionConfig(t resource.Context, update func(*i
 			if err := ic.updateConfigMap(c, cfgMap); err != nil {
 				return err
 			}
-			scopes.Framework.Infof("patched %s injection configmap:\n%s", c.Name(), cfgMap.Data["config"])
+			scopes.Framework.Debugf("patched %s injection configmap:\n%s", c.Name(), cfgMap.Data["config"])
 			return nil
 		})
 	}
@@ -177,7 +177,7 @@ func (ic *injectConfig) UpdateInjectionConfig(t resource.Context, update func(*i
 				if err := ic.updateConfigMap(c, cfgMap); err != nil {
 					return err
 				}
-				scopes.Framework.Infof("cleanup patched %s meshconfig:\n%s", c.Name(), cfgMap.Data["config"])
+				scopes.Framework.Debugf("cleanup patched %s injection configmap:\n%s", c.Name(), cfgMap.Data["config"])
 				return nil
 			})
 		}

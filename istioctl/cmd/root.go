@@ -225,11 +225,8 @@ debug and diagnose their Istio mesh.
 
 	experimentalCmd.AddCommand(AuthZ())
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
-	experimentalCmd.AddCommand(uninjectCommand())
 	experimentalCmd.AddCommand(metricsCmd())
 	experimentalCmd.AddCommand(describe())
-	experimentalCmd.AddCommand(addToMeshCmd())
-	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(waitCmd())
 	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(loggingOptions)))
 	experimentalCmd.AddCommand(configCmd())

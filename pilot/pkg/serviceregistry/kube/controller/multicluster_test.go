@@ -83,6 +83,7 @@ func initController(client kube.CLIClient, ns string, stop <-chan struct{}, mc *
 	sc.AddHandler(mc)
 	client.RunAndWait(stop)
 	_ = sc.Run(stop)
+	client.RunAndWait(stop)
 	kube.WaitForCacheSync("test", stop, sc.HasSynced)
 }
 

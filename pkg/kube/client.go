@@ -226,12 +226,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	s := FakeIstioScheme
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
-	// Support some galley tests using basicmetadata
-	// If you are adding something to this list, consider other options like adding to the scheme.
-	gvrToListKind := map[schema.GroupVersionResource]string{
-		{Group: "testdata.istio.io", Version: "v1alpha1", Resource: "Kind1s"}: "Kind1List",
-	}
-	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(s, gvrToListKind)
+	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = istiofake.NewSimpleClientset()
 	c.gatewayapi = gatewayapifake.NewSimpleClientset()
 	c.extSet = extfake.NewSimpleClientset()
@@ -506,6 +501,7 @@ func (c *client) Shutdown() {
 func (c *client) Run(stop <-chan struct{}) {
 	c.informerFactory.Start(stop)
 	c.started.Store(true)
+	log.Infof("cluster %q kube client started", c.clusterID)
 }
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
