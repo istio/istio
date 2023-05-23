@@ -15,15 +15,22 @@
 package mesh
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
+
+	"istio.io/istio/pkg/url"
 )
+
+var depNote = "Note: Operator is deprecated, " +
+	"and this command will be removed in the future. See " + url.DocsURL + "setup/install/operator/ for more details."
 
 // OperatorCmd is a group of commands related to installation and management of the operator controller.
 func OperatorCmd() *cobra.Command {
 	oc := &cobra.Command{
 		Use:   "operator",
-		Short: "Commands related to Istio operator controller.",
-		Long:  "The operator command installs, dumps, removes and shows the status of the operator controller.",
+		Short: "Commands related to Istio operator controller." + fmt.Sprintf(" (%s)", depNote),
+		Long:  "The operator command installs, dumps, removes and shows the status of the operator controller.\n\n" + depNote,
 	}
 
 	odArgs := &operatorDumpArgs{}
