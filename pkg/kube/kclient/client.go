@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"sync"
 
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -131,9 +130,9 @@ func (n *informerClient[T]) HasSynced() bool {
 		return false
 	}
 	n.handlerMu.RLock()
-	handlers := slices.Clone(n.registeredHandlers)
-	n.handlerMu.RUnlock()
-	for _, g := range handlers {
+	defer n.handlerMu.RUnlock()
+	// HasSynced is fast, so doing it under the lock is okay
+	for _, g := range n.registeredHandlers {
 		if !g.HasSynced() {
 			return false
 		}
