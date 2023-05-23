@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,9 +47,9 @@ var (
 )
 
 const (
-	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
+	// firstRetryBackOffDuration is the initial backoff time interval when hitting
 	// non-retryable error in CSR request or while there is an error in reading file mounts.
-	firstRetryBackOffInMilliSec = 50
+	firstRetryBackOffDuration = 50 * time.Millisecond
 )
 
 // SecretManagerClient a SecretManager that signs CSRs using a provided security.Client. The primary
@@ -416,20 +415,14 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 	o := backoff.DefaultOption()
 	o.InitialInterval = sc.configOptions.FileDebounceDuration
 	b := backoff.NewExponentialBackOff(o)
-	var permanentErr error
 	secretValid := func() error {
 		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
-		if errors.Is(err, os.ErrNotExist) {
-			permanentErr = err
-			return nil
-		}
 		return err
 	}
-	if err := b.RetryWithContext(context.TODO(), secretValid); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), totalTimeout)
+	defer cancel()
+	if err := b.RetryWithContext(ctx, secretValid); err != nil {
 		return nil, err
-	}
-	if permanentErr != nil {
-		return nil, permanentErr
 	}
 	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
 }
@@ -463,7 +456,7 @@ func (sc *SecretManagerClient) keyCertSecretItem(cert, key, resource string) (*s
 // readFileWithTimeout reads the given file with timeout. It returns error
 // if it is not able to read file after timeout.
 func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) {
-	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
+	retryBackoff := firstRetryBackOffDuration
 	timeout := time.After(totalTimeout)
 	for {
 		cert, err := os.ReadFile(path)
@@ -471,8 +464,8 @@ func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) 
 			return cert, nil
 		}
 		select {
-		case <-time.After(time.Duration(retryBackoffInMS)):
-			retryBackoffInMS *= 2
+		case <-time.After(retryBackoff):
+			retryBackoff *= 2
 		case <-timeout:
 			return nil, err
 		case <-sc.stop:
