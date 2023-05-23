@@ -253,9 +253,9 @@ func MetadataDiscovery(value bool) Instance {
 	return newOption("metadata_discovery", value)
 }
 
-func LoadStatsConfigJSONStr(rawMeta map[string]any) Instance {
+func LoadStatsConfigJSONStr(node *model.Node) Instance {
 	// JSON string for configuring Load Reporting Service.
-	if json, ok := rawMeta["LOAD_STATS_CONFIG_JSON"].(string); ok {
+	if json, ok := node.RawMetadata["LOAD_STATS_CONFIG_JSON"].(string); ok {
 		return newOption("load_stats_config_json_str", json)
 	}
 	return skipOption("load_stats_config_json_str")
