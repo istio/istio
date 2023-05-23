@@ -50,6 +50,7 @@ type Config struct {
 	Cluster               string
 	Dialer                common.Dialer
 	IstioVersion          string
+	Namespace             string
 	DisableALPN           bool
 }
 
@@ -65,6 +66,7 @@ func (c Config) String() string {
 	b.WriteString(fmt.Sprintf("UDSServer:             %v\n", c.UDSServer))
 	b.WriteString(fmt.Sprintf("Cluster:               %v\n", c.Cluster))
 	b.WriteString(fmt.Sprintf("IstioVersion:          %v\n", c.IstioVersion))
+	b.WriteString(fmt.Sprintf("Namespace:             %v\n", c.Namespace))
 
 	return b.String()
 }

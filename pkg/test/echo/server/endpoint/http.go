@@ -321,8 +321,9 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	echo.HostField.Write(body, r.Host)
 	// Use raw path, we don't want golang normalizing anything since we use this for testing purposes
 	echo.URLField.Write(body, r.RequestURI)
-	echo.ClusterField.Write(body, h.Cluster)
-	echo.IstioVersionField.Write(body, h.IstioVersion)
+	echo.ClusterField.WriteNonEmpty(body, h.Cluster)
+	echo.IstioVersionField.WriteNonEmpty(body, h.IstioVersion)
+	echo.NamespaceField.WriteNonEmpty(body, h.Namespace)
 
 	echo.MethodField.Write(body, r.Method)
 	echo.ProtocolField.Write(body, r.Proto)
@@ -335,7 +336,7 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	if r.TLS != nil {
 		alpn = r.TLS.NegotiatedProtocol
 	}
-	echo.AlpnField.Write(body, alpn)
+	echo.AlpnField.WriteNonEmpty(body, alpn)
 
 	var keys []string
 	for k := range r.Header {
