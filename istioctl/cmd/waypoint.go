@@ -125,7 +125,7 @@ func waypointCmd() *cobra.Command {
 			})
 			if err != nil {
 				if errors.IsNotFound(err) {
-					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint")
+					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint: %s", err)
 				}
 				return err
 			}
