@@ -27,13 +27,13 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
 	"istio.io/istio/security/pkg/nodeagent/cafile"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 func TestWorkloadAgentGenerateSecret(t *testing.T) {

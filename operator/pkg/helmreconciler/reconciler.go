@@ -47,7 +47,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/version"
 )
 
 // HelmReconciler reconciles resources rendered by a set of helm charts.

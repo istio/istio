@@ -34,11 +34,11 @@ import (
 	kt "k8s.io/client-go/testing"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	csrctrl "istio.io/istio/pkg/test/csrctrl/controllers"
 	"istio.io/istio/pkg/test/util/assert"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 const (

@@ -19,7 +19,7 @@ import (
 	"net/url"
 	"strings"
 
-	"istio.io/pkg/env"
+	"istio.io/istio/pkg/env"
 )
 
 var (

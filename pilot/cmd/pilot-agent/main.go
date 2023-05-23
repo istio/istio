@@ -18,7 +18,7 @@ import (
 	"os"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/app"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // TODO: get the config and bootstrap from istiod, by passing the env

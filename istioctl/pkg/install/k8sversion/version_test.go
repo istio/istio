@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
-	pkgVersion "istio.io/pkg/version"
+	pkgVersion "istio.io/istio/pkg/version"
 )
 
 var (

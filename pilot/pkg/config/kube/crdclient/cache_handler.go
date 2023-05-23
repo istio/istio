@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // cacheHandler abstracts the logic of an informer with a set of handlers. Handlers can be added at runtime

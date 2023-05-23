@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/config/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Controller manages repeatedly running analyzers in istiod, and reporting results

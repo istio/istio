@@ -18,7 +18,7 @@ import (
 	"time"
 
 	pkgversion "istio.io/istio/operator/pkg/version"
-	buildversion "istio.io/pkg/version"
+	buildversion "istio.io/istio/pkg/version"
 )
 
 const (

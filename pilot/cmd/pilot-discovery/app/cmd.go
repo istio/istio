@@ -26,11 +26,11 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 var (

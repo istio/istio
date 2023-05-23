@@ -32,11 +32,11 @@ import (
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/monitoring"
 )
 
 func TestMatchesFilter(t *testing.T) {

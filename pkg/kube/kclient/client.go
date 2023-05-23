@@ -30,8 +30,8 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/pkg/log"
 )
 
 type fullClient[T controllers.Object] struct {

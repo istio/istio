@@ -50,8 +50,8 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/watcher/crdwatcher"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("kube", "Kubernetes client messages")

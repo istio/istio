@@ -53,9 +53,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/apimirror"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

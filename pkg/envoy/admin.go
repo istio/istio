@@ -24,8 +24,8 @@ import (
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
 )
 
 // Shutdown initiates a graceful shutdown of Envoy.

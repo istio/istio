@@ -34,8 +34,10 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/version"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/common"
@@ -45,8 +47,6 @@ import (
 	"istio.io/istio/tools/bug-report/pkg/kubeclient"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
 	"istio.io/istio/tools/bug-report/pkg/processlog"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (

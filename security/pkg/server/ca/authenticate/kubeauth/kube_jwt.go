@@ -26,11 +26,11 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (

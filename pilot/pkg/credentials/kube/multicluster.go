@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube/multicluster"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.

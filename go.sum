@@ -1400,9 +1400,9 @@ gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776/go.mod h1:K4uyk7z7BCEPqu6E+C
 gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-gotest.tools v2.2.0+incompatible h1:VsBPFP1AI068pPrMxtb/S8Zkgf9xEmTLJjfM+P5UIEo=
 gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81HFBacw=
 gotest.tools/v3 v3.4.0 h1:ZazjZUfuVeZGLAmlKKuyv3IKP5orXcwtOwDQH6YVr6o=
+gotest.tools/v3 v3.4.0/go.mod h1:CtbdzLSsqVhDgMtKsx03ird5YTGB3ar27v0u/yKBW5g=
 helm.sh/helm/v3 v3.12.0 h1:rOq2TPVzg5jt4q5ermAZGZFxNW2uQhKjRhBneAutMEM=
 helm.sh/helm/v3 v3.12.0/go.mod h1:8K/469yxjUMu6BaD2EagCitkPjELUL/l2AgCO142G94=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
@@ -1416,8 +1416,6 @@ istio.io/api v0.0.0-20230518150027-e073a8237a55 h1:hSFRo6K2TwbMEX1sCFhKNU4WrZuyF
 istio.io/api v0.0.0-20230518150027-e073a8237a55/go.mod h1:dDMe1TsOtrRoUlBzdxqNolWXpXPQjLfbcXvqPMtQ6eo=
 istio.io/client-go v1.18.0-alpha.0.0.20230518151028-33fdba04fa87 h1:0eUNPPzl9sdVLQVK8Bg5cIkXPl1dhoPOjduiGPC/r9g=
 istio.io/client-go v1.18.0-alpha.0.0.20230518151028-33fdba04fa87/go.mod h1:tABhyDDKh6k9KHKKkosdEjda1kgA7baHGDZjCp9gRco=
-istio.io/pkg v0.0.0-20230522185617-f67c6e9a86a3 h1:urJqPF5rt/Dl0QmDgEhTeG0NlBLYhOgXZd/aRkSACOY=
-istio.io/pkg v0.0.0-20230522185617-f67c6e9a86a3/go.mod h1:FG1U+zhMPAPsxXODdBFwdGiQO96ZEqgVGJWe3wd7aOg=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.3/go.mod h1:UOaMwERbqJMfeeeHc8XJKawj4P9TgDRnViIqqBeH2QA=
 k8s.io/api v0.18.4/go.mod h1:lOIQAKYgai1+vz9J7YcDZwC26Z0zQewYOGWdyIPUUQ4=

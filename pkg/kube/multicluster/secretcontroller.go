@@ -37,9 +37,9 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	filter "istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (

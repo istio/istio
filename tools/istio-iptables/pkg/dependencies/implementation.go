@@ -22,9 +22,9 @@ import (
 	"os/exec"
 	"strings"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/log"
 )
 
 // XTablesExittype is the exit type of xtables commands.

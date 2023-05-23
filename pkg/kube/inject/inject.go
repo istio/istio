@@ -44,7 +44,7 @@ import (
 	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // InjectionPolicy determines the policy for injecting the

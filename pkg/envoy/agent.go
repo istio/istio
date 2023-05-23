@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/http"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 var errAbort = errors.New("proxy aborted")

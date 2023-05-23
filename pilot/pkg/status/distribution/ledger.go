@@ -18,7 +18,7 @@ import (
 	"strconv"
 
 	"istio.io/istio/pkg/config"
-	"istio.io/pkg/ledger"
+	"istio.io/istio/pkg/ledger"
 )
 
 func tryLedgerPut(configLedger ledger.Ledger, obj config.Config) {

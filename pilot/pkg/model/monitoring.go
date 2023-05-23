@@ -14,7 +14,7 @@
 
 package model
 
-import "istio.io/pkg/monitoring"
+import "istio.io/istio/pkg/monitoring"
 
 func init() {
 	monitoring.MustRegister(

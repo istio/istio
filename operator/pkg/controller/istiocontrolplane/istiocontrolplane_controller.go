@@ -57,10 +57,10 @@ import (
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/version"
 )
 
 const (
