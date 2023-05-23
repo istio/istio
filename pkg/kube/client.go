@@ -533,8 +533,12 @@ func (c *client) Run(stop <-chan struct{}) {
 	if c.crdWatcher != nil {
 		c.crdWatcher.Run(stop)
 	}
-	c.started.Store(true)
-	log.Infof("cluster %q kube client started", c.clusterID)
+	alreadyStarted := c.started.Swap(true)
+	if alreadyStarted {
+		log.Debugf("cluster %q kube client started again", c.clusterID)
+	} else {
+		log.Infof("cluster %q kube client started", c.clusterID)
+	}
 }
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {

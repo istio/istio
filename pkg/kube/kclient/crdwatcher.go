@@ -69,6 +69,8 @@ func (c *crdWatcher) HasSynced() bool {
 
 // Run starts the controller. This must be called.
 func (c *crdWatcher) Run(stop <-chan struct{}) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	select {
 	case <-c.running:
 		// already started, ignore

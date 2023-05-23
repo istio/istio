@@ -24,8 +24,8 @@ import (
 
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/pkg/log"
 )
 
 // delayedClient is a client wrapper that initially starts with an "empty client",

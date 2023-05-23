@@ -213,7 +213,7 @@ func NewDelayedInformer(c kube.Client, gvr schema.GroupVersionResource, informer
 		opts.InformerType = informerType
 		return kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
 	}
-	return newDelayedInformer[controllers.Object](inf, delay, filter)
+	return newDelayedInformer[controllers.Object](gvr, inf, delay, filter)
 }
 
 // NewUntypedInformer returns an untyped client for a given GVR. This is read-only.
@@ -244,6 +244,7 @@ func NewWriteClient[T controllers.ComparableObject](c kube.Client) Writer[T] {
 }
 
 func newDelayedInformer[T controllers.ComparableObject](
+	gvr schema.GroupVersionResource,
 	getInf func() informerfactory.StartableInformer,
 	delay kubetypes.DelayedFilter,
 	filter Filter,
@@ -265,13 +266,15 @@ func newDelayedInformer[T controllers.ComparableObject](
 			filter:        filter.ObjectFilter,
 		}
 		inf.Start(stop)
+		log.Infof("%v is now ready, building client", gvr.GroupResource())
 		// Swap out the dummy client with the full one
 		delayedClient.set(fc)
 	})
 	if !readyNow {
-		log.Infof("%T is not ready now, building delayed client", ptr.Empty[T]())
+		log.Debugf("%v is not ready now, building delayed client", gvr.GroupResource())
 		return delayedClient
 	}
+	log.Debugf("%v ready now, building client", gvr.GroupResource())
 	return newInformerClient[T](getInf(), filter)
 }
 
