@@ -469,7 +469,7 @@ func allConfigCmd() *cobra.Command {
 					}
 					ztunnelPod, err := isZtunnelPod(podName, podNamespace)
 					if err != nil {
-						return fmt.Errorf("failed to create k8s client: %v", err)
+						return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
 					}
 					if ztunnelPod {
 						dump, err = extractZtunnelConfigDump(podName, podNamespace)
@@ -502,7 +502,7 @@ func allConfigCmd() *cobra.Command {
 
 					ztunnelPod, err := isZtunnelPod(podName, podNamespace)
 					if err != nil {
-						return fmt.Errorf("failed to create k8s client: %v", err)
+						return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
 					}
 					if ztunnelPod {
 						w, err := setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
@@ -624,7 +624,7 @@ func workloadConfigCmd() *cobra.Command {
 				}
 				ztunnelPod, kubeClientErr := isZtunnelPod(podName, podNamespace)
 				if kubeClientErr != nil {
-					return fmt.Errorf("failed to create k8s client: %v", kubeClientErr)
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", kubeClientErr)
 				}
 				if !ztunnelPod {
 					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
@@ -870,7 +870,7 @@ func logCmd() *cobra.Command {
 				}
 				ztunnelPod, err := isZtunnelPod(pod, podNamespace)
 				if err != nil {
-					return fmt.Errorf("failed to create k8s client: %v", err)
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
 				}
 				if ztunnelPod {
 					loggerNames[name] = Ztunnel
@@ -930,7 +930,7 @@ func logCmd() *cobra.Command {
 			for _, podName := range podNames {
 				ztunnelPod, err := isZtunnelPod(podName, podNamespace)
 				if err != nil {
-					return fmt.Errorf("failed to create k8s client: %v", err)
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
 				}
 				if ztunnelPod {
 					q := "level=" + ztunnelLogLevel(loggerLevelString)
@@ -1312,7 +1312,7 @@ func secretConfigCmd() *cobra.Command {
 				}
 				ztunnelPod, kubeClientErr := isZtunnelPod(podName, podNamespace)
 				if kubeClientErr != nil {
-					return fmt.Errorf("failed to create k8s client: %v", kubeClientErr)
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", kubeClientErr)
 				}
 				if ztunnelPod {
 					newWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
