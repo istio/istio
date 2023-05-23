@@ -187,26 +187,28 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 ) ([]*model.Service, []string) {
 	var deletedClusters []string
 	var services []*model.Service
-	cfg := push.DestinationRuleByName(proxy, updatedDr.Name, updatedDr.Namespace)
+	cfg := proxy.SidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
 	if cfg == nil {
 		// Destinationrule was deleted. Find matching services from previous destinationrule.
-		prevCfg := push.PrevDestinationRuleByName(proxy, updatedDr.Name, updatedDr.Namespace)
+		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
 		// PreviousConfig can be nil if the destination rule hosts were updated with non matching hosts.
 		if prevCfg == nil {
 			log.Debugf("Prev DestinationRule form PrevSidecarScope is missing for %s/%s", updatedDr.Namespace, updatedDr.Name)
 			return nil, nil
 		}
 		dr := prevCfg.Spec.(*networking.DestinationRule)
-		services = append(services, push.ServicesForHostname(proxy, host.Name(dr.Host))...)
+		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
 	} else {
 		// Destinationrule was updated. Find matching services from updated destinationrule.
 		dr := cfg.Spec.(*networking.DestinationRule)
-		services = append(services, push.ServicesForHostname(proxy, host.Name(dr.Host))...)
+		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
 	}
 	// Remove all matched service subsets. When we rebuild clusters, we will rebuild the subset clusters as well.
 	// We can reconcile the actual subsets that are needed when we rebuild the clusters.
 	for _, matchedSvc := range services {
-		deletedClusters = append(deletedClusters, subsetClusters[matchedSvc.Hostname.String()].UnsortedList()...)
+		if subsetClusters[matchedSvc.Hostname.String()] != nil {
+			deletedClusters = append(deletedClusters, subsetClusters[matchedSvc.Hostname.String()].UnsortedList()...)
+		}
 	}
 	return services, deletedClusters
 }

@@ -622,6 +622,31 @@ func (sc *SidecarScope) SetDestinationRulesForTesting(configs []config.Config) {
 	}
 }
 
+func (sc *SidecarScope) DestinationRuleByName(name, namespace string) *config.Config {
+	if sc == nil {
+		return nil
+	}
+	return sc.destinationRulesByNames[types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}]
+}
+
+// ServicesForHostname returns a list of services that fall under the hostname provided. This hostname
+// can be a wildcard.
+func (sc *SidecarScope) ServicesForHostname(hostname host.Name) []*Service {
+	if !hostname.IsWildCarded() {
+		return []*Service{sc.servicesByHostname[hostname]}
+	}
+	services := make([]*Service, 0)
+	for _, svc := range sc.services {
+		if hostname.Matches(svc.Hostname) {
+			services = append(services, svc)
+		}
+	}
+	return services
+}
+
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string, hosts map[string][]host.Name) []*Service {
