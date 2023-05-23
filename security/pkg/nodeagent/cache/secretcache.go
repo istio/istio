@@ -419,9 +419,7 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), totalTimeout)
-	defer cancel()
-	if err := b.RetryWithContext(ctx, secretValid); err != nil {
+	if err := b.RetryWithContext(context.TODO(), secretValid); err != nil {
 		return nil, err
 	}
 	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
