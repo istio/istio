@@ -14,12 +14,12 @@ linters-settings:
         ignore-file-rules:
           # Tests can do anything
           - "**/*_test.go"
-          - "**/istio/tests/**"
-          - "**/istio/pkg/test/**"
+          - "**/tests/**"
+          - "**/pkg/test/**"
           # Main code should only be used by appropriate binaries
-          - "**/istio/operator/**"
-          - "**/istio/istioctl/**"
-          - "**/istio/tools/bug-report/**"
+          - "**/operator/**"
+          - "**/istioctl/**"
+          - "**/tools/bug-report/**"
           # This should only really import operator API, but that is hard to express without a larger refactoring
           - "**/pkg/kube/**"
           - "**/pkg/url/**"
