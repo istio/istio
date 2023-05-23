@@ -136,18 +136,10 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 		resource.Namespace(istioNamespace),
 		nil,
 	)
-	// Set up the kube client
-	config := kube.BuildClientCmd(kubeconfig, configContext)
-	restConfig, err := config.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
-
-	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), "")
-	if err != nil {
-		return nil, err
-	}
-	sa.AddRunningKubeSource(k)
+	sa.AddRunningKubeSource(cli)
 	cancel := make(chan struct{})
 	result, err := sa.Analyze(cancel)
 	if err != nil {
