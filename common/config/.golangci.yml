@@ -247,7 +247,7 @@ linters-settings:
           # Tests can do anything
           - "**/*_test.go"
           - "**/tests/**"
-          - "**/istio/pkg/test/**"
+          - "**/pkg/test/**"
           # Main code should only be used by appropriate binaries
           - "**/operator/**"
           - "**/istioctl/**"
