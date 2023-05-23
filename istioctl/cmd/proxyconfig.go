@@ -22,6 +22,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -38,6 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -116,13 +118,21 @@ var stringToLevel = map[string]Level{
 }
 
 var (
-	loggerLevelString         = ""
-	reset                     = false
-	isZtunnelPodKubeClient, _ = kubeClient(kubeconfig, configContext)
+	loggerLevelString      = ""
+	reset                  = false
+	once                   sync.Once
+	isZtunnelPodKubeClient kube.CLIClient
 )
 
-var isZtunnelPod = func(podName, podNamespace string) bool {
-	return ambientutil.IsZtunnelPod(isZtunnelPodKubeClient, podName, podNamespace)
+var isZtunnelPod = func(podName, podNamespace string) (bool, error) {
+	var err error
+	once.Do(func() {
+		isZtunnelPodKubeClient, err = kubeClient(kubeconfig, configContext)
+	})
+	if err != nil {
+		return false, err
+	}
+	return ambientutil.IsZtunnelPod(isZtunnelPodKubeClient, podName, podNamespace), nil
 }
 
 func ztunnelLogLevel(level string) string {
@@ -457,8 +467,11 @@ func allConfigCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-
-					if isZtunnelPod(podName, podNamespace) {
+					ztunnelPod, err := isZtunnelPod(podName, podNamespace)
+					if err != nil {
+						return fmt.Errorf("failed to create k8s client: %v", err)
+					}
+					if ztunnelPod {
 						dump, err = extractZtunnelConfigDump(podName, podNamespace)
 					} else {
 						dump, err = extractConfigDump(podName, podNamespace, false)
@@ -487,7 +500,11 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 
-					if isZtunnelPod(podName, podNamespace) {
+					ztunnelPod, err := isZtunnelPod(podName, podNamespace)
+					if err != nil {
+						return fmt.Errorf("failed to create k8s client: %v", err)
+					}
+					if ztunnelPod {
 						w, err := setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
 						if err != nil {
 							return err
@@ -605,7 +622,11 @@ func workloadConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getComponentPodName(args[0]); err != nil {
 					return err
 				}
-				if !isZtunnelPod(podName, podNamespace) {
+				ztunnelPod, err := isZtunnelPod(podName, podNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to create k8s client: %v", err)
+				}
+				if !ztunnelPod {
 					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
@@ -847,7 +868,11 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if isZtunnelPod(pod, podNamespace) {
+				ztunnelPod, err := isZtunnelPod(pod, podNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to create k8s client: %v", err)
+				}
+				if ztunnelPod {
 					loggerNames[name] = Ztunnel
 				} else {
 					loggerNames[name] = Envoy
@@ -903,7 +928,11 @@ func logCmd() *cobra.Command {
 			var resp string
 			var errs *multierror.Error
 			for _, podName := range podNames {
-				if isZtunnelPod(podName, podNamespace) {
+				ztunnelPod, err := isZtunnelPod(podName, podNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to create k8s client: %v", err)
+				}
+				if ztunnelPod {
 					q := "level=" + ztunnelLogLevel(loggerLevelString)
 					if reset {
 						q += "&reset"
@@ -1281,7 +1310,11 @@ func secretConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-				if isZtunnelPod(podName, podNamespace) {
+				ztunnelPod, err := isZtunnelPod(podName, podNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to create k8s client: %v", err)
+				}
+				if ztunnelPod {
 					newWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
 				} else {
 					newWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
