@@ -1310,9 +1310,9 @@ func secretConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-				ztunnelPod, err := isZtunnelPod(podName, podNamespace)
-				if err != nil {
-					return fmt.Errorf("failed to create k8s client: %v", err)
+				ztunnelPod, kubeClientErr := isZtunnelPod(podName, podNamespace)
+				if kubeClientErr != nil {
+					return fmt.Errorf("failed to create k8s client: %v", kubeClientErr)
 				}
 				if ztunnelPod {
 					newWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
