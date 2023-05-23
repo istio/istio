@@ -32,24 +32,34 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-func createRouteStatus(gateways []routeParentReference, obj config.Config, current []k8s.RouteParentStatus, routeErr *ConfigError) []k8s.RouteParentStatus {
-	gws := make([]k8s.RouteParentStatus, 0, len(gateways))
+// RouteParentResult holds the result of a route for a specific parent
+type RouteParentResult struct {
+	// OriginalReference contains the original reference
+	OriginalReference k8s.ParentReference
+	// DeniedReason, if present, indicates why the reference was not valid
+	DeniedReason *ParentError
+	// RouteError, if present, indicates why the reference was not valid
+	RouteError *ConfigError
+}
+
+func createRouteStatus(parentResults []RouteParentResult, obj config.Config, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
+	parents := make([]k8s.RouteParentStatus, 0, len(parentResults))
 	// Fill in all the gateways that are already present but not owned by us. This is non-trivial as there may be multiple
 	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
 	// removing gateway references when they are removed), without mangling other Controller's status.
-	for _, r := range current {
+	for _, r := range currentParents {
 		if r.ControllerName != constants.ManagedGatewayController {
 			// We don't own this status, so keep it around
-			gws = append(gws, r)
+			parents = append(parents, r)
 		}
 	}
 	// Collect all of our unique parent references. There may be multiple when we have a route without section name,
 	// but reference a parent with multiple sections.
 	// While we process these internally for-each sectionName, in the status we are just supposed to report one merged entry
-	seen := map[k8s.ParentReference][]routeParentReference{}
+	seen := map[k8s.ParentReference][]RouteParentResult{}
 	seenReasons := sets.New[ParentErrorReason]()
 	successCount := map[k8s.ParentReference]int{}
-	for _, incoming := range gateways {
+	for _, incoming := range parentResults {
 		// We will append it if it is our first occurrence, or the existing one has an error. This means
 		// if *any* section has no errors, we will declare Admitted
 		if incoming.DeniedReason == nil {
@@ -74,7 +84,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 		ParentErrorNotAccepted,
 	}
 	// Next we want to collapse these. We need to report 1 type of error, or none.
-	report := map[k8s.ParentReference]routeParentReference{}
+	report := map[k8s.ParentReference]RouteParentResult{}
 	for _, wantReason := range reasonRanking {
 		if !seenReasons.Contains(wantReason) {
 			continue
@@ -126,13 +136,13 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 				message: "All references resolved",
 			},
 		}
-		if routeErr != nil {
+		if gw.RouteError != nil {
 			// Currently, the spec is not clear on where errors should be reported. The provided resources are:
 			// * Accepted - used to describe errors binding to parents
 			// * ResolvedRefs - used to describe errors about binding to objects
 			// But no general errors
 			// For now, we will treat all general route errors as "Ref" errors.
-			conds[string(k8s.RouteConditionResolvedRefs)].error = routeErr
+			conds[string(k8s.RouteConditionResolvedRefs)].error = gw.RouteError
 		}
 		if gw.DeniedReason != nil {
 			conds[string(k8s.RouteConditionAccepted)].error = &ConfigError{
@@ -142,13 +152,13 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 		}
 
 		var currentConditions []metav1.Condition
-		currentStatus := slices.FindFunc(current, func(s k8sbeta.RouteParentStatus) bool {
+		currentStatus := slices.FindFunc(currentParents, func(s k8sbeta.RouteParentStatus) bool {
 			return parentRefString(s.ParentRef) == parentRefString(gw.OriginalReference)
 		})
 		if currentStatus != nil {
 			currentConditions = currentStatus.Conditions
 		}
-		gws = append(gws, k8s.RouteParentStatus{
+		parents = append(parents, k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
 			ControllerName: constants.ManagedGatewayController,
 			Conditions:     setConditions(obj.Generation, currentConditions, conds),
@@ -156,10 +166,10 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	}
 	// Ensure output is deterministic.
 	// TODO: will we fight over other controllers doing similar (but not identical) ordering?
-	sort.SliceStable(gws, func(i, j int) bool {
-		return parentRefString(gws[i].ParentRef) > parentRefString(gws[j].ParentRef)
+	sort.SliceStable(parents, func(i, j int) bool {
+		return parentRefString(parents[i].ParentRef) > parentRefString(parents[j].ParentRef)
 	})
-	return gws
+	return parents
 }
 
 type ParentErrorReason string

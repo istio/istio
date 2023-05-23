@@ -113,3 +113,49 @@ spec:
   - backendRefs:
     - name: echo
       port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: consumer-override
+  namespace: default
+spec:
+  parentRefs:
+  - kind: Service
+    name: httpbin-apple
+    namespace: apple
+    port: 80
+  rules:
+  - backendRefs:
+    - name: httpbin-apple
+      namespace: apple
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: tcp
+  namespace: default
+spec:
+  parentRefs:
+    - kind: Service
+      name: echo-1
+  rules:
+    - backendRefs:
+        - name: echo
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: tls
+  namespace: default
+spec:
+  parentRefs:
+    - kind: Service
+      name: echo-1
+  rules:
+    - backendRefs:
+        - name: echo
+          port: 80
+---

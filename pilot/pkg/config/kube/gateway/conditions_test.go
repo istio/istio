@@ -68,10 +68,9 @@ func TestCreateRouteStatus(t *testing.T) {
 	}
 
 	type args struct {
-		gateways []routeParentReference
+		gateways []RouteParentResult
 		obj      config.Config
 		current  []k8s.RouteParentStatus
-		routeErr *ConfigError
 	}
 	tests := []struct {
 		name      string
@@ -81,7 +80,7 @@ func TestCreateRouteStatus(t *testing.T) {
 		{
 			name: "no error",
 			args: args{
-				gateways: []routeParentReference{{OriginalReference: parentRef}},
+				gateways: []RouteParentResult{{OriginalReference: parentRef}},
 				obj:      httpRoute,
 				current:  parentStatus,
 			},
@@ -90,19 +89,18 @@ func TestCreateRouteStatus(t *testing.T) {
 		{
 			name: "route status error",
 			args: args{
-				gateways: []routeParentReference{{OriginalReference: parentRef}},
-				obj:      httpRoute,
-				current:  parentStatus,
-				routeErr: &ConfigError{
+				gateways: []RouteParentResult{{OriginalReference: parentRef, RouteError: &ConfigError{
 					Reason: ConfigErrorReason(k8s.RouteReasonRefNotPermitted),
-				},
+				}}},
+				obj:     httpRoute,
+				current: parentStatus,
 			},
 			wantEqual: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createRouteStatus(tt.args.gateways, tt.args.obj, tt.args.current, tt.args.routeErr)
+			got := createRouteStatus(tt.args.gateways, tt.args.obj, tt.args.current)
 			equal := reflect.DeepEqual(got, tt.args.current)
 			if equal != tt.wantEqual {
 				t.Errorf("route status: old: %+v, new: %+v", tt.args.current, got)
