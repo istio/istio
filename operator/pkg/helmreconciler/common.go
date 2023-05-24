@@ -27,7 +27,7 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

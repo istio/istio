@@ -48,8 +48,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {

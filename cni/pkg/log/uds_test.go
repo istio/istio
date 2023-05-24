@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"istio.io/istio/cni/pkg/constants"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 func TestUDSLog(t *testing.T) {

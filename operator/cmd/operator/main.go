@@ -17,7 +17,7 @@ package main
 import (
 	"os"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 func main() {

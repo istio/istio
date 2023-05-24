@@ -49,13 +49,13 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 const (

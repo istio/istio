@@ -26,8 +26,8 @@ import (
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/monitoring"
 )
 
 // ServerPort defines port for the gateway server.

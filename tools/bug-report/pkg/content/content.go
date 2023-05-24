@@ -27,10 +27,10 @@ import (
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
-	"istio.io/pkg/log"
 )
 
 const (

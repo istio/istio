@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being

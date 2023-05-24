@@ -24,9 +24,9 @@ import (
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // Source is all possible sources of MeshConfig

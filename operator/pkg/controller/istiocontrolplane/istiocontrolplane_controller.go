@@ -31,7 +31,6 @@ import (
 	"k8s.io/client-go/rest"
 	cache2 "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -57,10 +56,10 @@ import (
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -477,7 +476,7 @@ func Add(mgr manager.Manager, options *Options) error {
 func add(mgr manager.Manager, r *ReconcileIstioOperator, options *Options) error {
 	scope.Info("Adding controller for IstioOperator.")
 	// Create a new controller
-	opts := controller.Options{Reconciler: r, Controller: config.Controller{MaxConcurrentReconciles: options.MaxConcurrentReconciles}}
+	opts := controller.Options{Reconciler: r, MaxConcurrentReconciles: options.MaxConcurrentReconciles}
 	c, err := controller.New("istiocontrolplane-controller", mgr, opts)
 	if err != nil {
 		return err

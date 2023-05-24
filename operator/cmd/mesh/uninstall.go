@@ -35,8 +35,8 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/log"
 	proxyinfo "istio.io/istio/pkg/proxy"
-	"istio.io/pkg/log"
 )
 
 type uninstallArgs struct {

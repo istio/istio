@@ -44,11 +44,11 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // The connect and reconnect tests are removed - ADS already has coverage, and the

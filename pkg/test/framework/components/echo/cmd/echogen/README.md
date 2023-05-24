@@ -7,7 +7,7 @@
 ### Installation
 
 ```bash
-go install istio.io/pkg/test/framework/components/echo/echogen
+go install istio.io/istio/pkg/test/framework/components/echo/echogen
 ```
 
 ### Usage

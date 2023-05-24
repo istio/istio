@@ -19,6 +19,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -67,6 +68,28 @@ type Filter struct {
 	// ObjectTransform allows arbitrarily modifying objects stored in the underlying cache.
 	// If unset, a default transform is provided to remove ManagedFields (high cost, low value)
 	ObjectTransform func(obj any) (any, error)
+}
+
+// CrdWatcher exposes an interface to watch CRDs
+type CrdWatcher interface {
+	// HasSynced returns true once all existing state has been synced.
+	HasSynced() bool
+	// KnownOrCallback returns `true` immediately if the resource is known.
+	// If it is not known, `false` is returned. If the resource is later added, the callback will be triggered.
+	KnownOrCallback(s schema.GroupVersionResource, f func(stop <-chan struct{})) bool
+	// WaitForCRD waits until the request CRD exists, and returns true on success. A false return value
+	// indicates the CRD does not exist but the wait failed or was canceled.
+	// This is useful to conditionally enable controllers based on CRDs being created.
+	WaitForCRD(s schema.GroupVersionResource, stop <-chan struct{}) bool
+	// Run starts the controller. This must be called.
+	Run(stop <-chan struct{})
+}
+
+// DelayedFilter exposes an interface for a filter create delayed informers, which start
+// once the underlying resource is available. See kclient.NewDelayedInformer.
+type DelayedFilter interface {
+	HasSynced() bool
+	KnownOrCallback(f func(stop <-chan struct{})) bool
 }
 
 // WriteAPI exposes a generic API for a client go type for write operations.

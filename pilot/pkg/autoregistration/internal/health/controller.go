@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pkg/kube/controllers"
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
 var log = istiolog.RegisterScope("wle", "wle controller debugging")

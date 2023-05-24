@@ -23,8 +23,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
-	"istio.io/pkg/log"
 )
 
 // NewFakeXDS creates a XdsUpdater reporting events via a channel.

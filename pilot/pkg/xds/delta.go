@@ -31,8 +31,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
 var deltaLog = istiolog.RegisterScope("delta", "delta xds debugging")

@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
 // Monitor will poll a config function in order to update a ConfigStore as

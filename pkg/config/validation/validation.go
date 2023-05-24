@@ -59,11 +59,11 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/grpc"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // Constants for duration fields
@@ -618,12 +618,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
 		}
 		if tls.CredentialName != "" {
-			if features.EnableLegacyIstioMutualCredentialName {
-				// Legacy mode enabled, just warn
-				v = appendWarningf(v, "ISTIO_MUTUAL TLS cannot have associated credentialName")
-			} else {
-				v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
-			}
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
 		}
 		return
 	}

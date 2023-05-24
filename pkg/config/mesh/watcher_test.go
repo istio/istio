@@ -25,9 +25,9 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/filewatcher"
 )
 
 func TestNewWatcherWithBadInputShouldFail(t *testing.T) {

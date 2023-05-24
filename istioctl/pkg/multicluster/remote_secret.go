@@ -43,7 +43,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (

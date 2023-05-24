@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/scope"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var availableAnalyzers = analyzers.All()

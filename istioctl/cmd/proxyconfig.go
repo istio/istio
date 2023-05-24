@@ -38,7 +38,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

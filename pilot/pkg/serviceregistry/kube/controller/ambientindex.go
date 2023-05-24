@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	kubeutil "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	kubelabels "istio.io/istio/pkg/kube/labels"
@@ -973,40 +974,15 @@ func (c *Controller) AdditionalPodSubscriptions(
 }
 
 func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
-	if len(pod.GenerateName) == 0 {
+	objMeta, typeMeta := kubeutil.GetDeployMetaFromPod(pod)
+	switch typeMeta.Kind {
+	case "Deployment":
+		return objMeta.Name, workloadapi.WorkloadType_DEPLOYMENT
+	case "Job":
+		return objMeta.Name, workloadapi.WorkloadType_JOB
+	case "CronJob":
+		return objMeta.Name, workloadapi.WorkloadType_CRONJOB
+	default:
 		return pod.Name, workloadapi.WorkloadType_POD
 	}
-
-	// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
-	var controllerRef metav1.OwnerReference
-	controllerFound := false
-	for _, ref := range pod.GetOwnerReferences() {
-		if ref.Controller != nil && *ref.Controller {
-			controllerRef = ref
-			controllerFound = true
-			break
-		}
-	}
-
-	if !controllerFound {
-		return pod.Name, workloadapi.WorkloadType_POD
-	}
-
-	// heuristic for deployment detection
-	if controllerRef.Kind == "ReplicaSet" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
-		name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
-		return name, workloadapi.WorkloadType_DEPLOYMENT
-	}
-
-	if controllerRef.Kind == "Job" {
-		// figure out how to go from Job -> CronJob
-		return controllerRef.Name, workloadapi.WorkloadType_JOB
-	}
-
-	if controllerRef.Kind == "CronJob" {
-		// figure out how to go from Job -> CronJob
-		return controllerRef.Name, workloadapi.WorkloadType_CRONJOB
-	}
-
-	return pod.Name, workloadapi.WorkloadType_POD
 }

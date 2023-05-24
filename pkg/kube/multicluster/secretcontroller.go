@@ -37,9 +37,9 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	filter "istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -248,6 +248,9 @@ var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID) (kube
 	clients, err := kube.NewClient(clientConfig, clusterId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
+	}
+	if features.WorkloadEntryCrossCluster {
+		clients = kube.EnableCrdWatcher(clients)
 	}
 	return clients, nil
 }

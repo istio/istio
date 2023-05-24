@@ -233,12 +233,3 @@ func PodTLSMode(pod *corev1.Pod) string {
 	}
 	return model.GetTLSModeFromEndpointLabels(pod.Labels)
 }
-
-// KeyFunc is the internal API key function that returns "namespace"/"name" or
-// "name" if "namespace" is empty
-func KeyFunc(name, namespace string) string {
-	if len(namespace) == 0 {
-		return name
-	}
-	return namespace + "/" + name
-}

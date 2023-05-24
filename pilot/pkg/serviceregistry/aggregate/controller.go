@@ -28,9 +28,9 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
-	"istio.io/pkg/log"
 )
 
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various

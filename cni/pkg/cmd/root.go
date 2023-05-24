@@ -33,12 +33,12 @@ import (
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/repair"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 var (

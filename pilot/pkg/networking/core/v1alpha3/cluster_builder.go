@@ -49,9 +49,9 @@ import (
 	istio_cluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 var istioMtlsTransportSocketMatch = &structpb.Struct{

@@ -34,8 +34,8 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/pkg/log"
 )
 
 // buildInternalUpstreamCluster builds a single endpoint cluster to the internal listener.

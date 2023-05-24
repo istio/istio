@@ -20,9 +20,9 @@ import (
 	"sync"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
 )
 
 // NetworksHolder is a holder of a mesh networks configuration.
