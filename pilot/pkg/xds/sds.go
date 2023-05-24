@@ -320,21 +320,24 @@ func atMostNJoin(data []string, limit int) string {
 }
 
 func toEnvoyCaSecret(name string, certInfo *credscontroller.CertInfo) *discovery.Resource {
+	validationContext := &envoytls.CertificateValidationContext{
+		TrustedCa: &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{
+				InlineBytes: certInfo.Cert,
+			},
+		},
+	}
+	if certInfo.CRL != nil {
+		validationContext.Crl = &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{
+				InlineBytes: certInfo.CRL,
+			},
+		}
+	}
 	res := protoconv.MessageToAny(&envoytls.Secret{
 		Name: name,
 		Type: &envoytls.Secret_ValidationContext{
-			ValidationContext: &envoytls.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: certInfo.Cert,
-					},
-				},
-				Crl: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: certInfo.CRL,
-					},
-				},
-			},
+			ValidationContext: validationContext,
 		},
 	})
 	return &discovery.Resource{
