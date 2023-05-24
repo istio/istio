@@ -22,7 +22,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"istio.io/istio/istioctl/cmd"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 func main() {

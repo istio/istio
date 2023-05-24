@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var repairLog = log.RegisterScope("repair", "CNI race condition repair")

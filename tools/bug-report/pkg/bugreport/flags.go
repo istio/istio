@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/slices"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 )
 
@@ -136,7 +137,7 @@ func parseConfig() (*config2.BugReportConfig, error) {
 		if err := ess.UnmarshalJSON([]byte(s)); err != nil {
 			return nil, err
 		}
-		ess.Namespaces = filterSystemNamespacesOut(ess.Namespaces)
+		ess.Namespaces = slices.FilterInPlace(ess.Namespaces, func(ns string) bool { return !inject.IgnoredNamespaces.Contains(ns) })
 		if len(ess.Namespaces) > 0 {
 			gConfig.Exclude = append(gConfig.Exclude, ess)
 		}
@@ -200,15 +201,4 @@ func overlayConfig(base, overlay *config2.BugReportConfig) (*config2.BugReportCo
 	out := &config2.BugReportConfig{}
 	err = json.Unmarshal(mj, out)
 	return out, err
-}
-
-func filterSystemNamespacesOut(namespaces []string) []string {
-	filteredNss := make([]string, 0)
-	for _, ns := range namespaces {
-		if inject.IgnoredNamespaces.Contains(ns) {
-			continue
-		}
-		filteredNss = append(filteredNss, ns)
-	}
-	return filteredNss
 }

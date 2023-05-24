@@ -21,8 +21,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/monitoring"
-	"istio.io/pkg/log"
 )
 
 var caLog = log.RegisterScope("ca", "ca client")

@@ -31,8 +31,8 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
 	netutil "istio.io/istio/pkg/util/net"
-	"istio.io/pkg/log"
 )
 
 var statusLog = log.RegisterScope("ingress status", "")

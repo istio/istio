@@ -475,7 +475,7 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "invalid-url", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &wrappers.Int64Value{Value: 5},
+				Priority: &wrappers.Int32Value{Value: 5},
 				Url:      "notavalid%%Url;",
 			},
 		},
@@ -483,7 +483,7 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "authn-low-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &wrappers.Int64Value{Value: 10},
+				Priority: &wrappers.Int32Value{Value: 10},
 				Url:      "file:///etc/istio/filters/authn.wasm",
 				PluginConfig: &structpb.Struct{
 					Fields: map[string]*structpb.Value{
@@ -499,7 +499,7 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "global-authn-low-prio-ingress", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &wrappers.Int64Value{Value: 5},
+				Priority: &wrappers.Int32Value{Value: 5},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"istio": "ingressgateway",
@@ -511,14 +511,14 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "authn-med-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &wrappers.Int64Value{Value: 50},
+				Priority: &wrappers.Int32Value{Value: 50},
 			},
 		},
 		"global-authn-high-prio-app": {
 			Meta: config.Meta{Name: "global-authn-high-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &wrappers.Int64Value{Value: 1000},
+				Priority: &wrappers.Int32Value{Value: 1000},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app": "productpage",
@@ -536,7 +536,7 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "global-authz-med-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHZ,
-				Priority: &wrappers.Int64Value{Value: 50},
+				Priority: &wrappers.Int32Value{Value: 50},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app": "productpage",
@@ -554,7 +554,7 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "authz-high-prio-ingress", Namespace: "testns-2", GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHZ,
-				Priority: &wrappers.Int64Value{Value: 1000},
+				Priority: &wrappers.Int32Value{Value: 1000},
 			},
 		},
 	}

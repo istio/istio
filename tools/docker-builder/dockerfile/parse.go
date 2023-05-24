@@ -23,8 +23,8 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/moby/buildkit/frontend/dockerfile/shell"
 
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/tools/docker-builder/builder"
-	istiolog "istio.io/pkg/log"
 )
 
 // Option is a functional option for remote operations.

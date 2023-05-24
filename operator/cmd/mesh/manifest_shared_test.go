@@ -42,7 +42,7 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // cmdType is one of the commands used to generate and optionally apply a manifest.

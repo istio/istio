@@ -39,9 +39,9 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/queue"
-	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 func init() {

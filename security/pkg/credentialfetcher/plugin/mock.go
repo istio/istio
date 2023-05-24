@@ -24,7 +24,7 @@ import (
 	"os"
 	"sync"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const fakeTokenPrefix = "fake-token-"

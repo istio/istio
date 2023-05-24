@@ -26,7 +26,7 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/xds"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type tapProxy struct {

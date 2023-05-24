@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
@@ -164,20 +165,15 @@ func TestUpdateServiceImportVIPs(t *testing.T) {
 	ic.setServiceImportVIPs(t, updatedVIPs)
 }
 
-func newTestServiceImportCache(t test.Failer) (c *FakeController, ic *serviceImportCacheImpl) {
+func newTestServiceImportCache(t test.Failer) (*FakeController, *serviceImportCacheImpl) {
 	test.SetForTest(t, &features.EnableMCSHost, true)
 
-	c, _ = NewFakeControllerWithOptions(t, FakeControllerOptions{
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: serviceImportCluster,
+		CRDs:      []schema.GroupVersionResource{mcs.ServiceImportGVR},
 	})
 
-	ic = c.imports.(*serviceImportCacheImpl)
-	close(ic.serviceImportCh)
-	retry.UntilOrFail(t, func() bool {
-		return ic.started.Load()
-	}, serviceImportTimeout)
-
-	return
+	return c, c.imports.(*serviceImportCacheImpl)
 }
 
 func (ic *serviceImportCacheImpl) createKubeService(t *testing.T, c *FakeController) {

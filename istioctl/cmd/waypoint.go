@@ -21,7 +21,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 )
 
 func waypointCmd() *cobra.Command {
@@ -125,7 +125,7 @@ func waypointCmd() *cobra.Command {
 			})
 			if err != nil {
 				if errors.IsNotFound(err) {
-					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint")
+					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint: %s", err)
 				}
 				return err
 			}
@@ -227,28 +227,27 @@ func waypointCmd() *cobra.Command {
 				}
 				filteredGws = append(filteredGws, gw)
 			}
-			// TODO(hanxiaop) deal with revisions
 			if allNamespaces {
-				fmt.Fprintln(w, "NAMESPACE\tNAME\tSERVICE ACCOUNT\tPROGRAMMED\tREADY")
+				fmt.Fprintln(w, "NAMESPACE\tNAME\tSERVICE ACCOUNT\tREVISION\tPROGRAMMED")
 			} else {
-				fmt.Fprintln(w, "NAME\tSERVICE ACCOUNT\tPROGRAMMED\tREADY")
+				fmt.Fprintln(w, "NAME\tSERVICE ACCOUNT\tREVISION\tPROGRAMMED")
 			}
 			for _, gw := range filteredGws {
 				sa := gw.Annotations[constants.WaypointServiceAccount]
 				programmed := kstatus.StatusFalse
-				ready := kstatus.StatusFalse
+				rev := gw.Labels[label.IoIstioRev.Name]
+				if rev == "" {
+					rev = "default"
+				}
 				for _, cond := range gw.Status.Conditions {
-					if cond.Type == string(gateway.GatewayConditionReady) {
-						ready = string(cond.Status)
-					}
 					if cond.Type == string(gateway.GatewayConditionProgrammed) {
 						programmed = string(cond.Status)
 					}
 				}
 				if allNamespaces {
-					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, sa, programmed, ready)
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, sa, rev, programmed)
 				} else {
-					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Name, sa, programmed, ready)
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Name, sa, rev, programmed)
 				}
 			}
 			return w.Flush()

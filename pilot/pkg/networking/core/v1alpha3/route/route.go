@@ -45,9 +45,9 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/grpc"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // Headers with special meaning in Envoy

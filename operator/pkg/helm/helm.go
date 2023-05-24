@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/manifests"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

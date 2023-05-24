@@ -32,8 +32,8 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/test/util/assert"
+	istioversion "istio.io/istio/pkg/version"
 	"istio.io/istio/tests/util"
-	istioversion "istio.io/pkg/version"
 )
 
 var preDefinedNonce = newNonce()

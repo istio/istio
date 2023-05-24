@@ -25,7 +25,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // ShouldRewriteAppHTTPProbers returns if we should rewrite apps' probers config.

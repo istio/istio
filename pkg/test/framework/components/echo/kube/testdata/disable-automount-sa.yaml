@@ -1,3 +1,4 @@
+
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -78,6 +79,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         readinessProbe:
           httpGet:
             path: /

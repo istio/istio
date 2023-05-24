@@ -21,13 +21,12 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"golang.org/x/exp/slices"
-
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 var installLog = log.RegisterScope("install", "CNI install")

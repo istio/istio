@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/watcher/configmapwatcher"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.

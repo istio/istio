@@ -24,7 +24,6 @@ import (
 
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -32,11 +31,12 @@ import (
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/monitoring"
 )
 
 func TestMatchesFilter(t *testing.T) {

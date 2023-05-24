@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // YAMLCmpReporter is a custom reporter to generate tree based diff for YAMLs, used by cmp.Equal().

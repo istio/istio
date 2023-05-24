@@ -43,7 +43,7 @@ import (
 	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -771,7 +771,7 @@ func TestConfigSelectors(t *testing.T) {
 }
 
 // TestLDFlags checks whether building mesh command with
-// -ldflags "-X istio.io/pkg/version.buildHub=myhub -X istio.io/pkg/version.buildVersion=mytag"
+// -ldflags "-X istio.io/istio/pkg/version.buildHub=myhub -X istio.io/istio/pkg/version.buildVersion=mytag"
 // results in these values showing up in a generated manifest.
 func TestLDFlags(t *testing.T) {
 	tmpHub, tmpTag := version.DockerInfo.Hub, version.DockerInfo.Tag

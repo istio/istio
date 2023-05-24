@@ -34,8 +34,8 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/pkg/log"
 )
 
 // buildInternalUpstreamCluster builds a single endpoint cluster to the internal listener.
@@ -74,7 +74,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	// Creates "encap" cluster to route to the encap listener.
 	clusters = append(clusters, MainInternalCluster, EncapCluster)
 	// Creates per-VIP load balancing upstreams.
-	clusters = append(clusters, cb.buildWaypointInboundVIP(svcs)...)
+	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs)...)
 	// Upstream of the "encap" listener.
 	clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
 
@@ -114,7 +114,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, por
 }
 
 // `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-func (cb *ClusterBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Service) []*cluster.Cluster {
+func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[host.Name]*model.Service) []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
 
 	for _, svc := range svcs {
@@ -128,7 +128,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(svcs map[host.Name]*model.Serv
 			if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(svc, *port, "http").build())
 			}
-			cfg := cb.unsafeWaypointOnlyProxy.SidecarScope.DestinationRule(model.TrafficDirectionInbound, cb.unsafeWaypointOnlyProxy, svc.Hostname).GetRule()
+			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
 			if cfg != nil {
 				destinationRule := cfg.Spec.(*networking.DestinationRule)
 				for _, ss := range destinationRule.Subsets {

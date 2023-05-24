@@ -31,8 +31,6 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -44,7 +42,9 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 	"istio.io/istio/pkg/workloadapi/security"

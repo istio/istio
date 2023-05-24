@@ -18,8 +18,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,13 +31,13 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/pkg/log"
 )
 
 type fullClient[T controllers.Object] struct {
 	writeClient[T]
-	informerClient[T]
+	Informer[T]
 }
 
 type writeClient[T controllers.Object] struct {
@@ -131,9 +131,9 @@ func (n *informerClient[T]) HasSynced() bool {
 		return false
 	}
 	n.handlerMu.RLock()
-	handlers := slices.Clone(n.registeredHandlers)
-	n.handlerMu.RUnlock()
-	for _, g := range handlers {
+	defer n.handlerMu.RUnlock()
+	// HasSynced is fast, so doing it under the lock is okay
+	for _, g := range n.registeredHandlers {
 		if !g.HasSynced() {
 			return false
 		}
@@ -182,24 +182,44 @@ func New[T controllers.ComparableObject](c kube.Client) Client[T] {
 }
 
 // NewFiltered returns a Client with some filter applied.
-// Internally, this uses a shared informer, so calling this multiple times will share the same internals.
+// Internally, this uses a shared informer, so calling this multiple times will share the same internals. This is keyed on
+// unique {Type,LabelSelector,FieldSelector}.
 //
-// Warning: currently, if filter.LabelSelector or filter.FieldSelector are set, the same informer will still be used
-// This means there must only be one filter configuration for a given type using the same kube.Client (generally, this means the whole program).
+// Warning: if conflicting filter.ObjectTransform are used for the same key, the first one registered wins.
+// This means there must only be one filter configuration for a given type using the same kube.Client.
 // Use with caution.
 func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) Client[T] {
 	inf := kubeclient.GetInformerFiltered[T](c, toOpts(c, filter))
-
 	return &fullClient[T]{
-		writeClient:    writeClient[T]{client: c},
-		informerClient: newInformerClient[T](inf, filter),
+		writeClient: writeClient[T]{client: c},
+		Informer:    newInformerClient[T](inf, filter),
 	}
+}
+
+// NewDelayedInformer returns a "delayed" client for the given GVR. This is read-only.
+// A delayed client is used for CRD watches when the CRD may or may not exist. When the CRD is not present, the client will return
+// empty results for all operations and watch for the CRD creation. Once created, watchers will be started and read operations will
+// begin returning results.
+// HasSynced will only return true if the CRD was not present upon creation OR the watch is fully synced. This ensures the creation
+// is fully consistent if the CRD was present during creation; otherwise it is eventually consistent.
+func NewDelayedInformer(c kube.Client, gvr schema.GroupVersionResource, informerType kubetypes.InformerType, filter Filter) Untyped {
+	watcher := c.CrdWatcher()
+	if watcher == nil {
+		log.Fatalf("NewDelayedInformer called without a CrdWatcher enabled")
+	}
+	delay := newDelayedFilter(gvr, watcher)
+	inf := func() informerfactory.StartableInformer {
+		opts := toOpts(c, filter)
+		opts.InformerType = informerType
+		return kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
+	}
+	return newDelayedInformer[controllers.Object](gvr, inf, delay, filter)
 }
 
 // NewUntypedInformer returns an untyped client for a given GVR. This is read-only.
 func NewUntypedInformer(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
 	inf := kubeclient.GetInformerFilteredFromGVR(c, toOpts(c, filter), gvr)
-	return ptr.Of(newInformerClient[controllers.Object](inf, filter))
+	return newInformerClient[controllers.Object](inf, filter)
 }
 
 // NewDynamic returns a dynamic client for a given GVR. This is read-only.
@@ -207,15 +227,15 @@ func NewDynamic(c kube.Client, gvr schema.GroupVersionResource, filter Filter) U
 	opts := toOpts(c, filter)
 	opts.InformerType = kubetypes.DynamicInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
-	return ptr.Of(newInformerClient[controllers.Object](inf, filter))
+	return newInformerClient[controllers.Object](inf, filter)
 }
 
 // NewMetadata returns a metadata client for a given GVR. This is read-only.
-func NewMetadata(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
+func NewMetadata(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Informer[*metav1.PartialObjectMetadata] {
 	opts := toOpts(c, filter)
 	opts.InformerType = kubetypes.MetadataInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
-	return ptr.Of(newInformerClient[controllers.Object](inf, filter))
+	return newInformerClient[*metav1.PartialObjectMetadata](inf, filter)
 }
 
 // NewWriteClient is exposed for testing.
@@ -223,8 +243,43 @@ func NewWriteClient[T controllers.ComparableObject](c kube.Client) Writer[T] {
 	return &writeClient[T]{client: c}
 }
 
-func newInformerClient[T controllers.ComparableObject](inf informerfactory.StartableInformer, filter Filter) informerClient[T] {
-	return informerClient[T]{
+func newDelayedInformer[T controllers.ComparableObject](
+	gvr schema.GroupVersionResource,
+	getInf func() informerfactory.StartableInformer,
+	delay kubetypes.DelayedFilter,
+	filter Filter,
+) Informer[T] {
+	delayedClient := &delayedClient[T]{
+		inf:     new(atomic.Pointer[Informer[T]]),
+		delayed: delay,
+	}
+
+	// If resource is not yet known, we will use the delayedClient.
+	// When the resource is later loaded, the callback will trigger and swap our dummy delayedClient
+	// with a full client
+	readyNow := delay.KnownOrCallback(func(stop <-chan struct{}) {
+		// The inf() call is responsible for starting the informer
+		inf := getInf()
+		fc := &informerClient[T]{
+			informer:      inf.Informer,
+			startInformer: inf.Start,
+			filter:        filter.ObjectFilter,
+		}
+		inf.Start(stop)
+		log.Infof("%v is now ready, building client", gvr.GroupResource())
+		// Swap out the dummy client with the full one
+		delayedClient.set(fc)
+	})
+	if !readyNow {
+		log.Debugf("%v is not ready now, building delayed client", gvr.GroupResource())
+		return delayedClient
+	}
+	log.Debugf("%v ready now, building client", gvr.GroupResource())
+	return newInformerClient[T](getInf(), filter)
+}
+
+func newInformerClient[T controllers.ComparableObject](inf informerfactory.StartableInformer, filter Filter) Informer[T] {
+	return &informerClient[T]{
 		informer:      inf.Informer,
 		startInformer: inf.Start,
 		filter:        filter.ObjectFilter,

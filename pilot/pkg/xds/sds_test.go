@@ -68,6 +68,12 @@ var (
 		credentials.GenericScrtKey:    readFile(filepath.Join(certDir, "dns/key.pem")),
 		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "dns/root-cert.pem")),
 	})
+	genericMtlsCertCrl = makeSecret("generic-mtls-crl", map[string]string{
+		credentials.GenericScrtCert:   readFile(filepath.Join(certDir, "dns/cert-chain.pem")),
+		credentials.GenericScrtKey:    readFile(filepath.Join(certDir, "dns/key.pem")),
+		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "dns/root-cert.pem")),
+		credentials.GenericScrtCRL:    readFile(filepath.Join(certDir, "dns/cert-chain.pem")),
+	})
 	genericMtlsCertSplit = makeSecret("generic-mtls-split", map[string]string{
 		credentials.GenericScrtCert: readFile(filepath.Join(certDir, "mountedcerts-client/cert-chain.pem")),
 		credentials.GenericScrtKey:  readFile(filepath.Join(certDir, "mountedcerts-client/key.pem")),
@@ -87,10 +93,12 @@ func TestGenerate(t *testing.T) {
 		Key    string
 		Cert   string
 		CaCert string
+		CaCrl  string
 	}
 	allResources := []string{
 		"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert",
-		"kubernetes://generic-mtls-split", "kubernetes://generic-mtls-split-cacert",
+		"kubernetes://generic-mtls-split", "kubernetes://generic-mtls-split-cacert", "kubernetes://generic-mtls-crl",
+		"kubernetes://generic-mtls-crl-cacert",
 	}
 	cases := []struct {
 		name                 string
@@ -155,6 +163,14 @@ func TestGenerate(t *testing.T) {
 				"kubernetes://generic-mtls-split-cacert": {
 					CaCert: string(genericMtlsCertSplitCa.Data[credentials.GenericScrtCaCert]),
 				},
+				"kubernetes://generic-mtls-crl": {
+					Key:  string(genericMtlsCertCrl.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertCrl.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls-crl-cacert": {
+					CaCert: string(genericMtlsCertCrl.Data[credentials.GenericScrtCaCert]),
+					CaCrl:  string(genericMtlsCertCrl.Data[credentials.GenericScrtCRL]),
+				},
 			},
 		},
 		{
@@ -207,6 +223,25 @@ func TestGenerate(t *testing.T) {
 				},
 				"kubernetes://generic-mtls-cacert": {
 					CaCert: string(genericMtlsCert.Data[credentials.GenericScrtCaCert]),
+				},
+			},
+		},
+		{
+			name:      "incremental push with updates - mtls with crl",
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			resources: allResources,
+			request: &model.PushRequest{
+				Full:           false,
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "generic-mtls-crl", Namespace: "istio-system"}),
+			},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-crl": {
+					Key:  string(genericMtlsCertCrl.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertCrl.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls-crl-cacert": {
+					CaCert: string(genericMtlsCertCrl.Data[credentials.GenericScrtCaCert]),
+					CaCrl:  string(genericMtlsCertCrl.Data[credentials.GenericScrtCRL]),
 				},
 			},
 		},
@@ -279,7 +314,7 @@ func TestGenerate(t *testing.T) {
 			}
 			tt.proxy.Metadata.ClusterID = "Kubernetes"
 			s := NewFakeDiscoveryServer(t, FakeOptions{
-				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertSplit, genericMtlsCertSplitCa},
+				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertCrl, genericMtlsCertSplit, genericMtlsCertSplitCa},
 			})
 			cc := s.KubeClient().Kube().(*fake.Clientset)
 
@@ -302,6 +337,7 @@ func TestGenerate(t *testing.T) {
 					Key:    string(scrt.GetTlsCertificate().GetPrivateKey().GetInlineBytes()),
 					Cert:   string(scrt.GetTlsCertificate().GetCertificateChain().GetInlineBytes()),
 					CaCert: string(scrt.GetValidationContext().GetTrustedCa().GetInlineBytes()),
+					CaCrl:  string(scrt.GetValidationContext().GetCrl().GetInlineBytes()),
 				}
 			}
 			if diff := cmp.Diff(got, tt.expect); diff != "" {

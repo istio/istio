@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var scope = log.RegisterScope("status",

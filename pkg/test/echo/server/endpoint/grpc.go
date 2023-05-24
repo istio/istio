@@ -277,9 +277,10 @@ func (h *EchoGrpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*pr
 	echo.StatusCodeField.Write(&body, strconv.Itoa(http.StatusOK))
 	echo.ServiceVersionField.Write(&body, h.Version)
 	echo.ServicePortField.Write(&body, strconv.Itoa(portNumber))
-	echo.ClusterField.Write(&body, h.Cluster)
+	echo.ClusterField.WriteNonEmpty(&body, h.Cluster)
+	echo.NamespaceField.WriteNonEmpty(&body, h.Namespace)
 	echo.IPField.Write(&body, ip)
-	echo.IstioVersionField.Write(&body, h.IstioVersion)
+	echo.IstioVersionField.WriteNonEmpty(&body, h.IstioVersion)
 	echo.ProtocolField.Write(&body, "GRPC")
 	echo.Field("Echo").Write(&body, req.GetMessage())
 

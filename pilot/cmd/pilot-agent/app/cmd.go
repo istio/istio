@@ -34,20 +34,20 @@ import (
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/version"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
 	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (

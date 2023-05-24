@@ -36,9 +36,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // NewInformerFunc returns a SharedIndexInformer.
@@ -143,12 +144,19 @@ func (f *informerFactory) InformerFor(resource schema.GroupVersionResource, opts
 	return f.makeStartableInformer(informer, key)
 }
 
+func allowedOverlap(resource schema.GroupVersionResource) bool {
+	// We register an optimized Pod watcher for standard flow, but for the experimental analysis feature we need the full pod,
+	// so we start another watch.
+	// We may want to reconsider this if the analysis feature becomes stable.
+	return features.EnableAnalysis && resource == gvr.Pod
+}
+
 func checkInformerOverlap(inf builtInformer, resource schema.GroupVersionResource, opts kubetypes.InformerOptions) {
 	if fmt.Sprintf("%p", inf.objectTransform) == fmt.Sprintf("%p", opts.ObjectTransform) {
 		return
 	}
 	l := log.Warnf
-	if features.EnableUnsafeAssertions {
+	if features.EnableUnsafeAssertions && !allowedOverlap(resource) {
 		l = log.Fatalf
 	}
 	l("for type %v, registered conflicting ObjectTransform. Stack: %v", resource, string(debug.Stack()))

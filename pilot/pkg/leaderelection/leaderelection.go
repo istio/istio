@@ -30,8 +30,8 @@ import (
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection"
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
-	"istio.io/pkg/log"
 )
 
 // Various locks used throughout the code

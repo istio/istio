@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/informerfactory"
 	ktypes "istio.io/istio/pkg/kube/kubetypes"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type ClientGetter interface {

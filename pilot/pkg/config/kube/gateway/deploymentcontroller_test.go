@@ -46,13 +46,13 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
-	istiolog "istio.io/pkg/log"
 )
 
 func TestConfigureIstioGateway(t *testing.T) {

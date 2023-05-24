@@ -36,7 +36,7 @@ import (
 	names "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

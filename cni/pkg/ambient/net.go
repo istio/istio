@@ -32,8 +32,8 @@ import (
 	pconstants "istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
 var log = istiolog.RegisterScope("ambient", "ambient controller")

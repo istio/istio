@@ -47,9 +47,9 @@ import (
 	"github.com/josharian/native"
 	"golang.org/x/sys/unix"
 
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
 var log = istiolog.RegisterScope("ebpf", "ambient ebpf")

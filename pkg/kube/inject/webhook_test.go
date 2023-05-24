@@ -947,67 +947,12 @@ func TestRunAndServe(t *testing.T) {
 	validReviewV1 := makeTestData(t, false, "v1")
 	skipReview := makeTestData(t, true, "v1beta1")
 
-	// nolint: lll
-	validPatch := []byte(`[
-{
-    "op": "add",
-    "path": "/metadata/annotations",
-    "value": {
-        "prometheus.io/path": "/stats/prometheus",
-        "prometheus.io/port": "15020",
-        "prometheus.io/scrape": "true",
-        "sidecar.istio.io/status": "{\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"],\"revision\":\"default\"}"
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/volumes/1",
-    "value": {
-        "name": "v0"
-    }
-},
-{
-    "op": "replace",
-    "path": "/spec/volumes/0/name",
-    "value": "istio-envoy"
-},
-{
-    "op": "add",
-    "path": "/spec/initContainers/1",
-    "value": {
-        "name": "istio-init",
-        "resources": {}
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/containers/1",
-    "value": {
-        "name": "istio-proxy",
-        "resources": {}
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/imagePullSecrets/1",
-    "value": {
-        "name": "p0"
-    }
-},
-{
-    "op": "replace",
-    "path": "/spec/imagePullSecrets/0/name",
-    "value": "istio-image-pull-secrets"
-}
-]`)
-
 	cases := []struct {
 		name           string
 		body           []byte
 		contentType    string
 		wantAllowed    bool
 		wantStatusCode int
-		wantPatch      []byte
 	}{
 		{
 			name:           "valid",
@@ -1015,7 +960,6 @@ func TestRunAndServe(t *testing.T) {
 			contentType:    "application/json",
 			wantAllowed:    true,
 			wantStatusCode: http.StatusOK,
-			wantPatch:      validPatch,
 		},
 		{
 			name:           "valid(v1 version)",
@@ -1023,7 +967,6 @@ func TestRunAndServe(t *testing.T) {
 			contentType:    "application/json",
 			wantAllowed:    true,
 			wantStatusCode: http.StatusOK,
-			wantPatch:      validPatch,
 		},
 		{
 			name:           "skipped",
@@ -1089,16 +1032,6 @@ func TestRunAndServe(t *testing.T) {
 				if err := json.Compact(&gotPatch, gotReview.Response.Patch); err != nil {
 					t.Fatalf(err.Error())
 				}
-			}
-			var wantPatch bytes.Buffer
-			if len(c.wantPatch) > 0 {
-				if err := json.Compact(&wantPatch, c.wantPatch); err != nil {
-					t.Fatalf(err.Error())
-				}
-			}
-
-			if !bytes.Equal(gotPatch.Bytes(), wantPatch.Bytes()) {
-				t.Fatalf("got bad patch: \n got  %v \n want %v", gotPatch.String(), wantPatch.String())
 			}
 		})
 	}

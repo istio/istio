@@ -27,10 +27,10 @@ import (
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -173,13 +173,18 @@ func GetIstiodInfo(p *Params) (map[string]string, error) {
 	if p.Namespace == "" || p.Pod == "" {
 		return nil, fmt.Errorf("getIstiodInfo requires namespace and pod")
 	}
+	errs := istiomultierror.New()
 	ret := make(map[string]string)
 	for _, url := range common.IstiodDebugURLs(p.ClusterVersion) {
 		out, err := p.Runner.Exec(p.Namespace, p.Pod, common.DiscoveryContainerName, fmt.Sprintf(`pilot-discovery request GET %s`, url), p.DryRun)
 		if err != nil {
-			return nil, err
+			errs = multierror.Append(errs, err)
+			continue
 		}
 		ret[url] = out
+	}
+	if errs.ErrorOrNil() != nil {
+		return nil, errs
 	}
 	return ret, nil
 }
@@ -209,13 +214,18 @@ func GetZtunnelInfo(p *Params) (map[string]string, error) {
 	if p.Namespace == "" || p.Pod == "" {
 		return nil, fmt.Errorf("getZtunnelInfo requires namespace and pod")
 	}
+	errs := istiomultierror.New()
 	ret := make(map[string]string)
 	for _, url := range common.ZtunnelDebugURLs(p.ClusterVersion) {
 		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun)
 		if err != nil {
-			return nil, err
+			errs = multierror.Append(errs, err)
+			continue
 		}
 		ret[url] = out
+	}
+	if errs.ErrorOrNil() != nil {
+		return nil, errs
 	}
 	return ret, nil
 }

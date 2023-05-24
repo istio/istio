@@ -28,10 +28,10 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // RunDocker builds docker images using the `docker buildx bake` commands. Buildx is the

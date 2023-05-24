@@ -31,11 +31,11 @@ import (
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/bug-report/pkg/bugreport"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 // CommandParseError distinguishes an error parsing istioctl CLI arguments from an error processing
@@ -225,11 +225,8 @@ debug and diagnose their Istio mesh.
 
 	experimentalCmd.AddCommand(AuthZ())
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
-	experimentalCmd.AddCommand(uninjectCommand())
 	experimentalCmd.AddCommand(metricsCmd())
 	experimentalCmd.AddCommand(describe())
-	experimentalCmd.AddCommand(addToMeshCmd())
-	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(waitCmd())
 	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(loggingOptions)))
 	experimentalCmd.AddCommand(configCmd())
