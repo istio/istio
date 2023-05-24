@@ -140,8 +140,8 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		if time.Until(curTime.Add(commandTimeout)) < 0 {
 			message := "Timeout when get cluster resources, please using --include or --exclude to filter"
 			common.LogAndPrintf(message)
-			getClusterResourcesCancel()
 		}
+		getClusterResourcesCancel()
 	}()
 	start := time.Now()
 	resources, err := cluster2.GetClusterResources(clusterResourcesCtx, clientset, config)
