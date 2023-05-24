@@ -191,7 +191,6 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 	if cfg == nil {
 		// Destinationrule was deleted. Find matching services from previous destinationrule.
 		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
-		// PreviousConfig can be nil if the destination rule hosts were updated with non matching hosts.
 		if prevCfg == nil {
 			log.Debugf("Prev DestinationRule form PrevSidecarScope is missing for %s/%s", updatedDr.Namespace, updatedDr.Name)
 			return nil, nil
@@ -199,10 +198,19 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 		dr := prevCfg.Spec.(*networking.DestinationRule)
 		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
 	} else {
-		// Destinationrule was updated. Find matching services from updated destinationrule.
 		dr := cfg.Spec.(*networking.DestinationRule)
+		// Destinationrule was updated. Find matching services from updated destinationrule.
 		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
+		// Check if destination rule host is changed, if yes, then we need to add previous host matching services.
+		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
+		if prevCfg != nil {
+			prevDr := prevCfg.Spec.(*networking.DestinationRule)
+			if dr.Host != prevDr.Host {
+				services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(prevDr.Host))...)
+			}
+		}
 	}
+
 	// Remove all matched service subsets. When we rebuild clusters, we will rebuild the subset clusters as well.
 	// We can reconcile the actual subsets that are needed when we rebuild the clusters.
 	for _, matchedSvc := range services {

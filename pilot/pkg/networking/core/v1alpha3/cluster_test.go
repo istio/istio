@@ -2854,6 +2854,18 @@ func TestBuildDeltaClusters(t *testing.T) {
 		},
 	}
 
+	destRuleWithUpatedHost := &networking.DestinationRule{
+		Host: "testnew.com",
+		TrafficPolicy: &networking.TrafficPolicy{
+			Tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "/defaultCert.pem",
+				PrivateKey:        "/defaultPrivateKey.pem",
+				CaCertificates:    "/defaultCaCert.pem",
+			},
+		},
+	}
+
 	// TODO: Add more test cases.
 	testCases := []struct {
 		name                 string
@@ -3000,12 +3012,47 @@ func TestBuildDeltaClusters(t *testing.T) {
 				},
 				Spec: destRuleWithNonMatchingWildcardHosts,
 			}},
+			prevConfigs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "test-desinationrule",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: destRuleWithNewSubsets,
+			}},
 			configUpdated:        sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "test-desinationrule", Namespace: TestServiceNamespace}),
 			watchedResourceNames: []string{"outbound|8080||test.com"},
 			usedDelta:            true,
 			removedClusters:      nil,
 			expectedClusters: []string{
 				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com",
+			},
+		},
+		{
+			name:     "destination rule with host updated",
+			services: []*model.Service{testService1, testService2},
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "test-desinationrule",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: destRuleWithUpatedHost,
+			}},
+			prevConfigs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "test-desinationrule",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: destRuleWithNoSubsets,
+			}},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "test-desinationrule", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com", "outbound|8080||testnew.com",
 			},
 		},
 		{
