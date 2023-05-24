@@ -51,30 +51,6 @@ type ServerInfo struct {
 // MeshInfo contains the versions for all Istio control plane components
 type MeshInfo []ServerInfo
 
-// NodeType decides the responsibility of the proxy serves in the mesh
-type NodeType string
-
-const (
-	// SidecarProxy type is used for sidecar proxies in the application containers
-	SidecarProxy NodeType = "sidecar"
-
-	// Gateway type is used for gateway proxies that enable ingress and egress traffic
-	Gateway NodeType = "gateway"
-
-	// Waypoint type is used for waypoint proxies
-	Waypoint NodeType = "waypoint"
-
-	// Ztunnel type is used for node proxies (ztunnel)
-	Ztunnel NodeType = "ztunnel"
-)
-
-// ProxyInfo contains the version for a single data plane component
-type ProxyInfo struct {
-	ID           string
-	IstioVersion string
-	Type         NodeType
-}
-
 // DockerBuildInfo contains and exposes Hub: buildHub, Tag: buildVersion, OS: buildOS, and Arch: buildArch
 type DockerBuildInfo struct {
 	Hub  string

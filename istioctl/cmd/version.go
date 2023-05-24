@@ -86,8 +86,8 @@ func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptio
 	}
 }
 
-func getProxyInfoWrapper(opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
-	return func() (*[]istioVersion.ProxyInfo, error) {
+func getProxyInfoWrapper(opts *clioptions.ControlPlaneOptions) func() (*[]proxy.Info, error) {
+	return func() (*[]proxy.Info, error) {
 		return proxy.GetProxyInfo(kubeconfig, configContext, opts.Revision, istioNamespace)
 	}
 }
@@ -187,9 +187,9 @@ func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *
 	}
 }
 
-func xdsProxyVersionWrapper(xdsResponse **discovery.DiscoveryResponse) func() (*[]istioVersion.ProxyInfo, error) {
-	return func() (*[]istioVersion.ProxyInfo, error) {
-		pi := []istioVersion.ProxyInfo{}
+func xdsProxyVersionWrapper(xdsResponse **discovery.DiscoveryResponse) func() (*[]proxy.Info, error) {
+	return func() (*[]proxy.Info, error) {
+		pi := make([]proxy.Info, 0)
 		for _, resource := range (*xdsResponse).Resources {
 			switch resource.TypeUrl {
 			case "type.googleapis.com/envoy.config.core.v3.Node":
@@ -203,7 +203,7 @@ func xdsProxyVersionWrapper(xdsResponse **discovery.DiscoveryResponse) func() (*
 					// Skip non-sidecars (e.g. istioctl queries)
 					continue
 				}
-				pi = append(pi, istioVersion.ProxyInfo{
+				pi = append(pi, proxy.Info{
 					ID:           node.Id,
 					IstioVersion: getIstioVersionFromXdsMetadata(node.Metadata),
 				})

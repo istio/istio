@@ -23,20 +23,22 @@ import (
 
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
+
+	"istio.io/istio/pkg/proxy"
 )
 
 // Version holds info for client and control plane versions
 type Version struct {
-	ClientVersion    *BuildInfo   `json:"clientVersion,omitempty" yaml:"clientVersion,omitempty"`
-	MeshVersion      *MeshInfo    `json:"meshVersion,omitempty" yaml:"meshVersion,omitempty"`
-	DataPlaneVersion *[]ProxyInfo `json:"dataPlaneVersion,omitempty" yaml:"dataPlaneVersion,omitempty"`
+	ClientVersion    *BuildInfo    `json:"clientVersion,omitempty" yaml:"clientVersion,omitempty"`
+	MeshVersion      *MeshInfo     `json:"meshVersion,omitempty" yaml:"meshVersion,omitempty"`
+	DataPlaneVersion *[]proxy.Info `json:"dataPlaneVersion,omitempty" yaml:"dataPlaneVersion,omitempty"`
 }
 
 // GetRemoteVersionFunc is the function protoype to be passed to CobraOptions so that it is
 // called when invoking `cmd version`
 type (
 	GetRemoteVersionFunc func() (*MeshInfo, error)
-	GetProxyVersionFunc  func() (*[]ProxyInfo, error)
+	GetProxyVersionFunc  func() (*[]proxy.Info, error)
 )
 
 // CobraOptions holds options to be passed to `CobraCommandWithOptions`
@@ -169,7 +171,7 @@ func identicalVersions(remoteVersion MeshInfo) bool {
 }
 
 // renderProxyVersions produces human-readable summary of an array of sidecar Istio versions
-func renderProxyVersions(pinfos *[]ProxyInfo) string {
+func renderProxyVersions(pinfos *[]proxy.Info) string {
 	if len(*pinfos) == 0 {
 		return "none"
 	}
