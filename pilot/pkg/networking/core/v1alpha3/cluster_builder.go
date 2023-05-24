@@ -125,31 +125,27 @@ type ClusterBuilder struct {
 	req                   *model.PushRequest
 	cache                 model.XdsCache
 	credentialSocketExist bool
-
-	// TODO: this is not safe since its not in cache
-	unsafeWaypointOnlyProxy *model.Proxy
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
 func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
 	cb := &ClusterBuilder{
-		serviceInstances:        proxy.ServiceInstances,
-		proxyID:                 proxy.ID,
-		proxyType:               proxy.Type,
-		proxyVersion:            proxy.Metadata.IstioVersion,
-		sidecarScope:            proxy.SidecarScope,
-		passThroughBindIPs:      getPassthroughBindIPs(proxy.GetIPMode()),
-		supportsIPv4:            proxy.SupportsIPv4(),
-		supportsIPv6:            proxy.SupportsIPv6(),
-		hbone:                   proxy.EnableHBONE() || proxy.IsWaypointProxy(),
-		locality:                proxy.Locality,
-		proxyLabels:             proxy.Labels,
-		proxyView:               proxy.GetView(),
-		proxyIPAddresses:        proxy.IPAddresses,
-		configNamespace:         proxy.ConfigNamespace,
-		req:                     req,
-		cache:                   cache,
-		unsafeWaypointOnlyProxy: proxy,
+		serviceInstances:   proxy.ServiceInstances,
+		proxyID:            proxy.ID,
+		proxyType:          proxy.Type,
+		proxyVersion:       proxy.Metadata.IstioVersion,
+		sidecarScope:       proxy.SidecarScope,
+		passThroughBindIPs: getPassthroughBindIPs(proxy.GetIPMode()),
+		supportsIPv4:       proxy.SupportsIPv4(),
+		supportsIPv6:       proxy.SupportsIPv6(),
+		hbone:              proxy.EnableHBONE() || proxy.IsWaypointProxy(),
+		locality:           proxy.Locality,
+		proxyLabels:        proxy.Labels,
+		proxyView:          proxy.GetView(),
+		proxyIPAddresses:   proxy.IPAddresses,
+		configNamespace:    proxy.ConfigNamespace,
+		req:                req,
+		cache:              cache,
 	}
 	if proxy.Metadata != nil {
 		if proxy.Metadata.TLSClientCertChain != "" {
