@@ -292,6 +292,7 @@ func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 		for {
 			select {
 			case <-done:
+				c.Stop()
 				return
 			case <-c.C:
 				_, _ = r.GetPublicKey(mockCertURL, "")
