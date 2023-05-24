@@ -287,23 +287,18 @@ func TestRotateMaxBackups(t *testing.T) {
 			log.Println(line)
 		}
 	}
+	Sync()
 
-	// log rotation happens asynchronously and there's no way to synchronize with it,
-	// so we poll
-	for i := 0; i < 100009; i++ {
-		rd, err := os.ReadDir(dir)
-		if err != nil {
-			t.Fatalf("Unable to read dir: %v", err)
-		}
-
-		if len(rd) == o.RotationMaxBackups+1 {
-			// perfect, we're done
-			return
-		}
-
-		// try again in a bit
-		time.Sleep(10 * time.Millisecond)
+	rd, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("Unable to read dir: %v", err)
 	}
+
+	if len(rd) == o.RotationMaxBackups+1 {
+		// perfect, we're done
+		return
+	}
+
 	t.Errorf("Expecting at most %d backup logs", o.RotationMaxBackups)
 }
 
