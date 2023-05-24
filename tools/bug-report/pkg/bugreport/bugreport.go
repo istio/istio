@@ -148,7 +148,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("Time used for collecting cluster resources is %v", time.Since(start))
+	logRuntime(start, "Done collecting cluster resource")
 
 	dumpRevisionsAndVersions(resources, config.KubeConfigPath, config.Context, config.IstioNamespace, config.DryRun)
 
@@ -175,7 +175,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		writeFile(filepath.Join(archive.ProxyOutputPath(tempDir, namespace, pod), common.ProxyContainerName+".log"), text, config.DryRun)
 	}
 
-	log.Infof("Total time used for bug-report command is %v", time.Since(curTime))
+	logRuntime(curTime, "Done with bug-report command before generating the archive file")
 
 	outDir, err := os.Getwd()
 	if err != nil {
@@ -195,7 +195,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		}
 		curTime = time.Now()
 		err := archive.Create(archiveDir, outPath)
-		common.LogAndPrintf("Time used for creating the tar file is %v.", time.Since(curTime))
+		fmt.Printf("Time used for creating the tar file is %v.\n", time.Since(curTime))
 		if err != nil {
 			return err
 		}
@@ -211,9 +211,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 }
 
 func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string, dryRun bool) {
-	defer func(start time.Time) {
-		log.Infof("Time used to get control plane revisions/versions", time.Since(start))
-	}(time.Now())
+	defer logRuntime(time.Now(), "Done getting control plane revisions/versions")
 
 	text := ""
 	text += fmt.Sprintf("CLI version:\n%s\n\n", version.Info.LongForm())
@@ -371,10 +369,10 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 	wg.Add(1)
 	log.Infof("Waiting on %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	go func() {
-		defer func(start time.Time) {
+		defer func() {
 			wg.Done()
-			log.Infof("Total time used to get from cluster for %s is %v", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), time.Since(start))
-		}(time.Now())
+			logRuntime(time.Now(), "Done getting from cluster for %v", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+		}()
 
 		out, err := f(params)
 		appendGlobalErr(err)
@@ -394,10 +392,10 @@ func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, res
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
-		defer func(start time.Time) {
+		defer func() {
 			wg.Done()
-			log.Infof("Total time used to get from Proxy Logs for %s/%s/%s is %v", namespace, pod, container, time.Since(start))
-		}(time.Now())
+			logRuntime(time.Now(), "Done getting from proxy logs for %v/%v/%v", namespace, pod, container)
+		}()
 
 		clog, cstat, imp, err := getLog(runner, resources, config, namespace, pod, container)
 		appendGlobalErr(err)
@@ -418,10 +416,10 @@ func getIstiodLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, re
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
-		defer func(start time.Time) {
+		defer func() {
 			wg.Done()
-			log.Infof("Total time used to get Istiod Logs for %s/%s is %v", namespace, pod, time.Since(start))
-		}(time.Now())
+			logRuntime(time.Now(), "Done getting Istiod logs for %v/%v", namespace, pod)
+		}()
 
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
@@ -437,10 +435,10 @@ func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, 
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
-		defer func(start time.Time) {
+		defer func() {
 			wg.Done()
-			log.Infof("Time used to get Operator Logs for %s/%s is %v", namespace, pod, time.Since(start))
-		}(time.Now())
+			logRuntime(time.Now(), "Done getting operator logs for %v/%v", namespace, pod)
+		}()
 
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.OperatorContainerName)
 		appendGlobalErr(err)
@@ -453,9 +451,7 @@ func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, 
 func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *config.BugReportConfig,
 	namespace, pod, container string,
 ) (string, *processlog.Stats, int, error) {
-	defer func(start time.Time) {
-		log.Infof("Time used to get logs only for %s/%s/%s is %v", namespace, pod, container, time.Since(start))
-	}(time.Now())
+	defer logRuntime(time.Now(), "Done getting logs only for %v/%v/%v", namespace, pod, container)
 
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
 	clog, err := runner.Logs(namespace, pod, container, false, config.DryRun)
@@ -477,11 +473,10 @@ func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *co
 
 func runAnalyze(config *config.BugReportConfig, params *content.Params, analyzeTimeout time.Duration) {
 	newParam := params.SetNamespace(common.NamespaceAll)
-	defer func(start time.Time) {
-		log.Infof("Time used for running istio analyze on all namespaces and report is", time.Since(start))
-	}(time.Now())
 
-	common.LogAndPrintf("Running istio analyze on all namespaces and report as below:")
+	defer logRuntime(time.Now(), "Done running Istio analyze on all namespaces and report")
+
+	common.LogAndPrintf("Running Istio analyze on all namespaces and report as below:")
 	out, err := content.GetAnalyze(newParam.SetIstioNamespace(config.IstioNamespace), analyzeTimeout)
 	if err != nil {
 		log.Error(err.Error())
@@ -494,9 +489,7 @@ func runAnalyze(config *config.BugReportConfig, params *content.Params, analyzeT
 }
 
 func writeFiles(dir string, files map[string]string, dryRun bool) {
-	defer func(start time.Time) {
-		log.Infof("Total time used to write files for dir %s is %v", dir, time.Since(start))
-	}(time.Now())
+	defer logRuntime(time.Now(), "Done writing files for dir %v", dir)
 	for fname, text := range files {
 		writeFile(filepath.Join(dir, fname), text, dryRun)
 	}
@@ -511,9 +504,7 @@ func writeFile(path, text string, dryRun bool) {
 	}
 	mkdirOrExit(path)
 
-	defer func(start time.Time) {
-		log.Infof("Time used to write file for path %s is %v", path, time.Since(start))
-	}(time.Now())
+	logRuntime(time.Now(), "Done writing file for path %v", path)
 
 	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
 		log.Errorf(err.Error())
@@ -551,4 +542,8 @@ func configLogs(opt *log.Options) error {
 	opt2.SetOutputLevel("default", log.InfoLevel)
 
 	return log.Configure(&opt2)
+}
+
+func logRuntime(start time.Time, args ...any) {
+	log.WithLabels("runtime", time.Since(start)).Infof(args...)
 }
