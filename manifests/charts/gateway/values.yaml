@@ -91,3 +91,33 @@ affinity: {}
 networkGateway: ""
 
 imagePullSecrets: []
+
+# This value is used to configure a Kubernetes PodDisruptionBudget for the gateway.
+#
+# By default, the `podDisruptionBudget` is disabled (set to `{}`),
+# which means that no PodDisruptionBudget resource will be created.
+#
+# To enable the PodDisruptionBudget, configure it by specifying the
+# `minAvailable` or `maxUnavailable`. For example, to set the
+# minimum number of available replicas to 1, you can update this value as follows:
+#
+# podDisruptionBudget:
+#   minAvailable: 1
+#
+# Or, to allow a maximum of 1 unavailable replica, you can set:
+#
+# podDisruptionBudget:
+#   maxUnavailable: 1
+#
+# You can also specify the `unhealthyPodEvictionPolicy` field, and the valid values are `IfHealthyBudget` and `AlwaysAllow`.
+# For example, to set the `unhealthyPodEvictionPolicy` to `AlwaysAllow`, you can update this value as follows:
+#
+# podDisruptionBudget:
+#   minAvailable: 1
+#   unhealthyPodEvictionPolicy: AlwaysAllow
+#
+# To disable the PodDisruptionBudget, you can leave it as an empty object `{}`:
+#
+# podDisruptionBudget: {}
+#
+podDisruptionBudget: {}

@@ -195,6 +195,21 @@
           }
         }
       }
+    },
+    "podDisruptionBudget": {
+      "type": "object",
+      "properties": {
+        "minAvailable": {
+          "type": ["integer", "string"]
+        },
+        "maxUnavailable": {
+          "type": ["integer", "string"]
+        },
+        "unhealthyPodEvictionPolicy": {
+          "type": "string",
+          "enum": ["", "IfHealthyBudget", "AlwaysAllow"]
+        }
+      }
     }
   }
 }
