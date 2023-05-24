@@ -228,6 +228,7 @@ func (c *lruCache) SetWithExpiration(key any, value any, expiration time.Duratio
 	exp := atomic.LoadInt64(&c.baseTimeNanos) + expiration.Nanoseconds()
 
 	c.Lock()
+	defer c.Unlock()
 
 	index, ok := c.lookup[key]
 	if !ok {
@@ -245,12 +246,11 @@ func (c *lruCache) SetWithExpiration(key any, value any, expiration time.Duratio
 	ent.expiration = exp
 
 	c.stats.Writes++
-
-	c.Unlock()
 }
 
 func (c *lruCache) Get(key any) (any, bool) {
 	c.Lock()
+	defer c.Unlock()
 
 	var value any
 	index, ok := c.lookup[key]
@@ -263,36 +263,34 @@ func (c *lruCache) Get(key any) (any, bool) {
 		c.stats.Misses++
 	}
 
-	c.Unlock()
-
 	return value, ok
 }
 
 func (c *lruCache) Remove(key any) {
 	c.Lock()
+	defer c.Unlock()
 
 	if index, ok := c.lookup[key]; ok {
 		c.remove(index)
 		c.stats.Removals++
 	}
-
-	c.Unlock()
 }
 
 func (c *lruCache) RemoveAll() {
 	for i := 1; i < len(c.entries); i++ {
 		ent := &c.entries[i]
-
-		c.Lock()
 		if ent.key != nil {
 			c.remove(int32(i))
 			c.stats.Removals++
 		}
-		c.Unlock()
+
 	}
 }
 
 func (c *lruCache) remove(index int32) {
+	c.Lock()
+	defer c.Unlock()
+
 	ent := &c.entries[index]
 
 	delete(c.lookup, ent.key)
