@@ -221,17 +221,18 @@ base:
 	return whBuf.String(), nil
 }
 
-func mergeMaps(m1, m2 map[string]string) map[string]string {
-	if m1 == nil {
-		return m2
+// mergeMaps merges maps into one. If both maps have the same key, the value from override will be used.
+func mergeMaps(base, override map[string]string) map[string]string {
+	if base == nil {
+		return override
 	}
-	if m2 == nil {
-		return m1
+	if override == nil {
+		return base
 	}
-	for k, v := range m2 {
-		m1[k] = v
+	for k, v := range override {
+		base[k] = v
 	}
-	return m1
+	return base
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
