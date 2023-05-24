@@ -81,6 +81,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/informerfactory"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/lazy"
 	"istio.io/istio/pkg/log"
@@ -122,6 +123,9 @@ type Client interface {
 
 	// Informers returns an informer factory
 	Informers() informerfactory.InformerFactory
+
+	// CrdWatcher returns the CRD watcher for this client
+	CrdWatcher() kubetypes.CrdWatcher
 
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
@@ -285,6 +289,10 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 
 	c.version = lazy.NewWithRetry(c.kube.Discovery().ServerVersion)
 
+	if NewCrdWatcher != nil {
+		c.crdWatcher = NewCrdWatcher(c)
+	}
+
 	return c
 }
 
@@ -329,6 +337,8 @@ type client struct {
 	version lazy.Lazy[*kubeVersion.Info]
 
 	portManager PortManager
+
+	crdWatcher kubetypes.CrdWatcher
 
 	// http is a client for HTTP requests
 	http *http.Client
@@ -413,6 +423,17 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 	return &c, nil
 }
 
+// EnableCrdWatcher enables the CRD watcher on the client.
+func EnableCrdWatcher(c Client) Client {
+	if NewCrdWatcher == nil {
+		panic("NewCrdWatcher is unset. Likely the crd watcher library is not imported anywhere")
+	}
+	c.(*client).crdWatcher = NewCrdWatcher(c)
+	return c
+}
+
+var NewCrdWatcher func(Client) kubetypes.CrdWatcher
+
 // NewDefaultClient returns a default client, using standard Kubernetes config resolution to determine
 // the cluster to access.
 func NewDefaultClient() (Client, error) {
@@ -468,12 +489,18 @@ func (c *client) Informers() informerfactory.InformerFactory {
 	return c.informerFactory
 }
 
+func (c *client) CrdWatcher() kubetypes.CrdWatcher {
+	return c.crdWatcher
+}
+
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.Run(stop)
-
 	if c.fastSync {
+		if c.crdWatcher != nil {
+			c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced)
+		}
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
 		// Instead, we add an aggressive sync polling
@@ -490,6 +517,9 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 			return false, nil
 		})
 	} else {
+		if c.crdWatcher != nil {
+			c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced)
+		}
 		c.informerFactory.WaitForCacheSync(stop)
 	}
 }
@@ -500,8 +530,15 @@ func (c *client) Shutdown() {
 
 func (c *client) Run(stop <-chan struct{}) {
 	c.informerFactory.Start(stop)
-	c.started.Store(true)
-	log.Infof("cluster %q kube client started", c.clusterID)
+	if c.crdWatcher != nil {
+		c.crdWatcher.Run(stop)
+	}
+	alreadyStarted := c.started.Swap(true)
+	if alreadyStarted {
+		log.Debugf("cluster %q kube client started again", c.clusterID)
+	} else {
+		log.Infof("cluster %q kube client started", c.clusterID)
+	}
 }
 
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {

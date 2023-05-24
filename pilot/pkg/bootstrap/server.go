@@ -557,6 +557,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
+		s.kubeClient = kubelib.EnableCrdWatcher(s.kubeClient)
 	}
 
 	return nil

@@ -249,6 +249,9 @@ var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID) (kube
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
+	if features.WorkloadEntryCrossCluster {
+		clients = kube.EnableCrdWatcher(clients)
+	}
 	return clients, nil
 }
 

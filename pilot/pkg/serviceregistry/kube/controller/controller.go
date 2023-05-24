@@ -45,9 +45,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/kube/namespace"
-	"istio.io/istio/pkg/kube/watcher/crdwatcher"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
@@ -193,10 +191,9 @@ type Controller struct {
 	// With this, we can populate mesh's gateway address with the node ips.
 	nodes kclient.Client[*v1.Node]
 
-	crdWatcher *crdwatcher.Controller
-	exports    serviceExportCache
-	imports    serviceImportCache
-	pods       *PodCache
+	exports serviceExportCache
+	imports serviceImportCache
+	pods    *PodCache
 
 	crdHandlers                []func(name string)
 	handlers                   model.ControllerHandlers
@@ -295,9 +292,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
-	if features.EnableMCSServiceDiscovery || features.EnableMCSHost {
-		c.crdWatcher = crdwatcher.NewController(kubeClient)
-	}
 	if features.EnableAmbientControllers {
 		c.configController = options.ConfigController
 		c.ambientIndex = c.setupIndex()
@@ -588,24 +582,9 @@ func (c *Controller) informersSynced() bool {
 		!c.endpoints.slices.HasSynced() ||
 		!c.pods.pods.HasSynced() ||
 		!c.nodes.HasSynced() ||
-		(c.crdWatcher != nil && !c.crdWatcher.HasSynced()) {
+		!c.imports.HasSynced() ||
+		!c.exports.HasSynced() {
 		return false
-	}
-
-	// wait for mcs sync if the CRD exists, otherwise do not wait for them
-	// Because crdWatcher.HasSynced only indicates the cache synced, but does not guarantee the event handler called.
-	// So we wait get the CRD explicitly and if MCS installed, we wait until serviceImports and serviceExports sync.
-	if c.crdWatcher != nil {
-		if c.crdWatcher.Exists(mcs.ServiceImportGVR.Resource + "." + mcs.ServiceImportGVR.Group) {
-			if !c.imports.HasSynced() {
-				return false
-			}
-		}
-		if c.crdWatcher.Exists(mcs.ServiceExportGVR.Resource + "." + mcs.ServiceExportGVR.Group) {
-			if !c.exports.HasSynced() {
-				return false
-			}
-		}
 	}
 	return true
 }
