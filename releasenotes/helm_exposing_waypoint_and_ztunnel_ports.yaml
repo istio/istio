@@ -3,7 +3,8 @@ kind: bug-fix
 
 area: installation
 
-issue: https://github.com/istio/istio/issues/45093
+issue:
+  - 45093
 
 releaseNotes:
 - |
@@ -13,6 +14,6 @@ upgradeNotes: []
 
 # docs is a list of related docs to the change.
 docs:
-  - This page can be updated to reflect the scrape config proposed in the original issue: https://istio.io/latest/docs/ops/integrations/prometheus/
+  - "https://istio.io/latest/docs/ops/integrations/prometheus/"
 
 securityNotes: []
