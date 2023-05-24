@@ -601,10 +601,6 @@ func VirtualServiceDependencies(vs config.Config) []ConfigKey {
 			// shouldn't happen
 			continue
 		}
-		if len(knn) < 2 {
-			log.Errorf("invalid InternalParentName parts: %s", knn)
-			continue
-		}
 		nn := strings.Split(knn[1], ".")
 		out = append(out, ConfigKey{
 			Kind:      k,
