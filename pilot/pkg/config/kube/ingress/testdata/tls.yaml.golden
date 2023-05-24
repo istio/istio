@@ -12,10 +12,7 @@ spec:
   hosts:
   - foo.org
   http:
-  - match:
-    - uri:
-        prefix: ""
-    route:
+  - route:
     - destination:
         host: httpbin.bar.svc.mydomain
         port:

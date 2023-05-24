@@ -113,7 +113,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 
 	if !opts.SkipRun {
 		go c.Run(c.stop)
-		kubelib.WaitForCacheSync(c.stop, c.HasSynced)
+		kubelib.WaitForCacheSync("test", c.stop, c.HasSynced)
 	}
 
 	return &FakeController{c}, fx

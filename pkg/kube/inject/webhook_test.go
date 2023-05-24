@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	sutil "istio.io/istio/security/pkg/nodeagent/util"
@@ -607,6 +608,18 @@ func readInjectionSettings(t testing.TB, fname string) (*Config, ValuesConfig, *
 	return &cfg, vc, meshConfig
 }
 
+func cleanupOldFiles(t testing.TB) {
+	files, err := filepath.Glob(filepath.Join("testdata", "inputs", "*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		if err := os.Remove(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // loadInjectionSettings will render the charts using the operator, with given yaml overrides.
 // This allows us to fully simulate what will actually happen at run time.
 func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFilePath string) {
@@ -722,7 +735,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	}
 }
 
-func convertToJSON(i any, t *testing.T) []byte {
+func convertToJSON(i any, t test.Failer) []byte {
 	t.Helper()
 	outputJSON, err := json.Marshal(i)
 	if err != nil {
@@ -731,7 +744,7 @@ func convertToJSON(i any, t *testing.T) []byte {
 	return prettyJSON(outputJSON, t)
 }
 
-func prettyJSON(inputJSON []byte, t *testing.T) []byte {
+func prettyJSON(inputJSON []byte, t test.Failer) []byte {
 	t.Helper()
 	// Pretty-print the JSON
 	var prettyBuffer bytes.Buffer
@@ -934,67 +947,12 @@ func TestRunAndServe(t *testing.T) {
 	validReviewV1 := makeTestData(t, false, "v1")
 	skipReview := makeTestData(t, true, "v1beta1")
 
-	// nolint: lll
-	validPatch := []byte(`[
-{
-    "op": "add",
-    "path": "/metadata/annotations",
-    "value": {
-        "prometheus.io/path": "/stats/prometheus",
-        "prometheus.io/port": "15020",
-        "prometheus.io/scrape": "true",
-        "sidecar.istio.io/status": "{\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"],\"revision\":\"default\"}"
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/volumes/1",
-    "value": {
-        "name": "v0"
-    }
-},
-{
-    "op": "replace",
-    "path": "/spec/volumes/0/name",
-    "value": "istio-envoy"
-},
-{
-    "op": "add",
-    "path": "/spec/initContainers/1",
-    "value": {
-        "name": "istio-init",
-        "resources": {}
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/containers/1",
-    "value": {
-        "name": "istio-proxy",
-        "resources": {}
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/imagePullSecrets/1",
-    "value": {
-        "name": "p0"
-    }
-},
-{
-    "op": "replace",
-    "path": "/spec/imagePullSecrets/0/name",
-    "value": "istio-image-pull-secrets"
-}
-]`)
-
 	cases := []struct {
 		name           string
 		body           []byte
 		contentType    string
 		wantAllowed    bool
 		wantStatusCode int
-		wantPatch      []byte
 	}{
 		{
 			name:           "valid",
@@ -1002,7 +960,6 @@ func TestRunAndServe(t *testing.T) {
 			contentType:    "application/json",
 			wantAllowed:    true,
 			wantStatusCode: http.StatusOK,
-			wantPatch:      validPatch,
 		},
 		{
 			name:           "valid(v1 version)",
@@ -1010,7 +967,6 @@ func TestRunAndServe(t *testing.T) {
 			contentType:    "application/json",
 			wantAllowed:    true,
 			wantStatusCode: http.StatusOK,
-			wantPatch:      validPatch,
 		},
 		{
 			name:           "skipped",
@@ -1076,16 +1032,6 @@ func TestRunAndServe(t *testing.T) {
 				if err := json.Compact(&gotPatch, gotReview.Response.Patch); err != nil {
 					t.Fatalf(err.Error())
 				}
-			}
-			var wantPatch bytes.Buffer
-			if len(c.wantPatch) > 0 {
-				if err := json.Compact(&wantPatch, c.wantPatch); err != nil {
-					t.Fatalf(err.Error())
-				}
-			}
-
-			if !bytes.Equal(gotPatch.Bytes(), wantPatch.Bytes()) {
-				t.Fatalf("got bad patch: \n got  %v \n want %v", gotPatch.String(), wantPatch.String())
 			}
 		})
 	}

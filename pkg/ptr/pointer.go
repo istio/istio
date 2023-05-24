@@ -14,6 +14,10 @@
 
 package ptr
 
+import (
+	"fmt"
+)
+
 // Of returns a pointer to the input. In most cases, callers should just do &t. However, in some cases
 // Go cannot take a pointer. For example, `ptr.Of(f())`.
 func Of[T any](t T) *T {
@@ -41,4 +45,10 @@ func OrDefault[T any](t *T, def T) T {
 func Empty[T any]() T {
 	var empty T
 	return empty
+}
+
+// TypeName returns the name of the type
+func TypeName[T any]() string {
+	var empty T
+	return fmt.Sprintf("%T", empty)
 }

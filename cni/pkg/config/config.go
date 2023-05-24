@@ -39,10 +39,6 @@ type InstallConfig struct {
 	CNINetworkConfigFile string
 	// CNI config template string
 	CNINetworkConfig string
-	// Whether to install CNI configuration and binary files
-	CNIEnableInstall bool
-	// Whether to reinstall CNI configuration and binary files
-	CNIEnableReinstall bool
 
 	// Logging level
 	LogLevel string
@@ -68,11 +64,6 @@ type InstallConfig struct {
 	CNIBinSourceDir string
 	// Directories into which to copy the CNI binaries
 	CNIBinTargetDirs []string
-	// Whether to override existing CNI binaries
-	UpdateCNIBinaries bool
-
-	// The names of binaries to skip when copying
-	SkipCNIBinaries []string
 
 	// The HTTP port for monitoring
 	MonitoringPort int
@@ -94,10 +85,6 @@ type InstallConfig struct {
 type RepairConfig struct {
 	// Whether to enable CNI race repair
 	Enabled bool
-
-	// Whether to run CNI as a DaemonSet (i.e. continuously via k8s watch),
-	// or just one-off
-	RunAsDaemon bool
 
 	// The node name that the CNI DaemonSet runs on
 	NodeName string
@@ -132,8 +119,6 @@ func (c InstallConfig) String() string {
 	b.WriteString("ChainedCNIPlugin: " + fmt.Sprint(c.ChainedCNIPlugin) + "\n")
 	b.WriteString("CNINetworkConfigFile: " + c.CNINetworkConfigFile + "\n")
 	b.WriteString("CNINetworkConfig: " + c.CNINetworkConfig + "\n")
-	b.WriteString("CNIEnableInstall: " + fmt.Sprint(c.CNIEnableInstall) + "\n")
-	b.WriteString("CNIEnableReinstall: " + fmt.Sprint(c.CNIEnableReinstall) + "\n")
 
 	b.WriteString("LogLevel: " + c.LogLevel + "\n")
 	b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")
@@ -145,8 +130,6 @@ func (c InstallConfig) String() string {
 	b.WriteString("K8sServiceHost: " + c.K8sServiceHost + "\n")
 	b.WriteString("K8sServicePort: " + fmt.Sprint(c.K8sServicePort) + "\n")
 	b.WriteString("K8sNodeName: " + c.K8sNodeName + "\n")
-	b.WriteString("UpdateCNIBinaries: " + fmt.Sprint(c.UpdateCNIBinaries) + "\n")
-	b.WriteString("SkipCNIBinaries: " + fmt.Sprint(c.SkipCNIBinaries) + "\n")
 	b.WriteString("MonitoringPort: " + fmt.Sprint(c.MonitoringPort) + "\n")
 	b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
 	b.WriteString("HostNSEnterExec: " + fmt.Sprint(c.HostNSEnterExec) + "\n")
@@ -159,7 +142,6 @@ func (c InstallConfig) String() string {
 func (c RepairConfig) String() string {
 	var b strings.Builder
 	b.WriteString("Enabled: " + fmt.Sprint(c.Enabled) + "\n")
-	b.WriteString("RunAsDaemon: " + fmt.Sprint(c.RunAsDaemon) + "\n")
 	b.WriteString("NodeName: " + c.NodeName + "\n")
 	b.WriteString("LabelKey: " + c.LabelKey + "\n")
 	b.WriteString("LabelValue: " + c.LabelValue + "\n")

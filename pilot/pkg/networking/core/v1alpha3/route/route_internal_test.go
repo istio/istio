@@ -511,7 +511,7 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			name: "request.auth.claims.",
 		},
 		{
-			name: "@request.auth.claims-",
+			name: "@request.auth.claims.",
 		},
 		{
 			name: "@request.auth.claims-abc",
@@ -543,6 +543,45 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			name: "@request.auth.claims.regex",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Regex{Regex: ".+?\\..+?\\..+?"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"regex"}, authzmatcher.StringMatcherRegex(".+?\\..+?\\..+?")),
+		},
+		{
+			name: "@request.auth.claims[key1",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+		},
+		{
+			name: "@request.auth.claims]key1",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+		},
+		{
+			// have `@request.auth.claims` prefix, but no separator
+			name: "@request.auth.claimskey1",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+		},
+		{
+			// if `.` exists, use `.` as separator
+			name: "@request.auth.claims.[key1]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"[key1]"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims[key1]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims[key1][key2]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1", "key2"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims[test-issuer-2@istio.io]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims[test-issuer-2@istio.io][key1]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io", "key1"}, authzmatcher.StringMatcher("exact")),
 		},
 	}
 	for _, tc := range cases {

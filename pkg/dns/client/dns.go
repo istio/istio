@@ -35,7 +35,7 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
+var log = istiolog.RegisterScope("dns", "Istio DNS proxy")
 
 // LocalDNSServer holds configurations for the DNS downstreamUDPServer in Istio Agent
 type LocalDNSServer struct {

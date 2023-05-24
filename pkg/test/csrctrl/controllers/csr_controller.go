@@ -102,7 +102,7 @@ func (s *Signer) Reconcile(key types.NamespacedName) error {
 }
 
 func (s *Signer) Run(stop <-chan struct{}) {
-	kube.WaitForCacheSync(stop, s.csrs.HasSynced)
+	kube.WaitForCacheSync("csr", stop, s.csrs.HasSynced)
 	s.queue.Run(stop)
 }
 

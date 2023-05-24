@@ -72,7 +72,7 @@ const (
 )
 
 var (
-	scope      = log.RegisterScope("installer", "installer", 0)
+	scope      = log.RegisterScope("installer", "installer")
 	restConfig *rest.Config
 )
 
@@ -177,12 +177,12 @@ var (
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldIOP, ok := e.ObjectOld.(*iopv1alpha1.IstioOperator)
 			if !ok {
-				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get old IstioOperator")
+				scope.Errorf(errdict.OperatorFailedToGetObjectInCallback, "failed to get old IstioOperator")
 				return false
 			}
 			newIOP, ok := e.ObjectNew.(*iopv1alpha1.IstioOperator)
 			if !ok {
-				scope.Error(errdict.OperatorFailedToGetObjectInCallback, "failed to get new IstioOperator")
+				scope.Errorf(errdict.OperatorFailedToGetObjectInCallback, "failed to get new IstioOperator")
 				return false
 			}
 

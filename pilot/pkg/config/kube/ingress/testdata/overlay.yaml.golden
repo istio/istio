@@ -55,9 +55,7 @@ spec:
         port:
           number: 4200
       weight: 100
-  - match:
-    - {}
-    route:
+  - route:
     - destination:
         host: service1.ns.svc.mydomain
         port:

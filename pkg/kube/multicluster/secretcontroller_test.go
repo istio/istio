@@ -186,13 +186,14 @@ func Test_SecretController(t *testing.T) {
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
 	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil))
+	clientset.RunAndWait(stopCh)
 	c.AddHandler(&handler{})
+	clientset.RunAndWait(stopCh)
 	_ = c.Run(stopCh)
 	t.Run("sync timeout", func(t *testing.T) {
 		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	})
-	kube.WaitForCacheSync(stopCh, c.informer.HasSynced)
-	clientset.RunAndWait(stopCh)
+	kube.WaitForCacheSync("test", stopCh, c.HasSynced)
 
 	for _, step := range steps {
 		resetCallbackData()

@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -150,10 +151,11 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap,
 ) {
+	clonedVhostRoutes := false
 	routesRemoved := false
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
-		patchHTTPRoute(patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved, portMap)
+		patchHTTPRoute(patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved, portMap, &clonedVhostRoutes)
 	}
 
 	// now for the adds
@@ -242,6 +244,7 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool, portMap model.GatewayPortMap,
+	clonedVhostRoutes *bool,
 ) {
 	for _, rp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
 		applied := false
@@ -249,6 +252,11 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) &&
 			virtualHostMatch(virtualHost, rp) &&
 			routeMatch(virtualHost.Routes[routeIndex], rp) {
+			if !*clonedVhostRoutes {
+				// different virtualHosts may share same routes pointer
+				virtualHost.Routes = slices.Clone(virtualHost.Routes)
+				*clonedVhostRoutes = true
+			}
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				virtualHost.Routes[routeIndex] = nil
 				*routesRemoved = true

@@ -28,7 +28,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var pluginLog = log.RegisterScope("cni", "CNI network plugin", 0)
+var pluginLog = log.RegisterScope("cni", "CNI network plugin")
 
 type UDSLogger struct {
 	mu            sync.Mutex

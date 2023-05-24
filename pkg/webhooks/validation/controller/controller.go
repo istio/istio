@@ -44,7 +44,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
+var scope = log.RegisterScope("validationController", "validation webhook controller")
 
 type Options struct {
 	// Istio system namespace where istiod resides.
@@ -168,7 +168,7 @@ func (c *Controller) Reconcile(key types.NamespacedName) error {
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	kube.WaitForCacheSync(stop, c.webhooks.HasSynced)
+	kube.WaitForCacheSync("validation", stop, c.webhooks.HasSynced)
 	go c.startCaBundleWatcher(stop)
 	c.queue.Run(stop)
 }

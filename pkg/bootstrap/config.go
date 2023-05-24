@@ -171,6 +171,9 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	}
 	opts = append(opts, proxyOpts...)
 
+	// Append LRS related options.
+	opts = append(opts, option.LoadStatsConfigJSONStr(cfg.RawMetadata))
+
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info
 	// is not available (in particular in some multi-cluster cases)

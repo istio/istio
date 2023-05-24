@@ -36,7 +36,7 @@ const (
 	bearerTokenPrefix = "Bearer "
 )
 
-var citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
+var citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging")
 
 type CitadelClient struct {
 	// It means enable tls connection to Citadel if this is not nil.

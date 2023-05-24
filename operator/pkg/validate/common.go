@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	scope = log.RegisterScope("validation", "API validation", 0)
+	scope = log.RegisterScope("validation", "API validation")
 
 	// alphaNumericRegexp defines the alpha numeric atom, typically a
 	// component of names. This only allows lower case characters and digits.

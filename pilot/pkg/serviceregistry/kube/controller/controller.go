@@ -70,7 +70,7 @@ const (
 	DefaultNetworkGatewayPort = 15443
 )
 
-var log = istiolog.RegisterScope("kube", "kubernetes service registry controller", 0)
+var log = istiolog.RegisterScope("kube", "kubernetes service registry controller")
 
 var (
 	typeTag  = monitoring.MustCreateLabel("type")
@@ -267,10 +267,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		)
 	}
 
-	if c.opts.DiscoveryNamespacesFilter == nil {
+	// always init for each cluster, otherwise different ns labels in different cluster may not take effect,
+	// but we skip it for configCluster which has been initiated before
+	if !c.opts.ConfigCluster || c.opts.DiscoveryNamespacesFilter == nil {
 		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
-
 	c.initDiscoveryHandlers(options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
 
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
@@ -595,12 +596,12 @@ func (c *Controller) informersSynced() bool {
 	// Because crdWatcher.HasSynced only indicates the cache synced, but does not guarantee the event handler called.
 	// So we wait get the CRD explicitly and if MCS installed, we wait until serviceImports and serviceExports sync.
 	if c.crdWatcher != nil {
-		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceImportGVR.Resource + "." + mcs.ServiceImportGVR.Group); exists {
+		if c.crdWatcher.Exists(mcs.ServiceImportGVR.Resource + "." + mcs.ServiceImportGVR.Group) {
 			if !c.imports.HasSynced() {
 				return false
 			}
 		}
-		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceExportGVR.Resource + "." + mcs.ServiceExportGVR.Group); exists {
+		if c.crdWatcher.Exists(mcs.ServiceExportGVR.Resource + "." + mcs.ServiceExportGVR.Group) {
 			if !c.exports.HasSynced() {
 				return false
 			}
@@ -634,7 +635,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
 
-	kubelib.WaitForCacheSync(stop, c.informersSynced)
+	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)

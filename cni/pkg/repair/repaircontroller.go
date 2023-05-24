@@ -15,150 +15,186 @@
 package repair
 
 import (
+	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	client "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
+	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 type Controller struct {
-	clientset     client.Interface
-	workQueue     workqueue.RateLimitingInterface
-	podController cache.Controller
-
-	reconciler brokenPodReconciler
+	client kube.Client
+	pods   kclient.Client[*corev1.Pod]
+	queue  controllers.Queue
+	cfg    config.RepairConfig
 }
 
-func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
+func NewRepairController(client kube.Client, cfg config.RepairConfig) (*Controller, error) {
 	c := &Controller{
-		clientset:  reconciler.client,
-		workQueue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		reconciler: reconciler,
+		cfg:    cfg,
+		client: client,
 	}
-
-	podListWatch := cache.NewFilteredListWatchFromClient(
-		c.clientset.CoreV1().RESTClient(),
-		"pods",
-		metav1.NamespaceAll,
-		func(options *metav1.ListOptions) {
-			var (
-				labelSelectors []string
-				fieldSelectors []string
-			)
-
-			for _, ls := range []string{options.LabelSelector, reconciler.cfg.LabelSelectors} {
-				if ls != "" {
-					labelSelectors = append(labelSelectors, ls)
-				}
-			}
-			for _, fs := range []string{options.FieldSelector, reconciler.cfg.FieldSelectors} {
-				if fs != "" {
-					fieldSelectors = append(fieldSelectors, fs)
-				}
-			}
-			// filter out pod events from different nodes
-			fieldSelectors = append(fieldSelectors, fmt.Sprintf("spec.nodeName=%v", reconciler.cfg.NodeName))
-			options.LabelSelector = strings.Join(labelSelectors, ",")
-			options.FieldSelector = strings.Join(fieldSelectors, ",")
-		},
-	)
-
-	_, c.podController = cache.NewInformer(podListWatch, &corev1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
-		AddFunc: func(newObj any) {
-			c.mayAddToWorkQueue(newObj)
-		},
-		UpdateFunc: func(_, newObj any) {
-			c.mayAddToWorkQueue(newObj)
-		},
+	fieldSelectors := []string{}
+	if cfg.FieldSelectors != "" {
+		fieldSelectors = append(fieldSelectors, cfg.FieldSelectors)
+	}
+	// filter out pod events from different nodes
+	fieldSelectors = append(fieldSelectors, fmt.Sprintf("spec.nodeName=%v", cfg.NodeName))
+	c.pods = kclient.NewFiltered[*corev1.Pod](client, kclient.Filter{
+		LabelSelector: cfg.LabelSelectors,
+		FieldSelector: strings.Join(fieldSelectors, ","),
 	})
+	c.queue = controllers.NewQueue("repair pods",
+		controllers.WithReconciler(c.Reconcile),
+		controllers.WithMaxAttempts(5))
+	c.pods.AddEventHandler(controllers.FilteredObjectHandler(c.queue.AddObject, func(o controllers.Object) bool {
+		return c.matchesFilter(o.(*corev1.Pod))
+	}))
 
 	return c, nil
 }
 
-func (rc *Controller) mayAddToWorkQueue(obj any) {
-	pod, ok := obj.(*corev1.Pod)
-	if !ok {
-		repairLog.Error("Cannot convert object to pod. Skip adding it to the repair working queue.")
-		return
-	}
-	if rc.reconciler.detectPod(*pod) {
-		rc.workQueue.AddRateLimited(obj)
-	}
+func (c *Controller) Run(stop <-chan struct{}) {
+	kube.WaitForCacheSync("repair controller", stop, c.pods.HasSynced)
+	c.queue.Run(stop)
+	c.pods.ShutdownHandlers()
 }
 
-func (rc *Controller) Run(stopCh <-chan struct{}) {
-	go rc.podController.Run(stopCh)
-	if !kube.WaitForCacheSync(stopCh, rc.podController.HasSynced) {
-		repairLog.Error("timed out waiting for pod caches to sync")
-		return
+func (c *Controller) Reconcile(key types.NamespacedName) error {
+	pod := c.pods.Get(key.Name, key.Namespace)
+	if pod == nil {
+		// Pod deleted, nothing to do
+		return nil
 	}
-
-	// This will run the func every 1 second until stopCh is sent
-	go wait.Until(
-		func() {
-			// Runs processNextItem in a loop, if it returns false it will
-			// be restarted by wait.Until unless stopCh is sent.
-			for rc.processNextItem() {
-			}
-		},
-		time.Second,
-		stopCh,
-	)
+	return c.ReconcilePod(pod)
 }
 
-// Process the next available item in the work queue.
-// Return false if exiting permanently, else return true
-// so the loop keeps processing.
-func (rc *Controller) processNextItem() bool {
-	obj, quit := rc.workQueue.Get()
-	if quit {
-		// Exit permanently
+func (c *Controller) ReconcilePod(pod *corev1.Pod) (err error) {
+	repairLog.Debugf("Reconciling pod %s", pod.Name)
+
+	if c.cfg.DeletePods {
+		return c.deleteBrokenPod(pod)
+	} else if c.cfg.LabelPods {
+		return c.labelBrokenPod(pod)
+	}
+	return nil
+}
+
+func (c *Controller) deleteBrokenPod(pod *corev1.Pod) error {
+	m := podsRepaired.With(typeLabel.Value(deleteType))
+	// Added for safety, to make sure no healthy pods get labeled. Could occur if pod changes since we enqueued
+	if !c.matchesFilter(pod) {
+		m.With(resultLabel.Value(resultSkip)).Increment()
+		return nil
+	}
+	repairLog.Infof("Pod detected as broken, deleting: %s/%s", pod.Namespace, pod.Name)
+
+	// Make sure we are deleting what we think we are...
+	preconditions := &metav1.Preconditions{
+		UID:             &pod.UID,
+		ResourceVersion: &pod.ResourceVersion,
+	}
+	err := c.client.Kube().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
+		Preconditions: preconditions,
+	})
+	if err != nil {
+		m.With(resultLabel.Value(resultFail)).Increment()
+		return err
+	}
+	m.With(resultLabel.Value(resultSuccess)).Increment()
+	return nil
+}
+
+func (c *Controller) labelBrokenPod(pod *corev1.Pod) error {
+	// Added for safety, to make sure no healthy pods get labeled.
+	m := podsRepaired.With(typeLabel.Value(labelType))
+	if !c.matchesFilter(pod) {
+		m.With(resultLabel.Value(resultSkip)).Increment()
+		return nil
+	}
+	repairLog.Infof("Pod detected as broken, adding label: %s/%s", pod.Namespace, pod.Name)
+
+	labels := pod.GetLabels()
+	if _, ok := labels[c.cfg.LabelKey]; ok {
+		m.With(resultLabel.Value(resultSkip)).Increment()
+		repairLog.Infof("Pod %s/%s already has label with key %s, skipping", pod.Namespace, pod.Name, c.cfg.LabelKey)
+		return nil
+	}
+
+	repairLog.Infof("Labeling pod %s/%s with label %s=%s", pod.Namespace, pod.Name, c.cfg.LabelKey, c.cfg.LabelValue)
+
+	patchBytes := fmt.Sprintf(`{"metadata":{"labels":{%q:%q}}}`, c.cfg.LabelKey, c.cfg.LabelValue)
+	_, err := c.client.Kube().CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.MergePatchType,
+		[]byte(patchBytes), metav1.PatchOptions{})
+	if err != nil {
+		repairLog.Errorf("Failed to update pod: %s", err)
+		m.With(resultLabel.Value(resultFail)).Increment()
+		return err
+	}
+	m.With(resultLabel.Value(resultSuccess)).Increment()
+	return nil
+}
+
+// MatchesFilter returns true if the pod matches the repair filter criteria
+func (c *Controller) matchesFilter(pod *corev1.Pod) bool {
+	// Helper function; checks that a container's termination message matches filter
+	matchTerminationMessage := func(state *corev1.ContainerStateTerminated) bool {
+		// If we are filtering on init container termination message and the termination message of 'state' does not match, exit
+		trimmedTerminationMessage := strings.TrimSpace(c.cfg.InitTerminationMsg)
+		return trimmedTerminationMessage == "" || trimmedTerminationMessage == strings.TrimSpace(state.Message)
+	}
+	// Helper function; checks that container exit code matches filter
+	matchExitCode := func(state *corev1.ContainerStateTerminated) bool {
+		// If we are filtering on init container exit code and the termination message does not match, exit
+		if ec := c.cfg.InitExitCode; ec == 0 || ec == int(state.ExitCode) {
+			return true
+		}
 		return false
 	}
-	defer rc.workQueue.Done(obj)
 
-	pod, ok := obj.(*corev1.Pod)
-	if !ok {
-		repairLog.Errorf("Error decoding object, invalid type. Dropping.")
-		rc.workQueue.Forget(obj)
-		// Short-circuit on this item, but return true to keep
-		// processing.
-		return true
-	}
-
-	err := rc.reconciler.ReconcilePod(*pod)
-
-	if err == nil {
-		repairLog.Debugf("Removing %s/%s from work queue", pod.Namespace, pod.Name)
-		rc.workQueue.Forget(obj)
-	} else if rc.workQueue.NumRequeues(obj) < 50 {
-		if strings.Contains(err.Error(), "the object has been modified; please apply your changes to the latest version and try again") {
-			repairLog.Debugf("Object '%s/%s' modified, requeue for retry", pod.Namespace, pod.Name)
-			repairLog.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
-			rc.workQueue.AddRateLimited(obj)
-		} else if strings.Contains(err.Error(), "not found") {
-			repairLog.Debugf("Object '%s/%s' removed, dequeue", pod.Namespace, pod.Name)
-			rc.workQueue.Forget(obj)
-		} else {
-			repairLog.Errorf("Error: %s", err)
-			repairLog.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
-			rc.workQueue.AddRateLimited(obj)
+	// Only check pods that have the sidecar annotation; the rest can be
+	// ignored.
+	if c.cfg.SidecarAnnotation != "" {
+		if _, ok := pod.ObjectMeta.Annotations[c.cfg.SidecarAnnotation]; !ok {
+			return false
 		}
-	} else {
-		repairLog.Infof("Requeue limit reached, removing %s/%s", pod.Namespace, pod.Name)
-		rc.workQueue.Forget(obj)
-		runtime.HandleError(err)
 	}
 
-	// Return true to let the loop process the next item
-	return true
+	// For each candidate pod, iterate across all init containers searching for
+	// crashlooping init containers that match our criteria
+	for _, container := range pod.Status.InitContainerStatuses {
+		// Skip the container if the InitContainerName is not a match and our
+		// InitContainerName filter is non-empty.
+		if c.cfg.InitContainerName != "" && container.Name != c.cfg.InitContainerName {
+			continue
+		}
+
+		// For safety, check the containers *current* status. If the container
+		// successfully exited, we NEVER want to identify this pod as broken.
+		// If the pod is going to fail, the failure state will show up in
+		// LastTerminationState eventually.
+		if state := container.State.Terminated; state != nil {
+			if state.Reason == "Completed" || state.ExitCode == 0 {
+				continue
+			}
+		}
+
+		// Check the LastTerminationState struct for information about why the container
+		// last exited. If a pod is using the CNI configuration check init container,
+		// it will start crashlooping and populate this struct.
+		if state := container.LastTerminationState.Terminated; state != nil {
+			// Verify the container state matches our filter criteria
+			if matchTerminationMessage(state) && matchExitCode(state) {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -63,7 +63,7 @@ func RunCSRController(signerNames string, stop <-chan struct{}, clients []kube.C
 		signer := NewSigner(cl, signersMap)
 		go signer.Run(stop)
 		cl.RunAndWait(stop)
-		kube.WaitForCacheSync(stop, signer.HasSynced)
+		kube.WaitForCacheSync("csr", stop, signer.HasSynced)
 	}
 
 	return rootCertSignerArr, nil

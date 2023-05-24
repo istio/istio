@@ -202,12 +202,11 @@ func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
 	case <-stop:
 		return
 	}
-	dInformer := ec.client.DynamicInformer().ForResource(mcs.ServiceExportGVR).Informer()
-	ec.serviceExports = kclient.NewUntyped(ec.client, dInformer, kclient.Filter{ObjectFilter: ec.opts.GetFilter()})
+	ec.serviceExports = kclient.NewDynamic(ec.client, mcs.ServiceExportGVR, kclient.Filter{ObjectFilter: ec.opts.GetFilter()})
 	// Register callbacks for events.
 	registerHandlers(ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)
-	go dInformer.Run(stop)
-	kube.WaitForCacheSync(stop, ec.serviceExports.HasSynced)
+	ec.serviceExports.Start(stop)
+	kube.WaitForCacheSync("service export", stop, ec.serviceExports.HasSynced)
 	ec.started.Store(true)
 }
 

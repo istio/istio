@@ -586,7 +586,7 @@ func (s *Server) initServers(args *PilotArgs) {
 	} else {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Info("multiplexing gRPC on http addr ", args.ServerOptions.HTTPAddr)
+		log.Infof("multiplexing gRPC on http addr %v", args.ServerOptions.HTTPAddr)
 		multiplexGRPC = true
 	}
 	h2s := &http2.Server{
@@ -617,7 +617,7 @@ func (s *Server) initServers(args *PilotArgs) {
 
 	if args.ServerOptions.MonitoringAddr == "" {
 		s.monitoringMux = s.httpMux
-		log.Info("initializing Istiod admin server multiplexed on httpAddr ", s.httpServer.Addr)
+		log.Infof("initializing Istiod admin server multiplexed on httpAddr %v", s.httpServer.Addr)
 	} else {
 		log.Info("initializing Istiod admin server")
 	}
@@ -626,7 +626,7 @@ func (s *Server) initServers(args *PilotArgs) {
 // initIstiodAdminServer initializes monitoring, debug and readiness end points.
 func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]string) error {
 	// Debug Server.
-	internalMux := s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, whc)
+	internalMux := s.XDSServer.InitDebug(s.monitoringMux, args.ServerOptions.EnableProfiling, whc)
 	s.internalDebugMux = internalMux
 
 	// Debug handlers are currently added on monitoring mux and readiness mux.
@@ -809,7 +809,7 @@ func (s *Server) addTerminatingStartFunc(name string, fn server.Component) {
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	start := time.Now()
 	log.Info("Waiting for caches to be synced")
-	if !kubelib.WaitForCacheSync(stop, s.cachesSynced) {
+	if !kubelib.WaitForCacheSync("server", stop, s.cachesSynced) {
 		log.Errorf("Failed waiting for cache sync")
 		return false
 	}
@@ -820,12 +820,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	// condition where we are marked ready prior to updating the push context, leading to incomplete
 	// pushes.
 	expected := s.XDSServer.InboundUpdates.Load()
-	if !kubelib.WaitForCacheSync(stop, func() bool { return s.pushContextReady(expected) }) {
-		log.Errorf("Failed waiting for push context initialization")
-		return false
-	}
-
-	return true
+	return kubelib.WaitForCacheSync("push context", stop, func() bool { return s.pushContextReady(expected) })
 }
 
 // pushContextReady indicates whether pushcontext has processed all inbound config updates.
@@ -896,7 +891,7 @@ func (s *Server) initRegistryEventHandlers() {
 		}
 		schemas := collections.Pilot.All()
 		if features.EnableGatewayAPI {
-			schemas = collections.PilotGatewayAPI.All()
+			schemas = collections.PilotGatewayAPI().All()
 		}
 		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
@@ -1027,7 +1022,7 @@ func getDNSNames(args *PilotArgs, host string) []string {
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
 	customTLSCertsExists, _, _, caCertPath := hasCustomTLSCerts(tlsOptions)
-	if !customTLSCertsExists && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isCADisabled() {
+	if !customTLSCertsExists && s.CA == nil && !s.isCADisabled() {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
@@ -1058,15 +1053,6 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 		if err != nil {
 			return nil, fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
 		}
-	}
-
-	if features.SpiffeBundleEndpoints != "" {
-		certMap, err := spiffe.RetrieveSpiffeBundleRootCertsFromStringInput(
-			features.SpiffeBundleEndpoints, []*x509.Certificate{})
-		if err != nil {
-			return nil, err
-		}
-		peerCertVerifier.AddMappings(certMap)
 	}
 
 	return peerCertVerifier, nil

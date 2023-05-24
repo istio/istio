@@ -28,6 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/api/annotation"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
+	istiolog "istio.io/pkg/log"
 )
 
 // TestInjection tests both the mutating webhook and kube-inject. It does this by sharing the same input and output
@@ -347,6 +349,7 @@ func TestInjection(t *testing.T) {
 	// Precompute injection settings. This may seem like a premature optimization, but due to the size of
 	// YAMLs, with -race this was taking >10min in some cases to generate!
 	if util.Refresh() {
+		cleanupOldFiles(t)
 		writeInjectionSettings(t, "default", nil, "")
 		for i, c := range cases {
 			if c.setFlags != nil || c.inFilePath != "" {
@@ -1041,6 +1044,74 @@ func TestProxyImage(t *testing.T) {
 			got := ProxyImage(tt.v, tt.pc, tt.ann)
 			if got != tt.want {
 				t.Errorf("got: <%s>, want <%s> <== value(%v) proxyConfig(%v) ann(%v)", got, tt.want, tt.v, tt.pc, tt.ann)
+			}
+		})
+	}
+}
+
+func podWithEnv(envCount int) *corev1.Pod {
+	envs := []corev1.EnvVar{}
+	for i := 0; i < envCount; i++ {
+		envs = append(envs, corev1.EnvVar{
+			Name:  fmt.Sprintf("something-%d", i),
+			Value: "blah",
+		})
+	}
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "app",
+				Image: "fake",
+				Env:   envs,
+			}},
+		},
+	}
+}
+
+// TestInjection tests both the mutating webhook and kube-inject. It does this by sharing the same input and output
+// test files and running through the two different code paths.
+func BenchmarkInjection(b *testing.B) {
+	istiolog.FindScope("default").SetOutputLevel(istiolog.ErrorLevel)
+	cases := []struct {
+		name string
+		in   *corev1.Pod
+	}{
+		{
+			name: "many env vars",
+			in:   podWithEnv(2000),
+		},
+	}
+
+	for _, tt := range cases {
+		b.Run(tt.name, func(b *testing.B) {
+			// Preload default settings. Computation here is expensive, so this speeds the tests up substantially
+			sidecarTemplate, valuesConfig, mc := readInjectionSettings(b, "default")
+			webhook := &Webhook{
+				Config:     sidecarTemplate,
+				meshConfig: mc,
+				env: &model.Environment{
+					PushContext: &model.PushContext{
+						ProxyConfigs: &model.ProxyConfigs{},
+					},
+				},
+				valuesConfig: valuesConfig,
+				revision:     "default",
+			}
+			templateJSON := convertToJSON(tt.in, b)
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				webhook.inject(&kube.AdmissionReview{
+					Request: &kube.AdmissionRequest{
+						Object: runtime.RawExtension{
+							Raw: templateJSON,
+						},
+						Namespace: tt.in.Namespace,
+					},
+				}, "")
 			}
 		})
 	}

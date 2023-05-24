@@ -46,7 +46,7 @@ const (
 	NotesFileNameSuffix = ".txt"
 )
 
-var scope = log.RegisterScope("installer", "installer", 0)
+var scope = log.RegisterScope("installer", "installer")
 
 // TemplateFilterFunc filters templates to render by their file name
 type TemplateFilterFunc func(string) bool

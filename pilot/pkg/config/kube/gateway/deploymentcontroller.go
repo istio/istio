@@ -77,6 +77,7 @@ import (
 type DeploymentController struct {
 	client         kube.Client
 	clusterID      cluster.ID
+	env            *model.Environment
 	queue          controllers.Queue
 	patcher        patcher
 	gateways       kclient.Client[*gateway.Gateway]
@@ -138,7 +139,7 @@ var knownControllers = func() sets.String {
 
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
-func NewDeploymentController(client kube.Client, clusterID cluster.ID,
+func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *model.Environment,
 	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher, revision string,
 ) *DeploymentController {
 	gateways := kclient.New[*gateway.Gateway](client)
@@ -147,6 +148,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 		client:    client,
 		clusterID: clusterID,
 		clients:   map[schema.GroupVersionResource]getter{},
+		env:       env,
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
 			t := true
@@ -215,6 +217,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 
 func (d *DeploymentController) Run(stop <-chan struct{}) {
 	kube.WaitForCacheSync(
+		"deployment controller",
 		stop,
 		d.namespaces.HasSynced,
 		d.deployments.HasSynced,
@@ -309,6 +312,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	} else {
 		log.Debugf("controller version existing=%v, no action needed", existingControllerVersion)
 	}
+
 	rendered, err := d.render(gi.templates, input)
 	if err != nil {
 		return fmt.Errorf("failed to render template: %v", err)
@@ -388,14 +392,17 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 	if template == nil {
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
+
+	labelToMatch := map[string]string{"istio.io/gateway-name": mi.Name}
+	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
 		ProxyImage: inject.ProxyImage(
 			cfg.Values.Struct(),
-			cfg.MeshConfig.GetDefaultConfig().GetImage(),
+			proxyConfig.GetImage(),
 			mi.Annotations,
 		),
-		ProxyConfig: cfg.MeshConfig.GetDefaultConfig(),
+		ProxyConfig: proxyConfig,
 		MeshConfig:  cfg.MeshConfig,
 		Values:      cfg.Values.Map(),
 	}

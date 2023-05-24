@@ -81,7 +81,7 @@ var (
 	loggingOptions = defaultLogOptions()
 
 	// scope is for dev logging.  Warning: log levels are not set by --log_output_level until command is Run().
-	scope = log.RegisterScope("cli", "istioctl", 0)
+	scope = log.RegisterScope("cli", "istioctl")
 )
 
 func defaultLogOptions() *log.Options {
@@ -225,11 +225,8 @@ debug and diagnose their Istio mesh.
 
 	experimentalCmd.AddCommand(AuthZ())
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
-	experimentalCmd.AddCommand(uninjectCommand())
 	experimentalCmd.AddCommand(metricsCmd())
 	experimentalCmd.AddCommand(describe())
-	experimentalCmd.AddCommand(addToMeshCmd())
-	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(waitCmd())
 	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(loggingOptions)))
 	experimentalCmd.AddCommand(configCmd())

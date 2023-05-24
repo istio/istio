@@ -22,7 +22,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("util", "util", 0)
+var scope = log.RegisterScope("util", "util")
 
 // IsFilePath reports whether the given URL is a local file path.
 func IsFilePath(path string) bool {
