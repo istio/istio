@@ -36,6 +36,8 @@ const (
 	ProxylessGRPCSvc = "proxyless-grpc"
 	NakedSvc         = "naked"
 	DeltaSvc         = "delta"
+	WaypointSvc      = "waypoint"
+	CapturedSvc      = "captured"
 )
 
 // EchoNamespace contains the echo instances for a single namespace.
