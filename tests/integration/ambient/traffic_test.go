@@ -21,31 +21,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
-	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/tests/integration/pilot/common"
 )
-
-var ambientTrafficEchos = []echo.Config{
-	{
-		Service:        Waypoint,
-		Ports:          ports.All(),
-		ServiceAccount: true,
-		WaypointProxy:  true,
-		Subsets: []echo.SubsetConfig{
-			{
-				Replicas: 1,
-				Version:  "v1",
-				Labels: map[string]string{
-					"app":                     "waypoint",
-					"version":                 "v1",
-					"sidecar.istio.io/inject": "false",
-				},
-			},
-		},
-	},
-}
 
 func TestTraffic(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {

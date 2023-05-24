@@ -168,7 +168,7 @@ var NoSelfCalls CombinationFilter = func(from echo.Instance, to echo.Instances) 
 	return match.Not(match.ServiceName(from.NamespacedName())).GetMatches(to)
 }
 
-// HasL7 only allows traffic where there is some L7 processing occuring on the path
+// HasL7 only allows traffic where there is some L7 processing occurring on the path
 var HasL7 CombinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
 	if from.Config().HasSidecar() || from.Config().IsProxylessGRPC() {
 		// client has l7

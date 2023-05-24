@@ -357,7 +357,15 @@ func (c Config) IsDelta() bool {
 // - TProxy
 // - Multi-Subset
 func (c Config) IsRegularPod() bool {
-	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet() && !c.IsProxylessGRPC() && !c.HasWaypointProxy() && !c.ZTunnelCaptured()
+	return len(c.Subsets) == 1 &&
+		!c.IsVM() &&
+		!c.IsTProxy() &&
+		!c.IsNaked() &&
+		!c.IsHeadless() &&
+		!c.IsStatefulSet() &&
+		!c.IsProxylessGRPC() &&
+		!c.HasWaypointProxy() &&
+		!c.ZTunnelCaptured()
 }
 
 // ZTunnelCaptured returns true in ambient enabled namespaces where there is no sidecar
