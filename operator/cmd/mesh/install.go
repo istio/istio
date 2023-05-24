@@ -195,36 +195,19 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 
 	// Detect whether previous installation exists prior to performing the installation.
 	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
-	rev := iop.Spec.Revision
-	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
-	operatorManageWebhooks := operatorManageWebhooks(iop)
-
 	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
-	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
-		p.Println("Making this installation the default for injection and validation.")
-		if rev == "" {
-			rev = revtag.DefaultRevisionName
-		}
-		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
-
-		o := &revtag.GenerateOptions{
-			Tag:                  revtag.DefaultRevisionName,
-			Revision:             rev,
-			Overwrite:            true,
-			AutoInjectNamespaces: autoInjectNamespaces,
-		}
-		// If tag cannot be created could be remote cluster install, don't fail out.
-		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
-		if err == nil {
-			err = revtag.Create(kubeClient, tagManifests)
-			if err != nil {
-				return err
-			}
-		}
+	opts := &helmreconciler.ProcessDefaultWebhookOptions{
+		Namespace: ns,
+		DryRun:    rootArgs.DryRun,
+	}
+	if processed, err := helmreconciler.ProcessDefaultWebhook(kubeClient, iop, exists, opts); err != nil {
+		return fmt.Errorf("failed to process default webhook: %v", err)
+	} else if processed {
+		p.Println("Made this installation the default for injection and validation.")
 	}
 
 	if iArgs.Verify {
@@ -252,23 +235,6 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	}
 
 	return nil
-}
-
-// operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
-func operatorManageWebhooks(iop *v1alpha12.IstioOperator) bool {
-	if iop.Spec.GetValues() == nil {
-		return false
-	}
-	globalValues := iop.Spec.Values.AsMap()["global"]
-	global, ok := globalValues.(map[string]any)
-	if !ok {
-		return false
-	}
-	omw, ok := global["operatorManageWebhooks"].(bool)
-	if !ok {
-		return false
-	}
-	return omw
 }
 
 // InstallManifests generates manifests from the given istiooperator instance and applies them to the
@@ -423,23 +389,4 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
 	}
 	return iop.Spec.Profile, constants.IstioSystemNamespace, enabledComponents, nil
-}
-
-// validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
-// Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
-func validateEnableNamespacesByDefault(iop *v1alpha12.IstioOperator) bool {
-	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
-		return false
-	}
-	sidecarValues := iop.Spec.Values.AsMap()["sidecarInjectorWebhook"]
-	sidecarMap, ok := sidecarValues.(map[string]any)
-	if !ok {
-		return false
-	}
-	autoInjectNamespaces, ok := sidecarMap["enableNamespacesByDefault"].(bool)
-	if !ok {
-		return false
-	}
-
-	return autoInjectNamespaces
 }

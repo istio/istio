@@ -440,6 +440,9 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 			if excluded[oh] {
 				continue
 			}
+			if o.GetLabels()[OwningResourceNotPruned] == "true" {
+				continue
+			}
 		}
 		if err := h.deleteResource(obj, componentName, oh); err != nil {
 			errs = append(errs, err)
