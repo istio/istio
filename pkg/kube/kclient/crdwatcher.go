@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sync"
 
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/slices"
 )
 
 type crdWatcher struct {

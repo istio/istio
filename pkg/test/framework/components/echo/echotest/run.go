@@ -17,8 +17,7 @@ package echotest
 import (
 	"strings"
 
-	"golang.org/x/exp/slices"
-
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
