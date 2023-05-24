@@ -150,7 +150,7 @@ func (a *AmbientIndex) insertWorkloadToService(svcAddress networkAddress, worklo
 	a.byService[svcAddress] = append(a.byService[svcAddress], workload)
 }
 
-func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloadapi.GatewayAddress, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
+func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloadapi.GatewayAddress, isDelete bool) map[model.ConfigKey]struct{} {
 	updates := sets.New[model.ConfigKey]()
 	if isDelete {
 		for _, wl := range a.byPod {
@@ -604,6 +604,7 @@ func (c *Controller) constructService(svc *v1.Service) *model.ServiceInfo {
 		})
 	}
 
+	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	vips := getVIPs(svc)
 	addrs := make([]*workloadapi.NetworkAddress, 0, len(vips))
 	for _, vip := range vips {
@@ -860,12 +861,12 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		if isDelete {
 			if proto.Equal(a.waypoints[scope], addr) {
 				delete(a.waypoints, scope)
-				updates.Merge(a.updateWaypoint(scope, addr, true, c))
+				updates.Merge(a.updateWaypoint(scope, addr, true))
 			}
 		} else {
 			if !proto.Equal(a.waypoints[scope], addr) {
 				a.waypoints[scope] = addr
-				updates.Merge(a.updateWaypoint(scope, addr, false, c))
+				updates.Merge(a.updateWaypoint(scope, addr, false))
 			}
 		}
 	}
@@ -1082,13 +1083,7 @@ func (c *Controller) AdditionalPodSubscriptions(
 					}
 				}
 			case *workloadapi.Address_Service:
-				for _, networkAddress := range addr.Service.Addresses {
-					t := types.NamespacedName{Name: string(networkAddress.Address)}
-					if currentSubs.Contains(t) {
-						shouldSubscribe.Insert(types.NamespacedName{Name: wl.ResourceName()})
-						break
-					}
-				}
+				// ignore, results in duplicate entries pushed to proxies
 			}
 		}
 	}

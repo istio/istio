@@ -243,7 +243,8 @@ func TestAmbientIndex(t *testing.T) {
 	addPods("127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "namespace-wide"}, nil)
+			constants.GatewayNameLabel:    "namespace-wide",
+		}, nil)
 	assertAddresses("", "name1", "name2", "name3", "waypoint-ns-pod")
 	assertEvent("testnetwork/127.0.0.200")
 	// create the waypoint service
@@ -294,7 +295,8 @@ func TestAmbientIndex(t *testing.T) {
 	addPods("127.0.0.201", "waypoint2-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "namespace-wide"}, nil)
+			constants.GatewayNameLabel:    "namespace-wide",
+		}, nil)
 	assertEvent("testnetwork/127.0.0.201")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.3")[0].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.2").AsSlice())
