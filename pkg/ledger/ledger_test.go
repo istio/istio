@@ -25,24 +25,25 @@ import (
 	"github.com/google/uuid"
 	"github.com/spaolacci/murmur3"
 	"golang.org/x/sync/errgroup"
-	"gotest.tools/v3/assert"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestLongKeys(t *testing.T) {
 	longKey := "virtual-service/frontend/default"
 	l := smtLedger{tree: newSMT(hasher, nil, time.Minute)}
 	_, err := l.Put(longKey+"1", "1")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	_, err = l.Put(longKey+"2", "2")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	res, err := l.Get(longKey + "1")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, res, "1")
 	res, err = l.Get(longKey + "2")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, res, "2")
 	res, err = l.Get(longKey)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, res, "")
 }
 
@@ -58,13 +59,13 @@ func TestGetAndPrevious(t *testing.T) {
 	l.Put("second", "value")
 	resultHashes[l.RootHash()] = true
 	getResult, err := l.Get("foo")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, getResult, "baz")
 	getResult, err = l.Get("second")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, getResult, "value")
 	getResult, err = l.GetPreviousValue(firstHash, "foo")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, getResult, "bar")
 	if len(resultHashes) != 3 {
 		t.Fatal("Encountered has collision")
@@ -74,14 +75,14 @@ func TestGetAndPrevious(t *testing.T) {
 func TestOrderAgnosticism(t *testing.T) {
 	l := smtLedger{tree: newSMT(MyHasher, nil, time.Minute)}
 	_, err := l.Put("foo", "bar")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	firstHash, err := l.Put("second", "value")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	secondHash, err := l.Put("foo", "baz")
-	assert.NilError(t, err)
-	assert.Assert(t, firstHash != secondHash)
+	assert.NoError(t, err)
+	assert.Equal(t, firstHash != secondHash, true)
 	lastHash, err := l.Put("foo", "bar")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, firstHash, lastHash)
 }
 
@@ -115,11 +116,11 @@ func TestCollision(t *testing.T) {
 	l := smtLedger{tree: newSMT(HashCollider, nil, time.Minute)}
 	hit = true
 	_, err := l.Put("foo", "bar")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	_, err = l.Put("fhgwgads", "shouldcollide")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	value, err := l.Get("foo")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, value, "bar")
 }
 
@@ -158,6 +159,6 @@ func BenchmarkScale(b *testing.B) {
 func addConfig(ledger Ledger, b *testing.B) string {
 	objectID := strings.Replace(uuid.New().String(), "-", "", -1)
 	_, err := ledger.Put(objectID, fmt.Sprintf("%d", rand.Int()))
-	assert.NilError(b, err)
+	assert.NoError(b, err)
 	return objectID
 }
