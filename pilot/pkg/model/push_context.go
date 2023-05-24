@@ -1857,11 +1857,11 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 	// sort slices by priority
 	for i, slice := range matchedPlugins {
 		sort.SliceStable(slice, func(i, j int) bool {
-			iPriority := int64(math.MinInt64)
+			iPriority := int32(math.MinInt32)
 			if prio := slice[i].Priority; prio != nil {
 				iPriority = prio.Value
 			}
-			jPriority := int64(math.MinInt64)
+			jPriority := int32(math.MinInt32)
 			if prio := slice[j].Priority; prio != nil {
 				jPriority = prio.Value
 			}
