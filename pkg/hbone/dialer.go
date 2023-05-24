@@ -129,7 +129,7 @@ func (d *dialer) proxyTo(conn io.ReadWriteCloser, req Config, address string) er
 			remoteID = ids[0]
 		}
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("round trip failed: %v", resp.Status)
 	}
 	log.WithLabels("host", r.Host, "remote", remoteID).Info("CONNECT established")
