@@ -1091,11 +1091,7 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	// if not found, for backward compatibility, extract the namespace from
 	// the proxy domain. this is a k8s specific hack and should be enabled
 	parts := strings.Split(proxy.DNSDomain, ".")
-	if len(parts) > 1 { // k8s will have namespace.<domain>
-		return parts[0]
-	}
-
-	return ""
+	return parts[0]
 }
 
 const (
