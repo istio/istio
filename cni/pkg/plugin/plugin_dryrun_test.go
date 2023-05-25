@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
 
@@ -35,6 +34,8 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	diff "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
@@ -266,11 +267,7 @@ func getRules(b []byte) map[string]string {
 }
 
 func refreshGoldens(t *testing.T, goldenFileName string, generatedRules map[string]string) {
-	tables := make([]string, 0)
-	for table := range generatedRules {
-		tables = append(tables, table)
-	}
-	sort.Strings(tables)
+	tables := slices.Sort(maps.Keys(generatedRules))
 	goldenFileContent := ""
 	for _, t := range tables {
 		goldenFileContent += generatedRules[t] + "\n"

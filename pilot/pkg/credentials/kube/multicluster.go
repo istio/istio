@@ -132,7 +132,7 @@ func (a *AggregateController) GetCertInfo(name, namespace string) (certInfo *cre
 	return nil, firstError
 }
 
-func (a *AggregateController) GetCaCert(name, namespace string) (cert []byte, err error) {
+func (a *AggregateController) GetCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
 	// Search through all clusters, find first non-empty result
 	var firstError error
 	for _, c := range a.controllers {

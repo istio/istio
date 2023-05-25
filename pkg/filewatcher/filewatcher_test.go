@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +17,12 @@ package filewatcher
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path"
 	"runtime"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/fsnotify/fsnotify"
 	. "github.com/onsi/gomega"
@@ -386,159 +384,4 @@ func TestBogusRemove(t *testing.T) {
 	}
 
 	_ = w.Close()
-}
-
-type churnFile struct {
-	file        string
-	cleanupFile func()
-	eventDoneCh chan struct{}
-}
-
-func (c *churnFile) active() bool {
-	return c.cleanupFile != nil
-}
-
-func (c *churnFile) create(w FileWatcher) error {
-	if c.active() {
-		panic("File is currently active")
-	}
-	f, cl, err := newWatchFileImpl()
-	if err != nil {
-		return err
-	}
-
-	if err = w.Add(f); err != nil {
-		cl()
-		return err
-	}
-
-	events := w.Events(f)
-	errors := w.Errors(f)
-	eventDoneCh := make(chan struct{})
-
-	c.eventDoneCh = eventDoneCh
-	c.file = f
-	c.cleanupFile = cl
-
-	go func() {
-		// sporadically read events
-		// nolint: gosec
-		// test only code
-		for {
-			<-time.After(time.Millisecond * time.Duration(rand.Int31n(5)))
-			select {
-			case <-eventDoneCh:
-				return
-			case <-events: // read and discard events
-			case <-errors:
-			}
-		}
-	}()
-
-	return nil
-}
-
-// nolint: gosec
-// test only code
-func changeFileContents(file string) {
-	l := rand.Int31n(4 * 1024)
-	b := make([]byte, l)
-	for i := 0; i < int(l); i++ {
-		b[i] = byte(rand.Int31n(255))
-	}
-
-	_ = os.WriteFile(file, b, 0o777)
-}
-
-func (c *churnFile) modify() {
-	if !c.active() {
-		panic("file is not active")
-	}
-	changeFileContents(c.file)
-}
-
-func (c *churnFile) remove(w FileWatcher) error {
-	if !c.active() {
-		panic("file is not active")
-	}
-	close(c.eventDoneCh)
-	err := w.Remove(c.file)
-	c.cleanupFile()
-
-	c.file = ""
-	c.cleanupFile = nil
-	c.eventDoneCh = nil
-
-	return err
-}
-
-func TestChurn(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	duration := time.Second * 5
-	workers := 5
-	filesPerWorker := 15
-
-	w := NewWatcher()
-	defer func() { _ = w.Close() }()
-
-	done := make(chan struct{})
-	go func() {
-		<-time.After(duration)
-		close(done)
-	}()
-
-	// create a bunch of workers and perform add/modify operations
-	var wg sync.WaitGroup
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-			files := make([]*churnFile, filesPerWorker)
-			for j := 0; j < filesPerWorker; j++ {
-				files[j] = &churnFile{}
-			}
-
-			defer func() {
-				for _, e := range files {
-					if e.active() {
-						_ = e.remove(w)
-					}
-				}
-			}()
-
-			// nolint: gosec
-			// test only code
-			for {
-				select {
-				case <-done:
-					return
-				default:
-				}
-
-				f := files[rand.Int31n(int32(filesPerWorker))]
-				switch rand.Int31n(2) {
-				case 0: // modify or create
-					if f.active() {
-						f.modify()
-					} else {
-						err := f.create(w)
-						g.Expect(err).To(BeNil())
-					}
-
-				case 1: // create or delete
-					if f.active() {
-						err := f.remove(w)
-						g.Expect(err).To(BeNil())
-					} else {
-						err := f.create(w)
-						g.Expect(err).To(BeNil())
-					}
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
 }

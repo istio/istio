@@ -73,9 +73,6 @@ const (
 	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
 	InboundPassthroughClusterIpv6 = "InboundPassthroughClusterIpv6"
 
-	// SniClusterFilter is the name of the sni_cluster envoy filter
-	SniClusterFilter = "envoy.filters.network.sni_cluster"
-
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
@@ -212,11 +209,6 @@ func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *m
 	return additionalAddresses
 }
 
-// BuildAddress returns a SocketAddress with the given ip and port or uds.
-func BuildInternalAddress(name string) *core.Address {
-	return BuildInternalAddressWithIdentifier(name, "")
-}
-
 func BuildNetworkAddress(bind string, port uint32, transport istionetworking.TransportProtocol) *core.Address {
 	if port == 0 {
 		return nil
@@ -257,12 +249,6 @@ func IsIstioVersionGE116(version *model.IstioVersion) bool {
 func IsIstioVersionGE117(version *model.IstioVersion) bool {
 	return version == nil ||
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 17, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE118 checks whether the given Istio version is greater than or equals 1.18.
-func IsIstioVersionGE118(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 18, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {

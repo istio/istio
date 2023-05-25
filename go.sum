@@ -1393,9 +1393,9 @@ gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776/go.mod h1:K4uyk7z7BCEPqu6E+C
 gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+gotest.tools v2.2.0+incompatible h1:VsBPFP1AI068pPrMxtb/S8Zkgf9xEmTLJjfM+P5UIEo=
 gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81HFBacw=
 gotest.tools/v3 v3.4.0 h1:ZazjZUfuVeZGLAmlKKuyv3IKP5orXcwtOwDQH6YVr6o=
-gotest.tools/v3 v3.4.0/go.mod h1:CtbdzLSsqVhDgMtKsx03ird5YTGB3ar27v0u/yKBW5g=
 helm.sh/helm/v3 v3.12.0 h1:rOq2TPVzg5jt4q5ermAZGZFxNW2uQhKjRhBneAutMEM=
 helm.sh/helm/v3 v3.12.0/go.mod h1:8K/469yxjUMu6BaD2EagCitkPjELUL/l2AgCO142G94=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
@@ -1405,10 +1405,10 @@ honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 honnef.co/go/tools v0.0.1-2020.1.3/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
 honnef.co/go/tools v0.0.1-2020.1.4/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
-istio.io/api v0.0.0-20230523190536-f9e87ae2540e h1:6ZHACrOzD5m4y6zJ9R/Zf/qi7X46PJ9WzbU2q17Y8HM=
-istio.io/api v0.0.0-20230523190536-f9e87ae2540e/go.mod h1:dDMe1TsOtrRoUlBzdxqNolWXpXPQjLfbcXvqPMtQ6eo=
-istio.io/client-go v1.18.0-alpha.0.0.20230523190932-faef0eb683a2 h1:LV9nOJPMXYEkWjNL58me4wuRvIPH04DuQYj3oQSYpFk=
-istio.io/client-go v1.18.0-alpha.0.0.20230523190932-faef0eb683a2/go.mod h1:X9RfjBiRstmnlJbM5AaBepmM+RkfPx7aPyln9CI+YxM=
+istio.io/api v0.0.0-20230524192441-ba799b973e33 h1:007WDlzcnrcR3A9zaye0MiV3wS+GZ1Dq8VRJ4wahWTQ=
+istio.io/api v0.0.0-20230524192441-ba799b973e33/go.mod h1:dDMe1TsOtrRoUlBzdxqNolWXpXPQjLfbcXvqPMtQ6eo=
+istio.io/client-go v1.18.0-alpha.0.0.20230524192941-4ece56f918ce h1:e/9TCagFZPvPDckpgbbWgKt2n/k4u8+mfQHLUT8pIrA=
+istio.io/client-go v1.18.0-alpha.0.0.20230524192941-4ece56f918ce/go.mod h1:XoYY8zGF2AJivLDayVtu63cLyHDCZ1K3XE0ZS1jie+4=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.3/go.mod h1:UOaMwERbqJMfeeeHc8XJKawj4P9TgDRnViIqqBeH2QA=
 k8s.io/api v0.18.4/go.mod h1:lOIQAKYgai1+vz9J7YcDZwC26Z0zQewYOGWdyIPUUQ4=

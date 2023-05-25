@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/exp/maps"
 	certv1 "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test/csrctrl/signer"
 	"istio.io/istio/security/pkg/pki/util"
 )

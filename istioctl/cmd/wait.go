@@ -113,6 +113,7 @@ func waitCmd() *cobra.Command {
 					printVerbosef(cmd, "tick")
 					continue
 				case err = <-w.errorChan:
+					t.Stop()
 					return fmt.Errorf("unable to retrieve Kubernetes resource2 %s: %v", "", err)
 				case <-ctx.Done():
 					printVerbosef(cmd, "timeout")

@@ -1109,7 +1109,7 @@ func sortMCSServices(svcs []model.MCSServiceInfo) []model.MCSServiceInfo {
 
 func (s *DiscoveryServer) clusterz(w http.ResponseWriter, req *http.Request) {
 	if s.ListRemoteClusters == nil {
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	writeJSON(w, s.ListRemoteClusters(), req)

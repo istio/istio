@@ -21,10 +21,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"golang.org/x/exp/slices"
 	"sigs.k8s.io/yaml"
 
 	ztunnelDump "istio.io/istio/istioctl/pkg/util/configdump"
+	"istio.io/istio/pkg/slices"
 )
 
 // WorkloadFilter is used to pass filter information into workload based config writer print functions
@@ -149,8 +149,8 @@ func waypointName(wl *ztunnelDump.ZtunnelWorkload, prevAddresses map[string]stri
 	if name, ok := prevAddresses[addr]; ok {
 		return name
 	}
-	if idx := slices.IndexFunc(workloads, func(w *ztunnelDump.ZtunnelWorkload) bool { return w.WorkloadIP == addr }); idx > 0 {
-		wpName := workloads[idx].CanonicalName
+	if wl := slices.FindFunc(workloads, func(w *ztunnelDump.ZtunnelWorkload) bool { return w.WorkloadIP == addr }); wl != nil {
+		wpName := (*wl).CanonicalName
 		prevAddresses[addr] = wpName
 		return wpName
 	}

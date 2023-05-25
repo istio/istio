@@ -20,9 +20,9 @@ import (
 	"testing"
 
 	"go.uber.org/atomic"
-	"golang.org/x/exp/slices"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 )
 

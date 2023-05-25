@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -1857,11 +1857,11 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 	// sort slices by priority
 	for i, slice := range matchedPlugins {
 		sort.SliceStable(slice, func(i, j int) bool {
-			iPriority := int64(math.MinInt64)
+			iPriority := int32(math.MinInt32)
 			if prio := slice[i].Priority; prio != nil {
 				iPriority = prio.Value
 			}
-			jPriority := int64(math.MinInt64)
+			jPriority := int32(math.MinInt32)
 			if prio := slice[j].Priority; prio != nil {
 				jPriority = prio.Value
 			}

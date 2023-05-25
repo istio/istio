@@ -21,7 +21,6 @@ import (
 	"sort"
 	"strings"
 
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -477,11 +477,9 @@ func hostnameToStringList(h []k8s.Hostname) []string {
 	if len(h) == 0 {
 		return []string{"*"}
 	}
-	res := make([]string, 0, len(h))
-	for _, i := range h {
-		res = append(res, string(i))
-	}
-	return res
+	return slices.Map(h, func(e k8s.Hostname) string {
+		return string(e)
+	})
 }
 
 func toInternalParentReference(p k8s.ParentReference, localNamespace string) (parentKey, error) {

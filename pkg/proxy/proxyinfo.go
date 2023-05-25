@@ -54,6 +54,7 @@ func GetProxyInfo(kubeconfig, configContext, revision, istioNamespace string) (*
 			pi = append(pi, istioVersion.ProxyInfo{
 				ID:           ss.ProxyID,
 				IstioVersion: ss.SyncStatus.IstioVersion,
+				Type:         istioVersion.ToUserFacingNodeType(ss.ProxyType),
 			})
 		}
 	}

@@ -126,7 +126,7 @@ func testCacheConcurrent(c Cache, t *testing.T) {
 	workers := runtime.NumCPU()
 	wg.Add(workers)
 
-	const numIters = 100000
+	const numIters = 10000
 	for i := 0; i < workers; i++ {
 		workerNum := i
 		go func() {

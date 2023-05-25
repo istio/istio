@@ -85,19 +85,23 @@ func TestReloadWatcher(t *testing.T) {
 
 	// Shutdown the filewatcher
 	shutdown <- syscall.SIGTERM
-	<-time.After(1 * time.Second)
-	_, err = f.WriteString("touche!")
-	if err != nil {
-		t.Fatalf("failed to touch trigger file after watcher stopped: %v", err)
-	}
-	<-time.After(1 * time.Second)
 
-	// No residual
-	select {
-	case v := <-c:
-		t.Fatalf("Expected no more events but got: %v", v)
-	case <-time.After(1 * time.Second):
-		// Success
+	// Check it is shutdown. This is eventually consistent, so keep touching the file until we don't get updates
+	for attempt := 0; attempt < 10; attempt++ {
+		_, err = f.WriteString("touche!")
+		if err != nil {
+			t.Fatalf("failed to touch trigger file after watcher stopped: %v", err)
+		}
+		// No residual
+		select {
+		case <-c:
+			// Got event, so we aren't shutdown...
+			time.Sleep(time.Millisecond * 10)
+			continue
+		case <-time.After(50 * time.Millisecond):
+			// Got no event in 50ms
+			return
+		}
 	}
 }
 

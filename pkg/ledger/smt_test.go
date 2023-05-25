@@ -20,12 +20,12 @@ import (
 	"fmt"
 	"runtime"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
-	"gotest.tools/v3/assert"
-
 	"istio.io/istio/pkg/cache"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestSmtEmptyTrie(t *testing.T) {
@@ -117,7 +117,7 @@ func TestSmtPublicUpdateAndGet(t *testing.T) {
 
 	newValues := getFreshData(5)
 	_, err := smt.Update(keys, newValues)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	// Check all keys have been modified
 	for i, key := range keys {
@@ -130,7 +130,7 @@ func TestSmtPublicUpdateAndGet(t *testing.T) {
 	newKeys := getFreshData(5)
 	newValues = getFreshData(5)
 	_, err = smt.Update(newKeys, newValues)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	for i, key := range newKeys {
 		value, _ := smt.Get(key)
 		if !bytes.Equal(newValues[i], value) {
@@ -193,7 +193,7 @@ func TestSmtDelete(t *testing.T) {
 	key0 := make([]byte, 8)
 	key1 := make([]byte, 8)
 	_, err := smt.Update([][]byte{key0, key1}, [][]byte{defaultLeaf, defaultLeaf})
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	if !bytes.Equal(root, smt.root) {
 		t.Fatal("deleting a default key shouldnt' modify the tree")
 	}
@@ -217,7 +217,7 @@ func TestTrieUpdateAndDelete(t *testing.T) {
 	keys := [][]byte{key0, key1}
 	values = [][]byte{defaultLeaf, getFreshData(1)[0]}
 	_, err := smt.Update(keys, values)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 }
 
 func bitSet(bits []byte, i int) {
@@ -230,14 +230,15 @@ func TestSmtRaisesError(t *testing.T) {
 	keys := getFreshData(10)
 	values := getFreshData(10)
 	_, err := smt.Update(keys, values)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	smt.db.updatedNodes = byteCache{cache: cache.NewTTL(forever, time.Minute)}
 	smt.loadDefaultHashes()
 
 	// Check errors are raised is a keys is not in cache nor db
 	for _, key := range keys {
 		_, err := smt.Get(key)
-		assert.ErrorContains(t, err, "is unavailable in the disk db",
+		assert.Error(t, err)
+		assert.Equal(t, strings.Contains(err.Error(), "is unavailable in the disk db"), true,
 			"Error not created if database doesnt have a node")
 	}
 }
