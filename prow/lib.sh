@@ -99,9 +99,9 @@ function download_untar_istio_release() {
 
 function buildx-create() {
   WD=$(dirname "$0")
-  WD=$(cd "$WD"; pwd)
+  WD=$(cd "$WD" || exit; pwd)
   ROOT=$(dirname "$WD")
-  "$ROOT/prow/buildx-create" "$@"
+  "$ROOT/prow/buildx-create"
 }
 
 function build_images() {
