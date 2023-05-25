@@ -182,7 +182,9 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	}
 	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore})
 	if sa.fileSource != nil {
-		allstores = append(allstores, sa.fileSource)
+		// File source is the highest precedence, since users analyze files to override k8s resources.
+		// The order here does matter, since aggregated store only takes the first available resource.
+		allstores = append([]model.ConfigStoreController{sa.fileSource}, allstores...)
 	}
 
 	for _, c := range sa.clientsToRun {
