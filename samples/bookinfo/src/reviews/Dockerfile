@@ -12,13 +12,22 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+FROM gradle:4.8.1 as builder
+
+COPY . /home/gradle/project
+WORKDIR /home/gradle/project
+
+RUN gradle build
+RUN ls -l
+
 # Use library image once https://github.com/OpenLiberty/ci.docker/issues/241
 # is fixed
 FROM gcr.io/istio-testing/websphere-liberty:22.0.0.8-full-java8-ibmjava
 
 ENV SERVERDIRNAME reviews
 
-COPY ./servers/LibertyProjectServer /opt/ol/wlp/usr/servers/defaultServer/
+COPY ./reviews-wlpcfg/servers/LibertyProjectServer/server.xml /opt/ol/wlp/usr/servers/defaultServer/
+COPY --from=builder ./reviews-wlpcfg/servers/LibertyProjectServer/application.war /opt/ol/wlp/usr/servers/defaultServer/
 
 RUN /opt/ol/wlp/bin/featureUtility installServerFeatures  --acceptLicense /opt/ol/wlp/usr/servers/defaultServer/server.xml && \
     chmod -R g=rwx /opt/ol/wlp/output/defaultServer/
