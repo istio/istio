@@ -27,3 +27,4 @@ if ! docker buildx ls | grep -q container-builder; then
   docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
 fi
 docker buildx use container-builder
+docker buildx ls

@@ -14,7 +14,8 @@
 
 FROM gradle:4.8.1 as builder
 
-# Not sure why but we need root to build
+# Not sure why but we need root to build. Ignore lint error, this is for a multistage builder so it doesn't matter.
+# hadolint ignore=DL3002
 USER 0
 COPY . /home/gradle
 
