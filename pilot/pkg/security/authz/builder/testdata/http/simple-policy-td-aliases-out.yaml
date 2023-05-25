@@ -10,8 +10,9 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[0]-to[0]-method[0]
                     name: :method
+                    stringMatch:
+                      exact: rule[0]-to[0]-method[0]
         principals:
         - andIds:
             ids:
@@ -59,8 +60,9 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[1]-to[0]-method[0]
                     name: :method
+                    stringMatch:
+                      exact: rule[1]-to[0]-method[0]
         principals:
         - andIds:
             ids:

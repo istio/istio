@@ -20,7 +20,6 @@ import (
 
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	v32 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -39,8 +38,8 @@ func TestHeaderMatcher(t *testing.T) {
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: &v32.StringMatcher{
-						MatchPattern: &v32.StringMatcher_Exact{
+					StringMatch: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_Exact{
 							Exact: "/productpage",
 						},
 					},
@@ -54,8 +53,8 @@ func TestHeaderMatcher(t *testing.T) {
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: &v32.StringMatcher{
-						MatchPattern: &v32.StringMatcher_Prefix{
+					StringMatch: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_Prefix{
 							Prefix: "/productpage",
 						},
 					},
@@ -69,8 +68,8 @@ func TestHeaderMatcher(t *testing.T) {
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
 				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-					StringMatch: &v32.StringMatcher{
-						MatchPattern: &v32.StringMatcher_Suffix{
+					StringMatch: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_Suffix{
 							Suffix: "/productpage",
 						},
 					},
