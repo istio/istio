@@ -490,7 +490,7 @@ include tests/integration/tests.mk
 # Target: bookinfo sample
 #-----------------------------------------------------------------------------
 
-export BOOKINFO_VERSION ?= 1.19.0
+export BOOKINFO_VERSION ?= 1.18.0
 
 .PHONY: bookinfo.build bookinfo.push
 
