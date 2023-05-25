@@ -228,7 +228,7 @@ func TestNamespaceEvent(t *testing.T) {
 	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns.Create(ns2)
-	s.WaitOrFail(t, "xds full")
+	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns1.Annotations = map[string]string{"foo": "bar"}
 	ns.Update(ns1)
