@@ -495,11 +495,12 @@ export BOOKINFO_VERSION ?= 1.18.0
 .PHONY: bookinfo.build bookinfo.push
 
 bookinfo.build:
-	@MULTI_ARCH=true prow/buildx-create
+	@prow/buildx-create
 	@BOOKINFO_TAG=${BOOKINFO_VERSION} BOOKINFO_HUB=${HUB} samples/bookinfo/src/build-services.sh
 
+bookinfo.push: MULTI_ARCH=true
 bookinfo.push:
-	@MULTI_ARCH=true prow/buildx-create
+	@prow/buildx-create
 	@BOOKINFO_TAG=${BOOKINFO_VERSION} BOOKINFO_HUB=${HUB} samples/bookinfo/src/build-services.sh --push
 
 include common/Makefile.common.mk
