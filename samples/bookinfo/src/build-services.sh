@@ -32,8 +32,8 @@ fi
 env -i TAG="${BOOKINFO_TAG}" HUB="${BOOKINFO_HUB}" \
   docker buildx bake -f samples/bookinfo/src/docker-bake.hcl $@
 
-if [[ -z "${BOOKINFO_UPDATE}" ]]; then
+if [[ "${BOOKINFO_UPDATE}" == "true" ]]; then
 # Update image references in the yaml files
-  find ./platform -name "*bookinfo*.yaml" -exec sed -i.bak "s#image:.*\\(\\/examples-bookinfo-.*\\):.*#image: ${h//\//\\/}\\1:$t#g" {} +
+  find ./samples/bookinfo/platform -name "*bookinfo*.yaml" -exec sed -i.bak "s#image:.*\\(\\/examples-bookinfo-.*\\):.*#image: ${h//\//\\/}\\1:$t#g" {} +
 fi
 
