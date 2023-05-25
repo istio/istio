@@ -50,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/version"
 )
@@ -632,11 +631,20 @@ func applyManifests(kubeClient kube.Client, manifests string) error {
 		if err := yaml.Unmarshal([]byte(yml), obj); err != nil {
 			return fmt.Errorf("failed to unmarshal YAML: %w", err)
 		}
+
 		var ogvr schema.GroupVersionResource
 		if obj.GetKind() == name.MutatingWebhookConfigurationStr {
-			ogvr = gvr.MutatingWebhookConfiguration
+			ogvr = schema.GroupVersionResource{
+				Group:    "admissionregistration.k8s.io",
+				Version:  "v1",
+				Resource: "mutatingwebhookconfigurations",
+			}
 		} else if obj.GetKind() == name.ValidatingWebhookConfigurationStr {
-			ogvr = gvr.ValidatingWebhookConfiguration
+			ogvr = schema.GroupVersionResource{
+				Group:    "admissionregistration.k8s.io",
+				Version:  "v1",
+				Resource: "validatingwebhookconfigurations",
+			}
 		}
 
 		_, err := kubeClient.Dynamic().Resource(ogvr).Namespace(obj.GetNamespace()).Patch(
