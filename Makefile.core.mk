@@ -495,9 +495,9 @@ export BOOKINFO_VERSION ?= 1.19.0
 .PHONY: bookinfo.build
 
 bookinfo.build:
-	@samples/bookinfo/src/build-services.sh ${BOOKINFO_VERSION} ${HUB}
+	@BOOKINFO_TAG=${BOOKINFO_VERSION} BOOKINFO_HUB=${HUB} samples/bookinfo/src/build-services.sh
 
 bookinfo.push:
-	@samples/bookinfo/build_push_update_images.sh ${BOOKINFO_VERSION} --prefix=${HUB}
+	@BOOKINFO_TAG=${BOOKINFO_VERSION} BOOKINFO_HUB=${HUB} samples/bookinfo/src/build-services.sh --push
 
 include common/Makefile.common.mk
