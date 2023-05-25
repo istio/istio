@@ -232,7 +232,8 @@ type TrafficDirection string
 
 const (
 	// TrafficDirectionInbound indicates inbound traffic
-	TrafficDirectionInbound    TrafficDirection = "inbound"
+	TrafficDirectionInbound TrafficDirection = "inbound"
+	// TrafficDirectionInboundVIP indicates inbound traffic for vip
 	TrafficDirectionInboundVIP TrafficDirection = "inbound-vip"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
