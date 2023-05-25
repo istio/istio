@@ -22,14 +22,10 @@ cd "$SCRIPTDIR/../../.."
 
 h="${BOOKINFO_HUB:?BOOKINFO_HUB must be set}"
 t="${BOOKINFO_TAG:?BOOKINFO_TAG must be set}"
-
-if [[ ("${h}" == "istio" || "${h}" == "docker.io/istio") && -z "$CI" ]]; then
+if [[ ("${h}" == "istio" || "${h}" == "docker.io/istio") && -z "$CI" && "$@" =~ "--push" ]]; then
   echo "Can only push to prod registry in CI"
   exit 1
 fi
-
-docker buildx ls
-env
 
 # Pass input args to the command. This allows using --push, --load, etc
 env -i TAG="${BOOKINFO_TAG}" HUB="${BOOKINFO_HUB}" \
