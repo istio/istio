@@ -207,7 +207,6 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
-
 	opts := &helmreconciler.ProcessDefaultWebhookOptions{
 		Namespace: ns,
 		DryRun:    rootArgs.DryRun,

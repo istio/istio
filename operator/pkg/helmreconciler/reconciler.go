@@ -528,8 +528,9 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return nil
 	}
 
+	exists := revtag.PreviousInstallExists(context.Background(), h.kubeClient.Kube())
 	var webhookObjects []*object.K8sObject
-	if DetectIfTagWebhookIsNeeded(h.kubeClient, h.iop) {
+	if DetectIfTagWebhookIsNeeded(h.iop, exists) {
 		yml, err := GenerateTagWebhookYAML(h.kubeClient, h.iop, true)
 		if err == nil {
 			tagWebhookK8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(yml)
@@ -668,12 +669,17 @@ type ProcessDefaultWebhookOptions struct {
 	DryRun    bool
 }
 
-func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
-	// Detect whether previous installation exists prior to performing the installation.
+func DetectIfTagWebhookIsNeeded(iop *istioV1Alpha1.IstioOperator, exists bool) bool {
 	rev := iop.Spec.Revision
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	operatorManageWebhooks := operatorManageWebhooks(iop)
-	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
+	return !operatorManageWebhooks && (!exists || isDefaultInstallation)
+}
+
+func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
+	// Detect whether previous installation exists prior to performing the installation.
+	if DetectIfTagWebhookIsNeeded(iop, exists) {
+		rev := iop.Spec.Revision
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
 		}
