@@ -95,7 +95,7 @@ func (b ExponentialBackOff) RetryWithContext(ctx context.Context, operation func
 		if err == nil {
 			return nil
 		}
-		next := b.exponentialBackOff.NextBackOff()
+		next := b.NextBackOff()
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("%v with last error: %v", context.DeadlineExceeded, err)
