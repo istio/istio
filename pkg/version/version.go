@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // The following fields are populated at build time using -ldflags -X.
@@ -54,19 +56,15 @@ type MeshInfo []ServerInfo
 // NodeType decides the responsibility of the proxy serves in the mesh
 type NodeType string
 
-const (
-	// SidecarProxy type is used for sidecar proxies in the application containers
-	SidecarProxy NodeType = "sidecar"
-
-	// Gateway type is used for gateway proxies that enable ingress and egress traffic
-	Gateway NodeType = "gateway"
-
-	// Waypoint type is used for waypoint proxies
-	Waypoint NodeType = "waypoint"
-
-	// Ztunnel type is used for node proxies (ztunnel)
-	Ztunnel NodeType = "ztunnel"
-)
+func ToUserFacingNodeType(t model.NodeType) NodeType {
+	switch t {
+	case model.Router:
+		return "gateway"
+	case model.Ztunnel, model.Waypoint, model.SidecarProxy:
+		return NodeType(t)
+	}
+	return ""
+}
 
 // ProxyInfo contains the version for a single data plane component
 type ProxyInfo struct {
