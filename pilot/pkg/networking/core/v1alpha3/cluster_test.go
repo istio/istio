@@ -2938,7 +2938,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 			configUpdated:        sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "test-desinationrule", Namespace: TestServiceNamespace}),
 			watchedResourceNames: []string{"outbound|8080||test.com", "outbound|8080|subset-1|test.com"},
 			usedDelta:            true,
-			removedClusters:      nil,
+			removedClusters:      []string{},
 			expectedClusters: []string{
 				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
 				"outbound|8080|subset-1|test.com", "outbound|8080|subset-2|test.com", "outbound|8080||test.com",
