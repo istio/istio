@@ -45,7 +45,7 @@ type ComparableObject interface {
 }
 
 // IsNil works around comparing generic types
-func IsNil[O ComparableObject](o O) bool {
+func IsNil[O comparable](o O) bool {
 	var t O
 	return o == t
 }
@@ -139,52 +139,63 @@ func (event EventType) String() string {
 	return out
 }
 
-type Event struct {
-	Old   Object
-	New   Object
+type Event[T comparable] struct {
+	Old   T
+	New   T
 	Event EventType
 }
 
-func (e Event) Latest() Object {
-	if e.New != nil {
+func (e Event[T]) Latest() T {
+	if !IsNil(e.New) {
 		return e.New
 	}
 	return e.Old
 }
 
-func FromEventHandler(handler func(o Event)) cache.ResourceEventHandler {
+func (e Event[T]) All() []T {
+	objs := make([]T, 0, 2)
+	if !IsNil(e.New) {
+		objs = append(objs, e.New)
+	}
+	if !IsNil(e.Old) {
+		objs = append(objs, e.Old)
+	}
+	return objs
+}
+
+func FromEventHandler[T comparable](handler func(o Event[T])) cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
-			o := ExtractObject(obj)
-			if o == nil {
+			o := Extract[T](obj)
+			if IsNil(o) {
 				return
 			}
-			handler(Event{
+			handler(Event[T]{
 				New:   o,
 				Event: EventAdd,
 			})
 		},
 		UpdateFunc: func(oldInterface, newInterface any) {
-			oldObj := ExtractObject(oldInterface)
-			if oldObj == nil {
+			oldObj := Extract[T](oldInterface)
+			if IsNil(oldObj) {
 				return
 			}
-			newObj := ExtractObject(newInterface)
-			if newObj == nil {
+			newObj := Extract[T](newInterface)
+			if IsNil(newObj) {
 				return
 			}
-			handler(Event{
+			handler(Event[T]{
 				Old:   oldObj,
 				New:   newObj,
 				Event: EventUpdate,
 			})
 		},
 		DeleteFunc: func(obj any) {
-			o := ExtractObject(obj)
-			if o == nil {
+			o := Extract[T](obj)
+			if IsNil(o) {
 				return
 			}
-			handler(Event{
+			handler(Event[T]{
 				Old:   o,
 				Event: EventDelete,
 			})
@@ -194,10 +205,10 @@ func FromEventHandler(handler func(o Event)) cache.ResourceEventHandler {
 
 // ObjectHandler returns a handler that will act on the latest version of an object
 // This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
-func ObjectHandler(handler func(o Object)) cache.ResourceEventHandler {
+func ObjectHandler[O comparable](handler func(o O)) cache.ResourceEventHandler {
 	h := func(obj any) {
-		o := ExtractObject(obj)
-		if o == nil {
+		o := Extract[O](obj)
+		if IsNil(o) {
 			return
 		}
 		handler(o)
@@ -205,6 +216,26 @@ func ObjectHandler(handler func(o Object)) cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: h,
 		UpdateFunc: func(oldObj, newObj any) {
+			h(newObj)
+		},
+		DeleteFunc: h,
+	}
+}
+
+// AllObjectHandler returns a handler that will act on all versions of an object
+// This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
+func AllObjectHandler[O comparable](handler func(o O)) cache.ResourceEventHandler {
+	h := func(obj any) {
+		o := Extract[O](obj)
+		if IsNil(o) {
+			return
+		}
+		handler(o)
+	}
+	return cache.ResourceEventHandlerFuncs{
+		AddFunc: h,
+		UpdateFunc: func(oldObj, newObj any) {
+			h(oldObj)
 			h(newObj)
 		},
 		DeleteFunc: h,
@@ -266,7 +297,7 @@ func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, 
 
 // Extract pulls a T from obj, handling tombstones.
 // This will return nil if the object cannot be extracted.
-func Extract[T Object](obj any) T {
+func Extract[T any](obj any) T {
 	var empty T
 	if obj == nil {
 		return empty

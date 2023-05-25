@@ -17,6 +17,7 @@ package controller
 import (
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -87,9 +88,11 @@ func (c *Controller) handleSelectedNamespace(ns string) {
 	pods := c.podsClient.List(ns, labels.Everything())
 	for _, pod := range pods {
 		errs = multierror.Append(errs, c.pods.onEvent(nil, pod, model.EventAdd))
-	}
-	if c.ambientIndex != nil {
-		c.ambientIndex.handlePods(pods, c)
+		if c.ambientIndex != nil {
+			for _, ip := range pod.Status.PodIPs {
+				c.ambientIndex.queue.Add(types.NamespacedName{Name: ip.IP})
+			}
+		}
 	}
 
 	errs = multierror.Append(errs, c.endpoints.sync("", ns, model.EventAdd, false))

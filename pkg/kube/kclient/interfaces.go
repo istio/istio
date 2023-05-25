@@ -25,7 +25,7 @@ type Untyped = Informer[controllers.Object]
 
 // Reader wraps a Kubernetes client providing cached read access.
 // This is based on informers, so most of the same caveats to informers apply here.
-type Reader[T controllers.Object] interface {
+type Reader[T any] interface {
 	// Get looks up an object by name and namespace. If it does not exist, nil is returned
 	Get(name, namespace string) T
 	// List looks up an object by namespace and labels.
@@ -33,7 +33,7 @@ type Reader[T controllers.Object] interface {
 	List(namespace string, selector klabels.Selector) []T
 }
 
-type Informer[T controllers.Object] interface {
+type Informer[T any] interface {
 	Reader[T]
 	// ListUnfiltered is like List but ignores any *client side* filters previously configured.
 	ListUnfiltered(namespace string, selector klabels.Selector) []T

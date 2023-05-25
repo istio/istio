@@ -21,7 +21,9 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
@@ -31,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -149,12 +152,19 @@ func TestWorkload(t *testing.T) {
 		// Creating a pod in the service should send an update as usual
 		createPod(s, "pod", "sa", "127.0.0.1", "node")
 		expect(ads.ExpectResponse(), "/127.0.0.1")
+		syncService(s, "svc1", "default")
+		expect(ads.ExpectResponse(), "127.0.0.1")
 		// Make service not select workload should also update things
+		deletePod(s, "pod")
+		expect(ads.ExpectResponse(), "127.0.0.1")
+		syncService(s, "svc1", "default")
+		expectRemoved(ads.ExpectResponse(), "127.0.0.1")
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "/127.0.0.1", "/127.0.0.2")
+		expect(ads.ExpectResponse(), "/127.0.0.2")
 
 		// Now create pods in the service...
 		createPod(s, "pod4", "not-sa", "127.0.0.4", "not-node")
+		syncService(s, "svc1", "default")
 		// Not subscribed, no response
 		ads.ExpectNoResponse()
 
@@ -166,11 +176,18 @@ func TestWorkload(t *testing.T) {
 		expect(ads.ExpectResponse(), "/127.0.0.4", "default/svc1.default.svc.cluster.local")
 		// Adding a pod in the service should not trigger an update for that pod - we didn't explicitly subscribe
 		createPod(s, "pod5", "not-sa", "127.0.0.5", "not-node")
-		ads.ExpectNoResponse()
+		ads.ExpectNoResponse() // No response yet... its not yet in the service
+		syncService(s, "svc1", "default")
+		expect(ads.ExpectResponse(), "127.0.0.5")
 
-		// And if the service changes to no longer select them, we should see them *removed* (not updated)
+		deletePod(s, "pod4")
+		expect(ads.ExpectResponse(), "127.0.0.4")
+		syncService(s, "svc1", "default")
+		expectRemoved(ads.ExpectResponse(), "127.0.0.4")
+
+		// TODO: we should probably make this a remove, since they are not subscribed even indirectly anymore
 		createService(s, "svc1", "default", map[string]string{"app": "nothing"})
-		expect(ads.ExpectResponse(), "/127.0.0.4", "default/svc1.default.svc.cluster.local")
+		expect(ads.ExpectResponse(), "/127.0.0.5", "default/svc1.default.svc.cluster.local")
 	})
 	t.Run("wildcard", func(t *testing.T) {
 		expect := buildExpect(t)
@@ -201,10 +218,16 @@ func TestWorkload(t *testing.T) {
 		// Creating a pod in the service should send an update as usual
 		createPod(s, "pod", "sa", "127.0.0.3", "node")
 		expect(ads.ExpectResponse(), "/127.0.0.3")
+		syncService(s, "svc1", "default")
+		expect(ads.ExpectResponse(), "127.0.0.3")
 
 		// Make service not select workload should also update things
+		deletePod(s, "pod")
+		expect(ads.ExpectResponse(), "127.0.0.3")
+		syncService(s, "svc1", "default")
+		expectRemoved(ads.ExpectResponse(), "127.0.0.3")
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "/127.0.0.2", "/127.0.0.3", "default/svc1.default.svc.cluster.local")
+		expect(ads.ExpectResponse(), "127.0.0.2", "default/svc1.default.svc.cluster.local")
 	})
 }
 
@@ -246,8 +269,9 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node s
 			NodeName:           node,
 		},
 		Status: corev1.PodStatus{
-			PodIP: ip,
-			Phase: corev1.PodRunning,
+			PodIP:  ip,
+			PodIPs: []corev1.PodIP{{IP: ip}},
+			Phase:  corev1.PodRunning,
 			Conditions: []corev1.PodCondition{
 				{
 					Type:               corev1.PodReady,
@@ -260,6 +284,29 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node s
 	pods := clienttest.NewWriter[*corev1.Pod](s.t, s.kubeClient)
 	pods.CreateOrUpdate(pod)
 	pods.UpdateStatus(pod)
+}
+
+func createEndpointsSlice(s *FakeDiscoveryServer, name, namespace string, ips ...string) {
+	esps := []discoveryv1.EndpointPort{{
+		Name: ptr.Of("tcp"), Port: ptr.Of[int32](80),
+	}}
+
+	var sliceEndpoint []discoveryv1.Endpoint
+	for _, ip := range ips {
+		sliceEndpoint = append(sliceEndpoint, discoveryv1.Endpoint{
+			Addresses: []string{ip},
+		})
+	}
+	endpointSlice := &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    map[string]string{discoveryv1.LabelServiceName: name},
+		},
+		Endpoints: sliceEndpoint,
+		Ports:     esps,
+	}
+	clienttest.NewWriter[*discoveryv1.EndpointSlice](s.t, s.kubeClient).CreateOrUpdate(endpointSlice)
 }
 
 // nolint: unparam
@@ -283,6 +330,18 @@ func createService(s *FakeDiscoveryServer, name, namespace string, selector map[
 
 	svcs := clienttest.NewWriter[*corev1.Service](s.t, s.kubeClient)
 	svcs.CreateOrUpdate(service)
+	syncService(s, name, namespace)
+}
+
+func syncService(s *FakeDiscoveryServer, name, namespace string) {
+	svcs := clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](s.t, s.kubeClient)
+	svc := svcs.Get(name, namespace)
+	pods := clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](s.t, s.kubeClient)
+	ips := []string{}
+	for _, pod := range pods.List(namespace, klabels.ValidatedSetSelector(svc.Spec.Selector)) {
+		ips = append(ips, pod.Status.PodIP)
+	}
+	createEndpointsSlice(s, name, namespace, ips...)
 }
 
 func TestWorkloadRBAC(t *testing.T) {

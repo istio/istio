@@ -200,9 +200,6 @@ func (q Queue) WaitForClose(timeout time.Duration) error {
 }
 
 func formatKey(key any) string {
-	if t, ok := key.(Event); ok {
-		key = t.Latest()
-	}
 	if t, ok := key.(types.NamespacedName); ok {
 		return t.String()
 	}

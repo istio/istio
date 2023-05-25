@@ -583,7 +583,8 @@ func (c *Controller) informersSynced() bool {
 		!c.pods.pods.HasSynced() ||
 		!c.nodes.HasSynced() ||
 		!c.imports.HasSynced() ||
-		!c.exports.HasSynced() {
+		!c.exports.HasSynced() ||
+		(c.ambientIndex != nil && !c.ambientIndex.queue.HasSynced()) {
 		return false
 	}
 	return true
@@ -614,6 +615,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
 
+	if c.ambientIndex != nil {
+		// Ambient runs before informer sync; this is the more typically way, but the rest as some
+		// custom re-sync behavior.
+		go c.ambientIndex.queue.Run(stop)
+	}
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue

@@ -71,7 +71,7 @@ func EventuallyEqual[T any](t test.Failer, fetchA func() T, b T, opts ...retry.O
 		return nil
 	}, ro...)
 	if err != nil {
-		t.Fatalf("found diff: %v\nLeft: %v\nRight: %v", cmp.Diff(a, b, cmpOpts...), a, b)
+		t.Fatalf("found diff: %v\nGot: %v\nWant: %v", cmp.Diff(a, b, cmpOpts...), a, b)
 	}
 }
 

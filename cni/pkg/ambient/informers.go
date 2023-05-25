@@ -36,7 +36,7 @@ func (s *Server) setupHandlers() {
 
 	// We only need to handle pods on our node
 	s.pods = kclient.NewFiltered[*corev1.Pod](s.kubeClient, kclient.Filter{FieldSelector: "spec.nodeName=" + NodeName})
-	s.pods.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
+	s.pods.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event[*corev1.Pod]) {
 		s.queue.Add(o)
 	}))
 
@@ -87,7 +87,7 @@ func (s *Server) enqueueNamespace(o controllers.Object) sets.Set[string] {
 		// spurious events for them to avoid triggering extra
 		// ztunnel node reconciliation checks.
 		if !ztunnelPod(pod) {
-			s.queue.Add(controllers.Event{
+			s.queue.Add(controllers.Event[*corev1.Pod]{
 				New:   pod,
 				Old:   pod,
 				Event: controllers.EventUpdate,
@@ -99,9 +99,9 @@ func (s *Server) enqueueNamespace(o controllers.Object) sets.Set[string] {
 }
 
 func (s *Server) Reconcile(input any) error {
-	event := input.(controllers.Event)
+	event := input.(controllers.Event[*corev1.Pod])
 	log := log.WithLabels("type", event.Event)
-	pod := event.Latest().(*corev1.Pod)
+	pod := event.Latest()
 	if ztunnelPod(pod) {
 		return s.ReconcileZtunnel()
 	}
@@ -109,8 +109,8 @@ func (s *Server) Reconcile(input any) error {
 	case controllers.EventAdd:
 	case controllers.EventUpdate:
 		// For update, we just need to handle opt outs
-		newPod := event.New.(*corev1.Pod)
-		oldPod := event.Old.(*corev1.Pod)
+		newPod := event.New
+		oldPod := event.Old
 		ns := s.namespaces.Get(newPod.Namespace, "")
 		if ns == nil {
 			return fmt.Errorf("failed to find namespace %v", ns)

@@ -184,8 +184,8 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options
 	return s
 }
 
-// convertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
-func convertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
+// ConvertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
+func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 	wle := cfg.Spec.(*networking.WorkloadEntry)
 	if wle == nil {
 		return nil
@@ -211,9 +211,9 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	log.Debugf("Handle event %s for workload entry %s/%s", event, curr.Namespace, curr.Name)
 	var oldWle *networking.WorkloadEntry
 	if old.Spec != nil {
-		oldWle = convertWorkloadEntry(old)
+		oldWle = ConvertWorkloadEntry(old)
 	}
-	wle := convertWorkloadEntry(curr)
+	wle := ConvertWorkloadEntry(curr)
 	curr.Spec = wle
 	key := configKey{
 		kind:      workloadEntryConfigType,
@@ -223,7 +223,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 
 	// If an entry is unhealthy, we will mark this as a delete instead
 	// This ensures we do not track unhealthy endpoints
-	if features.WorkloadEntryHealthChecks && !isHealthy(curr) {
+	if features.WorkloadEntryHealthChecks && !IsHealthy(curr) {
 		event = model.EventDelete
 	}
 
@@ -999,9 +999,9 @@ func makeConfigKey(svc *model.Service) model.ConfigKey {
 	}
 }
 
-// isHealthy checks that the provided WorkloadEntry is healthy. If health checks are not enabled,
+// IsHealthy checks that the provided WorkloadEntry is healthy. If health checks are not enabled,
 // it is assumed to always be healthy
-func isHealthy(cfg config.Config) bool {
+func IsHealthy(cfg config.Config) bool {
 	if parseHealthAnnotation(cfg.Annotations[status.WorkloadEntryHealthCheckAnnotation]) {
 		// We default to false if the condition is not set. This ensures newly created WorkloadEntries
 		// are treated as unhealthy until we prove they are healthy by probe success.
