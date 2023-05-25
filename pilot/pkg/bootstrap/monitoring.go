@@ -45,12 +45,25 @@ var (
 		"istiod_uptime_seconds",
 		"Current istiod server uptime in seconds",
 	)
+
+	versionTag = monitoring.MustCreateLabel("version")
+	// Export pilot version as metric for fleet analytics.
+	pilotVersion = monitoring.NewGauge(
+		"pilot_info",
+		"Pilot version and build information.",
+		monitoring.WithLabels(versionTag))
 )
 
 func init() {
+	monitoring.MustRegister(
+		pilotVersion,
+	)
+
 	uptime.ValueFrom(func() float64 {
 		return time.Since(serverStart).Seconds()
 	})
+
+	pilotVersion.With(versionTag.Value(version.Info.String())).Record(1)
 }
 
 func addMonitor(mux *http.ServeMux) error {
