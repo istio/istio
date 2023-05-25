@@ -22,7 +22,7 @@ cd "$SCRIPTDIR/../../.."
 
 h="${BOOKINFO_HUB:?BOOKINFO_HUB must be set}"
 t="${BOOKINFO_TAG:?BOOKINFO_TAG must be set}"
-if [[ ("${h}" == "istio" || "${h}" == "docker.io/istio") && -z "$CI" && "$@" =~ "--push" ]]; then
+if [[ ("${h}" == "istio" || "${h}" == "docker.io/istio") && -z "$CI" && "$*" =~ "--push" ]]; then
   echo "Can only push to prod registry in CI"
   exit 1
 fi
