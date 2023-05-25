@@ -115,10 +115,10 @@ func NewController(
 	}
 
 	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
-		AddFunc: func(ns *corev1.Namespace) {
-			gatewayController.namespaceEvent(nil, ns)
-		},
 		UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
+			if options.DiscoveryNamespacesFilter != nil && !options.DiscoveryNamespacesFilter.Filter(newNs) {
+				return
+			}
 			if !labels.Instance(oldNs.Labels).Equals(newNs.Labels) {
 				gatewayController.namespaceEvent(oldNs, newNs)
 			}
