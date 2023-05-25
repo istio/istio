@@ -46,8 +46,7 @@ var (
 		"Current istiod server uptime in seconds",
 	)
 
-	versionTag = monitoring.MustCreateLabel("version")
-	// Export pilot version as metric for fleet analytics.
+	versionTag   = monitoring.MustCreateLabel("version")
 	pilotVersion = monitoring.NewGauge(
 		"pilot_info",
 		"Pilot version and build information.",
