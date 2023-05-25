@@ -134,10 +134,6 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			services, deletedClusters = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
 		}
 	}
-	if services == nil {
-		// No matching services, just rebuild with all services.
-		services = proxy.SidecarScope.Services()
-	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
 	// When clusters are rebuilt, it rebuilts the subset clusters as well. So, we know what

@@ -1120,16 +1120,6 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	return nil
 }
 
-func (ps *PushContext) DestinationRuleByName(proxy *Proxy, name, namespace string) *config.Config {
-	if proxy == nil || proxy.SidecarScope == nil {
-		return nil
-	}
-	return proxy.SidecarScope.destinationRulesByNames[types.NamespacedName{
-		Name:      name,
-		Namespace: namespace,
-	}]
-}
-
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*ConsolidatedDestRule {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
 		if specificHostname, drs, ok := MostSpecificHostMatch(hostname,
