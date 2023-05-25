@@ -138,6 +138,7 @@ func (a *Agent) terminate() {
 		time.Sleep(a.minDrainDuration)
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
+		defer ticker.Stop()
 		for range ticker.C {
 			ac, err := a.activeProxyConnections()
 			if err != nil {

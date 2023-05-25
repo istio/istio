@@ -107,6 +107,7 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 		sleepTime := time.Second / time.Duration(qps)
 		fwLog.Debugf("Sleeping %v between requests", sleepTime)
 		throttle = time.NewTicker(sleepTime)
+		defer throttle.Stop()
 	}
 
 	g := e.NewGroup()
