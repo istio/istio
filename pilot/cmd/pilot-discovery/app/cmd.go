@@ -43,7 +43,7 @@ func NewRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "pilot-discovery",
 		Short:        "Istio Pilot.",
-		Long:         "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
+		Long:         "Istio Pilot provides mesh-wide traffic management, security and policy capabilities in the Istio Service Mesh.",
 		SilenceUsage: true,
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
 			// Allow unknown flags for backward-compatibility.
