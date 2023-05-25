@@ -16,6 +16,10 @@
 
 set -ex
 
+if [[ "${MULTI_ARCH}" == "true" ]]; then
+  docker run --rm --privileged gcr.io/istio-testing/qemu-user-static --reset -p yes
+fi
+
 export DOCKER_CLI_EXPERIMENTAL=enabled
 if ! docker buildx ls | grep -q container-builder; then
   docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name container-builder --buildkitd-flags="--debug"
