@@ -20,6 +20,7 @@ import (
 
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	v32 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -37,30 +38,42 @@ func TestHeaderMatcher(t *testing.T) {
 			V:    "/productpage",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_ExactMatch{
-					ExactMatch: "/productpage",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &v32.StringMatcher{
+						MatchPattern: &v32.StringMatcher_Exact{
+							Exact: "/productpage",
+						},
+					},
 				},
 			},
 		},
 		{
 			Name: "suffix match",
 			K:    ":path",
-			V:    "*/productpage*",
+			V:    "/productpage*",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SuffixMatch{
-					SuffixMatch: "/productpage*",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &v32.StringMatcher{
+						MatchPattern: &v32.StringMatcher_Prefix{
+							Prefix: "/productpage",
+						},
+					},
 				},
 			},
 		},
 		{
 			Name: "prefix match",
 			K:    ":path",
-			V:    "/productpage*",
+			V:    "*/productpage",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":path",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_PrefixMatch{
-					PrefixMatch: "/productpage",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &v32.StringMatcher{
+						MatchPattern: &v32.StringMatcher_Suffix{
+							Suffix: "/productpage",
+						},
+					},
 				},
 			},
 		},
@@ -78,10 +91,12 @@ func TestHeaderMatcher(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		actual := HeaderMatcher(tc.K, tc.V)
-		if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
-			t.Errorf("expecting %v, but got %v", tc.Expect, actual)
-		}
+		t.Run(tc.Name, func(t *testing.T) {
+			actual := HeaderMatcher(tc.K, tc.V)
+			if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
+				t.Errorf("expecting %v, but got %v", tc.Expect, actual)
+			}
+		})
 	}
 }
 
@@ -107,9 +122,13 @@ func TestHostMatcherWithRegex(t *testing.T) {
 			V:    "*.example.com",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-					SafeRegexMatch: &matcher.RegexMatcher{
-						Regex: `(?i).*\.example\.com`,
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_SafeRegex{
+							SafeRegex: &matcher.RegexMatcher{
+								Regex: `(?i).*\.example\.com`,
+							},
+						},
 					},
 				},
 			},
@@ -120,9 +139,13 @@ func TestHostMatcherWithRegex(t *testing.T) {
 			V:    "example.*",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-					SafeRegexMatch: &matcher.RegexMatcher{
-						Regex: `(?i)example\..*`,
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_SafeRegex{
+							SafeRegex: &matcher.RegexMatcher{
+								Regex: `(?i)example\..*`,
+							},
+						},
 					},
 				},
 			},
@@ -133,9 +156,13 @@ func TestHostMatcherWithRegex(t *testing.T) {
 			V:    "example.com",
 			Expect: &routepb.HeaderMatcher{
 				Name: ":authority",
-				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-					SafeRegexMatch: &matcher.RegexMatcher{
-						Regex: `(?i)example\.com`,
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcher.StringMatcher{
+						MatchPattern: &matcher.StringMatcher_SafeRegex{
+							SafeRegex: &matcher.RegexMatcher{
+								Regex: `(?i)example\.com`,
+							},
+						},
 					},
 				},
 			},

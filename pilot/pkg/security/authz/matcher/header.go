@@ -33,25 +33,11 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 				PresentMatch: true,
 			},
 		}
-	} else if strings.HasPrefix(v, "*") {
-		return &routepb.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_SuffixMatch{
-				SuffixMatch: v[1:],
-			},
-		}
-	} else if strings.HasSuffix(v, "*") {
-		return &routepb.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_PrefixMatch{
-				PrefixMatch: v[:len(v)-1],
-			},
-		}
 	}
 	return &routepb.HeaderMatcher{
 		Name: k,
-		HeaderMatchSpecifier: &routepb.HeaderMatcher_ExactMatch{
-			ExactMatch: v,
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+			StringMatch: StringMatcher(v),
 		},
 	}
 }
@@ -75,10 +61,8 @@ func HostMatcherWithRegex(k, v string) *routepb.HeaderMatcher {
 	}
 	return &routepb.HeaderMatcher{
 		Name: k,
-		HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &matcher.RegexMatcher{
-				Regex: `(?i)` + regex,
-			},
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+			StringMatch: StringMatcherRegex(`(?i)` + regex),
 		},
 	}
 }
@@ -94,40 +78,13 @@ func HostMatcher(k, v string) *routepb.HeaderMatcher {
 				PresentMatch: true,
 			},
 		}
-	} else if strings.HasPrefix(v, "*") {
-		return &routepb.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: &matcher.StringMatcher{
-					IgnoreCase: true,
-					MatchPattern: &matcher.StringMatcher_Suffix{
-						Suffix: v[1:],
-					},
-				},
-			},
-		}
-	} else if strings.HasSuffix(v, "*") {
-		return &routepb.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: &matcher.StringMatcher{
-					IgnoreCase: true,
-					MatchPattern: &matcher.StringMatcher_Prefix{
-						Prefix: v[:len(v)-1],
-					},
-				},
-			},
-		}
 	}
+	m := StringMatcher(v)
+	m.IgnoreCase = true
 	return &routepb.HeaderMatcher{
 		Name: k,
 		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-			StringMatch: &matcher.StringMatcher{
-				IgnoreCase: true,
-				MatchPattern: &matcher.StringMatcher_Exact{
-					Exact: v,
-				},
-			},
+			StringMatch: m,
 		},
 	}
 }
