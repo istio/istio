@@ -121,7 +121,6 @@ func TestMain(m *testing.M) {
 			} else {
 				cfg.ControlPlaneValues = ControlPlaneValues
 			}
-
 		})).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
