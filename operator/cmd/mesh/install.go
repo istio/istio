@@ -46,7 +46,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type InstallArgs struct {
@@ -199,19 +199,23 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
+	iop.Name = savedIOPName(iop)
+
+	// Detect whether previous installation exists prior to performing the installation.
+	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
 	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
-	if helmreconciler.DetectIfTagWebhookIsNeeded(kubeClient, iop) {
-		p.Println("Making this installation the default for injection and validation.")
-		tagManifests, err := helmreconciler.GenerateTagWebhookYAML(kubeClient, iop, false)
-		if err == nil && !rootArgs.DryRun {
-			if err = revtag.Create(kubeClient, tagManifests, ns); err != nil {
-				return fmt.Errorf("failed to create revision tag: %v", err)
-			}
-		}
+	opts := &helmreconciler.ProcessDefaultWebhookOptions{
+		Namespace: ns,
+		DryRun:    rootArgs.DryRun,
+	}
+	if processed, err := helmreconciler.ProcessDefaultWebhook(kubeClient, iop, exists, opts); err != nil {
+		return fmt.Errorf("failed to process default webhook: %v", err)
+	} else if processed {
+		p.Println("Made this installation the default for injection and validation.")
 	}
 
 	if iArgs.Verify {
@@ -267,7 +271,6 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 	opts.ProgressLog.SetState(progress.StateComplete)
 
 	// Save a copy of what was installed as a CR in the cluster under an internal name.
-	iop.Name = savedIOPName(iop)
 	if iop.Annotations == nil {
 		iop.Annotations = make(map[string]string)
 	}

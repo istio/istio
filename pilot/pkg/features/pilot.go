@@ -22,10 +22,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -577,11 +577,6 @@ var (
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
 
-	EnableLegacyIstioMutualCredentialName = env.Register("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
-		false,
-		"If enabled, Gateway's with ISTIO_MUTUAL mode and credentialName configured will use simple TLS. "+
-			"This is to retain legacy behavior only and not recommended for use beyond migration.").Get()
-
 	SharedMeshConfig = env.Register("SHARED_MESH_CONFIG", "",
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 
@@ -665,6 +660,12 @@ var (
 	// This is a feature flag, can be removed if protobuf proves universally better.
 	KubernetesClientContentType = env.Register("ISTIO_KUBE_CLIENT_CONTENT_TYPE", "protobuf",
 		"The content type to use for Kubernetes clients. Defaults to protobuf. Valid options: [protobuf, json]").Get()
+
+	// This is an experimental feature flag, can be removed once it became stable, and should introduced to Telemetry API.
+	MetricRotationInterval = env.Register("METRIC_ROTATION_INTERVAL", 0*time.Second,
+		"Metric scope rotation interval, set to 0 to disable the metric scope rotation").Get()
+	MetricGracefulDeletionInterval = env.Register("METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute,
+		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disabled.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

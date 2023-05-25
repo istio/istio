@@ -30,9 +30,9 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	istiolog "istio.io/istio/pkg/log"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
 var log = istiolog.RegisterScope("dns", "Istio DNS proxy")

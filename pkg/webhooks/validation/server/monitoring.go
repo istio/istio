@@ -18,7 +18,7 @@ import (
 	"strconv"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 const (

@@ -37,12 +37,12 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -170,6 +170,9 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		return nil, err
 	}
 	opts = append(opts, proxyOpts...)
+
+	// Append LRS related options.
+	opts = append(opts, option.LoadStatsConfigJSONStr(cfg.Node))
 
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info

@@ -26,9 +26,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/pkg/env"
 )
 
 var AuthPlaintext = env.Register("XDS_AUTH_PLAINTEXT", false,

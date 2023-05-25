@@ -22,9 +22,9 @@ import (
 	"unsafe"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
 )
 
 // Holder of a mesh configuration.

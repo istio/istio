@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var authnLog = log.RegisterScope("authn", "authn debugging")

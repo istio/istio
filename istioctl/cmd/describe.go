@@ -63,7 +63,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type myProtoValue struct {
@@ -1074,13 +1074,13 @@ the configuration objects that affect that service.`,
 						continue
 					}
 
-					ready, err := containerReady(&pod, proxyContainerName)
+					ready, err := containerReady(&pod, inject.ProxyContainerName)
 					if err != nil {
 						fmt.Fprintf(writer, "Pod %s: %s\n", kname(pod.ObjectMeta), err)
 						continue
 					}
 					if !ready {
-						fmt.Fprintf(writer, "WARNING: Pod %s Container %s NOT READY\n", kname(pod.ObjectMeta), proxyContainerName)
+						fmt.Fprintf(writer, "WARNING: Pod %s Container %s NOT READY\n", kname(pod.ObjectMeta), inject.ProxyContainerName)
 						continue
 					}
 					matchingPods = append(matchingPods, pod)
@@ -1093,7 +1093,7 @@ the configuration objects that affect that service.`,
 					return nil
 				}
 				fmt.Fprintf(writer, "Service %q has no Istio pods.  (%d pods in service).\n", kname(svc.ObjectMeta), selectedPodCount)
-				fmt.Fprintf(writer, "Use `istioctl experimental add-to-mesh`, `istioctl kube-inject`, or redeploy with Istio automatic sidecar injection.\n")
+				fmt.Fprintf(writer, "Use `istioctl kube-inject` or redeploy with Istio automatic sidecar injection.\n")
 				return nil
 			}
 

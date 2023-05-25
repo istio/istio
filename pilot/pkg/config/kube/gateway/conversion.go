@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -319,23 +320,29 @@ func buildHTTPVirtualServices(
 		routeMap := gatewayRoutes
 		routeKey := gw.InternalName
 		vsHosts := hosts
+		routes := httproutes
 		if gw.InternalName == "mesh" {
-			// for mesh routes, build one VS per namespace+host
+			// for mesh routes, build one VS per namespace/port->host
 			routeMap = meshRoutes
 			routeKey = ns
+			if gw.OriginalReference.Port != nil {
+				routes = augmentPortMatch(routes, *gw.OriginalReference.Port)
+				routeKey += fmt.Sprintf("/%d", *gw.OriginalReference.Port)
+			}
 			vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
 				gw.OriginalReference.Name, ptr.OrDefault(gw.OriginalReference.Namespace, k8s.Namespace(ns)), ctx.Domain)}
 		}
 		if _, f := routeMap[routeKey]; !f {
 			routeMap[routeKey] = make(map[string]*config.Config)
 		}
+
 		// Create one VS per hostname with a single hostname.
 		// This ensures we can treat each hostname independently, as the spec requires
 		for _, h := range vsHosts {
 			if cfg := routeMap[routeKey][h]; cfg != nil {
 				// merge http routes
 				vs := cfg.Spec.(*istio.VirtualService)
-				vs.Http = append(vs.Http, httproutes...)
+				vs.Http = append(vs.Http, routes...)
 				// append parents
 				cfg.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s/%s.%s",
 					cfg.Annotations[constants.InternalParentNames], obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
@@ -353,7 +360,7 @@ func buildHTTPVirtualServices(
 					Spec: &istio.VirtualService{
 						Hosts:    []string{h},
 						Gateways: []string{gw.InternalName},
-						Http:     httproutes,
+						Http:     routes,
 					},
 				}
 				count++
@@ -372,6 +379,23 @@ func buildHTTPVirtualServices(
 			sortHTTPRoutes(vs.Http)
 		}
 	}
+}
+
+func augmentPortMatch(routes []*istio.HTTPRoute, port k8sbeta.PortNumber) []*istio.HTTPRoute {
+	res := make([]*istio.HTTPRoute, 0, len(routes))
+	for _, r := range routes {
+		r = r.DeepCopy()
+		for _, m := range r.Match {
+			m.Port = uint32(port)
+		}
+		if len(r.Match) == 0 {
+			r.Match = []*istio.HTTPMatchRequest{{
+				Port: uint32(port),
+			}}
+		}
+		res = append(res, r)
+	}
+	return res
 }
 
 func routeMeta(obj config.Config) map[string]string {
@@ -453,11 +477,9 @@ func hostnameToStringList(h []k8s.Hostname) []string {
 	if len(h) == 0 {
 		return []string{"*"}
 	}
-	res := make([]string, 0, len(h))
-	for _, i := range h {
-		res = append(res, string(i))
-	}
-	return res
+	return slices.Map(h, func(e k8s.Hostname) string {
+		return string(e)
+	})
 }
 
 func toInternalParentReference(p k8s.ParentReference, localNamespace string) (parentKey, error) {
@@ -612,6 +634,10 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 			appendParent(gw, pk)
 		}
 	}
+	// Ensure stable order
+	slices.SortFunc(parentRefs, func(a, b routeParentReference) bool {
+		return fmt.Sprint(a.OriginalReference) < fmt.Sprint(b.OriginalReference)
+	})
 	return parentRefs
 }
 
@@ -1022,7 +1048,11 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 	} else {
 		// "When empty, port (if specified) of the request is used."
 		// this differs from Istio default
-		resp.RedirectPort = &istio.HTTPRedirect_DerivePort{DerivePort: istio.HTTPRedirect_FROM_REQUEST_PORT}
+		if filter.Scheme != nil {
+			resp.RedirectPort = &istio.HTTPRedirect_DerivePort{DerivePort: istio.HTTPRedirect_FROM_PROTOCOL_DEFAULT}
+		} else {
+			resp.RedirectPort = &istio.HTTPRedirect_DerivePort{DerivePort: istio.HTTPRedirect_FROM_REQUEST_PORT}
+		}
 	}
 	if filter.Path != nil {
 		switch filter.Path.Type {
@@ -1741,11 +1771,12 @@ func objectReferenceString(ref k8s.SecretObjectReference) string {
 }
 
 func parentRefString(ref k8s.ParentReference) string {
-	return fmt.Sprintf("%s/%s/%s/%s.%s",
+	return fmt.Sprintf("%s/%s/%s/%s/%d.%s",
 		ptr.OrEmpty(ref.Group),
 		ptr.OrEmpty(ref.Kind),
 		ref.Name,
 		ptr.OrEmpty(ref.SectionName),
+		ptr.OrEmpty(ref.Port),
 		ptr.OrEmpty(ref.Namespace))
 }
 

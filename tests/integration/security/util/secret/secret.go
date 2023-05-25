@@ -24,10 +24,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 )
+
+// IstioDNSSecretType is the Istio DNS secret annotation type
+const IstioDNSSecretType = "istio.io/dns-key-and-cert"
 
 // ExamineDNSSecretOrFail calls ExamineDNSSecret and fails t if an error occurs.
 func ExamineDNSSecretOrFail(t test.Failer, secret *v1.Secret, expectedID string) {
@@ -41,9 +43,9 @@ func ExamineDNSSecretOrFail(t test.Failer, secret *v1.Secret, expectedID string)
 // * Secret type is correctly set;
 // * Key, certificate and CA root are correctly saved in the data section;
 func ExamineDNSSecret(secret *v1.Secret, expectedID string) error {
-	if secret.Type != chiron.IstioDNSSecretType {
+	if secret.Type != IstioDNSSecretType {
 		return fmt.Errorf(`unexpected value for the "type" annotation: expecting %v but got %v`,
-			chiron.IstioDNSSecretType, secret.Type)
+			IstioDNSSecretType, secret.Type)
 	}
 
 	for _, key := range []string{ca.CertChainFile, ca.RootCertFile, ca.PrivateKeyFile} {

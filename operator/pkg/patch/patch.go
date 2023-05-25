@@ -107,7 +107,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var scope = log.RegisterScope("patch", "patch")

@@ -30,12 +30,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 // nolint: gosec

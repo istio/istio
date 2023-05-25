@@ -41,7 +41,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/jwt"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var authnLog = log.RegisterScope("authn", "authn debugging")

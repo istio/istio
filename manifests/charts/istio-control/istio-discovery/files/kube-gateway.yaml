@@ -157,9 +157,9 @@ spec:
               fieldPath: spec.nodeName
         - name: ISTIO_META_INTERCEPTION_MODE
           value: "{{ .ProxyConfig.InterceptionMode.String }}"
-        {{- if .Values.global.network }}
+        {{- with (valueOrDefault  (index .Labels "topology.istio.io/network") .Values.global.network) }}
         - name: ISTIO_META_NETWORK
-          value: "{{ .Values.global.network }}"
+          value: {{.|quote}}
         {{- end }}
         - name: ISTIO_META_WORKLOAD_NAME
           value: {{.DeploymentName|quote}}

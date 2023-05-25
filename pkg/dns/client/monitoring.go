@@ -15,7 +15,7 @@
 package client
 
 import (
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 var (

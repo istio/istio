@@ -16,8 +16,6 @@ package diag
 
 import (
 	"sort"
-
-	"istio.io/istio/operator/pkg/object"
 )
 
 // Messages is a slice of Message items.
@@ -81,19 +79,6 @@ func (ms *Messages) FilterOutLowerThan(outputLevel Level) Messages {
 	for _, m := range *ms {
 		if m.Type.Level().IsWorseThanOrEqualTo(outputLevel) {
 			outputMessages = append(outputMessages, m)
-		}
-	}
-	return outputMessages
-}
-
-func (ms *Messages) FilterOutBasedOnResources(resources object.K8sObjects) Messages {
-	outputMessages := Messages{}
-	for _, m := range *ms {
-		for _, rs := range resources {
-			if rs.Name == m.Resource.Metadata.FullName.Name.String() {
-				outputMessages = append(outputMessages, m)
-				break
-			}
 		}
 	}
 	return outputMessages

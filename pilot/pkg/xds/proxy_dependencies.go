@@ -19,12 +19,15 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
-// configKindAffectedProxyTypes contains known config types which may affect certain node types.
-var configKindAffectedProxyTypes = map[kind.Kind][]model.NodeType{
-	kind.Gateway: {model.Router},
-	kind.Sidecar: {model.SidecarProxy},
+// UnAffectedConfigKinds contains config types which does not affect certain proxy types.
+var UnAffectedConfigKinds = map[model.NodeType]sets.Set[kind.Kind]{
+	// For Gateways, we do not care about the following configs for example Sidecar.
+	model.Router: sets.New(kind.Sidecar),
+	// For Sidecar, we do not care about the following configs for example Gateway.
+	model.SidecarProxy: sets.New(kind.Gateway),
 }
 
 // ConfigAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
@@ -41,20 +44,7 @@ func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 	}
 
 	for config := range req.ConfigsUpdated {
-		affected := true
-
-		// Some configKinds only affect specific proxy types
-		if kindAffectedTypes, f := configKindAffectedProxyTypes[config.Kind]; f {
-			affected = false
-			for _, t := range kindAffectedTypes {
-				if t == proxy.Type {
-					affected = true
-					break
-				}
-			}
-		}
-
-		if affected && checkProxyDependencies(proxy, config, req.Push) {
+		if proxyDependentOnConfig(proxy, config, req.Push) {
 			return true
 		}
 	}
@@ -62,7 +52,11 @@ func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
 	return false
 }
 
-func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey, push *model.PushContext) bool {
+func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *model.PushContext) bool {
+	// Skip config dependency check based on proxy type for certain configs.
+	if UnAffectedConfigKinds[proxy.Type].Contains(config.Kind) {
+		return false
+	}
 	// Detailed config dependencies check.
 	switch proxy.Type {
 	case model.SidecarProxy:

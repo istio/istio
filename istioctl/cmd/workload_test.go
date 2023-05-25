@@ -19,14 +19,17 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"strings"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var fakeCACert = []byte("fake-CA-cert")
@@ -62,6 +65,15 @@ spec:
     serviceAccount: test
 `
 )
+
+type testcase struct {
+	description       string
+	expectedException bool
+	args              []string
+	k8sConfigs        []runtime.Object
+	expectedOutput    string
+	namespace         string
+}
 
 func TestWorkloadGroupCreate(t *testing.T) {
 	cases := []testcase{
@@ -107,8 +119,40 @@ func TestWorkloadGroupCreate(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
-			verifyAddToMeshOutput(t, c)
+			verifyTestcaseOutput(t, c)
 		})
+	}
+}
+
+func verifyTestcaseOutput(t *testing.T, c testcase) {
+	t.Helper()
+
+	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
+	var out bytes.Buffer
+	rootCmd := GetRootCmd(c.args)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+	if c.namespace != "" {
+		namespace = c.namespace
+	}
+
+	fErr := rootCmd.Execute()
+	output := out.String()
+
+	if c.expectedException {
+		if fErr == nil {
+			t.Fatalf("Wanted an exception, "+
+				"didn't get one, output was %q", output)
+		}
+	} else {
+		if fErr != nil {
+			t.Fatalf("Unwanted exception: %v", fErr)
+		}
+	}
+
+	if c.expectedOutput != "" && c.expectedOutput != output {
+		assert.Equal(t, c.expectedOutput, output)
+		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q", strings.Join(c.args, " "), output, c.expectedOutput)
 	}
 }
 
@@ -142,7 +186,7 @@ func TestWorkloadEntryConfigureInvalidArgs(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
-			verifyAddToMeshOutput(t, c)
+			verifyTestcaseOutput(t, c)
 		})
 	}
 }
@@ -350,5 +394,50 @@ func checkOutputFiles(t *testing.T, testdir string, checkFiles map[string]bool) 
 				util.CompareContent(t, contents, goldenFile)
 			})
 		}
+	}
+}
+
+func TestConvertToMap(t *testing.T) {
+	tests := []struct {
+		name string
+		arg  []string
+		want map[string]string
+	}{
+		{name: "empty", arg: []string{""}, want: map[string]string{"": ""}},
+		{name: "one-valid", arg: []string{"key=value"}, want: map[string]string{"key": "value"}},
+		{name: "one-valid-double-equals", arg: []string{"key==value"}, want: map[string]string{"key": "=value"}},
+		{name: "one-key-only", arg: []string{"key"}, want: map[string]string{"key": ""}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := convertToStringMap(tt.arg); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("convertToStringMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSplitEqual(t *testing.T) {
+	tests := []struct {
+		arg       string
+		wantKey   string
+		wantValue string
+	}{
+		{arg: "key=value", wantKey: "key", wantValue: "value"},
+		{arg: "key==value", wantKey: "key", wantValue: "=value"},
+		{arg: "key=", wantKey: "key", wantValue: ""},
+		{arg: "key", wantKey: "key", wantValue: ""},
+		{arg: "", wantKey: "", wantValue: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.arg, func(t *testing.T) {
+			gotKey, gotValue := splitEqual(tt.arg)
+			if gotKey != tt.wantKey {
+				t.Errorf("splitEqual(%v) got = %v, want %v", tt.arg, gotKey, tt.wantKey)
+			}
+			if gotValue != tt.wantValue {
+				t.Errorf("splitEqual(%v) got1 = %v, want %v", tt.arg, gotValue, tt.wantValue)
+			}
+		})
 	}
 }

@@ -33,6 +33,7 @@ import (
 
 	"istio.io/istio/cni/pkg/ambient/constants"
 	ebpf "istio.io/istio/cni/pkg/ebpf/server"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func IsPodInIpset(pod *corev1.Pod) bool {
@@ -170,7 +171,7 @@ func (s *Server) updatePodEbpfOnNode(pod *corev1.Pod) error {
 	return nil
 }
 
-func (s *Server) delPodEbpfOnNode(ip string) error {
+func (s *Server) delPodEbpfOnNode(ip string, force bool) error {
 	if s.ebpfServer == nil {
 		return fmt.Errorf("uninitialized ebpf server")
 	}
@@ -192,6 +193,9 @@ func (s *Server) delPodEbpfOnNode(ip string) error {
 		ifIndex = veth.Attrs().Index
 	}
 
+	if force {
+		return s.ebpfServer.RemovePod([]netip.Addr{ipAddr}, uint32(ifIndex))
+	}
 	args := &ebpf.RedirectArgs{
 		IPAddrs:   []netip.Addr{ipAddr},
 		Ifindex:   ifIndex,
@@ -1195,26 +1199,55 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 	return nil
 }
 
-func (s *Server) cleanupNode() {
-	log.Infof("Node-level network rule cleanup started")
-	if s.redirectMode == EbpfMode {
+func (s *Server) ztunnelDown() {
+	switch s.redirectMode {
+	case EbpfMode:
 		if err := s.delZtunnelEbpfOnNode(); err != nil {
 			log.Error(err)
 		}
-		return
+	case IptablesMode:
+		// nothing to do with IptablesMode
 	}
-	s.cleanRules()
+}
 
-	flushAllRouteTables()
+func (s *Server) cleanupNode() {
+	log.Infof("Node-level network rule cleanup started")
+	switch s.redirectMode {
+	case EbpfMode:
+		if err := s.cleanupPodsEbpfOnNode(); err != nil {
+			log.Errorf("%v", err)
+		}
+	case IptablesMode:
+		s.cleanRules()
 
-	deleteIPRules([]string{"100", "101", "102", "103"}, true)
+		flushAllRouteTables()
 
-	deleteTunnelLinks(constants.InboundTun, constants.OutboundTun, true)
+		deleteIPRules([]string{"100", "101", "102", "103"}, true)
 
-	err := Ipset.DestroySet()
-	if err != nil {
-		log.Warnf("unable to delete IPSet: %v", err)
+		deleteTunnelLinks(constants.InboundTun, constants.OutboundTun, true)
+
+		err := Ipset.DestroySet()
+		if err != nil {
+			log.Warnf("unable to delete IPSet: %v", err)
+		}
 	}
+}
+
+func (s *Server) getEnrolledIPSets() sets.Set[string] {
+	pods := sets.New[string]()
+	switch s.redirectMode {
+	case IptablesMode:
+		l, err := Ipset.List()
+		if err != nil {
+			log.Warnf("unable to list IPSet: %v", err)
+		}
+		for _, v := range l {
+			pods.Insert(v.IP.String())
+		}
+	case EbpfMode:
+		pods = s.ebpfServer.DumpAppIPs()
+	}
+	return pods
 }
 
 func addTProxyMarkRule() error {
@@ -1294,13 +1327,9 @@ func setProc(path string, value string) error {
 	return os.WriteFile(path, []byte(value), 0o644)
 }
 
-func buildRouteFromPod(pod *corev1.Pod, ip string) ([]string, error) {
+func buildRouteForPod(ip string) ([]string, error) {
 	if ip == "" {
-		ip = pod.Status.PodIP
-	}
-
-	if ip == "" {
-		return nil, errors.New("no ip found")
+		return nil, errors.New("ip is none")
 	}
 
 	return []string{

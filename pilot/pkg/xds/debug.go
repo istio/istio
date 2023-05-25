@@ -44,10 +44,10 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/xds"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -1109,7 +1109,7 @@ func sortMCSServices(svcs []model.MCSServiceInfo) []model.MCSServiceInfo {
 
 func (s *DiscoveryServer) clusterz(w http.ResponseWriter, req *http.Request) {
 	if s.ListRemoteClusters == nil {
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	writeJSON(w, s.ListRemoteClusters(), req)

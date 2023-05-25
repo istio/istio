@@ -42,14 +42,14 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/ledger"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/identifier"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/ledger"
-	"istio.io/pkg/monitoring"
 )
 
 var _ mesh.Holder = &Environment{}
@@ -189,6 +189,20 @@ func (e *Environment) GetLedger() ledger.Ledger {
 
 func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
+}
+
+func (e *Environment) GetProxyConfigOrDefault(ns string, labels, annotations map[string]string, meshConfig *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
+	if e.PushContext != nil && e.PushContext.ProxyConfigs != nil {
+		if generatedProxyConfig := e.PushContext.ProxyConfigs.EffectiveProxyConfig(
+			&NodeMetadata{
+				Namespace:   ns,
+				Labels:      labels,
+				Annotations: annotations,
+			}, meshConfig); generatedProxyConfig != nil {
+			return generatedProxyConfig
+		}
+	}
+	return mesh.DefaultProxyConfig()
 }
 
 // Resources is an alias for array of marshaled resources.
@@ -1077,11 +1091,7 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	// if not found, for backward compatibility, extract the namespace from
 	// the proxy domain. this is a k8s specific hack and should be enabled
 	parts := strings.Split(proxy.DNSDomain, ".")
-	if len(parts) > 1 { // k8s will have namespace.<domain>
-		return parts[0]
-	}
-
-	return ""
+	return parts[0]
 }
 
 const (

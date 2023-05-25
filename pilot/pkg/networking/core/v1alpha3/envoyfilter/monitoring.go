@@ -17,7 +17,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 type Result string

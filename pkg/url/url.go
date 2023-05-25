@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"istio.io/istio/operator/version"
-	buildversion "istio.io/pkg/version"
+	buildversion "istio.io/istio/pkg/version"
 )
 
 var (

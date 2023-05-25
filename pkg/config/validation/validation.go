@@ -48,7 +48,6 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -58,12 +57,13 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/grpc"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // Constants for duration fields
@@ -618,12 +618,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
 		}
 		if tls.CredentialName != "" {
-			if features.EnableLegacyIstioMutualCredentialName {
-				// Legacy mode enabled, just warn
-				v = appendWarningf(v, "ISTIO_MUTUAL TLS cannot have associated credentialName")
-			} else {
-				v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
-			}
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
 		}
 		return
 	}
@@ -2292,7 +2287,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		if !appliesToGateway {
 			validateJWTClaimRoute := func(headers map[string]*networking.StringMatch) {
 				for key := range headers {
-					if strings.HasPrefix(key, constant.HeaderJWTClaim) {
+					if jwt.ToRoutingClaim(key).Match {
 						msg := fmt.Sprintf("JWT claim based routing (key: %s) is only supported for gateway, found no gateways: %v", key, virtualService.Gateways)
 						errs = appendValidation(errs, errors.New(msg))
 					}

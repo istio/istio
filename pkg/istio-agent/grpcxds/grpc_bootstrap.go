@@ -27,8 +27,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
 )
 
 const (

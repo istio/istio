@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 func statusCommand() *cobra.Command {

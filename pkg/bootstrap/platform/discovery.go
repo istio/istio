@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 )
 
 const (

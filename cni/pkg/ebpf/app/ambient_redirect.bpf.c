@@ -132,7 +132,7 @@ int app_outbound(struct __sk_buff *skb)
     __u32 *log_level = get_log_level();
 
     if (!zi || zi->ifindex == 0)
-        return TC_ACT_OK;
+        return TC_ACT_SHOT;
 
     capture_dns = zi->flag & CAPTURE_DNS_FLAG;
 
@@ -208,7 +208,7 @@ int app_inbound(struct __sk_buff *skb)
 
     if (!zi || zi->ifindex == 0) {
         dbg("inbound_to_ztunnel unable to retrieve ztunnel_info\n");
-        return TC_ACT_OK;
+        return TC_ACT_SHOT;
     }
 
     if (iph->protocol == IPPROTO_UDP) {

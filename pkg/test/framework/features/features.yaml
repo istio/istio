@@ -76,8 +76,6 @@ features:
       tcp-probe:
       grpc-probe:
     helpers:
-      add-to-mesh:
-      remove-from-mesh:
       kube-inject:
   # features that allow users to secure their services and service mesh.
   security:

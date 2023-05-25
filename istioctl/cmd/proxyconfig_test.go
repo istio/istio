@@ -42,8 +42,8 @@ func TestProxyConfig(t *testing.T) {
 		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
 		"ztunnel-9v7nw":               []byte("current log level is debug"),
 	}
-	isZtunnelPod = func(podName, _ string) bool {
-		return strings.HasPrefix(podName, "ztunnel")
+	isZtunnelPod = func(podName, _ string) (bool, error) {
+		return strings.HasPrefix(podName, "ztunnel"), nil
 	}
 	cases := []execTestCase{
 		{
@@ -86,11 +86,23 @@ func TestProxyConfig(t *testing.T) {
 			expectedString:   "unrecognized logger name: xxx",
 			wantException:    true,
 		},
+		{ // logger name invalid when namespacing is used improperly
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log ztunnel-9v7nw --level ztunnel:::pool:debug", " "),
+			expectedString:   "unrecognized logging level: pool:debug",
+			wantException:    true,
+		},
 		{ // logger name valid, but logging level invalid
 			execClientConfig: loggingConfig,
 			args:             strings.Split("proxy-config log details-v1-5b7f94f9bc-wp5tb --level http:yyy", " "),
 			expectedString:   "unrecognized logging level: yyy",
 			wantException:    true,
+		},
+		{ // logger name valid and logging level valid
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log ztunnel-9v7nw --level ztunnel::pool:debug", " "),
+			expectedString:   "",
+			wantException:    false,
 		},
 		{ // both logger name and logging level invalid
 			execClientConfig: loggingConfig,

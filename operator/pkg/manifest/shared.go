@@ -39,9 +39,9 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
-	"istio.io/pkg/log"
-	pkgversion "istio.io/pkg/version"
+	pkgversion "istio.io/istio/pkg/version"
 )
 
 // installerScope is the scope for shared manifest package.

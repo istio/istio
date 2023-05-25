@@ -33,8 +33,10 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -42,8 +44,6 @@ import (
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 type caOptions struct {
