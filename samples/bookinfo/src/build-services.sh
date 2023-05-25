@@ -28,7 +28,7 @@ if [[ ("${h}" == "istio" || "${h}" == "docker.io/istio") && -z "$CI" && "$@" =~ 
 fi
 
 # Pass input args to the command. This allows using --push, --load, etc
-env -i TAG="${BOOKINFO_TAG}" HUB="${BOOKINFO_HUB}" \
+env TAG="${BOOKINFO_TAG}" HUB="${BOOKINFO_HUB}" \
   docker buildx bake -f samples/bookinfo/src/docker-bake.hcl "$@"
 
 if [[ "${BOOKINFO_UPDATE}" == "true" ]]; then
