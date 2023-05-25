@@ -183,20 +183,20 @@ func revisionListCommand() *cobra.Command {
 }
 
 func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) error {
-	client, err := newKubeClient(kubeconfig, configContext)
+	err := initKubeClient(kubeconfig, configContext)
 	if err != nil {
 		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v",
 			kubeconfig, configContext, err)
 	}
 
-	revisions, err := tag.ListRevisionDescriptions(client)
+	revisions, err := tag.ListRevisionDescriptions(kubeClient)
 	if err != nil {
 		return fmt.Errorf("cannot list revisions for kubeconfig=%s, context=%s: %v",
 			kubeconfig, configContext, err)
 	}
 
 	// Get a list of all CRs which are installed in this cluster
-	iopcrs, err := getAllMergedIstioOperatorCRs(client, logger)
+	iopcrs, err := getAllMergedIstioOperatorCRs(kubeClient, logger)
 	if err != nil {
 		return fmt.Errorf("error while listing IstioOperator CRs: %v", err)
 	}
@@ -557,13 +557,13 @@ func revisionExists(revDescription *tag.RevisionDescription) bool {
 }
 
 func annotateWithNamespaceAndPodInfo(revDescription *tag.RevisionDescription, revisionAliases []string) error {
-	client, err := newKubeClient(kubeconfig, configContext)
+	err := initKubeClient(kubeconfig, configContext)
 	if err != nil {
 		return fmt.Errorf("failed to create kubeclient: %v", err)
 	}
 	nsMap := make(map[string]*tag.NsInfo)
 	for _, ra := range revisionAliases {
-		pods, err := getPodsWithSelector(client, "", &metav1.LabelSelector{
+		pods, err := getPodsWithSelector(kubeClient, "", &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				label.IoIstioRev.Name: ra,
 			},

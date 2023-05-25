@@ -271,14 +271,14 @@ func envoyDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			client, err := kubeClient(kubeconfig, configContext)
+			err := initKubeClient(kubeconfig, configContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(envoyDashNs, defaultNamespace), labelSelector)
+				pl, err := kubeClient.PodsForSelector(context.TODO(), handlers.HandleNamespace(envoyDashNs, defaultNamespace), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -297,14 +297,14 @@ func envoyDashCmd() *cobra.Command {
 			} else {
 				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(envoyDashNs, defaultNamespace),
-					MakeKubeFactory(client))
+					MakeKubeFactory(kubeClient))
 				if err != nil {
 					return err
 				}
 			}
 
 			return portForward(podName, ns, fmt.Sprintf("Envoy sidecar %s", podName),
-				"http://%s", bindAddress, proxyAdminPort, client, c.OutOrStdout(), browser)
+				"http://%s", bindAddress, proxyAdminPort, kubeClient, c.OutOrStdout(), browser)
 		},
 	}
 

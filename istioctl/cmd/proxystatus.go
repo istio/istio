@@ -150,8 +150,12 @@ func newKubeClientWithRevision(kubeconfig, configContext string, revision string
 	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
-func newKubeClient(kubeconfig, configContext string) (kube.CLIClient, error) {
-	return newKubeClientWithRevision(kubeconfig, configContext, "")
+func newKubeClient(kubeconfig, configContext string) error {
+	var err error
+	once.Do(func() {
+		kubeClient, err = newKubeClientWithRevision(kubeconfig, configContext, "")
+	})
+	return err
 }
 
 func xdsStatusCommand() *cobra.Command {
