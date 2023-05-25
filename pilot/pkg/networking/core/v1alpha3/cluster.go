@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -138,16 +139,13 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
 	// When clusters are rebuilt, it rebuilts the subset clusters as well. So, we know what
 	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
-	var finalDeletedClusters []string
 	builtClusters := sets.New[string]()
 	for _, c := range clusters {
 		builtClusters.Insert(c.Name)
 	}
-	for _, deleted := range deletedClusters {
-		if !builtClusters.Contains(deleted) {
-			finalDeletedClusters = append(finalDeletedClusters, deleted)
-		}
-	}
+	finalDeletedClusters := slices.FilterInPlace(deletedClusters, func(cluster string) bool {
+		return !builtClusters.Contains(cluster)
+	})
 	return clusters, finalDeletedClusters, log, true
 }
 
