@@ -138,17 +138,16 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	curTime := time.Now()
 	defer func() {
 		if time.Until(curTime.Add(commandTimeout)) < 0 {
-			message := "Timeout when get cluster resources, please using --include or --exclude to filter"
+			message := "Timeout when running bug report command, please using --include or --exclude to filter"
 			common.LogAndPrintf(message)
 		}
 		getClusterResourcesCancel()
 	}()
-	start := time.Now()
 	resources, err := cluster2.GetClusterResources(clusterResourcesCtx, clientset, config)
 	if err != nil {
 		return err
 	}
-	logRuntime(start, "Done collecting cluster resource")
+	logRuntime(curTime, "Done collecting cluster resource")
 
 	dumpRevisionsAndVersions(resources, config.KubeConfigPath, config.Context, config.IstioNamespace, config.DryRun)
 
@@ -504,7 +503,7 @@ func writeFile(path, text string, dryRun bool) {
 	}
 	mkdirOrExit(path)
 
-	logRuntime(time.Now(), "Done writing file for path %v", path)
+	defer logRuntime(time.Now(), "Done writing file for path %v", path)
 
 	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
 		log.Errorf(err.Error())
