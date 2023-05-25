@@ -15,7 +15,7 @@
 syntax = "proto3";
 
 package istio.security;
-option go_package="pkg/workloadapi";
+option go_package="pkg/workloadapi/security";
 
 import "google/protobuf/empty.proto";
 

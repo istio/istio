@@ -46,7 +46,8 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	workloadapi "istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -807,13 +808,13 @@ type ServiceDiscovery interface {
 }
 
 type AmbientIndexes interface {
-	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
+	AddressInformation(addresses sets.Set[types.NamespacedName]) ([]*AddressInfo, []string)
 	AdditionalPodSubscriptions(
 		proxy *Proxy,
 		allAddresses sets.Set[types.NamespacedName],
 		currentSubs sets.Set[types.NamespacedName],
 	) sets.Set[types.NamespacedName]
-	Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization
+	Policies(requested sets.Set[ConfigKey]) []*security.Authorization
 	Waypoint(scope WaypointScope) []netip.Addr
 	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
 }
@@ -821,7 +822,7 @@ type AmbientIndexes interface {
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
 type NoopAmbientIndexes struct{}
 
-func (u NoopAmbientIndexes) PodInformation(sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
+func (u NoopAmbientIndexes) AddressInformation(sets.Set[types.NamespacedName]) ([]*AddressInfo, []string) {
 	return nil, nil
 }
 
@@ -833,7 +834,7 @@ func (u NoopAmbientIndexes) AdditionalPodSubscriptions(
 	return nil
 }
 
-func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*workloadapi.Authorization {
+func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*security.Authorization {
 	return nil
 }
 
@@ -847,10 +848,44 @@ func (u NoopAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []*Workloa
 
 var _ AmbientIndexes = NoopAmbientIndexes{}
 
+type AddressInfo struct {
+	*workloadapi.Address
+}
+
+func (i AddressInfo) ResourceName() string {
+	var name string
+	switch addr := i.Type.(type) {
+	case *workloadapi.Address_Workload:
+		name = workloadResourceName(addr.Workload)
+	case *workloadapi.Address_Service:
+		name = serviceResourceName(addr.Service)
+	}
+	return name
+}
+
+type ServiceInfo struct {
+	*workloadapi.Service
+}
+
+func (i ServiceInfo) ResourceName() string {
+	return serviceResourceName(i.Service)
+}
+
+func serviceResourceName(s *workloadapi.Service) string {
+	return s.Namespace + "/" + s.Hostname
+}
+
 type WorkloadInfo struct {
 	*workloadapi.Workload
 	// Labels for the workload. Note these are only used internally, not sent over XDS
 	Labels map[string]string
+}
+
+func workloadResourceName(w *workloadapi.Workload) string {
+	// TODO per design doc, primary xds key is UID and secondary keys are network/address
+	// but address is repeated. primary key is not implemented yet
+	ii, _ := netip.AddrFromSlice(w.Address)
+	return w.Network + "/" + ii.String()
 }
 
 func (i *WorkloadInfo) Clone() *WorkloadInfo {
@@ -861,8 +896,7 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 }
 
 func (i WorkloadInfo) ResourceName() string {
-	ii, _ := netip.AddrFromSlice(i.Address)
-	return ii.String()
+	return workloadResourceName(i.Workload)
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This

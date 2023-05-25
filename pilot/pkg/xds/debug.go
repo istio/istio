@@ -631,7 +631,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if con.proxy.IsZTunnel() {
-		resources := s.getConfigDumpByResourceType(con, nil, []string{v3.WorkloadType})
+		resources := s.getConfigDumpByResourceType(con, nil, []string{v3.AddressType})
 		configDump := &admin.ConfigDump{}
 		for _, resource := range resources {
 			for _, rr := range resource {

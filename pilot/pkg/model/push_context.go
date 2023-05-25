@@ -2163,10 +2163,16 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 }
 
 func (ps *PushContext) SupportsTunnel(ip string) bool {
-	infos, _ := ps.ambientIndex.PodInformation(sets.New(types.NamespacedName{Name: ip}))
+	infos, _ := ps.ambientIndex.AddressInformation(sets.New(types.NamespacedName{Name: ip}))
 	for _, p := range infos {
-		if p.Protocol == workloadapi.Protocol_HTTP {
-			return true
+		switch addr := p.Address.Type.(type) {
+		case *workloadapi.Address_Workload:
+			if addr.Workload.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
+				return true
+			}
+		case *workloadapi.Address_Service:
+			// Services do not directly support tunneling, their individual Workloads can though
+			continue
 		}
 	}
 	return false
