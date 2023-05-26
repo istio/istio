@@ -17,6 +17,9 @@
 package status
 
 import (
+	"reflect"
+	"sync"
+
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -31,12 +34,27 @@ import (
 // when an individual resource is ready to be updated with the relevant data.
 type Manager struct {
 	// TODO: is Resource the right abstraction?
-	store   model.ConfigStore
-	workers WorkerQueue
+	store        model.ConfigStore
+	workers      WorkerQueue
+	statuses     sync.Map
+	lastStatuses sync.Map
 }
 
 func NewManager(store model.ConfigStore) *Manager {
+	manager := &Manager{
+		store:    store,
+		statuses: sync.Map{},
+	}
 	writeFunc := func(m *config.Config, istatus any) {
+		lastStatus, ok := manager.lastStatuses.Load(m.Key())
+		if !ok {
+			cfg := store.Get(m.GroupVersionKind, m.Name, m.Namespace)
+			lastStatus = cfg.Status
+			manager.lastStatuses.Store(m.Key(), lastStatus)
+		}
+		if reflect.DeepEqual(lastStatus, istatus) {
+			return
+		}
 		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
 		status := istatus.(GenerationProvider)
 		m.Status = status.Unwrap()
@@ -46,6 +64,8 @@ func NewManager(store model.ConfigStore) *Manager {
 			scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", m, err)
 			return
 		}
+		// store the last status for this resource if write was successful
+		manager.lastStatuses.Store(m.Key(), istatus)
 	}
 	retrieveFunc := func(resource Resource) *config.Config {
 		scope.Debugf("retrieving config for status update: %s/%s", resource.Namespace, resource.Name)
@@ -58,10 +78,8 @@ func NewManager(store model.ConfigStore) *Manager {
 		current := store.Get(k, resource.Name, resource.Namespace)
 		return current
 	}
-	return &Manager{
-		store:   store,
-		workers: NewWorkerPool(writeFunc, retrieveFunc, uint(features.StatusMaxWorkers)),
-	}
+	manager.workers = NewWorkerPool(writeFunc, retrieveFunc, uint(features.StatusMaxWorkers))
+	return manager
 }
 
 func (m *Manager) Start(stop <-chan struct{}) {
