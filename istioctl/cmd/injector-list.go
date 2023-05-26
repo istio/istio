@@ -107,7 +107,7 @@ func injectorListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cmd.Println()
+			fmt.Fprintln(cmd.OutOrStdout())
 			injectedImages, err := getInjectedImages(ctx, client)
 			if err != nil {
 				return err
