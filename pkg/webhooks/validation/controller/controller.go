@@ -35,6 +35,7 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
@@ -134,6 +135,11 @@ func newController(o Options, client kube.Client) *Controller {
 
 func (c *Controller) Reconcile(key types.NamespacedName) error {
 	name := key.Name
+	if features.ValidationWebhookConfigName != "" && name != features.ValidationWebhookConfigName {
+		log.Debugf("skip ValidatingWebhookConfiguration %s", name)
+		return nil
+	}
+
 	whc := c.webhooks.Get(name, "")
 	scope := scope.WithLabels("webhook", name)
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
