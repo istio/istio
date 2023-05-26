@@ -1280,6 +1280,11 @@ func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 	// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
 	// events - since PodIP will be "".
 	newPod.Status.PodIP = pod.Status.PodIP
+	newPod.Status.PodIPs = []v1.PodIP{
+		{
+			IP: pod.Status.PodIP,
+		},
+	}
 	newPod.Status.Phase = v1.PodRunning
 
 	// Also need to sets the pod to be ready as now we only add pod into service entry endpoint when it's ready
