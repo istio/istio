@@ -144,8 +144,8 @@ func (i Instance) String() string {
 	keys := slices.Sort(maps.Keys(i))
 
 	var buffer strings.Builder
-	// Assume each kv pair is roughly 10 characters. We could be under or over, this is just a guess to optimize
-	buffer.Grow(len(keys) * 10)
+	// Assume each kv pair is roughly 25 characters. We could be under or over, this is just a guess to optimize
+	buffer.Grow(len(keys) * 25)
 	first := true
 	for _, k := range keys {
 		v := i[k]
