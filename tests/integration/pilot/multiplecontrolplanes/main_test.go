@@ -194,7 +194,7 @@ func TestCustomResourceScoping(t *testing.T) {
 		Features("installation.multiplecontrolplanes").
 		Run(func(t framework.TestContext) {
 			// allow access to external service only for app-ns-2 namespace which is under usergroup-2
-			allowExternalService(t, apps.NS[1].Namespace.Name(), externalNS.Name())
+			allowExternalService(t, apps.NS[1].Namespace.Name(), externalNS.Name(), "usergroup-2")
 
 			testCases := []struct {
 				name       string
@@ -255,13 +255,16 @@ spec:
 	}
 }
 
-func allowExternalService(t framework.TestContext, ns string, externalNs string) {
+func allowExternalService(t framework.TestContext, ns string, externalNs string, usergroup string) {
 	t.ConfigIstio().Eval(ns, map[string]any{
 		"Namespace": externalNs,
+		"UserGroup": usergroup,
 	}, `apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-service
+  labels:
+    istio.io/rev: {{.UserGroup}}
 spec:
   hosts:
   - "fake.external.com"
