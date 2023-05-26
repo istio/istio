@@ -36,28 +36,28 @@ type Manager struct {
 	// TODO: is Resource the right abstraction?
 	store        model.ConfigStore
 	workers      WorkerQueue
-	statuses     sync.Map
 	lastStatuses sync.Map
 }
 
 func NewManager(store model.ConfigStore) *Manager {
 	manager := &Manager{
-		store:    store,
-		statuses: sync.Map{},
+		store:        store,
+		lastStatuses: sync.Map{},
 	}
 	writeFunc := func(m *config.Config, istatus any) {
+		status := istatus.(GenerationProvider)
+		m.Status = status.Unwrap()
 		lastStatus, ok := manager.lastStatuses.Load(m.Key())
 		if !ok {
 			cfg := store.Get(m.GroupVersionKind, m.Name, m.Namespace)
 			lastStatus = cfg.Status
 			manager.lastStatuses.Store(m.Key(), lastStatus)
 		}
-		if reflect.DeepEqual(lastStatus, istatus) {
+		if reflect.DeepEqual(lastStatus, m.Status) {
 			return
 		}
 		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
-		status := istatus.(GenerationProvider)
-		m.Status = status.Unwrap()
+
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
 			// TODO: need better error handling
@@ -65,7 +65,7 @@ func NewManager(store model.ConfigStore) *Manager {
 			return
 		}
 		// store the last status for this resource if write was successful
-		manager.lastStatuses.Store(m.Key(), istatus)
+		manager.lastStatuses.Store(m.Key(), m.Status)
 	}
 	retrieveFunc := func(resource Resource) *config.Config {
 		scope.Debugf("retrieving config for status update: %s/%s", resource.Namespace, resource.Name)

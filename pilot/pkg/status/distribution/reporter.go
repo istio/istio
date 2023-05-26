@@ -236,6 +236,10 @@ func (r *Reporter) writeReport(ctx context.Context) {
 		scope.Errorf("Error serializing Distribution Report: %v", err)
 		return
 	}
+	if r.cm.Data[dataField] == string(reportbytes) {
+		// nothing to do
+		return
+	}
 	r.cm.Data[dataField] = string(reportbytes)
 	// TODO: short circuit this write in the leader
 	_, err = CreateOrUpdateConfigMap(ctx, r.cm, r.client)
