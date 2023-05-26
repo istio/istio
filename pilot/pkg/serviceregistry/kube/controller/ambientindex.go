@@ -20,13 +20,13 @@ import (
 	"strings"
 	"sync"
 
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
@@ -37,12 +37,16 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeutil "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -61,7 +65,7 @@ type AmbientIndex struct {
 	// serviceHostnameIndex maintains and index of Hostname -> Service
 	serviceHostnameIndex   *kclient.Index[string, *v1.Service]
 	sliceIPIndex           *kclient.Index[string, *discoveryv1.EndpointSlice]
-	waypointsIndex         *kclient.Index[model.WaypointScope, *v1.Pod]
+	waypointsIndex         *kclient.Index[model.WaypointScope, *gateway.Gateway]
 	services               kclient.Client[*v1.Service]
 	controller             *Controller
 	queue                  controllers.Queue
@@ -165,27 +169,28 @@ func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.Wo
 // then falls back to any Namespace wide waypoints
 func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 	a := c.ambientIndex
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	res := []netip.Addr{}
-	for _, wp := range a.waypointsIndex.Lookup(scope) {
-		for _, ip := range wp.Status.PodIPs {
-			res = append(res, netip.MustParseAddr(ip.IP))
+	wp := slices.Head(a.waypointsIndex.Lookup(scope))
+	if wp == nil {
+		// Now look for namespace-wide
+		scope.ServiceAccount = ""
+		wp = slices.Head(a.waypointsIndex.Lookup(scope))
+	}
+	if wp == nil {
+		return nil
+	}
+	for _, addr := range (*wp).Status.Addresses {
+		var ips []string
+		switch ptr.OrDefault(addr.Type, gateway.IPAddressType) {
+		case gateway.IPAddressType:
+			ips = []string{addr.Value}
+		case gateway.HostnameAddressType:
+			// TODO: this is a little wonky, should be zero one one
+			for _, svc := range c.ambientIndex.serviceHostnameIndex.Lookup(addr.Value) {
+				ips = getVIPs(svc)
+			}
 		}
+		return slices.Map(ips, netip.MustParseAddr)
 	}
-	if len(res) > 0 {
-		// Explicit has precedence
-		return res
-	}
-
-	// Now look for namespace-wide
-	scope.ServiceAccount = ""
-	for _, wp := range a.waypointsIndex.Lookup(scope) {
-		for _, ip := range wp.Status.PodIPs {
-			res = append(res, netip.MustParseAddr(ip.IP))
-		}
-	}
-
 	return nil
 }
 
@@ -332,28 +337,20 @@ func (a *AmbientIndex) buildWaypointAddresses(labels map[string]string, wl *work
 		// Waypoints do not have waypoints themselves, so filter them.
 		return
 	}
-	var waypoints []*v1.Pod
-	// First check for a waypoint for our SA explicit
-	// TODO: this is not robust against temporary waypoint downtime. We also need the users intent (Gateway).
-	waypoints = a.waypointsIndex.Lookup(model.WaypointScope{Namespace: wl.Namespace, ServiceAccount: wl.ServiceAccount})
-	if len(waypoints) == 0 {
-		// if there are none, check namespace wide waypoints
-		waypoints = a.waypointsIndex.Lookup(model.WaypointScope{Namespace: wl.Namespace})
-	}
-
+	waypoints := a.controller.Waypoint(model.WaypointScope{Namespace: wl.Namespace, ServiceAccount: wl.ServiceAccount})
 	// If we have a waypoint, configure it
 	if len(waypoints) > 0 {
-		ips := make([][]byte, 0, len(waypoints))
-		for _, r := range waypoints {
-			if ip, err := netip.ParseAddr(r.Status.PodIP); err == nil {
-				ips = append(ips, ip.AsSlice())
-			}
+		wp := waypoints[0]
+		wl.Waypoint = &workloadapi.GatewayAddress{
+			Destination: &workloadapi.GatewayAddress_Address{
+				Address: &workloadapi.NetworkAddress{
+					Network: a.controller.Network(wp.String(), nil).String(),
+					Address: wp.AsSlice(),
+				},
+			},
+			// TODO: look up the HBONE port instead of hardcoding it
+			Port: 15008,
 		}
-		// Keep things stable
-		slices.SortFunc(ips, func(a, b []byte) bool {
-			return string(a) < string(b)
-		})
-		wl.Waypoint = ips
 	}
 }
 
@@ -839,6 +836,35 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			// services with nil selectors match nothing, not everything.
 			return
 		}
+
+		// Enqueue all pods selected by the Service.
+		// This is probably overkill in most cases.
+		// A service change would almost always result in an EndpointSlice change; but not in all cases.
+		pods := c.podsClient.List(svc.Namespace, klabels.ValidatedSetSelector(svc.Spec.Selector))
+		for _, p := range pods {
+			for _, ip := range p.Status.PodIPs {
+				idx.queue.Add(types.NamespacedName{Name: ip.IP})
+			}
+		}
+
+		// WorkloadEntries can also be selected by Service...
+		if c.configController != nil {
+			entries := c.configController.List(gvk.WorkloadEntry, svc.Namespace)
+			for _, e := range entries {
+				we := serviceentry.ConvertWorkloadEntry(e)
+				if labels.Instance(svc.Spec.Selector).Match(we.Labels) {
+					idx.queue.Add(types.NamespacedName{Name: we.Address})
+				}
+			}
+		}
+	}))
+
+	idx.serviceVipIndex = kclient.CreateIndexWithDelegate[string, *v1.Service](c.services, getVIPs, controllers.AllObjectHandler(func(svc *v1.Service) {
+		if svc.Spec.Selector == nil {
+			// services with nil selectors match nothing, not everything.
+			return
+		}
+
 		// Enqueue all pods selected by the Service.
 		// This is probably overkill in most cases.
 		// A service change would almost always result in an EndpointSlice change; but not in all cases.
@@ -880,30 +906,6 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		}
 	}))
 
-	// Setup an index on waypoints for efficient lookup.
-	// Waypoints can impact all workloads in the namespace, so enqueue all workloads in the namespace.
-	idx.waypointsIndex = kclient.CreateIndexWithDelegate[model.WaypointScope, *v1.Pod](c.podsClient, func(p *v1.Pod) []model.WaypointScope {
-		if p.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-			// not a waypoint
-			return nil
-		}
-		if !IsPodRunning(p) {
-			// Not running
-			return nil
-		}
-		return []model.WaypointScope{{Namespace: p.Namespace, ServiceAccount: p.Annotations[constants.WaypointServiceAccount]}}
-	}, controllers.AllObjectHandler(func(p *v1.Pod) {
-		// Note: This must be NamespaceAll as the workloads index abuses Namespace to mean network.
-		// Here we *actually* want namespace to mean namespace.
-		for _, wl := range idx.workloads.List(metav1.NamespaceAll, klabels.Everything()) {
-			if wl.Namespace != p.Namespace {
-				continue
-			}
-			ip, _ := netip.AddrFromSlice(wl.Address)
-			idx.queue.Add(types.NamespacedName{Name: ip.String()})
-		}
-	}))
-
 	// For slices we also just enqueue each address. This can be a bit wasteful as a slice holds
 	// multiple IPs, but we will filter out the NOP changes anyways.
 	epSlices := kclient.NewFiltered[*discoveryv1.EndpointSlice](c.client, kclient.Filter{ObjectFilter: c.opts.GetFilter()})
@@ -937,6 +939,26 @@ func (c *Controller) setupIndex() *AmbientIndex {
 				}
 			}))
 	}
+
+	gateways := kclient.NewDelayedInformer[*gateway.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kclient.Filter{ObjectFilter: c.opts.GetFilter()})
+	idx.waypointsIndex = kclient.CreateIndexWithDelegate[model.WaypointScope, *gateway.Gateway](gateways, func(p *gateway.Gateway) []model.WaypointScope {
+		if p.Spec.GatewayClassName != constants.WaypointGatewayClassName {
+			// not a waypoint
+			return nil
+		}
+		return []model.WaypointScope{{Namespace: p.Namespace, ServiceAccount: p.Annotations[constants.WaypointServiceAccount]}}
+	}, controllers.AllObjectHandler(func(p *gateway.Gateway) {
+		// Note: This must be NamespaceAll as the workloads index abuses Namespace to mean network.
+		// Here we *actually* want namespace to mean namespace.
+		for _, wl := range idx.workloads.List(metav1.NamespaceAll, klabels.Everything()) {
+			if wl.Namespace != p.Namespace {
+				continue
+			}
+			ip, _ := netip.AddrFromSlice(wl.Address)
+			idx.queue.Add(types.NamespacedName{Name: ip.String()})
+		}
+	}))
+
 	idx.services = c.services
 	idx.controller = c
 	return &idx

@@ -211,8 +211,8 @@ func TestAmbientIndex(t *testing.T) {
 	fx.Clear()
 
 	addWorkloadEntry("127.0.0.9", "we1", "sa1", map[string]string{"app": "a"}, nil)
-	assertWorkloads("", "name1", "name2", "name3", "we1")
-	assertWorkloads("127.0.0.9", "we1")
+	assertAddresses("", "name1", "name2", "name3", "we1")
+	assertAddresses("testnetwork/127.0.0.9", "we1")
 
 	addService("svc1", "ns1",
 		map[string]string{},
@@ -246,7 +246,7 @@ func TestAmbientIndex(t *testing.T) {
 	addService("svc1", "ns1",
 		map[string]string{},
 		map[string]string{},
-		[]int32{80}, map[string]string{"app": "a", "other": "label"}, t)
+		[]int32{80}, map[string]string{"app": "a", "other": "label"}, "10.0.0.1")
 	setEndpoints("svc1", "ns1", "127.0.0.2")
 	assertAddresses("", "name1", "name2", "name3", "svc1", "we1")
 	assertAddresses("testnetwork/10.0.0.1", "name2", "svc1")

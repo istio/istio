@@ -104,3 +104,11 @@ func Map[E any, O any](s []E, f func(E) O) []O {
 	}
 	return n
 }
+
+// Head returns the first element in the list, if there is one
+func Head[E any](s []E) *E {
+	if len(s) == 0 {
+		return nil
+	}
+	return &s[0]
+}
