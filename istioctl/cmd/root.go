@@ -81,7 +81,7 @@ var (
 	kubeClient kube.CLIClient
 
 	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
-	initKubeClient = newKubeClient
+	getKubeClient = initKubeClient
 
 	loggingOptions = defaultLogOptions()
 

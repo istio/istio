@@ -79,7 +79,7 @@ func TestWaypointList(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			kubeClient = kube.NewFakeClient()
-			initKubeClient = func(kubeconfig, configContext string) error {
+			getKubeClient = func() error {
 				return nil
 			}
 			for _, gw := range tt.gateways {

@@ -110,7 +110,7 @@ func waypointCmd() *cobra.Command {
   istioctl x waypoint apply --service-account something --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gw := makeGateway(true)
-			err := initKubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -149,7 +149,7 @@ func waypointCmd() *cobra.Command {
 			if len(args) > 1 {
 				return fmt.Errorf("too many arguments, expected 0 or 1")
 			}
-			err := initKubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -191,7 +191,7 @@ func waypointCmd() *cobra.Command {
   istioctl x waypoint list -A`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			writer := cmd.OutOrStdout()
-			err := initKubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
