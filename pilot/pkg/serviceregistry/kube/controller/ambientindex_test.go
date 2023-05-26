@@ -161,7 +161,7 @@ func TestAmbientIndex(t *testing.T) {
 					Workload: &workloadapi.Workload{
 						Name:              "name3",
 						Namespace:         "ns1",
-						Address:           netip.MustParseAddr("127.0.0.3").AsSlice(),
+						Addresses:           [][]byte{netip.MustParseAddr("127.0.0.3").AsSlice()},
 						Network:           "testnetwork",
 						ServiceAccount:    "sa1",
 						Node:              "node1",

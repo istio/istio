@@ -258,12 +258,14 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 			// Workload IP filtering happens here.
 			ipRange := []*xds.CidrRange{}
 			for _, wlx := range wls {
-				addr, _ := netip.AddrFromSlice(wlx.WorkloadInfo.Address)
-				cidr := util.ConvertAddressToCidr(addr.String())
-				ipRange = append(ipRange, &xds.CidrRange{
-					AddressPrefix: cidr.AddressPrefix,
-					PrefixLen:     cidr.PrefixLen,
-				})
+				for _, ip := range wlx.WorkloadInfo.Addresses {
+					addr, _ := netip.AddrFromSlice(ip)
+					cidr := util.ConvertAddressToCidr(addr.String())
+					ipRange = append(ipRange, &xds.CidrRange{
+						AddressPrefix: cidr.AddressPrefix,
+						PrefixLen:     cidr.PrefixLen,
+					})
+				}
 			}
 			ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
 				&matcher.IPMatcher_IPRangeMatcher{

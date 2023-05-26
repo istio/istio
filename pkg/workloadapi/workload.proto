@@ -30,7 +30,7 @@ option go_package="pkg/workloadapi";
 //
 // In some cases, we do not know the IP address of a Workload. For instance, we may simply know
 // that there is a workload behind a gateway, and rely on the gateway to handle the rest.
-// In this case, the key format will be "network/resource-uid". The resource can be a Pod, WorkloadEntry, etc.
+// In this case, the key format will be "resource-uid". The resource can be a Pod, WorkloadEntry, etc.
 // These resources cannot be looked up on-demand.
 //
 // In some cases, we do not know the IP address of a Service. These services cannot be used for matching
@@ -49,7 +49,7 @@ message Address {
 }
 
 // Service represents a service - a group of workloads that can be accessed together.
-// The primary key is "namespace/hostname".
+// The xds primary key is "namespace/hostname".
 // Secondary (alias) keys are the unique `network/IP` pairs that the service can be reached at.
 message Service {
   // Name represents the name for the service.
@@ -74,8 +74,22 @@ message Service {
   repeated string subject_alt_names = 6;
 }
 
+// Workload represents a workload - an endpoint (or collection behind a hostname).
+// The xds primary key is "uid" as defined on the workload below.
+// Secondary (alias) keys are the unique `network/IP` pairs that the workload can be reached at.
 message Workload {
   // UID represents a globally unique opaque identifier for this workload.
+  // For k8s resources, it is recommended to use the more readable format:
+  //
+  // cluster/group/kind/namespace/name/section-name
+  //
+  // As an example, a ServiceEntry with two WorkloadEntries inlined could become
+  // two Workloads with the following UIDs:
+  // - cluster1/networking.istio.io/v1alpha3/ServiceEntry/default/external-svc/endpoint1
+  // - cluster1/networking.istio.io/v1alpha3/ServiceEntry/default/external-svc/endpoint2
+  //
+  // For VMs and other workloads other formats are also supported; for example,
+  // a single UID string: "0ae5c03d-5fb3-4eb9-9de8-2bd4b51606ba"
   string uid = 20;
   // Name represents the name for the workload.
   // For Kubernetes, this is the pod name.
@@ -89,9 +103,7 @@ message Workload {
   // This should be globally unique.
   // This should not have a port number.
   // Each workload must have at least either an address or hostname; not both.
-  // TODO: support dual stack by making this repeated
-  // TODO: when this is repeated, update xds primary key from network/IP to network/UID
-  bytes address = 3;
+  repeated bytes addresses = 3;
 
   // The hostname for the workload to be resolved by the ztunnel.
   // DNS queries are sent on-demand by default.

@@ -362,9 +362,11 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 		newWl := c.extractWorkload(pod)
 		if newWl != nil {
 			// Update the pod, since it now has new VIP info
-			networkAddr := networkAddressFromWorkload(newWl)
+			networkAddrs := networkAddressFromWorkload(newWl)
 			c.ambientIndex.mu.Lock()
-			c.ambientIndex.byPod[networkAddr] = newWl
+			for _, networkAddr := range networkAddrs {
+				c.ambientIndex.byPod[networkAddr] = newWl
+			}
 			c.ambientIndex.mu.Unlock()
 			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
 		}
@@ -792,7 +794,9 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 
 		return updates
 	}
-	a.byPod[networkAddressFromWorkload(wl)] = wl
+	for _, networkAddr := range networkAddressFromWorkload(wl) {
+		a.byPod[networkAddr] = wl
+	}
 	if oldWl != nil {
 		// For updates, we will drop the VIPs and then add the new ones back. This could be optimized
 		for vip := range oldWl.VirtualIps {
@@ -810,9 +814,13 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	return updates
 }
 
-func networkAddressFromWorkload(wl *model.WorkloadInfo) networkAddress {
-	ip, _ := netip.AddrFromSlice(wl.Address)
-	return networkAddress{network: wl.Network, ip: ip.String()}
+func networkAddressFromWorkload(wl *model.WorkloadInfo) []networkAddress {
+	networkAddrs := make([]networkAddress, 0, len(wl.Addresses))
+	for _, addr := range wl.Addresses {
+		ip, _ := netip.AddrFromSlice(addr)
+		networkAddrs = append(networkAddrs, networkAddress{network: wl.Network, ip: ip.String()})
+	}
+	return networkAddrs
 }
 
 func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
@@ -889,7 +897,9 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		wl := c.extractWorkload(p)
 		if wl != nil {
 			// Update the pod, since it now has new VIP info
-			a.byPod[networkAddressFromWorkload(wl)] = wl
+			for _, networkAddr := range networkAddressFromWorkload(wl) {
+				a.byPod[networkAddr] = wl
+			}
 			wls = append(wls, wl)
 		}
 
@@ -993,7 +1003,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.Gatewa
 
 	wl := &workloadapi.Workload{
 		Name:                  pod.Name,
-		Address:               parseIP(pod.Status.PodIP),
+		Addresses:             [][]byte{parseIP(pod.Status.PodIP)},
 		Network:               c.Network(pod.Status.PodIP, pod.Labels).String(),
 		Namespace:             pod.Namespace,
 		ServiceAccount:        pod.Spec.ServiceAccountName,
