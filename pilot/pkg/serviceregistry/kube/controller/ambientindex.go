@@ -106,6 +106,16 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 		return []*model.AddressInfo{workloadToAddressInfo(w.Workload)}
 	}
 	svc := a.wservices.Get(ip, "")
+	if svc == nil {
+		// Maybe its a hostname..
+		// TODO remove full scan
+		for _, maybe := range a.wservices.List(metav1.NamespaceAll, klabels.Everything()) {
+			if ip == maybe.Hostname {
+				svc = maybe
+				break
+			}
+		}
+	}
 	if svc != nil {
 		vips := sets.New[string]()
 		for _, addr := range svc.Service.Addresses {
@@ -179,7 +189,7 @@ func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 			ips = []string{addr.Value}
 		case gateway.HostnameAddressType:
 			// TODO: this is a little wonky, should be zero one one
-			for _, svc := range c.ambientIndex.serviceHostnameIndex.Lookup(addr.Value) {
+			for _, svc := range a.serviceHostnameIndex.Lookup(addr.Value) {
 				ips = getVIPs(svc)
 			}
 		}
@@ -585,14 +595,10 @@ func (c *Controller) constructService(svc *v1.Service) *workloadapi.Service {
 			Address: netip.MustParseAddr(vip).AsSlice(),
 		})
 	}
-
 	return &workloadapi.Service{
 		Name:      svc.Name,
 		Namespace: svc.Namespace,
-		Hostname: string(model.ResolveShortnameToFQDN(svc.Name, config.Meta{
-			Namespace: svc.Namespace,
-			Domain:    spiffe.GetTrustDomain(),
-		})),
+		Hostname:  string(kube.ServiceHostname(svc.Name, svc.Namespace, c.opts.DomainSuffix)),
 		Addresses: addrs,
 		Ports:     ports,
 	}
@@ -974,16 +980,18 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			// not a waypoint
 			return nil
 		}
+		log.Errorf("howardjohn: is waypoint")
 		return []model.WaypointScope{{Namespace: p.Namespace, ServiceAccount: p.Annotations[constants.WaypointServiceAccount]}}
 	}, controllers.AllObjectHandler(func(p *gateway.Gateway) {
+		log.Errorf("howardjohn: event!")
 		// Note: This must be NamespaceAll as the workloads index abuses Namespace to mean network.
 		// Here we *actually* want namespace to mean namespace.
 		for _, wl := range idx.workloads.List(metav1.NamespaceAll, klabels.Everything()) {
+			log.Errorf("howardjohn: update WE from GTW %v %v %v", byteIPToString(wl.Address), wl.Namespace, p.Namespace)
 			if wl.Namespace != p.Namespace {
 				continue
 			}
-			ip, _ := netip.AddrFromSlice(wl.Address)
-			idx.queue.Add(types.NamespacedName{Name: ip.String()})
+			idx.queue.Add(types.NamespacedName{Name: byteIPToString(wl.Address)})
 		}
 	}))
 

@@ -314,6 +314,8 @@ func Extract[T any](obj any) T {
 			log.Errorf("tombstone contained object that is not an object (key:%v, obj:%T)", tombstone.Key, tombstone.Obj)
 			return empty
 		}
+		log.Errorf("failed to cast %T to %T", obj, empty)
+		return empty
 	}
 	return o
 }
