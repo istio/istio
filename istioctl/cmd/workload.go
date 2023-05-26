@@ -205,7 +205,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}

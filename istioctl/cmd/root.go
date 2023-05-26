@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/bug-report/pkg/bugreport"
 )
@@ -75,8 +76,12 @@ var (
 	// Create a kubernetes client (or mockClient) for talking to control plane components
 	kubeClientWithRevision = newKubeClientWithRevision
 
+	// The kubeClient used throughout the cmd package. After kubeClient is initialized for the first
+	// time the client is not initialized again and is shared between callers.
+	kubeClient kube.CLIClient
+
 	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
-	kubeClient = newKubeClient
+	getKubeClient = initKubeClient
 
 	loggingOptions = defaultLogOptions()
 

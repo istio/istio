@@ -77,7 +77,7 @@ func promDashCmd() *cobra.Command {
   istioctl dash prometheus
   istioctl d prometheus`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -113,7 +113,7 @@ func grafanaDashCmd() *cobra.Command {
   istioctl dash grafana
   istioctl d grafana`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -149,7 +149,7 @@ func kialiDashCmd() *cobra.Command {
   istioctl dash kiali
   istioctl d kiali`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -185,7 +185,7 @@ func jaegerDashCmd() *cobra.Command {
   istioctl dash jaeger
   istioctl d jaeger`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -221,7 +221,7 @@ func zipkinDashCmd() *cobra.Command {
   istioctl dash zipkin
   istioctl d zipkin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -271,14 +271,14 @@ func envoyDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			client, err := kubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(envoyDashNs, defaultNamespace), labelSelector)
+				pl, err := kubeClient.PodsForSelector(context.TODO(), handlers.HandleNamespace(envoyDashNs, defaultNamespace), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -297,14 +297,14 @@ func envoyDashCmd() *cobra.Command {
 			} else {
 				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(envoyDashNs, defaultNamespace),
-					MakeKubeFactory(client))
+					MakeKubeFactory(kubeClient))
 				if err != nil {
 					return err
 				}
 			}
 
 			return portForward(podName, ns, fmt.Sprintf("Envoy sidecar %s", podName),
-				"http://%s", bindAddress, proxyAdminPort, client, c.OutOrStdout(), browser)
+				"http://%s", bindAddress, proxyAdminPort, kubeClient, c.OutOrStdout(), browser)
 		},
 	}
 
@@ -342,7 +342,7 @@ func controlZDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -395,7 +395,7 @@ func skywalkingDashCmd() *cobra.Command {
   istioctl dash skywalking
   istioctl d skywalking`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}

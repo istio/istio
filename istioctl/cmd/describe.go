@@ -137,7 +137,7 @@ the configuration objects that affect that pod.`,
 			}
 			// TODO look for port collisions between services targeting this pod
 
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -1097,7 +1097,7 @@ the configuration objects that affect that service.`,
 				return nil
 			}
 
-			kubeClient, err := newCLIClient(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := newCLIClient(opts.Revision)
 			if err != nil {
 				return err
 			}

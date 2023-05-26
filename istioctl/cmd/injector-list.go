@@ -80,7 +80,7 @@ func injectorListCommand() *cobra.Command {
 		Long:    `List sidecar injector and sidecar versions`,
 		Example: `  istioctl experimental injector list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
