@@ -42,8 +42,8 @@ func TestProxyConfig(t *testing.T) {
 		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
 		"ztunnel-9v7nw":               []byte("current log level is debug"),
 	}
-	isZtunnelPod = func(podName, _ string) (bool, error) {
-		return strings.HasPrefix(podName, "ztunnel"), nil
+	isZtunnelPod = func(podName, _ string) bool {
+		return strings.HasPrefix(podName, "ztunnel")
 	}
 	cases := []execTestCase{
 		{

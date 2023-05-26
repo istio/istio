@@ -122,17 +122,14 @@ var (
 	reset                  = false
 	once                   sync.Once
 	isZtunnelPodKubeClient kube.CLIClient
+	isZtunnelPodError      error
 )
 
-var isZtunnelPod = func(podName, podNamespace string) (bool, error) {
-	var err error
+var isZtunnelPod = func(podName, podNamespace string) bool {
 	once.Do(func() {
-		isZtunnelPodKubeClient, err = kubeClient(kubeconfig, configContext)
+		isZtunnelPodKubeClient, isZtunnelPodError = kubeClient(kubeconfig, configContext)
 	})
-	if err != nil {
-		return false, err
-	}
-	return ambientutil.IsZtunnelPod(isZtunnelPodKubeClient, podName, podNamespace), nil
+	return ambientutil.IsZtunnelPod(isZtunnelPodKubeClient, podName, podNamespace)
 }
 
 func ztunnelLogLevel(level string) string {
@@ -467,9 +464,9 @@ func allConfigCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					ztunnelPod, err := isZtunnelPod(podName, podNamespace)
-					if err != nil {
-						return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
+					ztunnelPod := isZtunnelPod(podName, podNamespace)
+					if isZtunnelPodError != nil {
+						return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", isZtunnelPodError)
 					}
 					if ztunnelPod {
 						dump, err = extractZtunnelConfigDump(podName, podNamespace)
@@ -500,9 +497,9 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 
-					ztunnelPod, err := isZtunnelPod(podName, podNamespace)
-					if err != nil {
-						return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
+					ztunnelPod := isZtunnelPod(podName, podNamespace)
+					if isZtunnelPodError != nil {
+						return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", isZtunnelPodError)
 					}
 					if ztunnelPod {
 						w, err := setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
@@ -622,9 +619,9 @@ func workloadConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getComponentPodName(args[0]); err != nil {
 					return err
 				}
-				ztunnelPod, kubeClientErr := isZtunnelPod(podName, podNamespace)
-				if kubeClientErr != nil {
-					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", kubeClientErr)
+				ztunnelPod := isZtunnelPod(podName, podNamespace)
+				if isZtunnelPodError != nil {
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", isZtunnelPodError)
 				}
 				if !ztunnelPod {
 					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
@@ -868,9 +865,9 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				ztunnelPod, err := isZtunnelPod(pod, podNamespace)
-				if err != nil {
-					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
+				ztunnelPod := isZtunnelPod(pod, podNamespace)
+				if isZtunnelPodError != nil {
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", isZtunnelPodError)
 				}
 				if ztunnelPod {
 					loggerNames[name] = Ztunnel
@@ -928,9 +925,9 @@ func logCmd() *cobra.Command {
 			var resp string
 			var errs *multierror.Error
 			for _, podName := range podNames {
-				ztunnelPod, err := isZtunnelPod(podName, podNamespace)
-				if err != nil {
-					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
+				ztunnelPod := isZtunnelPod(podName, podNamespace)
+				if isZtunnelPodError != nil {
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", isZtunnelPodError)
 				}
 				if ztunnelPod {
 					q := "level=" + ztunnelLogLevel(loggerLevelString)
@@ -1310,9 +1307,9 @@ func secretConfigCmd() *cobra.Command {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-				ztunnelPod, kubeClientErr := isZtunnelPod(podName, podNamespace)
-				if kubeClientErr != nil {
-					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", kubeClientErr)
+				ztunnelPod := isZtunnelPod(podName, podNamespace)
+				if isZtunnelPodError != nil {
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", isZtunnelPodError)
 				}
 				if ztunnelPod {
 					newWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
