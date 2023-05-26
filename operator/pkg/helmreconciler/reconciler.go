@@ -590,6 +590,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	}
 
 	if h.kubeClient != nil {
+		h.kubeClient = kube.EnableCrdWatcher(h.kubeClient)
 		sa.AddRunningKubeSource(h.kubeClient)
 	}
 
@@ -645,12 +646,17 @@ func GenerateTagWebhookYAML(kc kube.Client, iop *istioV1Alpha1.IstioOperator, ge
 	}
 	autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
 
+	ignorePruneLabel := map[string]string{
+		OwningResourceNotPruned: "true",
+	}
+
 	o := &revtag.GenerateOptions{
 		Tag:                  revtag.DefaultRevisionName,
 		Revision:             rev,
 		Overwrite:            true,
 		AutoInjectNamespaces: autoInjectNamespaces,
 		Generate:             generate,
+		CustomLabels:         ignorePruneLabel,
 	}
 	// If tag cannot be created could be remote cluster install, don't fail out.
 	ns := iop.Spec.GetNamespace()
@@ -679,25 +685,7 @@ func DetectIfTagWebhookIsNeeded(iop *istioV1Alpha1.IstioOperator, exists bool) b
 func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
 	// Detect whether previous installation exists prior to performing the installation.
 	if DetectIfTagWebhookIsNeeded(iop, exists) {
-		rev := iop.Spec.Revision
-		if rev == "" {
-			rev = revtag.DefaultRevisionName
-		}
-		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
-
-		ignorePruneLabel := map[string]string{
-			OwningResourceNotPruned: "true",
-		}
-
-		o := &revtag.GenerateOptions{
-			Tag:                  revtag.DefaultRevisionName,
-			Revision:             rev,
-			Overwrite:            true,
-			AutoInjectNamespaces: autoInjectNamespaces,
-			CustomLabels:         ignorePruneLabel,
-		}
-		// If tag cannot be created could be remote cluster install, don't fail out.
-		tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)
+		tagManifests, err := GenerateTagWebhookYAML(client, iop, false)
 		if err == nil && !opt.DryRun {
 			if err = applyManifests(client, tagManifests); err != nil {
 				return false, err

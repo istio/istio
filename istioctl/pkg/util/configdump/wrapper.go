@@ -22,7 +22,6 @@ import (
 	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
 	emptypb "github.com/golang/protobuf/ptypes/empty"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
