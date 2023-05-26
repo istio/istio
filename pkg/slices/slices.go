@@ -18,6 +18,8 @@ package slices
 import (
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
+
+	"istio.io/istio/pkg/ptr"
 )
 
 // Equal reports whether two slices are equal: the same length and all
@@ -111,4 +113,12 @@ func Head[E any](s []E) *E {
 		return nil
 	}
 	return &s[0]
+}
+
+// HeadOk returns the first element in the list, if there is one
+func HeadOk[E any](s []E) (E, bool) {
+	if len(s) == 0 {
+		return ptr.Empty[E](), false
+	}
+	return s[0], true
 }

@@ -102,11 +102,6 @@ func (f *DerivedCollection[T]) AddEventHandler(h cache.ResourceEventHandler) {
 	f.handlers = append(f.handlers, h)
 }
 
-func (f *DerivedCollection[T]) RecomputeE(name types.NamespacedName) error {
-	f.Recompute(name)
-	return nil
-}
-
 func (f *DerivedCollection[T]) Recompute(name types.NamespacedName) {
 	res := f.compute(name)
 	f.mu.Lock()

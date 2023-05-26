@@ -22,6 +22,8 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istio "istio.io/api/networking/v1alpha3"
@@ -40,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
@@ -61,6 +64,7 @@ func TestAmbientIndex(t *testing.T) {
 	controller.network = "testnetwork"
 	pc := clienttest.Wrap(t, controller.podsClient)
 	sc := clienttest.Wrap(t, controller.services)
+	gc := clienttest.NewWriter[*gateway.Gateway](t, controller.client)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
 	addPolicy := func(name, ns string, selector map[string]string) {
@@ -173,6 +177,38 @@ func TestAmbientIndex(t *testing.T) {
 		t.Helper()
 		createEndpoints(t, controller, name, ns, []string{"tcp-port"}, podIPs, nil, nil)
 	}
+	createWaypoint := func(name string, podIP, serviceIP string) {
+		t.Helper()
+		// create pod
+		addPods(podIP, name+"-pod", "namespace-wide",
+			map[string]string{
+				constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
+				constants.GatewayNameLabel:    name,
+			}, nil)
+		// create the waypoint service
+		addService(name, "ns1",
+			map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
+			map[string]string{},
+			[]int32{15008}, map[string]string{constants.GatewayNameLabel: name}, serviceIP)
+		setEndpoints(name, "ns1", podIP)
+		gtw := &gateway.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "ns1",
+			},
+			Spec: gateway.GatewaySpec{
+				GatewayClassName: constants.WaypointGatewayClassName,
+			},
+			Status: gateway.GatewayStatus{
+				Addresses: []gateway.GatewayAddress{{
+					Type:  ptr.Of(gateway.HostnameAddressType),
+					Value: name + "ns1.svc.cluster.local",
+				}},
+			},
+		}
+		gc.CreateOrUpdate(gtw)
+		gc.UpdateStatus(gtw)
+	}
 	addPods("127.0.0.1", "name1", "sa1", map[string]string{"app": "a"}, nil)
 	assertAddresses("", "name1")
 	assertEvent("testnetwork/127.0.0.1")
@@ -221,10 +257,13 @@ func TestAmbientIndex(t *testing.T) {
 	// Service shouldn't change workload list
 	assertAddresses("", "name1", "name2", "name3", "we1")
 	assertAddresses("testnetwork/127.0.0.1", "name1")
+	// Endpoints not set yet, so this is missing pods
+	assertAddresses("testnetwork/10.0.0.1", "we1", "svc1")
+	setEndpoints("svc1", "ns1", "127.0.0.1", "127.0.0.2")
 	// Now we should be able to look up a VIP as well
 	assertAddresses("testnetwork/10.0.0.1", "name1", "name2", "we1", "svc1")
 	// We should get an event for the new Service, two *Pod* IPs, and WE impacted
-	assertEvent("ns1/svc1.ns1.svc.cluster.local", "testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.9")
+	assertEvent("ns1/svc1.ns1.svc.cluster.local", "testnetwork/127.0.0.1", "testnetwork/127.0.0.2", "testnetwork/127.0.0.9")
 
 	// Add a new pod to the service, we should see it
 	addPods("127.0.0.4", "name4", "sa1", map[string]string{"app": "a"}, nil)
@@ -250,8 +289,8 @@ func TestAmbientIndex(t *testing.T) {
 	setEndpoints("svc1", "ns1", "127.0.0.2")
 	assertAddresses("", "name1", "name2", "name3", "svc1", "we1")
 	assertAddresses("testnetwork/10.0.0.1", "name2", "svc1")
-	// Need to update the *old* workload only
-	assertEvent("ns1/svc1.ns1.svc.cluster.local", "testnetwork/10.0.0.1", "testnetwork/127.0.0.1", "testnetwork/127.0.0.9")
+	// Need to update the *old* workloads only
+	assertEvent("testnetwork/127.0.0.1", "testnetwork/127.0.0.9")
 
 	// Update an existing pod into the service
 	addPods("127.0.0.3", "name3", "sa1", map[string]string{"app": "a", "other": "label"}, nil)
@@ -271,26 +310,14 @@ func TestAmbientIndex(t *testing.T) {
 	deleteService("svc1")
 	assertAddresses("", "name1", "name2", "name3", "we1")
 	assertAddresses("testnetwork/10.0.0.1")
-	assertEvent("ns1/svc1.ns1.svc.cluster.local", "testnetwork/10.0.0.1", "testnetwork/127.0.0.2")
+	assertEvent("ns1/svc1.ns1.svc.cluster.local", "testnetwork/127.0.0.2")
 	assert.Equal(t, controller.ambientIndex.serviceVipIndex.KeyCount(), 0)
 
 	// Add a waypoint proxy pod for namespace
-	addPods("127.0.0.200", "waypoint-ns-pod", "namespace-wide",
-		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "namespace-wide",
-		}, nil)
-	assertAddresses("", "name1", "name2", "name3", "waypoint-ns-pod", "we1")
-	assertEvent("testnetwork/127.0.0.200")
-	// create the waypoint service
-	addService("waypoint-ns", "ns1",
-		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
-		map[string]string{},
-		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
-	assertAddresses("", "name1", "name2", "name3", "waypoint-ns", "waypoint-ns-pod")
+	createWaypoint("waypoint-ns", "127.0.0.200", "10.0.0.2")
+	assertAddresses("", "name1", "name2", "name3", "waypoint-ns", "waypoint-ns-pod", "we1")
 	// All these workloads updated, so push them
 	assertEvent("ns1/waypoint-ns.ns1.svc.cluster.local",
-		"testnetwork/10.0.0.2",
 		"testnetwork/127.0.0.1",
 		"testnetwork/127.0.0.2",
 		"testnetwork/127.0.0.200",

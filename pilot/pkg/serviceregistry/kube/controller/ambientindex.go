@@ -100,41 +100,35 @@ func serviceToAddressInfo(s *workloadapi.Service) *model.AddressInfo {
 // network/IP -> return associated pod Workload or the Service and its corresponding Workloads
 // namespace/hostname -> return the Service and its corresponding Workloads
 func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
-	//a.mu.RLock()
-	//defer a.mu.RUnlock()
-	//network, ip, found := strings.Cut(key, "/")
-	//if !found {
-	//	log.Warnf(`key (%v) did not contain the expected "/" character`, key)
-	//	return nil
-	//}
-	//if _, err := netip.ParseAddr(ip); err != nil {
-	// lookup Service and any Workloads for that Service for each of the network addresses
-	// TODO: addresses is only by IP. Should we add an index on our derived collection??
-	//for _, svc := range a.serviceVipIndex.Lookup(ip) {
-	//	sc := a.controller.constructService(svc)
-	//	res = append(res, serviceToAddressInfo(sc))
-	//	// TODO: we need an index here
-	//	a.ad
-	//	for _, addr := range sc.Addresses {
-	//		ii, _ := netip.AddrFromSlice(addr.Address)
-	//		networkAddr := networkAddress{network: addr.Network, ip: ii.String()}
-	//		for _, wl := range a.byService[networkAddr] {
-	//			res = append(res, workloadToAddressInfo(wl.Workload))
-	//		}
-	//	}
-	//}
-	//}
-
-	w := a.workloads.Get(key, "")
+	_, ip, _ := strings.Cut(key, "/")
+	w := a.workloads.Get(ip, "")
 	if w != nil {
 		return []*model.AddressInfo{workloadToAddressInfo(w.Workload)}
 	}
-	svc := a.wservices.Get(key, "")
+	svc := a.wservices.Get(ip, "")
 	if svc != nil {
-		// TODO: if its a service, find all associate pods
-		return []*model.AddressInfo{serviceToAddressInfo(svc.Service)}
+		vips := sets.New[string]()
+		for _, addr := range svc.Service.Addresses {
+			vips.Insert(byteIPToString(addr.Address))
+		}
+		res := []*model.AddressInfo{serviceToAddressInfo(svc.Service)}
+		// TODO: avoid full scan
+		for _, wl := range a.workloads.List(metav1.NamespaceAll, klabels.Everything()) {
+			for vip := range wl.VirtualIps {
+				if vips.Contains(vip) {
+					res = append(res, workloadToAddressInfo(wl.Workload))
+					break
+				}
+			}
+		}
+		return res
 	}
 	return nil
+}
+
+func byteIPToString(b []byte) string {
+	ip, _ := netip.AddrFromSlice(b)
+	return ip.String()
 }
 
 // All return all known workloads. Result is un-ordered
@@ -228,9 +222,20 @@ func PickBestPod(pods []*v1.Pod) *v1.Pod {
 	return best
 }
 
+func (a *AmbientIndex) RecomputeService(name types.NamespacedName) *model.ServiceInfo {
+	ip := name.Name
+	log := log.WithLabels("controller", "ambient service", "ip", ip)
+	svc, f := slices.HeadOk(a.serviceVipIndex.Lookup(ip))
+	if !f {
+		return nil
+	}
+	log.Debugf("reconcile")
+	return &model.ServiceInfo{Service: a.controller.constructService(svc)}
+}
+
 func (a *AmbientIndex) Recompute(name types.NamespacedName) *model.WorkloadInfo {
 	ip := name.Name
-	log := log.WithLabels("controller", "ambient", "ip", ip)
+	log := log.WithLabels("controller", "ambient workload", "ip", ip)
 	log.Debugf("reconcile")
 
 	// Should be 0 or 1 pod, unless we are in a weird state
@@ -822,8 +827,27 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			Reason:         []model.TriggerReason{model.AmbientUpdate},
 		})
 	}))
+	// Services is also derived
+	idx.wservices = kclient.NewDerivedCollection[*model.ServiceInfo](
+		idx.RecomputeService,
+		func(a, b *model.ServiceInfo) bool {
+			// If the result doesn't change, suppress event handlers
+			return proto.Equal(a, b)
+		})
+	idx.wservices.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event[*model.ServiceInfo]) {
+		// Service changed, send update for it
+		cu := sets.New(model.ConfigKey{Kind: kind.Address, Name: o.Latest().ResourceName()})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			ConfigsUpdated: cu,
+			Reason:         []model.TriggerReason{model.AmbientUpdate},
+		})
+	}))
 
-	idx.queue = controllers.NewQueue("ambient", controllers.WithReconciler(idx.workloads.RecomputeE))
+	idx.queue = controllers.NewQueue("ambient", controllers.WithReconciler(func(key types.NamespacedName) error {
+		idx.workloads.Recompute(key)
+		idx.wservices.Recompute(key)
+		return nil
+	}))
 
 	// Build up a variety of indexes to help compute workloads. Each index has a delegate so we can ensure
 	// the index is populated before the handlers that depend on them.
@@ -835,6 +859,10 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		if svc.Spec.Selector == nil {
 			// services with nil selectors match nothing, not everything.
 			return
+		}
+
+		for _, svcip := range getVIPs(svc) {
+			idx.queue.Add(types.NamespacedName{Name: svcip})
 		}
 
 		// Enqueue all pods selected by the Service.
