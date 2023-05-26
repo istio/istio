@@ -882,10 +882,7 @@ type WorkloadInfo struct {
 }
 
 func workloadResourceName(w *workloadapi.Workload) string {
-	// TODO per design doc, primary xds key is UID and secondary keys are network/address
-	// but address is repeated. primary key is not implemented yet
-	ii, _ := netip.AddrFromSlice(w.Address)
-	return w.Network + "/" + ii.String()
+	return w.Uid
 }
 
 func (i *WorkloadInfo) Clone() *WorkloadInfo {
