@@ -831,6 +831,7 @@ spec:
 		split := split
 		t.RunTraffic(TrafficTestCase{
 			name:           fmt.Sprintf("shifting-%d", split[0]),
+			skip:           skipAmbient(t, "https://github.com/istio/istio/issues/44948"),
 			toN:            len(split),
 			sourceMatchers: []match.Matcher{match.NotHeadless, match.NotNaked},
 			targetMatchers: []match.Matcher{match.NotHeadless, match.NotNaked, match.NotExternal, match.NotProxylessGRPC},
@@ -1147,6 +1148,8 @@ spec:
 }
 
 func gatewayCases(t TrafficContext) {
+	// TODO fix for ambient
+	skipEnvoyPeerMeta := skipAmbient(t, "X-Envoy-Peer-Metadata present in response")
 	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string) map[string]any {
 		hostName, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
@@ -1503,6 +1506,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		// https://github.com/istio/istio/issues/37196
 		name:             "client protocol - http2",
+		skip:             skipEnvoyPeerMeta,
 		targetMatchers:   singleTarget,
 		workloadAgnostic: true,
 		viaIngress:       true,
@@ -1644,6 +1648,7 @@ spec:
 			t.RunTraffic(TrafficTestCase{
 				// https://github.com/istio/istio/issues/37196
 				name:             fmt.Sprintf("client protocol - %v use client with %v", protoName, port),
+				skip:             skipEnvoyPeerMeta,
 				targetMatchers:   singleTarget,
 				workloadAgnostic: true,
 				viaIngress:       true,
@@ -3058,6 +3063,9 @@ spec:
     mode: "REGISTRY_ONLY"
 `, t.Apps.EchoNamespace.Namespace.Name())
 
+	if len(t.Apps.External.All) == 0 {
+		t.Skip("no external service instances")
+	}
 	fakeExternalAddress := t.Apps.External.All[0].Address()
 	parsedIP, err := netip.ParseAddr(fakeExternalAddress)
 	if err == nil {
