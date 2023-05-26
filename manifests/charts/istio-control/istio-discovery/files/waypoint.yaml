@@ -52,12 +52,12 @@ spec:
       containers:
       - name: istio-proxy
         ports:
-        - containerPort: 15020
-          name: waypoint-stats
+        - containerPort: 15021
+          name: status-port
           protocol: TCP
-        - containerPort: 15008
+        - containerPort: 15090
           protocol: TCP
-          name: https-hbone
+          name: http-envoy-prom
         image: {{.ProxyImage}}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         args:
