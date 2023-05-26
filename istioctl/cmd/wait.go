@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	"strconv"
 	"strings"
 	"time"
@@ -125,6 +126,7 @@ func waitCmd() *cobra.Command {
 		},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(2)(cmd, args); err != nil {
+				err = multierror.Append(err, errors.New("args Both type and name are required: wait [flags] <type> <name>[.<namespace>]"))
 				return err
 			}
 			nameflag, namespace = handlers.InferPodInfo(args[1], handlers.HandleNamespace(namespace, defaultNamespace))

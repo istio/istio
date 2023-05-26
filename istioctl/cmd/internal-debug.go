@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -118,7 +119,8 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			}
 			if len(args) == 0 {
 				return CommandParseError{
-					e: fmt.Errorf("debug type is required"),
+					e: errors.New(`error: you must specify type.
+Example type specifications as: istioctl x internal-debug syncz`),
 				}
 			}
 			var xdsRequest discovery.DiscoveryRequest
