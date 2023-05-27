@@ -55,13 +55,13 @@ func NewManager(store model.ConfigStore) *Manager {
 			lastStatus = cfg.Status
 			manager.lastStatuses.Store(m.Key(), lastStatus)
 		}
-		switch m.Status.(type) {
+		switch t := m.Status.(type) {
 		case proto.Message:
-			if proto.Equal(lastStatus.(proto.Message), m.Status.(proto.Message)) {
+			if proto.Equal(lastStatus.(proto.Message), t) {
 				return
 			}
 		default:
-			if reflect.DeepEqual(lastStatus, m.Status) {
+			if reflect.DeepEqual(lastStatus, t) {
 				return
 			}
 		}
