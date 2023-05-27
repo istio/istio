@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"sync"
 
+	"google.golang.org/protobuf/proto"
+
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -53,11 +55,18 @@ func NewManager(store model.ConfigStore) *Manager {
 			lastStatus = cfg.Status
 			manager.lastStatuses.Store(m.Key(), lastStatus)
 		}
-		if reflect.DeepEqual(lastStatus, m.Status) {
-			return
+		switch m.Status.(type) {
+		case proto.Message:
+			if proto.Equal(lastStatus.(proto.Message), m.Status.(proto.Message)) {
+				return
+			}
+		default:
+			if reflect.DeepEqual(lastStatus, m.Status) {
+				return
+			}
 		}
-		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
 
+		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
 			// TODO: need better error handling
