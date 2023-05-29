@@ -25,10 +25,10 @@ import (
 	"strconv"
 	"time"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -144,7 +144,7 @@ func (s *Server) validateStsRequest(req *http.Request) (security.StsRequestParam
 		reqDump, _ := httputil.DumpRequest(debugReq, true)
 		stsServerLog.Debugf("Received STS request: %s", string(reqDump))
 	}
-	if req.Method != "POST" {
+	if req.Method != http.MethodPost {
 		return reqParam, fmt.Errorf("request method is invalid, should be POST but get %s", req.Method)
 	}
 	if req.Header.Get("Content-Type") != URLEncodedForm {

@@ -167,9 +167,18 @@ func ReadDir(filePath string, extensions ...string) ([]string, error) {
 }
 
 func ReadDirOrFail(t test.Failer, filePath string, extensions ...string) []string {
+	t.Helper()
 	res, err := ReadDir(filePath, extensions...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return res
+}
+
+func WriteOrFail(t test.Failer, filePath string, contents []byte) {
+	t.Helper()
+	err := os.WriteFile(filePath, contents, os.ModePerm)
+	if err != nil {
+		t.Fatal(err)
+	}
 }

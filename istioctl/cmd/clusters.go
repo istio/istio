@@ -34,7 +34,7 @@ func clustersCommand() *cobra.Command {
 		Use:   "remote-clusters",
 		Short: "Lists the remote clusters each istiod instance is connected to.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}

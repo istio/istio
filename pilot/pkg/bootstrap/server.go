@@ -29,8 +29,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	prom "github.com/prometheus/client_golang/prometheus"
+	grpcprom "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -58,11 +57,14 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/h2c"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
@@ -71,10 +73,6 @@ import (
 	"istio.io/istio/security/pkg/pki/ra"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/server/ca/authenticate/kubeauth"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -85,14 +83,6 @@ const (
 func init() {
 	// Disable gRPC tracing. It has performance impacts (See https://github.com/grpc/grpc-go/issues/695)
 	grpc.EnableTracing = false
-
-	// Export pilot version as metric for fleet analytics.
-	pilotVersion := prom.NewGaugeVec(prom.GaugeOpts{
-		Name: "pilot_info",
-		Help: "Pilot version and build information.",
-	}, []string{"version"})
-	prom.MustRegister(pilotVersion)
-	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
 }
 
 // readinessProbe defines a function that will be used indicate whether a server is ready.
@@ -249,7 +239,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.PodName, s.clusterID, args.RegistryOptions.KubeOptions.ClusterAliases)
 
-	prometheus.EnableHandlingTimeHistogram()
+	grpcprom.EnableHandlingTimeHistogram()
 
 	// make sure we have a readiness probe before serving HTTP to avoid marking ready too soon
 	s.initReadinessProbes()
@@ -557,6 +547,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
+		s.kubeClient = kubelib.EnableCrdWatcher(s.kubeClient)
 	}
 
 	return nil
@@ -721,7 +712,7 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	interceptors := []grpc.UnaryServerInterceptor{
 		// setup server prometheus monitoring (as final interceptor in chain)
-		prometheus.UnaryServerInterceptor,
+		grpcprom.UnaryServerInterceptor,
 	}
 	grpcOptions := istiogrpc.ServerOptions(options, interceptors...)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
@@ -767,7 +758,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 
 	interceptors := []grpc.UnaryServerInterceptor{
 		// setup server prometheus monitoring (as final interceptor in chain)
-		prometheus.UnaryServerInterceptor,
+		grpcprom.UnaryServerInterceptor,
 	}
 	opts := istiogrpc.ServerOptions(args.KeepaliveOptions, interceptors...)
 	opts = append(opts, grpc.Creds(tlsCreds))
@@ -809,7 +800,7 @@ func (s *Server) addTerminatingStartFunc(name string, fn server.Component) {
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	start := time.Now()
 	log.Info("Waiting for caches to be synced")
-	if !kubelib.WaitForCacheSync(stop, s.cachesSynced) {
+	if !kubelib.WaitForCacheSync("server", stop, s.cachesSynced) {
 		log.Errorf("Failed waiting for cache sync")
 		return false
 	}
@@ -820,12 +811,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	// condition where we are marked ready prior to updating the push context, leading to incomplete
 	// pushes.
 	expected := s.XDSServer.InboundUpdates.Load()
-	if !kubelib.WaitForCacheSync(stop, func() bool { return s.pushContextReady(expected) }) {
-		log.Errorf("Failed waiting for push context initialization")
-		return false
-	}
-
-	return true
+	return kubelib.WaitForCacheSync("push context", stop, func() bool { return s.pushContextReady(expected) })
 }
 
 // pushContextReady indicates whether pushcontext has processed all inbound config updates.
@@ -896,7 +882,7 @@ func (s *Server) initRegistryEventHandlers() {
 		}
 		schemas := collections.Pilot.All()
 		if features.EnableGatewayAPI {
-			schemas = collections.PilotGatewayAPI.All()
+			schemas = collections.PilotGatewayAPI().All()
 		}
 		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
@@ -1027,7 +1013,7 @@ func getDNSNames(args *PilotArgs, host string) []string {
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
 	customTLSCertsExists, _, _, caCertPath := hasCustomTLSCerts(tlsOptions)
-	if !customTLSCertsExists && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isCADisabled() {
+	if !customTLSCertsExists && s.CA == nil && !s.isCADisabled() {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
@@ -1058,15 +1044,6 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 		if err != nil {
 			return nil, fmt.Errorf("add root CAs into peerCertVerifier failed: %v", err)
 		}
-	}
-
-	if features.SpiffeBundleEndpoints != "" {
-		certMap, err := spiffe.RetrieveSpiffeBundleRootCertsFromStringInput(
-			features.SpiffeBundleEndpoints, []*x509.Certificate{})
-		if err != nil {
-			return nil, err
-		}
-		peerCertVerifier.AddMappings(certMap)
 	}
 
 	return peerCertVerifier, nil

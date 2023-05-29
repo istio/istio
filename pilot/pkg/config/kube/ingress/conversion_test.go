@@ -200,6 +200,24 @@ func TestConversion(t *testing.T) {
 						},
 					},
 				},
+				{
+					Host: "my4.host.com",
+					IngressRuleValue: knetworking.IngressRuleValue{
+						HTTP: &knetworking.HTTPIngressRuleValue{
+							Paths: []knetworking.HTTPIngressPath{
+								{
+									Path: "/*",
+									Backend: knetworking.IngressBackend{
+										Service: &knetworking.IngressServiceBackend{
+											Name: "bar",
+											Port: knetworking.ServiceBackendPort{Number: 8000},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -255,8 +273,8 @@ func TestConversion(t *testing.T) {
 	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
 	ConvertIngressVirtualService(ingress2, "mydomain", cfgs, serviceLister)
 
-	if len(cfgs) != 3 {
-		t.Error("VirtualServices, expected 3 got ", len(cfgs))
+	if len(cfgs) != 4 {
+		t.Error("VirtualServices, expected 4 got ", len(cfgs))
 	}
 
 	expectedLength := [5]int{13, 13, 9, 6, 5}
@@ -278,6 +296,16 @@ func TestConversion(t *testing.T) {
 					t.Errorf("Unexpected rule at idx:%d, want {length:%d, exact:%v}, got {length:%d, exact: %v}",
 						i, expectedLength[i], expectedExact[i], length, exact)
 				}
+			}
+		} else if n == "my4.host.com" {
+			if vs.Hosts[0] != "my4.host.com" {
+				t.Error("Unexpected host", vs)
+			}
+			if len(vs.Http) != 1 {
+				t.Error("Unexpected rules", vs.Http)
+			}
+			if vs.Http[0].Match != nil {
+				t.Error("Expected HTTPMatchRequest to be nil, got {}")
 			}
 		}
 	}
@@ -492,6 +520,6 @@ func createFakeClient(t test.Failer, objects ...runtime.Object) kclient.Client[*
 	stop := test.NewStop(t)
 	services := kclient.New[*corev1.Service](kc)
 	kc.RunAndWait(stop)
-	kube.WaitForCacheSync(stop, services.HasSynced)
+	kube.WaitForCacheSync("test", stop, services.HasSynced)
 	return services
 }

@@ -28,9 +28,9 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/workloadapi"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various
@@ -89,8 +89,8 @@ func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur se
 	return res
 }
 
-func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
-	var res []*workloadapi.Authorization
+func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.Authorization {
+	var res []*security.Authorization
 	if !features.EnableAmbientControllers {
 		return res
 	}
@@ -100,14 +100,14 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadap
 	return res
 }
 
-func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
-	var i []*model.WorkloadInfo
+func (c *Controller) AddressInformation(addresses sets.Set[types.NamespacedName]) ([]*model.AddressInfo, []string) {
+	i := []*model.AddressInfo{}
 	removed := sets.New[string]()
 	if !features.EnableAmbientControllers {
 		return i, []string{}
 	}
 	for _, p := range c.GetRegistries() {
-		wis, r := p.PodInformation(addresses)
+		wis, r := p.AddressInformation(addresses)
 		i = append(i, wis...)
 		removed.InsertAll(r...)
 	}

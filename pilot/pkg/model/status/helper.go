@@ -90,3 +90,32 @@ func UpdateCondition(conditions []*v1alpha1.IstioCondition, condition *v1alpha1.
 	}
 	return ret
 }
+
+func DeleteConfigCondition(cfg config.Config, condition string) config.Config {
+	c, ok := cfg.Status.(*v1alpha1.IstioStatus)
+	if !ok {
+		return cfg
+	}
+	if GetCondition(c.Conditions, condition) == nil {
+		return cfg
+	}
+	cfg = cfg.DeepCopy()
+	status := cfg.Status.(*v1alpha1.IstioStatus)
+	status.Conditions = DeleteCondition(status.Conditions, condition)
+	return cfg
+}
+
+func DeleteCondition(conditions []*v1alpha1.IstioCondition, condition string) []*v1alpha1.IstioCondition {
+	ret := append([]*v1alpha1.IstioCondition(nil), conditions...)
+	idx := -1
+	for i, cond := range ret {
+		if cond.Type == condition {
+			idx = i
+			break
+		}
+	}
+	if idx >= 0 {
+		ret = append(ret[:idx], ret[idx+1:]...)
+	}
+	return ret
+}

@@ -18,8 +18,8 @@ import (
 	"os"
 	"strings"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
-	"istio.io/pkg/log"
 )
 
 type KubernetesTokenPlugin struct {

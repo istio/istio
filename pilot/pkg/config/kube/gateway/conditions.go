@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sort"
 
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -27,7 +26,9 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -141,11 +142,11 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 		}
 
 		var currentConditions []metav1.Condition
-		idx := slices.IndexFunc(current, func(s k8sbeta.RouteParentStatus) bool {
+		currentStatus := slices.FindFunc(current, func(s k8sbeta.RouteParentStatus) bool {
 			return parentRefString(s.ParentRef) == parentRefString(gw.OriginalReference)
 		})
-		if idx != -1 {
-			currentConditions = current[idx].Conditions
+		if currentStatus != nil {
+			currentConditions = currentStatus.Conditions
 		}
 		gws = append(gws, k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
@@ -227,12 +228,7 @@ type condition struct {
 // setConditions sets the existingConditions with the new conditions
 func setConditions(generation int64, existingConditions []metav1.Condition, conditions map[string]*condition) []metav1.Condition {
 	// Sort keys for deterministic ordering
-	condKeys := make([]string, 0, len(conditions))
-	for k := range conditions {
-		condKeys = append(condKeys, k)
-	}
-	sort.Strings(condKeys)
-	for _, k := range condKeys {
+	for _, k := range slices.Sort(maps.Keys(conditions)) {
 		cond := conditions[k]
 		setter := kstatus.UpdateConditionIfChanged
 		if cond.setOnce != "" {

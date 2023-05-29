@@ -32,9 +32,10 @@ import (
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -90,11 +91,9 @@ func ls(dir string, t *testing.T) []string {
 	if err != nil {
 		t.Fatalf("Failed to list files, err: %v", err)
 	}
-	fileNames := make([]string, len(files))
-	for i, f := range files {
-		fileNames[i] = f.Name()
-	}
-	return fileNames
+	return slices.Map(files, func(e os.DirEntry) string {
+		return e.Name()
+	})
 }
 
 func cp(src, dest string, t *testing.T) {
@@ -276,6 +275,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 	// disable monitoring & uds logging
 	viper.Set(constants.MonitoringPort, 0)
 	viper.Set(constants.LogUDSAddress, "")
+	viper.Set(constants.RepairEnabled, false)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	wg := sync.WaitGroup{}

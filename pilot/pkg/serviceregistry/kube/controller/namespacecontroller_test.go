@@ -122,14 +122,47 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 	createNamespace(t, client.Kube(), nsA, map[string]string{"discovery-selectors": "enabled"})
 	// Create a namespace without discovery selector enabled
 	createNamespace(t, client.Kube(), nsB, map[string]string{})
-	ns1, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsA, metav1.GetOptions{})
-	ns2, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsB, metav1.GetOptions{})
-	discoveryNamespacesFilter.NamespaceCreated(ns1.ObjectMeta)
-	discoveryNamespacesFilter.NamespaceCreated(ns2.ObjectMeta)
-	// config map should be created for discovery selector enabled namespace
 	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, nsA, expectedData)
 	// config map should not be created for discovery selector disabled namespace
 	expectConfigMapNotExist(t, nc.configmaps, nsB)
+}
+
+func TestNamespaceControllerDiscovery(t *testing.T) {
+	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
+	client := kube.NewFakeClient()
+	t.Cleanup(client.Shutdown)
+	watcher := keycertbundle.NewWatcher()
+	caBundle := []byte("caBundle")
+	watcher.SetAndNotify(nil, nil, caBundle)
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{
+		DiscoverySelectors: []*metav1.LabelSelector{{
+			MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
+		}},
+	})
+	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+		kclient.New[*v1.Namespace](client),
+		meshWatcher.MeshConfig.DiscoverySelectors,
+	)
+	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
+	stop := test.NewStop(t)
+	client.RunAndWait(stop)
+	go nc.Run(stop)
+	retry.UntilOrFail(t, nc.queue.HasSynced)
+
+	expectedData := map[string]string{
+		constants.CACertNamespaceConfigMapDataName: string(caBundle),
+	}
+	createNamespace(t, client.Kube(), "not-selected", map[string]string{"kubernetes.io/metadata.name": "not-selected"})
+	createNamespace(t, client.Kube(), "selected", map[string]string{"kubernetes.io/metadata.name": "selected"})
+
+	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "selected", expectedData)
+	expectConfigMapNotExist(t, nc.configmaps, "not-selected")
+
+	discoveryNamespacesFilter.SelectorsChanged([]*metav1.LabelSelector{{
+		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "not-selected"},
+	}})
+	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "not-selected", expectedData)
+	expectConfigMapNotExist(t, nc.configmaps, "selected")
 }
 
 func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {

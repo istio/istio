@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -240,6 +241,9 @@ func TestDeploymentYAML(t *testing.T) {
 				t.Fatal(err)
 			}
 			tc.config.Cluster = clusters[0]
+			if tc.config.Namespace == nil {
+				tc.config.Namespace = namespace.Static("echo-ns")
+			}
 			if err := tc.config.FillDefaults(nil); err != nil {
 				t.Errorf("failed filling in defaults: %v", err)
 			}

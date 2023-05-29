@@ -25,11 +25,11 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/miekg/dns"
-	"golang.org/x/exp/slices"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/istiomultierror"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"

@@ -53,9 +53,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/apimirror"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -571,9 +571,14 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func negotiateMetricsFormat(contentType string) expfmt.Format {
-	mediaType, _, err := mime.ParseMediaType(contentType)
+	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err == nil && mediaType == expfmt.OpenMetricsType {
-		return expfmt.FmtOpenMetrics
+		switch params["version"] {
+		case expfmt.OpenMetricsVersion_1_0_0:
+			return expfmt.FmtOpenMetrics_1_0_0
+		case expfmt.OpenMetricsVersion_0_0_1, "":
+			return expfmt.FmtOpenMetrics_0_0_1
+		}
 	}
 	return expfmt.FmtText
 }

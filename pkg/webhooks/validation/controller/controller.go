@@ -40,8 +40,8 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/webhooks/util"
-	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("validationController", "validation webhook controller")
@@ -168,7 +168,7 @@ func (c *Controller) Reconcile(key types.NamespacedName) error {
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	kube.WaitForCacheSync(stop, c.webhooks.HasSynced)
+	kube.WaitForCacheSync("validation", stop, c.webhooks.HasSynced)
 	go c.startCaBundleWatcher(stop)
 	c.queue.Run(stop)
 }

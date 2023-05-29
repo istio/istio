@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pkg/config"
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
 type ReconcilerFn func(key types.NamespacedName) error

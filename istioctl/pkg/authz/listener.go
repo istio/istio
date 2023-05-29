@@ -29,7 +29,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

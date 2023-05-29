@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
-	"istio.io/pkg/log"
 )
 
 const (

@@ -20,16 +20,16 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/exp/maps"
 	certv1 "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test/csrctrl/signer"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 const RequestLifeTimeAnnotationForCertManager = "experimental.cert-manager.io/request-duration"
@@ -102,7 +102,7 @@ func (s *Signer) Reconcile(key types.NamespacedName) error {
 }
 
 func (s *Signer) Run(stop <-chan struct{}) {
-	kube.WaitForCacheSync(stop, s.csrs.HasSynced)
+	kube.WaitForCacheSync("csr", stop, s.csrs.HasSynced)
 	s.queue.Run(stop)
 }
 

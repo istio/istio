@@ -42,7 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

@@ -21,7 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
-	istioVersion "istio.io/pkg/version"
+	istioVersion "istio.io/istio/pkg/version"
 )
 
 type sidecarSyncStatus struct {
@@ -54,6 +54,7 @@ func GetProxyInfo(kubeconfig, configContext, revision, istioNamespace string) (*
 			pi = append(pi, istioVersion.ProxyInfo{
 				ID:           ss.ProxyID,
 				IstioVersion: ss.SyncStatus.IstioVersion,
+				Type:         istioVersion.ToUserFacingNodeType(ss.ProxyType),
 			})
 		}
 	}

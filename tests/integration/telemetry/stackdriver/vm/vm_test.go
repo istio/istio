@@ -28,12 +28,12 @@ import (
 	cloudtrace "cloud.google.com/go/trace/apiv1/tracepb"
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/util/retry"
 	sdtest "istio.io/istio/tests/integration/telemetry/stackdriver"
-	"istio.io/pkg/log"
 )
 
 func TestVMTelemetry(t *testing.T) {

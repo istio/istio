@@ -17,10 +17,10 @@ package workloadinstances
 import (
 	"strings"
 
-	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/slices"
 )
 
 // FindInstance returns the first workload instance matching given predicate.

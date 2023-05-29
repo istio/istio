@@ -24,6 +24,7 @@ import (
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -44,6 +45,10 @@ type kubeComponent struct {
 
 func (k kubeComponent) Namespace() namespace.Instance {
 	return k.ns
+}
+
+func (k kubeComponent) ServiceAccount() string {
+	return k.sa
 }
 
 func (k kubeComponent) PodIP() string {
@@ -75,6 +80,7 @@ func (k kubeComponent) Close() error {
 // WaypointProxy describes a waypoint proxy deployment
 type WaypointProxy interface {
 	Namespace() namespace.Instance
+	ServiceAccount() string
 	Inbound() string
 	Outbound() string
 	PodIP() string
@@ -91,6 +97,7 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (W
 		return nil, err
 	}
 
+	// TODO support multicluster
 	ik, err := istioctl.New(ctx, istioctl.Config{})
 	if err != nil {
 		return nil, err
@@ -147,4 +154,33 @@ func NewWaypointProxyOrFail(t framework.TestContext, ns namespace.Instance, sa s
 		t.Fatal(err)
 	}
 	return s
+}
+
+func WaypointForInstance(ctx resource.Context, instance echo.Instance) (WaypointProxy, error) {
+	if !instance.Config().HasWaypointProxy() {
+		return nil, fmt.Errorf("%s does not have a WaypointProxy", instance.NamespaceName())
+	}
+
+	var waypoints []WaypointProxy
+	if err := ctx.GetResource(&waypoints); err != nil {
+		return nil, err
+	}
+
+	// TODO match the cluster of instance
+	ns := instance.NamespaceName()
+	sa := instance.Config().AccountName()
+	for _, waypoint := range waypoints {
+		if waypoint.Namespace().Name() == ns && waypoint.ServiceAccount() == sa {
+			return waypoint, nil
+		}
+	}
+	return nil, fmt.Errorf("could not find Waypoint %s/%s in test context", ns, sa)
+}
+
+func WaypointForInstanceOrFail(t framework.TestContext, instance echo.Instance) WaypointProxy {
+	out, err := WaypointForInstance(t, instance)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }

@@ -33,13 +33,13 @@ import (
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/pkg/webhooks/util"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -166,7 +166,7 @@ func createTestController(t *testing.T) (*Controller, *atomic.Pointer[error]) {
 	stop := test.NewStop(t)
 	c.RunAndWait(stop)
 	go control.Run(stop)
-	kube.WaitForCacheSync(stop, control.queue.HasSynced)
+	kube.WaitForCacheSync("test", stop, control.queue.HasSynced)
 
 	gatewayError := atomic.NewPointer[error](nil)
 	c.Istio().(*istiofake.Clientset).PrependReactor("*", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {
