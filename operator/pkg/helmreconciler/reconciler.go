@@ -531,8 +531,8 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
 		SkipServiceCheck: true,
 	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil)
+
 	if h.kubeClient != nil {
-		h.kubeClient = kube.EnableCrdWatcher(h.kubeClient)
 		sa.AddRunningKubeSource(h.kubeClient)
 	}
 

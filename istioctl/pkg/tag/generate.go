@@ -130,6 +130,24 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 			if err != nil {
 				return "", fmt.Errorf("failed removing deprecated validating webhook: %w", err)
 			}
+		} else {
+			mwc, err := GenerateDeactivatedIstioInjectionWebhook(ctx, client.Kube())
+			if err != nil {
+				return "", fmt.Errorf("failed to generate deactivated istio injection webhook: %w", err)
+			}
+			serializer := json.NewSerializerWithOptions(
+				json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
+					Yaml:   true,
+					Pretty: true,
+					Strict: true,
+				})
+			whBuf := new(bytes.Buffer)
+			if err = serializer.Encode(mwc, whBuf); err != nil {
+				return "", err
+			}
+			tagWhYAML = fmt.Sprintf(`%s
+%s
+%s`, tagWhYAML, helm.YAMLSeparator, whBuf.String())
 		}
 
 		// TODO(Monkeyanator) should extract the validationURL from revision's validating webhook here. However,

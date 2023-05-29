@@ -20,12 +20,12 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"istio.io/api/label"
+	"istio.io/istio/pkg/config/schema/gvk"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-
-	"istio.io/api/label"
 )
 
 func GetTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admitv1.MutatingWebhookConfiguration, error) {
@@ -152,16 +152,29 @@ func PreviousInstallExists(ctx context.Context, client kubernetes.Interface) boo
 // switch back to it. This is a hack but it is meant to cover a corner case where a user wants to migrate from a non-revisioned
 // old version and then later decides to switch back to the old revision again.
 func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Interface) error {
-	whs, err := GetWebhooksWithRevision(ctx, client, DefaultRevisionName)
+	webhook, err := GenerateDeactivatedIstioInjectionWebhook(ctx, client)
 	if err != nil {
 		return err
 	}
+	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()
+	_, err = admit.Update(ctx, webhook, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GenerateDeactivatedIstioInjectionWebhook(ctx context.Context, client kubernetes.Interface) (*admitv1.MutatingWebhookConfiguration, error) {
+	whs, err := GetWebhooksWithRevision(ctx, client, DefaultRevisionName)
+	if err != nil {
+		return nil, err
+	}
 	if len(whs) == 0 {
 		// no revision with default, no action required.
-		return nil
+		return nil, nil
 	}
 	if len(whs) > 1 {
-		return fmt.Errorf("expected a single webhook for default revision")
+		return nil, fmt.Errorf("expected a single webhook for default revision")
 	}
 	webhook := whs[0]
 	for i := range webhook.Webhooks {
@@ -172,11 +185,8 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 		wh.ObjectSelector = NeverMatch
 		webhook.Webhooks[i] = wh
 	}
-	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()
-	_, err = admit.Update(ctx, &webhook, metav1.UpdateOptions{})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	// Add missing gvk info
+	webhook.APIVersion = gvk.MutatingWebhookConfiguration.GroupVersion()
+	webhook.Kind = gvk.MutatingWebhookConfiguration.Kind
+	return &webhook, nil
 }

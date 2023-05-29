@@ -23,7 +23,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/ryanuber/go-glob"
-	"go.uber.org/atomic"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -62,7 +61,9 @@ type IstiodAnalyzer struct {
 	namespace      resource.Namespace
 	istioNamespace resource.Namespace
 
-	initializedStore model.ConfigStoreController
+	// TODO(hanxiaop) refactor different stores fields in the analyzer
+	initializedStore         model.ConfigStoreController
+	initializedStoreStopChan chan struct{}
 
 	// List of code and resource suppressions to exclude messages on
 	suppressions []AnalysisSuppression
@@ -81,8 +82,6 @@ type IstiodAnalyzer struct {
 	collectionReporter CollectionReporterFn
 
 	clientsToRun []kubelib.Client
-
-	running atomic.Bool
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
@@ -114,7 +113,6 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 		istioNamespace:     istioNamespace,
 		kubeResources:      kubeResources,
 		collectionReporter: cr,
-		running:            atomic.Bool{},
 	}
 
 	return sa
@@ -184,25 +182,36 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	if err != nil {
 		return fmt.Errorf("something unexpected happened while creating the meshnetworks: %s", err)
 	}
-	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore})
-	if sa.fileSource != nil {
-		// File source is the highest precedence, since users analyze files to override k8s resources.
-		// The order here does matter, since aggregated store only takes the first available resource.
-		allstores = append([]model.ConfigStoreController{sa.fileSource}, allstores...)
-	}
 
 	for _, c := range sa.clientsToRun {
 		// TODO: this could be parallel
 		c.RunAndWait(cancel)
 	}
 
-	store, err := aggregate.MakeWriteableCache(allstores, nil)
+	err = sa.reInitializeStore()
 	if err != nil {
 		return err
 	}
-	go store.Run(cancel)
-	sa.running.Store(true)
-	sa.initializedStore = store
+	return nil
+}
+
+func (sa *IstiodAnalyzer) reInitializeStore() error {
+	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore})
+	if sa.fileSource != nil {
+		// File source is the highest precedence, since users analyze files to override k8s resources.
+		// The order here does matter, since aggregated store only takes the first available resource.
+		allstores = append([]model.ConfigStoreController{sa.fileSource}, allstores...)
+	}
+	var err error
+	sa.initializedStore, err = aggregate.MakeWriteableCache(allstores, nil)
+	if err != nil {
+		return err
+	}
+	if sa.initializedStoreStopChan != nil {
+		close(sa.initializedStoreStopChan)
+	}
+	sa.initializedStoreStopChan = make(chan struct{})
+	go sa.initializedStore.Run(sa.initializedStoreStopChan)
 	return nil
 }
 
@@ -270,22 +279,8 @@ func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, in
 			errs = multierror.Append(errs, err)
 		}
 	}
-	// If the analyzer is already initialized, we need to make sure the file-resource store is correctly aggregated.
-	if sa.running.Load() {
-		stores := make([]model.ConfigStoreController, 0)
-		for _, s := range sa.stores {
-			switch s.(type) {
-			case *file.KubeSource:
-				continue
-			}
-			stores = append(stores, s)
-		}
-		stores = append([]model.ConfigStoreController{sa.fileSource}, stores...)
-		var err error
-		sa.initializedStore, err = aggregate.MakeWriteableCache(stores, nil)
-		if errs != nil {
-			errs = multierror.Append(errs, err)
-		}
+	if err := sa.reInitializeStore(); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 	return errs
 }
