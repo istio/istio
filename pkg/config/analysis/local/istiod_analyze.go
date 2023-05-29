@@ -23,6 +23,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/ryanuber/go-glob"
+	"go.uber.org/atomic"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -80,6 +81,8 @@ type IstiodAnalyzer struct {
 	collectionReporter CollectionReporterFn
 
 	clientsToRun []kubelib.Client
+
+	running atomic.Bool
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
@@ -111,6 +114,7 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 		istioNamespace:     istioNamespace,
 		kubeResources:      kubeResources,
 		collectionReporter: cr,
+		running:            atomic.Bool{},
 	}
 
 	return sa
@@ -197,6 +201,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		return err
 	}
 	go store.Run(cancel)
+	sa.running.Store(true)
 	sa.initializedStore = store
 	return nil
 }
@@ -262,6 +267,23 @@ func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, in
 		}
 
 		if err = src.ApplyContent(r.Name, string(by)); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	// If the analyzer is already initialized, we need to make sure the file-resource store is correctly aggregated.
+	if sa.running.Load() {
+		stores := make([]model.ConfigStoreController, 0)
+		for _, s := range sa.stores {
+			switch s.(type) {
+			case *file.KubeSource:
+				continue
+			}
+			stores = append(stores, s)
+		}
+		stores = append([]model.ConfigStoreController{sa.fileSource}, stores...)
+		var err error
+		sa.initializedStore, err = aggregate.MakeWriteableCache(stores, nil)
+		if errs != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}

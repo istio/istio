@@ -528,6 +528,17 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return nil
 	}
 
+	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
+		SkipServiceCheck: true,
+	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil)
+	if h.kubeClient != nil {
+		h.kubeClient = kube.EnableCrdWatcher(h.kubeClient)
+		sa.AddRunningKubeSource(h.kubeClient)
+	}
+
+	cancel := make(chan struct{})
+	err := sa.Init(cancel)
+
 	exists := revtag.PreviousInstallExists(context.Background(), h.kubeClient.Kube())
 	var webhookObjects []*object.K8sObject
 	if DetectIfTagWebhookIsNeeded(h.iop, exists) {
@@ -540,9 +551,6 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		}
 	}
 
-	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
-		SkipServiceCheck: true,
-	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil)
 	var localWebhookYAMLReaders []local.ReaderSource
 	var parsedK8sObjects object.K8sObjects
 	for _, wh := range whs {
@@ -552,11 +560,12 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		}
 		addedObjects := make([]*object.K8sObject, 0)
 		for _, obj := range k8sObjects {
-			// skip resources which are not webhooks
+			// Skip resources which are not webhooks
 			if obj.GroupVersionKind() != gvk.ValidatingWebhookConfiguration.Kubernetes() &&
 				obj.GroupVersionKind() != gvk.MutatingWebhookConfiguration.Kubernetes() {
 				continue
 			}
+			// If we have a generated webhook object with the same name and namespace, we should use it instead of the one in the chart
 			var find bool
 			for _, whObject := range webhookObjects {
 				if obj.GroupVersionKind() != whObject.GroupVersionKind() {
@@ -584,18 +593,13 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		parsedK8sObjects = append(parsedK8sObjects, addedObjects...)
 	}
 
-	err := sa.AddReaderKubeSource(localWebhookYAMLReaders)
+	err = sa.AddReaderKubeSource(localWebhookYAMLReaders)
 	if err != nil {
 		return err
 	}
 
-	if h.kubeClient != nil {
-		h.kubeClient = kube.EnableCrdWatcher(h.kubeClient)
-		sa.AddRunningKubeSource(h.kubeClient)
-	}
-
 	// Analyze webhooks
-	res, err := sa.Analyze(make(chan struct{}))
+	res, err := sa.ReAnalyze(cancel)
 	if err != nil {
 		return err
 	}
