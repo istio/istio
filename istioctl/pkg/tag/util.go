@@ -20,12 +20,13 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"istio.io/api/label"
-	"istio.io/istio/pkg/config/schema/gvk"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/api/label"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func GetTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admitv1.MutatingWebhookConfiguration, error) {
@@ -156,8 +157,7 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 	if err != nil {
 		return err
 	}
-	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()
-	_, err = admit.Update(ctx, webhook, metav1.UpdateOptions{})
+	_, err = client.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(ctx, webhook, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}

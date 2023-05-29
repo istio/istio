@@ -536,6 +536,9 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		sa.AddRunningKubeSource(h.kubeClient)
 	}
 
+	// Here we don't directly use sa.Analyze for a reason:
+	// See comments in https://github.com/istio/istio/blob/09917748493f1e29389d6c5eb9dee0f99db796fc/pkg/kube/client.go#L238-L245
+	// If that issue is fixed, we can use sa.Analyze directly.
 	cancel := make(chan struct{})
 	err := sa.Init(cancel)
 
@@ -566,6 +569,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 				continue
 			}
 			// If we have a generated webhook object with the same name and namespace, we should use it instead of the one in the chart
+			// Otherwise, we should use the one in the chart.
 			var find bool
 			for _, whObject := range webhookObjects {
 				if obj.GroupVersionKind() != whObject.GroupVersionKind() {

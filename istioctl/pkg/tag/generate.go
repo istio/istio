@@ -131,6 +131,7 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 				return "", fmt.Errorf("failed removing deprecated validating webhook: %w", err)
 			}
 		} else {
+			// If not apply, we need to generate the deactivated istio injection webhook that is going to be applied.
 			mwc, err := GenerateDeactivatedIstioInjectionWebhook(ctx, client.Kube())
 			if err != nil {
 				return "", fmt.Errorf("failed to generate deactivated istio injection webhook: %w", err)

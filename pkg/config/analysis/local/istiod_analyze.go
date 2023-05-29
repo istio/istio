@@ -207,6 +207,7 @@ func (sa *IstiodAnalyzer) reInitializeStore() error {
 	if err != nil {
 		return err
 	}
+	// If the initialized store is already running, we need to stop it before starting it with the new stores.
 	if sa.initializedStoreStopChan != nil {
 		close(sa.initializedStoreStopChan)
 	}
@@ -279,6 +280,7 @@ func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, in
 			errs = multierror.Append(errs, err)
 		}
 	}
+	// Since the file source is changed, we need to make sure it's in the aggregated store if it isn't.
 	if err := sa.reInitializeStore(); err != nil {
 		errs = multierror.Append(errs, err)
 	}
