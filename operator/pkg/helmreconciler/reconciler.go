@@ -541,6 +541,9 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	// If that issue is fixed, we can use sa.Analyze directly.
 	cancel := make(chan struct{})
 	err := sa.Init(cancel)
+	if err != nil {
+		return err
+	}
 
 	exists := revtag.PreviousInstallExists(context.Background(), h.kubeClient.Kube())
 	var webhookObjects []*object.K8sObject
