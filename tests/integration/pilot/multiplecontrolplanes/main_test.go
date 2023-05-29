@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
@@ -194,7 +195,8 @@ func TestCustomResourceScoping(t *testing.T) {
 		Features("installation.multiplecontrolplanes").
 		Run(func(t framework.TestContext) {
 			// allow access to external service only for app-ns-2 namespace which is under usergroup-2
-			allowExternalService(t, apps.NS[1].Namespace.Name(), externalNS.Name(), "usergroup-1")
+			allowExternalService(t, apps.NS[1].Namespace.Name(), externalNS.Name())
+			time.Sleep(5 * time.Second)
 
 			testCases := []struct {
 				name       string
@@ -255,16 +257,13 @@ spec:
 	}
 }
 
-func allowExternalService(t framework.TestContext, ns string, externalNs string, revision string) {
+func allowExternalService(t framework.TestContext, ns string, externalNs string) {
 	t.ConfigIstio().Eval(ns, map[string]any{
 		"Namespace": externalNs,
-		"Revision":  revision,
 	}, `apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-service
-  labels:
-    istio.io/rev: {{.Revision}}
 spec:
   hosts:
   - "fake.external.com"
