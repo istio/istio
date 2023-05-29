@@ -22,6 +22,7 @@ import (
 	"os"
 	"strings"
 
+	"istio.io/istio/pkg/config/schema/gvk"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -136,6 +137,10 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 			if err != nil {
 				return "", fmt.Errorf("failed to generate deactivated istio injection webhook: %w", err)
 			}
+			// Add missing gvk info
+			mwc.APIVersion = gvk.MutatingWebhookConfiguration.GroupVersion()
+			mwc.Kind = gvk.MutatingWebhookConfiguration.Kind
+
 			serializer := json.NewSerializerWithOptions(
 				json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
 					Yaml:   true,

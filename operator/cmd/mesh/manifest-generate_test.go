@@ -17,6 +17,7 @@ package mesh
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -295,6 +296,59 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			objs, err := fakeControllerReconcile(testResourceFile, liveCharts, &helmreconciler.Options{Force: tc.force, SkipPrune: true})
 			tc.assertFunc(g, objs, err)
 		})
+	}
+}
+
+func TestAnalyzeWebhooks(t *testing.T) {
+	cases := []struct {
+		name   string
+		inputs []string
+	}{
+		{
+			name: "analyze webhook which mimic the actual installed environment",
+			inputs: []string{
+				"testdata/webhook/mwc-deactivated.yaml",
+			},
+		},
+		{
+			name: "analyze webhook when the Istio installation is failed, and try to install again, should not fail since no overlapping",
+			inputs: []string{
+				"testdata/webhook/mwc-activated.yaml",
+			},
+		},
+	}
+
+	// a dummy resource file to generate correct IOP, there's an inconsistent behavior in the operator overlay.
+	testResourceFile := "dummy_mwc"
+	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", testResourceFile+".yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writeFile(filepath.Join(env.IstioSrc, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		removeFile(filepath.Join(env.IstioSrc, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"))
+	})
+
+	for _, tc := range cases {
+		recreateSimpleTestEnv()
+		g := NewWithT(t)
+		for _, f := range tc.inputs {
+			data, err := os.ReadFile(f)
+			g.Expect(err).Should(BeNil())
+			objs, err := object.ParseK8sObjectsFromYAMLManifestFailOption(string(data), true)
+			g.Expect(err).Should(BeNil())
+			for _, obj := range objs {
+				err = testClient.Create(context.TODO(), obj.UnstructuredObject())
+				g.Expect(err).Should(BeNil())
+			}
+		}
+		_, err := fakeControllerReconcile(testResourceFile, liveCharts, &helmreconciler.Options{SkipPrune: true})
+		g.Expect(err).Should(BeNil())
 	}
 }
 

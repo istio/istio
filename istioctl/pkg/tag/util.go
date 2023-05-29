@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
-	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func GetTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admitv1.MutatingWebhookConfiguration, error) {
@@ -157,7 +156,8 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 	if err != nil {
 		return err
 	}
-	_, err = client.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(ctx, webhook, metav1.UpdateOptions{})
+	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()
+	_, err = admit.Update(ctx, webhook, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func GenerateDeactivatedIstioInjectionWebhook(ctx context.Context, client kubern
 	if len(whs) > 1 {
 		return nil, fmt.Errorf("expected a single webhook for default revision")
 	}
-	webhook := whs[0]
+	webhook := &whs[0]
 	for i := range webhook.Webhooks {
 		wh := webhook.Webhooks[i]
 		// this is an abomination, but if this isn't a per-revision webhook, we want to make it ineffectual
@@ -185,8 +185,5 @@ func GenerateDeactivatedIstioInjectionWebhook(ctx context.Context, client kubern
 		wh.ObjectSelector = NeverMatch
 		webhook.Webhooks[i] = wh
 	}
-	// Add missing gvk info
-	webhook.APIVersion = gvk.MutatingWebhookConfiguration.GroupVersion()
-	webhook.Kind = gvk.MutatingWebhookConfiguration.Kind
-	return &webhook, nil
+	return webhook, nil
 }
