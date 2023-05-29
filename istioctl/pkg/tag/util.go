@@ -156,6 +156,9 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 	if err != nil {
 		return err
 	}
+	if webhook == nil {
+		return nil
+	}
 	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()
 	_, err = admit.Update(ctx, webhook, metav1.UpdateOptions{})
 	if err != nil {

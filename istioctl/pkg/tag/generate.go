@@ -22,13 +22,13 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/istio/pkg/config/schema/gvk"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 )
 
