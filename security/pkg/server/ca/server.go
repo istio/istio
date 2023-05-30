@@ -107,7 +107,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		sans = []string{impersonatedIdentity}
 	}
 	certSigner := crMetadata[security.CertSigner].GetStringValue()
-	serverCaLog.Debugf("cert signer from workload %s", certSigner)
+	serverCaLog.Infof("generating a certificate for %v, signer: %s, ttl: %d", sans, certSigner, request.ValidityDuration)
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
 		SubjectIDs: sans,
