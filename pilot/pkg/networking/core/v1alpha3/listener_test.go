@@ -607,7 +607,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			proxy.Metadata.InboundListenerExactBalance = true
 			proxy.Metadata.OutboundListenerExactBalance = true
 
-			listeners := NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(proxy, cg.env.PushContext)
+			listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(proxy, cg.env.PushContext())
 			listenersToCheck := make([]string, 0)
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
@@ -679,7 +679,7 @@ func TestOutboundListenerForExternalServices(t *testing.T) {
 
 			proxy := cg.SetupProxy(getIPv6Proxy())
 
-			listeners := NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(proxy, cg.env.PushContext)
+			listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(proxy, cg.env.PushContext())
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
 					if l.Name != tt.listenersOn {
@@ -2608,7 +2608,7 @@ func buildOutboundListeners(t *testing.T, proxy *model.Proxy, sidecarConfig *con
 		Services:       services,
 		ConfigPointers: []*config.Config{sidecarConfig, virtualService},
 	})
-	listeners := NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext)
+	listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext())
 	xdstest.ValidateListeners(t, listeners)
 	return listeners
 }

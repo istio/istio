@@ -217,13 +217,11 @@ func TestConfigureIstioGateway(t *testing.T) {
 			stop := test.NewStop(t)
 			client.RunAndWait(stop)
 			kube.WaitForCacheSync("test", stop, deployments.HasSynced)
+			env := model.NewEnvironment()
+			env.PushContext().ProxyConfigs = tt.pcs
 			d := &DeploymentController{
-				client: client,
-				env: &model.Environment{
-					PushContext: &model.PushContext{
-						ProxyConfigs: tt.pcs,
-					},
-				},
+				client:       client,
+				env:          env,
 				deployments:  deployments,
 				clusterID:    cluster.ID(features.ClusterName),
 				injectConfig: testInjectionConfig(t),

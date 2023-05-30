@@ -1178,7 +1178,7 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 // This should be called before starting the push, from the thread creating
 // the push context.
 func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
-	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
+	// Acquire a lock to ensure we don't concurrently initialize the same pushContext.
 	// If this does happen, one thread will block then exit early from InitDone=true
 	ps.initializeMutex.Lock()
 	defer ps.initializeMutex.Unlock()

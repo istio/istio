@@ -226,7 +226,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		MeshConfig:          m,
 		NetworksWatcher:     opts.NetworksWatcher,
 		ServiceRegistries:   registries,
-		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreController{ingr},
 		CreateConfigStore: func(c model.ConfigStoreController) model.ConfigStoreController {
 			g := gateway.NewController(defaultKubeClient, c, func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
@@ -243,7 +242,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Gateways:  opts.Gateways,
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
-	s.updateMutex.Lock()
 	s.Env = cg.Env()
 	s.Env.GatewayAPIController = gwc
 	if err := s.Env.InitNetworksManager(s); err != nil {
@@ -254,7 +252,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.debounceOptions.debounceAfter = opts.DebounceTime
 	memRegistry := cg.MemRegistry
 	memRegistry.XdsUpdater = s
-	s.updateMutex.Unlock()
 
 	// Setup config handlers
 	// TODO code re-use from server.go
@@ -365,9 +362,7 @@ func (f *FakeDiscoveryServer) KubeClient() kubelib.Client {
 }
 
 func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
-	f.Discovery.updateMutex.RLock()
-	defer f.Discovery.updateMutex.RUnlock()
-	return f.Env().PushContext
+	return f.Env().PushContext()
 }
 
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
