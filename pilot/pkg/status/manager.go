@@ -21,7 +21,6 @@ import (
 	"sync"
 
 	"google.golang.org/protobuf/proto"
-
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -57,7 +56,7 @@ func NewManager(store model.ConfigStore) *Manager {
 		}
 		switch t := m.Status.(type) {
 		case proto.Message:
-			if proto.Equal(lastStatus.(proto.Message), t) {
+			if lastStatus != nil && proto.Equal(lastStatus.(proto.Message), t) {
 				return
 			}
 		default:
