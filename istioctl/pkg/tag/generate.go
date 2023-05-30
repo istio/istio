@@ -51,8 +51,6 @@ type tagWebhookConfig struct {
 	Path           string
 	CABundle       string
 	IstioNamespace string
-	Labels         map[string]string
-	Annotations    map[string]string
 }
 
 // GenerateOptions is the group of options needed to generate a tag webhook.
@@ -73,12 +71,10 @@ type GenerateOptions struct {
 	Overwrite bool
 	// AutoInjectNamespaces controls, if the sidecars should be injected into all namespaces by default.
 	AutoInjectNamespaces bool
-	// CustomLabels are labels to add to the generated webhook.
-	CustomLabels map[string]string
 }
 
 // Generate generates the manifests for a revision tag pointed the given revision.
-func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, istioNS string) (string, error) {
+func Generate(ctx context.Context, client kube.CLIClient, opts *GenerateOptions, istioNS string) (string, error) {
 	// abort if there exists a revision with the target tag name
 	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Tag)
 	if err != nil {
@@ -113,7 +109,7 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook config: %w", err)
 	}
-	tagWhYAML, err := generateMutatingWebhook(tagWhConfig, opts)
+	tagWhYAML, err := generateMutatingWebhook(tagWhConfig, opts.WebhookName, opts.ManifestsPath, opts.AutoInjectNamespaces)
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook: %w", err)
 	}
@@ -137,13 +133,13 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 		// instead grab the endpoint information from the mutating webhook. This is not strictly correct.
 		validationWhConfig := fixWhConfig(tagWhConfig)
 
-		vwhYAML, err := generateValidatingWebhook(validationWhConfig, opts.ManifestsPath, opts.CustomLabels)
+		vwhYAML, err := generateValidatingWebhook(validationWhConfig, opts.ManifestsPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
 		tagWhYAML = fmt.Sprintf(`%s
-%s
-%s`, tagWhYAML, helm.YAMLSeparator, vwhYAML)
+---
+%s`, tagWhYAML, vwhYAML)
 	}
 
 	return tagWhYAML, nil
@@ -169,7 +165,7 @@ func Create(client kube.CLIClient, manifests string) error {
 }
 
 // generateValidatingWebhook renders a validating webhook configuration from the given tagWebhookConfig.
-func generateValidatingWebhook(config *tagWebhookConfig, chartPath string, customLabels map[string]string) (string, error) {
+func generateValidatingWebhook(config *tagWebhookConfig, chartPath string) (string, error) {
 	r := helm.NewHelmRenderer(chartPath, defaultChart, "Pilot", config.IstioNamespace, nil)
 
 	if err := r.Run(); err != nil {
@@ -209,9 +205,6 @@ base:
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 	}
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, config.Labels)
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, customLabels)
-	decodedWh.Annotations = mergeMaps(decodedWh.Annotations, config.Annotations)
 
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
@@ -221,23 +214,9 @@ base:
 	return whBuf.String(), nil
 }
 
-// mergeMaps merges maps into one. If both maps have the same key, the value from override will be used.
-func mergeMaps(base, override map[string]string) map[string]string {
-	if base == nil {
-		return override
-	}
-	if override == nil {
-		return base
-	}
-	for k, v := range override {
-		base[k] = v
-	}
-	return base
-}
-
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
-func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (string, error) {
-	r := helm.NewHelmRenderer(opts.ManifestsPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace, nil)
+func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string, autoInjectNamespaces bool) (string, error) {
+	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace, nil)
 
 	if err := r.Run(); err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
@@ -256,7 +235,7 @@ sidecarInjectorWebhook:
 
 istiodRemote:
   injectionURL: %s
-`, config.Revision, config.Tag, opts.AutoInjectNamespaces, config.URL)
+`, config.Revision, config.Tag, autoInjectNamespaces, config.URL)
 
 	tagWebhookYaml, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, revisionTagTemplateName)
@@ -286,12 +265,9 @@ istiodRemote:
 			decodedWh.Webhooks[i].ClientConfig.Service.Path = &config.Path
 		}
 	}
-	if opts.WebhookName != "" {
-		decodedWh.Name = opts.WebhookName
+	if webhookName != "" {
+		decodedWh.Name = webhookName
 	}
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, config.Labels)
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, opts.CustomLabels)
-	decodedWh.Annotations = mergeMaps(decodedWh.Annotations, config.Annotations)
 
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
@@ -333,18 +309,6 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 		return nil, fmt.Errorf("could not find sidecar-injector webhook in canonical webhook %q", wh.Name)
 	}
 
-	// Here we filter out the "app" label, to generate a general label set for the incoming generated
-	// MutatingWebhookConfiguration and ValidatingWebhookConfiguration. The app of the webhooks are not general
-	// since they are functioned differently with different name.
-	// The filtered common labels are then added to the incoming generated
-	// webhooks, which aids in managing these webhooks via the istioctl/operator.
-	filteredLabels := make(map[string]string)
-	for k, v := range wh.Labels {
-		if k != "app" {
-			filteredLabels[k] = v
-		}
-	}
-
 	return &tagWebhookConfig{
 		Tag:            tagName,
 		Revision:       rev,
@@ -352,8 +316,6 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 		CABundle:       caBundle,
 		IstioNamespace: istioNS,
 		Path:           path,
-		Labels:         filteredLabels,
-		Annotations:    wh.Annotations,
 	}, nil
 }
 
