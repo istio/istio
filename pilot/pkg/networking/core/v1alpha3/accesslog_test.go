@@ -334,9 +334,9 @@ func newTestEnviroment() *model.Environment {
 	env.Watcher = mesh.NewFixedWatcher(meshConfig)
 
 	pushContext := model.NewPushContext()
+	env.Init()
 	pushContext.InitContext(env, nil, nil)
 	env.SetPushContext(pushContext)
-	env.Init()
 
 	return env
 }
