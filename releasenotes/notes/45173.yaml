@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 45173
+releaseNotes:
+- |
+  **Added** `ENABLE_AUTO_SNI_ISTIO_MUTUAL_EXTERNAL_SERVICE_ENTRY` environment variable to
+  enable service enteries using location: MESH_EXTERNAL and have
+  a DestinationRule set to use ISTIO_MUTUAL to use Envoy's auto_sni capability

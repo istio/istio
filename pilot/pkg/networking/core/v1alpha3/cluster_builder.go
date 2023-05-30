@@ -1086,6 +1086,11 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 			}
 		}
+
+		if features.EnableAutoSNIExternalIstioMutual && opts.meshExternal {
+			cb.changeAutoSniAndAutoSanValidation(c, true, false)
+			tlsContext.Sni = ""
+		}
 	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: defaultUpstreamCommonTLSContext(),
@@ -1213,18 +1218,7 @@ func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls
 	}
 
 	if setAutoSni || setAutoSanValidation {
-		if mc.httpProtocolOptions == nil {
-			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
-		}
-		if mc.httpProtocolOptions.UpstreamHttpProtocolOptions == nil {
-			mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
-		}
-		if setAutoSni {
-			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
-		}
-		if setAutoSanValidation {
-			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
-		}
+		cb.changeAutoSniAndAutoSanValidation(mc, setAutoSni, setAutoSanValidation)
 	}
 }
 
@@ -1238,6 +1232,21 @@ func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *MutableCluster) {
 			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
 			Http2ProtocolOptions: http2ProtocolOptions(),
 		},
+	}
+}
+
+func (*ClusterBuilder) changeAutoSniAndAutoSanValidation(mc *MutableCluster, setAutoSni bool, setAutoSanValidation bool) {
+	if mc.httpProtocolOptions == nil {
+		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
+	}
+	if mc.httpProtocolOptions.UpstreamHttpProtocolOptions == nil {
+		mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
+	}
+	if setAutoSni {
+		mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
+	}
+	if setAutoSanValidation {
+		mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
 	}
 }
 

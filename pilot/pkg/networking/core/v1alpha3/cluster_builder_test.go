@@ -2024,14 +2024,16 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	credentialName := "some-fake-credential"
 
 	testCases := []struct {
-		name                     string
-		opts                     *buildClusterOpts
-		tls                      *networking.ClientTLSSettings
-		h2                       bool
-		router                   bool
-		result                   expectedResult
-		enableAutoSni            bool
-		enableVerifyCertAtClient bool
+		name                             string
+		opts                             *buildClusterOpts
+		tls                              *networking.ClientTLSSettings
+		h2                               bool
+		router                           bool
+		result                           expectedResult
+		enableAutoSni                    bool
+		enableVerifyCertAtClient         bool
+		enableAutoSNIExternalIstioMutual bool
+		meshExternal                     bool
 	}{
 		{
 			name: "tls mode disabled",
@@ -3116,11 +3118,166 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				err: nil,
 			},
 		},
+		{
+			name: "tls mode ISTIO_MUTUAL with EnableAutoSNIExternalIstioMutual set to true, ServiceEntry is location: MESH_EXTERNAL",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"SAN"},
+				// Not set since auto SNI will be enabled
+				// Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
+									ResourceApiVersion:  core.ApiVersion_V3,
+								},
+							},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+														},
+													},
+												},
+											},
+										},
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
+										ResourceApiVersion:  core.ApiVersion_V3,
+									},
+								},
+							},
+						},
+						AlpnProtocols: util.ALPNInMeshWithMxc,
+					},
+					// Not set since auto SNI is enabled
+					// Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+			enableAutoSNIExternalIstioMutual: true,
+			meshExternal:                     true,
+		},
+		{
+			name: "tls mode ISTIO_MUTUAL with EnableAutoSNIExternalIstioMutual set to true, ServiceEntry is location: MESH_INTERNAL",
+			opts: &buildClusterOpts{
+				mutable: newTestCluster(),
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
+						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
+									ResourceApiVersion:  core.ApiVersion_V3,
+								},
+							},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+														},
+													},
+												},
+											},
+										},
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
+										ResourceApiVersion:  core.ApiVersion_V3,
+									},
+								},
+							},
+						},
+						AlpnProtocols: util.ALPNInMeshWithMxc,
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+			enableAutoSNIExternalIstioMutual: true,
+			meshExternal:                     false,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableAutoSni, tc.enableAutoSni)
 			test.SetForTest(t, &features.VerifyCertAtClient, tc.enableVerifyCertAtClient)
+			test.SetForTest(t, &features.EnableAutoSNIExternalIstioMutual, tc.enableAutoSNIExternalIstioMutual)
 			var proxy *model.Proxy
 			if tc.router {
 				proxy = newGatewayProxy()
@@ -3131,6 +3288,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			if tc.h2 {
 				cb.setH2Options(tc.opts.mutable)
 			}
+			tc.opts.meshExternal = tc.meshExternal
 			ret, err := cb.buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
 				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
@@ -3143,6 +3301,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				}
 				if tc.enableVerifyCertAtClient && len(tc.tls.SubjectAltNames) == 0 {
 					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, true)
+				}
+			}
+			if tc.enableAutoSNIExternalIstioMutual {
+				if tc.meshExternal {
+					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
+				} else if tc.opts.mutable.httpProtocolOptions != nil {
+					t.Errorf("%v: expected httpProtocolOptions to be nil", tc.name)
 				}
 			}
 		})
