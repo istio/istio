@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -102,11 +101,8 @@ type Controller struct {
 	// cleanupQueue delays the cleanup of auto registered WorkloadEntries to allow for grace period
 	cleanupQueue queue.Delayed
 
-	mutex sync.Mutex
-	// record the current adsConnections number
-	// note: this is to handle reconnect to the same istiod, but in rare case the disconnect event is later than the connect event
-	// keyed by proxy network+ip
-	adsConnections map[string]uint8
+	adsConnections        *adsConnections
+	lateRegistrationQueue controllers.Queue
 
 	// maxConnectionAge is a duration that workload entry should be cleaned up if it does not reconnects.
 	maxConnectionAge time.Duration
@@ -119,30 +115,32 @@ type HealthEvent = health.HealthEvent
 
 // NewController create a controller which manages workload lifecycle and health status.
 func NewController(store model.ConfigStoreController, instanceID string, maxConnAge time.Duration) *Controller {
-	if features.WorkloadEntryAutoRegistration || features.WorkloadEntryHealthChecks {
-		if maxConnAge != math.MaxInt64 {
-			maxConnAge += maxConnAge / 2
-			// if overflow, set it to max int64
-			if maxConnAge < 0 {
-				maxConnAge = time.Duration(math.MaxInt64)
-			}
-		}
-		c := &Controller{
-			instanceID:       instanceID,
-			store:            store,
-			cleanupLimit:     rate.NewLimiter(rate.Limit(20), 1),
-			cleanupQueue:     queue.NewDelayed(),
-			adsConnections:   map[string]uint8{},
-			maxConnectionAge: maxConnAge,
-		}
-		c.queue = controllers.NewQueue("unregister_workloadentry",
-			controllers.WithMaxAttempts(maxRetries),
-			controllers.WithGenericReconciler(c.unregisterWorkload))
-		c.stateStore = state.NewStore(store, c)
-		c.healthController = health.NewController(c.stateStore, maxRetries)
-		return c
+	if !features.WorkloadEntryAutoRegistration && !features.WorkloadEntryHealthChecks {
+		return nil
 	}
-	return nil
+
+	if maxConnAge != math.MaxInt64 {
+		maxConnAge += maxConnAge / 2
+		// if overflow, set it to max int64
+		if maxConnAge < 0 {
+			maxConnAge = time.Duration(math.MaxInt64)
+		}
+	}
+	c := &Controller{
+		instanceID:       instanceID,
+		store:            store,
+		cleanupLimit:     rate.NewLimiter(rate.Limit(20), 1),
+		cleanupQueue:     queue.NewDelayed(),
+		adsConnections:   newAdsConnections(),
+		maxConnectionAge: maxConnAge,
+	}
+	c.queue = controllers.NewQueue("unregister_workloadentry",
+		controllers.WithMaxAttempts(maxRetries),
+		controllers.WithGenericReconciler(c.unregisterWorkload))
+	c.stateStore = state.NewStore(store, c)
+	c.healthController = health.NewController(c.stateStore, maxRetries)
+	c.setupAutoRecreate()
+	return c
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
@@ -152,6 +150,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if c.store != nil && c.cleanupQueue != nil {
 		go c.periodicWorkloadEntryCleanup(stop)
 		go c.cleanupQueue.Run(stop)
+		go c.lateRegistrationQueue.Run(stop)
 	}
 
 	go c.queue.Run(stop)
@@ -168,6 +167,36 @@ type workItem struct {
 	origConTime time.Time
 }
 
+// setupAutoRecreate adds a handler to create entries for existing connections when a WG is added
+func (c *Controller) setupAutoRecreate() {
+	c.lateRegistrationQueue = controllers.NewQueue("auto-register existing connections",
+		controllers.WithReconciler(func(key kubetypes.NamespacedName) error {
+			// WorkloadGroup doesn't exist anymore, skip this.
+			if c.store.Get(gvk.WorkloadGroup, key.Name, key.Namespace) == nil {
+				return nil
+			}
+			conns := c.adsConnections.ConnectionsForGroup(key)
+			for _, conn := range conns {
+				proxy := conn.Proxy()
+				entryName := autoregisteredWorkloadEntryName(proxy)
+				if entryName == "" {
+					continue
+				}
+				proxy.WorkloadEntryAutoCreated = true
+				if err := c.registerWorkload(entryName, proxy, conn.ConnectedAt()); err != nil {
+					log.Error(err)
+				}
+			}
+			return nil
+		}))
+
+	c.store.RegisterEventHandler(gvk.WorkloadGroup, func(_ config.Config, cfg config.Config, event model.Event) {
+		if event == model.EventAdd {
+			c.lateRegistrationQueue.Add(config.NamespacedName(cfg))
+		}
+	})
+}
+
 func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
 	if c.Annotations == nil {
 		c.Annotations = map[string]string{}
@@ -177,7 +206,7 @@ func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
 	delete(c.Annotations, annotation.IoIstioDisconnectedAt.Name)
 }
 
-// RegisterWorkload determines whether a connecting proxy represents a non-Kubernetes
+// OnConnect determines whether a connecting proxy represents a non-Kubernetes
 // workload and, if that's the case, initiates special processing required for that type
 // of workloads, such as auto-registration, health status updates, etc.
 //
@@ -188,10 +217,11 @@ func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
 // If connecting proxy represents a workload that is not using auto-registration,
 // the WorkloadEntry resource is expected to exist beforehand. Otherwise, no special
 // processing will be initiated, e.g. health status updates will be ignored.
-func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) error {
+func (c *Controller) OnConnect(conn Connection) error {
 	if c == nil {
 		return nil
 	}
+	proxy := conn.Proxy()
 	var entryName string
 	var autoCreate bool
 	if features.WorkloadEntryAutoRegistration && proxy.Metadata.AutoRegisterGroup != "" {
@@ -218,11 +248,9 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	proxy.WorkloadEntryName = entryName
 	proxy.WorkloadEntryAutoCreated = autoCreate
 
-	c.mutex.Lock()
-	c.adsConnections[makeProxyKey(proxy)]++
-	c.mutex.Unlock()
+	c.adsConnections.Connect(conn)
 
-	err := c.onWorkloadConnect(entryName, proxy, conTime, autoCreate)
+	err := c.onWorkloadConnect(entryName, proxy, conn.ConnectedAt(), autoCreate)
 	if err != nil {
 		log.Error(err)
 	}
@@ -386,7 +414,7 @@ func (c *Controller) changeWorkloadEntryStateToDisconnected(entryName string, pr
 	return true, nil
 }
 
-// QueueUnregisterWorkload determines whether a connected proxy represents a non-Kubernetes
+// OnDisconnect determines whether a connected proxy represents a non-Kubernetes
 // workload and, if that's the case, terminates special processing required for that type
 // of workloads, such as auto-registration, health status updates, etc.
 //
@@ -399,37 +427,31 @@ func (c *Controller) changeWorkloadEntryStateToDisconnected(entryName string, pr
 //
 // If proxy represents a workload that is not using auto-registration, WorkloadEntry resource
 // will be scheduled to be marked unhealthy if the proxy does not reconnect within a grace period.
-func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect time.Time) {
+func (c *Controller) OnDisconnect(conn Connection) {
 	if c == nil {
 		return
 	}
 	if !features.WorkloadEntryAutoRegistration && !features.WorkloadEntryHealthChecks {
 		return
 	}
+	proxy := conn.Proxy()
 	// check if the WE already exists, update the status
 	entryName := proxy.WorkloadEntryName
 	if entryName == "" {
 		return
 	}
 
-	c.mutex.Lock()
-	proxyKey := makeProxyKey(proxy)
-	num := c.adsConnections[proxyKey]
-	// if there is still ads connection, do not unregister.
-	if num > 1 {
-		c.adsConnections[proxyKey] = num - 1
-		c.mutex.Unlock()
+	// if there is still an ads connection, do not unregister.
+	if remainingConnections := c.adsConnections.Disconnect(conn); remainingConnections {
 		return
 	}
-	delete(c.adsConnections, proxyKey)
-	c.mutex.Unlock()
 
 	workload := &workItem{
 		entryName:   entryName,
-		autoCreated: proxy.WorkloadEntryAutoCreated,
-		proxy:       proxy,
+		autoCreated: conn.Proxy().WorkloadEntryAutoCreated,
+		proxy:       conn.Proxy(),
 		disConTime:  time.Now(),
-		origConTime: origConnect,
+		origConTime: conn.ConnectedAt(),
 	}
 	// queue has max retry itself
 	c.queue.Add(workload)
@@ -686,16 +708,6 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 		// TODO status fields used for garbage collection
 		Status: nil,
 	}
-}
-
-func makeProxyKey(proxy *model.Proxy) string {
-	key := strings.Join([]string{
-		string(proxy.Metadata.Network),
-		proxy.IPAddresses[0],
-		proxy.WorkloadEntryName,
-		proxy.Metadata.Namespace,
-	}, "~")
-	return key
 }
 
 func isAutoRegisteredWorkloadEntry(wle *config.Config) bool {

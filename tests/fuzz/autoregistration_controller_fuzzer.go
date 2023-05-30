@@ -30,6 +30,34 @@ import (
 	"istio.io/istio/pkg/keepalive"
 )
 
+var _ autoregistration.Connection = &fakeConn{}
+
+type fakeConn struct {
+	proxy    *model.Proxy
+	connTime time.Time
+	stopped  bool
+}
+
+func makeConn(proxy *model.Proxy, connTime time.Time) *fakeConn {
+	return &fakeConn{proxy: proxy, connTime: connTime}
+}
+
+func (f *fakeConn) ID() string {
+	return fmt.Sprintf("%s-%v", f.proxy.IPAddresses[0], f.connTime)
+}
+
+func (f *fakeConn) Proxy() *model.Proxy {
+	return f.proxy
+}
+
+func (f *fakeConn) ConnectedAt() time.Time {
+	return f.connTime
+}
+
+func (f *fakeConn) Stop() {
+	f.stopped = true
+}
+
 var (
 	// A valid WorkloadGroup.
 	// This can be modified to have pseudo-random
@@ -66,8 +94,8 @@ var (
 // up a workloadentry controller with a proxy with
 // pseudo-random values.
 // The fuzzer then uses the controller to test:
-// 1: RegisterWorkload
-// 2: QueueUnregisterWorkload
+// 1: OnConnect
+// 2: OnDisconnect
 // 3: QueueWorkloadEntryHealth
 func FuzzWE(data []byte) int {
 	f := fuzz.NewConsumer(data)
@@ -91,11 +119,12 @@ func FuzzWE(data []byte) int {
 	go c.Run(stop)
 	defer close(stop)
 
-	err = c.RegisterWorkload(proxy, time.Now())
+	conn := makeConn(proxy, time.Now())
+	err = c.OnConnect(conn)
 	if err != nil {
 		return 0
 	}
-	c.QueueUnregisterWorkload(proxy, time.Now())
+	c.OnDisconnect(conn)
 
 	he := autoregistration.HealthEvent{}
 	err = f.GenerateStruct(&he)
