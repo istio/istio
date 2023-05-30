@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"google.golang.org/protobuf/proto"
+
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
