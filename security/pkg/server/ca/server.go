@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 )
 
-var serverCaLog = log.RegisterScope("ca", "Citadel server log")
+var serverCaLog = log.RegisterScope("serverca", "Citadel server log")
 
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
@@ -107,7 +107,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		sans = []string{impersonatedIdentity}
 	}
 	certSigner := crMetadata[security.CertSigner].GetStringValue()
-	serverCaLog.Debugf("cert signer from workload %s", certSigner)
+	serverCaLog.Infof("generating a certificate for %v, signer: %s", sans, certSigner)
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
 		SubjectIDs: sans,
@@ -118,7 +118,6 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	var signErr error
 	var cert []byte
 	var respCertChain []string
-	serverCaLog.Debugf("generating a certificate for %v", certOpts.SubjectIDs)
 	if certSigner == "" {
 		cert, signErr = s.ca.Sign([]byte(request.Csr), certOpts)
 	} else {
