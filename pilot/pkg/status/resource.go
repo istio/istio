@@ -103,7 +103,7 @@ func GetTypedStatus(in any) (out *v1alpha1.IstioStatus, err error) {
 }
 
 func GetOGProvider(in any) (out GenerationProvider, err error) {
-	if ret, ok := in.(*v1alpha1.IstioStatus); ok {
+	if ret, ok := in.(*v1alpha1.IstioStatus); ok && ret != nil {
 		return &IstioGenerationProvider{ret}, nil
 	}
 	return nil, fmt.Errorf("cannot cast %T: %v to GenerationProvider", in, in)
