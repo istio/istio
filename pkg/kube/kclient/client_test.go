@@ -101,6 +101,9 @@ func TestSwappingClient(t *testing.T) {
 
 		// Now we add the CRD
 		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+		// This is not needed in real-world, but purely works around https://github.com/kubernetes/kubernetes/issues/95372
+		// which impacts only the fake client.
+		c.RunAndWait(stop)
 		wt.Create(&istioclient.WasmPlugin{
 			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
 		})
