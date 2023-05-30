@@ -27,11 +27,11 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (

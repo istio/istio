@@ -21,7 +21,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 )
 
 func waypointCmd() *cobra.Command {
@@ -110,11 +110,11 @@ func waypointCmd() *cobra.Command {
   istioctl x waypoint apply --service-account something --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gw := makeGateway(true)
-			client, err := kubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			gwc := client.GatewayAPI().GatewayV1beta1().Gateways(handlers.HandleNamespace(namespace, defaultNamespace))
+			gwc := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(handlers.HandleNamespace(namespace, defaultNamespace))
 			b, err := yaml.Marshal(gw)
 			if err != nil {
 				return err
@@ -125,7 +125,7 @@ func waypointCmd() *cobra.Command {
 			})
 			if err != nil {
 				if errors.IsNotFound(err) {
-					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint")
+					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint: %s", err)
 				}
 				return err
 			}
@@ -149,14 +149,14 @@ func waypointCmd() *cobra.Command {
 			if len(args) > 1 {
 				return fmt.Errorf("too many arguments, expected 0 or 1")
 			}
-			client, err := kubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 			if len(args) == 1 {
 				name := args[0]
 				ns := handlers.HandleNamespace(namespace, defaultNamespace)
-				gw, err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
+				gw, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
 						fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", ns, name)
@@ -164,7 +164,7 @@ func waypointCmd() *cobra.Command {
 					}
 					return err
 				}
-				if err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).
+				if err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).
 					Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
 					return err
 				}
@@ -172,7 +172,7 @@ func waypointCmd() *cobra.Command {
 				return nil
 			}
 			gw := makeGateway(true)
-			if err = client.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
+			if err = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
 				Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
 				return err
 			}
@@ -191,7 +191,7 @@ func waypointCmd() *cobra.Command {
   istioctl x waypoint list -A`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			writer := cmd.OutOrStdout()
-			client, err := kubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -201,7 +201,7 @@ func waypointCmd() *cobra.Command {
 			} else if namespace != "" {
 				ns = namespace
 			}
-			gws, err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).
+			gws, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).
 				List(context.Background(), metav1.ListOptions{})
 			if err != nil {
 				return err
@@ -227,28 +227,27 @@ func waypointCmd() *cobra.Command {
 				}
 				filteredGws = append(filteredGws, gw)
 			}
-			// TODO(hanxiaop) deal with revisions
 			if allNamespaces {
-				fmt.Fprintln(w, "NAMESPACE\tNAME\tSERVICE ACCOUNT\tPROGRAMMED\tREADY")
+				fmt.Fprintln(w, "NAMESPACE\tNAME\tSERVICE ACCOUNT\tREVISION\tPROGRAMMED")
 			} else {
-				fmt.Fprintln(w, "NAME\tSERVICE ACCOUNT\tPROGRAMMED\tREADY")
+				fmt.Fprintln(w, "NAME\tSERVICE ACCOUNT\tREVISION\tPROGRAMMED")
 			}
 			for _, gw := range filteredGws {
 				sa := gw.Annotations[constants.WaypointServiceAccount]
 				programmed := kstatus.StatusFalse
-				ready := kstatus.StatusFalse
+				rev := gw.Labels[label.IoIstioRev.Name]
+				if rev == "" {
+					rev = "default"
+				}
 				for _, cond := range gw.Status.Conditions {
-					if cond.Type == string(gateway.GatewayConditionReady) {
-						ready = string(cond.Status)
-					}
 					if cond.Type == string(gateway.GatewayConditionProgrammed) {
 						programmed = string(cond.Status)
 					}
 				}
 				if allNamespaces {
-					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, sa, programmed, ready)
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, sa, rev, programmed)
 				} else {
-					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Name, sa, programmed, ready)
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Name, sa, rev, programmed)
 				}
 			}
 			return w.Flush()

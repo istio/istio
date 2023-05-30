@@ -17,7 +17,7 @@ package mesh
 import (
 	"github.com/spf13/cobra"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // ManifestCmd is a group of commands related to manifest generation, installation, diffing and migration.

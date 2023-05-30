@@ -558,7 +558,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
 
-	s.Generators[v3.WorkloadType] = &WorkloadGenerator{s: s}
+	s.Generators[v3.AddressType] = &WorkloadGenerator{s: s}
 	s.Generators[v3.WorkloadAuthorizationType] = &WorkloadRBACGenerator{s: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}

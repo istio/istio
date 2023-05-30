@@ -22,7 +22,7 @@ import (
 	"sync"
 	"testing"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (

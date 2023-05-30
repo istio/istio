@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -86,7 +87,7 @@ var (
 	}
 )
 
-var AlwaysReady = func(class config.GroupVersionKind, stop <-chan struct{}) bool {
+var AlwaysReady = func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
 	return true
 }
 
@@ -227,7 +228,7 @@ func TestNamespaceEvent(t *testing.T) {
 	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns.Create(ns2)
-	s.WaitOrFail(t, "xds full")
+	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns1.Annotations = map[string]string{"foo": "bar"}
 	ns.Update(ns1)

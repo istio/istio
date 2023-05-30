@@ -31,8 +31,8 @@ import (
 
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
-	"istio.io/pkg/log"
 )
 
 // Client is a lightweight client for testing secret discovery service server.

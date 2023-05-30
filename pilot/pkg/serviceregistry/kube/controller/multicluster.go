@@ -270,7 +270,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 	}
 
 	// namespacecontroller requires discoverySelectors only if EnableEnhancedResourceScoping feature flag is set.
-	discoveryNamespacesFilter := namespace.DiscoveryNamespacesFilter(nil)
+	var discoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
 	if features.EnableEnhancedResourceScoping {
 		discoveryNamespacesFilter = kubeRegistry.opts.DiscoveryNamespacesFilter
 	}

@@ -27,11 +27,11 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/pki/ca"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 var serverCaLog = log.RegisterScope("serverca", "Citadel server log")
@@ -107,7 +107,8 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		sans = []string{impersonatedIdentity}
 	}
 	certSigner := crMetadata[security.CertSigner].GetStringValue()
-	serverCaLog.Debugf("cert signer from workload %s", certSigner)
+	serverCaLog.Infof("generating a certificate for %v, signer: %s, ttl: %d", sans, certSigner,
+		request.ValidityDuration)
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
 		SubjectIDs: sans,

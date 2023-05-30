@@ -17,7 +17,7 @@
 package metrics
 
 import (
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 var (
@@ -96,8 +96,6 @@ const (
 
 var (
 	// Version is the version of the operator binary running currently.
-	// This is required for fleet level metrics although it is available from
-	// ControlZ (more precisely versionz endpoint).
 	Version = monitoring.NewGauge(
 		"version",
 		"Version of operator binary",

@@ -112,10 +112,10 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 		httpServerEventCount := 0
 		sss := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			if httpServerEventCount < len(httpHealthStatuses) && httpHealthStatuses[httpServerEventCount] {
-				writer.WriteHeader(200)
+				writer.WriteHeader(http.StatusOK)
 				writer.Write([]byte("foobar"))
 			} else {
-				writer.WriteHeader(500)
+				writer.WriteHeader(http.StatusInternalServerError)
 			}
 			httpServerEventCount++
 		}))

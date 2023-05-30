@@ -21,7 +21,7 @@ import (
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Task to be performed.

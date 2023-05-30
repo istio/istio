@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -47,8 +48,8 @@ func TestWaypointList(t *testing.T) {
 			name: "default namespace gateway",
 			args: strings.Split("x waypoint list  -n default", " "),
 			gateways: []*gateway.Gateway{
-				makeGateway("namespace", "default", "", true, true, true),
-				makeGateway("namespace", "fake", "", true, true, true),
+				makeGateway("namespace", "default", "", true, true),
+				makeGateway("namespace", "fake", "", true, true),
 			},
 			expectedOutFile: "default-gateway",
 		},
@@ -56,8 +57,8 @@ func TestWaypointList(t *testing.T) {
 			name: "all namespaces gateways",
 			args: strings.Split("x waypoint list -A", " "),
 			gateways: []*gateway.Gateway{
-				makeGateway("namespace", "default", "", true, true, true),
-				makeGateway("namespace", "fake", "", true, true, true),
+				makeGateway("namespace", "default", "", true, true),
+				makeGateway("namespace", "fake", "", true, true),
 			},
 			expectedOutFile: "all-gateway",
 		},
@@ -65,23 +66,24 @@ func TestWaypointList(t *testing.T) {
 			name: "have both managed and unmanaged gateways",
 			args: strings.Split("x waypoint list -A", " "),
 			gateways: []*gateway.Gateway{
-				makeGateway("bookinfo", "default", "bookinfo", false, false, true),
-				makeGateway("bookinfo-invalid", "fake", "bookinfo", true, true, false),
-				makeGateway("namespace", "default", "", false, true, true),
-				makeGateway("bookinfo-valid", "bookinfo", "bookinfo-valid", true, true, true),
-				makeGateway("no-name-convention", "default", "sa", true, true, true),
+				makeGateway("bookinfo", "default", "bookinfo", false, true),
+				makeGateway("bookinfo-invalid", "fake", "bookinfo", true, false),
+				makeGateway("namespace", "default", "", false, true),
+				makeGateway("bookinfo-valid", "bookinfo", "bookinfo-valid", true, true),
+				makeGateway("no-name-convention", "default", "sa", true, true),
+				makeGatewayWithRevision("bookinfo-rev", "bookinfo", "bookinfo-rev", true, true, "rev1"),
 			},
 			expectedOutFile: "combined-gateway",
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			client := kube.NewFakeClient()
-			kubeClient = func(kubeconfig, configContext string) (kube.CLIClient, error) {
-				return client, nil
+			kubeClient = kube.NewFakeClient()
+			getKubeClient = func() error {
+				return nil
 			}
 			for _, gw := range tt.gateways {
-				_, _ = client.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).Create(context.Background(), gw, metav1.CreateOptions{})
+				_, _ = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).Create(context.Background(), gw, metav1.CreateOptions{})
 			}
 			defaultFile, err := os.ReadFile(fmt.Sprintf("testdata/waypoint/%s", tt.expectedOutFile))
 			if err != nil {
@@ -109,7 +111,7 @@ func TestWaypointList(t *testing.T) {
 	}
 }
 
-func makeGateway(name, namespace, sa string, programmed, ready, isWaypoint bool) *gateway.Gateway {
+func makeGateway(name, namespace, sa string, programmed, isWaypoint bool) *gateway.Gateway {
 	conditions := make([]metav1.Condition, 0)
 	if programmed {
 		conditions = append(conditions, metav1.Condition{
@@ -119,17 +121,6 @@ func makeGateway(name, namespace, sa string, programmed, ready, isWaypoint bool)
 	} else {
 		conditions = append(conditions, metav1.Condition{
 			Type:   string(gateway.GatewayConditionProgrammed),
-			Status: kstatus.StatusFalse,
-		})
-	}
-	if ready {
-		conditions = append(conditions, metav1.Condition{
-			Type:   string(gateway.GatewayConditionReady),
-			Status: kstatus.StatusTrue,
-		})
-	} else {
-		conditions = append(conditions, metav1.Condition{
-			Type:   string(gateway.GatewayConditionReady),
 			Status: kstatus.StatusFalse,
 		})
 	}
@@ -152,4 +143,13 @@ func makeGateway(name, namespace, sa string, programmed, ready, isWaypoint bool)
 			Conditions: conditions,
 		},
 	}
+}
+
+func makeGatewayWithRevision(name, namespace, sa string, programmed, isWaypoint bool, rev string) *gateway.Gateway {
+	gw := makeGateway(name, namespace, sa, programmed, isWaypoint)
+	if gw.Labels == nil {
+		gw.Labels = make(map[string]string)
+	}
+	gw.Labels[label.IoIstioRev.Name] = rev
+	return gw
 }

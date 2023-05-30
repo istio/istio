@@ -30,9 +30,9 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/lazy"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (

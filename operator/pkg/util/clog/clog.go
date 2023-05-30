@@ -19,7 +19,7 @@ import (
 	"io"
 	"os"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Logger provides optional log taps for console and test buffer outputs.

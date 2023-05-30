@@ -46,11 +46,11 @@ import (
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/shellescape"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -70,7 +70,6 @@ var (
 	ports          []string
 	resourceLabels []string
 	annotations    []string
-	svcAcctAnn     string
 )
 
 const (
@@ -206,7 +205,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -639,4 +638,57 @@ func extractClusterIDFromInjectionConfig(kubeClient kube.CLIClient) (string, err
 		return "", fmt.Errorf("could not retrieve global.multiCluster.clusterName from injection config")
 	}
 	return vs, nil
+}
+
+// Because we are placing into an Unstructured, place as a map instead
+// of structured Istio types.  (The go-client can handle the structured data, but the
+// fake go-client used for mocking cannot.)
+func unstructureIstioType(spec any) (map[string]any, error) {
+	b, err := yaml.Marshal(spec)
+	if err != nil {
+		return nil, err
+	}
+	iSpec := map[string]any{}
+	err = yaml.Unmarshal(b, &iSpec)
+	if err != nil {
+		return nil, err
+	}
+	return iSpec, nil
+}
+
+func convertToUnsignedInt32Map(s []string) map[string]uint32 {
+	out := make(map[string]uint32, len(s))
+	for _, l := range s {
+		k, v := splitEqual(l)
+		u64, err := strconv.ParseUint(v, 10, 32)
+		if err != nil {
+			log.Errorf("failed to convert to uint32: %v", err)
+		}
+		out[k] = uint32(u64)
+	}
+	return out
+}
+
+func convertToStringMap(s []string) map[string]string {
+	out := make(map[string]string, len(s))
+	for _, l := range s {
+		k, v := splitEqual(l)
+		out[k] = v
+	}
+	return out
+}
+
+// splitEqual splits key=value string into key,value. if no = is found
+// the whole string is the key and value is empty.
+func splitEqual(str string) (string, string) {
+	idx := strings.Index(str, "=")
+	var k string
+	var v string
+	if idx >= 0 {
+		k = str[:idx]
+		v = str[idx+1:]
+	} else {
+		k = str
+	}
+	return k, v
 }

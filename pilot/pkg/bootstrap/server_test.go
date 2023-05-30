@@ -36,13 +36,13 @@ import (
 	"istio.io/istio/pilot/pkg/server"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/filewatcher"
 )
 
 func loadCertFilesAtPaths(t TLSFSLoadPaths) error {

@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
@@ -36,12 +37,13 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
 var log = istiolog.RegisterScope("gateway", "gateway-api controller")
@@ -84,7 +86,7 @@ type Controller struct {
 	statusController *status.Controller
 	statusEnabled    *atomic.Bool
 
-	waitForCRD func(class config.GroupVersionKind, stop <-chan struct{}) bool
+	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
 }
 
 var _ model.GatewayController = &Controller{}
@@ -92,7 +94,7 @@ var _ model.GatewayController = &Controller{}
 func NewController(
 	kc kube.Client,
 	c model.ConfigStoreController,
-	waitForCRD func(class config.GroupVersionKind, stop <-chan struct{}) bool,
+	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool,
 	credsController credentials.MulticlusterController,
 	options controller.Options,
 ) *Controller {
@@ -113,10 +115,10 @@ func NewController(
 	}
 
 	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
-		AddFunc: func(ns *corev1.Namespace) {
-			gatewayController.namespaceEvent(nil, ns)
-		},
 		UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
+			if options.DiscoveryNamespacesFilter != nil && !options.DiscoveryNamespacesFilter.Filter(newNs) {
+				return
+			}
 			if !labels.Instance(oldNs.Labels).Equals(newNs.Labels) {
 				gatewayController.namespaceEvent(oldNs, newNs)
 			}
@@ -282,7 +284,7 @@ func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler m
 
 func (c *Controller) Run(stop <-chan struct{}) {
 	go func() {
-		if c.waitForCRD(gvk.GatewayClass, stop) {
+		if c.waitForCRD(gvr.GatewayClass, stop) {
 			gcc := NewClassController(c.client)
 			c.client.RunAndWait(stop)
 			gcc.Run(stop)

@@ -27,8 +27,8 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/watcher/configmapwatcher"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/istiomultierror"
-	"istio.io/pkg/log"
 )
 
 // Watcher watches for and reacts to injection config updates.

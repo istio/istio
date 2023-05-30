@@ -92,9 +92,8 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
 	c := NewController(store, "", time.Duration(math.MaxInt64))
 	createOrFail(t, store, wgA)
-	stop := make(chan struct{})
+	stop := test.NewStop(t)
 	go c.Run(stop)
-	defer close(stop)
 
 	cases := map[string]*model.Proxy{
 		"missing group":      {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{Namespace: wgA.Namespace}},
@@ -318,8 +317,7 @@ func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_WorkloadEntryNotFo
 	store := memory.NewController(memory.Make(collections.All))
 	createOrFail(t, store, weB)
 
-	stop := make(chan struct{})
-	defer close(stop)
+	stop := test.NewStop(t)
 
 	c := NewController(store, "pilot-x", keepalive.Infinity)
 	go c.Run(stop)
@@ -365,8 +363,7 @@ func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreated
 			store := memory.NewController(memory.Make(collections.All))
 			createOrFail(t, store, we)
 
-			stop := make(chan struct{})
-			defer close(stop)
+			stop := test.NewStop(t)
 
 			c := NewController(store, "pilot-x", keepalive.Infinity)
 			go c.Run(stop)
@@ -397,8 +394,7 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldBeTreatedAsCon
 			store := memory.NewController(memory.Make(collections.All))
 			createOrFail(t, store, we)
 
-			stop := make(chan struct{})
-			defer close(stop)
+			stop := test.NewStop(t)
 
 			c := NewController(store, "pilot-x", keepalive.Infinity)
 			go c.Run(stop)
@@ -428,9 +424,7 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 	c1, c2, store := setup(t)
 	createOrFail(t, store, weB)
 
-	stop1, stop2 := make(chan struct{}), make(chan struct{})
-	defer close(stop1)
-	defer close(stop2)
+	stop1, stop2 := test.NewStop(t), test.NewStop(t)
 
 	go c1.Run(stop1)
 	go c2.Run(stop2)
@@ -535,8 +529,7 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldUpdateHealthCo
 	c1, c2, store := setup(t)
 	createOrFail(t, store, weB)
 
-	stop := make(chan struct{})
-	defer close(stop)
+	stop := test.NewStop(t)
 
 	go c1.Run(stop)
 	go c2.Run(stop)

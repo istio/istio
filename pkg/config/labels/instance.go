@@ -21,7 +21,8 @@ import (
 	"sort"
 
 	"github.com/hashicorp/go-multierror"
-	"golang.org/x/exp/maps"
+
+	"istio.io/istio/pkg/maps"
 )
 
 const (

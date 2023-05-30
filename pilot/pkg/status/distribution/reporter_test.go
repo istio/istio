@@ -25,8 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/ledger"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/ledger"
 )
 
 func TestStatusMaps(t *testing.T) {

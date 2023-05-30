@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/analysis/diag"
-	"istio.io/pkg/env"
+	"istio.io/istio/pkg/env"
 )
 
 // Formatting options for Messages

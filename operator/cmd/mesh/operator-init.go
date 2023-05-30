@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
-	buildversion "istio.io/pkg/version"
+	buildversion "istio.io/istio/pkg/version"
 )
 
 type operatorInitArgs struct {
