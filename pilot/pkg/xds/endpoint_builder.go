@@ -93,7 +93,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		destinationRule: dr,
 		nodeType:        proxy.Type,
 
-		mtlsChecker: newMtlsChecker(push, port, dr.GetRule()),
+		mtlsChecker: newMtlsChecker(push, port, dr.GetRule(), subsetName),
 		push:        push,
 		proxy:       proxy,
 		subsetName:  subsetName,
@@ -318,15 +318,13 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			}
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
-			if b.mtlsChecker != nil {
-				b.mtlsChecker.computeForEndpoint(ep)
-				tlsMode := ep.TLSMode
-				if b.mtlsChecker.isMtlsDisabled(ep.EnvoyEndpoint) {
-					tlsMode = ""
-				}
-				if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
-					ep.EnvoyEndpoint = nep
-				}
+			enabled := b.mtlsChecker.computeMtlsEnabled(ep)
+			tlsMode := ep.TLSMode
+			if !enabled {
+				tlsMode = ""
+			}
+			if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
+				ep.EnvoyEndpoint = nep
 			}
 			locLbEps.append(ep, ep.EnvoyEndpoint)
 		}

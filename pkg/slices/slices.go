@@ -33,6 +33,9 @@ func Equal[E comparable](s1, s2 []E) bool {
 // This sort is not guaranteed to be stable.
 // The slice is modified in place but returned.
 func SortFunc[E any](x []E, less func(a, b E) bool) []E {
+	if len(x) <= 1 {
+		return x
+	}
 	slices.SortFunc(x, less)
 	return x
 }
@@ -40,6 +43,9 @@ func SortFunc[E any](x []E, less func(a, b E) bool) []E {
 // Sort sorts a slice of any ordered type in ascending order.
 // The slice is modified in place but returned.
 func Sort[E constraints.Ordered](x []E) []E {
+	if len(x) <= 1 {
+		return x
+	}
 	slices.Sort(x)
 	return x
 }

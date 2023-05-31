@@ -41,7 +41,6 @@ import (
 	apiannotation "istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/api/security/v1beta1"
 	typev1beta1 "istio.io/api/type/v1beta1"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
@@ -1307,13 +1306,13 @@ func printConfigs(writer io.Writer, configs []*config.Config) {
 	fmt.Fprintf(writer, "   %s\n", cfgNames)
 }
 
-func printPeerAuthentication(writer io.Writer, pa *v1beta1.PeerAuthentication) {
+func printPeerAuthentication(writer io.Writer, pa authnv1beta1.MergedPeerAuthentication) {
 	fmt.Fprintf(writer, "Effective PeerAuthentication:\n")
-	fmt.Fprintf(writer, "   Workload mTLS mode: %s\n", pa.Mtls.Mode.String())
-	if len(pa.PortLevelMtls) != 0 {
+	fmt.Fprintf(writer, "   Workload mTLS mode: %s\n", pa.Mode.String())
+	if len(pa.PerPort) != 0 {
 		fmt.Fprintf(writer, "   Port Level mTLS mode:\n")
-		for port, mode := range pa.PortLevelMtls {
-			fmt.Fprintf(writer, "      %d: %s\n", port, mode.Mode.String())
+		for port, mode := range pa.PerPort {
+			fmt.Fprintf(writer, "      %d: %s\n", port, mode.String())
 		}
 	}
 }

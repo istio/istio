@@ -40,7 +40,7 @@ type PolicyApplier interface {
 	AuthNFilter(forSidecar bool) *hcm.HttpFilter
 
 	// PortLevelSetting returns port level mTLS settings.
-	PortLevelSetting() map[uint32]*v1beta1.PeerAuthentication_MutualTLS
+	PortLevelSetting() map[uint32]v1beta1.PeerAuthentication_MutualTLS_Mode
 
 	MtlsPolicy
 }
