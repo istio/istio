@@ -32,10 +32,11 @@ import (
 )
 
 // nolint: interfacer
-func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *structpb.Struct, strict bool) (proto.Message, error) {
+func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *structpb.Struct, strict bool) (proto.Message, error, error) {
+	validationErr := errors.New("modification other than injection of the supported HTTP filters detected")
 	if value == nil {
 		// for remove ops
-		return nil, nil
+		return nil, nil, validationErr
 	}
 	var obj proto.Message
 	switch applyTo {
@@ -48,6 +49,11 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *str
 	case networking.EnvoyFilter_FILTER_CHAIN:
 		obj = &listener.FilterChain{}
 	case networking.EnvoyFilter_HTTP_FILTER:
+		// Try the restricted conversion first.
+		obj, validationErr = ConvertHTTPFilter(value)
+		if validationErr == nil {
+			return obj, nil, nil
+		}
 		obj = &hcm.HttpFilter{}
 	case networking.EnvoyFilter_NETWORK_FILTER:
 		obj = &listener.Filter{}
@@ -62,13 +68,13 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *str
 	case networking.EnvoyFilter_LISTENER_FILTER:
 		obj = &listener.ListenerFilter{}
 	default:
-		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: stylecheck
+		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()), validationErr // nolint: stylecheck
 	}
 
 	if err := StructToMessage(value, obj, strict); err != nil {
-		return nil, fmt.Errorf("Envoy filter: %v", err) // nolint: stylecheck
+		return nil, fmt.Errorf("Envoy filter: %v", err), validationErr // nolint: stylecheck
 	}
-	return obj, nil
+	return obj, nil, validationErr
 }
 
 func StructToMessage(pbst *structpb.Struct, out proto.Message, strict bool) error {

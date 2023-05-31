@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/xds"
@@ -100,10 +101,28 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 			Match:     cp.Match,
 			Operation: cp.Patch.Operation,
 		}
-		var err error
+
+		var err, validationErr error
 		// Use non-strict building to avoid issues where EnvoyFilter is valid but meant
 		// for a different version of the API than we are built with
-		cpw.Value, err = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false)
+		cpw.Value, err, validationErr = xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false)
+		if !features.UnsafeEnvoyFilter {
+			if validationErr != nil {
+				log.Errorf("discarding unsafe EnvoyFilter: %v", validationErr)
+				continue
+			}
+			if cpw.Operation != networking.EnvoyFilter_Patch_INSERT_AFTER &&
+				cpw.Operation != networking.EnvoyFilter_Patch_INSERT_BEFORE &&
+				cpw.Operation != networking.EnvoyFilter_Patch_INSERT_FIRST &&
+				cpw.Operation != networking.EnvoyFilter_Patch_ADD {
+				log.Errorf("discarding unsafe EnvoyFilter, unsupported operation: %s", cpw.Operation.String())
+				continue
+			}
+			if cpw.Match != nil {
+				log.Errorf("discarding unsafe EnvoyFilter, match context is not supported")
+				continue
+			}
+		}
 		// There generally won't be an error here because validation catches mismatched types
 		// Should only happen in tests or without validation
 		if err != nil {

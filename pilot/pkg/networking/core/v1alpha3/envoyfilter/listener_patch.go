@@ -549,6 +549,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 			applied = true
 			httpconn.HttpFilters = append(httpconn.HttpFilters, proto.Clone(lp.Value).(*hcm.HttpFilter))
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
+			applied = true
 			httpconn.HttpFilters = append([]*hcm.HttpFilter{proto.Clone(lp.Value).(*hcm.HttpFilter)}, httpconn.HttpFilters...)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
 			// Insert after without a filter match is same as ADD in the end

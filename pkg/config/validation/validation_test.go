@@ -4142,7 +4142,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: ""},
+		}, error: "", warning: "unsafe operation"},
 		{name: "listener with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -4258,7 +4258,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "Envoy filter: applyTo for http route class objects cannot have non route configuration match"},
+		}, error: "Envoy filter: applyTo for http route class objects cannot have non route configuration match", warning: "unsafe operation"},
 		{name: "cluster with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -4273,7 +4273,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "Envoy filter: applyTo for cluster class objects cannot have non cluster match"},
+		}, error: "Envoy filter: applyTo for cluster class objects cannot have non cluster match", warning: "unsafe operation"},
 		{name: "invalid patch value", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -4295,7 +4295,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: `Envoy filter: json: cannot unmarshal bool into Go value of type string`},
+		}, error: `Envoy filter: json: cannot unmarshal bool into Go value of type string`, warning: "unsafe operation"},
 		{name: "happy config", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -4377,7 +4377,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: ""},
+		}, error: "", warning: "unsafe operation"},
 		{name: "deprecated config", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -4411,7 +4411,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "referenced type unknown (hint: try using the v3 XDS API)"},
+		}, error: "referenced type unknown (hint: try using the v3 XDS API)", warning: "unsafe operation"},
 		{name: "deprecated type", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -4453,7 +4453,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "", warning: ""},
+		}, error: "", warning: "unsafe operation"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
