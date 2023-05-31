@@ -377,6 +377,10 @@ var (
 	EnableDebugOnHTTP = env.Register("ENABLE_DEBUG_ON_HTTP", true,
 		"If this is set to false, the debug interface will not be enabled, recommended for production").Get()
 
+	MutexProfileFraction = env.Register("MUTEX_PROFILE_FRACTION", 1000,
+		"If set to a non-zero value, enables mutex profiling a rate of 1/MUTEX_PROFILE_FRACTION events."+
+			" For example, '1000' will record 0.1% of events.").Get()
+
 	EnableUnsafeAdminEndpoints = env.Register("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoints will be exposed on the debug interface. Not recommended for production.").Get()
 
