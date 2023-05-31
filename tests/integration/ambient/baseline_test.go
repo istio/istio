@@ -380,32 +380,13 @@ spec:
             function envoy_on_request(request_handle)
               request_handle:headers():add("x-lua-inbound", "hello world")
             end
-  - applyTo: VIRTUAL_HOST
-    match:
-      context: SIDECAR_INBOUND
-    patch:
-      operation: MERGE
-      value:
-        request_headers_to_add:
-        - header:
-            key: x-vhost-inbound
-            value: "hello world"
-  - applyTo: CLUSTER
-    match:
-      context: SIDECAR_INBOUND
-      cluster: {}
-    patch:
-      operation: MERGE
-      value:
-        http2_protocol_options: {}
 `).ApplyOrFail(t)
 		opt.Count = 5
 		opt.Timeout = time.Second * 10
 		opt.Check = check.And(
 			check.OK(),
 			check.RequestHeaders(map[string]string{
-				"X-Lua-Inbound":   "hello world",
-				"X-Vhost-Inbound": "hello world",
+				"X-Lua-Inbound": "hello world",
 			}))
 		src.CallOrFail(t, opt)
 	})

@@ -113,14 +113,34 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 			}
 			if cpw.Operation != networking.EnvoyFilter_Patch_INSERT_AFTER &&
 				cpw.Operation != networking.EnvoyFilter_Patch_INSERT_BEFORE &&
-				cpw.Operation != networking.EnvoyFilter_Patch_INSERT_FIRST &&
-				cpw.Operation != networking.EnvoyFilter_Patch_ADD {
+				cpw.Operation != networking.EnvoyFilter_Patch_INSERT_FIRST {
 				log.Errorf("discarding unsafe EnvoyFilter, unsupported operation: %s", cpw.Operation.String())
 				continue
 			}
 			if cpw.Match != nil && cpw.Match.ObjectTypes != nil {
-				log.Errorf("discarding unsafe EnvoyFilter, match by reference is not supported")
-				continue
+				// The only allowed reference point is "router"
+				lm := cpw.Match.GetListener()
+				if lm == nil || lm.Name != "" || lm.ListenerFilter != "" || lm.PortName != "" {
+					log.Errorf("discarding unsafe EnvoyFilter, match by listener attributes not supported")
+					continue
+				}
+				if fc := lm.FilterChain; fc != nil {
+					if fc.Name != "" || fc.Sni != "" || fc.TransportProtocol != "" || fc.ApplicationProtocols != "" || fc.DestinationPort > 0 {
+						log.Errorf("discarding unsafe EnvoyFilter, match by filter chain attributes not supported")
+						continue
+					}
+					if f := fc.Filter; f != nil {
+						if f.Name != "envoy.filters.network.http_connection_manager" {
+							log.Errorf("discarding unsafe EnvoyFilter, unknown filter: %s", f.Name)
+							continue
+						}
+						if f.SubFilter != nil && f.SubFilter.Name != "envoy.filters.http.router" {
+							log.Errorf("discarding unsafe EnvoyFilter, only router can be used: %s", f.SubFilter.Name)
+							continue
+						}
+					}
+				}
+
 			}
 		}
 		// There generally won't be an error here because validation catches mismatched types

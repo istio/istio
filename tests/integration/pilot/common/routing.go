@@ -1878,8 +1878,14 @@ spec:
   - applyTo: HTTP_FILTER
     match:
       context: SIDECAR_OUTBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
     patch:
-      operation: ADD
+      operation: INSERT_BEFORE
       value:
        name: envoy.lua
        typed_config:
@@ -1888,24 +1894,6 @@ spec:
             function envoy_on_request(request_handle)
               request_handle:headers():add("x-lua-outbound", "hello world")
             end
-  - applyTo: VIRTUAL_HOST
-    match:
-      context: SIDECAR_OUTBOUND
-    patch:
-      operation: MERGE
-      value:
-        request_headers_to_add:
-        - header:
-            key: x-vhost-outbound
-            value: "hello world"
-  - applyTo: CLUSTER
-    match:
-      context: SIDECAR_OUTBOUND
-      cluster: {}
-    patch:
-      operation: MERGE
-      value:
-        http2_protocol_options: {}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -1919,8 +1907,14 @@ spec:
   - applyTo: HTTP_FILTER
     match:
       context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
     patch:
-      operation: ADD
+      operation: INSERT_BEFORE
       value:
        name: envoy.lua
        typed_config:
@@ -1929,24 +1923,6 @@ spec:
             function envoy_on_request(request_handle)
               request_handle:headers():add("x-lua-inbound", "hello world")
             end
-  - applyTo: VIRTUAL_HOST
-    match:
-      context: SIDECAR_INBOUND
-    patch:
-      operation: MERGE
-      value:
-        request_headers_to_add:
-        - header:
-            key: x-vhost-inbound
-            value: "hello world"
-  - applyTo: CLUSTER
-    match:
-      context: SIDECAR_INBOUND
-      cluster: {}
-    patch:
-      operation: MERGE
-      value:
-        http2_protocol_options: {}
 `
 	for _, c := range t.Apps.A {
 		t.RunTraffic(TrafficTestCase{
@@ -1960,12 +1936,9 @@ spec:
 				},
 				Check: check.And(
 					check.OK(),
-					check.Protocol("HTTP/2.0"),
 					check.RequestHeaders(map[string]string{
-						"X-Vhost-Inbound":  "hello world",
-						"X-Vhost-Outbound": "hello world",
-						"X-Lua-Inbound":    "hello world",
-						"X-Lua-Outbound":   "hello world",
+						"X-Lua-Inbound":  "hello world",
+						"X-Lua-Outbound": "hello world",
 					}),
 				),
 			},
