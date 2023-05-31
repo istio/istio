@@ -1254,8 +1254,6 @@ spec:
 kind: Gateway
 metadata:
   name: gateway
-  annotations:
-    "proxy.istio.io/config": '{"gatewayTopology" : { "numTrustedProxies": 1 } }'
 spec:
   selector:
     istio: {{.GatewayIstioLabel | default "ingressgateway"}}
@@ -1372,8 +1370,6 @@ spec:
 kind: Gateway
 metadata:
   name: gateway
-  annotations:
-    "proxy.istio.io/config": '{"gatewayTopology" : { "numTrustedProxies": 1 } }'
 spec:
   selector:
     istio: {{.GatewayIstioLabel | default "ingressgateway"}}
@@ -1880,6 +1876,8 @@ spec:
       app: a
   configPatches:
   - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_OUTBOUND
     patch:
       operation: ADD
       value:
@@ -1919,6 +1917,8 @@ spec:
       app: b
   configPatches:
   - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
     patch:
       operation: ADD
       value:

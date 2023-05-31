@@ -11,6 +11,8 @@ spec:
     defaultConfig:
       proxyMetadata:
         ISTIO_META_DNS_CAPTURE: "true"
+      gatewayTopology:
+        numTrustedProxies: 1 # Needed for X-Forwarded-For in tests
   values:
     pilot:
       # Lower the reconnect time so we test reconnects. The default of 30min means we almost never trigger in tests.

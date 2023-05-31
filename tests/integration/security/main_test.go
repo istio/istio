@@ -55,10 +55,6 @@ values:
   pilot: 
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
-meshConfig:
-  defaultConfig:
-    gatewayTopology:
-      numTrustedProxies: 1 # Needed for X-Forwarded-For (See https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/)
 `
 			} else {
 				cfg.ControlPlaneValues = `
@@ -71,8 +67,6 @@ meshConfig:
   defaultConfig:
     proxyMetadata:
       ISTIO_AGENT_DUAL_STACK: "true"
-    gatewayTopology:
-      numTrustedProxies: 1 # Needed for X-Forwarded-For (See https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/)
 `
 			}
 		})).

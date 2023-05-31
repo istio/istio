@@ -118,8 +118,8 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 				log.Errorf("discarding unsafe EnvoyFilter, unsupported operation: %s", cpw.Operation.String())
 				continue
 			}
-			if cpw.Match != nil {
-				log.Errorf("discarding unsafe EnvoyFilter, match context is not supported")
+			if cpw.Match != nil && cpw.Match.ObjectTypes != nil {
+				log.Errorf("discarding unsafe EnvoyFilter, match by reference is not supported")
 				continue
 			}
 		}
