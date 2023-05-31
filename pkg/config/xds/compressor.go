@@ -32,15 +32,15 @@ func init() {
 	initRegister(&Compressor{})
 }
 
-func (_ *Compressor) Name() string {
+func (*Compressor) Name() string {
 	return "compressor"
 }
 
-func (_ *Compressor) TypeURL() string {
+func (*Compressor) TypeURL() string {
 	return "type.googleapis.com/envoy.extensions.filters.http.compressor.v3.Compressor"
 }
 
-func (_ *Compressor) New() proto.Message {
+func (*Compressor) New() proto.Message {
 	return &compressor.Compressor{}
 }
 
@@ -50,7 +50,7 @@ const (
 	zstd   = "type.googleapis.com/envoy.extensions.compression.zstd.compressor.v3.Zstd"
 )
 
-func (_ *Compressor) Validate(pb proto.Message) error {
+func (*Compressor) Validate(pb proto.Message) error {
 	// Allow only stable compression algorithms.
 	config := pb.(*compressor.Compressor)
 	library := config.CompressorLibrary

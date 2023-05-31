@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"google.golang.org/protobuf/types/known/structpb"
+
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -68,11 +69,13 @@ const example = `
           default_value: false
           runtime_key: request_direction_config_enabled
 `
+
 const missingCompressor = `
   name: envoy.filters.http.compressor
   typed_config:
     '@type': type.googleapis.com/envoy.extensions.filters.http.compressor.v3.Compressor
 `
+
 const missingConfig = `
   name: envoy.filters.http.compressor
   typed_config:
@@ -80,6 +83,7 @@ const missingConfig = `
     compressor_library:
       name: text_optimized
 `
+
 const unknownConfig = `
   name: envoy.filters.http.compressor
   typed_config:
