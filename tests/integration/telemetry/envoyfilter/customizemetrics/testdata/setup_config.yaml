@@ -7,6 +7,9 @@ meshConfig:
     - url_path
     - response_status
 values:
+ pilot:
+    env:
+      PILOT_ENABLE_UNSAFE_ENVOY_FILTER: "true"
  telemetry:
    v2:
      prometheus:

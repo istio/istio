@@ -97,7 +97,14 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		Setup(istio.Setup(&ist, nil)).
+		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  pilot:
+    env:
+      PILOT_ENABLE_UNSAFE_ENVOY_FILTER: "true"
+`
+		})).
 		Setup(testSetup).
 		Setup(setupPrometheus).
 		Run()
