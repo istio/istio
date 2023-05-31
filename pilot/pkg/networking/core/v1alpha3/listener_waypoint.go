@@ -164,7 +164,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 	return lb.buildConnectTerminateListener(routes)
 }
 
-func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs map[host.Name]*model.Service) *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs map[host.Name]*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
 	chains := []*listener.FilterChain{}
 	pre, post := lb.buildWaypointHTTPFilters()
@@ -257,8 +257,8 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		if len(wls) > 0 {
 			// Workload IP filtering happens here.
 			ipRange := []*xds.CidrRange{}
-			for _, wlx := range wls {
-				addr, _ := netip.AddrFromSlice(wlx.WorkloadInfo.Address)
+			for _, wl := range wls {
+				addr, _ := netip.AddrFromSlice(wl.Address)
 				cidr := util.ConvertAddressToCidr(addr.String())
 				ipRange = append(ipRange, &xds.CidrRange{
 					AddressPrefix: cidr.AddressPrefix,
