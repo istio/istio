@@ -67,14 +67,14 @@ func initRegisterListener(ef EnvoyFilter) {
 // ConvertHTTPFilter from JSON to the validated typed HTTP filter config.
 func ConvertHTTPFilter(pbst *structpb.Struct) (*hcm.HttpFilter, error) {
 	out := &hcm.HttpFilter{}
-	err := convertFilter(pbst, out)
+	err := convertFilter(pbst, EnvoyHTTPFilters, out)
 	return out, err
 }
 
 // ConvertListenerFilter from JSON to the validated typed listener filter config.
 func ConvertListenerFilter(pbst *structpb.Struct) (*listener.ListenerFilter, error) {
 	out := &listener.ListenerFilter{}
-	err := convertFilter(pbst, out)
+	err := convertFilter(pbst, EnvoyListenerFilters, out)
 	if out.FilterDisabled != nil {
 		return out, errors.New("listener filter matcher not supported")
 	}
@@ -88,7 +88,7 @@ type filterConfig interface {
 	GetTypedConfig() *anypb.Any
 }
 
-func convertFilter[T filterConfig](pbst *structpb.Struct, filter T) error {
+func convertFilter[T filterConfig](pbst *structpb.Struct, filters map[string]EnvoyFilter, filter T) error {
 	if pbst == nil {
 		return errors.New("nil struct")
 	}
@@ -100,7 +100,7 @@ func convertFilter[T filterConfig](pbst *structpb.Struct, filter T) error {
 	if err != nil || filter.GetTypedConfig() == nil || filter.GetName() == "" {
 		return fmt.Errorf("failed to parse filter xDS config: %v", err)
 	}
-	ef, ok := EnvoyHTTPFilters[filter.GetTypedConfig().TypeUrl]
+	ef, ok := filters[filter.GetTypedConfig().TypeUrl]
 	if !ok {
 		return fmt.Errorf("unknown filter extension: %s", filter.GetTypedConfig().TypeUrl)
 	}
