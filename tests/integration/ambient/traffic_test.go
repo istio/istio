@@ -1,3 +1,6 @@
+//go:build integ
+// +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,20 +15,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package echo
+package ambient
 
-// WorkloadClass is the class of workload in the echo instance
-type WorkloadClass = string
+import (
+	"testing"
 
-const (
-	Proxyless   WorkloadClass = "proxyless"
-	VM          WorkloadClass = "vm"
-	Delta       WorkloadClass = "delta"
-	TProxy      WorkloadClass = "tproxy"
-	Naked       WorkloadClass = "naked"
-	External    WorkloadClass = "external"
-	StatefulSet WorkloadClass = "statefulset"
-	Headless    WorkloadClass = "headless"
-	Captured    WorkloadClass = "captured"
-	Standard    WorkloadClass = "standard"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
+	"istio.io/istio/tests/integration/pilot/common"
 )
+
+func TestTraffic(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		apps := deployment.NewOrFail(t, t, deployment.Config{
+			NoExternalNamespace: true,
+			IncludeExtAuthz:     false,
+		})
+		common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
+	})
+}

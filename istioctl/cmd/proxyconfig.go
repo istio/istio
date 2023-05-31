@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -118,21 +117,20 @@ var stringToLevel = map[string]Level{
 }
 
 var (
-	loggerLevelString      = ""
-	reset                  = false
-	once                   sync.Once
-	isZtunnelPodKubeClient kube.CLIClient
+	loggerLevelString = ""
+	reset             = false
+	once              sync.Once
 )
 
 var isZtunnelPod = func(podName, podNamespace string) (bool, error) {
 	var err error
 	once.Do(func() {
-		isZtunnelPodKubeClient, err = kubeClient(kubeconfig, configContext)
+		err = getKubeClient()
 	})
 	if err != nil {
 		return false, err
 	}
-	return ambientutil.IsZtunnelPod(isZtunnelPodKubeClient, podName, podNamespace), nil
+	return ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace), nil
 }
 
 func ztunnelLogLevel(level string) string {
@@ -147,7 +145,7 @@ func ztunnelLogLevel(level string) string {
 }
 
 func extractConfigDump(podName, podNamespace string, eds bool) ([]byte, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -163,7 +161,7 @@ func extractConfigDump(podName, podNamespace string, eds bool) ([]byte, error) {
 }
 
 func extractZtunnelConfigDump(podName, podNamespace string) ([]byte, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -243,7 +241,7 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 }
 
 func setupEnvoyClusterStatsConfig(podName, podNamespace string, outputFormat string) (string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
@@ -260,7 +258,7 @@ func setupEnvoyClusterStatsConfig(podName, podNamespace string, outputFormat str
 }
 
 func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat string) (string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
@@ -293,7 +291,7 @@ func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat stri
 }
 
 func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
@@ -329,7 +327,7 @@ func getLogLevelFromConfigMap() (string, error) {
 }
 
 func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -1453,7 +1451,7 @@ func proxyConfig() *cobra.Command {
 }
 
 func getPodNames(podflag string) ([]string, string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return []string{}, "", fmt.Errorf("failed to create k8s client: %w", err)
 	}
@@ -1472,7 +1470,7 @@ func getPodName(podflag string) (string, string, error) {
 }
 
 func getPodNameWithNamespace(podflag, ns string) (string, string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
 	}
@@ -1496,11 +1494,11 @@ func getPodNameBySelector(labelSelector string) ([]string, string, error) {
 		podNames []string
 		ns       string
 	)
-	client, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create k8s client: %w", err)
 	}
-	pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
+	pl, err := kubeClient.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
 	if err != nil {
 		return nil, "", fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 	}

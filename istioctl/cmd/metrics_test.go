@@ -36,7 +36,7 @@ type mockPromAPI struct {
 	cannedResponse map[string]prometheus_model.Value
 }
 
-func mockExecClientAuthNoPilot(_, _, _ string) (kube.CLIClient, error) {
+func mockExecClientAuthNoPilot(_ string) (kube.CLIClient, error) {
 	return MockClient{
 		CLIClient: kube.NewFakeClient(),
 	}, nil
@@ -83,7 +83,7 @@ func TestMetrics(t *testing.T) {
 	}
 }
 
-func mockPortForwardClientAuthPrometheus(_, _, _ string) (kube.CLIClient, error) {
+func mockPortForwardClientAuthPrometheus(_ string) (kube.CLIClient, error) {
 	return MockClient{
 		CLIClient: kube.NewFakeClient(&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{

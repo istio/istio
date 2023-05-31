@@ -63,7 +63,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return err
 			}
@@ -72,15 +72,15 @@ Checks associated resources of the given resource, and running webhooks to exami
 			if len(args) == 1 {
 				podName, podNs, err = handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(namespace, defaultNamespace),
-					MakeKubeFactory(client))
+					MakeKubeFactory(kubeClient))
 				if err != nil {
 					return err
 				}
-				pod, err := client.Kube().CoreV1().Pods(podNs).Get(context.TODO(), podName, metav1.GetOptions{})
+				pod, err := kubeClient.Kube().CoreV1().Pods(podNs).Get(context.TODO(), podName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
-				ns, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), podNs, metav1.GetOptions{})
+				ns, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), podNs, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -90,7 +90,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 				if namespace == "" {
 					namespace = defaultNamespace
 				}
-				ns, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+				ns, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -101,7 +101,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 				podLabels = ls.MatchLabels
 				nsLabels = ns.GetLabels()
 			}
-			whs, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
+			whs, err := kubeClient.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}

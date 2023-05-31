@@ -184,7 +184,7 @@ func poll(cmd *cobra.Command,
 	targetResource string,
 	opts clioptions.ControlPlaneOptions,
 ) (present, notpresent, sdcnum int, err error) {
-	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+	kubeClient, err := kubeClientWithRevision(opts.Revision)
 	if err != nil {
 		return 0, 0, 0, err
 	}

@@ -16,6 +16,8 @@ spec:
       annotations:
         # Sidecar is inside the pod to simulate VMs - do not inject
         sidecar.istio.io/inject: "false"
+        # HBONE enabled proxy lives inside the VM. Don't use CNI to redirect.
+        ambient.istio.io/redirection: disabled
       labels:
         # Label should not be selected. We will create a workload entry instead
         istio.io/test-vm: {{ $.Service }}

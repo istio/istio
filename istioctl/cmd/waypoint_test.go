@@ -78,12 +78,12 @@ func TestWaypointList(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			client := kube.NewFakeClient()
-			kubeClient = func(kubeconfig, configContext string) (kube.CLIClient, error) {
-				return client, nil
+			kubeClient = kube.NewFakeClient()
+			getKubeClient = func() error {
+				return nil
 			}
 			for _, gw := range tt.gateways {
-				_, _ = client.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).Create(context.Background(), gw, metav1.CreateOptions{})
+				_, _ = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).Create(context.Background(), gw, metav1.CreateOptions{})
 			}
 			defaultFile, err := os.ReadFile(fmt.Sprintf("testdata/waypoint/%s", tt.expectedOutFile))
 			if err != nil {

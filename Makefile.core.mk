@@ -490,11 +490,17 @@ include tests/integration/tests.mk
 # Target: bookinfo sample
 #-----------------------------------------------------------------------------
 
-export BOOKINFO_VERSION ?= 1.19.0
+export BOOKINFO_VERSION ?= 1.18.0
 
-.PHONY: bookinfo.build
+.PHONY: bookinfo.build bookinfo.push
 
 bookinfo.build:
-	@samples/bookinfo/src/build-services.sh ${BOOKINFO_VERSION} ${HUB}
+	@prow/buildx-create
+	@BOOKINFO_TAG=${BOOKINFO_VERSION} BOOKINFO_HUB=${HUB} samples/bookinfo/src/build-services.sh
+
+bookinfo.push: MULTI_ARCH=true
+bookinfo.push:
+	@prow/buildx-create
+	@BOOKINFO_TAG=${BOOKINFO_VERSION} BOOKINFO_HUB=${HUB} samples/bookinfo/src/build-services.sh --push
 
 include common/Makefile.common.mk

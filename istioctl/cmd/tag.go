@@ -136,12 +136,12 @@ injection labels.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			err := initKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, istioNamespace, false, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), kubeClient, args[0], revision, istioNamespace, false, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -184,12 +184,12 @@ injection labels.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			err := initKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, istioNamespace, true, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), kubeClient, args[0], revision, istioNamespace, true, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -217,11 +217,11 @@ func tagListCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			err := initKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			return listTags(context.Background(), client.Kube(), cmd.OutOrStdout())
+			return listTags(context.Background(), kubeClient.Kube(), cmd.OutOrStdout())
 		},
 	}
 
@@ -252,12 +252,12 @@ revision tag before removing using the "istioctl tag list" command.
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			err := initKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return removeTag(context.Background(), client.Kube(), args[0], skipConfirmation, cmd.OutOrStdout())
+			return removeTag(context.Background(), kubeClient.Kube(), args[0], skipConfirmation, cmd.OutOrStdout())
 		},
 	}
 

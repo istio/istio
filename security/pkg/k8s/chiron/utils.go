@@ -64,7 +64,6 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 		cert.UsageDigitalSignature,
 		cert.UsageKeyEncipherment,
 		cert.UsageServerAuth,
-		cert.UsageClientAuth,
 	}
 	if signerName == "" {
 		signerName = "kubernetes.io/legacy-unknown"

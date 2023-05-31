@@ -110,11 +110,11 @@ func waypointCmd() *cobra.Command {
   istioctl x waypoint apply --service-account something --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gw := makeGateway(true)
-			client, err := kubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			gwc := client.GatewayAPI().GatewayV1beta1().Gateways(handlers.HandleNamespace(namespace, defaultNamespace))
+			gwc := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(handlers.HandleNamespace(namespace, defaultNamespace))
 			b, err := yaml.Marshal(gw)
 			if err != nil {
 				return err
@@ -149,14 +149,14 @@ func waypointCmd() *cobra.Command {
 			if len(args) > 1 {
 				return fmt.Errorf("too many arguments, expected 0 or 1")
 			}
-			client, err := kubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 			if len(args) == 1 {
 				name := args[0]
 				ns := handlers.HandleNamespace(namespace, defaultNamespace)
-				gw, err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
+				gw, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
 						fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", ns, name)
@@ -164,7 +164,7 @@ func waypointCmd() *cobra.Command {
 					}
 					return err
 				}
-				if err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).
+				if err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).
 					Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
 					return err
 				}
@@ -172,7 +172,7 @@ func waypointCmd() *cobra.Command {
 				return nil
 			}
 			gw := makeGateway(true)
-			if err = client.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
+			if err = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
 				Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
 				return err
 			}
@@ -191,7 +191,7 @@ func waypointCmd() *cobra.Command {
   istioctl x waypoint list -A`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			writer := cmd.OutOrStdout()
-			client, err := kubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -201,7 +201,7 @@ func waypointCmd() *cobra.Command {
 			} else if namespace != "" {
 				ns = namespace
 			}
-			gws, err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).
+			gws, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).
 				List(context.Background(), metav1.ListOptions{})
 			if err != nil {
 				return err

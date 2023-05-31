@@ -183,20 +183,18 @@ func revisionListCommand() *cobra.Command {
 }
 
 func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) error {
-	client, err := newKubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
-		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v",
-			kubeconfig, configContext, err)
+		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v", kubeconfig, configContext, err)
 	}
 
-	revisions, err := tag.ListRevisionDescriptions(client)
+	revisions, err := tag.ListRevisionDescriptions(kubeClient)
 	if err != nil {
-		return fmt.Errorf("cannot list revisions for kubeconfig=%s, context=%s: %v",
-			kubeconfig, configContext, err)
+		return fmt.Errorf("cannot list revisions for kubeconfig=%s, context=%s: %v", kubeconfig, configContext, err)
 	}
 
 	// Get a list of all CRs which are installed in this cluster
-	iopcrs, err := getAllMergedIstioOperatorCRs(client, logger)
+	iopcrs, err := getAllMergedIstioOperatorCRs(kubeClient, logger)
 	if err != nil {
 		return fmt.Errorf("error while listing IstioOperator CRs: %v", err)
 	}
@@ -229,7 +227,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 
 	if args.verbose {
 		for rev, desc := range revisions {
-			revClient, err := newKubeClientWithRevision(kubeconfig, configContext, rev)
+			revClient, err := newKubeClientWithRevision(rev)
 			if err != nil {
 				return fmt.Errorf("failed to get revision based kubeclient for revision: %s", rev)
 			}
@@ -497,10 +495,9 @@ func getAllMergedIstioOperatorCRs(client kube.CLIClient, logger clog.Logger) ([]
 
 func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logger) error {
 	revision := args.name
-	client, err := newKubeClientWithRevision(kubeconfig, configContext, revision)
+	client, err := newKubeClientWithRevision(revision)
 	if err != nil {
-		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v",
-			kubeconfig, configContext, err)
+		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v", kubeconfig, configContext, err)
 	}
 	allIops, err := getAllMergedIstioOperatorCRs(client, logger)
 	if err != nil {
@@ -557,13 +554,13 @@ func revisionExists(revDescription *tag.RevisionDescription) bool {
 }
 
 func annotateWithNamespaceAndPodInfo(revDescription *tag.RevisionDescription, revisionAliases []string) error {
-	client, err := newKubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return fmt.Errorf("failed to create kubeclient: %v", err)
 	}
 	nsMap := make(map[string]*tag.NsInfo)
 	for _, ra := range revisionAliases {
-		pods, err := getPodsWithSelector(client, "", &metav1.LabelSelector{
+		pods, err := getPodsWithSelector(kubeClient, "", &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				label.IoIstioRev.Name: ra,
 			},

@@ -112,7 +112,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
   istioctl x internal-debug syncz --xds-label istio.io/rev=default
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
