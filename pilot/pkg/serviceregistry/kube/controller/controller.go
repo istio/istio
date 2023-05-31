@@ -767,7 +767,7 @@ func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.
 	targetPort serviceTargetPort, wi *model.WorkloadInstance,
 ) *model.ServiceInstance {
 	// create an instance with endpoint whose service port name matches
-	istioEndpoint := *wi.Endpoint
+	istioEndpoint := wi.Endpoint.ShallowCopy()
 
 	// by default, use the numbered targetPort
 	istioEndpoint.EndpointPort = uint32(targetPort.num)
@@ -787,7 +787,7 @@ func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.
 	return &model.ServiceInstance{
 		Service:     svc,
 		ServicePort: servicePort,
-		Endpoint:    &istioEndpoint,
+		Endpoint:    istioEndpoint,
 	}
 }
 

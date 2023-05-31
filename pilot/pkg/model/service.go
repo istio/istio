@@ -27,6 +27,7 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -44,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -449,10 +451,6 @@ type IstioEndpoint struct {
 	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
 	ServicePortName string
 
-	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
-	// avoid recomputation
-	EnvoyEndpoint *endpoint.LbEndpoint `json:"-"`
-
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string
 
@@ -492,6 +490,18 @@ type IstioEndpoint struct {
 
 	// If in k8s, the node where the pod resides
 	NodeName string
+
+	// precomputedEnvoyEndpoint is a cached LbEndpoint, converted from the data, to
+	// avoid recomputation
+	precomputedEnvoyEndpoint atomic.Pointer[*endpoint.LbEndpoint]
+}
+
+func (ep *IstioEndpoint) EnvoyEndpoint() *endpoint.LbEndpoint {
+	return ptr.OrEmpty(ep.precomputedEnvoyEndpoint.Load())
+}
+
+func (ep *IstioEndpoint) ComputeEnvoyEndpoint(now *endpoint.LbEndpoint) {
+	ep.precomputedEnvoyEndpoint.Store(&now)
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
@@ -1182,6 +1192,13 @@ func (s *Service) Equals(other *Service) bool {
 // DeepCopy creates a clone of IstioEndpoint.
 func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	return copyInternal(ep).(*IstioEndpoint)
+}
+
+// ShallowCopy creates a shallow clone of IstioEndpoint.
+func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
+	// nolint: govet
+	cpy := *ep
+	return &cpy
 }
 
 func copyInternal(v any) any {

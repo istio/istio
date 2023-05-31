@@ -27,6 +27,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1070,7 +1071,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 				if diff := cmp.Diff(tc.want[i].Service.Hostname, got[i].Service.Hostname); diff != "" {
 					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Service.Hostname (--want/++got): %v", i, diff)
 				}
-				if diff := cmp.Diff(tc.want[i].Endpoint, got[i].Endpoint); diff != "" {
+				if diff := cmp.Diff(tc.want[i].Endpoint, got[i].Endpoint, cmpopts.IgnoreUnexported(model.IstioEndpoint{})); diff != "" {
 					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Endpoint (--want/++got): %v", i, diff)
 				}
 			}
@@ -2510,7 +2511,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 	verifyGetByIP := func(address string, want []*model.WorkloadInstance) {
 		got := ctl.workloadInstancesIndex.GetByIP(address)
 
-		if diff := cmp.Diff(want, got); diff != "" {
+		if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(model.IstioEndpoint{})); diff != "" {
 			t.Fatalf("workload index is not valid (--want/++got): %v", diff)
 		}
 	}

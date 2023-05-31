@@ -16,11 +16,13 @@ package xds
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"testing"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
@@ -626,8 +628,8 @@ func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []network
 			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
-			if !reflect.DeepEqual(filtered2, filtered) {
-				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic")
+			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
+				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
 			}
 		})
 	}
@@ -731,8 +733,8 @@ func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFil
 			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
 			filtered2 = b2.EndpointsWithMTLSFilter(filtered2)
-			if !reflect.DeepEqual(filtered2, filtered) {
-				t.Fatalf("output of EndpointsWithMTLSFilter is non-deterministic")
+			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
+				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
 			}
 		})
 	}
