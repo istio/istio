@@ -54,7 +54,7 @@ func findWaypointServices(node *model.Proxy, push *model.PushContext) map[host.N
 			if svc == nil {
 				continue
 			}
-			if labels.Instance(svc.Attributes.LabelSelectors).SubsetOf(wl.Labels) {
+			if labels.Instance(svc.Attributes.LabelSelectors).Match(wl.Labels) {
 				svcs[svc.Hostname] = svc
 			}
 		}
@@ -76,7 +76,7 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]Worklo
 			if svc == nil {
 				continue
 			}
-			if labels.Instance(svc.Attributes.LabelSelectors).SubsetOf(wl.WorkloadInfo.Labels) {
+			if labels.Instance(svc.Attributes.LabelSelectors).Match(wl.WorkloadInfo.Labels) {
 				svcs[svc.Hostname] = svc
 				wl.Services = append(wl.Services, svc)
 			}
