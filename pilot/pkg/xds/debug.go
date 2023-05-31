@@ -160,6 +160,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 
 	if enableProfiling {
 		runtime.SetMutexProfileFraction(features.MutexProfileFraction)
+		runtime.SetBlockProfileRate(features.MutexProfileFraction)
 		s.addDebugHandler(mux, internalMux, "/debug/pprof/", "Displays pprof index", pprof.Index)
 		s.addDebugHandler(mux, internalMux, "/debug/pprof/cmdline", "The command line invocation of the current program", pprof.Cmdline)
 		s.addDebugHandler(mux, internalMux, "/debug/pprof/profile", "CPU profile", pprof.Profile)
