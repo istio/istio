@@ -19,7 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// ProxyProtocol Envoy HTTP filter description.
+// ProxyProtocol Envoy listener filter description.
 type ProxyProtocol struct{}
 
 func init() {

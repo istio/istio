@@ -59,6 +59,7 @@ var EnvoyListenerFilters = map[string]EnvoyFilter{}
 func initRegisterHTTP(ef EnvoyFilter) {
 	EnvoyHTTPFilters[ef.TypeURL()] = ef
 }
+
 func initRegisterListener(ef EnvoyFilter) {
 	EnvoyListenerFilters[ef.TypeURL()] = ef
 }

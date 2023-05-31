@@ -204,9 +204,9 @@ spec:
     patch:
       operation: ADD
       value:
-      - name: proxy_protocol
+        name: proxy_protocol
         typed_config:
-          "@type": type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol
+          "@type": "type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol"
   workloadSelector:
     labels:
       istio: ingressgateway

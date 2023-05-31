@@ -86,7 +86,8 @@ func BuildXDSObjectFromStruct(cp *networking.EnvoyFilter_EnvoyConfigObjectPatch,
 }
 
 // ValidateSafety checks for restrictions on the EnvoyFilter.
-func ValidateSafety(applyTo networking.EnvoyFilter_ApplyTo, operation networking.EnvoyFilter_Patch_Operation, match *networking.EnvoyFilter_EnvoyConfigObjectMatch) error {
+func ValidateSafety(applyTo networking.EnvoyFilter_ApplyTo, operation networking.EnvoyFilter_Patch_Operation,
+	match *networking.EnvoyFilter_EnvoyConfigObjectMatch) error {
 	if operation != networking.EnvoyFilter_Patch_INSERT_AFTER &&
 		operation != networking.EnvoyFilter_Patch_INSERT_BEFORE &&
 		operation != networking.EnvoyFilter_Patch_INSERT_FIRST &&
