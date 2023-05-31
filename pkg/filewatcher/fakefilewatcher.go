@@ -105,7 +105,9 @@ func (w *FakeWatcher) Remove(path string) error {
 		return errors.New("path doesn't exist")
 	}
 
+	close(w.events[path])
 	delete(w.events, path)
+	close(w.errors[path])
 	delete(w.errors, path)
 	if w.changedFunc != nil {
 		w.changedFunc(path, false)
