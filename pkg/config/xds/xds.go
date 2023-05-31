@@ -32,14 +32,14 @@ import (
 )
 
 // nolint: interfacer
-func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *structpb.Struct, strict bool) (proto.Message, error, error) {
-	validationErr := errors.New("modification other than injection of the supported HTTP filters detected")
-	if value == nil {
+func BuildXDSObjectFromStruct(cp *networking.EnvoyFilter_EnvoyConfigObjectPatch, strict bool) (proto.Message, error, error) {
+	validationErr := ValidateSafety(cp.ApplyTo, cp.Patch.Operation, cp.Match)
+	if cp.Patch.Value == nil {
 		// for remove ops
 		return nil, nil, validationErr
 	}
 	var obj proto.Message
-	switch applyTo {
+	switch cp.ApplyTo {
 	case networking.EnvoyFilter_CLUSTER:
 		obj = &cluster.Cluster{}
 	case networking.EnvoyFilter_LISTENER:
@@ -50,7 +50,9 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *str
 		obj = &listener.FilterChain{}
 	case networking.EnvoyFilter_HTTP_FILTER:
 		// Try the restricted conversion first.
-		obj, validationErr = ConvertHTTPFilter(value)
+		var convertErr error
+		obj, convertErr = ConvertHTTPFilter(cp.Patch.Value)
+		validationErr = errors.Join(validationErr, convertErr)
 		if validationErr == nil {
 			return obj, nil, nil
 		}
@@ -66,15 +68,59 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *str
 	case networking.EnvoyFilter_BOOTSTRAP:
 		obj = &bootstrap.Bootstrap{}
 	case networking.EnvoyFilter_LISTENER_FILTER:
+		var convertErr error
+		obj, convertErr = ConvertListenerFilter(cp.Patch.Value)
+		validationErr = errors.Join(validationErr, convertErr)
+		if validationErr == nil {
+			return obj, nil, nil
+		}
 		obj = &listener.ListenerFilter{}
 	default:
-		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()), validationErr // nolint: stylecheck
+		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", cp.ApplyTo.String()), validationErr // nolint: stylecheck
 	}
 
-	if err := StructToMessage(value, obj, strict); err != nil {
+	if err := StructToMessage(cp.Patch.Value, obj, strict); err != nil {
 		return nil, fmt.Errorf("Envoy filter: %v", err), validationErr // nolint: stylecheck
 	}
 	return obj, nil, validationErr
+}
+
+// ValidateSafety checks for restrictions on the EnvoyFilter.
+func ValidateSafety(applyTo networking.EnvoyFilter_ApplyTo, operation networking.EnvoyFilter_Patch_Operation, match *networking.EnvoyFilter_EnvoyConfigObjectMatch) error {
+	if operation != networking.EnvoyFilter_Patch_INSERT_AFTER &&
+		operation != networking.EnvoyFilter_Patch_INSERT_BEFORE &&
+		operation != networking.EnvoyFilter_Patch_INSERT_FIRST &&
+		operation != networking.EnvoyFilter_Patch_ADD {
+		return fmt.Errorf("unsupported operation: %s", operation.String())
+	}
+	if applyTo != networking.EnvoyFilter_HTTP_FILTER &&
+		applyTo != networking.EnvoyFilter_LISTENER_FILTER {
+		return fmt.Errorf("unsupported patch object: %s", applyTo.String())
+	}
+	if match != nil && match.ObjectTypes != nil {
+		lm := match.GetListener()
+		if lm == nil || lm.Name != "" || lm.ListenerFilter != "" || lm.PortName != "" {
+			return fmt.Errorf("match by listener attributes except port number is not supported")
+		}
+		// The only allowed reference point is "router" for HTTP filters
+		if fc := lm.FilterChain; fc != nil {
+			if applyTo != networking.EnvoyFilter_HTTP_FILTER {
+				return fmt.Errorf("filter chain match can be only be used for HTTP filter")
+			}
+			if fc.Name != "" || fc.Sni != "" || fc.TransportProtocol != "" || fc.ApplicationProtocols != "" || fc.DestinationPort > 0 {
+				return fmt.Errorf("match by filter chain attributes not supported")
+			}
+			if f := fc.Filter; f != nil {
+				if f.Name != "envoy.filters.network.http_connection_manager" {
+					return fmt.Errorf("unknown filter: %s", f.Name)
+				}
+				if f.SubFilter != nil && f.SubFilter.Name != "envoy.filters.http.router" {
+					return fmt.Errorf("only router can be used as a reference: %s", f.SubFilter.Name)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func StructToMessage(pbst *structpb.Struct, out proto.Message, strict bool) error {

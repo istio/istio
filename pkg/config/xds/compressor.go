@@ -29,7 +29,7 @@ import (
 type Compressor struct{}
 
 func init() {
-	initRegister(&Compressor{})
+	initRegisterHTTP(&Compressor{})
 }
 
 func (*Compressor) Name() string {

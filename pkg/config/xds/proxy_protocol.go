@@ -15,29 +15,29 @@
 package xds
 
 import (
-	lua "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/lua/v3"
+	proxy_proto "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/proxy_protocol/v3"
 	"google.golang.org/protobuf/proto"
 )
 
-// Lua Envoy HTTP filter description.
-type Lua struct{}
+// ProxyProtocol Envoy HTTP filter description.
+type ProxyProtocol struct{}
 
 func init() {
-	initRegisterHTTP(&Lua{})
+	initRegisterListener(&ProxyProtocol{})
 }
 
-func (*Lua) Name() string {
-	return "lua"
+func (*ProxyProtocol) Name() string {
+	return "proxy_protocol"
 }
 
-func (*Lua) TypeURL() string {
-	return "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+func (*ProxyProtocol) TypeURL() string {
+	return "type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol"
 }
 
-func (*Lua) New() proto.Message {
-	return &lua.Lua{}
+func (*ProxyProtocol) New() proto.Message {
+	return &proxy_proto.ProxyProtocol{}
 }
 
-func (*Lua) Validate(pb proto.Message) error {
+func (*ProxyProtocol) Validate(pb proto.Message) error {
 	return nil
 }

@@ -200,12 +200,13 @@ metadata:
   name: proxy-protocol
 spec:
   configPatches:
-  - applyTo: LISTENER
+  - applyTo: LISTENER_FILTER
     patch:
-      operation: MERGE
+      operation: ADD
       value:
-        listener_filters:
-        - name: envoy.listener.proxy_protocol
+      - name: proxy_protocol
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol
   workloadSelector:
     labels:
       istio: ingressgateway

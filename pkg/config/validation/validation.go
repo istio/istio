@@ -905,7 +905,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				}
 			}
 			// ensure that the struct is valid
-			_, err, validationErr := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false)
+			_, err, validationErr := xds.BuildXDSObjectFromStruct(cp, false)
 			if validationErr != nil {
 				errs = appendValidation(errs, WrapWarning(fmt.Errorf("Envoy filter unsafe operation on xDS: %v", validationErr))) // nolint: stylecheck
 			}
@@ -921,7 +921,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			} else {
 				// Run with strict validation, and emit warnings. This helps capture cases like unknown fields
 				// We do not want to reject in case the proto is valid but our libraries are outdated
-				obj, err, _ := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, true)
+				obj, err, _ := xds.BuildXDSObjectFromStruct(cp, true)
 				if err != nil {
 					errs = appendValidation(errs, WrapWarning(err))
 				}

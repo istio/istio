@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -49,51 +50,67 @@ type EnvoyFilter interface {
 	Validate(config proto.Message) error
 }
 
-// EnvoyFilters is the registry of the validated Envoy HTTP filters.
-var EnvoyFilters = map[string]EnvoyFilter{}
+// EnvoyHTTPFilters is the registry of the validated Envoy HTTP filters.
+var EnvoyHTTPFilters = map[string]EnvoyFilter{}
 
-func initRegister(ef EnvoyFilter) {
-	EnvoyFilters[ef.TypeURL()] = ef
+// EnvoyListenerFilters is the registry of the validated Envoy listener filters.
+var EnvoyListenerFilters = map[string]EnvoyFilter{}
+
+func initRegisterHTTP(ef EnvoyFilter) {
+	EnvoyHTTPFilters[ef.TypeURL()] = ef
+}
+func initRegisterListener(ef EnvoyFilter) {
+	EnvoyListenerFilters[ef.TypeURL()] = ef
 }
 
-// ConvertHTTPFilter from JSON to the validated typed config.
+// ConvertHTTPFilter from JSON to the validated typed HTTP filter config.
 func ConvertHTTPFilter(pbst *structpb.Struct) (*hcm.HttpFilter, error) {
+	out := &hcm.HttpFilter{}
+	err := convertFilter(pbst, out)
+	return out, err
+}
+
+// ConvertListenerFilter from JSON to the validated typed listener filter config.
+func ConvertListenerFilter(pbst *structpb.Struct) (*listener.ListenerFilter, error) {
+	out := &listener.ListenerFilter{}
+	err := convertFilter(pbst, out)
+	if out.FilterDisabled != nil {
+		return out, errors.New("listener filter matcher not supported")
+	}
+	return out, err
+}
+
+type filterConfig interface {
+	proto.Message
+	*hcm.HttpFilter | *listener.ListenerFilter
+	GetName() string
+	GetTypedConfig() *anypb.Any
+}
+
+func convertFilter[T filterConfig](pbst *structpb.Struct, filter T) error {
 	if pbst == nil {
-		return nil, errors.New("nil struct")
+		return errors.New("nil struct")
 	}
 	json, err := protomarshal.MarshalProtoNames(pbst)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	filter := &hcm.HttpFilter{}
 	err = protomarshal.Unmarshal(json, filter)
-	if err != nil || filter.GetTypedConfig() == nil || filter.Name == "" {
-		return nil, fmt.Errorf("failed to parse HTTP filter xDS config: %v", err)
+	if err != nil || filter.GetTypedConfig() == nil || filter.GetName() == "" {
+		return fmt.Errorf("failed to parse filter xDS config: %v", err)
 	}
-	ef, ok := EnvoyFilters[filter.GetTypedConfig().TypeUrl]
+	ef, ok := EnvoyHTTPFilters[filter.GetTypedConfig().TypeUrl]
 	if !ok {
-		return nil, fmt.Errorf("unknown HTTP filter extension: %s", filter.GetTypedConfig().TypeUrl)
+		return fmt.Errorf("unknown filter extension: %s", filter.GetTypedConfig().TypeUrl)
 	}
 	config := ef.New()
 	err = proto.UnmarshalOptions{DiscardUnknown: false}.Unmarshal(filter.GetTypedConfig().Value, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s xDS config: %v", ef.Name(), err)
+		return fmt.Errorf("failed to parse %s xDS config: %v", ef.Name(), err)
 	}
 	err = ef.Validate(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to validate %s xDS config: %v", ef.Name(), err)
+		return fmt.Errorf("failed to validate %s xDS config: %v", ef.Name(), err)
 	}
-	bytes, err := proto.MarshalOptions{Deterministic: true}.Marshal(config)
-	if err != nil {
-		return nil, err
-	}
-	return &hcm.HttpFilter{
-		Name: filter.Name,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: &anypb.Any{
-				TypeUrl: ef.TypeURL(),
-				Value:   bytes,
-			},
-		},
-	}, nil
+	return nil
 }
