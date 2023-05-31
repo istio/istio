@@ -102,6 +102,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 		have.Insert(n)
 		resources = append(resources, &discovery.Resource{
 			Name:     n,
+			Aliases:  addr.Aliases(),
 			Resource: protoconv.MessageToAny(addr), // TODO: pre-marshal
 		})
 	}

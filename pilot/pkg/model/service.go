@@ -852,6 +852,22 @@ type AddressInfo struct {
 	*workloadapi.Address
 }
 
+func (i AddressInfo) Aliases() []string {
+	switch addr := i.Type.(type) {
+	case *workloadapi.Address_Workload:
+		aliases := make([]string, 0, len(addr.Workload.Addresses))
+		network := addr.Workload.Network
+		for _, workloadAddr := range addr.Workload.Addresses {
+			ip, _ := netip.AddrFromSlice(workloadAddr)
+			aliases = append(aliases, network+"/"+ip.String())
+		}
+		return aliases
+	case *workloadapi.Address_Service:
+		return nil
+	}
+	return nil
+}
+
 func (i AddressInfo) ResourceName() string {
 	var name string
 	switch addr := i.Type.(type) {
