@@ -1395,6 +1395,8 @@ spec:
 kind: Gateway
 metadata:
   name: gateway
+  annotations:
+    "proxy.istio.io/config": '{"gatewayTopology" : { "numTrustedProxies": 1 } }'
 spec:
   selector:
     istio: {{.GatewayIstioLabel | default "ingressgateway"}}
@@ -1407,31 +1409,6 @@ spec:
     - "*"
     tls:
       httpsRedirect: true
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: ingressgateway-redirect-config
-  namespace: {{.SystemNamespace | default "istio-system"}}
-spec:
-  configPatches:
-  - applyTo: NETWORK_FILTER
-    match:
-      context: GATEWAY
-      listener:
-        filterChain:
-          filter:
-            name: envoy.filters.network.http_connection_manager
-    patch:
-      operation: MERGE
-      value:
-        typed_config:
-          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-          xff_num_trusted_hops: 1
-          normalize_path: true
-  workloadSelector:
-    labels:
-      istio: {{.GatewayIstioLabel | default "ingressgateway"}}
 ---
 ` + httpVirtualServiceTmpl,
 		opts: echo.CallOptions{
@@ -1926,16 +1903,8 @@ spec:
       app: a
   configPatches:
   - applyTo: HTTP_FILTER
-    match:
-      context: SIDECAR_OUTBOUND
-      listener:
-        filterChain:
-          filter:
-            name: "envoy.filters.network.http_connection_manager"
-            subFilter:
-              name: "envoy.filters.http.router"
     patch:
-      operation: INSERT_BEFORE
+      operation: ADD
       value:
        name: envoy.lua
        typed_config:
@@ -1973,16 +1942,8 @@ spec:
       app: b
   configPatches:
   - applyTo: HTTP_FILTER
-    match:
-      context: SIDECAR_INBOUND
-      listener:
-        filterChain:
-          filter:
-            name: "envoy.filters.network.http_connection_manager"
-            subFilter:
-              name: "envoy.filters.http.router"
     patch:
-      operation: INSERT_BEFORE
+      operation: ADD
       value:
        name: envoy.lua
        typed_config:
