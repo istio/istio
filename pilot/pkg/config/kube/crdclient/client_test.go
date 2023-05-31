@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -40,13 +41,17 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreController, kube.CLIClient) {
+func makeClient(t *testing.T, schemas collection.Schemas, f ...func(o Option) Option) (model.ConfigStoreController, kube.CLIClient) {
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
 		clienttest.MakeCRD(t, fake, s.GroupVersionResource())
 	}
 	stop := test.NewStop(t)
-	config, err := New(fake, Option{})
+	var o Option
+	for _, fn := range f {
+		o = fn(o)
+	}
+	config, err := New(fake, o)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,15 +97,28 @@ func TestClientNoCRDs(t *testing.T) {
 
 // Ensure that the client can run without CRDs present, but then added later
 func TestClientDelayedCRDs(t *testing.T) {
+	// ns1 is allowed, ns2 is not
+	applyFilter := func(o Option) Option {
+		o.NamespacesFilter = func(obj interface{}) bool {
+			// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
+			object := controllers.ExtractObject(obj)
+			if object == nil {
+				return false
+			}
+			ns := object.GetNamespace()
+			return ns == "ns1"
+		}
+		return o
+	}
 	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
-	store, fake := makeClient(t, schema)
+	store, fake := makeClient(t, schema, applyFilter)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
 	r := collections.VirtualService
 
 	// Create a virtual service
-	configMeta := config.Meta{
-		Name:             "name",
-		Namespace:        "ns",
+	configMeta1 := config.Meta{
+		Name:             "name1",
+		Namespace:        "ns1",
 		GroupVersionKind: r.GroupVersionKind(),
 	}
 	pb, err := r.NewInstance()
@@ -108,14 +126,25 @@ func TestClientDelayedCRDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := store.Create(config.Config{
-		Meta: configMeta,
+		Meta: configMeta1,
+		Spec: pb,
+	}); err != nil {
+		t.Fatalf("Create => got %v", err)
+	}
+	configMeta2 := config.Meta{
+		Name:             "name2",
+		Namespace:        "ns2",
+		GroupVersionKind: r.GroupVersionKind(),
+	}
+	if _, err := store.Create(config.Config{
+		Meta: configMeta2,
 		Spec: pb,
 	}); err != nil {
 		t.Fatalf("Create => got %v", err)
 	}
 
 	retry.UntilSuccessOrFail(t, func() error {
-		l := store.List(r.GroupVersionKind(), configMeta.Namespace)
+		l := store.List(r.GroupVersionKind(), "")
 		if len(l) != 0 {
 			return fmt.Errorf("expected no items returned for unknown CRD")
 		}
@@ -125,9 +154,12 @@ func TestClientDelayedCRDs(t *testing.T) {
 	clienttest.MakeCRD(t, fake, r.GroupVersionResource())
 
 	retry.UntilSuccessOrFail(t, func() error {
-		l := store.List(r.GroupVersionKind(), configMeta.Namespace)
+		l := store.List(r.GroupVersionKind(), "")
 		if len(l) != 1 {
 			return fmt.Errorf("expected items returned")
+		}
+		if l[0].Name != configMeta1.Name {
+			return fmt.Errorf("expected `name1` returned")
 		}
 		return nil
 	}, retry.Timeout(time.Second*10), retry.Converge(5))
