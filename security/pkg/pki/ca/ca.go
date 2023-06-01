@@ -136,6 +136,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			rootCertFile:       rootCertFile,
 			enableJitter:       enableJitter,
 			client:             client,
+			secretName:         CASecret,
 		},
 	}
 
