@@ -476,7 +476,7 @@ func applyHTTPRouteDestination(
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
-	setTimeout(action, in.Timeout, node)
+	SetRouteTimeout(action, in.Timeout)
 
 	if model.UseGatewaySemantics(vs) {
 		// return 500 for invalid backends
@@ -1065,13 +1065,7 @@ func GetRouteOperation(in *route.Route, vsName string, port int) string {
 func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
 	out := buildDefaultHTTPRoute(clusterName, operation)
 	// For inbound, configure with notimeout.
-	out.GetRoute().Timeout = Notimeout
-	out.GetRoute().MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
-		MaxStreamDuration: Notimeout,
-		// If not configured at all, the grpc-timeout header is not used and
-		// gRPC requests time out like any other requests using timeout or its default.
-		GrpcTimeoutHeaderMax: Notimeout,
-	}
+	SetRouteTimeout(out.GetRoute(), Notimeout)
 	return out
 }
 
@@ -1093,28 +1087,18 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 	return val
 }
 
-// setTimeout sets timeout for a route.
-func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *model.Proxy) {
+// SetRouteTimeout sets timeout for a route.
+func SetRouteTimeout(action *route.RouteAction, vsTimeout *duration.Duration) {
 	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
 	action.Timeout = Notimeout
 	if vsTimeout != nil {
 		action.Timeout = vsTimeout
 	}
-	if node != nil && node.IsProxylessGrpc() {
-		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
-		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
-			MaxStreamDuration: action.Timeout,
-		}
-	} else {
+	action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
+		MaxStreamDuration: action.Timeout,
 		// If not configured at all, the grpc-timeout header is not used and
 		// gRPC requests time out like any other requests using timeout or its default.
-		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-		// nolint: staticcheck
-		if action.Timeout.AsDuration().Nanoseconds() == 0 {
-			action.MaxGrpcTimeout = Notimeout
-		} else {
-			action.MaxGrpcTimeout = action.Timeout
-		}
+		GrpcTimeoutHeaderMax: action.Timeout,
 	}
 }
 
@@ -1123,7 +1107,7 @@ func BuildDefaultHTTPOutboundRoute(clusterName string, operation string, mesh *m
 	out := buildDefaultHTTPRoute(clusterName, operation)
 	// Add a default retry policy for outbound routes.
 	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy())
-	setTimeout(out.GetRoute(), nil, nil)
+	SetRouteTimeout(out.GetRoute(), nil)
 	return out
 }
 

@@ -539,15 +539,7 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 		Cors:        istio_route.TranslateCORSPolicy(in.CorsPolicy),
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
-
-	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-	action.Timeout = istio_route.Notimeout
-	if in.Timeout != nil {
-		action.Timeout = in.Timeout
-	}
-	// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-	// nolint: staticcheck
-	action.MaxGrpcTimeout = action.Timeout
+	istio_route.SetRouteTimeout(action, in.Timeout)
 
 	out.Action = &route.Route_Route{Route: action}
 
