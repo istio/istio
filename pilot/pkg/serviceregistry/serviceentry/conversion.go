@@ -75,11 +75,13 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		//  - ClientSideLB - regular ClusterIP clusters (VIP, resolved via EDS)
 		//  - DNSLB - if ExternalName is specified. Also meshExternal is set.
 
-		WorkloadSelector: &networking.WorkloadSelector{Labels: svc.Attributes.LabelSelectors},
-
 		// This is based on alpha.istio.io/canonical-serviceaccounts and
 		//  alpha.istio.io/kubernetes-serviceaccounts.
 		SubjectAltNames: svc.ServiceAccounts,
+	}
+
+	if len(svc.Attributes.LabelSelectors) > 0 {
+		se.WorkloadSelector = &networking.WorkloadSelector{Labels: svc.Attributes.LabelSelectors}
 	}
 
 	// Based on networking.istio.io/exportTo annotation

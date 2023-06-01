@@ -27,7 +27,7 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -37,6 +37,9 @@ const (
 	OwningResourceName = MetadataNamespace + "/owning-resource"
 	// OwningResourceNamespace represents the namespace of the owner to which the resource relates
 	OwningResourceNamespace = MetadataNamespace + "/owning-resource-namespace"
+	// OwningResourceNotPruned indicates that the resource should not be pruned during reconciliation cycles,
+	// note this will not prevent the resource from being deleted if the owning resource is deleted.
+	OwningResourceNotPruned = MetadataNamespace + "/owning-resource-not-pruned"
 	// operatorLabelStr indicates Istio operator is managing this resource.
 	operatorLabelStr = name.OperatorAPINamespace + "/managed"
 	// operatorReconcileStr indicates that the operator will reconcile the resource.
@@ -53,7 +56,7 @@ var (
 	// TestMode sets the controller into test mode. Used for unit tests to bypass things like waiting on resources.
 	TestMode = false
 
-	scope = log.RegisterScope("installer", "installer", 0)
+	scope = log.RegisterScope("installer", "installer")
 )
 
 func init() {

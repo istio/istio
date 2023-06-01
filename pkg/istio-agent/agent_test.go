@@ -45,9 +45,11 @@ import (
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/mesh"
+	pkgenv "istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
@@ -64,8 +66,6 @@ import (
 	stsmock "istio.io/istio/security/pkg/stsservice/mock"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/tests/util/leak"
-	pkgenv "istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 func TestAgent(t *testing.T) {

@@ -39,13 +39,13 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
-	"istio.io/pkg/log"
-	pkgversion "istio.io/pkg/version"
+	pkgversion "istio.io/istio/pkg/version"
 )
 
 // installerScope is the scope for shared manifest package.
-var installerScope = log.RegisterScope("installer", "installer", 0)
+var installerScope = log.RegisterScope("installer", "installer")
 
 // GenManifests generates a manifest map, keyed by the component name, from input file list and a YAML tree
 // representation of path-values passed through the --set flag.

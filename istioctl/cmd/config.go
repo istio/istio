@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/viper"
 
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/pkg/env"
+	"istio.io/istio/pkg/env"
 )
 
 // settableFlags are the flags used to istioctl

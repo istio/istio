@@ -15,16 +15,18 @@
 package controller
 
 import (
-	"sort"
-	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test"
@@ -35,142 +37,12 @@ const (
 	defaultFakeDomainSuffix = "company.com"
 )
 
-// FakeXdsUpdater is used to test the registry.
-type FakeXdsUpdater struct {
-	// Events tracks notifications received by the updater
-	Events chan FakeXdsEvent
-}
-
-var _ model.XDSUpdater = &FakeXdsUpdater{}
-
-func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
-	names := []string{}
-	if req != nil && len(req.ConfigsUpdated) > 0 {
-		for key := range req.ConfigsUpdated {
-			names = append(names, key.Name)
-		}
-	}
-	sort.Strings(names)
-	id := strings.Join(names, ",")
-	select {
-	case fx.Events <- FakeXdsEvent{Type: "xds", ID: id}:
-	default:
-	}
-}
-
-func (fx *FakeXdsUpdater) ProxyUpdate(_ cluster.ID, _ string) {
-	select {
-	case fx.Events <- FakeXdsEvent{Type: "proxy"}:
-	default:
-	}
-}
-
-// FakeXdsEvent is used to watch XdsEvents
-type FakeXdsEvent struct {
-	// Type of the event
-	Type string
-
-	// The id of the event
-	ID string
-
-	// The endpoints associated with an EDS push if any
-	Endpoints []*model.IstioEndpoint
-}
-
-// NewFakeXDS creates a XdsUpdater reporting events via a channel.
-func NewFakeXDS() *FakeXdsUpdater {
-	return &FakeXdsUpdater{
-		Events: make(chan FakeXdsEvent, 100),
-	}
-}
-
-func (fx *FakeXdsUpdater) EDSUpdate(_ model.ShardKey, hostname string, _ string, entry []*model.IstioEndpoint) {
-	if len(entry) > 0 {
-		select {
-		case fx.Events <- FakeXdsEvent{Type: "eds", ID: hostname, Endpoints: entry}:
-		default:
-		}
-	}
-}
-
-func (fx *FakeXdsUpdater) EDSCacheUpdate(_ model.ShardKey, hostname, _ string, entry []*model.IstioEndpoint) {
-	if len(entry) > 0 {
-		select {
-		case fx.Events <- FakeXdsEvent{Type: "eds cache", ID: hostname, Endpoints: entry}:
-		default:
-		}
-	}
-}
-
-// SvcUpdate is called when a service port mapping definition is updated.
-// This interface is WIP - labels, annotations and other changes to service may be
-// updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
-// LDS/RDS.
-func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, _ string, _ model.Event) {
-	select {
-	case fx.Events <- FakeXdsEvent{Type: "service", ID: hostname}:
-	default:
-	}
-}
-
-func (fx *FakeXdsUpdater) RemoveShard(shardKey model.ShardKey) {
-	select {
-	case fx.Events <- FakeXdsEvent{Type: "removeShard", ID: shardKey.String()}:
-	default:
-	}
-}
-
-func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, et string) *FakeXdsEvent {
-	t.Helper()
-	for {
-		select {
-		case e := <-fx.Events:
-			if e.Type == et {
-				return &e
-			}
-			log.Infof("skipping event %q want %q", e.Type, et)
-			continue
-		case <-time.After(time.Second * 5):
-			t.Fatalf("timed out waiting for %v", et)
-		}
-	}
-}
-
-// Clear any pending event
-func (fx *FakeXdsUpdater) Clear() {
-	wait := true
-	for wait {
-		select {
-		case <-fx.Events:
-		default:
-			wait = false
-		}
-	}
-}
-
-// AssertEmpty ensures there are no events in the channel
-func (fx *FakeXdsUpdater) AssertEmpty(t test.Failer, dur time.Duration) {
-	if dur == 0 {
-		select {
-		case e := <-fx.Events:
-			t.Fatalf("got unexpected event %+v", e)
-		default:
-		}
-	} else {
-		select {
-		case e := <-fx.Events:
-			t.Fatalf("got unexpected event %+v", e)
-		case <-time.After(dur):
-		}
-	}
-}
-
 type FakeControllerOptions struct {
 	Client                    kubelib.Client
+	CRDs                      []schema.GroupVersionResource
 	NetworksWatcher           mesh.NetworksWatcher
 	MeshWatcher               mesh.Watcher
 	ServiceHandler            model.ServiceHandler
-	Mode                      EndpointMode
 	ClusterID                 cluster.ID
 	WatchedNamespaces         string
 	DomainSuffix              string
@@ -179,16 +51,17 @@ type FakeControllerOptions struct {
 	Stop                      chan struct{}
 	SkipRun                   bool
 	ConfigController          model.ConfigStoreController
+	ConfigCluster             bool
 }
 
 type FakeController struct {
 	*Controller
 }
 
-func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*FakeController, *FakeXdsUpdater) {
+func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*FakeController, *xdsfake.Updater) {
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
-		xdsUpdater = NewFakeXDS()
+		xdsUpdater = xdsfake.NewFakeXDS()
 	}
 
 	domainSuffix := defaultFakeDomainSuffix
@@ -208,12 +81,12 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		DomainSuffix:              domainSuffix,
 		XDSUpdater:                xdsUpdater,
 		Metrics:                   &model.Environment{},
-		NetworksWatcher:           opts.NetworksWatcher,
+		MeshNetworksWatcher:       opts.NetworksWatcher,
 		MeshWatcher:               opts.MeshWatcher,
-		EndpointMode:              opts.Mode,
 		ClusterID:                 opts.ClusterID,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 		MeshServiceController:     meshServiceController,
+		ConfigCluster:             opts.ConfigCluster,
 		ConfigController:          opts.ConfigController,
 	}
 	c := NewController(opts.Client, options)
@@ -236,15 +109,18 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		// If we created the stop, clean it up. Otherwise, caller is responsible
 		c.stop = test.NewStop(t)
 	}
+	for _, crd := range opts.CRDs {
+		clienttest.MakeCRD(t, c.client, crd)
+	}
 	opts.Client.RunAndWait(c.stop)
-	var fx *FakeXdsUpdater
-	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
+	var fx *xdsfake.Updater
+	if x, ok := xdsUpdater.(*xdsfake.Updater); ok {
 		fx = x
 	}
 
 	if !opts.SkipRun {
 		go c.Run(c.stop)
-		kubelib.WaitForCacheSync(c.stop, c.HasSynced)
+		kubelib.WaitForCacheSync("test", c.stop, c.HasSynced)
 	}
 
 	return &FakeController{c}, fx

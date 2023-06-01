@@ -28,14 +28,14 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
-var caServerLog = log.RegisterScope("ca", "CA service debugging", 0)
+var caServerLog = log.RegisterScope("ca", "CA service debugging")
 
 // CAServer is a mock CA server.
 type CAServer struct {

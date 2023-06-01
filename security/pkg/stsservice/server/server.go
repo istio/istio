@@ -25,9 +25,10 @@ import (
 	"strconv"
 	"time"
 
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -43,7 +44,7 @@ const (
 	SubjectTokenType = "urn:ietf:params:oauth:token-type:jwt"
 )
 
-var stsServerLog = log.RegisterScope("stsserver", "STS service debugging", 0)
+var stsServerLog = log.RegisterScope("stsserver", "STS service debugging")
 
 // error code sent in a STS error response. A full list of error code is
 // defined in https://tools.ietf.org/html/rfc6749#section-5.2.
@@ -98,9 +99,10 @@ func NewServer(config Config, tokenManager security.TokenManager) (*Server, erro
 	s.Port = ln.Addr().(*net.TCPAddr).Port
 	go func() {
 		stsServerLog.Infof("Start listening on %s:%d", config.LocalHostAddr, s.Port)
-		err := s.stsServer.Serve(ln)
-		// ListenAndServe always returns a non-nil error.
-		stsServerLog.Error(err)
+		if err := s.stsServer.Serve(ln); network.IsUnexpectedListenerError(err) {
+			// Serve always returns a non-nil error.
+			stsServerLog.Error(err)
+		}
 	}()
 	return s, nil
 }
@@ -142,7 +144,7 @@ func (s *Server) validateStsRequest(req *http.Request) (security.StsRequestParam
 		reqDump, _ := httputil.DumpRequest(debugReq, true)
 		stsServerLog.Debugf("Received STS request: %s", string(reqDump))
 	}
-	if req.Method != "POST" {
+	if req.Method != http.MethodPost {
 		return reqParam, fmt.Errorf("request method is invalid, should be POST but get %s", req.Method)
 	}
 	if req.Header.Get("Content-Type") != URLEncodedForm {

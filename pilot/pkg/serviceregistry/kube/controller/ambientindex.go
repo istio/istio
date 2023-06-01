@@ -15,14 +15,11 @@
 package controller
 
 import (
-	"bytes"
 	"net/netip"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 
-	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,49 +29,109 @@ import (
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	kubeutil "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	kubelabels "istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 // AmbientIndex maintains an index of ambient WorkloadInfo objects by various keys.
 // These are intentionally pre-computed based on events such that lookups are efficient.
 type AmbientIndex struct {
 	mu sync.RWMutex
-	// byService indexes by Service (virtual) *IP address*. A given Service may have multiple IPs, thus
+	// byService indexes by network/Service (virtual) *IP address*. A given Service may have multiple IPs, thus
 	// multiple entries in the map. A given IP can have many workloads associated.
-	byService map[string][]*model.WorkloadInfo
-	// byPod indexes by Pod IP address.
-	byPod map[string]*model.WorkloadInfo
+	byService map[networkAddress][]*model.WorkloadInfo
+	// byPod indexes by network/podIP address.
+	byPod map[networkAddress]*model.WorkloadInfo
+	// serviceByAddr are indexed by the network/clusterIP
+	serviceByAddr map[networkAddress]*model.ServiceInfo
+	// serviceByHostname are indexed by the namespace/hostname
+	serviceByHostname map[string]*model.ServiceInfo
 
-	// Map of ServiceAccount -> IP
-	waypoints map[model.WaypointScope]sets.String
+	// Map of Scope -> address
+	waypoints map[model.WaypointScope]*workloadapi.GatewayAddress
 
 	// serviceVipIndex maintains an index of VIP -> Service
-	serviceVipIndex *controllers.Index[*v1.Service, string]
+	serviceVipIndex *kclient.Index[string, *v1.Service]
 }
 
-// Lookup finds a given IP address.
-func (a *AmbientIndex) Lookup(ip string) []*model.WorkloadInfo {
+func workloadToAddressInfo(w *workloadapi.Workload) *model.AddressInfo {
+	return &model.AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Workload{
+				Workload: w,
+			},
+		},
+	}
+}
+
+func serviceToAddressInfo(s *workloadapi.Service) *model.AddressInfo {
+	return &model.AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Service{
+				Service: s,
+			},
+		},
+	}
+}
+
+// Lookup finds the list of AddressInfos for a given key.
+// network/IP -> return associated pod Workload or the Service and its corresponding Workloads
+// namespace/hostname -> return the Service and its corresponding Workloads
+func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	// First look at pod...
-	if p, f := a.byPod[ip]; f {
-		return []*model.WorkloadInfo{p}
+	network, ip, found := strings.Cut(key, "/")
+	if !found {
+		log.Warnf(`key (%v) did not contain the expected "/" character`, key)
+		return nil
 	}
+	res := []*model.AddressInfo{}
+	if _, err := netip.ParseAddr(ip); err != nil {
+		// this must be namespace/hostname format
+		// lookup Service and any Workloads for that Service for each of the network addresses
+		if svc, f := a.serviceByHostname[key]; f {
+			res = append(res, serviceToAddressInfo(svc.Service))
+			for _, addr := range svc.Addresses {
+				ii, _ := netip.AddrFromSlice(addr.Address)
+				networkAddr := networkAddress{network: addr.Network, ip: ii.String()}
+				for _, wl := range a.byService[networkAddr] {
+					res = append(res, workloadToAddressInfo(wl.Workload))
+				}
+			}
+		}
+	}
+
+	networkAddr := networkAddress{network: network, ip: ip}
+	// First look at pod...
+	if p, f := a.byPod[networkAddr]; f {
+		return []*model.AddressInfo{workloadToAddressInfo(p.Workload)}
+	}
+
 	// Fallback to service. Note: these IP ranges should be non-overlapping
-	return a.byService[ip]
+	// When a Service lookup is performed, but it and its workloads are returned
+	for _, wl := range a.byService[networkAddr] {
+		res = append(res, workloadToAddressInfo(wl.Workload))
+	}
+	if s, exists := a.serviceByAddr[networkAddr]; exists {
+		res = append(res, serviceToAddressInfo(s.Service))
+	}
+
+	return res
 }
 
-func (a *AmbientIndex) dropWorkloadFromService(svcAddress, workloadAddress string) {
+func (a *AmbientIndex) dropWorkloadFromService(svcAddress networkAddress, workloadAddress string) {
 	wls := a.byService[svcAddress]
 	// TODO: this is inefficient, but basically we are trying to update a keyed element in a list
 	// Probably we want a Map? But the list is nice for fast lookups
@@ -87,15 +144,14 @@ func (a *AmbientIndex) dropWorkloadFromService(svcAddress, workloadAddress strin
 	a.byService[svcAddress] = filtered
 }
 
-func (a *AmbientIndex) insertWorkloadToService(svcAddress string, workload *model.WorkloadInfo) {
+func (a *AmbientIndex) insertWorkloadToService(svcAddress networkAddress, workload *model.WorkloadInfo) {
 	// For simplicity, to insert we drop it then add it to the end.
 	// TODO: optimize this
 	a.dropWorkloadFromService(svcAddress, workload.ResourceName())
 	a.byService[svcAddress] = append(a.byService[svcAddress], workload)
 }
 
-func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
-	addr := netip.MustParseAddr(ipStr).AsSlice()
+func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloadapi.GatewayAddress, isDelete bool) map[model.ConfigKey]struct{} {
 	updates := sets.New[model.ConfigKey]()
 	if isDelete {
 		for _, wl := range a.byPod {
@@ -106,21 +162,11 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, i
 				continue
 			}
 
-			addrs := make([][]byte, 0, len(wl.WaypointAddresses))
-			filtered := false
-			for _, a := range wl.WaypointAddresses {
-				if !bytes.Equal(a, addr) {
-					addrs = append(addrs, a)
-				} else {
-					filtered = true
-				}
-			}
-			wl.WaypointAddresses = addrs
-			if filtered {
+			if wl.Waypoint != nil && proto.Equal(wl.Waypoint, addr) {
+				wl.Waypoint = nil
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 			}
-			updates.Merge(c.updateEndpointsOnWaypointChange(wl))
 		}
 	} else {
 		for _, wl := range a.byPod {
@@ -131,32 +177,27 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, ipStr string, i
 				continue
 			}
 
-			found := false
-			for _, a := range wl.WaypointAddresses {
-				if bytes.Equal(a, addr) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				wl.WaypointAddresses = append(wl.WaypointAddresses, addr)
+			if wl.Waypoint == nil || !proto.Equal(wl.Waypoint, addr) {
+				wl.Waypoint = addr
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 			}
-			updates.Merge(c.updateEndpointsOnWaypointChange(wl))
 		}
 	}
 	return updates
 }
 
 // All return all known workloads. Result is un-ordered
-func (a *AmbientIndex) All() []*model.WorkloadInfo {
+func (a *AmbientIndex) All() []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	res := make([]*model.WorkloadInfo, 0, len(a.byPod))
+	res := make([]*model.AddressInfo, 0, len(a.byPod)+len(a.serviceByAddr))
 	// byPod will not have any duplicates, so we can just iterate over that.
 	for _, wl := range a.byPod {
-		res = append(res, wl)
+		res = append(res, workloadToAddressInfo(wl.Workload))
+	}
+	for _, s := range a.serviceByAddr {
+		res = append(res, serviceToAddressInfo(s.Service))
 	}
 	return res
 }
@@ -175,26 +216,38 @@ func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.Wo
 	return res
 }
 
-// Waypoint finds all waypoint IP addresses for a given scope
-func (c *Controller) Waypoint(scope model.WaypointScope) sets.Set[netip.Addr] {
+// Waypoint finds all waypoint IP addresses for a given scope.  Performs first a Namespace+ServiceAccount
+// then falls back to any Namespace wide waypoints
+func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 	a := c.ambientIndex
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	res := sets.New[netip.Addr]()
-	for ip := range a.waypoints[scope] {
-		res.Insert(netip.MustParseAddr(ip))
-	}
-	if len(res) > 0 {
-		// Explicit has precedence
-		return res
-	}
-	// Now look for namespace-wide
-	scope.ServiceAccount = ""
-	for ip := range a.waypoints[scope] {
-		res.Insert(netip.MustParseAddr(ip))
+	// TODO need to handle case where waypoints are dualstack/have multiple addresses
+	if addr, f := a.waypoints[scope]; f {
+		switch address := addr.Destination.(type) {
+		case *workloadapi.GatewayAddress_Address:
+			if ip, ok := netip.AddrFromSlice(address.Address.GetAddress()); ok {
+				return []netip.Addr{ip}
+			}
+		case *workloadapi.GatewayAddress_Hostname:
+			// TODO
+		}
 	}
 
-	return res
+	// Now look for namespace-wide
+	scope.ServiceAccount = ""
+	if addr, f := a.waypoints[scope]; f {
+		switch address := addr.Destination.(type) {
+		case *workloadapi.GatewayAddress_Address:
+			if ip, ok := netip.AddrFromSlice(address.Address.GetAddress()); ok {
+				return []netip.Addr{ip}
+			}
+		case *workloadapi.GatewayAddress_Hostname:
+			// TODO
+		}
+	}
+
+	return nil
 }
 
 func (a *AmbientIndex) matchesScope(scope model.WaypointScope, w *model.WorkloadInfo) bool {
@@ -218,13 +271,16 @@ func (a *AmbientIndex) matchesScope(scope model.WaypointScope, w *model.Workload
 	return true
 }
 
-func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadapi.Authorization {
+func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.Authorization {
+	if !c.configCluster {
+		return nil
+	}
 	cfgs := c.configController.List(gvk.AuthorizationPolicy, metav1.NamespaceAll)
 	l := len(cfgs)
 	if len(requested) > 0 {
 		l = len(requested)
 	}
-	res := make([]*workloadapi.Authorization, 0, l)
+	res := make([]*security.Authorization, 0, l)
 	for _, cfg := range cfgs {
 		k := model.ConfigKey{
 			Kind:      kind.AuthorizationPolicy,
@@ -243,15 +299,7 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*workloadap
 	return res
 }
 
-func isNil(v interface{}) bool {
-	return v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil())
-}
-
 func (c *Controller) selectorAuthorizationPolicies(ns string, lbls map[string]string) []string {
-	// Since this is an interface a normal nil check doesn't work (...)
-	if isNil(c.configController) {
-		return nil
-	}
 	global := c.configController.List(gvk.AuthorizationPolicy, c.meshWatcher.Mesh().GetRootNamespace())
 	local := c.configController.List(gvk.AuthorizationPolicy, ns)
 	res := sets.New[string]()
@@ -310,12 +358,13 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 	}
 
 	updates := map[model.ConfigKey]struct{}{}
-	for ip, pod := range pods {
+	for _, pod := range pods {
 		newWl := c.extractWorkload(pod)
 		if newWl != nil {
 			// Update the pod, since it now has new VIP info
+			networkAddr := networkAddressFromWorkload(newWl)
 			c.ambientIndex.mu.Lock()
-			c.ambientIndex.byPod[ip] = newWl
+			c.ambientIndex.byPod[networkAddr] = newWl
 			c.ambientIndex.mu.Unlock()
 			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
 		}
@@ -333,37 +382,29 @@ func (c *Controller) getPodsInPolicy(ns string, sel map[string]string) []*v1.Pod
 	if ns == c.meshWatcher.Mesh().GetRootNamespace() {
 		ns = metav1.NamespaceAll
 	}
-	allPods := c.podsClient.List(ns, klabels.Everything())
-	var pods []*v1.Pod
-	for _, pod := range allPods {
-		if labels.Instance(sel).SubsetOf(pod.Labels) {
-			pods = append(pods, pod)
-		}
-	}
-
-	return pods
+	return c.podsClient.List(ns, klabels.ValidatedSetSelector(sel))
 }
 
-func convertAuthorizationPolicy(rootns string, obj config.Config) *workloadapi.Authorization {
+func convertAuthorizationPolicy(rootns string, obj config.Config) *security.Authorization {
 	pol := obj.Spec.(*v1beta1.AuthorizationPolicy)
 
-	scope := workloadapi.Scope_WORKLOAD_SELECTOR
+	scope := security.Scope_WORKLOAD_SELECTOR
 	if pol.Selector == nil {
-		scope = workloadapi.Scope_NAMESPACE
+		scope = security.Scope_NAMESPACE
 		// TODO: TDA
 		if rootns == obj.Namespace {
-			scope = workloadapi.Scope_GLOBAL // TODO: global workload?
+			scope = security.Scope_GLOBAL // TODO: global workload?
 		}
 	}
-	action := workloadapi.Action_ALLOW
+	action := security.Action_ALLOW
 	switch pol.Action {
 	case v1beta1.AuthorizationPolicy_ALLOW:
 	case v1beta1.AuthorizationPolicy_DENY:
-		action = workloadapi.Action_DENY
+		action = security.Action_DENY
 	default:
 		return nil
 	}
-	opol := &workloadapi.Authorization{
+	opol := &security.Authorization{
 		Name:      obj.Name,
 		Namespace: obj.Namespace,
 		Scope:     scope,
@@ -374,7 +415,7 @@ func convertAuthorizationPolicy(rootns string, obj config.Config) *workloadapi.A
 	for _, rule := range pol.Rules {
 		rules := handleRule(action, rule)
 		if rules != nil {
-			rg := &workloadapi.Group{
+			rg := &security.Group{
 				Rules: rules,
 			}
 			opol.Groups = append(opol.Groups, rg)
@@ -393,16 +434,16 @@ func anyNonEmpty[T any](arr ...[]T) bool {
 	return false
 }
 
-func handleRule(action workloadapi.Action, rule *v1beta1.Rule) []*workloadapi.Rules {
-	toMatches := []*workloadapi.Match{}
+func handleRule(action security.Action, rule *v1beta1.Rule) []*security.Rules {
+	toMatches := []*security.Match{}
 	for _, to := range rule.To {
 		op := to.Operation
-		if action == workloadapi.Action_ALLOW && anyNonEmpty(op.Hosts, op.NotHosts, op.Methods, op.NotMethods, op.Paths, op.NotPaths) {
+		if action == security.Action_ALLOW && anyNonEmpty(op.Hosts, op.NotHosts, op.Methods, op.NotMethods, op.Paths, op.NotPaths) {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
 			return nil
 		}
-		match := &workloadapi.Match{
+		match := &security.Match{
 			DestinationPorts:    stringToPort(op.Ports),
 			NotDestinationPorts: stringToPort(op.NotPorts),
 		}
@@ -410,15 +451,15 @@ func handleRule(action workloadapi.Action, rule *v1beta1.Rule) []*workloadapi.Ru
 		toMatches = append(toMatches, match)
 		//}
 	}
-	fromMatches := []*workloadapi.Match{}
+	fromMatches := []*security.Match{}
 	for _, from := range rule.From {
 		op := from.Source
-		if action == workloadapi.Action_ALLOW && anyNonEmpty(op.RemoteIpBlocks, op.NotRemoteIpBlocks, op.RequestPrincipals, op.NotRequestPrincipals) {
+		if action == security.Action_ALLOW && anyNonEmpty(op.RemoteIpBlocks, op.NotRemoteIpBlocks, op.RequestPrincipals, op.NotRequestPrincipals) {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
 			return nil
 		}
-		match := &workloadapi.Match{
+		match := &security.Match{
 			SourceIps:     stringToIP(op.IpBlocks),
 			NotSourceIps:  stringToIP(op.NotIpBlocks),
 			Namespaces:    stringToMatch(op.Namespaces),
@@ -431,21 +472,21 @@ func handleRule(action workloadapi.Action, rule *v1beta1.Rule) []*workloadapi.Ru
 		//}
 	}
 
-	rules := []*workloadapi.Rules{}
+	rules := []*security.Rules{}
 	if len(toMatches) > 0 {
-		rules = append(rules, &workloadapi.Rules{Matches: toMatches})
+		rules = append(rules, &security.Rules{Matches: toMatches})
 	}
 	if len(fromMatches) > 0 {
-		rules = append(rules, &workloadapi.Rules{Matches: fromMatches})
+		rules = append(rules, &security.Rules{Matches: fromMatches})
 	}
 	for _, when := range rule.When {
-		l7 := l4WhenAttributes.Contains(when.Key)
-		if action == workloadapi.Action_ALLOW && !l7 {
+		l4 := l4WhenAttributes.Contains(when.Key)
+		if action == security.Action_ALLOW && !l4 {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
 			return nil
 		}
-		positiveMatch := &workloadapi.Match{
+		positiveMatch := &security.Match{
 			Namespaces:       whenMatch("source.namespace", when, false, stringToMatch),
 			Principals:       whenMatch("source.principal", when, false, stringToMatch),
 			SourceIps:        whenMatch("source.ip", when, false, stringToIP),
@@ -458,7 +499,7 @@ func handleRule(action workloadapi.Action, rule *v1beta1.Rule) []*workloadapi.Ru
 			NotDestinationPorts: whenMatch("destination.port", when, true, stringToPort),
 			NotDestinationIps:   whenMatch("destination.ip", when, true, stringToIP),
 		}
-		rules = append(rules, &workloadapi.Rules{Matches: []*workloadapi.Match{positiveMatch}})
+		rules = append(rules, &security.Rules{Matches: []*security.Match{positiveMatch}})
 	}
 	return rules
 }
@@ -481,23 +522,23 @@ func whenMatch[T any](s string, when *v1beta1.Condition, invert bool, f func(v [
 	return f(when.Values)
 }
 
-func stringToMatch(rules []string) []*workloadapi.StringMatch {
-	res := make([]*workloadapi.StringMatch, 0, len(rules))
+func stringToMatch(rules []string) []*security.StringMatch {
+	res := make([]*security.StringMatch, 0, len(rules))
 	for _, v := range rules {
-		var sm *workloadapi.StringMatch
+		var sm *security.StringMatch
 		switch {
 		case v == "*":
-			sm = &workloadapi.StringMatch{MatchType: &workloadapi.StringMatch_Presence{}}
+			sm = &security.StringMatch{MatchType: &security.StringMatch_Presence{}}
 		case strings.HasPrefix(v, "*"):
-			sm = &workloadapi.StringMatch{MatchType: &workloadapi.StringMatch_Suffix{
+			sm = &security.StringMatch{MatchType: &security.StringMatch_Suffix{
 				Suffix: strings.TrimPrefix(v, "*"),
 			}}
 		case strings.HasSuffix(v, "*"):
-			sm = &workloadapi.StringMatch{MatchType: &workloadapi.StringMatch_Prefix{
+			sm = &security.StringMatch{MatchType: &security.StringMatch_Prefix{
 				Prefix: strings.TrimSuffix(v, "*"),
 			}}
 		default:
-			sm = &workloadapi.StringMatch{MatchType: &workloadapi.StringMatch_Exact{
+			sm = &security.StringMatch{MatchType: &security.StringMatch_Exact{
 				Exact: v,
 			}}
 		}
@@ -518,8 +559,8 @@ func stringToPort(rules []string) []uint32 {
 	return res
 }
 
-func stringToIP(rules []string) []*workloadapi.Address {
-	res := make([]*workloadapi.Address, 0, len(rules))
+func stringToIP(rules []string) []*security.Address {
+	res := make([]*security.Address, 0, len(rules))
 	for _, m := range rules {
 		if len(m) == 0 {
 			continue
@@ -547,7 +588,7 @@ func stringToIP(rules []string) []*workloadapi.Address {
 			maxCidrPrefix = uint32(ipAddr.BitLen())
 		}
 
-		res = append(res, &workloadapi.Address{
+		res = append(res, &security.Address{
 			Address: ipAddr.AsSlice(),
 			Length:  maxCidrPrefix,
 		})
@@ -555,26 +596,58 @@ func stringToIP(rules []string) []*workloadapi.Address {
 	return res
 }
 
+func (c *Controller) constructService(svc *v1.Service) *model.ServiceInfo {
+	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
+	for _, p := range svc.Spec.Ports {
+		ports = append(ports, &workloadapi.Port{
+			ServicePort: uint32(p.Port),
+			TargetPort:  uint32(p.TargetPort.IntVal),
+		})
+	}
+
+	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
+	vips := getVIPs(svc)
+	addrs := make([]*workloadapi.NetworkAddress, 0, len(vips))
+	for _, vip := range vips {
+		addrs = append(addrs, &workloadapi.NetworkAddress{
+			Network: c.Network(vip, make(labels.Instance, 0)).String(),
+			Address: netip.MustParseAddr(vip).AsSlice(),
+		})
+	}
+
+	return &model.ServiceInfo{
+		Service: &workloadapi.Service{
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+			Hostname: string(model.ResolveShortnameToFQDN(svc.Name, config.Meta{
+				Namespace: svc.Namespace,
+				Domain:    spiffe.GetTrustDomain(),
+			})),
+			Addresses: addrs,
+			Ports:     ports,
+		},
+	}
+}
+
 func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	if p == nil || !IsPodRunning(p) || p.Spec.HostNetwork {
 		return nil
 	}
-	var waypoints sets.String
+	var waypoint *workloadapi.GatewayAddress
 	if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		// Waypoints do not have waypoints
-		waypoints = nil
 	} else {
 		// First check for a waypoint for our SA explicit
 		// TODO: this is not robust against temporary waypoint downtime. We also need the users intent (Gateway).
-		waypoints = c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace, ServiceAccount: p.Spec.ServiceAccountName}]
-		if len(waypoints) == 0 {
+		found := false
+		if waypoint, found = c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace, ServiceAccount: p.Spec.ServiceAccountName}]; !found {
 			// if there are none, check namespace wide waypoints
-			waypoints = c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace}]
+			waypoint = c.ambientIndex.waypoints[model.WaypointScope{Namespace: p.Namespace}]
 		}
 	}
 
 	policies := c.selectorAuthorizationPolicies(p.Namespace, p.Labels)
-	wl := c.constructWorkload(p, sets.SortedList(waypoints), policies)
+	wl := c.constructWorkload(p, waypoint, policies)
 	if wl == nil {
 		return nil
 	}
@@ -584,30 +657,13 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	}
 }
 
-// updateEndpointsOnWaypointChange ensures that endpoints are synced for Envoy clients. Envoy clients
-// maintain information about waypoints for each destination in metadata. If the waypoint changes, we need
-// to sync this metadata again (add/remove waypoint IP).
-// This is only needed for waypoints, as a normal workload update will already trigger and EDS push.
-func (c *Controller) updateEndpointsOnWaypointChange(wl *model.WorkloadInfo) sets.Set[model.ConfigKey] {
-	updates := sets.New[model.ConfigKey]()
-	// For each VIP, trigger and EDS update
-	for vip := range wl.VirtualIps {
-		for _, svc := range c.ambientIndex.serviceVipIndex.Lookup(vip) {
-			updates.Insert(model.ConfigKey{
-				Kind:      kind.ServiceEntry,
-				Name:      string(kube.ServiceHostname(svc.Name, svc.Namespace, c.opts.DomainSuffix)),
-				Namespace: svc.Namespace,
-			})
-		}
-	}
-	return updates
-}
-
 func (c *Controller) setupIndex() *AmbientIndex {
 	idx := AmbientIndex{
-		byService: map[string][]*model.WorkloadInfo{},
-		byPod:     map[string]*model.WorkloadInfo{},
-		waypoints: map[model.WaypointScope]sets.String{},
+		byService:         map[networkAddress][]*model.WorkloadInfo{},
+		byPod:             map[networkAddress]*model.WorkloadInfo{},
+		waypoints:         map[model.WaypointScope]*workloadapi.GatewayAddress{},
+		serviceByAddr:     map[networkAddress]*model.ServiceInfo{},
+		serviceByHostname: map[string]*model.ServiceInfo{},
 	}
 
 	podHandler := cache.ResourceEventHandlerFuncs{
@@ -686,7 +742,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		},
 	}
 	c.services.AddEventHandler(serviceHandler)
-	idx.serviceVipIndex = controllers.CreateIndex[*v1.Service, string](c.client.KubeInformer().Core().V1().Services().Informer(), getVIPs)
+	idx.serviceVipIndex = kclient.CreateIndex[string, *v1.Service](c.services, getVIPs)
 	return &idx
 }
 
@@ -706,65 +762,57 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	updates := sets.New[model.ConfigKey]()
-	// This is a waypoint update
-	if p.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-		scope := model.WaypointScope{Namespace: p.Namespace, ServiceAccount: p.Annotations[constants.WaypointServiceAccount]}
-		ip := p.Status.PodIP
-		if isDelete || !IsPodReady(p) {
-			if a.waypoints[scope].Contains(ip) {
-				sets.DeleteCleanupLast(a.waypoints, scope, ip)
-				updates.Merge(a.updateWaypoint(scope, ip, true, c))
-			}
-		} else {
-			if _, f := a.waypoints[scope]; !f {
-				a.waypoints[scope] = sets.New[string]()
-			}
-			if !a.waypoints[scope].InsertContains(ip) {
-				updates.Merge(a.updateWaypoint(scope, ip, false, c))
-			}
-		}
-	}
 
 	var wl *model.WorkloadInfo
 	if !isDelete {
 		wl = c.extractWorkload(p)
 	}
-	oldWl := a.byPod[p.Status.PodIP]
+	wlNetwork := c.Network(p.Status.PodIP, p.Labels).String()
+	networkAddr := networkAddress{network: wlNetwork, ip: p.Status.PodIP}
+	oldWl := a.byPod[networkAddr]
 	if wl == nil {
 		// This is an explicit delete event, or there is no longer a Workload to create (pod NotReady, etc)
-		delete(a.byPod, p.Status.PodIP)
+		delete(a.byPod, networkAddr)
 		if oldWl != nil {
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
 			for vip := range oldWl.VirtualIps {
-				a.dropWorkloadFromService(vip, p.Status.PodIP)
+				a.dropWorkloadFromService(networkAddress{network: oldWl.Network, ip: vip}, oldWl.ResourceName())
 			}
 			log.Debugf("%v: workload removed, pushing", p.Status.PodIP)
 			// TODO: namespace for network?
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: p.Status.PodIP})
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: oldWl.ResourceName()})
 			return updates
 		}
 		// It was a 'delete' for a resource we didn't know yet, no need to send an event
+
 		return updates
 	}
 	if oldWl != nil && proto.Equal(wl.Workload, oldWl.Workload) {
 		log.Debugf("%v: no change, skipping", wl.ResourceName())
+
 		return updates
 	}
-	a.byPod[p.Status.PodIP] = wl
+	a.byPod[networkAddressFromWorkload(wl)] = wl
 	if oldWl != nil {
 		// For updates, we will drop the VIPs and then add the new ones back. This could be optimized
 		for vip := range oldWl.VirtualIps {
-			a.dropWorkloadFromService(vip, wl.ResourceName())
+			a.dropWorkloadFromService(networkAddress{network: oldWl.Network, ip: vip}, oldWl.ResourceName())
 		}
 	}
 	// Update the VIP indexes as well, as needed
 	for vip := range wl.VirtualIps {
-		a.insertWorkloadToService(vip, wl)
+		a.insertWorkloadToService(networkAddress{network: wl.Network, ip: vip}, wl)
 	}
 
 	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
-	updates.Insert(model.ConfigKey{Kind: kind.Address, Name: p.Status.PodIP})
+	updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
+
 	return updates
+}
+
+func networkAddressFromWorkload(wl *model.WorkloadInfo) networkAddress {
+	ip, _ := netip.AddrFromSlice(wl.Address)
+	return networkAddress{network: wl.Network, ip: ip.String()}
 }
 
 func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
@@ -780,60 +828,133 @@ func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
 	}
 }
 
-func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) map[model.ConfigKey]struct{} {
+func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
 	svc := controllers.Extract[*v1.Service](obj)
-	vips := getVIPs(svc)
-	allPods := c.podsClient.List(svc.Namespace, klabels.Everything())
-	pods := getPodsInService(allPods, svc)
+	updates := sets.New[model.ConfigKey]()
+
+	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+		scope := model.WaypointScope{Namespace: svc.Namespace, ServiceAccount: svc.Annotations[constants.WaypointServiceAccount]}
+
+		// TODO get IP+Port from the Gateway CRD
+		// https://github.com/istio/istio/issues/44230
+		if svc.Spec.ClusterIP == v1.ClusterIPNone {
+			// TODO handle headless Service
+			log.Warn("headless service currently not supported as a waypoint")
+			return updates
+		}
+		waypointPort := uint32(15008)
+		for _, p := range svc.Spec.Ports {
+			if strings.Contains(p.Name, "hbone") {
+				waypointPort = uint32(p.Port)
+			}
+		}
+		svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
+		addr := &workloadapi.GatewayAddress{
+			Destination: &workloadapi.GatewayAddress_Address{
+				Address: &workloadapi.NetworkAddress{
+					Network: c.Network(svcIP.String(), make(labels.Instance, 0)).String(),
+					Address: svcIP.AsSlice(),
+				},
+			},
+			Port: waypointPort,
+		}
+
+		if isDelete {
+			if proto.Equal(a.waypoints[scope], addr) {
+				delete(a.waypoints, scope)
+				updates.Merge(a.updateWaypoint(scope, addr, true))
+			}
+		} else {
+			if !proto.Equal(a.waypoints[scope], addr) {
+				a.waypoints[scope] = addr
+				updates.Merge(a.updateWaypoint(scope, addr, false))
+			}
+		}
+	}
+
+	si := c.constructService(svc)
+	networkAddrs := make([]networkAddress, 0, len(si.Addresses))
+	for _, addr := range si.Addresses {
+		if vip, ok := netip.AddrFromSlice(addr.Address); ok {
+			networkAddrs = append(networkAddrs, networkAddress{
+				ip:      vip.String(),
+				network: addr.Network,
+			})
+		}
+	}
+	pods := c.getPodsInService(svc)
 	var wls []*model.WorkloadInfo
 	for _, p := range pods {
 		// Can be nil if it's not ready, hostNetwork, etc
 		wl := c.extractWorkload(p)
 		if wl != nil {
 			// Update the pod, since it now has new VIP info
-			a.byPod[p.Status.PodIP] = wl
+			a.byPod[networkAddressFromWorkload(wl)] = wl
 			wls = append(wls, wl)
 		}
 
 	}
 
 	// We send an update for each *workload* IP address previously in the service; they may have changed
-	updates := map[model.ConfigKey]struct{}{}
-	for _, vip := range vips {
-		for _, wl := range a.byService[vip] {
-			updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()}] = struct{}{}
+	for _, networkAddr := range networkAddrs {
+		for _, wl := range a.byService[networkAddr] {
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 		}
 	}
 	// Update indexes
 	if isDelete {
-		for _, vip := range vips {
-			delete(a.byService, vip)
+		for _, networkAddr := range networkAddrs {
+			delete(a.byService, networkAddr)
+			delete(a.serviceByAddr, networkAddr)
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
+		delete(a.serviceByHostname, si.ResourceName())
+		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
 	} else {
-		for _, vip := range vips {
-			a.byService[vip] = wls
+		for _, networkAddr := range networkAddrs {
+			a.byService[networkAddr] = wls
+			a.serviceByAddr[networkAddr] = si
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
+		a.serviceByHostname[si.ResourceName()] = si
+		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
 	}
 	// Fetch updates again, in case it changed from adding new workloads
-	for _, vip := range vips {
-		for _, wl := range a.byService[vip] {
-			updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()}] = struct{}{}
+	for _, networkAddr := range networkAddrs {
+		for _, wl := range a.byService[networkAddr] {
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 		}
 	}
+
 	return updates
 }
 
-// PodInformation returns all WorkloadInfo's in the cluster.
+func (c *Controller) getPodsInService(svc *v1.Service) []*v1.Pod {
+	if svc.Spec.Selector == nil {
+		// services with nil selectors match nothing, not everything.
+		return nil
+	}
+	return c.podsClient.List(svc.Namespace, klabels.ValidatedSetSelector(svc.Spec.Selector))
+}
+
+// AddressInformation returns all AddressInfo's in the cluster.
 // This may be scoped to specific subsets by specifying a non-empty addresses field
-func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([]*model.WorkloadInfo, []string) {
+func (c *Controller) AddressInformation(addresses sets.Set[types.NamespacedName]) ([]*model.AddressInfo, []string) {
 	if len(addresses) == 0 {
 		// Full update
 		return c.ambientIndex.All(), nil
 	}
-	var wls []*model.WorkloadInfo
+	var wls []*model.AddressInfo
 	var removed []string
 	for p := range addresses {
-		wl := c.ambientIndex.Lookup(p.Name)
+		wname := p.Name
+		// GenerateDeltas has the formatted wname from the xds request, but not sure if other callers
+		// have the format enforced
+		if _, _, found := strings.Cut(p.Name, "/"); !found {
+			cNetwork := c.Network(p.Name, make(labels.Instance, 0)).String()
+			wname = cNetwork + "/" + p.Name
+		}
+		wl := c.ambientIndex.Lookup(wname)
 		if len(wl) == 0 {
 			removed = append(removed, p.Name)
 		} else {
@@ -843,7 +964,7 @@ func (c *Controller) PodInformation(addresses sets.Set[types.NamespacedName]) ([
 	return wls, removed
 }
 
-func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies []string) *workloadapi.Workload {
+func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.GatewayAddress, policies []string) *workloadapi.Workload {
 	vips := map[string]*workloadapi.PortList{}
 	allServices := c.services.List(pod.Namespace, klabels.Everything())
 	if services := getPodServices(allServices, pod); len(services) > 0 {
@@ -872,9 +993,9 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 
 	wl := &workloadapi.Workload{
 		Name:                  pod.Name,
-		Namespace:             pod.Namespace,
 		Address:               parseIP(pod.Status.PodIP),
-		Network:               c.network.String(),
+		Network:               c.Network(pod.Status.PodIP, pod.Labels).String(),
+		Namespace:             pod.Namespace,
 		ServiceAccount:        pod.Spec.ServiceAccountName,
 		Node:                  pod.Spec.NodeName,
 		VirtualIps:            vips,
@@ -892,22 +1013,18 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoints []string, policies
 	wl.WorkloadName, wl.WorkloadType = workloadNameAndType(pod)
 	wl.CanonicalName, wl.CanonicalRevision = kubelabels.CanonicalService(pod.Labels, wl.WorkloadName)
 	// If we have a remote proxy, configure it
-	if len(waypoints) > 0 {
-		ips := make([][]byte, 0, len(waypoints))
-		for _, r := range waypoints {
-			ips = append(ips, netip.MustParseAddr(r).AsSlice())
-		}
-		wl.WaypointAddresses = ips
+	if waypoint != nil {
+		wl.Waypoint = waypoint
 	}
 
 	if pod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
 		// Configured for override
-		wl.Protocol = workloadapi.Protocol_HTTP
+		wl.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
 	}
 	// Otherwise supports tunnel directly
 	if model.SupportsTunnel(pod.Labels, model.TunnelHTTP) {
-		wl.Protocol = workloadapi.Protocol_HTTP
-		wl.NativeHbone = true
+		wl.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
+		wl.NativeTunnel = true
 	}
 	return wl
 }
@@ -920,9 +1037,19 @@ func parseIP(ip string) []byte {
 	return addr.AsSlice()
 }
 
+// internal object used for indexing in ambientindex maps
+type networkAddress struct {
+	network string
+	ip      string
+}
+
+func (n *networkAddress) String() string {
+	return n.network + "/" + n.ip
+}
+
 func getVIPs(svc *v1.Service) []string {
 	res := []string{}
-	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != "None" {
+	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != v1.ClusterIPNone {
 		res = append(res, svc.Spec.ClusterIP)
 	}
 	for _, ing := range svc.Status.LoadBalancer.Ingress {
@@ -943,15 +1070,21 @@ func (c *Controller) AdditionalPodSubscriptions(
 	// The client wouldn't be explicitly subscribed to Pod1, so it would normally ignore it.
 	// Since it is a part of VIP1 which we are subscribe to, add it to the subscriptions
 	for s := range allAddresses {
-		for _, wl := range c.ambientIndex.Lookup(s.Name) {
+		cNetwork := c.Network(s.Name, make(labels.Instance, 0)).String()
+		for _, wl := range c.ambientIndex.Lookup(cNetwork + "/" + s.Name) {
 			// We may have gotten an update for Pod, but are subscribe to a Service.
 			// We need to force a subscription on the Pod as well
-			for addr := range wl.VirtualIps {
-				t := types.NamespacedName{Name: addr}
-				if currentSubs.Contains(t) {
-					shouldSubscribe.Insert(types.NamespacedName{Name: wl.ResourceName()})
-					break
+			switch addr := wl.Address.Type.(type) {
+			case *workloadapi.Address_Workload:
+				for vip := range addr.Workload.VirtualIps {
+					t := types.NamespacedName{Name: vip}
+					if currentSubs.Contains(t) {
+						shouldSubscribe.Insert(types.NamespacedName{Name: wl.ResourceName()})
+						break
+					}
 				}
+			case *workloadapi.Address_Service:
+				// ignore, results in duplicate entries pushed to proxies
 			}
 		}
 	}
@@ -959,12 +1092,18 @@ func (c *Controller) AdditionalPodSubscriptions(
 	// Next, as an optimization, we will send all node-local endpoints
 	if nodeName := proxy.Metadata.NodeName; nodeName != "" {
 		for _, wl := range c.ambientIndex.All() {
-			if wl.Node == nodeName {
-				n := types.NamespacedName{Name: wl.ResourceName()}
-				if currentSubs.Contains(n) {
-					continue
+			switch addr := wl.Address.Type.(type) {
+			case *workloadapi.Address_Workload:
+				if addr.Workload.Node == nodeName {
+					n := types.NamespacedName{Name: wl.ResourceName()}
+					if currentSubs.Contains(n) {
+						continue
+					}
+					shouldSubscribe.Insert(n)
 				}
-				shouldSubscribe.Insert(n)
+			case *workloadapi.Address_Service:
+				// Services are not constrained to a particular node
+				continue
 			}
 		}
 	}
@@ -973,40 +1112,15 @@ func (c *Controller) AdditionalPodSubscriptions(
 }
 
 func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
-	if len(pod.GenerateName) == 0 {
+	objMeta, typeMeta := kubeutil.GetDeployMetaFromPod(pod)
+	switch typeMeta.Kind {
+	case "Deployment":
+		return objMeta.Name, workloadapi.WorkloadType_DEPLOYMENT
+	case "Job":
+		return objMeta.Name, workloadapi.WorkloadType_JOB
+	case "CronJob":
+		return objMeta.Name, workloadapi.WorkloadType_CRONJOB
+	default:
 		return pod.Name, workloadapi.WorkloadType_POD
 	}
-
-	// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
-	var controllerRef metav1.OwnerReference
-	controllerFound := false
-	for _, ref := range pod.GetOwnerReferences() {
-		if ref.Controller != nil && *ref.Controller {
-			controllerRef = ref
-			controllerFound = true
-			break
-		}
-	}
-
-	if !controllerFound {
-		return pod.Name, workloadapi.WorkloadType_POD
-	}
-
-	// heuristic for deployment detection
-	if controllerRef.Kind == "ReplicaSet" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
-		name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
-		return name, workloadapi.WorkloadType_DEPLOYMENT
-	}
-
-	if controllerRef.Kind == "Job" {
-		// figure out how to go from Job -> CronJob
-		return controllerRef.Name, workloadapi.WorkloadType_JOB
-	}
-
-	if controllerRef.Kind == "CronJob" {
-		// figure out how to go from Job -> CronJob
-		return controllerRef.Name, workloadapi.WorkloadType_CRONJOB
-	}
-
-	return pod.Name, workloadapi.WorkloadType_POD
 }

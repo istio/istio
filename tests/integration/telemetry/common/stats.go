@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/features"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
@@ -552,4 +553,74 @@ func ValidateBucket(cluster cluster.Cluster, prom prometheus.Instance, sourceApp
 		}
 		return nil
 	}, retry.Delay(time.Second), retry.Timeout(time.Second*20))
+}
+
+// TestGRPCCountMetrics tests that istio_[request/response]_messages_total are present https://github.com/istio/istio/issues/44144
+// Kiali depends on these metrics
+func TestGRPCCountMetrics(t *testing.T, feature features.Feature) {
+	framework.NewTest(t).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
+		Features(feature).
+		Run(func(t framework.TestContext) {
+			// Metrics to be queried and tested
+			metrics := []string{"istio_request_messages_total", "istio_response_messages_total"}
+			for _, metric := range metrics {
+				t.NewSubTestf(metric).Run(func(t framework.TestContext) {
+					t.Cleanup(func() {
+						if t.Failed() {
+							util.PromDump(t.Clusters().Default(), promInst, prometheus.Query{Metric: metric})
+						}
+						grpcSourceQuery := buildGRPCQuery(metric)
+						cluster := t.Clusters().Default()
+						retry.UntilSuccessOrFail(t, func() error {
+							if err := SendGRPCTraffic(); err != nil {
+								t.Log("failed to send grpc traffic")
+								return err
+							}
+							if _, err := util.QueryPrometheus(t, cluster, grpcSourceQuery, promInst); err != nil {
+								util.PromDiff(t, promInst, cluster, grpcSourceQuery)
+								return err
+							}
+							return nil
+						}, retry.Delay(1*time.Second), retry.Timeout(300*time.Second))
+						util.ValidateMetric(t, cluster, promInst, grpcSourceQuery, 1)
+					})
+				})
+			}
+		})
+}
+
+func buildGRPCQuery(metric string) (destinationQuery prometheus.Query) {
+	ns := GetAppNamespace()
+
+	labels := map[string]string{
+		"destination_app":                "b",
+		"destination_version":            "v1",
+		"destination_service":            "b." + ns.Name() + ".svc.cluster.local",
+		"destination_service_name":       "b",
+		"destination_workload_namespace": ns.Name(),
+		"destination_service_namespace":  ns.Name(),
+	}
+	sourceQuery := prometheus.Query{}
+	sourceQuery.Metric = metric
+	sourceQuery.Labels = labels
+
+	return sourceQuery
+}
+
+func SendGRPCTraffic() error {
+	for _, cltInstance := range GetClientInstances() {
+		cltInstance := cltInstance
+
+		_, err := cltInstance.Call(echo.CallOptions{
+			To: GetTarget(),
+			Port: echo.Port{
+				Name: "grpc",
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

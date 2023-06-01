@@ -15,6 +15,8 @@
 package processlog
 
 import (
+	"encoding/json"
+	"regexp"
 	"strings"
 	"time"
 
@@ -30,6 +32,8 @@ const (
 	levelDebug = "debug"
 	levelTrace = "trace"
 )
+
+var ztunnelLogPattern = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(?:\w+\s+)?(\w+)\s+([\w\.:]+)(.*)`)
 
 // Stats represents log statistics.
 type Stats struct {
@@ -49,6 +53,9 @@ func (s *Stats) Importance() int {
 
 // Process processes logStr based on the supplied config and returns the processed log along with statistics on it.
 func Process(config *config.BugReportConfig, logStr string) (string, *Stats) {
+	if !config.TimeFilterApplied {
+		return logStr, getStats(config, logStr)
+	}
 	out := getTimeRange(logStr, config.StartTime, config.EndTime)
 	return out, getStats(config, out)
 }
@@ -58,7 +65,7 @@ func getTimeRange(logStr string, start, end time.Time) string {
 	var sb strings.Builder
 	write := false
 	for _, l := range strings.Split(logStr, "\n") {
-		t, _, _, valid := processLogLine(l)
+		t, _, _, valid := parseLog(l)
 		if valid {
 			write = false
 			if (t.Equal(start) || t.After(start)) && (t.Equal(end) || t.Before(end)) {
@@ -78,7 +85,7 @@ func getTimeRange(logStr string, start, end time.Time) string {
 func getStats(config *config.BugReportConfig, logStr string) *Stats {
 	out := &Stats{}
 	for _, l := range strings.Split(logStr, "\n") {
-		_, level, text, valid := processLogLine(l)
+		_, level, text, valid := parseLog(l)
 		if !valid {
 			continue
 		}
@@ -101,17 +108,30 @@ func getStats(config *config.BugReportConfig, logStr string) *Stats {
 	return out
 }
 
-func processLogLine(line string) (timeStamp *time.Time, level string, text string, valid bool) {
+func parseLog(line string) (timeStamp *time.Time, level string, text string, valid bool) {
+	if isJSONLog(line) {
+		return parseJSONLog(line)
+	}
+	return processPlainLog(line)
+}
+
+func processPlainLog(line string) (timeStamp *time.Time, level string, text string, valid bool) {
 	lv := strings.Split(line, "\t")
 	if len(lv) < 3 {
-		return nil, "", "", false
+		// maybe ztunnel logs
+		// TODO remove this when https://github.com/istio/ztunnel/issues/453 is fixed
+		matches := ztunnelLogPattern.FindStringSubmatch(line)
+		if len(matches) < 5 {
+			return nil, "", "", false
+		}
+		lv = matches[1:]
 	}
 	ts, err := time.Parse(time.RFC3339Nano, lv[0])
 	if err != nil {
 		return nil, "", "", false
 	}
 	timeStamp = &ts
-	switch lv[1] {
+	switch strings.ToLower(lv[1]) {
 	case levelFatal, levelError, levelWarn, levelInfo, levelDebug, levelTrace:
 		level = lv[1]
 	default:
@@ -120,4 +140,43 @@ func processLogLine(line string) (timeStamp *time.Time, level string, text strin
 	text = strings.Join(lv[2:], "\t")
 	valid = true
 	return
+}
+
+type logJSON struct {
+	Time  string
+	Level string
+	Msg   string
+}
+
+func parseJSONLog(line string) (timeStamp *time.Time, level string, text string, valid bool) {
+	lj := logJSON{}
+
+	err := json.Unmarshal([]byte(line), &lj)
+	if err != nil {
+		return nil, "", "", false
+	}
+
+	// todo: add logging for err
+	m := lj.Msg
+	if m == "" {
+		return nil, "", "", false
+	}
+
+	t := lj.Time
+	ts, err := time.Parse(time.RFC3339Nano, t)
+	if err != nil {
+		return nil, "", "", false
+	}
+
+	l := lj.Level
+	switch l {
+	case levelFatal, levelError, levelWarn, levelInfo, levelDebug, levelTrace:
+	default:
+		return nil, "", "", false
+	}
+	return &ts, l, m, true
+}
+
+func isJSONLog(logStr string) bool {
+	return strings.HasPrefix(logStr, "{")
 }

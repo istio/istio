@@ -125,68 +125,12 @@ func findServiceTargetPort(servicePort *model.Port, k8sService *v1.Service) serv
 func getPodServices(allServices []*v1.Service, pod *v1.Pod) []*v1.Service {
 	var services []*v1.Service
 	for _, service := range allServices {
-		if service.Spec.Selector == nil {
-			// services with nil selectors match nothing, not everything.
-			continue
-		}
-		if labels.Instance(service.Spec.Selector).SubsetOf(pod.Labels) {
+		if labels.Instance(service.Spec.Selector).Match(pod.Labels) {
 			services = append(services, service)
 		}
 	}
 
 	return services
-}
-
-func getPodsInService(allPods []*v1.Pod, svc *v1.Service) []*v1.Pod {
-	if svc.Spec.Selector == nil {
-		// services with nil selectors match nothing, not everything.
-		return nil
-	}
-	var pods []*v1.Pod
-	for _, pod := range allPods {
-		if labels.Instance(svc.Spec.Selector).SubsetOf(pod.Labels) {
-			pods = append(pods, pod)
-		}
-	}
-
-	return pods
-}
-
-func portsEqual(a, b []v1.EndpointPort) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i].Name != b[i].Name || a[i].Port != b[i].Port || a[i].Protocol != b[i].Protocol ||
-			ptrValueOrEmpty(a[i].AppProtocol) != ptrValueOrEmpty(b[i].AppProtocol) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func addressesEqual(a, b []v1.EndpointAddress) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i].IP != b[i].IP || a[i].Hostname != b[i].Hostname ||
-			ptrValueOrEmpty(a[i].NodeName) != ptrValueOrEmpty(b[i].NodeName) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func ptrValueOrEmpty(ptr *string) string {
-	if ptr != nil {
-		return *ptr
-	}
-	return ""
 }
 
 func getNodeSelectorsForService(svc *v1.Service) labels.Instance {

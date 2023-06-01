@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 func statusCommand() *cobra.Command {
@@ -67,14 +67,14 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
 			if len(args) > 0 {
 				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(namespace, defaultNamespace),
-					kubeClient.UtilFactory())
+					MakeKubeFactory(kubeClient))
 				if err != nil {
 					return err
 				}
@@ -137,7 +137,7 @@ func readConfigFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.CLIClient, error) {
+func newKubeClientWithRevision(revision string) (kube.CLIClient, error) {
 	rc, err := kube.DefaultRestConfig(kubeconfig, configContext, func(config *rest.Config) {
 		// We are running a one-off command locally, so we don't need to worry too much about rate limiting
 		// Bumping this up greatly decreases install time
@@ -150,8 +150,12 @@ func newKubeClientWithRevision(kubeconfig, configContext string, revision string
 	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
-func newKubeClient(kubeconfig, configContext string) (kube.CLIClient, error) {
-	return newKubeClientWithRevision(kubeconfig, configContext, "")
+func initKubeClient() error {
+	var err error
+	once.Do(func() {
+		kubeClient, err = newKubeClientWithRevision("")
+	})
+	return err
 }
 
 func xdsStatusCommand() *cobra.Command {
@@ -191,7 +195,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -200,7 +204,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			if len(args) > 0 {
 				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(namespace, defaultNamespace),
-					kubeClient.UtilFactory())
+					MakeKubeFactory(kubeClient))
 				if err != nil {
 					return err
 				}

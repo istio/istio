@@ -37,7 +37,7 @@ import (
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 const (

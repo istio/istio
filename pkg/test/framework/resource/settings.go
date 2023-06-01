@@ -141,6 +141,9 @@ type Settings struct {
 	// Ambient mesh is being used
 	Ambient bool
 
+	// Use ambient instead of sidecars
+	AmbientEverywhere bool
+
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
 	// on different control plane versions.
@@ -171,9 +174,18 @@ type Settings struct {
 
 	// Helm repo to be used for tests
 	HelmRepo string
+
+	DisableDefaultExternalServiceConnectivity bool
 }
 
-func (s Settings) Skip(class string) bool {
+// SkipVMs changes the skip settings at runtime
+func (s *Settings) SkipVMs() {
+	s.SkipVM = true
+	s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "vm")
+}
+
+// Skip checks whether a given class is skipped
+func (s *Settings) Skip(class string) bool {
 	if s.SkipWorkloadClassesAsSet().Contains(class) {
 		return true
 	}

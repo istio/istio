@@ -33,12 +33,12 @@ import (
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/repair"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 var (
@@ -90,6 +90,7 @@ var rootCmd = &cobra.Command{
 				SystemNamespace: ambient.PodNamespace,
 				Revision:        ambient.Revision,
 				RedirectMode:    redirectMode,
+				LogLevel:        cfg.InstallConfig.LogLevel,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient informer service: %v", err)
@@ -102,15 +103,15 @@ var rootCmd = &cobra.Command{
 
 		installer := install.NewInstaller(&cfg.InstallConfig, isReady)
 
-		repair.StartRepair(ctx, &cfg.RepairConfig)
+		repair.StartRepair(ctx, cfg.RepairConfig)
 
 		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				log.Infof("Installer exits with %v", err)
+				log.Infof("installer complete: %v", err)
 				// Error was caused by interrupt/termination signal
 				err = nil
 			} else {
-				log.Errorf("Installer exits with %v", err)
+				log.Errorf("installer failed: %v", err)
 			}
 		}
 
@@ -149,8 +150,6 @@ func init() {
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI configuration template as a string")
-	registerBooleanParameter(constants.CNIEnableInstall, true, "Whether to install CNI configuration and binary files")
-	registerBooleanParameter(constants.CNIEnableReinstall, true, "Whether to reinstall CNI configuration and binary files")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 
 	// Not configurable in CNI helm charts
@@ -161,9 +160,6 @@ func init() {
 	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the same as install-cni pod")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
-	registerBooleanParameter(constants.UpdateCNIBinaries, true, "Whether to refresh existing binaries when installing CNI")
-	registerStringArrayParameter(constants.SkipCNIBinaries, []string{},
-		"Binaries that should not be installed. Currently Istio only installs one binary `istio-cni`")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
 	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log ouptut to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
@@ -172,7 +168,6 @@ func init() {
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
 	registerBooleanParameter(constants.RepairLabelPods, false, "Controller will label pods when detecting pod broken by race condition")
-	registerBooleanParameter(constants.RepairRunAsDaemon, false, "Controller will run in a loop")
 	registerStringParameter(constants.RepairLabelKey, "cni.istio.io/uninitialized",
 		"The key portion of the label which will be set by the ace repair if label pods is true")
 	registerStringParameter(constants.RepairLabelValue, "true",
@@ -196,11 +191,6 @@ func init() {
 func registerStringParameter(name, value, usage string) {
 	rootCmd.Flags().String(name, value, usage)
 	registerEnvironment(name, value, usage)
-}
-
-func registerStringArrayParameter(name string, value []string, usage string) {
-	rootCmd.Flags().StringArray(name, value, usage)
-	registerEnvironment(name, strings.Join(value, ","), usage)
 }
 
 func registerIntegerParameter(name string, value int, usage string) {
@@ -237,8 +227,6 @@ func constructConfig() (*config.Config, error) {
 
 		CNINetworkConfigFile: viper.GetString(constants.CNINetworkConfigFile),
 		CNINetworkConfig:     viper.GetString(constants.CNINetworkConfig),
-		CNIEnableInstall:     viper.GetBool(constants.CNIEnableInstall),
-		CNIEnableReinstall:   viper.GetBool(constants.CNIEnableReinstall),
 
 		LogLevel:           viper.GetString(constants.LogLevel),
 		KubeconfigFilename: viper.GetString(constants.KubeconfigFilename),
@@ -250,12 +238,10 @@ func constructConfig() (*config.Config, error) {
 		K8sServicePort:     os.Getenv("KUBERNETES_SERVICE_PORT"),
 		K8sNodeName:        os.Getenv("KUBERNETES_NODE_NAME"),
 
-		CNIBinSourceDir:   constants.CNIBinDir,
-		CNIBinTargetDirs:  []string{constants.HostCNIBinDir, constants.SecondaryBinDir},
-		UpdateCNIBinaries: viper.GetBool(constants.UpdateCNIBinaries),
-		SkipCNIBinaries:   viper.GetStringSlice(constants.SkipCNIBinaries),
-		MonitoringPort:    viper.GetInt(constants.MonitoringPort),
-		LogUDSAddress:     viper.GetString(constants.LogUDSAddress),
+		CNIBinSourceDir:  constants.CNIBinDir,
+		CNIBinTargetDirs: []string{constants.HostCNIBinDir, constants.SecondaryBinDir},
+		MonitoringPort:   viper.GetInt(constants.MonitoringPort),
+		LogUDSAddress:    viper.GetString(constants.LogUDSAddress),
 
 		AmbientEnabled: viper.GetBool(constants.AmbientEnabled),
 		EbpfEnabled:    viper.GetBool(constants.EbpfEnabled),
@@ -273,7 +259,6 @@ func constructConfig() (*config.Config, error) {
 		Enabled:            viper.GetBool(constants.RepairEnabled),
 		DeletePods:         viper.GetBool(constants.RepairDeletePods),
 		LabelPods:          viper.GetBool(constants.RepairLabelPods),
-		RunAsDaemon:        viper.GetBool(constants.RepairRunAsDaemon),
 		LabelKey:           viper.GetString(constants.RepairLabelKey),
 		LabelValue:         viper.GetString(constants.RepairLabelValue),
 		NodeName:           viper.GetString(constants.RepairNodeName),

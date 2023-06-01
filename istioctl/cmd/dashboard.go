@@ -29,12 +29,18 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (
-	listenPort   = 0
-	controlZport = 0
+	listenPort     = 0
+	controlZport   = 0
+	promPort       = 0
+	grafanaPort    = 0
+	kialiPort      = 0
+	jaegerPort     = 0
+	zipkinPort     = 0
+	skywalkingPort = 0
 
 	bindAddress = ""
 
@@ -47,6 +53,15 @@ var (
 	addonNamespace = ""
 
 	envoyDashNs = ""
+)
+
+const (
+	defaultPrometheusPort = 9090
+	defaultGrafanaPort    = 3000
+	defaultKialiPort      = 20001
+	defaultJaegerPort     = 16686
+	defaultZipkinPort     = 9411
+	defaultSkywalkingPort = 8080
 )
 
 // port-forward to Istio System Prometheus; open browser
@@ -62,7 +77,7 @@ func promDashCmd() *cobra.Command {
   istioctl dash prometheus
   istioctl d prometheus`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -78,7 +93,7 @@ func promDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, addonNamespace, "Prometheus",
-				"http://%s", bindAddress, 9090, client, cmd.OutOrStdout(), browser)
+				"http://%s", bindAddress, promPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
 
@@ -98,7 +113,7 @@ func grafanaDashCmd() *cobra.Command {
   istioctl dash grafana
   istioctl d grafana`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -114,7 +129,7 @@ func grafanaDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, addonNamespace, "Grafana",
-				"http://%s", bindAddress, 3000, client, cmd.OutOrStdout(), browser)
+				"http://%s", bindAddress, grafanaPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
 
@@ -134,7 +149,7 @@ func kialiDashCmd() *cobra.Command {
   istioctl dash kiali
   istioctl d kiali`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -150,7 +165,7 @@ func kialiDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, addonNamespace, "Kiali",
-				"http://%s/kiali", bindAddress, 20001, client, cmd.OutOrStdout(), browser)
+				"http://%s/kiali", bindAddress, kialiPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
 
@@ -170,7 +185,7 @@ func jaegerDashCmd() *cobra.Command {
   istioctl dash jaeger
   istioctl d jaeger`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -186,7 +201,7 @@ func jaegerDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, addonNamespace, "Jaeger",
-				"http://%s", bindAddress, 16686, client, cmd.OutOrStdout(), browser)
+				"http://%s", bindAddress, jaegerPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
 
@@ -206,7 +221,7 @@ func zipkinDashCmd() *cobra.Command {
   istioctl dash zipkin
   istioctl d zipkin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -222,7 +237,7 @@ func zipkinDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, addonNamespace, "Zipkin",
-				"http://%s", bindAddress, 9411, client, cmd.OutOrStdout(), browser)
+				"http://%s", bindAddress, zipkinPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
 
@@ -256,14 +271,14 @@ func envoyDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			client, err := kubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(envoyDashNs, defaultNamespace), labelSelector)
+				pl, err := kubeClient.PodsForSelector(context.TODO(), handlers.HandleNamespace(envoyDashNs, defaultNamespace), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -282,14 +297,14 @@ func envoyDashCmd() *cobra.Command {
 			} else {
 				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(envoyDashNs, defaultNamespace),
-					client.UtilFactory())
+					MakeKubeFactory(kubeClient))
 				if err != nil {
 					return err
 				}
 			}
 
 			return portForward(podName, ns, fmt.Sprintf("Envoy sidecar %s", podName),
-				"http://%s", bindAddress, 15000, client, c.OutOrStdout(), browser)
+				"http://%s", bindAddress, proxyAdminPort, kubeClient, c.OutOrStdout(), browser)
 		},
 	}
 
@@ -327,7 +342,7 @@ func controlZDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -353,7 +368,7 @@ func controlZDashCmd() *cobra.Command {
 			} else {
 				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(addonNamespace, defaultNamespace),
-					client.UtilFactory())
+					MakeKubeFactory(client))
 				if err != nil {
 					return err
 				}
@@ -380,7 +395,7 @@ func skywalkingDashCmd() *cobra.Command {
   istioctl dash skywalking
   istioctl d skywalking`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -396,7 +411,7 @@ func skywalkingDashCmd() *cobra.Command {
 
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, addonNamespace, "SkyWalking",
-				"http://%s", bindAddress, 8080, client, cmd.OutOrStdout(), browser)
+				"http://%s", bindAddress, skywalkingPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
 
@@ -510,17 +525,35 @@ func dashboard() *cobra.Command {
 	dashboardCmd.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 
-	dashboardCmd.AddCommand(kialiDashCmd())
-	dashboardCmd.AddCommand(promDashCmd())
-	dashboardCmd.AddCommand(grafanaDashCmd())
-	dashboardCmd.AddCommand(jaegerDashCmd())
-	dashboardCmd.AddCommand(zipkinDashCmd())
-	dashboardCmd.AddCommand(skywalkingDashCmd())
+	kiali := kialiDashCmd()
+	kiali.PersistentFlags().IntVar(&kialiPort, "ui-port", defaultKialiPort, "The component dashboard UI port.")
+	dashboardCmd.AddCommand(kiali)
+
+	prom := promDashCmd()
+	prom.PersistentFlags().IntVar(&promPort, "ui-port", defaultPrometheusPort, "The component dashboard UI port.")
+	dashboardCmd.AddCommand(prom)
+
+	graf := grafanaDashCmd()
+	graf.PersistentFlags().IntVar(&grafanaPort, "ui-port", defaultGrafanaPort, "The component dashboard UI port.")
+	dashboardCmd.AddCommand(graf)
+
+	jaeger := jaegerDashCmd()
+	jaeger.PersistentFlags().IntVar(&jaegerPort, "ui-port", defaultJaegerPort, "The component dashboard UI port.")
+	dashboardCmd.AddCommand(jaeger)
+
+	zipkin := zipkinDashCmd()
+	zipkin.PersistentFlags().IntVar(&zipkinPort, "ui-port", defaultZipkinPort, "The component dashboard UI port.")
+	dashboardCmd.AddCommand(zipkin)
+
+	skywalking := skywalkingDashCmd()
+	skywalking.PersistentFlags().IntVar(&skywalkingPort, "ui-port", defaultSkywalkingPort, "The component dashboard UI port.")
+	dashboardCmd.AddCommand(skywalking)
 
 	envoy := envoyDashCmd()
 	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	envoy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", defaultNamespace,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
+	envoy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", defaultProxyAdminPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(envoy)
 
 	controlz := controlZDashCmd()

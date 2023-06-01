@@ -36,13 +36,13 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/env"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/env"
-	istiolog "istio.io/pkg/log"
 )
 
 var (
-	log = istiolog.RegisterScope("ads", "ads debugging", 0)
+	log = istiolog.RegisterScope("ads", "ads debugging")
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)

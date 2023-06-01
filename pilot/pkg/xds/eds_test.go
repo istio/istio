@@ -44,11 +44,11 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // The connect and reconnect tests are removed - ADS already has coverage, and the
@@ -1039,7 +1039,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 			wgConnect.Done()
 
 			// Check we received all pushes
-			log.Info("Waiting for pushes ", id)
+			log.Infof("Waiting for pushes %v", id)
 
 			// Pushes may be merged so we may not get nPushes pushes
 			got, err := adscConn.Wait(15*time.Second, v3.EndpointType)
@@ -1057,13 +1057,13 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 
 			rcvPush.Inc()
 			if err != nil {
-				log.Info("Recv failed", err, id)
+				log.Infof("Recv %v failed: %v", id, err)
 				errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v",
 					err, id)
 				return
 			}
 
-			log.Info("Received all pushes ", id)
+			log.Infof("Received all pushes %v", id)
 			rcvClients.Inc()
 
 			adscConn.Close()
@@ -1090,7 +1090,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 		} else {
 			xds.AdsPushAll(s.Discovery)
 		}
-		log.Info("Push done ", j)
+		log.Infof("Push %v done", j)
 	}
 
 	ok = waitTimeout(wg, to)

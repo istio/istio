@@ -155,6 +155,12 @@ var TProxy Matcher = func(i echo.Instance) bool {
 
 var NotTProxy = Not(TProxy)
 
+var Waypoint Matcher = func(i echo.Instance) bool {
+	return i.Config().HasWaypointProxy()
+}
+
+var NotWaypoint = Not(Waypoint)
+
 // RegularPod matches echos that don't meet any of the following criteria:
 // - VM
 // - Naked

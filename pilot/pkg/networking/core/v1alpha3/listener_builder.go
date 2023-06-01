@@ -42,8 +42,8 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 // A stateful listener builder
@@ -386,9 +386,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = append(filters, xdsfilters.GrpcWeb)
 	}
 
-	if httpOpts.protocol.IsGRPC() {
-		filters = append(filters, xdsfilters.GrpcStats)
-	}
+	filters = append(filters, xdsfilters.GrpcStats)
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
 	if features.ALPNFilter {

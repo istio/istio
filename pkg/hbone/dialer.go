@@ -28,11 +28,11 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/proxy"
 
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
-	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("hbone", "", 0)
+var log = istiolog.RegisterScope("hbone", "")
 
 // Config defines the configuration for a given dialer. All fields other than ProxyAddress are optional
 type Config struct {
@@ -129,7 +129,7 @@ func (d *dialer) proxyTo(conn io.ReadWriteCloser, req Config, address string) er
 			remoteID = ids[0]
 		}
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("round trip failed: %v", resp.Status)
 	}
 	log.WithLabels("host", r.Host, "remote", remoteID).Info("CONNECT established")
@@ -149,7 +149,7 @@ func (d *dialer) proxyTo(conn io.ReadWriteCloser, req Config, address string) er
 		copyBuffered(pw, conn, log.WithLabels("name", "conn to pipe"))
 
 		wg.Wait()
-		log.Info("stream closed in ", time.Since(t0))
+		log.Infof("stream closed in %v", time.Since(t0))
 	}()
 
 	return nil

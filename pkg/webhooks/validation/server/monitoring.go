@@ -18,7 +18,7 @@ import (
 	"strconv"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 const (
@@ -72,7 +72,10 @@ func init() {
 	)
 }
 
-func reportValidationFailed(request *kube.AdmissionRequest, reason string) {
+func reportValidationFailed(request *kube.AdmissionRequest, reason string, dryRun bool) {
+	if dryRun {
+		return
+	}
 	metricValidationFailed.
 		With(GroupTag.Value(request.Resource.Group)).
 		With(VersionTag.Value(request.Resource.Version)).

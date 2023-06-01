@@ -25,14 +25,10 @@ import (
 	"istio.io/istio/cni/pkg/ambient"
 	"istio.io/istio/cni/pkg/ambient/ambientpod"
 	ebpf "istio.io/istio/cni/pkg/ebpf/server"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName, podNamespace, podIfname, podNetNs string, podIPs []net.IPNet) (bool, error) {
-	if !ambientConfig.ZTunnelReady {
-		return false, fmt.Errorf("ztunnel not ready")
-	}
-
 	client, err := newKubeClient(conf)
 	if err != nil {
 		return false, err

@@ -15,36 +15,33 @@
 package ingress
 
 import (
+	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/types"
 
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	istiolabels "istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/gvr"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/log"
 	netutil "istio.io/istio/pkg/util/net"
-	"istio.io/pkg/log"
 )
 
-const (
-	updateInterval = 60 * time.Second
-)
+var statusLog = log.RegisterScope("ingress status", "")
 
 // StatusSyncer keeps the status IP in each Ingress resource updated
 type StatusSyncer struct {
-	meshHolder mesh.Holder
+	meshConfig mesh.Watcher
 
-	queue          queue.Instance
+	queue          controllers.Queue
 	ingresses      kclient.Client[*knetworking.Ingress]
 	ingressClasses kclient.Client[*knetworking.IngressClass]
 	pods           kclient.Client[*corev1.Pod]
@@ -54,17 +51,14 @@ type StatusSyncer struct {
 
 // Run the syncer until stopCh is closed
 func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
-	go s.queue.Run(stopCh)
-	go s.runUpdateStatus(stopCh)
+	s.queue.Run(stopCh)
+	controllers.ShutdownAll(s.services, s.nodes, s.pods, s.ingressClasses, s.ingresses)
 }
 
 // NewStatusSyncer creates a new instance
-func NewStatusSyncer(meshHolder mesh.Holder, kc kubelib.Client, options kubecontroller.Options) *StatusSyncer {
-	// queue requires a time duration for a retry delay after a handler error
-	q := queue.NewQueue(5 * time.Second)
-
-	return &StatusSyncer{
-		meshHolder:     meshHolder,
+func NewStatusSyncer(meshHolder mesh.Watcher, kc kubelib.Client, options kubecontroller.Options) *StatusSyncer {
+	c := &StatusSyncer{
+		meshConfig:     meshHolder,
 		ingresses:      kclient.NewFiltered[*knetworking.Ingress](kc, kclient.Filter{ObjectFilter: options.GetFilter()}),
 		ingressClasses: kclient.New[*knetworking.IngressClass](kc),
 		pods: kclient.NewFiltered[*corev1.Pod](kc, kclient.Filter{
@@ -75,92 +69,61 @@ func NewStatusSyncer(meshHolder mesh.Holder, kc kubelib.Client, options kubecont
 		nodes: kclient.NewFiltered[*corev1.Node](kc, kclient.Filter{
 			ObjectTransform: kubelib.StripNodeUnusedFields,
 		}),
-		queue: q,
 	}
-}
+	c.queue = controllers.NewQueue("ingress status",
+		controllers.WithReconciler(c.Reconcile),
+		controllers.WithMaxAttempts(5))
 
-func (s *StatusSyncer) onEvent() error {
-	addrs, err := s.runningAddresses(ingressNamespace)
-	if err != nil {
-		return controllers.IgnoreNotFound(err)
-	}
-
-	s.updateStatus(sliceToStatus(addrs))
-	return nil
-}
-
-func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
-	if _, err := s.runningAddresses(ingressNamespace); err != nil {
-		log.Warn("Missing ingress, skip status updates")
-		err = wait.PollUntil(10*time.Second, func() (bool, error) {
-			if sa, err := s.runningAddresses(ingressNamespace); err != nil || len(sa) == 0 {
-				return false, nil
-			}
-			return true, nil
-		}, stop)
-		if err != nil {
-			log.Warn("Error waiting for ingress")
+	// For any ingress change, enqueue it - we may need to update the status.
+	c.ingresses.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
+	// For any class change, sync all ingress; the handler will filter non-matching ones already
+	c.ingressClasses.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		// Just sync them all
+		c.enqueueAll()
+	}))
+	// For services, we queue all Ingress if its the ingress service
+	c.services.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		if o.GetName() == c.meshConfig.Mesh().IngressService && o.GetNamespace() == IngressNamespace {
+			c.enqueueAll()
+		}
+	}))
+	// For pods, we enqueue all Ingress if its part of the ingress service
+	c.pods.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		if c.meshConfig.Mesh().IngressService != "" {
+			// Ingress Service takes precedence
 			return
 		}
-	}
-	err := wait.PollUntil(updateInterval, func() (bool, error) {
-		s.queue.Push(s.onEvent)
-		return false, nil
-	}, stop)
-	if err != nil {
-		log.Errorf("Stop requested")
-	}
-}
+		ingressSelector := c.meshConfig.Mesh().IngressSelector
 
-// updateStatus updates ingress status with the list of IP
-func (s *StatusSyncer) updateStatus(status []knetworking.IngressLoadBalancerIngress) {
-	l := s.ingresses.List("", labels.Everything())
-
-	if len(l) == 0 {
-		return
-	}
-
-	sort.SliceStable(status, lessLoadBalancerIngress(status))
-
-	for _, currIng := range l {
-		shouldTarget := s.shouldTargetIngress(currIng)
-		if !shouldTarget {
-			continue
+		// get all pods acting as ingress gateways
+		igSelector := getIngressGatewaySelector(ingressSelector, "")
+		if istiolabels.Instance(igSelector).SubsetOf(o.GetLabels()) {
+			// Ingress selector matches this pod, enqueue everything
+			c.enqueueAll()
 		}
-
-		curIPs := currIng.Status.LoadBalancer.Ingress
-		sort.SliceStable(curIPs, lessLoadBalancerIngress(curIPs))
-
-		if ingressSliceEqual(status, curIPs) {
-			log.Debugf("skipping update of Ingress %v/%v (no change)", currIng.Namespace, currIng.Name)
-			continue
-		}
-
-		currIng.Status.LoadBalancer.Ingress = status
-
-		_, err := s.ingresses.UpdateStatus(currIng)
-		if err != nil {
-			log.Warnf("error updating ingress status: %v", err)
-		}
-	}
+	}))
+	// Mesh may have changed ingress fields, enqueue everything
+	c.meshConfig.AddMeshHandler(c.enqueueAll)
+	return c
 }
 
 // runningAddresses returns a list of IP addresses and/or FQDN in the namespace
 // where the ingress controller is currently running
-func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
+func (s *StatusSyncer) runningAddresses() []string {
 	addrs := make([]string, 0)
-	ingressService := s.meshHolder.Mesh().IngressService
-	ingressSelector := s.meshHolder.Mesh().IngressSelector
+	ingressService := s.meshConfig.Mesh().IngressService
+	ingressSelector := s.meshConfig.Mesh().IngressSelector
 
 	if ingressService != "" {
-		svc := s.services.Get(ingressService, ingressNs)
+		svc := s.services.Get(ingressService, IngressNamespace)
 		if svc == nil {
-			return nil, kerrors.NewNotFound(gvr.Service.GroupResource(), ingressService)
+			return nil
 		}
 
 		if svc.Spec.Type == corev1.ServiceTypeExternalName {
 			addrs = append(addrs, svc.Spec.ExternalName)
-			return addrs, nil
+
+			return addrs
 		}
 
 		for _, ip := range svc.Status.LoadBalancer.Ingress {
@@ -172,12 +135,12 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 		}
 
 		addrs = append(addrs, svc.Spec.ExternalIPs...)
-		return addrs, nil
+		return addrs
 	}
 
 	// get all pods acting as ingress gateways
 	igSelector := getIngressGatewaySelector(ingressSelector, ingressService)
-	igPods := s.pods.List(ingressNamespace, labels.SelectorFromSet(igSelector))
+	igPods := s.pods.List(IngressNamespace, labels.SelectorFromSet(igSelector))
 
 	for _, pod := range igPods {
 		// only Running pods are valid
@@ -200,7 +163,7 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 		}
 	}
 
-	return addrs, nil
+	return addrs
 }
 
 func addressInSlice(addr string, list []string) bool {
@@ -224,6 +187,7 @@ func sliceToStatus(endpoints []string) []knetworking.IngressLoadBalancerIngress 
 		}
 	}
 
+	sort.SliceStable(lbi, lessLoadBalancerIngress(lbi))
 	return lbi
 }
 
@@ -261,5 +225,44 @@ func (s *StatusSyncer) shouldTargetIngress(ingress *knetworking.Ingress) bool {
 	if ingress.Spec.IngressClassName != nil {
 		ingressClass = s.ingressClasses.Get(*ingress.Spec.IngressClassName, "")
 	}
-	return shouldProcessIngressWithClass(s.meshHolder.Mesh(), ingress, ingressClass)
+	return shouldProcessIngressWithClass(s.meshConfig.Mesh(), ingress, ingressClass)
+}
+
+func (s *StatusSyncer) enqueueAll() {
+	for _, ing := range s.ingresses.List(metav1.NamespaceAll, labels.Everything()) {
+		s.queue.AddObject(ing)
+	}
+}
+
+func (s *StatusSyncer) Reconcile(key types.NamespacedName) error {
+	log := statusLog.WithLabels("ingress", key)
+	ing := s.ingresses.Get(key.Name, key.Namespace)
+	if ing == nil {
+		log.Debugf("ingress removed, no action")
+		return nil
+	}
+	shouldTarget := s.shouldTargetIngress(ing)
+	if !shouldTarget {
+		log.Debugf("ingress not selected, no action")
+		return nil
+	}
+
+	curIPs := ing.Status.LoadBalancer.Ingress
+	sort.SliceStable(curIPs, lessLoadBalancerIngress(curIPs))
+
+	wantIPs := sliceToStatus(s.runningAddresses())
+
+	if ingressSliceEqual(wantIPs, curIPs) {
+		log.Debugf("ingress has no change, no action")
+		return nil
+	}
+
+	log.Infof("updating IPs (%v)", wantIPs)
+	ing = ing.DeepCopy()
+	ing.Status.LoadBalancer.Ingress = wantIPs
+	_, err := s.ingresses.UpdateStatus(ing)
+	if err != nil {
+		return fmt.Errorf("error updating ingress status: %v", err)
+	}
+	return nil
 }

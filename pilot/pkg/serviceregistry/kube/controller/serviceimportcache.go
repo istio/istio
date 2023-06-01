@@ -17,9 +17,7 @@ package controller
 import (
 	"sort"
 	"strings"
-	"sync/atomic"
 
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -33,10 +31,11 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
-	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -68,18 +67,22 @@ type serviceImportCache interface {
 	Run(stop <-chan struct{})
 	HasSynced() bool
 	ImportedServices() []importedService
-	// HasCRDInstalled indicates whether the serviceImport crd has been installed.
-	HasCRDInstalled() bool
 }
 
 // newServiceImportCache creates a new cache of ServiceImport resources in the cluster.
 func newServiceImportCache(c *Controller) serviceImportCache {
 	if features.EnableMCSHost {
 		sic := &serviceImportCacheImpl{
-			Controller:      c,
-			serviceImportCh: make(chan struct{}),
+			Controller: c,
 		}
-		c.crdWatcher.AddCallBack(sic.onCRDEvent)
+
+		sic.serviceImports = kclient.NewDelayedInformer(sic.client, mcs.ServiceImportGVR, kubetypes.DynamicInformer, kclient.Filter{
+			ObjectFilter: sic.opts.GetFilter(),
+		})
+		// Register callbacks for events.
+		registerHandlers(sic.Controller, sic.serviceImports, "ServiceImports", sic.onServiceImportEvent, nil)
+		sic.opts.MeshServiceController.AppendServiceHandlerForCluster(sic.Cluster(), sic.onServiceEvent)
+
 		return sic
 	}
 
@@ -91,9 +94,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 type serviceImportCacheImpl struct {
 	*Controller
 
-	serviceImports  kclient.Untyped
-	serviceImportCh chan struct{}
-	started         atomic.Bool
+	serviceImports kclient.Untyped
 }
 
 // onServiceEvent is called when the controller receives an event for the kube Service (i.e. cluster.local).
@@ -258,9 +259,6 @@ func (ic *serviceImportCacheImpl) getClusterSetIPs(name types.NamespacedName) []
 }
 
 func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
-	if !ic.started.Load() {
-		return nil
-	}
 	sis := ic.serviceImports.List(metav1.NamespaceAll, klabels.Everything())
 
 	// Iterate over the ServiceImport resources in this cluster.
@@ -290,45 +288,10 @@ func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
 }
 
 func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
-	select {
-	case <-ic.serviceImportCh:
-	case <-stop:
-		return
-	}
-
-	dInformer := ic.client.DynamicInformer().ForResource(mcs.ServiceImportGVR).Informer()
-	ic.serviceImports = kclient.NewUntyped(ic.client, dInformer, kclient.Filter{ObjectFilter: ic.opts.GetFilter()})
-	// Register callbacks for Service events anywhere in the mesh.
-	ic.opts.MeshServiceController.AppendServiceHandlerForCluster(ic.Cluster(), ic.onServiceEvent)
-	// Register callbacks for ServiceImport events in this cluster only.
-	registerHandlers[controllers.Object](ic.Controller, ic.serviceImports, "ServiceImports", ic.onServiceImportEvent, nil)
-	go dInformer.Run(stop)
-	kubelib.WaitForCacheSync(stop, ic.serviceImports.HasSynced)
-	ic.started.Store(true)
 }
 
 func (ic *serviceImportCacheImpl) HasSynced() bool {
-	return ic.started.Load()
-}
-
-func (ic *serviceImportCacheImpl) HasCRDInstalled() bool {
-	select {
-	case <-ic.serviceImportCh:
-		return true
-	default:
-		return false
-	}
-}
-
-func (ic *serviceImportCacheImpl) onCRDEvent(name string) {
-	if name == mcs.ServiceImportGVR.Resource+"."+mcs.ServiceImportGVR.Group {
-		select {
-		case <-ic.serviceImportCh: // channel already closed
-		default:
-			// notify CRD added
-			close(ic.serviceImportCh)
-		}
-	}
+	return ic.serviceImports.HasSynced()
 }
 
 type disabledServiceImportCache struct{}

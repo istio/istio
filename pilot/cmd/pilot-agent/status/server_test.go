@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -45,9 +44,10 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 type handler struct {
@@ -373,6 +373,50 @@ my_metric{app="bar"} 0
 	}
 }
 
+func TestNegotiateMetricsFormat(t *testing.T) {
+	cases := []struct {
+		name        string
+		contentType string
+		expected    expfmt.Format
+	}{
+		{
+			name:        "openmetrics minimal accept header",
+			contentType: `application/openmetrics-text; version=0.0.1`,
+			expected:    expfmt.FmtOpenMetrics_0_0_1,
+		},
+		{
+			name:        "openmetrics minimal v1 accept header",
+			contentType: `application/openmetrics-text; version=1.0.0`,
+			expected:    expfmt.FmtOpenMetrics_1_0_0,
+		},
+		{
+			name:        "openmetrics accept header",
+			contentType: `application/openmetrics-text; version=0.0.1; charset=utf-8`,
+			expected:    expfmt.FmtOpenMetrics_0_0_1,
+		},
+		{
+			name:        "openmetrics v1 accept header",
+			contentType: `application/openmetrics-text; version=1.0.0; charset=utf-8`,
+			expected:    expfmt.FmtOpenMetrics_1_0_0,
+		},
+		{
+			name:        "plaintext accept header",
+			contentType: "text/plain; version=0.0.4; charset=utf-8",
+			expected:    expfmt.FmtText,
+		},
+		{
+			name:        "empty accept header",
+			contentType: "",
+			expected:    expfmt.FmtText,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, negotiateMetricsFormat(tt.contentType), tt.expected)
+		})
+	}
+}
+
 func TestStatsContentType(t *testing.T) {
 	appOpenMetrics := `# TYPE jvm info
 # HELP jvm VM version info
@@ -405,6 +449,10 @@ my_other_metric{} 0
 			acceptHeader: `application/openmetrics-text; version=0.0.1,text/plain;version=0.0.4;q=0.5,*/*;q=0.1`,
 		},
 		{
+			name:         "openmetrics v1 accept header",
+			acceptHeader: `application/openmetrics-text; version=1.0.0,text/plain;version=0.0.4;q=0.5,*/*;q=0.1`,
+		},
+		{
 			name:         "plaintext accept header",
 			acceptHeader: string(expfmt.FmtText),
 		},
@@ -425,13 +473,12 @@ my_other_metric{} 0
 			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
 				var negotiatedMetrics string
-				if format == expfmt.FmtOpenMetrics {
-					negotiatedMetrics = appOpenMetrics
-					w.Header().Set("Content-Type", string(expfmt.FmtOpenMetrics))
-				} else {
+				if format == expfmt.FmtText {
 					negotiatedMetrics = appText004
-					w.Header().Set("Content-Type", string(expfmt.FmtText))
+				} else {
+					negotiatedMetrics = appOpenMetrics
 				}
+				w.Header().Set("Content-Type", string(format))
 				if _, err := w.Write([]byte(negotiatedMetrics)); err != nil {
 					t.Fatalf("write failed: %v", err)
 				}
@@ -456,15 +503,13 @@ my_other_metric{} 0
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)
 			}
 
-			var format expfmt.Format
-			mediaType, _, err := mime.ParseMediaType(rec.Header().Get("Content-Type"))
-			if err == nil && mediaType == "application/openmetrics-text" {
-				format = expfmt.FmtOpenMetrics
+			if negotiateMetricsFormat(rec.Header().Get("Content-Type")) == expfmt.FmtText {
+				textParser := expfmt.TextParser{}
+				_, err := textParser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
+				if err != nil {
+					t.Fatalf("failed to parse text metrics: %v", err)
+				}
 			} else {
-				format = expfmt.FmtText
-			}
-
-			if format == expfmt.FmtOpenMetrics {
 				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes())
 				for {
 					_, err := omParser.Next()
@@ -474,12 +519,6 @@ my_other_metric{} 0
 					if err != nil {
 						t.Fatalf("failed to parse openmetrics: %v", err)
 					}
-				}
-			} else {
-				textParser := expfmt.TextParser{}
-				_, err := textParser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
-				if err != nil {
-					t.Fatalf("failed to parse text metrics: %v", err)
 				}
 			}
 		})
@@ -561,13 +600,12 @@ my_other_metric{} 0
 	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
 		var negotiatedMetrics string
-		if format == expfmt.FmtOpenMetrics {
-			negotiatedMetrics = appOpenMetrics
-			w.Header().Set("Content-Type", string(expfmt.FmtOpenMetrics))
-		} else {
+		if format == expfmt.FmtText {
 			negotiatedMetrics = appText
-			w.Header().Set("Content-Type", string(expfmt.FmtText))
+		} else {
+			negotiatedMetrics = appOpenMetrics
 		}
+		w.Header().Set("Content-Type", string(format))
 		if _, err := w.Write([]byte(negotiatedMetrics)); err != nil {
 			t.Fatalf("write failed: %v", err)
 		}
@@ -608,7 +646,7 @@ func BenchmarkStats(t *testing.B) {
 			for i := 0; i < t.N; i++ {
 				req := &http.Request{}
 				req.Header = make(http.Header)
-				req.Header.Add("Accept", string(expfmt.FmtOpenMetrics))
+				req.Header.Add("Accept", string(expfmt.FmtOpenMetrics_1_0_0))
 				rec := httptest.NewRecorder()
 				server.handleStats(rec, req)
 			}
@@ -693,8 +731,8 @@ func TestAppProbe(t *testing.T) {
 					HTTPGet: &apimirror.HTTPGetAction{
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
+						Host: testHostValue,
 						HTTPHeaders: []apimirror.HTTPHeader{
-							{Name: "Host", Value: testHostValue},
 							{Name: testHeader, Value: testHeaderValue},
 						},
 					},
@@ -845,6 +883,16 @@ func TestAppProbe(t *testing.T) {
 		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v/%s", statusPort, tc.probePath), nil)
 		if err != nil {
 			t.Fatalf("[%v] failed to create request", tc.probePath)
+		}
+		if c := tc.config["/"+tc.probePath]; c != nil {
+			if hc := c.HTTPGet; hc != nil {
+				if hc.Host != "" {
+					req.Host = hc.Host
+				}
+				for _, h := range hc.HTTPHeaders {
+					req.Header[h.Name] = append(req.Header[h.Name], h.Value)
+				}
+			}
 		}
 		resp, err := client.Do(req)
 		if err != nil {
@@ -1324,7 +1372,6 @@ func TestProbeHeader(t *testing.T) {
 				},
 			},
 			want: http.Header{
-				testHeader:   []string{testHeaderValue},
 				"Connection": []string{"close"},
 			},
 		},
@@ -1342,23 +1389,22 @@ func TestProbeHeader(t *testing.T) {
 				},
 			},
 			want: http.Header{
-				testHeader:   []string{testHeaderValue, testHeaderValue},
 				"Connection": []string{"close"},
 			},
 		},
 		{
 			name: "Proxy overwrites Origin",
 			originHeaders: http.Header{
-				testHeader: []string{testHeaderValue, testHeaderValue},
+				testHeader: []string{testHeaderValue},
 			},
 			proxyHeaders: []apimirror.HTTPHeader{
 				{
 					Name:  testHeader,
-					Value: testHeaderValue + "Over",
+					Value: testHeaderValue + "over",
 				},
 			},
 			want: http.Header{
-				testHeader:   []string{testHeaderValue + "Over"},
+				testHeader:   []string{testHeaderValue},
 				"Connection": []string{"close"},
 			},
 		},

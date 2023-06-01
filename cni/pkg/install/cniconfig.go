@@ -78,13 +78,13 @@ func getCNIConfigVars(cfg *config.InstallConfig) cniConfigVars {
 	}
 }
 
-func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig, saToken string) (string, error) {
+func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {
 	cniConfig, err := readCNIConfigTemplate(getCNIConfigTemplate(cfg))
 	if err != nil {
 		return "", err
 	}
 
-	cniConfig = replaceCNIConfigVars(cniConfig, getCNIConfigVars(cfg), saToken)
+	cniConfig = replaceCNIConfigVars(cniConfig, getCNIConfigVars(cfg))
 
 	return writeCNIConfig(ctx, cniConfig, getPluginConfig(cfg))
 }
@@ -107,7 +107,7 @@ func readCNIConfigTemplate(template cniConfigTemplate) ([]byte, error) {
 	return nil, fmt.Errorf("need CNI_NETWORK_CONFIG or CNI_NETWORK_CONFIG_FILE to be set")
 }
 
-func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars, saToken string) []byte {
+func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars) []byte {
 	cniConfigStr := string(cniConfig)
 
 	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__LOG_LEVEL__", vars.logLevel)
@@ -118,11 +118,7 @@ func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars, saToken string) 
 	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBERNETES_SERVICE_PORT__", vars.k8sServicePort)
 	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__KUBERNETES_NODE_NAME__", vars.k8sNodeName)
 
-	// Log the config file before inserting service account token.
-	// This way auth token is not visible in the logs.
 	installLog.Infof("CNI config: %s", cniConfigStr)
-
-	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__SERVICEACCOUNT_TOKEN__", saToken)
 
 	return []byte(cniConfigStr)
 }
@@ -180,13 +176,11 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 		return filepath.Join(cfg.mountedCNINetDir, filename), nil
 	}
 
-	watcher, fileModified, errChan, err := util.CreateFileWatcher(cfg.mountedCNINetDir)
+	watcher, err := util.CreateFileWatcher(cfg.mountedCNINetDir)
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		_ = watcher.Close()
-	}()
+	defer watcher.Close()
 
 	for len(filename) == 0 {
 		filename, err = getDefaultCNINetwork(cfg.mountedCNINetDir)
@@ -195,7 +189,7 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 		}
 		installLog.Warnf("Istio CNI is configured as chained plugin, but cannot find existing CNI network config: %v", err)
 		installLog.Infof("Waiting for CNI network config file to be written in %v...", cfg.mountedCNINetDir)
-		if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
+		if err := watcher.Wait(ctx); err != nil {
 			return "", err
 		}
 	}
@@ -211,7 +205,7 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 			cniConfigFilepath = cniConfigFilepath[:len(cniConfigFilepath)-4]
 		} else {
 			installLog.Infof("CNI config file %s does not exist. Waiting for file to be written...", cniConfigFilepath)
-			if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
+			if err := watcher.Wait(ctx); err != nil {
 				return "", err
 			}
 		}

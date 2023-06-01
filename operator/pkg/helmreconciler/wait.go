@@ -72,7 +72,7 @@ func WaitForResources(objects object.K8sObjects, client kube.Client,
 		return nil
 	}
 
-	errPoll := wait.Poll(2*time.Second, waitTimeout, func() (bool, error) {
+	errPoll := wait.PollUntilContextTimeout(context.Background(), 2*time.Second, waitTimeout, false, func(context.Context) (bool, error) {
 		isReady, notReadyObjects, debugInfoObjects, err := waitForResources(objects, client.Kube(), l)
 		notReady = notReadyObjects
 		debugInfo = debugInfoObjects
@@ -163,7 +163,7 @@ func waitForCRDs(objects object.K8sObjects, client kube.Client) error {
 		return nil
 	}
 
-	errPoll := wait.Poll(cRDPollInterval, cRDPollTimeout, func() (bool, error) {
+	errPoll := wait.PollUntilContextTimeout(context.Background(), cRDPollInterval, cRDPollTimeout, false, func(context.Context) (bool, error) {
 	descriptor:
 		for _, crdName := range crdNames {
 			crd, errGet := client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})

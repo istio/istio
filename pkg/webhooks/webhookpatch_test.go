@@ -164,7 +164,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			"config1",
 			"webhook1",
 			caBundle0,
-			errNotFound.Error(),
+			errWrongRevision.Error(),
 		},
 		{
 			"WrongRevisionWebhookNotUpdated",
@@ -188,7 +188,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			"config1",
 			"webhook1",
 			caBundle0,
-			errNotFound.Error(),
+			errWrongRevision.Error(),
 		},
 		{
 			"MultipleWebhooks",
@@ -237,13 +237,10 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			}
 
 			stop := test.NewStop(t)
-			go whPatcher.informer.Run(stop)
 			client.RunAndWait(stop)
-			retry.UntilOrFail(t, whPatcher.informer.HasSynced)
+			retry.UntilOrFail(t, whPatcher.webhooks.HasSynced)
 
-			err = whPatcher.patchMutatingWebhookConfig(
-				client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations(),
-				tc.configName)
+			err = whPatcher.patchMutatingWebhookConfig(tc.configName)
 			if (err != nil) != (tc.err != "") {
 				t.Fatalf("Wrong error: got %v want %v", err, tc.err)
 			}

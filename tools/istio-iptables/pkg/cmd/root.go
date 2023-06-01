@@ -26,14 +26,14 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/tools/istio-iptables/pkg/capture"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 	"istio.io/istio/tools/istio-iptables/pkg/validation"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 var (

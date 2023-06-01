@@ -19,10 +19,9 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -32,15 +31,18 @@ import (
 // validates that a node proxy which requests certificates for workloads on its own node is requesting
 // valid identities which run on that node (rather than arbitrary ones).
 type NodeAuthorizer struct {
-	podLister           listerv1.PodLister
-	podIndexer          *controllers.Index[*v1.Pod, SaNode]
 	trustedNodeAccounts map[types.NamespacedName]struct{}
+	pods                kclient.Client[*v1.Pod]
+	nodeIndex           *kclient.Index[SaNode, *v1.Pod]
 }
 
-func NewNodeAuthorizer(client kube.Client, trustedNodeAccounts map[types.NamespacedName]struct{}) (*NodeAuthorizer, error) {
-	pods := client.KubeInformer().Core().V1().Pods()
+func NewNodeAuthorizer(client kube.Client, filter func(t any) bool, trustedNodeAccounts map[types.NamespacedName]struct{}) (*NodeAuthorizer, error) {
+	pods := kclient.NewFiltered[*v1.Pod](client, kclient.Filter{
+		ObjectFilter:    filter,
+		ObjectTransform: kube.StripPodUnusedFields,
+	})
 	// Add an Index on the pods, storing the service account and node. This allows us to later efficiently query.
-	index := controllers.CreateIndex[*v1.Pod, SaNode](pods.Informer(), func(pod *v1.Pod) []SaNode {
+	index := kclient.CreateIndex[SaNode, *v1.Pod](pods, func(pod *v1.Pod) []SaNode {
 		if len(pod.Spec.NodeName) == 0 {
 			return nil
 		}
@@ -56,8 +58,8 @@ func NewNodeAuthorizer(client kube.Client, trustedNodeAccounts map[types.Namespa
 		}}
 	})
 	return &NodeAuthorizer{
-		podLister:           pods.Lister(),
-		podIndexer:          index,
+		pods:                pods,
+		nodeIndex:           index,
 		trustedNodeAccounts: trustedNodeAccounts,
 	}, nil
 }
@@ -78,9 +80,9 @@ func (na *NodeAuthorizer) authenticateImpersonation(caller security.KubernetesIn
 	}
 
 	// Finally, we validate the requested identity is running on the same node the caller is on
-	callerPod, err := na.podLister.Pods(caller.PodNamespace).Get(caller.PodName)
-	if err != nil {
-		return fmt.Errorf("failed to lookup pod: %v", err)
+	callerPod := na.pods.Get(caller.PodName, caller.PodNamespace)
+	if callerPod == nil {
+		return fmt.Errorf("pod %v/%v not found", caller.PodNamespace, caller.PodName)
 	}
 	// Make sure UID is still valid for our current state
 	if callerPod.UID != types.UID(caller.PodUID) {
@@ -100,7 +102,7 @@ func (na *NodeAuthorizer) authenticateImpersonation(caller security.KubernetesIn
 	}
 	// TODO: this is currently single cluster; we will need to take the cluster of the proxy into account
 	// to support multi-cluster properly.
-	res := na.podIndexer.Lookup(k)
+	res := na.nodeIndex.Lookup(k)
 	// We don't care what pods are part of the index, only that there is at least one. If there is one,
 	// it is appropriate for the caller to request this identity.
 	if len(res) == 0 {

@@ -46,6 +46,7 @@ templates:
         service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
         service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
       annotations: {
+        istio.io/rev: {{ .Revision | default "default" | quote }},
         {{- if ge (len $containers) 1 }}
         {{- if not (isset .ObjectMeta.Annotations `kubectl.kubernetes.io/default-logs-container`) }}
         kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
@@ -165,7 +166,6 @@ templates:
           runAsUser: 1337
           runAsNonRoot: true
         {{- end }}
-        restartPolicy: Always
       {{ end -}}
       {{- if eq (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
       - name: enable-core-dump
@@ -355,7 +355,6 @@ templates:
           privileged: true
           readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
           runAsGroup: 1337
-          fsGroup: 1337
           runAsNonRoot: false
           runAsUser: 0
           {{- else }}
@@ -375,7 +374,6 @@ templates:
           privileged: {{ .Values.global.proxy.privileged }}
           readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
           runAsGroup: 1337
-          fsGroup: 1337
           {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
           runAsNonRoot: false
           runAsUser: 0
@@ -520,10 +518,6 @@ templates:
         - name: {{ . }}
         {{- end }}
       {{- end }}
-      {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
-      securityContext:
-        fsGroup: 1337
-      {{- end }}
   gateway: |
     {{- $containers := list }}
     {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
@@ -532,6 +526,7 @@ templates:
         service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
         service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
       annotations: {
+        istio.io/rev: {{ .Revision | default "default" | quote }},
         {{- if eq (len $containers) 1 }}
         kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
         kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
@@ -757,13 +752,10 @@ templates:
         - name: {{ . }}
         {{- end }}
       {{- end }}
-      {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
-      securityContext:
-        fsGroup: 1337
-      {{- end }}
   grpc-simple: |
     metadata:
-      sidecar.istio.io/rewriteAppHTTPProbers: "false"
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: "false"
     spec:
       initContainers:
         - name: grpc-bootstrap-init
@@ -861,6 +853,7 @@ templates:
         service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
         service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
       annotations: {
+        istio.io/rev: {{ .Revision | default "default" }},
         {{- if ge (len $containers) 1 }}
         {{- if not (isset .ObjectMeta.Annotations `kubectl.kubernetes.io/default-logs-container`) }}
         kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
@@ -1142,10 +1135,6 @@ templates:
         - name: {{ . }}
         {{- end }}
       {{- end }}
-      {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
-      securityContext:
-        fsGroup: 1337
-      {{- end }}
   waypoint: |
     apiVersion: v1
     kind: ServiceAccount
@@ -1159,7 +1148,7 @@ templates:
       name: {{.DeploymentName | quote}}
       namespace: {{.Namespace | quote}}
       annotations:
-        {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
+        {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
       labels:
         {{- toJsonMap .Labels | nindent 4 }}
       ownerReferences:
@@ -1175,7 +1164,8 @@ templates:
         metadata:
           annotations:
             {{- toJsonMap
-              (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account")
+              (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version")
+              (strdict "istio.io/rev" (.Revision | default "default"))
               (strdict
                 "ambient.istio.io/redirection" "disabled"
                 "prometheus.io/path" "/stats/prometheus"
@@ -1198,7 +1188,17 @@ templates:
           terminationGracePeriodSeconds: 2
           serviceAccountName: {{.ServiceAccount | quote}}
           containers:
-          - args:
+          - name: istio-proxy
+            ports:
+            - containerPort: 15021
+              name: status-port
+              protocol: TCP
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+            image: {{.ProxyImage}}
+            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
+            args:
             - proxy
             - waypoint
             - --domain
@@ -1275,9 +1275,6 @@ templates:
             - name: ISTIO_META_MESH_ID
               value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
             {{- end }}
-            image: {{.ProxyImage}}
-            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
-            name: istio-proxy
             resources:
               limits:
                 cpu: "2"
@@ -1360,6 +1357,32 @@ templates:
             - name: {{ . }}
             {{- end }}
           {{- end }}
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+        {{ toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+      labels:
+        {{ toJsonMap .Labels | nindent 4}}
+      name: {{.DeploymentName | quote}}
+      namespace: {{.Namespace | quote}}
+      ownerReferences:
+      - apiVersion: gateway.networking.k8s.io/v1beta1
+        kind: Gateway
+        name: "{{.Name}}"
+        uid: "{{.UID}}"
+    spec:
+      ports:
+      {{- range $key, $val := .Ports }}
+      - name: {{ $val.Name | quote }}
+        port: {{ $val.Port }}
+        protocol: TCP
+        appProtocol: {{ $val.AppProtocol }}
+      {{- end }}
+      selector:
+        istio.io/gateway-name: "{{.Name}}"
+    ---
   kube-gateway: |
     apiVersion: v1
     kind: ServiceAccount
@@ -1373,7 +1396,7 @@ templates:
       name: {{.DeploymentName | quote}}
       namespace: {{.Namespace | quote}}
       annotations:
-        {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
+        {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
       labels:
         {{- toJsonMap .Labels | nindent 4 }}
       ownerReferences:
@@ -1389,7 +1412,8 @@ templates:
         metadata:
           annotations:
             {{- toJsonMap
-              (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account")
+              (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version")
+              (strdict "istio.io/rev" (.Revision | default "default"))
               (strdict
                 "prometheus.io/path" "/stats/prometheus"
                 "prometheus.io/port" "15020"
@@ -1519,9 +1543,9 @@ templates:
                   fieldPath: spec.nodeName
             - name: ISTIO_META_INTERCEPTION_MODE
               value: "{{ .ProxyConfig.InterceptionMode.String }}"
-            {{- if .Values.global.network }}
+            {{- with (valueOrDefault  (index .Labels "topology.istio.io/network") .Values.global.network) }}
             - name: ISTIO_META_NETWORK
-              value: "{{ .Values.global.network }}"
+              value: {{.|quote}}
             {{- end }}
             - name: ISTIO_META_WORKLOAD_NAME
               value: {{.DeploymentName|quote}}
@@ -1647,13 +1671,13 @@ templates:
     kind: Service
     metadata:
       annotations:
-        {{ toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
+        {{ toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
       labels:
         {{ toJsonMap .Labels | nindent 4}}
       name: {{.DeploymentName | quote}}
       namespace: {{.Namespace | quote}}
       ownerReferences:
-      - apiVersion: gateway.networking.k8s.io/v1alpha2
+      - apiVersion: gateway.networking.k8s.io/v1beta1
         kind: Gateway
         name: {{.Name}}
         uid: {{.UID}}

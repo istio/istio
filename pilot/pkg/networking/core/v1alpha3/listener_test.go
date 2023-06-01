@@ -749,9 +749,12 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 				listenertest.VerifyListener(t, l, listenertest.ListenerTest{
 					FilterChains: []listenertest.FilterChainTest{
 						{
-							TotalMatch:  true,
-							Port:        8080,
-							HTTPFilters: []string{xdsfilters.MxFilterName, xdsfilters.Fault.Name, xdsfilters.Cors.Name, xdsfilters.Router.Name},
+							TotalMatch: true,
+							Port:       8080,
+							HTTPFilters: []string{
+								xdsfilters.MxFilterName, xdsfilters.GrpcStats.Name, xdsfilters.Fault.Name,
+								xdsfilters.Cors.Name, xdsfilters.Router.Name,
+							},
 							ValidateHCM: func(t test.Failer, hcm *hcm.HttpConnectionManager) {
 								assert.Equal(t, "istio-envoy", hcm.GetServerName(), "server name")
 								if len(tt.cfg) == 0 {
@@ -2114,7 +2117,6 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		out              *hcm.HttpConnectionManager_Tracing
 		tproxy           *model.Proxy
 		envPilotSampling float64
-		disableIstioTags bool
 	}{
 		{
 			name:             "random-sampling-env",
@@ -2138,30 +2140,6 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					Value: 100.0,
 				},
 				CustomTags: customTracingTags(),
-			},
-		},
-		{
-			name:             "random-sampling-env-without-istio-tags",
-			disableIstioTags: true,
-			tproxy:           getProxy(),
-			envPilotSampling: 80.0,
-			in: &meshconfig.Tracing{
-				Tracer:           nil,
-				CustomTags:       nil,
-				MaxPathTagLength: 0,
-				Sampling:         0,
-			},
-			out: &hcm.HttpConnectionManager_Tracing{
-				MaxPathTagLength: nil,
-				ClientSampling: &xdstype.Percent{
-					Value: 100.0,
-				},
-				RandomSampling: &xdstype.Percent{
-					Value: 80.0,
-				},
-				OverallSampling: &xdstype.Percent{
-					Value: 100.0,
-				},
 			},
 		},
 		{
@@ -2383,79 +2361,6 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			},
 		},
 		{
-			name:             "custom-tags-sidecar-without-istio-tags",
-			disableIstioTags: true,
-			tproxy:           getProxy(),
-			in: &meshconfig.Tracing{
-				CustomTags: map[string]*meshconfig.Tracing_CustomTag{
-					"custom_tag_env": {
-						Type: &meshconfig.Tracing_CustomTag_Environment{
-							Environment: &meshconfig.Tracing_Environment{
-								Name:         "custom_tag_env-var",
-								DefaultValue: "custom-tag-env-default",
-							},
-						},
-					},
-					"custom_tag_request_header": {
-						Type: &meshconfig.Tracing_CustomTag_Header{
-							Header: &meshconfig.Tracing_RequestHeader{
-								Name:         "custom_tag_request_header_name",
-								DefaultValue: "custom-defaulted-value-request-header",
-							},
-						},
-					},
-					// leave this in non-alphanumeric order to verify
-					// the stable sorting doing when creating the custom tag filter
-					"custom_tag_literal": {
-						Type: &meshconfig.Tracing_CustomTag_Literal{
-							Literal: &meshconfig.Tracing_Literal{
-								Value: "literal-value",
-							},
-						},
-					},
-				},
-			},
-			out: &hcm.HttpConnectionManager_Tracing{
-				ClientSampling: &xdstype.Percent{
-					Value: 100.0,
-				},
-				RandomSampling: &xdstype.Percent{
-					Value: 1.0,
-				},
-				OverallSampling: &xdstype.Percent{
-					Value: 100.0,
-				},
-				CustomTags: []*tracing.CustomTag{
-					{
-						Tag: "custom_tag_env",
-						Type: &tracing.CustomTag_Environment_{
-							Environment: &tracing.CustomTag_Environment{
-								Name:         "custom_tag_env-var",
-								DefaultValue: "custom-tag-env-default",
-							},
-						},
-					},
-					{
-						Tag: "custom_tag_literal",
-						Type: &tracing.CustomTag_Literal_{
-							Literal: &tracing.CustomTag_Literal{
-								Value: "literal-value",
-							},
-						},
-					},
-					{
-						Tag: "custom_tag_request_header",
-						Type: &tracing.CustomTag_RequestHeader{
-							RequestHeader: &tracing.CustomTag_Header{
-								Name:         "custom_tag_request_header_name",
-								DefaultValue: "custom-defaulted-value-request-header",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
 			name:   "custom-tracing-gateways",
 			tproxy: &proxyGateway,
 			in: &meshconfig.Tracing{
@@ -2503,8 +2408,6 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			if tc.envPilotSampling != 0.0 {
 				test.SetForTest(t, &features.TraceSampling, tc.envPilotSampling)
 			}
-
-			test.SetForTest(t, &features.EnableIstioTags, !tc.disableIstioTags)
 
 			m := mesh.DefaultMeshConfig()
 			m.ProxyHttpPort = 15007
@@ -2626,6 +2529,7 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *listener.Listener, hostn
 func verifyFilterChainMatch(t *testing.T, listener *listener.Listener) {
 	httpFilters := []string{
 		xdsfilters.MxFilterName,
+		xdsfilters.GrpcStats.Name,
 		xdsfilters.Fault.Name,
 		xdsfilters.Cors.Name,
 		xdsfilters.Router.Name,

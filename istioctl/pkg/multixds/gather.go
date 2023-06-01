@@ -38,7 +38,7 @@ import (
 	"istio.io/istio/istioctl/pkg/xds"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
-	istioversion "istio.io/pkg/version"
+	istioversion "istio.io/istio/pkg/version"
 )
 
 const (
@@ -97,9 +97,9 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 	if labelSelector == "" {
 		labelSelector = "app=istiod"
 	}
-	pods, err := kubeClient.GetIstioPods(context.TODO(), istioNamespace, map[string]string{
-		"labelSelector": labelSelector,
-		"fieldSelector": kube.RunningStatus,
+	pods, err := kubeClient.GetIstioPods(context.TODO(), istioNamespace, metav1.ListOptions{
+		LabelSelector: labelSelector,
+		FieldSelector: kube.RunningStatus,
 	})
 	if err != nil {
 		return nil, err

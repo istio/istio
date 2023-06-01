@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/http"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 var errAbort = errors.New("proxy aborted")
@@ -138,6 +138,7 @@ func (a *Agent) terminate() {
 		time.Sleep(a.minDrainDuration)
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
+		defer ticker.Stop()
 		for range ticker.C {
 			ac, err := a.activeProxyConnections()
 			if err != nil {

@@ -46,7 +46,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type InstallArgs struct {
@@ -159,6 +159,14 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	if err != nil {
 		return fmt.Errorf("fetch Istio version: %v", err)
 	}
+
+	// return warning if current date is near the EOL date
+	if operatorVer.IsEOL() {
+		warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
+		fmt.Printf("%s Istio %v may be out of support (EOL) already: see https://istio.io/latest/docs/releases/supported-releases/ for supported releases\n",
+			warnMarker, operatorVer.OperatorCodeBaseVersion)
+	}
+
 	setFlags := applyFlagAliases(iArgs.Set, iArgs.ManifestsPath, iArgs.Revision)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
@@ -177,7 +185,8 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.DryRun && !iArgs.SkipConfirmation {
-		prompt := fmt.Sprintf("This will install the Istio %s %s profile with %q components into the cluster. Proceed? (y/N)", tag, profile, enabledComponents)
+		prompt := fmt.Sprintf("This will install the Istio %s %q profile (with components: %s) into the cluster. Proceed? (y/N)",
+			tag, profile, humanReadableJoin(enabledComponents))
 		if profile == "empty" {
 			prompt = fmt.Sprintf("This will install the Istio %s %s profile into the cluster. Proceed? (y/N)", tag, profile)
 		}
@@ -190,38 +199,22 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
+	iop.Name = savedIOPName(iop)
+
 	// Detect whether previous installation exists prior to performing the installation.
 	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
-	rev := iop.Spec.Revision
-	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
-	operatorManageWebhooks := operatorManageWebhooks(iop)
-
 	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
-
-	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
-		p.Println("Making this installation the default for injection and validation.")
-		if rev == "" {
-			rev = revtag.DefaultRevisionName
-		}
-		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
-
-		o := &revtag.GenerateOptions{
-			Tag:                  revtag.DefaultRevisionName,
-			Revision:             rev,
-			Overwrite:            true,
-			AutoInjectNamespaces: autoInjectNamespaces,
-		}
-		// If tag cannot be created could be remote cluster install, don't fail out.
-		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
-		if err == nil {
-			err = revtag.Create(kubeClient, tagManifests)
-			if err != nil {
-				return err
-			}
-		}
+	opts := &helmreconciler.ProcessDefaultWebhookOptions{
+		Namespace: ns,
+		DryRun:    rootArgs.DryRun,
+	}
+	if processed, err := helmreconciler.ProcessDefaultWebhook(kubeClient, iop, exists, opts); err != nil {
+		return fmt.Errorf("failed to process default webhook: %v", err)
+	} else if processed {
+		p.Println("Made this installation the default for injection and validation.")
 	}
 
 	if iArgs.Verify {
@@ -244,23 +237,6 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 	}
 
 	return nil
-}
-
-// operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
-func operatorManageWebhooks(iop *v1alpha12.IstioOperator) bool {
-	if iop.Spec.GetValues() == nil {
-		return false
-	}
-	globalValues := iop.Spec.Values.AsMap()["global"]
-	global, ok := globalValues.(map[string]any)
-	if !ok {
-		return false
-	}
-	omw, ok := global["operatorManageWebhooks"].(bool)
-	if !ok {
-		return false
-	}
-	return omw
 }
 
 // InstallManifests generates manifests from the given istiooperator instance and applies them to the
@@ -294,7 +270,6 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 	opts.ProgressLog.SetState(progress.StateComplete)
 
 	// Save a copy of what was installed as a CR in the cluster under an internal name.
-	iop.Name = savedIOPName(iop)
 	if iop.Annotations == nil {
 		iop.Annotations = make(map[string]string)
 	}
@@ -346,25 +321,19 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 			}
 		}
 		revision := manifest.GetValueForSetFlag(setFlags, "revision")
-		msg := ""
-		// when the revision is not passed and if the ns has a prior istio
-		if revision == "" && tag != icpTag {
-			if icpTag < tag {
-				msg = "A newer"
-			} else {
-				msg = "An older"
-			}
-			p.Printf("%s Istio control planes installed: %s.\n"+
-				"%s "+msg+" installed version of Istio has been detected. Running this command will overwrite it.\n", warnMarker, strings.Join(icpTags, ", "), warnMarker)
-		}
 		// when the revision is passed
-		if icpTag != "" && tag != icpTag && revision != "" {
+		if icpTag != "" && tag != icpTag {
+			check := "         Before upgrading, you may wish to use 'istioctl x precheck' to check for upgrade warnings.\n"
+			revisionWarning := "         Running this command will overwrite it; use revisions to upgrade alongside the existing version.\n"
+			if revision != "" {
+				revisionWarning = ""
+			}
 			if icpTag < tag {
-				p.Printf("%s Istio is being upgraded from %s -> %s.\n"+
-					"%s Before upgrading, you may wish to use 'istioctl analyze' to check for "+
-					"IST0002 and IST0135 deprecation warnings.\n", warnMarker, icpTag, tag, warnMarker)
+				p.Printf("%s Istio is being upgraded from %s to %s.\n"+revisionWarning+check,
+					warnMarker, icpTag, tag)
 			} else {
-				p.Printf("%s Istio is being downgraded from %s -> %s.\n", warnMarker, icpTag, tag)
+				p.Printf("%s Istio is being downgraded from %s to %s.\n"+revisionWarning+check,
+					warnMarker, icpTag, tag)
 			}
 		}
 	}
@@ -417,21 +386,15 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 	return iop.Spec.Profile, constants.IstioSystemNamespace, enabledComponents, nil
 }
 
-// validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
-// Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
-func validateEnableNamespacesByDefault(iop *v1alpha12.IstioOperator) bool {
-	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
-		return false
+func humanReadableJoin(ss []string) string {
+	switch len(ss) {
+	case 0:
+		return ""
+	case 1:
+		return ss[0]
+	case 2:
+		return ss[0] + " and " + ss[1]
+	default:
+		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
 	}
-	sidecarValues := iop.Spec.Values.AsMap()["sidecarInjectorWebhook"]
-	sidecarMap, ok := sidecarValues.(map[string]any)
-	if !ok {
-		return false
-	}
-	autoInjectNamespaces, ok := sidecarMap["enableNamespacesByDefault"].(bool)
-	if !ok {
-		return false
-	}
-
-	return autoInjectNamespaces
 }

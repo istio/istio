@@ -93,21 +93,17 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		destinationRule: dr,
 		nodeType:        proxy.Type,
 
-		push:       push,
-		proxy:      proxy,
-		subsetName: subsetName,
-		hostname:   hostname,
-		port:       port,
-		dir:        dir,
+		mtlsChecker: newMtlsChecker(push, port, dr.GetRule()),
+		push:        push,
+		proxy:       proxy,
+		subsetName:  subsetName,
+		hostname:    hostname,
+		port:        port,
+		dir:         dir,
 	}
 
 	b.populateFailoverPriorityLabels()
 
-	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
-	if features.EnableAutomTLSCheckPolicies ||
-		b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
-		b.mtlsChecker = newMtlsChecker(push, port, dr.GetRule())
-	}
 	return b
 }
 
@@ -324,14 +320,12 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			// this must be done while converting IstioEndpoints because we still have workload labels
 			if b.mtlsChecker != nil {
 				b.mtlsChecker.computeForEndpoint(ep)
-				if features.EnableAutomTLSCheckPolicies {
-					tlsMode := ep.TLSMode
-					if b.mtlsChecker.isMtlsDisabled(ep.EnvoyEndpoint) {
-						tlsMode = ""
-					}
-					if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
-						ep.EnvoyEndpoint = nep
-					}
+				tlsMode := ep.TLSMode
+				if b.mtlsChecker.isMtlsDisabled(ep.EnvoyEndpoint) {
+					tlsMode = ""
+				}
+				if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
+					ep.EnvoyEndpoint = nep
 				}
 			}
 			locLbEps.append(ep, ep.EnvoyEndpoint)
@@ -496,6 +490,6 @@ func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr
 	ips := push.WaypointsFor(model.WaypointScope{
 		Namespace:      e.Namespace,
 		ServiceAccount: ident.ServiceAccount,
-	}).UnsortedList()
+	})
 	return ips
 }

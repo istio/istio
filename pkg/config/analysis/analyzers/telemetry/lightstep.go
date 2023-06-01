@@ -15,7 +15,7 @@
 package telemetry
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
+	"fmt"
 
 	"istio.io/api/mesh/v1alpha1"
 	telemetryapi "istio.io/api/telemetry/v1alpha1"
@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type LightstepAnalyzer struct{}
@@ -45,7 +46,7 @@ func (a *LightstepAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (a *LightstepAnalyzer) Analyze(c analysis.Context) {
 	meshConfig := fetchMeshConfig(c)
-	providerNames := sets.NewString()
+	providerNames := sets.New[string]()
 	for _, prov := range meshConfig.ExtensionProviders {
 		switch prov.Provider.(type) {
 		case *v1alpha1.MeshConfig_ExtensionProvider_Lightstep:
@@ -60,9 +61,9 @@ func (a *LightstepAnalyzer) Analyze(c analysis.Context) {
 		telemetry := r.Message.(*telemetryapi.Telemetry)
 		for _, tracing := range telemetry.Tracing {
 			for _, p := range tracing.Providers {
-				if providerNames.Has(p.Name) {
+				if providerNames.Contains(p.Name) {
 					c.Report(gvk.Telemetry,
-						msg.NewDeprecatedLightstepProvider(r, p.Name))
+						msg.NewDeprecated(r, fmt.Sprintf("The Lightstep provider %s is deprecated, please migrate to OpenTelemetry provider.", p.Name)))
 				}
 			}
 		}

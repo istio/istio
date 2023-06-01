@@ -26,9 +26,9 @@ import (
 
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -141,6 +141,7 @@ var (
 				Version:               version,
 				Cluster:               cluster,
 				IstioVersion:          istioVersion,
+				Namespace:             os.Getenv("NAMESPACE"),
 				UDSServer:             uds,
 				DisableALPN:           disableALPN,
 			})

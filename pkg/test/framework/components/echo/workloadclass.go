@@ -26,5 +26,6 @@ const (
 	External    WorkloadClass = "external"
 	StatefulSet WorkloadClass = "statefulset"
 	Headless    WorkloadClass = "headless"
+	Captured    WorkloadClass = "captured"
 	Standard    WorkloadClass = "standard"
 )

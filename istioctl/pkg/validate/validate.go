@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -39,8 +40,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -273,18 +274,20 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 
 	v := &validator{}
 
-	var errs, err error
+	var errs error
 	var reader io.ReadCloser
 	warningsByFilename := map[string]validation.Warning{}
-	for _, filename := range filenames {
-		if filename == "-" {
+
+	processFile := func(path string) {
+		var err error
+		if path == "-" {
 			reader = io.NopCloser(os.Stdin)
 		} else {
-			reader, err = os.Open(filename)
-		}
-		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", filename, err))
-			continue
+			reader, err = os.Open(path)
+			if err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", path, err))
+				return
+			}
 		}
 		warning, err := v.validateFile(istioNamespace, defaultNamespace, reader, writer)
 		if err != nil {
@@ -292,9 +295,50 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 		}
 		err = reader.Close()
 		if err != nil {
-			log.Infof("file: %s is not closed: %v", filename, err)
+			log.Infof("file: %s is not closed: %v", path, err)
 		}
-		warningsByFilename[filename] = warning
+		warningsByFilename[path] = warning
+	}
+	processDirectory := func(directory string, processFile func(string)) error {
+		err := filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() && filepath.Ext(path) == ".yaml" {
+				processFile(path)
+			}
+			return nil
+		})
+		return err
+	}
+
+	processedFiles := map[string]bool{}
+	for _, filename := range filenames {
+		var isDir bool
+		if filename != "-" {
+			fi, err := os.Stat(filename)
+			if err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("cannot stat file %q: %v", filename, err))
+				continue
+			}
+			isDir = fi.IsDir()
+		}
+
+		if !isDir {
+			processFile(filename)
+			processedFiles[filename] = true
+			continue
+		}
+		if err := processDirectory(filename, func(path string) {
+			processFile(path)
+			processedFiles[path] = true
+		}); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	filenames = []string{}
+	for p := range processedFiles {
+		filenames = append(filenames, p)
 	}
 
 	if errs != nil {
@@ -344,6 +388,9 @@ func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra
 
   # Validate bookinfo-gateway.yaml with shorthand syntax
   istioctl v -f samples/bookinfo/networking/bookinfo-gateway.yaml
+
+  # Validate all yaml files under samples/bookinfo/networking directory
+  istioctl validate -f samples/bookinfo/networking
 
   # Validate current deployments under 'default' namespace within the cluster
   kubectl get deployments -o yaml | istioctl validate -f -

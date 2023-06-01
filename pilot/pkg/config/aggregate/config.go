@@ -18,6 +18,8 @@ package aggregate
 import (
 	"errors"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -110,13 +112,12 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) []config.Co
 	}
 	var configs []config.Config
 	// Used to remove duplicated config
-	configMap := sets.New[string]()
+	configMap := sets.New[types.NamespacedName]()
 
 	for _, store := range cr.stores[typ] {
 		storeConfigs := store.List(typ, namespace)
 		for _, cfg := range storeConfigs {
-			key := cfg.GroupVersionKind.Kind + cfg.Namespace + cfg.Name
-			if !configMap.InsertContains(key) {
+			if !configMap.InsertContains(config.NamespacedName(cfg)) {
 				configs = append(configs, cfg)
 			}
 		}

@@ -7,8 +7,6 @@
 /cni/                                                            @istio/wg-networking-maintainers
 /common/                                                         @istio/wg-test-and-release-maintainers
 /common-protos/                                                  @istio/wg-test-and-release-maintainers
-/galley/                                                         @istio/wg-networking-maintainers
-/galley/pkg/config/analysis/                                     @istio/wg-user-experience-maintainers
 /install/                                                        @istio/wg-environments-maintainers
 /istioctl/                                                       @istio/wg-user-experience-maintainers
 Makefile*                                                        @istio/wg-test-and-release-maintainers
@@ -27,6 +25,7 @@ Makefile*                                                        @istio/wg-test-
 /pkg/                                                            @istio/wg-test-and-release-maintainers
 /pkg/bootstrap/                                                  @istio/wg-networking-maintainers
 /pkg/config/                                                     @istio/wg-networking-maintainers
+/pkg/config/analysis/                                            @istio/wg-networking-maintainers @istio/wg-user-experience-maintainers
 /pkg/dns/                                                        @istio/wg-networking-maintainers
 /pkg/envoy/                                                      @istio/wg-networking-maintainers
 /pkg/istio-agent/                                                @istio/wg-networking-maintainers @istio/wg-security-maintainers
@@ -43,7 +42,8 @@ Makefile*                                                        @istio/wg-test-
 /pkg/webhooks/                                                   @istio/wg-environments-maintainers
 /prow/                                                           @istio/wg-test-and-release-maintainers
 /release/                                                        @istio/wg-test-and-release-maintainers
-/releasenotes/                                                   @istio/wg-test-and-release-maintainers @istio/release-managers
+/releasenotes/                                                   @istio/wg-test-and-release-maintainers
+/releasenotes/notes
 /samples/                                                        @istio/wg-docs-maintainers-english
 /samples/addons                                                  @istio/wg-policies-and-telemetry-maintainers @istio/wg-environments-maintainers
 /samples/multicluster                                            @istio/wg-networking-maintainers

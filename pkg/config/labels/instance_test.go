@@ -21,54 +21,66 @@ import (
 )
 
 func TestInstance(t *testing.T) {
+	type result struct {
+		subsetOf bool
+		selected bool
+	}
+
 	cases := []struct {
 		left     labels.Instance
 		right    labels.Instance
-		expected bool
+		expected result
 	}{
 		{
 			left:     nil,
 			right:    labels.Instance{"app": "a"},
-			expected: true,
+			expected: result{true, false},
+		},
+		{
+			left:     labels.Instance{},
+			right:    labels.Instance{"app": "a"},
+			expected: result{true, false},
 		},
 		{
 			left:     labels.Instance{"app": "a"},
 			right:    nil,
-			expected: false,
+			expected: result{false, false},
 		},
 		{
 			left:     labels.Instance{"app": "a"},
 			right:    labels.Instance{"app": "a", "prod": "env"},
-			expected: true,
+			expected: result{true, true},
 		},
 		{
 			left:     labels.Instance{"app": "a", "prod": "env"},
 			right:    labels.Instance{"app": "a"},
-			expected: false,
+			expected: result{false, false},
 		},
 		{
 			left:     labels.Instance{"app": "a"},
 			right:    labels.Instance{"app": "b", "prod": "env"},
-			expected: false,
+			expected: result{false, false},
 		},
 		{
 			left:     labels.Instance{"foo": ""},
 			right:    labels.Instance{"app": "a"},
-			expected: false,
+			expected: result{false, false},
 		},
 		{
 			left:     labels.Instance{"foo": ""},
 			right:    labels.Instance{"app": "a", "foo": ""},
-			expected: true,
+			expected: result{true, true},
 		},
 		{
 			left:     labels.Instance{"app": "a", "foo": ""},
 			right:    labels.Instance{"foo": ""},
-			expected: false,
+			expected: result{false, false},
 		},
 	}
 	for _, c := range cases {
-		got := c.left.SubsetOf(c.right)
+		var got result
+		got.subsetOf = c.left.SubsetOf(c.right)
+		got.selected = c.left.Match(c.right)
 		if got != c.expected {
 			t.Errorf("%v.SubsetOf(%v) got %v, expected %v", c.left, c.right, got, c.expected)
 		}

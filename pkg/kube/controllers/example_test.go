@@ -26,8 +26,8 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 // Controller represents a simple example controller show best practices for correctly writing a controller
@@ -98,10 +98,15 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	// First, wait for pods to sync. Once this is complete, we know the event handler for Pods will have
 	// ran for each item and enqueued everything.
-	kube.WaitForCacheSync(stop, c.pods.HasSynced)
+	kube.WaitForCacheSync("pod controller", stop, c.pods.HasSynced)
 
 	// Now we can run the queue. This will block until `stop` is closed.
 	c.queue.Run(stop)
+	// Unregister our handler. This ensures it does not continue to run if the informer is still running
+	// after the controller exits.
+	// This is typically only needed for leader election controllers, as otherwise the controller lifecycle
+	// is typically the same as the informer.
+	c.pods.ShutdownHandlers()
 }
 
 // HasSynced asserts we have "synced", meaning we have processed the initial state.
@@ -144,7 +149,7 @@ func Example() {
 	// Now run our controller (in goroutine)
 	go controller.Run(stop)
 	// Wait for it to be ready
-	kube.WaitForCacheSync(stop, controller.HasSynced)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 
 	// In a test, we can also use a wrapped client that calls t.Fatal on errors
 	// pods := clienttest.Wrap(t, controller.pods)

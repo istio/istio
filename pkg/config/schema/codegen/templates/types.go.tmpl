@@ -1,0 +1,24 @@
+
+// GENERATED FILE -- DO NOT EDIT
+//
+
+package {{.PackageName}}
+
+import (
+	"istio.io/istio/pkg/config"
+
+{{- range .Packages}}
+	{{.ImportName}} "{{.PackageName}}"
+{{- end}}
+)
+
+func GetGVK[T runtime.Object]() config.GroupVersionKind {
+	switch any(ptr.Empty[T]()).(type) {
+{{- range .Entries }}
+	case *{{ .ClientImport }}.{{ .Resource.Kind }}:
+		return gvk.{{ .Resource.Identifier }}
+{{- end }}
+  default:
+    panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
+	}
+}

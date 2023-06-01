@@ -406,9 +406,11 @@ func TestIngressRequestAuthentication(t *testing.T) {
 				Source(config.File("testdata/requestauthn/global-jwt.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): istio.ClaimSystemNamespaceOrFail(t, t),
 					"Services":               apps.Ns1.All,
+					"GatewayIstioLabel":      i.Settings().IngressGatewayIstioLabel,
 				})).
 				Source(config.File("testdata/requestauthn/ingress.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Ns1.Namespace,
+					"GatewayIstioLabel":      i.Settings().IngressGatewayIstioLabel,
 				})).
 				BuildAll(nil, apps.Ns1.All).
 				Apply()

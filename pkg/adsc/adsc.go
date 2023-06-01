@@ -56,9 +56,9 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -241,7 +241,7 @@ func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
 	return serialItem, nil
 }
 
-var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
+var adscLog = log.RegisterScope("adsc", "adsc debugging")
 
 func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
 	adsc, err := New(discoveryAddr, opts)
@@ -514,8 +514,7 @@ func (a *ADSC) handleRecv() {
 		// Group-value-kind - used for high level api generator.
 		resourceGvk, isMCP := convertTypeURLToMCPGVK(msg.TypeUrl)
 
-		adscLog.Info("Received ", a.url, " type ", msg.TypeUrl,
-			" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
+		adscLog.WithLabels("type", msg.TypeUrl, "count", len(msg.Resources), "nonce", msg.Nonce).Info("Received")
 		if a.cfg.ResponseHandler != nil {
 			a.cfg.ResponseHandler.HandleResponse(a, msg)
 		}
@@ -526,7 +525,7 @@ func (a *ADSC) handleRecv() {
 			m := &v1alpha1.MeshConfig{}
 			err = proto.Unmarshal(rsc.Value, m)
 			if err != nil {
-				adscLog.Warn("Failed to unmarshal mesh config", err)
+				adscLog.Warnf("Failed to unmarshal mesh config: %v", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
@@ -1232,7 +1231,7 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 		}
 		newCfg, err := a.mcpToPilot(m)
 		if err != nil {
-			adscLog.Warn("Invalid data ", err, " ", string(rsc.Value))
+			adscLog.Warnf("Invalid data: %v (%v)", err, string(rsc.Value))
 			continue
 		}
 		if newCfg == nil {

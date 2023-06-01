@@ -77,13 +77,6 @@ spec:
         tracer: "zipkin"
       proxy_init:
         image: proxyv2
-        resources:
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-          requests:
-            cpu: 10m
-            memory: 10Mi
       # Specify image pull policy if default behavior isn't desired.
       # Default behavior: latest images will be Always else IfNotPresent.
       imagePullPolicy: ""

@@ -15,25 +15,145 @@
 package kclient_test
 
 import (
-	"fmt"
-	"sync"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
-	"golang.org/x/exp/slices"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
+	istioclient "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
+
+func TestSwappingClient(t *testing.T) {
+	t.Run("CRD partially ready", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+		tracker := assert.NewTracker[string](t)
+		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
+		go constantlyAccessForRaceDetection(stop, wasm)
+
+		// CRD and Delayed client are ready to go by the time we start informers
+		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+		c.RunAndWait(stop)
+
+		wt.Create(&istioclient.WasmPlugin{
+			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		})
+		assert.EventuallyEqual(t, func() int {
+			return len(wasm.List("", klabels.Everything()))
+		}, 1)
+		tracker.WaitOrdered("add/name")
+	})
+	t.Run("CRD fully ready", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+
+		// Only CRD is ready to go by the time we start informers
+		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+		c.RunAndWait(stop)
+
+		// Now that CRD is synced, we create the client
+		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+		tracker := assert.NewTracker[string](t)
+		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
+		go constantlyAccessForRaceDetection(stop, wasm)
+		c.RunAndWait(stop)
+		kube.WaitForCacheSync("test", test.NewStop(t), wasm.HasSynced)
+
+		wt.Create(&istioclient.WasmPlugin{
+			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		})
+		assert.EventuallyEqual(t, func() int {
+			return len(wasm.List("", klabels.Everything()))
+		}, 1)
+		tracker.WaitOrdered("add/name")
+	})
+	t.Run("CRD not ready", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+
+		// Client created before CRDs are ready
+		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+		tracker := assert.NewTracker[string](t)
+		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
+		go constantlyAccessForRaceDetection(stop, wasm)
+		c.RunAndWait(stop)
+		kube.WaitForCacheSync("test", test.NewStop(t), wasm.HasSynced)
+
+		// List should return empty
+		assert.Equal(t, len(wasm.List("", klabels.Everything())), 0)
+
+		// Now we add the CRD
+		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+		// This is not needed in real-world, but purely works around https://github.com/kubernetes/kubernetes/issues/95372
+		// which impacts only the fake client.
+		c.RunAndWait(stop)
+		wt.Create(&istioclient.WasmPlugin{
+			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		})
+		assert.EventuallyEqual(t, func() int {
+			return len(wasm.List("", klabels.Everything()))
+		}, 1)
+		tracker.WaitOrdered("add/name")
+	})
+	t.Run("watcher not run ready", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+
+		// Client created before CRDs are ready
+		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+		tracker := assert.NewTracker[string](t)
+		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
+		go constantlyAccessForRaceDetection(stop, wasm)
+
+		assert.Equal(t, wasm.HasSynced(), false)
+
+		// List should return empty
+		assert.Equal(t, len(wasm.List("", klabels.Everything())), 0)
+
+		// Now we add the CRD
+		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+
+		// Start everything up
+		c.RunAndWait(stop)
+		wt.Create(&istioclient.WasmPlugin{
+			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		})
+		assert.EventuallyEqual(t, func() int {
+			return len(wasm.List("", klabels.Everything()))
+		}, 1)
+		tracker.WaitOrdered("add/name")
+	})
+}
+
+// setup some calls to ensure we trigger the race detector, if there was a race.
+func constantlyAccessForRaceDetection(stop chan struct{}, wt kclient.Untyped) {
+	for {
+		select {
+		case <-time.After(time.Millisecond):
+		case <-stop:
+			return
+		}
+		_ = wt.List("", klabels.Everything())
+	}
+}
 
 func TestHasSynced(t *testing.T) {
 	handled := atomic.NewInt64(0)
@@ -56,22 +176,12 @@ func TestHasSynced(t *testing.T) {
 }
 
 func TestClient(t *testing.T) {
-	tracker := newTracker(t)
+	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
 	deployments := kclient.NewFiltered[*appsv1.Deployment](c, kclient.Filter{ObjectFilter: func(t any) bool {
-		return t.(*appsv1.Deployment).Namespace == "default"
+		return t.(*appsv1.Deployment).Spec.MinReadySeconds < 100
 	}})
-	deployments.AddEventHandler(controllers.EventHandler[*appsv1.Deployment]{
-		AddFunc: func(obj *appsv1.Deployment) {
-			tracker.Record("add/" + obj.Name)
-		},
-		UpdateFunc: func(oldObj, newObj *appsv1.Deployment) {
-			tracker.Record("update/" + newObj.Name)
-		},
-		DeleteFunc: func(obj *appsv1.Deployment) {
-			tracker.Record("delete/" + obj.Name)
-		},
-	})
+	deployments.AddEventHandler(clienttest.TrackerHandler(tracker))
 	tester := clienttest.Wrap(t, deployments)
 
 	c.RunAndWait(test.NewStop(t))
@@ -84,14 +194,14 @@ func TestClient(t *testing.T) {
 		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 10},
 	}
 	obj3 := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: "3", Namespace: "not-default"},
+		ObjectMeta: metav1.ObjectMeta{Name: "3", Namespace: "default"},
 		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 100},
 	}
 
 	// Create object, make sure we can see it
 	tester.Create(obj1)
 	// Client is cached, so its only eventually consistent
-	tracker.Wait("add/1")
+	tracker.WaitOrdered("add/1")
 	assert.Equal(t, tester.Get(obj1.Name, obj1.Namespace), obj1)
 	assert.Equal(t, tester.List("", klabels.Everything()), []*appsv1.Deployment{obj1})
 	assert.Equal(t, tester.List(obj1.Namespace, klabels.Everything()), []*appsv1.Deployment{obj1})
@@ -99,13 +209,13 @@ func TestClient(t *testing.T) {
 	// Update object, should see the update...
 	obj1.Spec.MinReadySeconds = 2
 	tester.Update(obj1)
-	tracker.Wait("update/1")
+	tracker.WaitOrdered("update/1")
 	assert.Equal(t, tester.Get(obj1.Name, obj1.Namespace), obj1)
 
 	// Create some more objects
 	tester.Create(obj3)
 	tester.Create(obj2)
-	tracker.Wait("add/2")
+	tracker.WaitOrdered("add/2")
 	assert.Equal(t, tester.Get(obj2.Name, obj2.Namespace), obj2)
 	// We should not see obj3, it is filtered
 
@@ -119,40 +229,25 @@ func TestClient(t *testing.T) {
 	tester.Delete(obj3.Name, obj3.Namespace)
 	tester.Delete(obj2.Name, obj2.Namespace)
 	tester.Delete(obj1.Name, obj1.Namespace)
-	tracker.Wait("delete/2")
-	tracker.Wait("delete/1")
+	tracker.WaitOrdered("delete/2")
+	tracker.WaitOrdered("delete/1")
 	assert.Equal(t, tester.List(obj1.Namespace, klabels.Everything()), nil)
-}
 
-type tracker struct {
-	t      test.Failer
-	mu     sync.Mutex
-	events []string
-}
+	// Create some more objects again
+	tester.Create(obj3)
+	tester.Create(obj2)
+	tracker.WaitOrdered("add/2")
+	assert.Equal(t, tester.Get(obj2.Name, obj2.Namespace), obj2)
 
-func newTracker(t test.Failer) *tracker {
-	return &tracker{t: t}
-}
+	// Was filtered, now its not. Should get an Add
+	obj3.Spec.MinReadySeconds = 5
+	tester.Update(obj3)
+	tracker.WaitOrdered("add/3")
+	assert.Equal(t, tester.Get(obj3.Name, obj3.Namespace), obj3)
 
-func (t *tracker) Record(event string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.events = append(t.events, event)
-}
-
-func (t *tracker) Wait(event string) {
-	t.t.Helper()
-	retry.UntilSuccessOrFail(t.t, func() error {
-		t.mu.Lock()
-		defer t.mu.Unlock()
-		if len(t.events) == 0 {
-			return fmt.Errorf("no events")
-		}
-		if t.events[0] != event {
-			return fmt.Errorf("got events %v, want %v", t.events, event)
-		}
-		// clear the event
-		t.events = t.events[1:]
-		return nil
-	}, retry.Timeout(time.Second*5))
+	// Was allowed, now its not. Should get a Delete
+	obj3.Spec.MinReadySeconds = 150
+	tester.Update(obj3)
+	tracker.WaitOrdered("delete/3")
+	assert.Equal(t, tester.Get(obj3.Name, obj3.Namespace), nil)
 }

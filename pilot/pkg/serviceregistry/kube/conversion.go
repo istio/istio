@@ -157,6 +157,9 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 				}
 			}
 			if len(lbAddrs) > 0 {
+				if istioService.Attributes.ClusterExternalAddresses == nil {
+					istioService.Attributes.ClusterExternalAddresses = &model.AddressMap{}
+				}
 				istioService.Attributes.ClusterExternalAddresses.SetAddressesFor(clusterID, lbAddrs)
 			}
 		}
@@ -165,7 +168,12 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	istioService.Attributes.Type = string(svc.Spec.Type)
 	istioService.Attributes.ExternalName = externalName
 	istioService.Attributes.NodeLocal = nodeLocal
-	istioService.Attributes.ClusterExternalAddresses.AddAddressesFor(clusterID, svc.Spec.ExternalIPs)
+	if len(svc.Spec.ExternalIPs) > 0 {
+		if istioService.Attributes.ClusterExternalAddresses == nil {
+			istioService.Attributes.ClusterExternalAddresses = &model.AddressMap{}
+		}
+		istioService.Attributes.ClusterExternalAddresses.AddAddressesFor(clusterID, svc.Spec.ExternalIPs)
+	}
 
 	return istioService
 }
@@ -224,13 +232,4 @@ func PodTLSMode(pod *corev1.Pod) string {
 		return model.DisabledTLSModeLabel
 	}
 	return model.GetTLSModeFromEndpointLabels(pod.Labels)
-}
-
-// KeyFunc is the internal API key function that returns "namespace"/"name" or
-// "name" if "namespace" is empty
-func KeyFunc(name, namespace string) string {
-	if len(namespace) == 0 {
-		return name
-	}
-	return namespace + "/" + name
 }

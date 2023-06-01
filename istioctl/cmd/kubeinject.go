@@ -54,9 +54,9 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/version"
 )
 
 const (

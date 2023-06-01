@@ -1,0 +1,112 @@
+// GENERATED FILE -- DO NOT EDIT
+//
+
+package {{.PackageName}}
+
+import (
+	"reflect"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
+	"k8s.io/client-go/informers"
+	istioinformer "istio.io/client-go/pkg/informers/externalversions"
+	kubeextinformer "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	ktypes "istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pilot/pkg/util/informermetric"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/kube/informerfactory"
+	"k8s.io/apimachinery/pkg/runtime"
+	kubeext "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/client-go/kubernetes"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	apiistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
+	apiistioioapisecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
+	apiistioioapitelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
+{{- range .Packages}}
+	{{.ImportName}} "{{.PackageName}}"
+{{- end}}
+)
+
+func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
+	switch any(ptr.Empty[T]()).(type) {
+{{- range .Entries }}
+	{{- if not .Resource.Synthetic }}
+	case *{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}:
+		return  c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}namespace{{end}}).(ktypes.WriteAPI[T])
+	{{- end }}
+{{- end }}
+  default:
+    panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
+	}
+}
+
+func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.ReadWriteAPI[T, TL] {
+	switch any(ptr.Empty[T]()).(type) {
+{{- range .Entries }}
+	{{- if not .Resource.Synthetic }}
+	case *{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}:
+		return  c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}namespace{{end}}).(ktypes.ReadWriteAPI[T, TL])
+	{{- end }}
+{{- end }}
+  default:
+    panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
+	}
+}
+
+func gvrToObject(g schema.GroupVersionResource) runtime.Object {
+	switch g {
+{{- range .Entries }}
+	{{- if not .Resource.Synthetic }}
+	case gvr.{{ .Resource.Identifier }}:
+		return &{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}{}
+	{{- end }}
+{{- end }}
+  default:
+    panic(fmt.Sprintf("Unknown type %v", g))
+	}
+}
+
+func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) informerfactory.StartableInformer {
+	var l func(options metav1.ListOptions) (runtime.Object, error)
+	var w func(options metav1.ListOptions) (watch.Interface, error)
+
+	switch g {
+{{- range .Entries }}
+	{{- if not .Resource.Synthetic }}
+	case gvr.{{ .Resource.Identifier }}:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}opts.Namespace{{end}}).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}opts.Namespace{{end}}).Watch(context.Background(), options)
+		}
+	{{- end }}
+{{- end }}
+  default:
+    panic(fmt.Sprintf("Unknown type %v", g))
+	}
+	return c.Informers().InformerFor(g, opts, func() cache.SharedIndexInformer {
+		inf := cache.NewSharedIndexInformer(
+			&cache.ListWatch{
+				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+					options.FieldSelector = opts.FieldSelector
+					options.LabelSelector = opts.LabelSelector
+					return l(options)
+				},
+				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+					options.FieldSelector = opts.FieldSelector
+					options.LabelSelector = opts.LabelSelector
+					return w(options)
+				},
+			},
+			gvrToObject(g),
+			0,
+			cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+		)
+		setupInformer(opts, inf)
+		return inf
+	})
+}

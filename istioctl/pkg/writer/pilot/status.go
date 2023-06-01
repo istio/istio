@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	xdsresource "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // StatusWriter enables printing of sync status using multiple []byte Istiod responses

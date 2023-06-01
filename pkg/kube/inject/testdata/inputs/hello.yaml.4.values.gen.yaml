@@ -74,17 +74,7 @@
       "tracer": "zipkin"
     },
     "proxy_init": {
-      "image": "proxyv2",
-      "resources": {
-        "limits": {
-          "cpu": "2000m",
-          "memory": "1024Mi"
-        },
-        "requests": {
-          "cpu": "10m",
-          "memory": "10Mi"
-        }
-      }
+      "image": "proxyv2"
     },
     "remotePilotAddress": "",
     "sds": {

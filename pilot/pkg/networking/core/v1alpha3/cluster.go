@@ -46,14 +46,16 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.New(kind.ServiceEntry.String())
+var deltaConfigTypes = sets.New(kind.ServiceEntry.String(), kind.DestinationRule.String())
 
 const TransportSocketInternalUpstream = "envoy.transport_sockets.internal_upstream"
 
@@ -101,48 +103,116 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 	var deletedClusters []string
 	var services []*model.Service
-	// holds clusters per service, keyed by hostname.
+	// Holds clusters per service, keyed by hostname.
 	serviceClusters := make(map[string]sets.String)
-	// holds service ports, keyed by hostname.
-	// inner map holds port and its cluster name.
-	servicePorts := make(map[string]map[int]string)
+	// Holds service ports, keyed by hostname.Inner map port and its cluster name.
+	// This is mainly used when service is updated and a port has been removed.
+	servicePortClusters := make(map[string]map[int]string)
+	// Holds subset clusters per service, keyed by hostname.
+	subsetClusters := make(map[string]sets.String)
 
 	for _, cluster := range watched.ResourceNames {
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>).
-		_, _, svcHost, port := model.ParseSubsetKey(cluster)
-		sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
-		if servicePorts[string(svcHost)] == nil {
-			servicePorts[string(svcHost)] = make(map[int]string)
+		// check with the name of our service (cluster names are in the format outbound|<port>|<subset>|<hostname>).
+		_, subset, svcHost, port := model.ParseSubsetKey(cluster)
+		if subset == "" {
+			sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
+		} else {
+			sets.InsertOrNew(subsetClusters, string(svcHost), cluster)
 		}
-		servicePorts[string(svcHost)][port] = cluster
+		if servicePortClusters[string(svcHost)] == nil {
+			servicePortClusters[string(svcHost)] = make(map[int]string)
+		}
+		servicePortClusters[string(svcHost)][port] = cluster
 	}
 
-	// In delta, we only care about the services that have changed.
 	for key := range updates.ConfigsUpdated {
-		// get the service that has changed.
-		service := updates.Push.ServiceForHostname(proxy, host.Name(key.Name))
-		// if this service removed, we can conclude that it is a removed cluster.
-		if service == nil {
-			for cluster := range serviceClusters[key.Name] {
-				deletedClusters = append(deletedClusters, cluster)
-			}
-		} else {
-			services = append(services, service)
-			// If servicePorts has this service, that means it is old service.
-			if servicePorts[service.Hostname.String()] != nil {
-				oldPorts := servicePorts[service.Hostname.String()]
-				for port, cluster := range oldPorts {
-					// if this service port is removed, we can conclude that it is a removed cluster.
-					if _, exists := service.Ports.GetByPort(port); !exists {
-						deletedClusters = append(deletedClusters, cluster)
-					}
-				}
-			}
+		switch key.Kind {
+		case kind.ServiceEntry:
+			services, deletedClusters = configgen.deltaFromServices(key, proxy, updates.Push, serviceClusters,
+				servicePortClusters, subsetClusters)
+		case kind.DestinationRule:
+			services, deletedClusters = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
 		}
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
-	return clusters, deletedClusters, log, true
+	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
+	// When clusters are rebuilt, it rebuilts the subset clusters as well. So, we know what
+	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
+	builtClusters := sets.New[string]()
+	for _, c := range clusters {
+		builtClusters.Insert(c.Name)
+	}
+	finalDeletedClusters := slices.FilterInPlace(deletedClusters, func(cluster string) bool {
+		return !builtClusters.Contains(cluster)
+	})
+	return clusters, finalDeletedClusters, log, true
+}
+
+// deltaFromServices computes the delta clusters from the updated services.
+func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
+	serviceClusters map[string]sets.String, servicePortClusters map[string]map[int]string, subsetClusters map[string]sets.String,
+) ([]*model.Service, []string) {
+	var deletedClusters []string
+	var services []*model.Service
+	service := push.ServiceForHostname(proxy, host.Name(key.Name))
+	// push.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
+	// we can cross-reference with WatchedResources to figure out which services were deleted.
+	if service == nil {
+		// We assume a service was deleted and delete all clusters for that service.
+		deletedClusters = append(deletedClusters, serviceClusters[key.Name].UnsortedList()...)
+		deletedClusters = append(deletedClusters, subsetClusters[key.Name].UnsortedList()...)
+	} else {
+		// Service exists. If the service update has port change, we need to the corresponding port clusters.
+		services = append(services, service)
+		for port, cluster := range servicePortClusters[service.Hostname.String()] {
+			// if this service port is removed, we can conclude that it is a removed cluster.
+			if _, exists := service.Ports.GetByPort(port); !exists {
+				deletedClusters = append(deletedClusters, cluster)
+			}
+		}
+	}
+	return services, deletedClusters
+}
+
+// deltaFromDestinationRules computes the delta clusters from the updated destination rules.
+func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.ConfigKey, proxy *model.Proxy,
+	subsetClusters map[string]sets.String,
+) ([]*model.Service, []string) {
+	var deletedClusters []string
+	var services []*model.Service
+	cfg := proxy.SidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
+	if cfg == nil {
+		// Destinationrule was deleted. Find matching services from previous destinationrule.
+		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
+		if prevCfg == nil {
+			log.Debugf("Prev DestinationRule form PrevSidecarScope is missing for %s/%s", updatedDr.Namespace, updatedDr.Name)
+			return nil, nil
+		}
+		dr := prevCfg.Spec.(*networking.DestinationRule)
+		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
+	} else {
+		dr := cfg.Spec.(*networking.DestinationRule)
+		// Destinationrule was updated. Find matching services from updated destinationrule.
+		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
+		// Check if destination rule host is changed, if yes, then we need to add previous host matching services.
+		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
+		if prevCfg != nil {
+			prevDr := prevCfg.Spec.(*networking.DestinationRule)
+			if dr.Host != prevDr.Host {
+				services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(prevDr.Host))...)
+			}
+		}
+	}
+
+	// Remove all matched service subsets. When we rebuild clusters, we will rebuild the subset clusters as well.
+	// We can reconcile the actual subsets that are needed when we rebuild the clusters.
+	for _, matchedSvc := range services {
+		if subsetClusters[matchedSvc.Hostname.String()] != nil {
+			deletedClusters = append(deletedClusters, subsetClusters[matchedSvc.Hostname.String()].UnsortedList()...)
+		}
+	}
+	return services, deletedClusters
 }
 
 // buildClusters builds clusters for the proxy with the services passed.
@@ -175,7 +245,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	case model.Waypoint:
-		svcs := findWaypointServices(proxy, req.Push)
+		_, svcs := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(req.Push.ServicesAttachedToMesh(), svcs, services))
@@ -262,6 +332,24 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			if defaultCluster == nil {
 				continue
 			}
+
+			// if the service uses persistent sessions, override status allows
+			// DRAINING endpoints to be kept as 'UNHEALTHY' coarse status in envoy.
+			// Will not be used for normal traffic, only when explicit override.
+			if service.Attributes.Labels[features.PersistentSessionLabel] != "" {
+				// Default is UNKNOWN, HEALTHY, DEGRADED. Without this change, Envoy will drop endpoints with any other
+				// status received in EDS. With this setting, the DRAINING and UNHEALTHY endpoints are kept - both marked
+				// as UNHEALTHY ('coarse state'), which is what will show in config dumps.
+				// DRAINING/UNHEALTHY will not be used normally for new requests. They will be used if cookie/header
+				// selects them.
+				defaultCluster.cluster.CommonLbConfig.OverrideHostStatus = &core.HealthStatusSet{
+					Statuses: []core.HealthStatus{
+						core.HealthStatus_HEALTHY,
+						core.HealthStatus_DRAINING, core.HealthStatus_UNKNOWN, core.HealthStatus_DEGRADED,
+					},
+				}
+			}
+
 			// If stat name is configured, build the alternate stats name.
 			if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
 				defaultCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
@@ -744,9 +832,6 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 }
 
 func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
-	if features.EnableLegacyLBAlgorithmDefault {
-		return cluster.Cluster_ROUND_ROBIN
-	}
 	return cluster.Cluster_LEAST_REQUEST
 }
 

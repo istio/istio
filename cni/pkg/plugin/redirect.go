@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -32,6 +32,7 @@ const (
 	defaultProxyStatusPort       = "15020"
 	defaultRedirectToPort        = "15001"
 	defaultNoRedirectUID         = "1337"
+	defaultNoRedirectGID         = "1337"
 	defaultRedirectMode          = redirectModeREDIRECT
 	defaultRedirectIPCidr        = "*"
 	defaultRedirectExcludeIPCidr = ""
@@ -77,6 +78,7 @@ type Redirect struct {
 	targetPort           string
 	redirectMode         string
 	noRedirectUID        string
+	noRedirectGID        string
 	includeIPCidrs       string
 	excludeIPCidrs       string
 	excludeInboundPorts  string
@@ -215,7 +217,19 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"redirectMode", isFound, valErr)
 	}
-	redir.noRedirectUID = defaultNoRedirectUID
+
+	if pi.ProxyUID != nil && *pi.ProxyUID != 0 {
+		redir.noRedirectUID = fmt.Sprintf("%d", *pi.ProxyUID)
+	} else {
+		redir.noRedirectUID = defaultNoRedirectUID
+	}
+
+	if pi.ProxyGID != nil && *pi.ProxyGID != 0 {
+		redir.noRedirectGID = fmt.Sprintf("%d", *pi.ProxyGID)
+	} else {
+		redir.noRedirectGID = defaultNoRedirectGID
+	}
+
 	isFound, redir.includeIPCidrs, valErr = getAnnotationOrDefault("includeIPCidrs", pi.Annotations)
 	if valErr != nil {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",

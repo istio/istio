@@ -17,8 +17,7 @@ package echotest
 import (
 	"strings"
 
-	"golang.org/x/exp/slices"
-
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -54,6 +53,13 @@ func (t *T) Run(testFn oneToOneTest) {
 	t.rootCtx.Logf("Running tests with: sources %v -> destinations %v",
 		t.sources.Services().NamespacedNames().NamesWithNamespacePrefix(),
 		t.destinations.Services().NamespacedNames().NamesWithNamespacePrefix())
+
+	if t.sources.Len() == 0 {
+		t.rootCtx.Error("Sources are empty")
+	}
+	if t.destinations.Len() == 0 {
+		t.rootCtx.Error("Destinations are empty")
+	}
 
 	// Build and apply any completed configuration that does not require to/from params.
 	t.cfg.BuildCompleteSources().Apply()

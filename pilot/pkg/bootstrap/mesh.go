@@ -21,9 +21,9 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/kubemesh"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -45,7 +45,7 @@ const (
 // - if istio-REVISION exists, will be used, even if the file is present.
 // - the SHARED_MESH_CONFIG config map will also be loaded and merged.
 func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
-	log.Info("initializing mesh configuration ", args.MeshConfigFile)
+	log.Infof("initializing mesh configuration %v", args.MeshConfigFile)
 	defer func() {
 		if s.environment.Watcher != nil {
 			log.Infof("mesh configuration: %s", mesh.PrettyFormatOfMeshConfig(s.environment.Mesh()))

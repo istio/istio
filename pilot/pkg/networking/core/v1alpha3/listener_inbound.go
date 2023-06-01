@@ -26,12 +26,10 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes/duration"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -45,9 +43,9 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // inboundChainConfig defines the configuration for a single inbound filter chain. This may be created
@@ -304,7 +302,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	l.FilterChains = chains
 	l.ListenerFilters = populateListenerFilters(lb.node, l, bindToPort)
-	l.ListenerFiltersTimeout = getProtocolDetectionTimeout(lb.push.Mesh)
+	l.ListenerFiltersTimeout = lb.push.Mesh.GetProtocolDetectionTimeout()
 	l.ContinueOnListenerFiltersTimeout = true
 	return l
 }
@@ -485,14 +483,6 @@ func getBindToPort(mode networking.CaptureMode, node *model.Proxy) bool {
 	}
 	// Explicitly configured in the config, ignore proxy defaults
 	return mode == networking.CaptureMode_NONE
-}
-
-func getProtocolDetectionTimeout(mesh *meshconfig.MeshConfig) *duration.Duration {
-	timeout := mesh.GetProtocolDetectionTimeout()
-	if features.InboundProtocolDetectionTimeoutSet {
-		timeout = durationpb.New(features.InboundProtocolDetectionTimeout)
-	}
-	return timeout
 }
 
 // populateListenerFilters determines the appropriate listener filters based on the listener

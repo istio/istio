@@ -69,10 +69,6 @@
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
       },
       {
-        "regex": "(response_code=\\.=(.+?);\\.;)",
-        "tag_name": "response_code"
-      },
-      {
         "regex": "_rq(_(\\d{3}))$",
         "tag_name": "response_code"
       },
@@ -740,12 +736,20 @@
     {{ end }}
   ]
   {{ end }}
-  {{ if .outlier_log_path }}
+  {{ if or .outlier_log_path .load_stats_config_json_str }}
   ,
   "cluster_manager": {
+    {{- if .outlier_log_path}}
     "outlier_detection": {
       "event_log_path": "{{ .outlier_log_path }}"
     }
+    {{- end}}
+    {{- if and .outlier_log_path .load_stats_config_json_str }}
+    ,
+    {{- end}}
+    {{- if .load_stats_config_json_str }}
+    "load_stats_config": {{- .load_stats_config_json_str }}
+    {{- end }}
   }
   {{ end }}
 }

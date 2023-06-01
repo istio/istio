@@ -23,34 +23,62 @@ import (
 	"github.com/fsnotify/fsnotify"
 
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/log"
 )
 
+type Watcher struct {
+	watcher *fsnotify.Watcher
+	Events  chan struct{}
+	Errors  chan error
+}
+
+// Waits until a file is modified (returns nil), the context is cancelled (returns context error), or returns error
+func (w *Watcher) Wait(ctx context.Context) error {
+	select {
+	case <-w.Events:
+		return nil
+	case err := <-w.Errors:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (w *Watcher) Close() {
+	_ = w.watcher.Close()
+}
+
 // Creates a file watcher that watches for any changes to the directory
-func CreateFileWatcher(dirs ...string) (watcher *fsnotify.Watcher, fileModified chan bool, errChan chan error, err error) {
-	watcher, err = fsnotify.NewWatcher()
+func CreateFileWatcher(dirs ...string) (*Watcher, error) {
+	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return
+		return nil, fmt.Errorf("watcher create: %v", err)
 	}
 
-	fileModified, errChan = make(chan bool), make(chan error)
+	fileModified, errChan := make(chan struct{}), make(chan error)
 	go watchFiles(watcher, fileModified, errChan)
 
 	for _, dir := range dirs {
-		if file.IsDirWriteable(dir) != nil {
+		if !file.Exists(dir) {
+			log.Infof("skip watching non-existing dir %v", dir)
 			continue
 		}
-		if err = watcher.Add(dir); err != nil {
+		if err := watcher.Add(dir); err != nil {
 			if closeErr := watcher.Close(); closeErr != nil {
 				err = fmt.Errorf("%s: %w", closeErr.Error(), err)
 			}
-			return nil, nil, nil, err
+			return nil, err
 		}
 	}
 
-	return
+	return &Watcher{
+		watcher: watcher,
+		Events:  fileModified,
+		Errors:  errChan,
+	}, nil
 }
 
-func watchFiles(watcher *fsnotify.Watcher, fileModified chan bool, errChan chan error) {
+func watchFiles(watcher *fsnotify.Watcher, fileModified chan struct{}, errChan chan error) {
 	for {
 		select {
 		case event, ok := <-watcher.Events:
@@ -58,7 +86,8 @@ func watchFiles(watcher *fsnotify.Watcher, fileModified chan bool, errChan chan 
 				return
 			}
 			if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 {
-				fileModified <- true
+				log.Infof("file modified: %v", event.Name)
+				fileModified <- struct{}{}
 			}
 		case err, ok := <-watcher.Errors:
 			if !ok {
@@ -66,18 +95,6 @@ func watchFiles(watcher *fsnotify.Watcher, fileModified chan bool, errChan chan 
 			}
 			errChan <- err
 		}
-	}
-}
-
-// Waits until a file is modified (returns nil), the context is cancelled (returns context error), or returns error
-func WaitForFileMod(ctx context.Context, fileModified chan bool, errChan chan error) error {
-	select {
-	case <-fileModified:
-		return nil
-	case err := <-errChan:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
 	}
 }
 

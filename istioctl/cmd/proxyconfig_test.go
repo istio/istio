@@ -42,6 +42,9 @@ func TestProxyConfig(t *testing.T) {
 		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
 		"ztunnel-9v7nw":               []byte("current log level is debug"),
 	}
+	isZtunnelPod = func(podName, _ string) (bool, error) {
+		return strings.HasPrefix(podName, "ztunnel"), nil
+	}
 	cases := []execTestCase{
 		{
 			args:           strings.Split("proxy-config", " "),
@@ -83,11 +86,23 @@ func TestProxyConfig(t *testing.T) {
 			expectedString:   "unrecognized logger name: xxx",
 			wantException:    true,
 		},
+		{ // logger name invalid when namespacing is used improperly
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log ztunnel-9v7nw --level ztunnel:::pool:debug", " "),
+			expectedString:   "unrecognized logging level: pool:debug",
+			wantException:    true,
+		},
 		{ // logger name valid, but logging level invalid
 			execClientConfig: loggingConfig,
 			args:             strings.Split("proxy-config log details-v1-5b7f94f9bc-wp5tb --level http:yyy", " "),
 			expectedString:   "unrecognized logging level: yyy",
 			wantException:    true,
+		},
+		{ // logger name valid and logging level valid
+			execClientConfig: loggingConfig,
+			args:             strings.Split("proxy-config log ztunnel-9v7nw --level ztunnel::pool:debug", " "),
+			expectedString:   "",
+			wantException:    false,
 		},
 		{ // both logger name and logging level invalid
 			execClientConfig: loggingConfig,
@@ -180,7 +195,7 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 
 	// Override the exec client factory used by proxyconfig.go and proxystatus.go
 	kubeClientWithRevision = mockClientExecFactoryGenerator(c.execClientConfig)
-	kubeClient = mockEnvoyClientFactoryGenerator(c.execClientConfig)
+	getKubeClient = mockEnvoyClientFactoryGenerator(c.execClientConfig)
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
@@ -217,21 +232,24 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 // mockClientExecFactoryGenerator generates a function with the same signature as
 // kubernetes.NewExecClient() that returns a mock client.
 // nolint: lll
-func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string, _ string) (kube.CLIClient, error) {
-	outFactory := func(_, _ string, _ string) (kube.CLIClient, error) {
-		return kube.MockClient{
-			Results: testResults,
+func mockClientExecFactoryGenerator(testResults map[string][]byte) func(_ string) (kube.CLIClient, error) {
+	outFactory := func(_ string) (kube.CLIClient, error) {
+		return MockClient{
+			CLIClient: kube.NewFakeClient(),
+			Results:   testResults,
 		}, nil
 	}
 
 	return outFactory
 }
 
-func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func(kubeconfig, configContext string) (kube.CLIClient, error) {
-	outFactory := func(_, _ string) (kube.CLIClient, error) {
-		return kube.MockClient{
-			Results: testResults,
-		}, nil
+func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func() error {
+	outFactory := func() error {
+		kubeClient = MockClient{
+			CLIClient: kube.NewFakeClient(),
+			Results:   testResults,
+		}
+		return nil
 	}
 
 	return outFactory

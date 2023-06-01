@@ -78,6 +78,7 @@ const (
 type SelectionSpec struct {
 	Namespaces  []string          `json:"namespaces,omitempty"`
 	Deployments []string          `json:"deployments,omitempty"`
+	Daemonsets  []string          `json:"daemonsets,omitempty"`
 	Pods        []string          `json:"pods,omitempty"`
 	Containers  []string          `json:"containers,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
@@ -160,6 +161,10 @@ type BugReportConfig struct {
 	// StartTime is set to EndTime - Since.
 	// If set, StartTime must be unset.
 	Since Duration `json:"since,omitempty"`
+
+	// TimeFilterApplied stores if user has provided any time filtering flags.
+	// If Since, StartTime, EndTime are all not applied by the user, set TimeFilterApplied as false; Otherwise set true
+	TimeFilterApplied bool `json:"timeFilterApplied,omitempty"`
 
 	// CriticalErrors is a list of glob pattern matches for errors that,
 	// if found in a log, set the highest priority for the log to ensure

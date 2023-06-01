@@ -182,45 +182,54 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 
 	isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
 	if isCAOnlySecret {
-		caCert, err := secretController.GetCaCert(sr.Name, sr.Namespace)
+		caCertInfo, err := secretController.GetCaCert(sr.Name, sr.Namespace)
 		if err != nil {
 			pilotSDSCertificateErrors.Increment()
 			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
 			return nil
 		}
 		if features.VerifySDSCertificate {
-			if err := validateCertificate(caCert); err != nil {
+			if err := ValidateCertificate(caCertInfo.Cert); err != nil {
 				recordInvalidCertificate(sr.ResourceName, err)
 				return nil
 			}
 		}
-		res := toEnvoyCaSecret(sr.ResourceName, caCert)
+		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
 		return res
 	}
-
-	key, cert, staple, err := secretController.GetKeyCertAndStaple(sr.Name, sr.Namespace)
+	certInfo, err := secretController.GetCertInfo(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
 		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
 		return nil
 	}
 	if features.VerifySDSCertificate {
-		if err := validateCertificate(cert); err != nil {
+		if err := ValidateCertificate(certInfo.Cert); err != nil {
 			recordInvalidCertificate(sr.ResourceName, err)
 			return nil
 		}
 	}
-	res := toEnvoyKeyCertStapleSecret(sr.ResourceName, key, cert, staple, proxy, s.meshConfig)
+	res := toEnvoyTLSSecret(sr.ResourceName, certInfo, proxy, s.meshConfig)
 	return res
 }
 
-func validateCertificate(data []byte) error {
+func ValidateCertificate(data []byte) error {
 	block, _ := pem.Decode(data)
 	if block == nil {
 		return fmt.Errorf("pem decode failed")
 	}
-	_, err := x509.ParseCertificates(block.Bytes)
-	return err
+	certs, err := x509.ParseCertificates(block.Bytes)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	for _, cert := range certs {
+		// check if the certificate has expired
+		if now.After(cert.NotAfter) || now.Before(cert.NotBefore) {
+			return fmt.Errorf("certificate is expired or not yet valid")
+		}
+	}
+	return nil
 }
 
 func recordInvalidCertificate(name string, err error) {
@@ -310,17 +319,25 @@ func atMostNJoin(data []string, limit int) string {
 	return strings.Join(data[:limit-1], ", ") + fmt.Sprintf(", and %d others", len(data)-limit+1)
 }
 
-func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
+func toEnvoyCaSecret(name string, certInfo *credscontroller.CertInfo) *discovery.Resource {
+	validationContext := &envoytls.CertificateValidationContext{
+		TrustedCa: &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{
+				InlineBytes: certInfo.Cert,
+			},
+		},
+	}
+	if certInfo.CRL != nil {
+		validationContext.Crl = &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{
+				InlineBytes: certInfo.CRL,
+			},
+		}
+	}
 	res := protoconv.MessageToAny(&envoytls.Secret{
 		Name: name,
 		Type: &envoytls.Secret_ValidationContext{
-			ValidationContext: &envoytls.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: cert,
-					},
-				},
-			},
+			ValidationContext: validationContext,
 		},
 	})
 	return &discovery.Resource{
@@ -329,7 +346,7 @@ func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 	}
 }
 
-func toEnvoyKeyCertStapleSecret(name string, key, cert, staple []byte, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
+func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
 	var res *anypb.Any
 	pkpConf := proxy.Metadata.ProxyConfigOrDefault(meshConfig.GetDefaultConfig()).GetPrivateKeyProvider()
 	switch pkpConf.GetProvider().(type) {
@@ -339,7 +356,7 @@ func toEnvoyKeyCertStapleSecret(name string, key, cert, staple []byte, proxy *mo
 			PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
 			PrivateKey: &core.DataSource{
 				Specifier: &core.DataSource_InlineBytes{
-					InlineBytes: key,
+					InlineBytes: certInfo.Key,
 				},
 			},
 		})
@@ -349,7 +366,7 @@ func toEnvoyKeyCertStapleSecret(name string, key, cert, staple []byte, proxy *mo
 				TlsCertificate: &envoytls.TlsCertificate{
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: cert,
+							InlineBytes: certInfo.Cert,
 						},
 					},
 					PrivateKeyProvider: &envoytls.PrivateKeyProvider{
@@ -367,7 +384,7 @@ func toEnvoyKeyCertStapleSecret(name string, key, cert, staple []byte, proxy *mo
 			PollDelay: durationpb.New(time.Duration(qatConf.GetPollDelay().Nanos)),
 			PrivateKey: &core.DataSource{
 				Specifier: &core.DataSource_InlineBytes{
-					InlineBytes: key,
+					InlineBytes: certInfo.Key,
 				},
 			},
 		})
@@ -377,7 +394,7 @@ func toEnvoyKeyCertStapleSecret(name string, key, cert, staple []byte, proxy *mo
 				TlsCertificate: &envoytls.TlsCertificate{
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: cert,
+							InlineBytes: certInfo.Cert,
 						},
 					},
 					PrivateKeyProvider: &envoytls.PrivateKeyProvider{
@@ -390,26 +407,29 @@ func toEnvoyKeyCertStapleSecret(name string, key, cert, staple []byte, proxy *mo
 			},
 		})
 	default:
+		tlsCertificate := &envoytls.TlsCertificate{
+			CertificateChain: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: certInfo.Cert,
+				},
+			},
+			PrivateKey: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: certInfo.Key,
+				},
+			},
+		}
+		if certInfo.Staple != nil {
+			tlsCertificate.OcspStaple = &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: certInfo.Staple,
+				},
+			}
+		}
 		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{
-				TlsCertificate: &envoytls.TlsCertificate{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: cert,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: key,
-						},
-					},
-					OcspStaple: &core.DataSource{
-						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: staple,
-						},
-					},
-				},
+				TlsCertificate: tlsCertificate,
 			},
 		})
 	}

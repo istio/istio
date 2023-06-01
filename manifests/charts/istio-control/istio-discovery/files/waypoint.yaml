@@ -10,7 +10,7 @@ metadata:
   name: {{.DeploymentName | quote}}
   namespace: {{.Namespace | quote}}
   annotations:
-    {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account") | nindent 4 }}
+    {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
   labels:
     {{- toJsonMap .Labels | nindent 4 }}
   ownerReferences:
@@ -26,7 +26,8 @@ spec:
     metadata:
       annotations:
         {{- toJsonMap
-          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account")
+          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version")
+          (strdict "istio.io/rev" (.Revision | default "default"))
           (strdict
             "ambient.istio.io/redirection" "disabled"
             "prometheus.io/path" "/stats/prometheus"
@@ -49,7 +50,17 @@ spec:
       terminationGracePeriodSeconds: 2
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
-      - args:
+      - name: istio-proxy
+        ports:
+        - containerPort: 15021
+          name: status-port
+          protocol: TCP
+        - containerPort: 15090
+          protocol: TCP
+          name: http-envoy-prom
+        image: {{.ProxyImage}}
+        {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
+        args:
         - proxy
         - waypoint
         - --domain
@@ -126,9 +137,6 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
         {{- end }}
-        image: {{.ProxyImage}}
-        {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
-        name: istio-proxy
         resources:
           limits:
             cpu: "2"
@@ -211,3 +219,29 @@ spec:
         - name: {{ . }}
         {{- end }}
       {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    {{ toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+  labels:
+    {{ toJsonMap .Labels | nindent 4}}
+  name: {{.DeploymentName | quote}}
+  namespace: {{.Namespace | quote}}
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: "{{.Name}}"
+    uid: "{{.UID}}"
+spec:
+  ports:
+  {{- range $key, $val := .Ports }}
+  - name: {{ $val.Name | quote }}
+    port: {{ $val.Port }}
+    protocol: TCP
+    appProtocol: {{ $val.AppProtocol }}
+  {{- end }}
+  selector:
+    istio.io/gateway-name: "{{.Name}}"
+---

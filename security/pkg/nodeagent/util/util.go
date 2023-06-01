@@ -25,8 +25,8 @@ import (
 
 	"go.opencensus.io/stats/view"
 
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/file"
-	"istio.io/pkg/env"
 )
 
 var k8sInCluster = env.Register("KUBERNETES_SERVICE_HOST", "",

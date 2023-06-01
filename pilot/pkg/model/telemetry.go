@@ -32,11 +32,13 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	sd "istio.io/api/envoy/extensions/stackdriver/config/v1alpha1"
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/labels"
@@ -82,11 +84,11 @@ type Telemetries struct {
 // telemetryKey defines a key into the computedMetricsFilters cache.
 type telemetryKey struct {
 	// Root stores the Telemetry in the root namespace, if any
-	Root NamespacedName
+	Root types.NamespacedName
 	// Namespace stores the Telemetry in the root namespace, if any
-	Namespace NamespacedName
+	Namespace types.NamespacedName
 	// Workload stores the Telemetry in the root namespace, if any
-	Workload NamespacedName
+	Workload types.NamespacedName
 }
 
 // loggingKey defines a key into the computedLoggingConfig cache.
@@ -129,9 +131,11 @@ func getTelemetries(env *Environment) *Telemetries {
 }
 
 type metricsConfig struct {
-	ClientMetrics     metricConfig
-	ServerMetrics     metricConfig
-	ReportingInterval *durationpb.Duration
+	ClientMetrics            metricConfig
+	ServerMetrics            metricConfig
+	ReportingInterval        *durationpb.Duration
+	RotationInterval         *durationpb.Duration
+	GracefulDeletionInterval *durationpb.Duration
 }
 
 type metricConfig struct {
@@ -399,7 +403,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	if t.RootNamespace != "" {
 		telemetry := t.namespaceWideTelemetryConfig(t.RootNamespace)
 		if telemetry != (Telemetry{}) {
-			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
+			key.Root = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
 			if len(telemetry.Spec.GetAccessLogging()) != 0 {
 				ls = append(ls, &computedAccessLogging{
@@ -416,7 +420,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	if namespace != t.RootNamespace {
 		telemetry := t.namespaceWideTelemetryConfig(namespace)
 		if telemetry != (Telemetry{}) {
-			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
+			key.Namespace = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
 			if len(telemetry.Spec.GetAccessLogging()) != 0 {
 				ls = append(ls, &computedAccessLogging{
@@ -437,12 +441,12 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		}
 		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
 		if selector.SubsetOf(proxy.Labels) {
-			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
+			key.Workload = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
 			if len(telemetry.Spec.GetAccessLogging()) != 0 {
 				ls = append(ls, &computedAccessLogging{
 					telemetryKey: telemetryKey{
-						Workload: NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
+						Workload: types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
 					},
 					Logging: telemetry.Spec.GetAccessLogging(),
 				})
@@ -503,6 +507,9 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		allKeys.Insert(k)
 	}
 
+	rotationInterval := getInterval(features.MetricRotationInterval, defaultMetricRotationInterval)
+	gracefulDeletionInterval := getInterval(features.MetricGracefulDeletionInterval, defaultMetricGracefulDeletionInterval)
+
 	m := make([]telemetryFilterConfig, 0, allKeys.Len())
 	for _, k := range sets.SortedList(allKeys) {
 		p := t.fetchProvider(k)
@@ -510,11 +517,14 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 			continue
 		}
 		_, logging := tml[k]
-		_, metrics := tmm[k]
+		mertricCfg, metrics := tmm[k]
+
+		mertricCfg.RotationInterval = rotationInterval
+		mertricCfg.GracefulDeletionInterval = gracefulDeletionInterval
 
 		cfg := telemetryFilterConfig{
 			Provider:      p,
-			metricsConfig: tmm[k],
+			metricsConfig: mertricCfg,
 			AccessLogging: logging,
 			Metrics:       metrics,
 			LogsFilter:    tml[p.Name].Filter,
@@ -535,6 +545,22 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	// Update cache
 	t.computedMetricsFilters[key] = res
 	return res
+}
+
+// defaul value for metric rotation interval and graceful deletion interval,
+// more details can be found in here: https://github.com/istio/proxy/blob/master/source/extensions/filters/http/istio_stats/config.proto#L116
+var (
+	defaultMetricRotationInterval         = 0 * time.Second
+	defaultMetricGracefulDeletionInterval = 5 * time.Minute
+)
+
+// getInterval return nil to reduce the size of the config, when equal to the default.
+func getInterval(input, defaultValue time.Duration) *durationpb.Duration {
+	if input == defaultValue {
+		return nil
+	}
+
+	return durationpb.New(input)
 }
 
 // mergeLogs returns the set of providers for the given logging configuration.
@@ -897,7 +923,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telem
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			sdCfg := generateSDConfig(class, cfg)
-			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
+			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
 			wasmConfig := &httpwasm.Wasm{
@@ -943,7 +969,7 @@ func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			cfg := generateSDConfig(class, telemetryCfg)
-			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
+			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
 			wasmConfig := &wasmfilter.Wasm{
@@ -1101,6 +1127,8 @@ func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryF
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 		TcpReportingDuration:      filterConfig.ReportingInterval,
+		RotationInterval:          filterConfig.RotationInterval,
+		GracefulDeletionInterval:  filterConfig.GracefulDeletionInterval,
 	}
 
 	for _, override := range listenerCfg.Overrides {

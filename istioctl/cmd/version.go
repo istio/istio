@@ -31,9 +31,9 @@ import (
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proxy"
-	"istio.io/pkg/log"
-	istioVersion "istio.io/pkg/version"
+	istioVersion "istio.io/istio/pkg/version"
 )
 
 func newVersionCommand() *cobra.Command {
@@ -63,7 +63,7 @@ func newVersionCommand() *cobra.Command {
 }
 
 func getRemoteInfo(opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo, error) {
-	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+	kubeClient, err := kubeClientWithRevision(opts.Revision)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *
 		xdsRequest := discovery.DiscoveryRequest{
 			TypeUrl: "istio.io/connections",
 		}
-		kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+		kubeClient, err := kubeClientWithRevision(opts.Revision)
 		if err != nil {
 			return nil, err
 		}

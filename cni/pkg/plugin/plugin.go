@@ -33,7 +33,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/ambient"
 	"istio.io/istio/cni/pkg/constants"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -220,7 +220,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 
 			log.Debugf("ambientConf.ZTunnelReady: %v", ambientConf.ZTunnelReady)
 			added := false
-			if !excludePod && ambientConf.ZTunnelReady {
+			if !excludePod {
 				podIPs, err := getPodIPs(args.IfName, conf.PrevResult)
 				if err != nil {
 					log.Errorf("istio-cni cmdAdd failed to get pod IPs: %s", err)

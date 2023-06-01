@@ -80,6 +80,7 @@ metadata:
     helm.sh/hook: test-success
     # invalid here
     kubernetes.io/ingress.class: "istio"
+    gateway.istio.io/controller-version: "5"
 spec:
   containers:
     - name: "grafana-test"
@@ -99,6 +100,7 @@ metadata:
     traffic.sidecar.istio.io/excludeInboundPorts: "15020"
     traffic.sidecar.istio.io/includeInboundPorts: '*'
     traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+    gateway.istio.io/controller-version: "5"
 spec:
   containers:
     - name: "grafana-test"
@@ -120,6 +122,7 @@ metadata:
     traffic.sidecar.istio.io/excludeInboundPorts: "15020"
     traffic.sidecar.istio.io/includeInboundPorts: '*'
     traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+    gateway.istio.io/controller-version: "5"
 spec:
   containers:
     - name: "grafana-test"
@@ -159,3 +162,17 @@ metadata:
     # Annotation does not belong to Namespace
     kubernetes.io/ingress.class: "foo"
 spec: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ignore-istio-annotations
+  annotations:
+    # annotations not set by user, should not warn
+    istio.io/rev: rev
+    istio.io/for-service-account: sa
+    ambient.istio.io/redirection: enabled
+spec:
+  containers:
+  - name: "foo"
+    command: ['curl']

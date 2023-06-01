@@ -23,7 +23,6 @@ import (
 
 type makePodArgs struct {
 	PodName             string
-	Namespace           string
 	Labels              map[string]string
 	Annotations         map[string]string
 	InitContainerName   string
@@ -39,7 +38,7 @@ func makePod(args makePodArgs) *corev1.Pod {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        args.PodName,
-			Namespace:   args.Namespace,
+			Namespace:   "default",
 			Labels:      args.Labels,
 			Annotations: args.Annotations,
 		},
@@ -143,42 +142,42 @@ var (
 
 // Pod specs
 var (
-	brokenPodTerminating = *makePod(makePodArgs{
-		PodName: "BrokenPodTerminating",
+	brokenPodTerminating = makePod(makePodArgs{
+		PodName: "broken-pod-terminating",
 		Annotations: map[string]string{
 			"sidecar.istio.io/status": "something",
 		},
 		Labels: map[string]string{
 			"testlabel": "true",
 		},
-		NodeName:            "TestNode",
+		NodeName:            "test-node",
 		InitContainerStatus: &brokenInitContainerTerminating,
 	})
 
-	brokenPodWaiting = *makePod(makePodArgs{
-		PodName: "BrokenPodWaiting",
+	brokenPodWaiting = makePod(makePodArgs{
+		PodName: "broken-pod-waiting",
 		Annotations: map[string]string{
 			"sidecar.istio.io/status": "something",
 		},
-		NodeName:            "TestNode",
+		NodeName:            "test-node",
 		InitContainerStatus: &brokenInitContainerWaiting,
 	})
 
-	brokenPodNoAnnotation = *makePod(makePodArgs{
-		PodName:             "BrokenPodNoAnnotation",
+	brokenPodNoAnnotation = makePod(makePodArgs{
+		PodName:             "broken-pod-no-annotation",
 		InitContainerStatus: &brokenInitContainerWaiting,
 	})
 
-	workingPod = *makePod(makePodArgs{
-		PodName: "WorkingPod",
+	workingPod = makePod(makePodArgs{
+		PodName: "working-pod",
 		Annotations: map[string]string{
 			"sidecar.istio.io/status": "something",
 		},
 		InitContainerStatus: &workingInitContainer,
 	})
 
-	workingPodDiedPreviously = *makePod(makePodArgs{
-		PodName: "WorkingPodDiedPreviously",
+	workingPodDiedPreviously = makePod(makePodArgs{
+		PodName: "working-pod-died-previously",
 		Annotations: map[string]string{
 			"sidecar.istio.io/status": "something",
 		},

@@ -17,7 +17,9 @@ package util
 import (
 	"context"
 	"fmt"
+	"strconv"
 
+	"github.com/prometheus/prometheus/util/strutil"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -127,4 +129,24 @@ func CreateNamespace(cs kubernetes.Interface, namespace string, network string, 
 	}
 
 	return nil
+}
+
+func PrometheusPathAndPort(pod *v1.Pod) (string, int, error) {
+	path := "/metrics"
+	port := 9090
+	for key, val := range pod.ObjectMeta.Annotations {
+		switch strutil.SanitizeLabelName(key) {
+		case "prometheus_io_port":
+			p, err := strconv.Atoi(val)
+			if err != nil {
+				return "", 0, fmt.Errorf("failed to parse port from annotation: %v", err)
+			}
+
+			port = p
+		case "prometheus_io_path":
+			path = val
+		}
+	}
+
+	return path, port, nil
 }

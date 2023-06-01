@@ -36,8 +36,10 @@ type mockPromAPI struct {
 	cannedResponse map[string]prometheus_model.Value
 }
 
-func mockExecClientAuthNoPilot(_, _, _ string) (kube.CLIClient, error) {
-	return &kube.MockClient{}, nil
+func mockExecClientAuthNoPilot(_ string) (kube.CLIClient, error) {
+	return MockClient{
+		CLIClient: kube.NewFakeClient(),
+	}, nil
 }
 
 func TestMetricsNoPrometheus(t *testing.T) {
@@ -81,21 +83,17 @@ func TestMetrics(t *testing.T) {
 	}
 }
 
-func mockPortForwardClientAuthPrometheus(_, _, _ string) (kube.CLIClient, error) {
-	return &kube.MockClient{
-		DiscoverablePods: map[string]map[string]*v1.PodList{
-			"istio-system": {
-				"app=prometheus": {
-					Items: []v1.Pod{
-						{
-							TypeMeta: metav1.TypeMeta{
-								Kind: "MockPod",
-							},
-						},
-					},
+func mockPortForwardClientAuthPrometheus(_ string) (kube.CLIClient, error) {
+	return MockClient{
+		CLIClient: kube.NewFakeClient(&v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "prometheus",
+				Namespace: "istio-system",
+				Labels: map[string]string{
+					"app": "prometheus",
 				},
 			},
-		},
+		}),
 	}, nil
 }
 

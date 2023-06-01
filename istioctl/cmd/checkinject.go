@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/table"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -41,7 +43,7 @@ func checkInjectCommand() *cobra.Command {
 		Short: "Check the injection status or inject-ability of a given resource, explains why it is (or will be) injected or not",
 		Long: `
 Checks associated resources of the given resource, and running webhooks to examine whether the pod can be or will be injected or not.`,
-		Example: `	# Check the injection status of a pod
+		Example: `  # Check the injection status of a pod
   istioctl experimental check-inject details-v1-fcff6c49c-kqnfk.test
 	
   # Check the injection status of a pod under a deployment
@@ -61,7 +63,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			err := getKubeClient()
 			if err != nil {
 				return err
 			}
@@ -70,15 +72,15 @@ Checks associated resources of the given resource, and running webhooks to exami
 			if len(args) == 1 {
 				podName, podNs, err = handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(namespace, defaultNamespace),
-					client.UtilFactory())
+					MakeKubeFactory(kubeClient))
 				if err != nil {
 					return err
 				}
-				pod, err := client.Kube().CoreV1().Pods(podNs).Get(context.TODO(), podName, metav1.GetOptions{})
+				pod, err := kubeClient.Kube().CoreV1().Pods(podNs).Get(context.TODO(), podName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
-				ns, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), podNs, metav1.GetOptions{})
+				ns, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), podNs, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -88,7 +90,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 				if namespace == "" {
 					namespace = defaultNamespace
 				}
-				ns, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+				ns, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -99,7 +101,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 				podLabels = ls.MatchLabels
 				nsLabels = ns.GetLabels()
 			}
-			whs, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
+			whs, err := kubeClient.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -234,9 +236,17 @@ func analyzeWebhooksMatchStatus(whs []admitv1.MutatingWebhook, podLabels, nsLabe
 			}
 			return labels
 		}
+
+		var isDeactived bool
 		for _, wh := range whs {
+			if reflect.DeepEqual(wh.NamespaceSelector, tag.NeverMatch) && reflect.DeepEqual(wh.ObjectSelector, tag.NeverMatch) {
+				isDeactived = true
+			}
 			nsMatchedLabels = append(nsMatchedLabels, extractMatchLabels(wh.NamespaceSelector)...)
 			podMatchedLabels = append(podMatchedLabels, extractMatchLabels(wh.ObjectSelector)...)
+		}
+		if isDeactived {
+			return "The injection webhook is deactivated, and will never match labels."
 		}
 		return fmt.Sprintf("No matching namespace labels (%s) "+
 			"or pod labels (%s)", strings.Join(nsMatchedLabels, ", "), strings.Join(podMatchedLabels, ", "))

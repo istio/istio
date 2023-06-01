@@ -24,12 +24,12 @@ import (
 	"os"
 	"sync"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const fakeTokenPrefix = "fake-token-"
 
-var mockcredLog = log.RegisterScope("mockcred", "Mock credential fetcher for istio agent", 0)
+var mockcredLog = log.RegisterScope("mockcred", "Mock credential fetcher for istio agent")
 
 // MockPlugin is the plugin object.
 type MockPlugin struct {

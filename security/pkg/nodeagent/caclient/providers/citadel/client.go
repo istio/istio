@@ -27,16 +27,16 @@ import (
 
 	pb "istio.io/api/security/v1alpha1"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
-	"istio.io/pkg/log"
 )
 
 const (
 	bearerTokenPrefix = "Bearer "
 )
 
-var citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
+var citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging")
 
 type CitadelClient struct {
 	// It means enable tls connection to Citadel if this is not nil.

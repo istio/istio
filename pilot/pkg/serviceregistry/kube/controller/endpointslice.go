@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/discovery/v1"
 	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +31,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type endpointSliceController struct {
@@ -39,16 +42,12 @@ type endpointSliceController struct {
 	c             *Controller
 }
 
-var _ kubeEndpointsController = &endpointSliceController{}
-
 var (
 	endpointSliceRequirement = labelRequirement(mcs.LabelServiceName, selection.DoesNotExist, nil)
 	endpointSliceSelector    = klabels.NewSelector().Add(*endpointSliceRequirement)
 )
 
 func newEndpointSliceController(c *Controller) *endpointSliceController {
-	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
-	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	slices := kclient.NewFiltered[*v1.EndpointSlice](c.client, kclient.Filter{ObjectFilter: c.opts.GetFilter()})
 	out := &endpointSliceController{
 		c:             c,
@@ -57,10 +56,6 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 	}
 	registerHandlers[*v1.EndpointSlice](c, slices, "EndpointSlice", out.onEvent, nil)
 	return out
-}
-
-func (esc *endpointSliceController) HasSynced() bool {
-	return esc.slices.HasSynced()
 }
 
 func (esc *endpointSliceController) sync(name, ns string, event model.Event, filtered bool) error {
@@ -88,7 +83,7 @@ func (esc *endpointSliceController) sync(name, ns string, event model.Event, fil
 func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model.Event) error {
 	esLabels := ep.GetLabels()
 	if endpointSliceSelector.Matches(klabels.Set(esLabels)) {
-		return processEndpointEvent(esc.c, esc, serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
+		return esc.processEndpointEvent(serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
 	}
 	return nil
 }
@@ -96,11 +91,11 @@ func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
-func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
+func (esc *endpointSliceController) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
 	eps := esc.slices.List(proxy.Metadata.Namespace, endpointSliceSelector)
 	var out []*model.ServiceInstance
 	for _, ep := range eps {
-		instances := esc.sliceServiceInstances(c, ep, proxy)
+		instances := esc.sliceServiceInstances(ep, proxy)
 		out = append(out, instances...)
 	}
 
@@ -111,53 +106,31 @@ func serviceNameForEndpointSlice(labels map[string]string) string {
 	return labels[v1beta1.LabelServiceName]
 }
 
-func (esc *endpointSliceController) sliceServiceInstances(c *Controller, ep *v1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
+func (esc *endpointSliceController) sliceServiceInstances(ep *v1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
-	if ep.AddressType == v1.AddressTypeFQDN {
-		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
-		return out
-	}
-	for _, svc := range c.servicesForNamespacedName(esc.getServiceNamespacedName(ep)) {
-		pod := c.pods.getPodByProxy(proxy)
-		builder := NewEndpointBuilder(c, pod)
-
-		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
-
-		for _, port := range ep.Ports {
-			if port.Name == nil || port.Port == nil {
+	for _, svc := range esc.c.servicesForNamespacedName(getServiceNamespacedName(ep)) {
+		for _, instance := range esc.endpointCache.Get(svc.Hostname) {
+			port, f := svc.Ports.Get(instance.ServicePortName)
+			if !f {
+				log.Warnf("unexpected state, svc %v missing port %v", svc.Hostname, instance.ServicePortName)
 				continue
 			}
-			svcPort, exists := svc.Ports.Get(*port.Name)
-			if !exists {
-				continue
+			si := &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: port,
+				Endpoint:    instance,
 			}
-			// consider multiple IP scenarios
-			for _, ip := range proxy.IPAddresses {
-				for _, ep := range ep.Endpoints {
-					for _, a := range ep.Addresses {
-						if a == ip {
-							istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name, discoverabilityPolicy, model.Healthy)
-							out = append(out, &model.ServiceInstance{
-								Endpoint:    istioEndpoint,
-								ServicePort: svcPort,
-								Service:     svc,
-							})
-							// If the endpoint isn't ready, report this
-							if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.opts.Metrics != nil {
-								c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
-							}
-						}
-					}
-				}
+			// If the endpoint isn't ready, report this
+			if instance.HealthStatus == model.UnHealthy && esc.c.opts.Metrics != nil {
+				esc.c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
 			}
+			out = append(out, si)
 		}
 	}
-
 	return out
 }
 
-func (esc *endpointSliceController) forgetEndpoint(endpoint any) map[host.Name][]*model.IstioEndpoint {
-	slice := endpoint.(*v1.EndpointSlice)
+func (esc *endpointSliceController) forgetEndpoint(slice *v1.EndpointSlice) map[host.Name][]*model.IstioEndpoint {
 	key := config.NamespacedName(slice)
 	for _, e := range slice.Endpoints {
 		for _, a := range e.Addresses {
@@ -166,7 +139,7 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint any) map[host.Name][
 	}
 
 	out := make(map[host.Name][]*model.IstioEndpoint)
-	for _, hostName := range esc.c.hostNamesForNamespacedName(esc.getServiceNamespacedName(slice)) {
+	for _, hostName := range esc.c.hostNamesForNamespacedName(getServiceNamespacedName(slice)) {
 		// endpointSlice cache update
 		if esc.endpointCache.Has(hostName) {
 			esc.endpointCache.Delete(hostName, slice.Name)
@@ -176,7 +149,7 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint any) map[host.Name][
 	return out
 }
 
-func (esc *endpointSliceController) buildIstioEndpoints(es any, hostName host.Name) []*model.IstioEndpoint {
+func (esc *endpointSliceController) buildIstioEndpoints(es *v1.EndpointSlice, hostName host.Name) []*model.IstioEndpoint {
 	esc.updateEndpointCacheForSlice(hostName, es)
 	return esc.endpointCache.Get(hostName)
 }
@@ -197,9 +170,8 @@ func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus 
 	return model.UnHealthy
 }
 
-func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, ep any) {
+func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, slice *v1.EndpointSlice) {
 	var endpoints []*model.IstioEndpoint
-	slice := ep.(*v1.EndpointSlice)
 	if slice.AddressType == v1.AddressTypeFQDN {
 		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 		return
@@ -261,61 +233,27 @@ func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespa
 	return esc.endpointCache.Get(hostName)
 }
 
-func (esc *endpointSliceController) getServiceNamespacedName(es any) types.NamespacedName {
-	slice := es.(metav1.Object)
+func getServiceNamespacedName(slice *v1.EndpointSlice) types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: slice.GetNamespace(),
 		Name:      serviceNameForEndpointSlice(slice.GetLabels()),
 	}
 }
 
-func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
-	esLabelSelector := endpointSliceSelectorForService(svc.Attributes.Name)
-	slices := esc.slices.List(svc.Attributes.Namespace, esLabelSelector)
-	if len(slices) == 0 {
-		return nil
-	}
-
+func (esc *endpointSliceController) InstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// Locate all ports in the actual service
 	svcPort, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
 		return nil
 	}
-
-	discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
-
 	var out []*model.ServiceInstance
-	for _, slice := range slices {
-		if slice.AddressType == v1.AddressTypeFQDN {
-			// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
-			continue
-		}
-		for _, e := range slice.Endpoints {
-			for _, a := range e.Addresses {
-				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
-				if pod == nil && expectedPod {
-					continue
-				}
-
-				builder := NewEndpointBuilder(esc.c, pod)
-				// identify the port by name. K8S EndpointPort uses the service port name
-				for _, port := range slice.Ports {
-					var portNum int32
-					if port.Port != nil {
-						portNum = *port.Port
-					}
-
-					if port.Name == nil ||
-						svcPort.Name == *port.Name {
-						istioEndpoint := builder.buildIstioEndpoint(a, portNum, svcPort.Name, discoverabilityPolicy, model.Healthy)
-						out = append(out, &model.ServiceInstance{
-							Endpoint:    istioEndpoint,
-							ServicePort: svcPort,
-							Service:     svc,
-						})
-					}
-				}
-			}
+	for _, ep := range esc.endpointCache.Get(svc.Hostname) {
+		if svcPort.Name == ep.ServicePortName {
+			out = append(out, &model.ServiceInstance{
+				Service:     svc,
+				ServicePort: svcPort,
+				Endpoint:    ep,
+			})
 		}
 	}
 	return out
@@ -372,16 +310,15 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	var endpoints []*model.IstioEndpoint
-	found := map[endpointKey]struct{}{}
+	found := sets.New[endpointKey]()
 	for _, eps := range e.endpointsByServiceAndSlice[hostname] {
 		for _, ep := range eps {
 			key := endpointKey{ep.Address, ep.ServicePortName}
-			if _, f := found[key]; f {
+			if found.InsertContains(key) {
 				// This a duplicate. Update() already handles conflict resolution, so we don't
 				// need to pick the "right" one here.
 				continue
 			}
-			found[key] = struct{}{}
 			endpoints = append(endpoints, ep)
 		}
 	}
@@ -399,4 +336,62 @@ func endpointSliceSelectorForService(name string) klabels.Selector {
 	return klabels.Set(map[string]string{
 		v1beta1.LabelServiceName: name,
 	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
+}
+
+// processEndpointEvent triggers the config update.
+func (esc *endpointSliceController) processEndpointEvent(name string, namespace string, event model.Event, ep *v1.EndpointSlice) error {
+	// Update internal endpoint cache no matter what kind of service, even headless service.
+	// As for gateways, the cluster discovery type is `EDS` for headless service.
+	esc.updateEDS(ep, event)
+	if svc := esc.c.services.Get(name, namespace); svc != nil {
+		// if the service is headless service, trigger a full push if EnableHeadlessService is true,
+		// otherwise push endpoint updates - needed for NDS output.
+		if svc.Spec.ClusterIP == corev1.ClusterIPNone {
+			for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
+				esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full: features.EnableHeadlessService,
+					// TODO: extend and set service instance type, so no need to re-init push context
+					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
+
+					Reason: []model.TriggerReason{model.HeadlessEndpointUpdate},
+				})
+				return nil
+			}
+		}
+	}
+
+	return nil
+}
+
+func (esc *endpointSliceController) updateEDS(ep *v1.EndpointSlice, event model.Event) {
+	namespacedName := getServiceNamespacedName(ep)
+	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
+	var forgottenEndpointsByHost map[host.Name][]*model.IstioEndpoint
+	if event == model.EventDelete {
+		forgottenEndpointsByHost = esc.forgetEndpoint(ep)
+	}
+
+	shard := model.ShardKeyFromRegistry(esc.c)
+
+	for _, hostName := range esc.c.hostNamesForNamespacedName(namespacedName) {
+		var endpoints []*model.IstioEndpoint
+		if forgottenEndpointsByHost != nil {
+			endpoints = forgottenEndpointsByHost[hostName]
+		} else {
+			endpoints = esc.buildIstioEndpoints(ep, hostName)
+		}
+
+		if features.EnableK8SServiceSelectWorkloadEntries {
+			svc := esc.c.GetService(hostName)
+			if svc != nil {
+				fep := esc.c.collectWorkloadInstanceEndpoints(svc)
+				endpoints = append(endpoints, fep...)
+			} else {
+				log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated",
+					namespacedName.Namespace, namespacedName.Name)
+			}
+		}
+
+		esc.c.opts.XDSUpdater.EDSUpdate(shard, string(hostName), namespacedName.Namespace, endpoints)
+	}
 }

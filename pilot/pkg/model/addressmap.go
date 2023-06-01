@@ -41,8 +41,11 @@ func (m *AddressMap) IsEmpty() bool {
 	return len(m.Addresses) == 0
 }
 
-func (m *AddressMap) DeepCopy() AddressMap {
-	return AddressMap{
+func (m *AddressMap) DeepCopy() *AddressMap {
+	if m == nil {
+		return nil
+	}
+	return &AddressMap{
 		Addresses: m.GetAddresses(),
 	}
 }
@@ -113,7 +116,7 @@ func (m *AddressMap) SetAddressesFor(c cluster.ID, addresses []string) *AddressM
 			}
 		}
 	} else {
-		// Create the map if if doesn't already exist.
+		// Create the map if it doesn't already exist.
 		if m.Addresses == nil {
 			m.Addresses = make(map[cluster.ID][]string)
 		}

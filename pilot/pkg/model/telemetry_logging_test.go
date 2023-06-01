@@ -1487,3 +1487,223 @@ func TestTelemetryAccessLog(t *testing.T) {
 		})
 	}
 }
+
+func TestAccessLogJSONFormatters(t *testing.T) {
+	cases := []struct {
+		name     string
+		json     *structpb.Struct
+		expected []*core.TypedExtensionConfig
+	}{
+		{
+			name:     "default",
+			json:     EnvoyJSONLogFormatIstio,
+			expected: []*core.TypedExtensionConfig{},
+		},
+		{
+			name: "with-req-without-query",
+			json: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				reqWithoutQueryFormatter,
+			},
+		},
+		{
+			name: "with-metadata",
+			json: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				metadataFormatter,
+			},
+		},
+		{
+			name: "with-both",
+			json: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+					"key2": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(UPSTREAM_HOST:istio)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				reqWithoutQueryFormatter,
+				metadataFormatter,
+			},
+		},
+		{
+			name: "with-multi-metadata",
+			json: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+					"key2": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(UPSTREAM_HOST:istio)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				metadataFormatter,
+			},
+		},
+		{
+			name: "more-complex",
+			json: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"req1": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+					"req2": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key2:val1)%"}},
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+					"key2": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(UPSTREAM_HOST:istio)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				reqWithoutQueryFormatter,
+				metadataFormatter,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := accessLogJSONFormatters(tc.json)
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestAccessLogTextFormatters(t *testing.T) {
+	cases := []struct {
+		name     string
+		text     string
+		expected []*core.TypedExtensionConfig
+	}{
+		{
+			name:     "default",
+			text:     EnvoyTextLogFormat,
+			expected: []*core.TypedExtensionConfig{},
+		},
+		{
+			name: "with-req-without-query",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)%",
+			expected: []*core.TypedExtensionConfig{
+				reqWithoutQueryFormatter,
+			},
+		},
+		{
+			name: "with-metadata",
+			text: EnvoyTextLogFormat + " %METADATA(CLUSTER:istio)%",
+			expected: []*core.TypedExtensionConfig{
+				metadataFormatter,
+			},
+		},
+		{
+			name: "with-both",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% %METADATA(CLUSTER:istio)%",
+			expected: []*core.TypedExtensionConfig{
+				reqWithoutQueryFormatter,
+				metadataFormatter,
+			},
+		},
+		{
+			name: "with-multi-metadata",
+			text: EnvoyTextLogFormat + " %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+			expected: []*core.TypedExtensionConfig{
+				metadataFormatter,
+			},
+		},
+		{
+			name: "more-complex",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+			expected: []*core.TypedExtensionConfig{
+				reqWithoutQueryFormatter,
+				metadataFormatter,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := accessLogTextFormatters(tc.text)
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestTelemetryAccessLogWithFormatter(t *testing.T) {
+	sidecar := &Proxy{
+		ConfigNamespace: "default",
+		Labels:          map[string]string{"app": "test"},
+		Metadata:        &NodeMetadata{},
+	}
+
+	textFormatters := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-text-formatters",
+					},
+				},
+			},
+		},
+	}
+
+	jsonFormatters := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json-formatters",
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name             string
+		cfgs             []config.Config
+		proxy            *Proxy
+		defaultProviders []string
+		excepted         []LoggingConfig
+	}{
+		{
+			"text",
+			[]config.Config{newTelemetry("default", textFormatters)},
+			sidecar,
+			[]string{},
+			[]LoggingConfig{
+				{
+					AccessLog: &accesslog.AccessLog{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(formattersTextLabelsOut)},
+					},
+					Provider: textFormattersProvider,
+				},
+			},
+		},
+		{
+			"json",
+			[]config.Config{newTelemetry("default", jsonFormatters)},
+			sidecar,
+			[]string{},
+			[]LoggingConfig{
+				{
+					AccessLog: &accesslog.AccessLog{
+						Name:       wellknown.FileAccessLog,
+						ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(formattersJSONLabelsOut)},
+					},
+					Provider: jsonFormattersProvider,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			telemetry, ctx := createTestTelemetries(tt.cfgs, t)
+			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
+			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound)
+			assert.Equal(t, tt.excepted, got)
+		})
+	}
+}

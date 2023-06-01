@@ -26,7 +26,7 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Resources available
+    message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
@@ -38,19 +38,6 @@ status:
     reason: Invalid
     status: "False"
     type: Programmed
-  - lastTransitionTime: fake
-    message: 'Assigned to service(s) example.com:34000, example.com:80, istio-ingressgateway.istio-system.svc.domain.suffix:34000,
-      and istio-ingressgateway.istio-system.svc.domain.suffix:80, but failed to assign
-      to all requested addresses: hostname "istio-ingressgateway.not-default.svc.domain.suffix"
-      not found'
-    reason: AddressNotAssigned
-    status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -66,19 +53,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
@@ -102,19 +79,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs

@@ -15,7 +15,6 @@
 package ingress
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 )
 
 func newFakeController() (model.ConfigStoreController, kube.Client) {
@@ -143,6 +143,7 @@ func TestIngressController(t *testing.T) {
 	}
 
 	controller, client := newFakeController()
+	ingress := clienttest.NewWriter[*net.Ingress](t, client)
 	configCh := make(chan config.Config)
 
 	configHandler := func(_, curr config.Config, event model.Event) {
@@ -166,13 +167,12 @@ func TestIngressController(t *testing.T) {
 
 	client.RunAndWait(stopCh)
 
-	client.Kube().NetworkingV1().Ingresses(ingress1.Namespace).Create(context.TODO(), &ingress1, metav1.CreateOptions{})
-
+	ingress.Create(&ingress1)
 	vs := wait()
 	if vs.Name != ingress1.Name+"-"+"virtualservice" || vs.Namespace != ingress1.Namespace {
 		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
 	}
-	client.Kube().NetworkingV1().Ingresses(ingress2.Namespace).Update(context.TODO(), &ingress2, metav1.UpdateOptions{})
+	ingress.Update(&ingress2)
 	vs = wait()
 	if vs.Name != ingress1.Name+"-"+"virtualservice" || vs.Namespace != ingress1.Namespace {
 		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)

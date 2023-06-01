@@ -23,13 +23,12 @@ import (
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 )
 
-func TestShouldSkip(t *testing.T) {
+func TestShouldSkipPod(t *testing.T) {
 	cases := []struct {
-		name       string
-		pod        *v1.Pod
-		config     *config2.BugReportConfig
-		deployment string
-		expected   bool
+		name     string
+		pod      *v1.Pod
+		config   *config2.BugReportConfig
+		expected bool
 	}{
 		{
 			"tested namespace not skip",
@@ -50,7 +49,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			false,
 		},
 		{
@@ -72,7 +70,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			false,
 		},
 		{
@@ -94,7 +91,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			false,
 		},
 		{
@@ -116,7 +112,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			false,
 		},
 		{
@@ -138,7 +133,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			true,
 		},
 		{
@@ -160,7 +154,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			false,
 		},
 		{
@@ -182,53 +175,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
-			true,
-		},
-		{
-			"tested deployment not skip",
-			&v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "in-test1",
-				},
-			},
-			&config2.BugReportConfig{
-				Include: []*config2.SelectionSpec{
-					{
-						Deployments: []string{"in-"},
-					},
-				},
-				Exclude: []*config2.SelectionSpec{
-					{
-						Deployments: []string{"ex-"},
-					},
-				},
-			},
-			"in-dep1",
-			false,
-		},
-		{
-			"tested deployment skip",
-			&v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "in-test1",
-				},
-			},
-			&config2.BugReportConfig{
-				Include: []*config2.SelectionSpec{
-					{
-						Pods:        []string{"in-"},
-						Deployments: []string{"in-"},
-					},
-				},
-				Exclude: []*config2.SelectionSpec{
-					{
-						Pods:        []string{"ex-"},
-						Deployments: []string{"ex-"},
-					},
-				},
-			},
-			"ex-dep1",
 			true,
 		},
 		{
@@ -259,7 +205,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			false,
 		},
 		{
@@ -290,7 +235,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			true,
 		},
 		{
@@ -318,7 +262,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			false,
 		},
 		{
@@ -345,7 +288,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			true,
 		},
 		{
@@ -374,7 +316,6 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			false,
 		},
 		{
@@ -401,14 +342,117 @@ func TestShouldSkip(t *testing.T) {
 					},
 				},
 			},
-			"*",
 			true,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			skip := shouldSkip(c.deployment, c.config, c.pod)
+			skip := shouldSkipPod(c.pod, c.config)
+			if skip != c.expected {
+				t.Errorf("shouldSkipPod() for test case name [%s] return= %v, want %v", c.name, skip, c.expected)
+			}
+		})
+	}
+}
+
+func TestShouldSkipDeployment(t *testing.T) {
+	cases := []struct {
+		name       string
+		config     *config2.BugReportConfig
+		deployment string
+		expected   bool
+	}{
+		{
+			"tested deployment not skip",
+			&config2.BugReportConfig{
+				Include: []*config2.SelectionSpec{
+					{
+						Deployments: []string{"in-"},
+					},
+				},
+				Exclude: []*config2.SelectionSpec{
+					{
+						Deployments: []string{"ex-"},
+					},
+				},
+			},
+			"in-dep1",
+			false,
+		},
+		{
+			"tested deployment skip",
+			&config2.BugReportConfig{
+				Include: []*config2.SelectionSpec{
+					{
+						Deployments: []string{"in-"},
+					},
+				},
+				Exclude: []*config2.SelectionSpec{
+					{
+						Deployments: []string{"ex-"},
+					},
+				},
+			},
+			"ex-dep1",
+			true,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			skip := shouldSkipDeployment(c.deployment, c.config)
+			if skip != c.expected {
+				t.Errorf("shouldSkip() for test case name [%s] return= %v, want %v", c.name, skip, c.expected)
+			}
+		})
+	}
+}
+
+func TestShouldSkipDaemonSet(t *testing.T) {
+	cases := []struct {
+		name      string
+		config    *config2.BugReportConfig
+		daemonset string
+		expected  bool
+	}{
+		{
+			"tested daemonset not skip",
+			&config2.BugReportConfig{
+				Include: []*config2.SelectionSpec{
+					{
+						Daemonsets: []string{"in-"},
+					},
+				},
+				Exclude: []*config2.SelectionSpec{
+					{
+						Daemonsets: []string{"ex-"},
+					},
+				},
+			},
+			"in-dep1",
+			false,
+		},
+		{
+			"tested daemonset skip",
+			&config2.BugReportConfig{
+				Include: []*config2.SelectionSpec{
+					{
+						Daemonsets: []string{"in-"},
+					},
+				},
+				Exclude: []*config2.SelectionSpec{
+					{
+						Daemonsets: []string{"ex-"},
+					},
+				},
+			},
+			"ex-dep1",
+			true,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			skip := shouldSkipDaemonSet(c.daemonset, c.config)
 			if skip != c.expected {
 				t.Errorf("shouldSkip() for test case name [%s] return= %v, want %v", c.name, skip, c.expected)
 			}

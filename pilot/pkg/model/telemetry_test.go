@@ -57,12 +57,88 @@ var (
 		},
 	}
 
+	textFormattersProvider = &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "envoy-text-formatters",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: "/dev/stdout",
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text{
+						Text: "%REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%\n",
+					},
+				},
+			},
+		},
+	}
+
+	jsonFormattersProvider = &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "envoy-json-formatters",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: "/dev/stdout",
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
+						Labels: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
+								"req1": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+								"req2": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key2:val1)%"}},
+								"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+								"key2": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(UPSTREAM_HOST:istio)%"}},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	defaultJSONLabelsOut = &fileaccesslog.FileAccessLog{
 		Path: "/dev/stdout",
 		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: EnvoyJSONLogFormatIstio,
+				},
+			},
+		},
+	}
+
+	formattersJSONLabelsOut = &fileaccesslog.FileAccessLog{
+		Path: "/dev/stdout",
+		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Formatters: []*core.TypedExtensionConfig{
+					reqWithoutQueryFormatter,
+					metadataFormatter,
+				},
+				Format: &core.SubstitutionFormatString_JsonFormat{
+					JsonFormat: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"req1": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+							"req2": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key2:val1)%"}},
+							"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+							"key2": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(UPSTREAM_HOST:istio)%"}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	formattersTextLabelsOut = &fileaccesslog.FileAccessLog{
+		Path: "/dev/stdout",
+		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Formatters: []*core.TypedExtensionConfig{
+					reqWithoutQueryFormatter,
+					metadataFormatter,
+				},
+				Format: &core.SubstitutionFormatString_TextFormatSource{
+					TextFormatSource: &core.DataSource{
+						Specifier: &core.DataSource_InlineString{
+							InlineString: "%REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%\n",
+						},
+					},
 				},
 			},
 		},
@@ -78,7 +154,7 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 	}
 	m := mesh.DefaultMeshConfig()
 
-	m.ExtensionProviders = append(m.ExtensionProviders, jsonTextProvider)
+	m.ExtensionProviders = append(m.ExtensionProviders, jsonTextProvider, textFormattersProvider, jsonFormattersProvider)
 
 	environment := &Environment{
 		ConfigStore: store,
@@ -575,7 +651,7 @@ func TestTelemetryFilters(t *testing.T) {
 			{},
 		},
 	}
-	disbaledAllMetrics := &tpb.Telemetry{
+	disabledAllMetrics := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
 			{
 				Overrides: []*tpb.MetricsOverrides{{
@@ -616,7 +692,7 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 		{
 			"disabled-prometheus",
-			[]config.Config{newTelemetry("istio-system", disbaledAllMetrics)},
+			[]config.Config{newTelemetry("istio-system", disabledAllMetrics)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
@@ -626,7 +702,7 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"disabled-then-empty",
 			[]config.Config{
-				newTelemetry("istio-system", disbaledAllMetrics),
+				newTelemetry("istio-system", disabledAllMetrics),
 				newTelemetry("default", emptyPrometheus),
 			},
 			sidecar,
@@ -638,7 +714,7 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"disabled-then-overrides",
 			[]config.Config{
-				newTelemetry("istio-system", disbaledAllMetrics),
+				newTelemetry("istio-system", disabledAllMetrics),
 				newTelemetry("default", overridesPrometheus),
 			},
 			sidecar,
@@ -899,6 +975,34 @@ func TestTelemetryFilters(t *testing.T) {
 			if diff := cmp.Diff(res, tt.want); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}
+		})
+	}
+}
+
+func TestGetInterval(t *testing.T) {
+	cases := []struct {
+		name              string
+		input, defaultVal time.Duration
+		expected          *durationpb.Duration
+	}{
+		{
+			name:       "return nil",
+			input:      0,
+			defaultVal: 0,
+			expected:   nil,
+		},
+		{
+			name:       "return input",
+			input:      1 * time.Second,
+			defaultVal: 0,
+			expected:   durationpb.New(1 * time.Second),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := getInterval(tc.input, tc.defaultVal)
+			assert.Equal(t, tc.expected, actual)
 		})
 	}
 }

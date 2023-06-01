@@ -19,66 +19,63 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/tools/bug-report/pkg/config"
 )
 
-func TestTimeRangeFilter(t *testing.T) {
+func TestProcessLogsFormat(t *testing.T) {
 	testDataDir := filepath.Join(env.IstioSrc, "tools/bug-report/pkg/testdata/")
-	b := util.ReadFile(t, filepath.Join(testDataDir, "input/ingress.log"))
-	inLog := string(b)
+
 	tests := []struct {
-		name      string
-		start     string
-		end       string
-		wantEmpty bool
+		name              string
+		inputLogFilePath  string
+		wantOutputLogPath string
+		startTime         string
+		endTime           string
+		timeFilterApplied bool
 	}{
 		{
-			name:      "wantEmpty",
-			start:     "2020-05-29T23:37:27.285018Z",
-			end:       "2020-06-10T23:37:27.285018Z",
-			wantEmpty: true,
+			name:              "input_log_of_text_format",
+			inputLogFilePath:  "input/format_txt.log",
+			wantOutputLogPath: "output/format_txt_no_time_filter.log",
+			timeFilterApplied: false,
 		},
 		{
-			name:  "range_equals",
-			start: "2020-06-29T23:37:27.285053Z",
-			end:   "2020-06-29T23:37:27.285885Z",
+			name:              "input_log_of_json_format",
+			inputLogFilePath:  "input/format_json.log",
+			wantOutputLogPath: "output/format_json_no_time_filter.log",
+			timeFilterApplied: false,
 		},
 		{
-			name:  "range_not_equals",
-			start: "2020-06-29T23:37:27.285052Z",
-			end:   "2020-06-29T23:37:27.285886Z",
+			name:              "input_log_of_text_format",
+			inputLogFilePath:  "input/format_txt.log",
+			wantOutputLogPath: "output/format_txt_with_time_filter.log",
+			startTime:         "2020-06-29T23:37:27.336155Z",
+			endTime:           "2020-06-29T23:37:27.349559Z",
+			timeFilterApplied: true,
 		},
 		{
-			name:  "multi_line_entries",
-			start: "2020-06-29T23:37:27.287895Z",
-			end:   "2020-06-29T23:37:27.287996Z",
-		},
-		{
-			name:      "reverse",
-			start:     "2020-06-29T23:37:27.287996Z",
-			end:       "2020-06-29T23:37:27.287895Z",
-			wantEmpty: true,
+			name:              "input_log_of_json_format",
+			inputLogFilePath:  "input/format_json.log",
+			wantOutputLogPath: "output/format_json_with_time_filter.log",
+			startTime:         "2023-05-10T17:43:55.356647Z",
+			endTime:           "2023-05-10T17:43:55.356691Z",
+			timeFilterApplied: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var b []byte
-			if !tt.wantEmpty {
-				b = util.ReadFile(t, filepath.Join(testDataDir, "output", tt.name+".log"))
-			}
-			want := string(b)
-			start, err := time.Parse(time.RFC3339Nano, tt.start)
-			if err != nil {
-				t.Fatal(err)
-			}
-			end, err := time.Parse(time.RFC3339Nano, tt.end)
-			if err != nil {
-				t.Fatal(err)
-			}
-			got := getTimeRange(inLog, start, end)
-			if got != want {
-				t.Errorf("%s: got:\n%s\n\nwant:\n%s\n", tt.name, got, want)
+			inputLog := string(util.ReadFile(t, filepath.Join(testDataDir, tt.inputLogFilePath)))
+			wantOutputLog := string(util.ReadFile(t, filepath.Join(testDataDir, tt.wantOutputLogPath)))
+			start, _ := time.Parse(time.RFC3339Nano, tt.startTime)
+			end, _ := time.Parse(time.RFC3339Nano, tt.endTime)
+			c := config.BugReportConfig{StartTime: start, EndTime: end, TimeFilterApplied: tt.timeFilterApplied}
+			gotOutputLog, _ := Process(&c, inputLog)
+			if wantOutputLog != gotOutputLog {
+				t.Errorf("got:\n%s\nwant:\n%s\n\ndiff (-got, +want):\n%s\n", gotOutputLog, wantOutputLog, cmp.Diff(gotOutputLog, wantOutputLog))
 			}
 		})
 	}

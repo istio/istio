@@ -36,9 +36,9 @@ import (
 	"istio.io/istio/operator/pkg/controller"
 	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/istio/operator/pkg/metrics"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 // Should match deploy/service.yaml

@@ -194,7 +194,6 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 		// Strip all internal env variables(with ISTIO_META) from VM env variable.
 		// These env variables are added by Istio control plane and meant to be consumed by the
 		// agent for image pulling control should not be leaked to Envoy or the Wasm extension runtime.
-		delete(envs.KeyValues, model.WasmSecretEnv)
 		for k := range envs.KeyValues {
 			if strings.HasPrefix(k, bootstrap.IstioMetaPrefix) {
 				delete(envs.KeyValues, k)

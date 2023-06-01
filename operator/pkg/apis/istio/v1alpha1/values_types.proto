@@ -76,9 +76,6 @@ message CNIConfig {
 
   google.protobuf.BoolValue chained = 14;
 
-  CNITaintConfig taint  = 15;
-
-
   ResourceQuotas resource_quotas = 16;
 
   Resources resources = 17;
@@ -91,17 +88,17 @@ message CNIConfig {
   google.protobuf.Struct seccompProfile = 19;
 
   CNIAmbientConfig ambient = 21;
+
+  string provider = 22;
+
+  // K8s rolling update strategy
+  IntOrString rollingMaxUnavailable = 23;
 }
 
 message CNIAmbientConfig {
   // Controls whether ambient redirection is enabled
   google.protobuf.BoolValue enabled = 1;
   string redirectMode = 2;
-}
-
-message CNITaintConfig {
-  // Controls whether taint behavior is enabled.
-  google.protobuf.BoolValue enabled = 1;
 }
 
 message CNIRepairConfig {
@@ -628,6 +625,9 @@ message PilotConfig {
 
   // Maximum number of replicas in the HorizontalPodAutoscaler for Pilot.
   uint32 autoscaleMax = 4;
+
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior
+  google.protobuf.Struct autoscaleBehavior = 40;
 
   // Number of replicas in the Pilot Deployment.
   uint32 replicaCount = 5 [deprecated=true];

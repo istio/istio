@@ -51,6 +51,15 @@ data:
       orgId: 1
       type: prometheus
       url: http://prometheus:9090
+    - access: proxy
+      editable: true
+      isDefault: false
+      jsonData:
+        timeInterval: 5s
+      name: Loki
+      orgId: 1
+      type: loki
+      url: http://loki:3100
   dashboardproviders.yaml: |
     apiVersion: 1
     providers:
@@ -122,7 +131,7 @@ spec:
         app: grafana
         sidecar.istio.io/inject: "false"
       annotations:
-        checksum/config: 00cbea6713b515cc981941cb5cc4004e842e678e23fbb177bff4d890ac2d71da
+        checksum/config: 21013edd24d239f48f0228579d13d44411baf698367879ae68290467749f6dcf
         checksum/dashboards-json-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
         checksum/sc-dashboard-provider-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
     spec:

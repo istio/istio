@@ -190,6 +190,7 @@ func AdmissionReviewKubeToAdapter(object runtime.Object) (*AdmissionReview, erro
 				Operation: string(arv1beta1Request.Operation),
 				Object:    arv1beta1Request.Object,
 				OldObject: arv1beta1Request.OldObject,
+				DryRun:    arv1beta1Request.DryRun,
 			}
 		}
 
@@ -222,6 +223,7 @@ func AdmissionReviewKubeToAdapter(object runtime.Object) (*AdmissionReview, erro
 				Operation: string(arv1Request.Operation),
 				Object:    arv1Request.Object,
 				OldObject: arv1Request.OldObject,
+				DryRun:    arv1Request.DryRun,
 			}
 		}
 

@@ -14,7 +14,10 @@
 
 package kube
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestIsAtLeastVersion(t *testing.T) {
 	tests := []struct {
@@ -44,7 +47,7 @@ func TestIsAtLeastVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cl := &MockClient{KubernetesVersion: tt.clusterVersion}
+			cl := NewFakeClientWithVersion(fmt.Sprint(tt.clusterVersion))
 			if got := IsAtLeastVersion(cl, tt.minorVersion); got != tt.want {
 				t.Errorf("IsAtLeastVersion() = %v, want %v", got, tt.want)
 			}
@@ -80,7 +83,7 @@ func TestIsLessThanVersionVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cl := &MockClient{KubernetesVersion: tt.clusterVersion}
+			cl := NewFakeClientWithVersion(fmt.Sprint(tt.clusterVersion))
 			if got := IsLessThanVersion(cl, tt.minorVersion); got != tt.want {
 				t.Errorf("IsLessThanVersion() = %v, want %v", got, tt.want)
 			}

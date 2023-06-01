@@ -16,8 +16,9 @@ package server
 
 import (
 	"sync"
+	"time"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type Component func(stop <-chan struct{}) error
@@ -33,16 +34,16 @@ type Instance interface {
 	Start(stop <-chan struct{}) error
 
 	// RunComponent adds the given component to the server's run queue.
-	RunComponent(t Component)
+	RunComponent(name string, t Component)
 
 	// RunComponentAsync runs the given component asynchronously.
-	RunComponentAsync(t Component)
+	RunComponentAsync(name string, t Component)
 
 	// RunComponentAsyncAndWait runs the given component asynchronously. When
-	// the serer Instance is shutting down, it will wait for the component
+	// the server Instance is shutting down, it will wait for the component
 	// to complete before exiting.
 	// Note: this is best effort; a process can die at any time.
-	RunComponentAsyncAndWait(t Component)
+	RunComponentAsyncAndWait(name string, t Component)
 
 	// Wait for this server Instance to shutdown.
 	Wait()
@@ -54,12 +55,12 @@ var _ Instance = &instance{}
 func New() Instance {
 	return &instance{
 		done:       make(chan struct{}),
-		components: make(chan Component, 1000), // should be enough?
+		components: make(chan task, 1000), // should be enough?
 	}
 }
 
 type instance struct {
-	components chan Component
+	components chan task
 	done       chan struct{}
 
 	// requiredTerminations keeps track of tasks that should block instance exit
@@ -77,10 +78,17 @@ func (i *instance) Start(stop <-chan struct{}) error {
 	for startupDone := false; !startupDone; {
 		select {
 		case next := <-i.components:
-			if err := next(stop); err != nil {
+			t0 := time.Now()
+			if err := next.task(stop); err != nil {
 				// Startup error: terminate and return the error.
 				shutdown()
 				return err
+			}
+			runtime := time.Since(t0)
+			log := log.WithLabels("name", next.name, "runtime", runtime)
+			log.Debugf("started task")
+			if runtime > time.Second {
+				log.Warnf("slow startup task")
 			}
 		default:
 			// We've drained all of the initial tasks.
@@ -101,8 +109,15 @@ func (i *instance) Start(stop <-chan struct{}) error {
 				shutdown()
 				return
 			case next := <-i.components:
-				if err := next(stop); err != nil {
-					logComponentError(err)
+				t0 := time.Now()
+				if err := next.task(stop); err != nil {
+					logComponentError(next.name, err)
+				}
+				runtime := time.Since(t0)
+				log := log.WithLabels("name", next.name, "runtime", runtime)
+				log.Debugf("started post-start task")
+				if runtime > time.Second {
+					log.Warnf("slow post-start task")
 				}
 			}
 		}
@@ -111,34 +126,39 @@ func (i *instance) Start(stop <-chan struct{}) error {
 	return nil
 }
 
-func (i *instance) RunComponent(t Component) {
+type task struct {
+	name string
+	task Component
+}
+
+func (i *instance) RunComponent(name string, t Component) {
 	select {
 	case <-i.done:
-		log.Warnf("attempting to run a new component after the server was shutdown")
+		log.Warnf("attempting to run a new component %q after the server was shutdown", name)
 	default:
-		i.components <- t
+		i.components <- task{name, t}
 	}
 }
 
-func (i *instance) RunComponentAsync(task Component) {
-	i.RunComponent(func(stop <-chan struct{}) error {
+func (i *instance) RunComponentAsync(name string, task Component) {
+	i.RunComponent(name, func(stop <-chan struct{}) error {
 		go func() {
 			err := task(stop)
 			if err != nil {
-				logComponentError(err)
+				logComponentError(name, err)
 			}
 		}()
 		return nil
 	})
 }
 
-func (i *instance) RunComponentAsyncAndWait(task Component) {
-	i.RunComponent(func(stop <-chan struct{}) error {
+func (i *instance) RunComponentAsyncAndWait(name string, task Component) {
+	i.RunComponent(name, func(stop <-chan struct{}) error {
 		i.requiredTerminations.Add(1)
 		go func() {
 			err := task(stop)
 			if err != nil {
-				logComponentError(err)
+				logComponentError(name, err)
 			}
 			i.requiredTerminations.Done()
 		}()
@@ -150,6 +170,6 @@ func (i *instance) Wait() {
 	<-i.done
 }
 
-func logComponentError(err error) {
-	log.Errorf("failure in server component: %v", err)
+func logComponentError(name string, err error) {
+	log.Errorf("failure in server component %q: %v", name, err)
 }

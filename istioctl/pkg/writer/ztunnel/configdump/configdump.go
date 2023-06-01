@@ -18,8 +18,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
+	"strings"
+	"text/tabwriter"
+	"time"
+
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
+	"istio.io/istio/pkg/log"
 )
 
 // ConfigWriter is a writer for processing responses from the Ztunnel Admin config_dump endpoint
@@ -49,14 +56,83 @@ func (c *ConfigWriter) PrintBootstrapDump(outputFormat string) error {
 
 // PrintSecretDump prints just the secret config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintSecretDump(outputFormat string) error {
-	// TODO
+	if c.ztunnelDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	secretDump := c.ztunnelDump.Certificates
+	out, err := json.MarshalIndent(secretDump, "", "    ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal secrets dump: %v", err)
+	}
+	if outputFormat == "yaml" {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return err
+		}
+	}
+	fmt.Fprintln(c.Stdout, string(out))
 	return nil
 }
 
 // PrintSecretSummary prints a summary of dynamic active secrets from the config dump
 func (c *ConfigWriter) PrintSecretSummary() error {
-	// TODO
-	return nil
+	if c.ztunnelDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	secretDump := c.ztunnelDump.Certificates
+	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
+	fmt.Fprintln(w, "NAME\tTYPE\tSTATUS\tVALID CERT\tSERIAL NUMBER\tNOT AFTER\tNOT BEFORE")
+
+	for _, secret := range secretDump {
+		if strings.Contains(secret.State, "Unavailable") {
+			secret.State = "Unavailable"
+		}
+		if len(secret.CaCert) == 0 && len(secret.CertChain) == 0 {
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+				secret.Identity, valueOrNA(""), secret.State, false, valueOrNA(""), valueOrNA(""), valueOrNA(""))
+		}
+		for _, ca := range secret.CaCert {
+			n := new(big.Int)
+			n, _ = n.SetString(ca.SerialNumber, 10)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n",
+				secret.Identity, "CA", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
+		}
+		for _, ca := range secret.CertChain {
+			n := new(big.Int)
+			n, _ = n.SetString(ca.SerialNumber, 10)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n",
+				secret.Identity, "Cert Chain", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
+		}
+	}
+	return w.Flush()
+}
+
+func valueOrNA(value string) string {
+	if value == "" {
+		return "NA"
+	}
+	return value
+}
+
+func certNotExpired(cert *configdump.Cert) bool {
+	// case where cert state is in either Initializing or Unavailable state
+	if cert.ExpirationTime == "" && cert.ValidFrom == "" {
+		return false
+	}
+	today := time.Now()
+	expDate, err := time.Parse(time.RFC3339, cert.ExpirationTime)
+	if err != nil {
+		log.Errorf("certificate timestamp (%v) could not be parsed: %v", cert.ExpirationTime, err)
+		return false
+	}
+	fromDate, err := time.Parse(time.RFC3339, cert.ValidFrom)
+	if err != nil {
+		log.Errorf("certificate timestamp (%v) could not be parsed: %v", cert.ValidFrom, err)
+		return false
+	}
+	if today.After(fromDate) && today.Before(expDate) {
+		return true
+	}
+	return false
 }
 
 func (c *ConfigWriter) PrintFullSummary(wf WorkloadFilter) error {

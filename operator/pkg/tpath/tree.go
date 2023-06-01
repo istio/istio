@@ -34,10 +34,10 @@ import (
 	yaml2 "sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
-var scope = log.RegisterScope("tpath", "tree traverser", 0)
+var scope = log.RegisterScope("tpath", "tree traverser")
 
 // PathContext provides a means for traversing a tree towards the root.
 type PathContext struct {

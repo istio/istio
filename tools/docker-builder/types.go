@@ -24,9 +24,9 @@ import (
 
 	"k8s.io/utils/env"
 
+	"istio.io/istio/pkg/log"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // Types mirrored from https://github.com/docker/buildx/blob/master/bake/bake.go

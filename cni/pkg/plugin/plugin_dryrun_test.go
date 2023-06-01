@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
 
@@ -35,6 +34,8 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	diff "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
@@ -84,6 +85,10 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 	cniConf := fmt.Sprintf(conf, currentVersion, currentVersion, ifname, sandboxDirectory, "iptables")
 	args := testSetArgs(cniConf)
 	newKubeClient = mocknewK8sClient
+
+	customUID := int64(1000670000)
+	customGID := int64(1000670001)
+	zero := int64(0)
 
 	tests := []struct {
 		name   string
@@ -162,6 +167,41 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			},
 			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/invalid-drop.txt.golden"),
 		},
+		{
+			name: "custom-uid",
+			input: &PodInfo{
+				Containers:     []string{"test", "istio-proxy"},
+				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Annotations:    map[string]string{annotation.SidecarStatus.Name: "true"},
+				ProxyUID:       &customUID,
+				ProxyGID:       &customGID,
+			},
+			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/custom-uid.txt.golden"),
+		},
+		{
+			name: "custom-uid-zero",
+			input: &PodInfo{
+				Containers:     []string{"test", "istio-proxy"},
+				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Annotations:    map[string]string{annotation.SidecarStatus.Name: "true"},
+				ProxyUID:       &zero,
+			},
+			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/basic.txt.golden"),
+		},
+		{
+			name: "custom-uid-tproxy",
+			input: &PodInfo{
+				Containers:     []string{"test", "istio-proxy"},
+				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Annotations: map[string]string{
+					annotation.SidecarStatus.Name:           "true",
+					annotation.SidecarInterceptionMode.Name: redirectModeTPROXY,
+				},
+				ProxyUID: &customUID,
+				ProxyGID: &customGID,
+			},
+			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/custom-uid-tproxy.txt.golden"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -227,11 +267,7 @@ func getRules(b []byte) map[string]string {
 }
 
 func refreshGoldens(t *testing.T, goldenFileName string, generatedRules map[string]string) {
-	tables := make([]string, 0)
-	for table := range generatedRules {
-		tables = append(tables, table)
-	}
-	sort.Strings(tables)
+	tables := slices.Sort(maps.Keys(generatedRules))
 	goldenFileContent := ""
 	for _, t := range tables {
 		goldenFileContent += generatedRules[t] + "\n"

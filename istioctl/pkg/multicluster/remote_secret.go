@@ -43,7 +43,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -108,7 +108,7 @@ func NewCreateRemoteSecretCommand() *cobra.Command {
 			if err := opts.prepare(c.Flags()); err != nil {
 				return err
 			}
-			env, err := NewEnvironmentFromCobra(opts.Kubeconfig, opts.Context, c)
+			env, err := NewEnvironment(opts.Kubeconfig, opts.Context)
 			if err != nil {
 				return err
 			}

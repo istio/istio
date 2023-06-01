@@ -22,12 +22,12 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/monitoring"
 )
 
 var enableStats = func() bool {

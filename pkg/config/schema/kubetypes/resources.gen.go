@@ -8,6 +8,7 @@ import (
 
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
@@ -31,6 +32,8 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 	switch any(ptr.Empty[T]()).(type) {
 	case *istioioapisecurityv1beta1.AuthorizationPolicy:
 		return gvk.AuthorizationPolicy
+	case *k8sioapicertificatesv1.CertificateSigningRequest:
+		return gvk.CertificateSigningRequest
 	case *k8sioapicorev1.ConfigMap:
 		return gvk.ConfigMap
 	case *k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition:
@@ -75,7 +78,7 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 		return gvk.Pod
 	case *istioioapinetworkingv1beta1.ProxyConfig:
 		return gvk.ProxyConfig
-	case *sigsk8siogatewayapiapisv1alpha2.ReferenceGrant:
+	case *sigsk8siogatewayapiapisv1beta1.ReferenceGrant:
 		return gvk.ReferenceGrant
 	case *istioioapisecurityv1beta1.RequestAuthentication:
 		return gvk.RequestAuthentication
@@ -97,6 +100,8 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 		return gvk.Telemetry
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return gvk.UDPRoute
+	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
+		return gvk.ValidatingWebhookConfiguration
 	case *istioioapinetworkingv1alpha3.VirtualService:
 		return gvk.VirtualService
 	case *istioioapiextensionsv1alpha1.WasmPlugin:

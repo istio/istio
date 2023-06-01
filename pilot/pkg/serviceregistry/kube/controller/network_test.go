@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -23,13 +22,13 @@ import (
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -99,8 +98,6 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 }
 
 func addLabeledServiceGateway(t *testing.T, c *FakeController, nw string) {
-	ctx := context.TODO()
-
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "istio-labeled-gw", Namespace: "arbitrary-ns", Labels: map[string]string{
 			label.TopologyNetwork.Name: nw,
@@ -114,31 +111,15 @@ func addLabeledServiceGateway(t *testing.T, c *FakeController, nw string) {
 			Ports: []corev1.PortStatus{{Port: 15443, Protocol: corev1.ProtocolTCP}},
 		}}}},
 	}
-
-	if _, err := c.client.Kube().CoreV1().Services("arbitrary-ns").Get(ctx, "istio-labeled-gw", metav1.GetOptions{}); err == nil {
-		// update
-		if _, err := c.client.Kube().CoreV1().Services("arbitrary-ns").Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
-			t.Fatal(err)
-		}
-	} else if errors.IsNotFound(err) {
-		// create
-		if _, err := c.client.Kube().CoreV1().Services("arbitrary-ns").Create(context.TODO(), svc, metav1.CreateOptions{}); err != nil {
-			t.Fatal(err)
-		}
-	} else {
-		t.Fatal(err)
-	}
+	clienttest.Wrap(t, c.services).CreateOrUpdate(svc)
 }
 
 func removeLabeledServiceGateway(t *testing.T, c *FakeController) {
-	err := c.client.Kube().CoreV1().Services("arbitrary-ns").Delete(context.TODO(), "istio-labeled-gw", metav1.DeleteOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	clienttest.Wrap(t, c.services).Delete("istio-labeled-gw", "arbitrary-ns")
 }
 
 func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher mesh.NetworksWatcher) {
-	_, err := c.client.Kube().CoreV1().Services("istio-system").Create(context.TODO(), &corev1.Service{
+	clienttest.Wrap(t, c.services).Create(&corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "istio-meshnetworks-gw", Namespace: "istio-system"},
 		Spec: corev1.ServiceSpec{
 			Type:  corev1.ServiceTypeLoadBalancer,
@@ -148,10 +129,7 @@ func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher
 			IP:    "1.2.3.4",
 			Ports: []corev1.PortStatus{{Port: 15443, Protocol: corev1.ProtocolTCP}},
 		}}}},
-	}, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	})
 	watcher.SetNetworks(&meshconfig.MeshNetworks{Networks: map[string]*meshconfig.Network{
 		"nw0": {
 			Endpoints: []*meshconfig.Network_NetworkEndpoints{{

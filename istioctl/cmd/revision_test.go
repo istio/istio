@@ -116,7 +116,7 @@ func TestGetEnabledComponentsFromIOP(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(st *testing.T) {
-			actual, err := getEnabledComponents(test.iops)
+			actual, err := getEnabledUserFacingComponents(test.iops)
 			assert.NoError(t, err)
 			sort.Strings(actual)
 			sort.Strings(test.expected)

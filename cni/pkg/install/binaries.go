@@ -19,11 +19,9 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pkg/file"
-	"istio.io/istio/pkg/util/sets"
 )
 
-func copyBinaries(srcDir string, targetDirs []string, updateBinaries bool, skipBinaries []string) error {
-	skipBinariesSet := sets.New(skipBinaries...)
+func copyBinaries(srcDir string, targetDirs []string) error {
 	for _, targetDir := range targetDirs {
 		if err := file.IsDirWriteable(targetDir); err != nil {
 			installLog.Infof("Directory %s is not writable, skipping.", targetDir)
@@ -41,16 +39,6 @@ func copyBinaries(srcDir string, targetDirs []string, updateBinaries bool, skipB
 			}
 
 			filename := f.Name()
-			if skipBinariesSet.Contains(filename) {
-				installLog.Infof("%s is in SKIP_CNI_BINARIES, skipping.", filename)
-				continue
-			}
-
-			targetFilepath := filepath.Join(targetDir, filename)
-			if _, err := os.Stat(targetFilepath); err == nil && !updateBinaries {
-				installLog.Infof("%s is already here and UPDATE_CNI_BINARIES isn't true, skipping", targetFilepath)
-				continue
-			}
 
 			srcFilepath := filepath.Join(srcDir, filename)
 			err := file.AtomicCopy(srcFilepath, targetDir, filename)

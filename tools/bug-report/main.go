@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"os"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/bug-report/pkg/bugreport"
-	"istio.io/pkg/log"
 )
 
 func main() {

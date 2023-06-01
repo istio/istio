@@ -12,6 +12,7 @@ spec:
     metadata:
       annotations:
         inject.istio.io/templates: sidecar,sidecar,sidecar
+        istio.io/rev: default
         kubectl.kubernetes.io/default-container: hello
         kubectl.kubernetes.io/default-logs-container: hello
         prometheus.io/path: /stats/prometheus

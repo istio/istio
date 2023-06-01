@@ -7,7 +7,7 @@ featureGates:
   GRPCContainerProbe: true
 kubeadmConfigPatches:
   - |
-    apiVersion: kubeadm.k8s.io/v1beta2
+    apiVersion: kubeadm.k8s.io/v1beta3
     kind: ClusterConfiguration
     metadata:
       name: config
@@ -16,10 +16,12 @@ kubeadmConfigPatches:
         # Run etcd in a tmpfs (in RAM) for performance improvements
         dataDir: /tmp/kind-cluster-etcd
     # We run single node, drop leader election to reduce overhead
-    controllerManagerExtraArgs:
-      leader-elect: "false"
-    schedulerExtraArgs:
-      leader-elect: "false"
+    controllerManager:
+      extraArgs:
+        leader-elect: "false"
+    scheduler:
+      extraArgs:
+        leader-elect: "false"
     apiServer:
       extraArgs:
         "service-account-issuer": "kubernetes.default.svc"

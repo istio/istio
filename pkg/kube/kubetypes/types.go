@@ -19,8 +19,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+
+	"istio.io/istio/pkg/cluster"
 )
 
 type InformerOptions struct {
@@ -28,7 +31,24 @@ type InformerOptions struct {
 	LabelSelector string
 	// A selector to restrict the list of returned objects by their fields.
 	FieldSelector string
+	// Namespace to watch.
+	Namespace string
+	// Cluster name for watch error handlers
+	Cluster cluster.ID
+	// ObjectTransform allows arbitrarily modifying objects stored in the underlying cache.
+	// If unset, a default transform is provided to remove ManagedFields (high cost, low value)
+	ObjectTransform func(obj any) (any, error)
+	// InformerType dictates the type of informer that should be created.
+	InformerType InformerType
 }
+
+type InformerType int
+
+const (
+	StandardInformer InformerType = iota
+	DynamicInformer
+	MetadataInformer
+)
 
 // Filter allows filtering read operations
 type Filter struct {
@@ -38,6 +58,9 @@ type Filter struct {
 	// A selector to restrict the list of returned objects by their fields.
 	// This is a *server side* filter.
 	FieldSelector string
+	// Namespace to watch.
+	// This is a *server side* filter.
+	Namespace string
 	// ObjectFilter allows arbitrary filtering logic.
 	// This is a *client side* filter. This means CPU/memory costs are still present for filtered objects.
 	// Use LabelSelector or FieldSelector instead, if possible.
@@ -45,6 +68,28 @@ type Filter struct {
 	// ObjectTransform allows arbitrarily modifying objects stored in the underlying cache.
 	// If unset, a default transform is provided to remove ManagedFields (high cost, low value)
 	ObjectTransform func(obj any) (any, error)
+}
+
+// CrdWatcher exposes an interface to watch CRDs
+type CrdWatcher interface {
+	// HasSynced returns true once all existing state has been synced.
+	HasSynced() bool
+	// KnownOrCallback returns `true` immediately if the resource is known.
+	// If it is not known, `false` is returned. If the resource is later added, the callback will be triggered.
+	KnownOrCallback(s schema.GroupVersionResource, f func(stop <-chan struct{})) bool
+	// WaitForCRD waits until the request CRD exists, and returns true on success. A false return value
+	// indicates the CRD does not exist but the wait failed or was canceled.
+	// This is useful to conditionally enable controllers based on CRDs being created.
+	WaitForCRD(s schema.GroupVersionResource, stop <-chan struct{}) bool
+	// Run starts the controller. This must be called.
+	Run(stop <-chan struct{})
+}
+
+// DelayedFilter exposes an interface for a filter create delayed informers, which start
+// once the underlying resource is available. See kclient.NewDelayedInformer.
+type DelayedFilter interface {
+	HasSynced() bool
+	KnownOrCallback(f func(stop <-chan struct{})) bool
 }
 
 // WriteAPI exposes a generic API for a client go type for write operations.
@@ -66,6 +111,12 @@ type ReadAPI[T runtime.Object, TL runtime.Object] interface {
 	Get(ctx context.Context, name string, opts metav1.GetOptions) (T, error)
 	List(ctx context.Context, opts metav1.ListOptions) (TL, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
+}
+
+// ReadWriteAPI exposes a generic API for read and write operations.
+type ReadWriteAPI[T runtime.Object, TL runtime.Object] interface {
+	ReadAPI[T, TL]
+	WriteAPI[T]
 }
 
 // ApplyAPI exposes a generic API for a client go type for apply operations.

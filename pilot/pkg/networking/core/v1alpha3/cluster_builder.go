@@ -49,9 +49,9 @@ import (
 	istio_cluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 var istioMtlsTransportSocketMatch = &structpb.Struct{
@@ -125,31 +125,27 @@ type ClusterBuilder struct {
 	req                   *model.PushRequest
 	cache                 model.XdsCache
 	credentialSocketExist bool
-
-	// TODO: this is not safe since its not in cache
-	unsafeWaypointOnlyProxy *model.Proxy
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
 func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
 	cb := &ClusterBuilder{
-		serviceInstances:        proxy.ServiceInstances,
-		proxyID:                 proxy.ID,
-		proxyType:               proxy.Type,
-		proxyVersion:            proxy.Metadata.IstioVersion,
-		sidecarScope:            proxy.SidecarScope,
-		passThroughBindIPs:      getPassthroughBindIPs(proxy.GetIPMode()),
-		supportsIPv4:            proxy.SupportsIPv4(),
-		supportsIPv6:            proxy.SupportsIPv6(),
-		hbone:                   proxy.EnableHBONE() || proxy.IsWaypointProxy(),
-		locality:                proxy.Locality,
-		proxyLabels:             proxy.Labels,
-		proxyView:               proxy.GetView(),
-		proxyIPAddresses:        proxy.IPAddresses,
-		configNamespace:         proxy.ConfigNamespace,
-		req:                     req,
-		cache:                   cache,
-		unsafeWaypointOnlyProxy: proxy,
+		serviceInstances:   proxy.ServiceInstances,
+		proxyID:            proxy.ID,
+		proxyType:          proxy.Type,
+		proxyVersion:       proxy.Metadata.IstioVersion,
+		sidecarScope:       proxy.SidecarScope,
+		passThroughBindIPs: getPassthroughBindIPs(proxy.GetIPMode()),
+		supportsIPv4:       proxy.SupportsIPv4(),
+		supportsIPv6:       proxy.SupportsIPv6(),
+		hbone:              proxy.EnableHBONE() || proxy.IsWaypointProxy(),
+		locality:           proxy.Locality,
+		proxyLabels:        proxy.Labels,
+		proxyView:          proxy.GetView(),
+		proxyIPAddresses:   proxy.IPAddresses,
+		configNamespace:    proxy.ConfigNamespace,
+		req:                req,
+		cache:              cache,
 	}
 	if proxy.Metadata != nil {
 		if proxy.Metadata.TLSClientCertChain != "" {
@@ -569,16 +565,25 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 			},
 			Metadata: &core.Metadata{},
 		}
+		var metadata *model.EndpointMetadata
 
-		metadata := instance.Endpoint.Metadata()
 		if features.CanonicalServiceForMeshExternalServiceEntry && service.MeshExternal {
-			metadata.Namespace = service.Attributes.Namespace
 			svcLabels := service.Attributes.Labels
 			if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
+				metadata = instance.Endpoint.MetadataClone()
+				if metadata.Labels == nil {
+					metadata.Labels = make(map[string]string)
+				}
 				metadata.Labels[model.IstioCanonicalServiceLabelName] = svcLabels[model.IstioCanonicalServiceLabelName]
 				metadata.Labels[model.IstioCanonicalServiceRevisionLabelName] = svcLabels[model.IstioCanonicalServiceRevisionLabelName]
+			} else {
+				metadata = instance.Endpoint.Metadata()
 			}
+			metadata.Namespace = service.Attributes.Namespace
+		} else {
+			metadata = instance.Endpoint.Metadata()
 		}
+
 		util.AppendLbEndpointMetadata(metadata, ep.Metadata)
 
 		locality := instance.Endpoint.Locality.Label

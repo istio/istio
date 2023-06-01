@@ -17,7 +17,7 @@ package model
 import (
 	"errors"
 
-	"istio.io/pkg/ledger"
+	"istio.io/istio/pkg/ledger"
 )
 
 // DisabledLedger is an empty mock of the ledger.Ledger interface

@@ -23,10 +23,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -35,7 +35,7 @@ import (
 // Prepare k8s. This can be used in multiple tests, to
 // avoid duplicating creation, which can be tricky. It can be used with the fake or
 // standalone apiserver.
-func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
+func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *xdsfake.Updater) {
 	cleanup(ki)
 	for _, n := range []string{"nsa", "nsb"} {
 		_, err := ki.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
@@ -110,7 +110,7 @@ func TestPodCache(t *testing.T) {
 }
 
 func TestHostNetworkPod(t *testing.T) {
-	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
+	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 	initTestEnv(t, c.client.Kube(), fx)
 	createPod := func(ip, name string) {
 		addPods(t, c, fx, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
@@ -134,7 +134,7 @@ func TestHostNetworkPod(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/20676
 func TestIPReuse(t *testing.T) {
-	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
+	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 	initTestEnv(t, c.client.Kube(), fx)
 
 	createPod := func(ip, name string) {
@@ -171,24 +171,22 @@ func TestIPReuse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cannot delete pod: %v", err)
 	}
-	if err := wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	retry.UntilOrFail(t, func() bool {
 		if _, ok := c.pods.getPodKey("128.0.0.1"); ok {
-			return false, nil
+			return false
 		}
-		return true, nil
-	}); err != nil {
-		t.Fatalf("delete failed: %v", err)
-	}
+		return true
+	})
 }
 
-func waitForPod(c *FakeController, ip string) error {
-	return wait.Poll(5*time.Millisecond, 1*time.Second, func() (bool, error) {
+func waitForPod(t test.Failer, c *FakeController, ip string) {
+	retry.UntilOrFail(t, func() bool {
 		c.pods.RLock()
 		defer c.pods.RUnlock()
 		if _, ok := c.pods.podsByIP[ip]; ok {
-			return true, nil
+			return true
 		}
-		return false, nil
+		return false
 	})
 }
 
@@ -200,7 +198,6 @@ func waitForNode(t test.Failer, c *FakeController, name string) {
 
 func testPodCache(t *testing.T) {
 	c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		Mode:              EndpointsOnly,
 		WatchedNamespaces: "nsa,nsb",
 	})
 
@@ -249,7 +246,7 @@ func testPodCache(t *testing.T) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointsOnly})
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 
 	ns := "default"
 	podCache := c.pods

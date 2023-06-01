@@ -20,11 +20,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
-	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/slices"
 )
 
 // Schemas contains metadata about configuration resources.

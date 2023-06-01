@@ -16,7 +16,6 @@ package controller
 
 import (
 	"strings"
-	"sync/atomic"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,9 +28,9 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
 )
 
@@ -52,19 +51,20 @@ type serviceExportCache interface {
 
 	// HasSynced indicates whether the kube createClient has synced for the watched resources.
 	HasSynced() bool
-
-	// HasCRDInstalled indicates whether the serviceExport crd has been installed.
-	HasCRDInstalled() bool
 }
 
 // newServiceExportCache creates a new serviceExportCache that observes the given cluster.
 func newServiceExportCache(c *Controller) serviceExportCache {
 	if features.EnableMCSServiceDiscovery {
 		ec := &serviceExportCacheImpl{
-			Controller:      c,
-			serviceExportCh: make(chan struct{}),
+			Controller: c,
 		}
-		c.crdWatcher.AddCallBack(ec.onCRDEvent)
+
+		ec.serviceExports = kclient.NewDelayedInformer(ec.client, mcs.ServiceExportGVR, kubetypes.DynamicInformer, kclient.Filter{
+			ObjectFilter: ec.opts.GetFilter(),
+		})
+		// Register callbacks for events.
+		registerHandlers(ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)
 
 		// Set the discoverability policy for the clusterset.local host.
 		ec.clusterSetLocalPolicySelector = func(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
@@ -111,10 +111,6 @@ type serviceExportCacheImpl struct {
 
 	// clusterSetLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the clusterset.local host.
 	clusterSetLocalPolicySelector discoverabilityPolicySelector
-
-	serviceExportCh chan struct{}
-
-	started atomic.Bool
 }
 
 func (ec *serviceExportCacheImpl) onServiceExportEvent(_, obj controllers.Object, event model.Event) error {
@@ -143,9 +139,6 @@ func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
 }
 
 func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy {
-	if !ec.started.Load() {
-		return nil
-	}
 	if svc == nil {
 		// Default policy when the service doesn't exist.
 		return model.DiscoverableFromSameCluster
@@ -163,9 +156,6 @@ func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
 }
 
 func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
-	if !ec.started.Load() {
-		return nil
-	}
 	// List all exports in this cluster.
 	exports := ec.serviceExports.List(metav1.NamespaceAll, klabels.Everything())
 
@@ -197,42 +187,10 @@ func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 }
 
 func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
-	select {
-	case <-ec.serviceExportCh:
-	case <-stop:
-		return
-	}
-	dInformer := ec.client.DynamicInformer().ForResource(mcs.ServiceExportGVR).Informer()
-	ec.serviceExports = kclient.NewUntyped(ec.client, dInformer, kclient.Filter{ObjectFilter: ec.opts.GetFilter()})
-	// Register callbacks for events.
-	registerHandlers[controllers.Object](ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)
-	go dInformer.Run(stop)
-	kube.WaitForCacheSync(stop, ec.serviceExports.HasSynced)
-	ec.started.Store(true)
 }
 
 func (ec *serviceExportCacheImpl) HasSynced() bool {
-	return ec.started.Load()
-}
-
-func (ec *serviceExportCacheImpl) HasCRDInstalled() bool {
-	select {
-	case <-ec.serviceExportCh:
-		return true
-	default:
-		return false
-	}
-}
-
-func (ec *serviceExportCacheImpl) onCRDEvent(name string) {
-	if name == mcs.ServiceExportGVR.Resource+"."+mcs.ServiceExportGVR.Group {
-		select {
-		case <-ec.serviceExportCh: // channel already closed
-		default:
-			// notify CRD added
-			close(ec.serviceExportCh)
-		}
-	}
+	return ec.serviceExports.HasSynced()
 }
 
 type disabledServiceExportCache struct{}

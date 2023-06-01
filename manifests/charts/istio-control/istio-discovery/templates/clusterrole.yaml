@@ -71,6 +71,8 @@ rules:
     verbs: ["create", "get", "list", "watch", "update"]
 
   # Istiod and bootstrap.
+{{- $omitCertProvidersForClusterRole := list "istiod" "custom" "none"}}
+{{- if or .Values.pilot.env.EXTERNAL_CA (not (has .Values.global.pilotCertProvider $omitCertProvidersForClusterRole)) }}
   - apiGroups: ["certificates.k8s.io"]
     resources:
       - "certificatesigningrequests"
@@ -86,6 +88,7 @@ rules:
     - {{ . | quote }}
 {{- end }}
     verbs: ["approve"]
+{{- end}}
 
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]

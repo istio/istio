@@ -46,11 +46,11 @@ import (
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/shellescape"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -70,7 +70,6 @@ var (
 	ports          []string
 	resourceLabels []string
 	annotations    []string
-	svcAcctAnn     string
 )
 
 const (
@@ -83,10 +82,10 @@ func workloadCommands() *cobra.Command {
 		Use:   "workload",
 		Short: "Commands to assist in configuring and deploying workloads running on VMs and other non-Kubernetes environments",
 		Example: `  # workload group yaml generation
-  workload group create
+  istioctl x workload group create
 
   # workload entry configuration generation
-  workload entry configure`,
+  istioctl x workload entry configure`,
 	}
 	workloadCmd.AddCommand(groupCommand())
 	workloadCmd.AddCommand(entryCommand())
@@ -97,7 +96,7 @@ func groupCommand() *cobra.Command {
 	groupCmd := &cobra.Command{
 		Use:     "group",
 		Short:   "Commands dealing with WorkloadGroup resources",
-		Example: "group create --name foo --namespace bar --labels app=foobar",
+		Example: "  istioctl x workload group create --name foo --namespace bar --labels app=foobar",
 	}
 	groupCmd.AddCommand(createCommand())
 	return groupCmd
@@ -107,7 +106,7 @@ func entryCommand() *cobra.Command {
 	entryCmd := &cobra.Command{
 		Use:     "entry",
 		Short:   "Commands dealing with WorkloadEntry resources",
-		Example: "entry configure -f workloadgroup.yaml -o outputDir",
+		Example: "  istioctl x workload entry configure -f workloadgroup.yaml -o outputDir",
 	}
 	entryCmd.AddCommand(configureCommand())
 	return entryCmd
@@ -119,7 +118,8 @@ func createCommand() *cobra.Command {
 		Short: "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",
 		Long: `Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries.
 The default output is serialized YAML, which can be piped into 'kubectl apply -f -' to send the artifact to the API Server.`,
-		Example: "create --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --annotations annotation=foobar --serviceAccount sa",
+		Example: "  istioctl x workload group create --name foo --namespace bar --labels app=foo,bar=baz " +
+			"--ports grpc=3550,http=8080 --annotations annotation=foobar --serviceAccount sa",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("expecting a workload name")
@@ -191,10 +191,10 @@ func configureCommand() *cobra.Command {
 This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.
 Configure requires either the WorkloadGroup artifact path or its location on the API server.`,
 		Example: `  # configure example using a local WorkloadGroup artifact
-  configure -f workloadgroup.yaml -o config
+  istioctl x workload entry configure -f workloadgroup.yaml -o config
 
   # configure example using the API server
-  configure --name foo --namespace bar -o config`,
+  istioctl x workload entry configure --name foo --namespace bar -o config`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if filename == "" && (name == "" || namespace == "") {
 				return fmt.Errorf("expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup")
@@ -205,7 +205,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -638,4 +638,57 @@ func extractClusterIDFromInjectionConfig(kubeClient kube.CLIClient) (string, err
 		return "", fmt.Errorf("could not retrieve global.multiCluster.clusterName from injection config")
 	}
 	return vs, nil
+}
+
+// Because we are placing into an Unstructured, place as a map instead
+// of structured Istio types.  (The go-client can handle the structured data, but the
+// fake go-client used for mocking cannot.)
+func unstructureIstioType(spec any) (map[string]any, error) {
+	b, err := yaml.Marshal(spec)
+	if err != nil {
+		return nil, err
+	}
+	iSpec := map[string]any{}
+	err = yaml.Unmarshal(b, &iSpec)
+	if err != nil {
+		return nil, err
+	}
+	return iSpec, nil
+}
+
+func convertToUnsignedInt32Map(s []string) map[string]uint32 {
+	out := make(map[string]uint32, len(s))
+	for _, l := range s {
+		k, v := splitEqual(l)
+		u64, err := strconv.ParseUint(v, 10, 32)
+		if err != nil {
+			log.Errorf("failed to convert to uint32: %v", err)
+		}
+		out[k] = uint32(u64)
+	}
+	return out
+}
+
+func convertToStringMap(s []string) map[string]string {
+	out := make(map[string]string, len(s))
+	for _, l := range s {
+		k, v := splitEqual(l)
+		out[k] = v
+	}
+	return out
+}
+
+// splitEqual splits key=value string into key,value. if no = is found
+// the whole string is the key and value is empty.
+func splitEqual(str string) (string, string) {
+	idx := strings.Index(str, "=")
+	var k string
+	var v string
+	if idx >= 0 {
+		k = str[:idx]
+		v = str[idx+1:]
+	} else {
+		k = str
+	}
+	return k, v
 }

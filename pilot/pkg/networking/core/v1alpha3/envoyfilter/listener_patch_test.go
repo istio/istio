@@ -16,8 +16,6 @@ package envoyfilter
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -32,7 +30,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -40,7 +37,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -50,10 +46,9 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/log"
 	istio_proto "istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
 )
 
 var testMesh = &meshconfig.MeshConfig{
@@ -505,7 +500,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				Value: buildPatchStruct(`
 {"name": "envoy.filters.network.http_connection_manager",
  "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+        "@type": "type.googleapis.com/type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
          "xffNumTrustedHops": "4"
  }
 }`),
@@ -2035,88 +2030,4 @@ func TestApplyListenerPatches(t *testing.T) {
 			}
 		})
 	}
-}
-
-// This benchmark measures the performance of Telemetry V2 EnvoyFilter patches. The intent here is to
-// measure overhead of using EnvoyFilters rather than native code.
-func BenchmarkTelemetryV2Filters(b *testing.B) {
-	l := &listener.Listener{
-		Name: "another-listener",
-		Address: &core.Address{
-			Address: &core.Address_SocketAddress{
-				SocketAddress: &core.SocketAddress{
-					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: 80,
-					},
-				},
-			},
-		},
-		ListenerFilters: []*listener.ListenerFilter{{Name: "envoy.tls_inspector"}},
-		FilterChains: []*listener.FilterChain{
-			{
-				Filters: []*listener.Filter{
-					{
-						Name: wellknown.HTTPConnectionManager,
-						ConfigType: &listener.Filter_TypedConfig{
-							TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
-								XffNumTrustedHops:            4,
-								MergeSlashes:                 true,
-								AlwaysSetRequestIdInResponse: true,
-								HttpFilters: []*hcm.HttpFilter{
-									{Name: "http-filter3"},
-									{Name: "envoy.router"}, // Use deprecated name for test.
-									{Name: "http-filter2"},
-								},
-							}),
-						},
-					},
-				},
-			},
-		},
-	}
-
-	file, err := os.ReadFile(filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml"))
-	if err != nil {
-		b.Fatalf("failed to read telemetry v2 Envoy Filters")
-	}
-	var configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch
-
-	configs, _, err := crd.ParseInputs(string(file))
-	if err != nil {
-		b.Fatalf("failed to unmarshal EnvoyFilter: %v", err)
-	}
-	for _, c := range configs {
-		if c.GroupVersionKind != gvk.EnvoyFilter {
-			continue
-		}
-		configPatches = append(configPatches, c.Spec.(*networking.EnvoyFilter).ConfigPatches...)
-	}
-	if len(configPatches) == 0 {
-		b.Fatalf("found no patches, failed to read telemetry config?")
-	}
-
-	sidecarProxy := &model.Proxy{
-		Type:            model.SidecarProxy,
-		ConfigNamespace: "not-default",
-		Metadata: &model.NodeMetadata{
-			IstioVersion: "1.2.2",
-			Raw: map[string]any{
-				"foo": "sidecar",
-				"bar": "proxy",
-			},
-		},
-	}
-	serviceDiscovery := memregistry.NewServiceDiscovery()
-	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
-	push := model.NewPushContext()
-	_ = push.InitContext(e, nil, nil)
-
-	var got any
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		copied := proto.Clone(l)
-		got = ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, push.EnvoyFilters(sidecarProxy),
-			[]*listener.Listener{copied.(*listener.Listener)}, false)
-	}
-	_ = got
 }

@@ -74,16 +74,23 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 	if customSettings != "" {
 		inFileNames = append(inFileNames, customSettings)
 	}
+
+	setArgs := []string{
+		"hub=" + s.Image.Hub,
+		"tag=" + s.Image.Tag,
+		"values.global.imagePullPolicy=" + s.Image.PullPolicy,
+		"values.gateways.istio-ingressgateway.autoscaleEnabled=false",
+	}
+
+	if i.cfg.SystemNamespace != "istio-system" {
+		setArgs = append(setArgs, "values.global.istioNamespace="+i.cfg.SystemNamespace)
+	}
+
 	if err := i.installer.Install(cluster, installArgs{
 		ComponentName: "eastwestgateway",
 		Revision:      revision,
 		Files:         inFileNames,
-		Set: []string{
-			"hub=" + s.Image.Hub,
-			"tag=" + s.Image.Tag,
-			"values.global.imagePullPolicy=" + s.Image.PullPolicy,
-			"values.gateways.istio-ingressgateway.autoscaleEnabled=false",
-		},
+		Set:           setArgs,
 	}); err != nil {
 		return err
 	}

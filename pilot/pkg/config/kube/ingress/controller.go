@@ -18,7 +18,6 @@ package ingress
 
 import (
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -36,10 +35,10 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/pkg/env"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -89,8 +88,7 @@ type controller struct {
 	services kclient.Client[*corev1.Service]
 }
 
-// TODO: move to features ( and remove in 1.2 )
-var ingressNamespace = env.Register("K8S_INGRESS_NS", constants.IstioIngressNamespace, "").Get()
+var IngressNamespace = env.Register("K8S_INGRESS_NS", constants.IstioIngressNamespace, "").Get()
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 
@@ -118,37 +116,34 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
-	kube.WaitForCacheSync(stop, c.ingress.HasSynced, c.services.HasSynced, c.classes.HasSynced)
+	kube.WaitForCacheSync("ingress", stop, c.ingress.HasSynced, c.services.HasSynced, c.classes.HasSynced)
 	c.queue.Run(stop)
-	c.ingress.ShutdownHandlers()
+	controllers.ShutdownAll(c.ingress, c.services, c.classes)
 }
 
-func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetworking.Ingress) (bool, error) {
+func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetworking.Ingress) bool {
 	var class *knetworking.IngressClass
 	if i.Spec.IngressClassName != nil {
 		c := c.classes.Get(*i.Spec.IngressClassName, "")
 		if c == nil {
-			return false, fmt.Errorf("failed to get ingress class %v", i.Spec.IngressClassName)
+			return false
 		}
 		class = c
 	}
-	return shouldProcessIngressWithClass(mesh, i, class), nil
+	return shouldProcessIngressWithClass(mesh, i, class)
 }
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
-func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool, error) {
+func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) bool {
 	// ingress add/update
-	shouldProcess, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
-	if err != nil {
-		return false, err
-	}
+	shouldProcess := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
 	item := config.NamespacedName(ing)
 	if shouldProcess {
 		// record processed ingress
 		c.mutex.Lock()
 		c.ingresses[item] = ing
 		c.mutex.Unlock()
-		return true, nil
+		return true
 	}
 
 	c.mutex.Lock()
@@ -161,7 +156,7 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool,
 	}
 	c.mutex.Unlock()
 
-	return preProcessed, nil
+	return preProcessed
 }
 
 func (c *controller) onEvent(item types.NamespacedName) error {
@@ -182,10 +177,7 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 	// we should check need process only when event is not delete,
 	// if it is delete event, and previously processed, we need to process too.
 	if event != model.EventDelete {
-		shouldProcess, err := c.shouldProcessIngressUpdate(ing)
-		if err != nil {
-			return err
-		}
+		shouldProcess := c.shouldProcessIngressUpdate(ing)
 		if !shouldProcess {
 			return nil
 		}
@@ -265,10 +257,7 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) []confi
 	out := make([]config.Config, 0)
 	ingressByHost := map[string]*config.Config{}
 	for _, ingress := range sortIngressByCreationTime(c.ingress.List(namespace, klabels.Everything())) {
-		process, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ingress)
-		if err != nil {
-			continue
-		}
+		process := c.shouldProcessIngress(c.meshWatcher.Mesh(), ingress)
 		if !process {
 			continue
 		}

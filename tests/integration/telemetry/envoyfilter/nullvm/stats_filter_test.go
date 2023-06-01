@@ -36,6 +36,10 @@ func TestStatsFilter(t *testing.T) {
 	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.prometheus.http.nullvm"), common.DefaultBucketCount)
 }
 
+func TestGRPCStats(t *testing.T) {
+	common.TestGRPCCountMetrics(t, "observability.telemetry.stats.prometheus.grpc")
+}
+
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).

@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -40,10 +39,11 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
-	"istio.io/pkg/monitoring"
 )
 
 // Metrics is an interface for capturing metrics on a per-node basis.
@@ -864,14 +864,17 @@ func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
 // namespace "" indicates all namespaces
 func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
-	out := make([]*Service, 0)
+	var out []*Service
 
 	// First add private services and explicitly exportedTo services
 	if ns == NamespaceAll {
+		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace)+len(ps.ServiceIndex.public))
 		for _, privateServices := range ps.ServiceIndex.privateByNamespace {
 			out = append(out, privateServices...)
 		}
 	} else {
+		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace[ns])+
+			len(ps.ServiceIndex.exportedToNamespace[ns])+len(ps.ServiceIndex.public))
 		out = append(out, ps.ServiceIndex.privateByNamespace[ns]...)
 		out = append(out, ps.ServiceIndex.exportedToNamespace[ns]...)
 	}
@@ -1526,11 +1529,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				for _, gw := range gwNames {
 					ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
 				}
-				continue
-			} else if exportToMap[visibility.None] {
-				// not possible
-				continue
-			} else {
+			} else if !exportToMap[visibility.None] {
 				// . or other namespaces
 				for exportTo := range exportToMap {
 					if exportTo == visibility.Private || string(exportTo) == ns {
@@ -1631,32 +1630,31 @@ func (ps *PushContext) initDefaultExportMaps() {
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
 func (ps *PushContext) initSidecarScopes(env *Environment) {
-	sidecarConfigs := env.List(gvk.Sidecar, NamespaceAll)
+	rawSidecarConfigs := env.List(gvk.Sidecar, NamespaceAll)
 
-	sortConfigByCreationTime(sidecarConfigs)
+	sortConfigByCreationTime(rawSidecarConfigs)
 
-	sidecarConfigWithSelector := make([]config.Config, 0)
-	sidecarConfigWithoutSelector := make([]config.Config, 0)
-	for _, sidecarConfig := range sidecarConfigs {
+	sidecarConfigs := make([]config.Config, 0, len(rawSidecarConfigs))
+	for _, sidecarConfig := range rawSidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
+		// sidecars with selector take preference
 		if sidecar.WorkloadSelector != nil {
-			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
-		} else {
-			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
+			sidecarConfigs = append(sidecarConfigs, sidecarConfig)
 		}
 	}
-
-	sidecarNum := len(sidecarConfigs)
-	sidecarConfigs = make([]config.Config, 0, sidecarNum)
-	// sidecars with selector take preference
-	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithSelector...)
-	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithoutSelector...)
+	for _, sidecarConfig := range rawSidecarConfigs {
+		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
+		// sidecars without selector placed behind
+		if sidecar.WorkloadSelector == nil {
+			sidecarConfigs = append(sidecarConfigs, sidecarConfig)
+		}
+	}
 
 	// Hold reference root namespace's sidecar config
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
-	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
+	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, len(sidecarConfigs))
 	for i, sidecarConfig := range sidecarConfigs {
 		ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
 			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
@@ -1859,11 +1857,11 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 	// sort slices by priority
 	for i, slice := range matchedPlugins {
 		sort.SliceStable(slice, func(i, j int) bool {
-			iPriority := int64(math.MinInt64)
+			iPriority := int32(math.MinInt32)
 			if prio := slice[i].Priority; prio != nil {
 				iPriority = prio.Value
 			}
-			jPriority := int64(math.MinInt64)
+			jPriority := int32(math.MinInt32)
 			if prio := slice[j].Priority; prio != nil {
 				jPriority = prio.Value
 			}
@@ -2165,16 +2163,22 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 }
 
 func (ps *PushContext) SupportsTunnel(ip string) bool {
-	infos, _ := ps.ambientIndex.PodInformation(sets.New(types.NamespacedName{Name: ip}))
+	infos, _ := ps.ambientIndex.AddressInformation(sets.New(types.NamespacedName{Name: ip}))
 	for _, p := range infos {
-		if p.Protocol == workloadapi.Protocol_HTTP {
-			return true
+		switch addr := p.Address.Type.(type) {
+		case *workloadapi.Address_Workload:
+			if addr.Workload.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
+				return true
+			}
+		case *workloadapi.Address_Service:
+			// Services do not directly support tunneling, their individual Workloads can though
+			continue
 		}
 	}
 	return false
 }
 
-func (ps *PushContext) WaypointsFor(scope WaypointScope) sets.Set[netip.Addr] {
+func (ps *PushContext) WaypointsFor(scope WaypointScope) []netip.Addr {
 	return ps.ambientIndex.Waypoint(scope)
 }
 

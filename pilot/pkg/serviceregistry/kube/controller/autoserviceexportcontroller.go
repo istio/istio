@@ -16,32 +16,31 @@ package controller
 
 import (
 	"context"
-	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/types"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/mcs"
-	"istio.io/istio/pkg/queue"
 )
 
 type autoServiceExportController struct {
 	autoServiceExportOptions
 
-	client          kube.Client
-	queue           queue.Instance
-	serviceInformer cache.SharedInformer
-	serviceHandle   cache.ResourceEventHandlerRegistration
+	client   kube.Client
+	queue    controllers.Queue
+	services kclient.Client[*v1.Service]
 
 	// We use this flag to short-circuit the logic and stop the controller
 	// if the CRD does not exist (or is deleted)
@@ -61,64 +60,53 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 	c := &autoServiceExportController{
 		autoServiceExportOptions: opts,
 		client:                   opts.Client,
-		queue:                    queue.NewQueue(time.Second),
 		mcsSupported:             true,
 	}
+	c.queue = controllers.NewQueue("auto export",
+		controllers.WithReconciler(c.Reconcile),
+		controllers.WithMaxAttempts(5))
 
-	log.Infof("%s starting controller", c.logPrefix())
+	c.services = kclient.New[*v1.Service](opts.Client)
 
-	c.serviceInformer = opts.Client.KubeInformer().Core().V1().Services().Informer()
-	c.serviceHandle, _ = c.serviceInformer.AddEventHandler(controllers.EventHandler[*v1.Service]{
-		AddFunc: func(obj *v1.Service) { c.onServiceAdd(obj) },
-
-		// Do nothing on update. The controller only acts on parts of the service
-		// that are immutable (e.g. name).
-
-		// Do nothing on delete. When we create ServiceExport, we bind its
-		// lifecycle to the Service so that when the Service is deleted,
-		// k8s automatically deletes the ServiceExport.
-	})
+	// Only handle add. The controller only acts on parts of the service
+	// that are immutable (e.g. name). When we create ServiceExport, we bind its
+	// lifecycle to the Service so that when the Service is deleted,
+	// k8s automatically deletes the ServiceExport.
+	c.services.AddEventHandler(controllers.EventHandler[controllers.Object]{AddFunc: c.queue.AddObject})
 
 	return c
 }
 
-func (c *autoServiceExportController) onServiceAdd(svc *v1.Service) {
-	if svc == nil {
-		return
-	}
-	c.queue.Push(func() error {
-		if !c.mcsSupported {
-			// Don't create ServiceExport if MCS is not supported on the cluster.
-			log.Debugf("%s ignoring added Service, since !mcsSupported", c.logPrefix())
-			return nil
-		}
-
-		if c.isClusterLocalService(svc) {
-			// Don't create ServiceExport if the service is configured to be
-			// local to the cluster (i.e. non-exported).
-			log.Debugf("%s ignoring cluster-local service %s/%s", c.logPrefix(), svc.Namespace, svc.Name)
-			return nil
-		}
-
-		return c.createServiceExportIfNotPresent(svc)
-	})
-}
-
 func (c *autoServiceExportController) Run(stopCh <-chan struct{}) {
-	if !kube.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced) {
-		log.Errorf("%s failed to sync cache", c.logPrefix())
-		return
-	}
-	log.Infof("%s started", c.logPrefix())
+	kube.WaitForCacheSync("auto service export", stopCh, c.services.HasSynced)
 	c.queue.Run(stopCh)
-	_ = c.serviceInformer.RemoveEventHandler(c.serviceHandle)
+	c.services.ShutdownHandlers()
 }
 
 func (c *autoServiceExportController) logPrefix() string {
 	return "AutoServiceExport (cluster=" + c.ClusterID.String() + ") "
 }
 
-func (c *autoServiceExportController) createServiceExportIfNotPresent(svc *v1.Service) error {
+// func (c *autoServiceExportController) createServiceExportIfNotPresent(svc *v1.Service) error {
+func (c *autoServiceExportController) Reconcile(key types.NamespacedName) error {
+	if !c.mcsSupported {
+		// Don't create ServiceExport if MCS is not supported on the cluster.
+		log.Debugf("%s ignoring added Service, since !mcsSupported", c.logPrefix())
+		return nil
+	}
+
+	svc := c.services.Get(key.Name, key.Namespace)
+	if svc == nil {
+		// Service no longer exists, no action needed
+		return nil
+	}
+
+	if c.isClusterLocalService(svc) {
+		// Don't create ServiceExport if the service is configured to be
+		// local to the cluster (i.e. non-exported).
+		log.Debugf("%s ignoring cluster-local service %s/%s", c.logPrefix(), svc.Namespace, svc.Name)
+		return nil
+	}
 	serviceExport := mcsapi.ServiceExport{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ServiceExport",
@@ -133,7 +121,7 @@ func (c *autoServiceExportController) createServiceExportIfNotPresent(svc *v1.Se
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: v1.SchemeGroupVersion.String(),
-					Kind:       "Service",
+					Kind:       gvk.Service.Kind,
 					Name:       svc.Name,
 					UID:        svc.UID,
 				},

@@ -30,12 +30,12 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	istiolog "istio.io/istio/pkg/log"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
+var log = istiolog.RegisterScope("dns", "Istio DNS proxy")
 
 // LocalDNSServer holds configurations for the DNS downstreamUDPServer in Istio Agent
 type LocalDNSServer struct {
@@ -470,6 +470,7 @@ func (h *LocalDNSServer) queryUpstreamParallel(upstreamClient *dns.Client, req *
 }
 
 func serverFailure(req *dns.Msg) *dns.Msg {
+	failures.Increment()
 	response := new(dns.Msg)
 	response.SetReply(req)
 	response.Rcode = dns.RcodeServerFailure

@@ -115,7 +115,9 @@ func (c *grpcCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 
 	start := time.Now()
 	client := proto.NewEchoTestServiceClient(conn)
-	resp, err := client.Echo(ctx, grpcReq)
+	var header metadata.MD
+
+	resp, err := client.Echo(ctx, grpcReq, grpc.Header(&header))
 	if err != nil {
 		return "", err
 	}
@@ -129,6 +131,11 @@ func (c *grpcCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 	for _, line := range strings.Split(resp.GetMessage(), "\n") {
 		if line != "" {
 			echo.WriteBodyLine(&outBuffer, requestID, line)
+		}
+	}
+	for k, v := range header {
+		for _, vv := range v {
+			echo.ResponseHeaderField.WriteKeyValueForRequest(&outBuffer, requestID, k, vv)
 		}
 	}
 	return outBuffer.String(), nil

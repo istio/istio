@@ -23,8 +23,8 @@ import (
 	"github.com/florianl/go-nflog/v2"
 	"golang.org/x/net/ipv4"
 
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 )
 
 var TraceLoggingEnabled = env.Register(
@@ -33,7 +33,7 @@ var TraceLoggingEnabled = env.Register(
 	"When enable, all iptables actions will be logged. "+
 		"This requires NET_ADMIN privilege and has noisy logs; as a result, this is intended for debugging only").Get()
 
-var iptablesTrace = log.RegisterScope("iptables", "trace logs for iptables", 0)
+var iptablesTrace = log.RegisterScope("iptables", "trace logs for iptables")
 
 // ReadNFLOGSocket reads from the nflog socket, sending output to logs.
 // This is intended for debugging only.

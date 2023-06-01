@@ -25,7 +25,9 @@ features:
           ambient:
           customize-metric:
           merge:
+          grpc:
           http:
+            api:
             nullvm:
             wasm:
           tcp:
@@ -74,8 +76,6 @@ features:
       tcp-probe:
       grpc-probe:
     helpers:
-      add-to-mesh:
-      remove-from-mesh:
       kube-inject:
   # features that allow users to secure their services and service mesh.
   security:
@@ -166,6 +166,7 @@ features:
       multimaster:
       remote:
       centralremotekubeconfig:
+    multiplecontrolplanes:
     istiodremote:
     helm:
       default:

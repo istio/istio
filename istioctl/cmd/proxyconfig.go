@@ -22,18 +22,24 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/istioctl/pkg/writer"
+	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -89,51 +95,6 @@ const (
 	TraceLevel
 )
 
-// existing sorted active loggers
-var activeLoggers = []string{
-	"admin",
-	"aws",
-	"assert",
-	"backtrace",
-	"client",
-	"config",
-	"connection",
-	"conn_handler", // Added through https://github.com/envoyproxy/envoy/pull/8263
-	"dubbo",
-	"file",
-	"filter",
-	"forward_proxy",
-	"grpc",
-	"hc",
-	"health_checker",
-	"http",
-	"http2",
-	"hystrix",
-	"init",
-	"io",
-	"jwt",
-	"kafka",
-	"lua",
-	"main",
-	"misc",
-	"mongo",
-	"quic",
-	"pool",
-	"rbac",
-	"redis",
-	"router",
-	"runtime",
-	"stats",
-	"secret",
-	"tap",
-	"testing",
-	"thrift",
-	"tracing",
-	"upstream",
-	"udp",
-	"wasm",
-}
-
 var levelToString = map[Level]string{
 	TraceLevel:    "trace",
 	DebugLevel:    "debug",
@@ -158,7 +119,19 @@ var stringToLevel = map[string]Level{
 var (
 	loggerLevelString = ""
 	reset             = false
+	once              sync.Once
 )
+
+var isZtunnelPod = func(podName, podNamespace string) (bool, error) {
+	var err error
+	once.Do(func() {
+		err = getKubeClient()
+	})
+	if err != nil {
+		return false, err
+	}
+	return ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace), nil
+}
 
 func ztunnelLogLevel(level string) string {
 	switch level {
@@ -172,7 +145,7 @@ func ztunnelLogLevel(level string) string {
 }
 
 func extractConfigDump(podName, podNamespace string, eds bool) ([]byte, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -188,7 +161,7 @@ func extractConfigDump(podName, podNamespace string, eds bool) ([]byte, error) {
 }
 
 func extractZtunnelConfigDump(podName, podNamespace string) ([]byte, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -268,7 +241,7 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 }
 
 func setupEnvoyClusterStatsConfig(podName, podNamespace string, outputFormat string) (string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
@@ -285,7 +258,7 @@ func setupEnvoyClusterStatsConfig(podName, podNamespace string, outputFormat str
 }
 
 func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat string) (string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
@@ -297,8 +270,17 @@ func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat stri
 	} else if outputFormat == prometheusOutput {
 		path += "/prometheus"
 	} else if outputFormat == prometheusMergedOutput {
-		path += "/prometheus"
-		port = 15020
+		pod, err := kubeClient.Kube().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve Pod %s/%s: %v", podNamespace, podName, err)
+		}
+
+		promPath, promPort, err := util.PrometheusPathAndPort(pod)
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve prometheus path and port from Pod %s/%s: %v", podNamespace, podName, err)
+		}
+		path = promPath
+		port = promPort
 	}
 
 	result, err := kubeClient.EnvoyDoWithPort(context.Background(), podName, podNamespace, "GET", path, port)
@@ -309,7 +291,7 @@ func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat stri
 }
 
 func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
@@ -345,7 +327,7 @@ func getLogLevelFromConfigMap() (string, error) {
 }
 
 func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -483,8 +465,11 @@ func allConfigCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-
-					if isZtunnelPod(podName) {
+					ztunnelPod, err := isZtunnelPod(podName, podNamespace)
+					if err != nil {
+						return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
+					}
+					if ztunnelPod {
 						dump, err = extractZtunnelConfigDump(podName, podNamespace)
 					} else {
 						dump, err = extractConfigDump(podName, podNamespace, false)
@@ -513,7 +498,11 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 
-					if isZtunnelPod(podName) {
+					ztunnelPod, err := isZtunnelPod(podName, podNamespace)
+					if err != nil {
+						return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
+					}
+					if ztunnelPod {
 						w, err := setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
 						if err != nil {
 							return err
@@ -537,6 +526,8 @@ func allConfigCmd() *cobra.Command {
 						return err
 					}
 				}
+				configdump.SetPrintConfigTypeInSummary(true)
+				sdscompare.SetPrintConfigTypeInSummary(true)
 				return configWriter.PrintFullSummary(
 					configdump.ClusterFilter{
 						FQDN:      host.Name(fqdn),
@@ -553,6 +544,12 @@ func allConfigCmd() *cobra.Command {
 					configdump.RouteFilter{
 						Name:    routeName,
 						Verbose: verboseProxyConfig,
+					},
+					configdump.EndpointFilter{
+						Address: address,
+						Port:    uint32(port),
+						Cluster: clusterName,
+						Status:  status,
 					},
 				)
 			default:
@@ -620,10 +617,14 @@ func workloadConfigCmd() *cobra.Command {
 			var configWriter *ztunnelDump.ConfigWriter
 			var err error
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getComponentPodName(args[0]); err != nil {
 					return err
 				}
-				if !isZtunnelPod(podName) {
+				ztunnelPod, kubeClientErr := isZtunnelPod(podName, podNamespace)
+				if kubeClientErr != nil {
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", kubeClientErr)
+				}
+				if !ztunnelPod {
 					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
@@ -865,7 +866,11 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if isZtunnelPod(pod) {
+				ztunnelPod, err := isZtunnelPod(pod, podNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
+				}
+				if ztunnelPod {
 					loggerNames[name] = Ztunnel
 				} else {
 					loggerNames[name] = Envoy
@@ -897,7 +902,9 @@ func logCmd() *cobra.Command {
 							return fmt.Errorf("unrecognized logging level: %v", ol)
 						}
 					} else {
-						loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
+						logParts := strings.Split(ol, "::") // account for any specified namespace
+						loggerAndLevelOnly := logParts[len(logParts)-1]
+						loggerLevel := regexp.MustCompile(`[:=]`).Split(loggerAndLevelOnly, 2)
 						for logName, typ := range loggerNames {
 							if typ == Ztunnel {
 								// TODO validate ztunnel logger name when available: https://github.com/istio/ztunnel/issues/426
@@ -919,7 +926,11 @@ func logCmd() *cobra.Command {
 			var resp string
 			var errs *multierror.Error
 			for _, podName := range podNames {
-				if isZtunnelPod(podName) {
+				ztunnelPod, err := isZtunnelPod(podName, podNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
+				}
+				if ztunnelPod {
 					q := "level=" + ztunnelLogLevel(loggerLevelString)
 					if reset {
 						q += "&reset"
@@ -968,20 +979,15 @@ func logCmd() *cobra.Command {
 		levelToString[ErrorLevel],
 		levelToString[CriticalLevel],
 		levelToString[OffLevel])
-	s := strings.Join(activeLoggers, ", ")
 
 	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
 	logCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
-			" [<logger>:]<level>,[<logger>:]<level>,... where logger can be one of %s and level can be one of %s",
-			s, levelListString))
+			" [<logger>:]<level>,[<logger>:]<level>,... where logger components can be listed by running \"istioctl proxy-config log <pod-name[.namespace]>\""+
+			"or referred from https://github.com/envoyproxy/envoy/blob/main/source/common/common/logger.h, and level can be one of %s", levelListString))
 
 	return logCmd
-}
-
-func isZtunnelPod(podName string) bool {
-	return strings.HasPrefix(podName, "ztunnel")
 }
 
 func routeConfigCmd() *cobra.Command {
@@ -1296,24 +1302,41 @@ func secretConfigCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			var configWriter *configdump.ConfigWriter
+			var newWriter writer.ConfigDumpWriter
 			var err error
 			if len(args) == 1 {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
+				ztunnelPod, kubeClientErr := isZtunnelPod(podName, podNamespace)
+				if kubeClientErr != nil {
+					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", kubeClientErr)
+				}
+				if ztunnelPod {
+					newWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
+				} else {
+					newWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
+				}
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				newWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				if err != nil {
+					envoyError := err
+					newWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
+					if err != nil {
+						// failed to parse envoy and ztunnel formats
+						log.Warnf("couldn't parse envoy secrets dump: %v", envoyError)
+						log.Warnf("couldn't parse ztunnel secrets dump %v", err)
+					}
+				}
 			}
 			if err != nil {
 				return err
 			}
 			switch outputFormat {
 			case summaryOutput:
-				return configWriter.PrintSecretSummary()
+				return newWriter.PrintSecretSummary()
 			case jsonOutput, yamlOutput:
-				return configWriter.PrintSecretDump(outputFormat)
+				return newWriter.PrintSecretDump(outputFormat)
 			default:
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
@@ -1428,13 +1451,13 @@ func proxyConfig() *cobra.Command {
 }
 
 func getPodNames(podflag string) ([]string, string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return []string{}, "", fmt.Errorf("failed to create k8s client: %w", err)
 	}
 	podNames, ns, err := handlers.InferPodsFromTypedResource(podflag,
 		handlers.HandleNamespace(namespace, defaultNamespace),
-		kubeClient.UtilFactory())
+		MakeKubeFactory(kubeClient))
 	if err != nil {
 		log.Errorf("pods lookup failed")
 		return []string{}, "", err
@@ -1443,18 +1466,27 @@ func getPodNames(podflag string) ([]string, string, error) {
 }
 
 func getPodName(podflag string) (string, string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	return getPodNameWithNamespace(podflag, defaultNamespace)
+}
+
+func getPodNameWithNamespace(podflag, ns string) (string, string, error) {
+	err := getKubeClient()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
 	}
-	var podName, ns string
-	podName, ns, err = handlers.InferPodInfoFromTypedResource(podflag,
-		handlers.HandleNamespace(namespace, defaultNamespace),
-		kubeClient.UtilFactory())
+	var podName, podNamespace string
+	podName, podNamespace, err = handlers.InferPodInfoFromTypedResource(podflag,
+		handlers.HandleNamespace(namespace, ns),
+		MakeKubeFactory(kubeClient))
 	if err != nil {
 		return "", "", err
 	}
-	return podName, ns, nil
+	return podName, podNamespace, nil
+}
+
+// getComponentPodName returns the pod name and namespace of the Istio component
+func getComponentPodName(podflag string) (string, string, error) {
+	return getPodNameWithNamespace(podflag, istioNamespace)
 }
 
 func getPodNameBySelector(labelSelector string) ([]string, string, error) {
@@ -1462,11 +1494,11 @@ func getPodNameBySelector(labelSelector string) ([]string, string, error) {
 		podNames []string
 		ns       string
 	)
-	client, err := kubeClient(kubeconfig, configContext)
+	err := getKubeClient()
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create k8s client: %w", err)
 	}
-	pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
+	pl, err := kubeClient.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
 	if err != nil {
 		return nil, "", fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 	}

@@ -42,14 +42,14 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/ledger"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/identifier"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/ledger"
-	"istio.io/pkg/monitoring"
 )
 
 var _ mesh.Holder = &Environment{}
@@ -191,6 +191,20 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
 }
 
+func (e *Environment) GetProxyConfigOrDefault(ns string, labels, annotations map[string]string, meshConfig *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
+	if e.PushContext != nil && e.PushContext.ProxyConfigs != nil {
+		if generatedProxyConfig := e.PushContext.ProxyConfigs.EffectiveProxyConfig(
+			&NodeMetadata{
+				Namespace:   ns,
+				Labels:      labels,
+				Annotations: annotations,
+			}, meshConfig); generatedProxyConfig != nil {
+			return generatedProxyConfig
+		}
+	}
+	return mesh.DefaultProxyConfig()
+}
+
 // Resources is an alias for array of marshaled resources.
 type Resources = []*discovery.Resource
 
@@ -327,7 +341,8 @@ type Proxy struct {
 	// XdsNode is the xDS node identifier
 	XdsNode *core.Node
 
-	AutoregisteredWorkloadEntryName string
+	WorkloadEntryName        string
+	WorkloadEntryAutoCreated bool
 
 	// LastPushContext stores the most recent push context for this proxy. This will be monotonically
 	// increasing in version. Requests should send config based on this context; not the global latest.
@@ -630,6 +645,17 @@ type NodeMetadata struct {
 
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
+
+	// WorkloadEntry specifies the name of the WorkloadEntry this proxy corresponds to.
+	//
+	// This field is intended for use in those scenarios where a user needs to
+	// onboard a workload from a VM without relying on auto-registration.
+	//
+	// At runtime, when a proxy establishes an ADS connection to the istiod,
+	// istiod will treat a non-empty value of this field as an indicator
+	// that proxy corresponds to a VM and must be represented by a WorkloadEntry
+	// with a given name.
+	WorkloadEntry string `json:"WORKLOAD_ENTRY,omitempty"`
 
 	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
 	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
@@ -1065,11 +1091,7 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	// if not found, for backward compatibility, extract the namespace from
 	// the proxy domain. this is a k8s specific hack and should be enabled
 	parts := strings.Split(proxy.DNSDomain, ".")
-	if len(parts) > 1 { // k8s will have namespace.<domain>
-		return parts[0]
-	}
-
-	return ""
+	return parts[0]
 }
 
 const (

@@ -32,8 +32,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/log"
 	ca2 "istio.io/istio/pkg/security"
-	"istio.io/pkg/log"
 )
 
 var (

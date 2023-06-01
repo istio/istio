@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/schema/gvr"
 	istioKube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -46,7 +47,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/util/sanitycheck"
-	"istio.io/pkg/log"
 )
 
 const (

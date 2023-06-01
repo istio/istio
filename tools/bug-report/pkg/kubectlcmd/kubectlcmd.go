@@ -27,9 +27,9 @@ import (
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/bug-report/pkg/common"
-	"istio.io/pkg/log"
 )
 
 const (

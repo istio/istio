@@ -12,6 +12,7 @@ spec:
   template:
     metadata:
       annotations:
+        istio.io/rev: default
         kubectl.kubernetes.io/default-container: status
         kubectl.kubernetes.io/default-logs-container: status
         prometheus.io/path: /stats/prometheus

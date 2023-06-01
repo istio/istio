@@ -30,11 +30,14 @@ import (
 	"github.com/spf13/cobra"
 
 	label2 "istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/version"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/common"
@@ -44,8 +47,6 @@ import (
 	"istio.io/istio/tools/bug-report/pkg/kubeclient"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
 	"istio.io/istio/tools/bug-report/pkg/processlog"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -136,8 +137,8 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	clusterResourcesCtx, getClusterResourcesCancel := context.WithTimeout(context.Background(), commandTimeout)
 	curTime := time.Now()
 	defer func() {
-		message := "Timeout when get cluster resources, please using --include or --exclude to filter"
 		if time.Until(curTime.Add(commandTimeout)) < 0 {
+			message := "Timeout when running bug report command, please using --include or --exclude to filter"
 			common.LogAndPrintf(message)
 		}
 		getClusterResourcesCancel()
@@ -146,8 +147,9 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return err
 	}
+	logRuntime(curTime, "Done collecting cluster resource")
 
-	dumpRevisionsAndVersions(resources, config.KubeConfigPath, config.Context, config.IstioNamespace)
+	dumpRevisionsAndVersions(resources, config.KubeConfigPath, config.Context, config.IstioNamespace, config.DryRun)
 
 	log.Infof("Cluster resource tree:\n\n%s\n\n", resources)
 	paths, err := filter.GetMatchingPaths(config, resources)
@@ -169,8 +171,10 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 			log.Errorf(err.Error())
 			continue
 		}
-		writeFile(filepath.Join(archive.ProxyOutputPath(tempDir, namespace, pod), common.ProxyContainerName+".log"), text)
+		writeFile(filepath.Join(archive.ProxyOutputPath(tempDir, namespace, pod), common.ProxyContainerName+".log"), text, config.DryRun)
 	}
+
+	logRuntime(curTime, "Done with bug-report command before generating the archive file")
 
 	outDir, err := os.Getwd()
 	if err != nil {
@@ -181,24 +185,33 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		outDir = outputDir
 	}
 	outPath := filepath.Join(outDir, "bug-report.tar.gz")
-	common.LogAndPrintf("Creating an archive at %s.\n", outPath)
 
-	archiveDir := archive.DirToArchive(tempDir)
-	if tempDir != "" {
-		archiveDir = tempDir
-	}
-	if err := archive.Create(archiveDir, outPath); err != nil {
-		return err
-	}
-	common.LogAndPrintf("Cleaning up temporary files in %s.\n", archiveDir)
-	if err := os.RemoveAll(archiveDir); err != nil {
-		return err
+	if !config.DryRun {
+		common.LogAndPrintf("Creating an archive at %s.\n", outPath)
+		archiveDir := archive.DirToArchive(tempDir)
+		if tempDir != "" {
+			archiveDir = tempDir
+		}
+		curTime = time.Now()
+		err := archive.Create(archiveDir, outPath)
+		fmt.Printf("Time used for creating the tar file is %v.\n", time.Since(curTime))
+		if err != nil {
+			return err
+		}
+		common.LogAndPrintf("Cleaning up temporary files in %s.\n", archiveDir)
+		if err := os.RemoveAll(archiveDir); err != nil {
+			return err
+		}
+	} else {
+		common.LogAndPrintf("Dry run, skipping archive creation at %s.\n", outPath)
 	}
 	common.LogAndPrintf("Done.\n")
 	return nil
 }
 
-func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string) {
+func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string, dryRun bool) {
+	defer logRuntime(time.Now(), "Done getting control plane revisions/versions")
+
 	text := ""
 	text += fmt.Sprintf("CLI version:\n%s\n\n", version.Info.LongForm())
 
@@ -213,7 +226,7 @@ func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configC
 		text += fmt.Sprintf("Revision %s: Versions {%s}\n", rev, strings.Join(ver, ", "))
 	}
 	common.LogAndPrintf(text)
-	writeFile(filepath.Join(archive.OutputRootDir(tempDir), "versions"), text)
+	writeFile(filepath.Join(archive.OutputRootDir(tempDir), "versions"), text, dryRun)
 }
 
 // getIstioRevisions returns a slice with all Istio revisions detected in the cluster.
@@ -276,6 +289,11 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
 	beginTime := time.Now()
 
+	client, err := kube.NewCLIClient(kube.BuildClientCmd(config.KubeConfigPath, config.Context), "")
+	if err != nil {
+		appendGlobalErr(err)
+	}
+
 	clusterDir := archive.ClusterInfoPath(tempDir)
 
 	params := &content.Params{
@@ -306,11 +324,16 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 		proxyDir := archive.ProxyOutputPath(tempDir, namespace, pod)
 		switch {
 		case common.IsProxyContainer(params.ClusterVersion, container):
-			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
-			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
-			getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
-			getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
-
+			if !ambient.IsZtunnelPod(client, pod, namespace) {
+				getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
+				getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+				getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
+			} else {
+				getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+				getFromCluster(content.GetZtunnelInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
+			}
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
 			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
 			getIstiodLogs(runner, config, resources, namespace, pod, &mandatoryWg)
@@ -345,11 +368,15 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 	wg.Add(1)
 	log.Infof("Waiting on %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			logRuntime(time.Now(), "Done getting from cluster for %v", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+		}()
+
 		out, err := f(params)
 		appendGlobalErr(err)
 		if err == nil {
-			writeFiles(dir, out)
+			writeFiles(dir, out, params.DryRun)
 		}
 		log.Infof("Done with %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	}()
@@ -364,7 +391,11 @@ func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, res
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			logRuntime(time.Now(), "Done getting from proxy logs for %v/%v/%v", namespace, pod, container)
+		}()
+
 		clog, cstat, imp, err := getLog(runner, resources, config, namespace, pod, container)
 		appendGlobalErr(err)
 		lock.Lock()
@@ -384,10 +415,14 @@ func getIstiodLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, re
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			logRuntime(time.Now(), "Done getting Istiod logs for %v/%v", namespace, pod)
+		}()
+
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
-		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog)
+		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog, config.DryRun)
 		log.Infof("Done with logs %s", pod)
 	}()
 }
@@ -399,10 +434,14 @@ func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, 
 	wg.Add(1)
 	log.Infof("Waiting on logs %s", pod)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			logRuntime(time.Now(), "Done getting operator logs for %v/%v", namespace, pod)
+		}()
+
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.OperatorContainerName)
 		appendGlobalErr(err)
-		writeFile(filepath.Join(archive.OperatorPath(tempDir, namespace, pod), "operator.log"), clog)
+		writeFile(filepath.Join(archive.OperatorPath(tempDir, namespace, pod), "operator.log"), clog, config.DryRun)
 		log.Infof("Done with logs %s", pod)
 	}()
 }
@@ -411,6 +450,8 @@ func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, 
 func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *config.BugReportConfig,
 	namespace, pod, container string,
 ) (string, *processlog.Stats, int, error) {
+	defer logRuntime(time.Now(), "Done getting logs only for %v/%v/%v", namespace, pod, container)
+
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
 	clog, err := runner.Logs(namespace, pod, container, false, config.DryRun)
 	if err != nil {
@@ -431,7 +472,10 @@ func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *co
 
 func runAnalyze(config *config.BugReportConfig, params *content.Params, analyzeTimeout time.Duration) {
 	newParam := params.SetNamespace(common.NamespaceAll)
-	common.LogAndPrintf("Running istio analyze on all namespaces and report as below:")
+
+	defer logRuntime(time.Now(), "Done running Istio analyze on all namespaces and report")
+
+	common.LogAndPrintf("Running Istio analyze on all namespaces and report as below:")
 	out, err := content.GetAnalyze(newParam.SetIstioNamespace(config.IstioNamespace), analyzeTimeout)
 	if err != nil {
 		log.Error(err.Error())
@@ -440,20 +484,27 @@ func runAnalyze(config *config.BugReportConfig, params *content.Params, analyzeT
 	common.LogAndPrintf("\nAnalysis Report:\n")
 	common.LogAndPrintf(out[common.StrNamespaceAll])
 	common.LogAndPrintf("\n")
-	writeFiles(archive.AnalyzePath(tempDir, common.StrNamespaceAll), out)
+	writeFiles(archive.AnalyzePath(tempDir, common.StrNamespaceAll), out, config.DryRun)
 }
 
-func writeFiles(dir string, files map[string]string) {
+func writeFiles(dir string, files map[string]string, dryRun bool) {
+	defer logRuntime(time.Now(), "Done writing files for dir %v", dir)
 	for fname, text := range files {
-		writeFile(filepath.Join(dir, fname), text)
+		writeFile(filepath.Join(dir, fname), text, dryRun)
 	}
 }
 
-func writeFile(path, text string) {
+func writeFile(path, text string, dryRun bool) {
+	if dryRun {
+		return
+	}
 	if strings.TrimSpace(text) == "" {
 		return
 	}
 	mkdirOrExit(path)
+
+	defer logRuntime(time.Now(), "Done writing file for path %v", path)
+
 	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
 		log.Errorf(err.Error())
 	}
@@ -490,4 +541,8 @@ func configLogs(opt *log.Options) error {
 	opt2.SetOutputLevel("default", log.InfoLevel)
 
 	return log.Configure(&opt2)
+}
+
+func logRuntime(start time.Time, args ...any) {
+	log.WithLabels("runtime", time.Since(start)).Infof(args...)
 }

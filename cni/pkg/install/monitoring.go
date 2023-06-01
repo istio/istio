@@ -14,13 +14,12 @@
 
 package install
 
-import "istio.io/pkg/monitoring"
+import "istio.io/istio/pkg/monitoring"
 
 var (
 	resultLabel                   = monitoring.MustCreateLabel("result")
 	resultSuccess                 = "SUCCESS"
 	resultCopyBinariesFailure     = "COPY_BINARIES_FAILURE"
-	resultReadSAFailure           = "READ_SERVICE_ACCOUNT_FAILURE"
 	resultCreateKubeConfigFailure = "CREATE_KUBECONFIG_FAILURE"
 	resultCreateCNIConfigFailure  = "CREATE_CNI_CONFIG_FAILURE"
 

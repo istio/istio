@@ -32,7 +32,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	telemetrypb "istio.io/api/telemetry/v1alpha1"
-	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -43,7 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -56,7 +55,7 @@ const (
 )
 
 // this is used for testing. it should not be changed in regular code.
-var clusterLookupFn = extensionproviders.LookupCluster
+var clusterLookupFn = model.LookupCluster
 
 type typedConfigGenFn func() (*anypb.Any, error)
 
@@ -153,6 +152,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, cluster, err := clusterLookupFn(pushCtx, provider.Zipkin.GetService(), int(provider.Zipkin.GetPort()))
 			if err != nil {
+				model.IncLookupClusterFailures("zipkin")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			return zipkinConfig(hostname, cluster, !provider.Zipkin.GetEnable_64BitTraceId())
@@ -163,6 +163,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, cluster, err := clusterLookupFn(pushCtx, provider.Datadog.GetService(), int(provider.Datadog.GetPort()))
 			if err != nil {
+				model.IncLookupClusterFailures("datadog")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			return datadogConfig(serviceCluster, hostname, cluster)
@@ -175,6 +176,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Lightstep.GetService(), int(provider.Lightstep.GetPort()))
 			if err != nil {
+				model.IncLookupClusterFailures("lightstep")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			// TODO: read raw metadata and retrieve lightstep extensions (instead of relying on version)
@@ -197,6 +199,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Skywalking.GetService(), int(provider.Skywalking.GetPort()))
 			if err != nil {
+				model.IncLookupClusterFailures("skywalking")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			return skywalkingConfig(clusterName, hostname)
@@ -217,6 +220,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Opentelemetry.GetService(), int(provider.Opentelemetry.GetPort()))
 			if err != nil {
+				model.IncLookupClusterFailures("opentelemetry")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			return otelConfig(serviceCluster, hostname, clusterName)
@@ -570,16 +574,8 @@ func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 func configureCustomTags(hcmTracing *hcm.HttpConnectionManager_Tracing,
 	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, node *model.Proxy,
 ) {
-	var tags []*tracing.CustomTag
-
-	// TODO(dougreid): remove support for this feature. We don't want this to be
-	// optional moving forward. And we can add it back in via the Telemetry API
-	// later, if needed.
-	// THESE TAGS SHOULD BE ALWAYS ON.
-	if features.EnableIstioTags {
-		tags = append(tags, buildOptionalPolicyTags()...)
-		tags = append(tags, buildServiceTags(node.Metadata, node.Labels)...)
-	}
+	tags := buildOptionalPolicyTags()
+	tags = append(tags, buildServiceTags(node.Metadata, node.Labels)...)
 
 	if len(providerTags) == 0 {
 		tags = append(tags, buildCustomTagsFromProxyConfig(proxyCfg.GetTracing().GetCustomTags())...)

@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/watcher/configmapwatcher"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
@@ -57,7 +57,7 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiW
 	go c.Run(stop)
 
 	// Ensure the ConfigMap is initially loaded if present.
-	if !client.WaitForCacheSync(stop, c.HasSynced) {
+	if !client.WaitForCacheSync("configmap watcher", stop, c.HasSynced) {
 		log.Error("failed to wait for cache sync")
 	}
 	return w
@@ -70,7 +70,7 @@ func AddUserMeshConfig(client kube.Client, watcher mesh.Watcher, namespace, key,
 	})
 
 	go c.Run(stop)
-	if !client.WaitForCacheSync(stop, c.HasSynced) {
+	if !client.WaitForCacheSync("user mesh config", stop, c.HasSynced) {
 		log.Error("failed to wait for cache sync")
 	}
 }

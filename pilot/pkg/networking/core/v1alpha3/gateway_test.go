@@ -37,6 +37,7 @@ import (
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/listenertest"
+	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -1030,7 +1031,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 	cg := NewConfigGenTest(t, TestOptions{})
-	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort
 	testCases := []struct {
 		name              string
 		node              *pilot_model.Proxy
@@ -1071,7 +1071,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{
 							AcceptHttp_10: true,
 						},
-						StripPortMode: stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTP,
@@ -1163,7 +1162,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTPS,
@@ -1255,7 +1253,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTPS,
@@ -1347,7 +1344,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTPS,
@@ -1386,7 +1382,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTP,
@@ -1483,7 +1478,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					class:    istionetworking.ListenerClassGateway,
 					protocol: protocol.HTTPS,
@@ -1581,7 +1575,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						},
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
-						StripPortMode:       stripPortMode,
 					},
 					statPrefix: "server1",
 					class:      istionetworking.ListenerClassGateway,
@@ -1662,7 +1655,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions:  &core.Http1ProtocolOptions{},
 						Http3ProtocolOptions: &core.Http3ProtocolOptions{},
 						CodecType:            hcm.HttpConnectionManager_HTTP3,
-						StripPortMode:        stripPortMode,
 					},
 					useRemoteAddress: true,
 					statPrefix:       "server1",
@@ -2136,50 +2128,41 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 	}
 
-	for _, value := range []bool{false, true} {
-		for _, version := range []string{"1.14.0", "1.15.0"} {
-			for _, tt := range cases {
-				t.Run(tt.name, func(t *testing.T) {
-					test.SetForTest(t, &features.StripHostPort, value)
-					cfgs := tt.gateways
-					cfgs = append(cfgs, tt.virtualServices...)
-					cg := NewConfigGenTest(t, TestOptions{
-						Configs: cfgs,
-					})
-					p := cg.SetupProxy(&proxyGateway)
-					p.IstioVersion = pilot_model.ParseIstioVersion(version)
-					r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
-					if r == nil {
-						t.Fatal("got an empty route configuration")
-					}
-					vh := make(map[string][]string)
-					hr := make(map[string]int)
-					for _, h := range r.VirtualHosts {
-						vh[h.Name] = h.Domains
-						hr[h.Name] = len(h.Routes)
-						if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
-							t.Errorf("expected attempt count to be set in virtual host, but not found")
-						}
-						if tt.redirect != (h.RequireTls == route.VirtualHost_ALL) {
-							t.Errorf("expected redirect %v, got %v", tt.redirect, h.RequireTls)
-						}
-					}
-
-					if features.StripHostPort {
-						if !reflect.DeepEqual(tt.expectedVirtualHostsHostPortStrip, vh) {
-							t.Errorf("got unexpected virtual hosts with strip port. Expected: %v, Got: %v", tt.expectedVirtualHostsHostPortStrip, vh)
-						}
-					} else {
-						if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
-							t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
-						}
-					}
-					if !reflect.DeepEqual(tt.expectedHTTPRoutes, hr) {
-						t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHTTPRoutes, hr)
-					}
-				})
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cfgs := tt.gateways
+			cfgs = append(cfgs, tt.virtualServices...)
+			cg := NewConfigGenTest(t, TestOptions{
+				Configs: cfgs,
+			})
+			r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
+			if r == nil {
+				t.Fatal("got an empty route configuration")
 			}
-		}
+			if r.MaxDirectResponseBodySizeBytes != istio_route.DefaultMaxDirectResponseBodySizeBytes {
+				t.Errorf("expected MaxDirectResponseBodySizeBytes %v, got %v",
+					istio_route.DefaultMaxDirectResponseBodySizeBytes, r.MaxDirectResponseBodySizeBytes)
+			}
+			vh := make(map[string][]string)
+			hr := make(map[string]int)
+			for _, h := range r.VirtualHosts {
+				vh[h.Name] = h.Domains
+				hr[h.Name] = len(h.Routes)
+				if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
+					t.Errorf("expected attempt count to be set in virtual host, but not found")
+				}
+				if tt.redirect != (h.RequireTls == route.VirtualHost_ALL) {
+					t.Errorf("expected redirect %v, got %v", tt.redirect, h.RequireTls)
+				}
+			}
+
+			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
+				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
+			}
+			if !reflect.DeepEqual(tt.expectedHTTPRoutes, hr) {
+				t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHTTPRoutes, hr)
+			}
+		})
 	}
 }
 
@@ -2988,11 +2971,10 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 func TestBuildGatewayListenersFilters(t *testing.T) {
 	cases := []struct {
-		name                   string
-		gateways               []config.Config
-		virtualServices        []config.Config
-		expectedHTTPFilters    []string
-		expectedNetworkFilters []string
+		name             string
+		gateways         []config.Config
+		virtualServices  []config.Config
+		expectedListener listenertest.ListenerTest
 	}{
 		{
 			name: "http server",
@@ -3009,12 +2991,16 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				},
 			},
 			virtualServices: nil,
-			expectedHTTPFilters: []string{
-				xdsfilters.MxFilterName,
-				xdsfilters.Alpn.GetName(),
-				xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
-			},
-			expectedNetworkFilters: []string{wellknown.HTTPConnectionManager},
+			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
+				{
+					NetworkFilters: []string{wellknown.HTTPConnectionManager},
+					HTTPFilters: []string{
+						xdsfilters.MxFilterName,
+						xdsfilters.Alpn.GetName(),
+						xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
+					},
+				},
+			}},
 		},
 		{
 			name: "passthrough server",
@@ -3058,8 +3044,12 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 			},
-			expectedHTTPFilters:    []string{},
-			expectedNetworkFilters: []string{wellknown.TCPProxy},
+			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
+				{
+					NetworkFilters: []string{wellknown.TCPProxy},
+					HTTPFilters:    []string{},
+				},
+			}},
 		},
 		{
 			name: "terminated-tls server",
@@ -3102,8 +3092,12 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 			},
-			expectedHTTPFilters:    []string{},
-			expectedNetworkFilters: []string{wellknown.TCPProxy},
+			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
+				{
+					NetworkFilters: []string{wellknown.TCPProxy},
+					HTTPFilters:    []string{},
+				},
+			}},
 		},
 		{
 			name: "non-http istio-mtls server",
@@ -3146,8 +3140,102 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 			},
-			expectedHTTPFilters:    []string{},
-			expectedNetworkFilters: []string{xdsfilters.TCPListenerMx.GetName(), wellknown.TCPProxy},
+			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
+				{
+					NetworkFilters: []string{xdsfilters.TCPListenerMx.GetName(), wellknown.TCPProxy},
+					HTTPFilters:    []string{},
+				},
+			}},
+		},
+		{
+			name: "http and tcp istio-mtls server",
+			gateways: []config.Config{
+				{
+					Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "mtls", Number: 15443, Protocol: "HTTPS"},
+								Hosts: []string{"www.example.com"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+							},
+							{
+								Port:  &networking.Port{Name: "mtls", Number: 15443, Protocol: "TLS"},
+								Hosts: []string{"tcp.example.com"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+							},
+						},
+					},
+				},
+			},
+			virtualServices: []config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway"},
+						Hosts:    []string{"www.example.com"},
+						Http: []*networking.HTTPRoute{
+							{
+								Match: []*networking.HTTPMatchRequest{
+									{
+										Port: 15443,
+									},
+								},
+								Route: []*networking.HTTPRouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "http.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway"},
+						Hosts:    []string{"tcp.example.com"},
+						Tcp: []*networking.TCPRoute{
+							{
+								Match: []*networking.L4MatchAttributes{
+									{
+										Port: 15443,
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "tcp.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedListener: listenertest.ListenerTest{
+				TotalMatch: true,
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						TotalMatch:     true, // there must be only 1 `istio_authn` network filter
+						NetworkFilters: []string{xdsfilters.IstioNetworkAuthenticationFilter.GetName(), wellknown.HTTPConnectionManager},
+						HTTPFilters: []string{
+							xdsfilters.MxFilterName,
+							xdsfilters.GrpcStats.GetName(),
+							xdsfilters.Alpn.GetName(),
+							xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
+						},
+					},
+					{
+						TotalMatch:     true, // there must be only 1 `istio_authn` network filter
+						NetworkFilters: []string{xdsfilters.TCPListenerMx.GetName(), xdsfilters.IstioNetworkAuthenticationFilter.GetName(), wellknown.TCPProxy},
+						HTTPFilters:    []string{},
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range cases {
@@ -3160,15 +3248,11 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			})
 			proxy := cg.SetupProxy(&proxyGateway)
 			proxy.Metadata = &proxyGatewayMetadata
+			proxy.IstioVersion = nil // to ensure `util.IsIstioVersionGE117(node.IstioVersion) == true`
 
 			builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
 			listenertest.VerifyListeners(t, builder.gatewayListeners, listenertest.ListenersTest{
-				Listener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
-					{
-						NetworkFilters: tt.expectedNetworkFilters,
-						HTTPFilters:    tt.expectedHTTPFilters,
-					},
-				}},
+				Listener: tt.expectedListener,
 			})
 		})
 	}

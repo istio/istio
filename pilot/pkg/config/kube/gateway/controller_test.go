@@ -15,13 +15,13 @@
 package gateway
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -30,17 +30,20 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
 
 var (
 	gatewayClassSpec = &k8s.GatewayClassSpec{
-		ControllerName: ControllerName,
+		ControllerName: constants.ManagedGatewayController,
 	}
 	gatewaySpec = &k8s.GatewaySpec{
 		GatewayClassName: "gwclass",
@@ -84,7 +87,7 @@ var (
 	}
 )
 
-var AlwaysReady = func(class config.GroupVersionKind, stop <-chan struct{}) bool {
+var AlwaysReady = func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
 	return true
 }
 
@@ -193,7 +196,7 @@ func TestNamespaceEvent(t *testing.T) {
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
 	c := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
-	s := controller.NewFakeXDS()
+	s := xdsfake.NewFakeXDS()
 
 	c.RegisterEventHandler(gvk.Namespace, func(_, cfg config.Config, _ model.Event) {
 		s.ConfigUpdate(&model.PushRequest{
@@ -202,52 +205,52 @@ func TestNamespaceEvent(t *testing.T) {
 		})
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
-	c.Run(ctx.Done())
+	stop := test.NewStop(t)
+	c.Run(stop)
+	kube.WaitForCacheSync("test", stop, c.HasSynced)
 	c.state.ReferencedNamespaceKeys = sets.String{"allowed": struct{}{}}
 
-	ns1 := v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+	ns1 := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 		Name: "ns1",
 		Labels: map[string]string{
 			"foo": "bar",
 		},
 	}}
-	ns2 := v1.Namespace{ObjectMeta: metav1.ObjectMeta{
+	ns2 := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 		Name: "ns2",
 		Labels: map[string]string{
 			"allowed": "true",
 		},
 	}}
+	ns := clienttest.Wrap(t, c.namespaces)
 
-	clientSet.Kube().CoreV1().Namespaces().Create(ctx, &ns1, metav1.CreateOptions{})
+	ns.Create(ns1)
 	s.AssertEmpty(t, time.Millisecond*10)
 
-	clientSet.Kube().CoreV1().Namespaces().Create(ctx, &ns2, metav1.CreateOptions{})
-	s.WaitOrFail(t, "xds")
+	ns.Create(ns2)
+	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns1.Annotations = map[string]string{"foo": "bar"}
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
+	ns.Update(ns1)
 	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns2.Annotations = map[string]string{"foo": "bar"}
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
+	ns.Update(ns2)
 	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns1.Labels["bar"] = "foo"
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
+	ns.Update(ns1)
 	s.AssertEmpty(t, time.Millisecond*10)
 
 	ns2.Labels["foo"] = "bar"
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
-	s.WaitOrFail(t, "xds")
+	ns.Update(ns2)
+	s.WaitOrFail(t, "xds full")
 
 	ns1.Labels["allowed"] = "true"
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns1, metav1.UpdateOptions{})
-	s.WaitOrFail(t, "xds")
+	ns.Update(ns1)
+	s.WaitOrFail(t, "xds full")
 
 	ns2.Labels["allowed"] = "false"
-	clientSet.Kube().CoreV1().Namespaces().Update(ctx, &ns2, metav1.UpdateOptions{})
-	s.WaitOrFail(t, "xds")
+	ns.Update(ns2)
+	s.WaitOrFail(t, "xds full")
 }

@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1509,6 +1510,213 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
+	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
+	proxy := &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			ClusterID: "cluster-1",
+		},
+	}
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     8080,
+		Protocol: protocol.HTTP,
+	}
+	service := &model.Service{
+		Hostname: host.Name("*.example.org"),
+		Ports:    model.PortList{servicePort},
+		Attributes: model.ServiceAttributes{
+			Name:      "TestService",
+			Namespace: "test-ns",
+			Labels:    map[string]string{"service.istio.io/canonical-name": "example-service"},
+		},
+		MeshExternal: true,
+		Resolution:   model.DNSLB,
+	}
+
+	buildMetadata := func(networkID network.ID, tlsMode, workloadname, namespace string,
+		clusterID istiocluster.ID, lbls labels.Instance,
+	) *core.Metadata {
+		newmeta := &core.Metadata{}
+		util.AppendLbEndpointMetadata(&model.EndpointMetadata{
+			Network:      networkID,
+			TLSMode:      tlsMode,
+			WorkloadName: workloadname,
+			Namespace:    namespace,
+			ClusterID:    clusterID,
+			Labels:       lbls,
+		}, newmeta)
+		return newmeta
+	}
+
+	lbls := labels.Instance{"version": "v1"}
+
+	instances := []*model.ServiceInstance{
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.1",
+				EndpointPort: 10001,
+				WorkloadName: "workload-1",
+				Namespace:    "namespace-1",
+				Labels: map[string]string{
+					"version": "v1",
+					"app":     "example",
+				},
+				Locality: model.Locality{
+					ClusterID: "cluster-1",
+					Label:     "region1/zone1/subzone1",
+				},
+				LbWeight: 30,
+				Network:  "nw-0",
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.2",
+				EndpointPort: 10001,
+				WorkloadName: "workload-2",
+				Namespace:    "namespace-2",
+				Labels: map[string]string{
+					"version": "v2",
+					"app":     "example",
+				},
+				Locality: model.Locality{
+					ClusterID: "cluster-2",
+					Label:     "region1/zone1/subzone1",
+				},
+				LbWeight: 30,
+				Network:  "nw-1",
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.3",
+				EndpointPort: 10001,
+				WorkloadName: "workload-3",
+				Namespace:    "namespace-3",
+				Labels: map[string]string{
+					"version": "v3",
+					"app":     "example",
+				},
+				Locality: model.Locality{
+					ClusterID: "cluster-3",
+					Label:     "region2/zone1/subzone1",
+				},
+				LbWeight: 40,
+				Network:  "",
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "192.168.1.4",
+				EndpointPort: 10001,
+				WorkloadName: "workload-1",
+				Namespace:    "namespace-1",
+				Labels: map[string]string{
+					"version": "v4",
+					"app":     "example",
+				},
+				Locality: model.Locality{
+					ClusterID: "cluster-1",
+					Label:     "region1/zone1/subzone1",
+				},
+				LbWeight: 30,
+				Network:  "filtered-out",
+			},
+		},
+	}
+
+	updatedLbls := labels.Instance{
+		"app":                                "example",
+		model.IstioCanonicalServiceLabelName: "example-service",
+	}
+	expected := []*endpoint.LocalityLbEndpoints{
+		{
+			Locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: 30,
+			},
+			LbEndpoints: []*endpoint.LbEndpoint{
+				{
+					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+						Endpoint: &endpoint.Endpoint{
+							Address: &core.Address{
+								Address: &core.Address_SocketAddress{
+									SocketAddress: &core.SocketAddress{
+										Address: "192.168.1.1",
+										PortSpecifier: &core.SocketAddress_PortValue{
+											PortValue: 10001,
+										},
+									},
+								},
+							},
+						},
+					},
+					Metadata: buildMetadata("nw-0", "", "workload-1", "test-ns", "cluster-1", updatedLbls),
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 30,
+					},
+				},
+			},
+		},
+	}
+
+	sortEndpoints := func(endpoints []*endpoint.LocalityLbEndpoints) {
+		sort.SliceStable(endpoints, func(i, j int) bool {
+			if strings.Compare(endpoints[i].Locality.Region, endpoints[j].Locality.Region) < 0 {
+				return true
+			}
+			if strings.Compare(endpoints[i].Locality.Zone, endpoints[j].Locality.Zone) < 0 {
+				return true
+			}
+			return strings.Compare(endpoints[i].Locality.SubZone, endpoints[j].Locality.SubZone) < 0
+		})
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		MeshConfig: testMesh(),
+		Services:   []*model.Service{service},
+		Instances:  instances,
+	})
+
+	cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+	view := (&model.Proxy{
+		Metadata: &model.NodeMetadata{
+			RequestedNetworkView: []string{"nw-0", "nw-1"},
+		},
+	}).GetView()
+	wg := sync.WaitGroup{}
+	wg.Add(5)
+	var actual []*endpoint.LocalityLbEndpoints
+	mu := sync.Mutex{}
+	for i := 0; i < 5; i++ {
+		go func() {
+			eps := cb.buildLocalityLbEndpoints(view, service, 8080, lbls)
+			mu.Lock()
+			actual = eps
+			mu.Unlock()
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	sortEndpoints(actual)
+	if v := cmp.Diff(expected, actual, protocmp.Transform()); v != "" {
+		t.Fatalf("Expected (-) != actual (+):\n%s", v)
 	}
 }
 

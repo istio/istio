@@ -92,7 +92,7 @@ $ gcloud logging read "resource.type=k8s_node AND jsonPayload.SYSLOG_IDENTIFIER=
     - creates service-account `istio-cni` with `ClusterRoleBinding` to allow gets on pods' info
 
 - `install-cni` container
-    - copies `istio-cni`, `istio-iptables` and `istio-cni-taint` to `/opt/cni/bin`
+    - copies `istio-cni` and `istio-iptables` to `/opt/cni/bin`
     - creates kubeconfig for the service account the pod runs under
     - injects the CNI plugin config to the CNI config file
         - CNI installer will try to look for the config file under the mounted CNI net dir based on file name extensions (`.conf`, `.conflist`)

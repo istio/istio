@@ -28,17 +28,17 @@ import (
 	"golang.org/x/net/proxy"
 
 	"istio.io/istio/pkg/hbone"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
-	"istio.io/pkg/log"
 )
 
 const (
 	hostHeader = "Host"
 )
 
-var fwLog = log.RegisterScope("forwarder", "echo clientside", 0)
+var fwLog = log.RegisterScope("forwarder", "echo clientside")
 
 func writeForwardedHeaders(out *bytes.Buffer, requestID int, header http.Header) {
 	for key, values := range header {
@@ -107,6 +107,7 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 		sleepTime := time.Second / time.Duration(qps)
 		fwLog.Debugf("Sleeping %v between requests", sleepTime)
 		throttle = time.NewTicker(sleepTime)
+		defer throttle.Stop()
 	}
 
 	g := e.NewGroup()

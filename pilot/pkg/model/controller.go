@@ -60,9 +60,6 @@ type AggregateController interface {
 	// AppendServiceHandlerForCluster is similar to Controller.AppendServiceHandler,
 	// but it is used to store the handler from a specific cluster.
 	AppendServiceHandlerForCluster(clusterID cluster.ID, f ServiceHandler)
-	// AppendWorkloadHandlerForCluster is similar to Controller.AppendWorkloadHandler,
-	// but it is used to store the handler from a specific cluster.
-	AppendWorkloadHandlerForCluster(clusterID cluster.ID, f func(*WorkloadInstance, Event))
 	UnRegisterHandlersForCluster(clusterID cluster.ID)
 }
 

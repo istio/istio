@@ -19,15 +19,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -96,7 +99,7 @@ func retMap(filename, text string, err error) (map[string]string, error) {
 // GetK8sResources returns all k8s cluster resources.
 func GetK8sResources(p *Params) (map[string]string, error) {
 	out, err := p.Runner.RunCmd("get --all-namespaces "+
-		"all,namespaces,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,events,"+
+		"all,namespaces,jobs,ingresses,endpoints,endpointslices,customresourcedefinitions,configmaps,events,"+
 		"mutatingwebhookconfigurations,validatingwebhookconfigurations "+
 		"-o yaml", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	return retMap("k8s-resources", out, err)
@@ -170,29 +173,59 @@ func GetIstiodInfo(p *Params) (map[string]string, error) {
 	if p.Namespace == "" || p.Pod == "" {
 		return nil, fmt.Errorf("getIstiodInfo requires namespace and pod")
 	}
+	errs := istiomultierror.New()
 	ret := make(map[string]string)
 	for _, url := range common.IstiodDebugURLs(p.ClusterVersion) {
 		out, err := p.Runner.Exec(p.Namespace, p.Pod, common.DiscoveryContainerName, fmt.Sprintf(`pilot-discovery request GET %s`, url), p.DryRun)
 		if err != nil {
-			return nil, err
+			errs = multierror.Append(errs, err)
+			continue
 		}
 		ret[url] = out
+	}
+	if errs.ErrorOrNil() != nil {
+		return nil, errs
 	}
 	return ret, nil
 }
 
 // GetProxyInfo returns internal proxy debug info.
 func GetProxyInfo(p *Params) (map[string]string, error) {
+	errs := istiomultierror.New()
 	if p.Namespace == "" || p.Pod == "" {
-		return nil, fmt.Errorf("getIstiodInfo requires namespace and pod")
+		return nil, fmt.Errorf("getProxyInfo requires namespace and pod")
 	}
 	ret := make(map[string]string)
 	for _, url := range common.ProxyDebugURLs(p.ClusterVersion) {
 		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun)
 		if err != nil {
-			return nil, err
+			errs = multierror.Append(errs, err)
+			continue
 		}
 		ret[url] = out
+	}
+	if errs.ErrorOrNil() != nil {
+		return nil, errs
+	}
+	return ret, nil
+}
+
+func GetZtunnelInfo(p *Params) (map[string]string, error) {
+	if p.Namespace == "" || p.Pod == "" {
+		return nil, fmt.Errorf("getZtunnelInfo requires namespace and pod")
+	}
+	errs := istiomultierror.New()
+	ret := make(map[string]string)
+	for _, url := range common.ZtunnelDebugURLs(p.ClusterVersion) {
+		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			continue
+		}
+		ret[url] = out
+	}
+	if errs.ErrorOrNil() != nil {
+		return nil, errs
 	}
 	return ret, nil
 }

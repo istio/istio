@@ -129,7 +129,7 @@ func DeleteDeprecatedValidator(ctx context.Context, client kubernetes.Interface)
 	return errs.ErrorOrNil()
 }
 
-var neverMatch = &metav1.LabelSelector{
+var NeverMatch = &metav1.LabelSelector{
 	MatchLabels: map[string]string{
 		"istio.io/deactivated": "never-match",
 	},
@@ -168,8 +168,8 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 		wh := webhook.Webhooks[i]
 		// this is an abomination, but if this isn't a per-revision webhook, we want to make it ineffectual
 		// without deleting it. Add a nonsense match.
-		wh.NamespaceSelector = neverMatch
-		wh.ObjectSelector = neverMatch
+		wh.NamespaceSelector = NeverMatch
+		wh.ObjectSelector = NeverMatch
 		webhook.Webhooks[i] = wh
 	}
 	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()

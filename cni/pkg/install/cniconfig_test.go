@@ -271,6 +271,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
+					t.Logf("delayed write to %v", filepath.Join(tempDir, c.delayedConfName))
 				} else if len(c.expectedConfName) > 0 {
 					t.Fatalf("timed out waiting for expected %s", expectedFilepath)
 				} else {
@@ -486,7 +487,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
-				resultFilepath, err := createCNIConfigFile(ctx, &cfg, "")
+				resultFilepath, err := createCNIConfigFile(ctx, &cfg)
 				if err != nil {
 					assert.Equal(t, resultFilepath, "")
 					if err == context.DeadlineExceeded {

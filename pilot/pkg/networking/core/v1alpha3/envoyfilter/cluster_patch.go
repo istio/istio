@@ -26,8 +26,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
-	"istio.io/pkg/log"
 )
 
 // ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.

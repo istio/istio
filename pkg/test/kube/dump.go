@@ -348,7 +348,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 					// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
 					// a log which will get highlighted in the test logs
 					// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
-					scopes.Framework.Errorf("FAIL: cluster/pod/container %s/%s/%s/%s restarted %d times. Logs: %v",
+					scopes.Framework.Errorf("FAIL: cluster/pod/container %s/%s/%s/%s crashed/restarted %d times. Logs: %v",
 						c.Name(), pod.Namespace, pod.Name, container.Name, restarts, prow.ArtifactsURL(fname))
 				}
 				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
@@ -514,7 +514,7 @@ func dumpProxyCommand(c cluster.Cluster, fw kube.PortForwarder, pod corev1.Pod, 
 						break
 					}
 					if attempts > 3 {
-						scopes.Framework.Warnf("FAIL: cluster/pod %s/%s/%s found warming resources (%v) on final attempt. Logs: %v",
+						scopes.Framework.Warnf("FAIL: cluster/pod %s/%s/%s found warming resources (%v) on final attempt. Config: %v",
 							c.Name(), pod.Namespace, pod.Name, warming, prow.ArtifactsURL(fname))
 						break
 					}

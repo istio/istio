@@ -84,8 +84,11 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	case EbpfMode:
 		s.redirectMode = EbpfMode
 		s.ebpfServer = ebpf.NewRedirectServer()
+		s.ebpfServer.SetLogLevel(args.LogLevel)
 		s.ebpfServer.Start(ctx.Done())
 	}
+
+	log.Infof("Ambient enrolled IPs before reconciling: %+v", s.getEnrolledIPSets())
 
 	s.setupHandlers()
 
@@ -146,7 +149,7 @@ func (s *Server) UpdateConfig() {
 	log.Debug("Done")
 }
 
-var ztunnelLabels = labels.SelectorFromValidatedSet(labels.Set{"app": "ztunnel"})
+var ztunnelLabels = labels.ValidatedSetSelector(labels.Set{"app": "ztunnel"})
 
 func (s *Server) ReconcileZtunnel() error {
 	pods := s.pods.List(metav1.NamespaceAll, ztunnelLabels)
@@ -186,7 +189,8 @@ func (s *Server) ReconcileZtunnel() error {
 	s.UpdateConfig()
 	if activePod == nil {
 		log.Infof("active ztunnel updated, no ztunnel running on the node")
-		s.cleanupNode()
+		// To avoid traffic escaping, we should keep everything rather than doing cleanupNode
+		s.ztunnelDown()
 		return nil
 	}
 	log.Infof("active ztunnel updated to %v", activePod.Name)
@@ -244,11 +248,16 @@ func (s *Server) ReconcileZtunnel() error {
 			return fmt.Errorf("failed to configure ztunnel: %v", err)
 		}
 	}
-
+	existed := s.getEnrolledIPSets()
 	// Reconcile namespaces, as it is possible for the original reconciliation to have failed, and a
 	// small pod to have started up before ztunnel is running... so we need to go back and make sure we
 	// catch the existing pods
-	s.ReconcileNamespaces()
+	processed := s.ReconcileNamespaces()
+
+	stales := existed.Difference(processed)
+
+	s.cleanStaleIPs(stales)
+
 	return nil
 }
 

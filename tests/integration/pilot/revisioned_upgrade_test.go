@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -33,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	kubetest "istio.io/istio/pkg/test/kube"
-	"istio.io/pkg/log"
 )
 
 const (

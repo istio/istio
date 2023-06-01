@@ -21,10 +21,10 @@ import (
 	"strconv"
 	"time"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
-var epLog = log.RegisterScope("endpoint", "echo serverside", 0)
+var epLog = log.RegisterScope("endpoint", "echo serverside")
 
 const (
 	requestTimeout = 15 * time.Second

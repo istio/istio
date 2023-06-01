@@ -18,7 +18,7 @@ package common
 import (
 	"fmt"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -40,9 +40,10 @@ type kv struct {
 }
 
 type resourceNames struct {
-	discoveryLabels []kv
-	istioDebugURLs  []string
-	proxyDebugURLs  []string
+	discoveryLabels  []kv
+	istioDebugURLs   []string
+	proxyDebugURLs   []string
+	ztunnelDebugURLs []string
 }
 
 var versionMap = map[string]*resourceNames{
@@ -52,19 +53,23 @@ var versionMap = map[string]*resourceNames{
 		},
 		istioDebugURLs: []string{
 			"debug/adsz",
-			"debug/syncz",
-			"debug/registryz",
-			"debug/endpointz",
-			"debug/instancesz",
-			"debug/endpointShardz",
-			"debug/configz",
-			"debug/cachez",
-			"debug/resourcesz",
 			"debug/authorizationz",
-			"debug/push_status",
+			"debug/cachez",
+			"debug/clusterz",
+			"debug/configz",
+			"debug/endpointShardz",
+			"debug/endpointz",
 			"debug/inject",
+			"debug/instancesz",
+			"debug/mcsz",
 			"debug/mesh",
 			"debug/networkz",
+			"debug/push_status",
+			"debug/registryz",
+			"debug/resourcesz",
+			"debug/syncz",
+			"debug/telemetryz",
+			"metrics",
 		},
 		proxyDebugURLs: []string{
 			"certs",
@@ -75,6 +80,9 @@ var versionMap = map[string]*resourceNames{
 			"server_info",
 			"stats/prometheus",
 			"runtime",
+		},
+		ztunnelDebugURLs: []string{
+			"config_dump",
 		},
 	},
 }
@@ -87,6 +95,11 @@ func IstiodDebugURLs(clusterVersion string) []string {
 // ProxyDebugURLs returns a list of proxy debug URLs for the given version.
 func ProxyDebugURLs(clusterVersion string) []string {
 	return versionMap[getVersionKey(clusterVersion)].proxyDebugURLs
+}
+
+// ZtunnelDebugURLs returns a list of ztunnel debug URLs for the given version.
+func ZtunnelDebugURLs(clusterVersion string) []string {
+	return versionMap[getVersionKey(clusterVersion)].ztunnelDebugURLs
 }
 
 // IsDiscoveryContainer reports whether the given container is an Istio discovery container for the given version.

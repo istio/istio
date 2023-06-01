@@ -575,7 +575,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	ds.MemRegistry.AddService(&model.Service{
 		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
-			ClusterExternalAddresses: model.AddressMap{
+			ClusterExternalAddresses: &model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					"cluster2a": {""},
 					"cluster2b": {""},

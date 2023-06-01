@@ -19,90 +19,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/util/sets"
 )
-
-// Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
-// EndpointSlices. The kubeEndpointsController abstracts these details and provides a common interface
-// that both sources implement.
-type kubeEndpointsController interface {
-	HasSynced() bool
-	// sync triggers a re-sync. This can be set with:
-	// * name+namespace: sync a single object
-	// * namespace: sync that namespace
-	// * neither: sync all namespaces
-	sync(name, ns string, event model.Event, filtered bool) error
-	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int) []*model.ServiceInstance
-	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
-	buildIstioEndpoints(ep any, host host.Name) []*model.IstioEndpoint
-	buildIstioEndpointsWithService(name, namespace string, host host.Name, clearCache bool) []*model.IstioEndpoint
-	// forgetEndpoint does internal bookkeeping on a deleted endpoint
-	forgetEndpoint(endpoint any) map[host.Name][]*model.IstioEndpoint
-	getServiceNamespacedName(ep any) types.NamespacedName
-}
-
-// processEndpointEvent triggers the config update.
-func processEndpointEvent(c *Controller, epc kubeEndpointsController, name string, namespace string, event model.Event, ep any) error {
-	// Update internal endpoint cache no matter what kind of service, even headless service.
-	// As for gateways, the cluster discovery type is `EDS` for headless service.
-	updateEDS(c, epc, ep, event)
-	if svc := c.services.Get(name, namespace); svc != nil {
-		// if the service is headless service, trigger a full push if EnableHeadlessService is true,
-		// otherwise push endpoint updates - needed for NDS output.
-		if svc.Spec.ClusterIP == v1.ClusterIPNone {
-			for _, modelSvc := range c.servicesForNamespacedName(config.NamespacedName(svc)) {
-				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full: features.EnableHeadlessService,
-					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
-
-					Reason: []model.TriggerReason{model.HeadlessEndpointUpdate},
-				})
-				return nil
-			}
-		}
-	}
-
-	return nil
-}
-
-func updateEDS(c *Controller, epc kubeEndpointsController, ep any, event model.Event) {
-	namespacedName := epc.getServiceNamespacedName(ep)
-	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
-	var forgottenEndpointsByHost map[host.Name][]*model.IstioEndpoint
-	if event == model.EventDelete {
-		forgottenEndpointsByHost = epc.forgetEndpoint(ep)
-	}
-
-	shard := model.ShardKeyFromRegistry(c)
-
-	for _, hostName := range c.hostNamesForNamespacedName(namespacedName) {
-		var endpoints []*model.IstioEndpoint
-		if forgottenEndpointsByHost != nil {
-			endpoints = forgottenEndpointsByHost[hostName]
-		} else {
-			endpoints = epc.buildIstioEndpoints(ep, hostName)
-		}
-
-		if features.EnableK8SServiceSelectWorkloadEntries {
-			svc := c.GetService(hostName)
-			if svc != nil {
-				fep := c.collectWorkloadInstanceEndpoints(svc)
-				endpoints = append(endpoints, fep...)
-			} else {
-				log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated",
-					namespacedName.Namespace, namespacedName.Name)
-			}
-		}
-
-		c.opts.XDSUpdater.EDSUpdate(shard, string(hostName), namespacedName.Namespace, endpoints)
-	}
-}
 
 // getPod fetches a pod by name or IP address.
 // A pod may be missing (nil) for two reasons:

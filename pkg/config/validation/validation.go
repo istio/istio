@@ -48,7 +48,6 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -58,12 +57,13 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/grpc"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // Constants for duration fields
@@ -128,7 +128,7 @@ var (
 		http.MethodTrace:   true,
 	}
 
-	scope = log.RegisterScope("validation", "CRD validation debugging", 0)
+	scope = log.RegisterScope("validation", "CRD validation debugging")
 
 	// EmptyValidate is a Validate that does nothing and returns no error.
 	EmptyValidate = registerValidateFunc("EmptyValidate",
@@ -618,12 +618,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
 		}
 		if tls.CredentialName != "" {
-			if features.EnableLegacyIstioMutualCredentialName {
-				// Legacy mode enabled, just warn
-				v = appendWarningf(v, "ISTIO_MUTUAL TLS cannot have associated credentialName")
-			} else {
-				v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
-			}
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
 		}
 		return
 	}
@@ -911,6 +906,13 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			}
 			// ensure that the struct is valid
 			if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false); err != nil {
+				if strings.Contains(err.Error(), "could not resolve Any message type") {
+					if strings.Contains(err.Error(), ".v2.") {
+						err = fmt.Errorf("referenced type unknown (hint: try using the v3 XDS API): %v", err)
+					} else {
+						err = fmt.Errorf("referenced type unknown: %v", err)
+					}
+				}
 				errs = appendValidation(errs, err)
 			} else {
 				// Run with strict validation, and emit warnings. This helps capture cases like unknown fields
@@ -922,6 +924,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 
 				// Append any deprecation notices
 				if obj != nil {
+					// Note: since we no longer import v2 protos, v2 references will fail during BuildXDSObjectFromStruct.
 					errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
 					errs = appendValidation(errs, validateMissingTypedConfigFilterTypes(obj))
 				}
@@ -1939,37 +1942,41 @@ func ValidateControlPlaneAuthPolicy(policy meshconfig.AuthenticationPolicy) erro
 	return fmt.Errorf("unrecognized control plane auth policy %q", policy)
 }
 
-func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
-	var errs error
+func validateWorkloadSelector(selector *type_beta.WorkloadSelector) Validation {
+	validation := Validation{}
 	if selector != nil {
 		for k, v := range selector.MatchLabels {
 			if k == "" {
-				errs = appendErrors(errs,
-					fmt.Errorf("empty key is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
+				err := fmt.Errorf("empty key is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v))
+				validation = appendValidation(validation, err)
 			}
 			if strings.Contains(k, "*") || strings.Contains(v, "*") {
-				errs = appendErrors(errs,
-					fmt.Errorf("wildcard is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
+				err := fmt.Errorf("wildcard is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v))
+				validation = appendValidation(validation, err)
 			}
+		}
+		if len(selector.MatchLabels) == 0 {
+			warning := fmt.Errorf("workload selector specified without labels") // nolint: stylecheck
+			validation = appendValidation(validation, WrapWarning(warning))
 		}
 	}
 
-	return errs
+	return validation
 }
 
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPolicy",
 	func(cfg config.Config) (Warning, error) {
-		var warning Warning
 		in, ok := cfg.Spec.(*security_beta.AuthorizationPolicy)
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to AuthorizationPolicy")
 		}
 
 		var errs error
-		if err := validateWorkloadSelector(in.Selector); err != nil {
-			errs = appendErrors(errs, err)
-		}
+		var warnings Warning
+		validation := validateWorkloadSelector(in.Selector)
+		errs = appendErrors(errs, validation)
+		warnings = appendErrors(warnings, validation.Warning)
 
 		if in.Action == security_beta.AuthorizationPolicy_CUSTOM {
 			if in.Rules == nil {
@@ -1999,6 +2006,10 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 					}
 				}
 				for _, when := range rule.GetWhen() {
+					if when == nil {
+						errs = appendErrors(errs, fmt.Errorf("when field cannot be nil"))
+						continue
+					}
 					errs = appendErrors(errs, check(when.Key == "source.namespace", when.Key))
 					errs = appendErrors(errs, check(when.Key == "source.principal", when.Key))
 					errs = appendErrors(errs, check(strings.HasPrefix(when.Key, "request.auth."), when.Key))
@@ -2115,12 +2126,14 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 
 			if ((fromRuleExist && !toRuleExist && !tcpRulesInFrom) || (toRuleExist && !tcpRulesInTo)) &&
 				in.Action == security_beta.AuthorizationPolicy_DENY {
-				warning = fmt.Errorf("configured AuthorizationPolicy will deny all traffic " +
+				warning := fmt.Errorf("configured AuthorizationPolicy will deny all traffic " +
 					"to TCP ports under its scope due to the use of only HTTP attributes in a DENY rule; " +
 					"it is recommended to explicitly specify the port")
+				warnings = appendErrors(warnings, warning)
+
 			}
 		}
-		return warning, multierror.Prefix(errs, fmt.Sprintf("invalid policy %s.%s:", cfg.Name, cfg.Namespace))
+		return warnings, multierror.Prefix(errs, fmt.Sprintf("invalid policy %s.%s:", cfg.Name, cfg.Namespace))
 	})
 
 // ValidateRequestAuthentication checks that request authentication spec is well-formed.
@@ -2131,13 +2144,14 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 			return nil, errors.New("cannot cast to RequestAuthentication")
 		}
 
-		var errs error
-		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
+		errs := Validation{}
+		validation := validateWorkloadSelector(in.Selector)
+		errs = appendValidation(errs, validation)
 
 		for _, rule := range in.JwtRules {
-			errs = appendErrors(errs, validateJwtRule(rule))
+			errs = appendValidation(errs, validateJwtRule(rule))
 		}
-		return nil, errs
+		return errs.Unwrap()
 	})
 
 func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
@@ -2225,9 +2239,10 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 			}
 		}
 
-		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
+		validation := validateWorkloadSelector(in.Selector)
+		errs = appendErrors(errs, validation)
 
-		return nil, errs
+		return validation.Warning, errs
 	})
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
@@ -2272,7 +2287,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		if !appliesToGateway {
 			validateJWTClaimRoute := func(headers map[string]*networking.StringMatch) {
 				for key := range headers {
-					if strings.HasPrefix(key, constant.HeaderJWTClaim) {
+					if jwt.ToRoutingClaim(key).Match {
 						msg := fmt.Sprintf("JWT claim based routing (key: %s) is only supported for gateway, found no gateways: %v", key, virtualService.Gateways)
 						errs = appendValidation(errs, errors.New(msg))
 					}
@@ -3321,6 +3336,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				errs = appendValidation(errs, fmt.Errorf("invalid host %s", hostname))
 			} else {
 				errs = appendValidation(errs, ValidateWildcardDomain(hostname))
+				errs = appendValidation(errs, WrapWarning(validatePartialWildCard(hostname)))
 			}
 		}
 
@@ -3373,6 +3389,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		case networking.ServiceEntry_STATIC:
 			unixEndpoint := false
 			for _, endpoint := range serviceEntry.Endpoints {
+				if endpoint == nil {
+					errs = appendValidation(errs, errors.New("endpoint cannot be nil"))
+					continue
+				}
 				addr := endpoint.GetAddress()
 				if strings.HasPrefix(addr, UnixAddressPrefix) {
 					unixEndpoint = true
@@ -3412,6 +3432,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 
 			for _, endpoint := range serviceEntry.Endpoints {
+				if endpoint == nil {
+					errs = appendValidation(errs, errors.New("endpoint cannot be nil"))
+					continue
+				}
 				if !netutil.IsValidIPAddress(endpoint.Address) {
 					if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
 						errs = appendValidation(errs,
@@ -3431,6 +3455,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 			if len(serviceEntry.Addresses) > 0 {
 				for _, port := range serviceEntry.Ports {
+					if port == nil {
+						errs = appendValidation(errs, errors.New("ports cannot be nil"))
+						continue
+					}
 					p := protocol.Parse(port.Protocol)
 					if p.IsTCP() {
 						if len(serviceEntry.Hosts) > 1 {
@@ -3456,6 +3484,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		// (because the hosts are ignored).
 		if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
 			for _, port := range serviceEntry.Ports {
+				if port == nil {
+					errs = appendValidation(errs, errors.New("ports cannot be nil"))
+					continue
+				}
 				p := protocol.Parse(port.Protocol)
 				if !p.IsHTTP() && !p.IsTLS() {
 					errs = appendValidation(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
@@ -3578,7 +3610,7 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 	errs = appendValidation(errs, validateLocalities(srcLocalities))
 
 	if (len(lb.GetFailover()) != 0 || len(lb.GetFailoverPriority()) != 0) && outlier == nil {
-		errs = appendValidation(errs, WrapWarning(fmt.Errorf("outlier detection poicy must be provided for failover")))
+		errs = appendValidation(errs, WrapWarning(fmt.Errorf("outlier detection policy must be provided for failover")))
 	}
 
 	for _, failover := range lb.GetFailover() {
@@ -3956,6 +3988,9 @@ func validateWasmPluginMatch(selectors []*extensions.WasmPlugin_TrafficSelector)
 		return nil
 	}
 	for selIdx, sel := range selectors {
+		if sel == nil {
+			return fmt.Errorf("spec.Match[%d] is nil", selIdx)
+		}
 		for portIdx, port := range sel.Ports {
 			if port == nil {
 				return fmt.Errorf("spec.Match[%d].Ports[%d] is nil", selIdx, portIdx)

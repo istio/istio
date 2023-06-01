@@ -41,12 +41,14 @@ var (
 	authzServer      authz.Server
 	localAuthzServer authz.Server
 	jwtServer        jwt.Server
+
+	i istio.Instance
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(nil, func(c resource.Context, cfg *istio.Config) {
+		Setup(istio.Setup(&i, func(c resource.Context, cfg *istio.Config) {
 			if !c.Settings().EnableDualStack {
 				cfg.ControlPlaneValues = `
 values:

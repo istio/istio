@@ -98,13 +98,10 @@ function download_untar_istio_release() {
 }
 
 function buildx-create() {
-  export DOCKER_CLI_EXPERIMENTAL=enabled
-  if ! docker buildx ls | grep -q container-builder; then
-    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name container-builder --buildkitd-flags="--debug"
-    # Pre-warm the builder. If it fails, fetch logs, but continue
-    docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
-  fi
-  docker buildx use container-builder
+  WD=$(dirname "$0")
+  WD=$(cd "$WD" || exit; pwd)
+  ROOT=$(dirname "$WD")
+  "$ROOT/prow/buildx-create"
 }
 
 function build_images() {

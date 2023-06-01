@@ -25,11 +25,11 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
 )
 
-var gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent", 0)
+var gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent")
 
 // Token refresh frequency is default to 5 minutes.
 var rotationInterval = 5 * time.Minute

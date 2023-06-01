@@ -17,7 +17,6 @@
 package server
 
 import (
-	"bytes"
 	_ "embed"
 	"fmt"
 	"io"
@@ -42,13 +41,8 @@ type ambient_redirectZtunnelInfo struct {
 
 // loadAmbient_redirect returns the embedded CollectionSpec for ambient_redirect.
 func loadAmbient_redirect() (*ebpf.CollectionSpec, error) {
-	reader := bytes.NewReader(_Ambient_redirectBytes)
-	spec, err := ebpf.LoadCollectionSpecFromReader(reader)
-	if err != nil {
-		return nil, fmt.Errorf("can't load ambient_redirect: %w", err)
-	}
-
-	return spec, err
+	logCNCFUnused();
+	return nil, nil
 }
 
 // loadAmbient_redirectObjects loads ambient_redirect and converts it into a struct.
@@ -61,12 +55,12 @@ func loadAmbient_redirect() (*ebpf.CollectionSpec, error) {
 //
 // See ebpf.CollectionSpec.LoadAndAssign documentation for details.
 func loadAmbient_redirectObjects(obj interface{}, opts *ebpf.CollectionOptions) error {
-	spec, err := loadAmbient_redirect()
+	_, err := loadAmbient_redirect()
 	if err != nil {
 		return err
 	}
 
-	return spec.LoadAndAssign(obj, opts)
+	return nil
 }
 
 // ambient_redirectSpecs contains maps and programs before they are loaded into the kernel.
@@ -85,6 +79,7 @@ type ambient_redirectProgramSpecs struct {
 	AppOutbound        *ebpf.ProgramSpec `ebpf:"app_outbound"`
 	ZtunnelHostIngress *ebpf.ProgramSpec `ebpf:"ztunnel_host_ingress"`
 	ZtunnelIngress     *ebpf.ProgramSpec `ebpf:"ztunnel_ingress"`
+	ZtunnelTproxy      *ebpf.ProgramSpec `ebpf:"ztunnel_tproxy"`
 }
 
 // ambient_redirectMapSpecs contains maps before they are loaded into the kernel.
@@ -93,6 +88,7 @@ type ambient_redirectProgramSpecs struct {
 type ambient_redirectMapSpecs struct {
 	AppInfo     *ebpf.MapSpec `ebpf:"app_info"`
 	HostIpInfo  *ebpf.MapSpec `ebpf:"host_ip_info"`
+	LogLevel    *ebpf.MapSpec `ebpf:"log_level"`
 	ZtunnelInfo *ebpf.MapSpec `ebpf:"ztunnel_info"`
 }
 
@@ -117,6 +113,7 @@ func (o *ambient_redirectObjects) Close() error {
 type ambient_redirectMaps struct {
 	AppInfo     *ebpf.Map `ebpf:"app_info"`
 	HostIpInfo  *ebpf.Map `ebpf:"host_ip_info"`
+	LogLevel    *ebpf.Map `ebpf:"log_level"`
 	ZtunnelInfo *ebpf.Map `ebpf:"ztunnel_info"`
 }
 
@@ -124,6 +121,7 @@ func (m *ambient_redirectMaps) Close() error {
 	return _Ambient_redirectClose(
 		m.AppInfo,
 		m.HostIpInfo,
+		m.LogLevel,
 		m.ZtunnelInfo,
 	)
 }
@@ -136,6 +134,7 @@ type ambient_redirectPrograms struct {
 	AppOutbound        *ebpf.Program `ebpf:"app_outbound"`
 	ZtunnelHostIngress *ebpf.Program `ebpf:"ztunnel_host_ingress"`
 	ZtunnelIngress     *ebpf.Program `ebpf:"ztunnel_ingress"`
+	ZtunnelTproxy      *ebpf.Program `ebpf:"ztunnel_tproxy"`
 }
 
 func (p *ambient_redirectPrograms) Close() error {
@@ -144,19 +143,19 @@ func (p *ambient_redirectPrograms) Close() error {
 		p.AppOutbound,
 		p.ZtunnelHostIngress,
 		p.ZtunnelIngress,
+		p.ZtunnelTproxy,
 	)
 }
 
 func _Ambient_redirectClose(closers ...io.Closer) error {
-	for _, closer := range closers {
-		if err := closer.Close(); err != nil {
-			return err
-		}
-	}
+	logCNCFUnused()
 	return nil
 }
 
 // Do not access this directly.
-//
-//go:embed ambient_redirect_bpf.o
 var _Ambient_redirectBytes []byte
+
+func logCNCFUnused() {
+	fmt.Printf("eBPF support is temporarily disabled pending CNCF establishing guidance around dual-licensed eBPF bytecode")
+	fmt.Printf("https://github.com/cncf/toc/pull/1000#issuecomment-1564289871")
+}

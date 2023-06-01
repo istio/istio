@@ -32,9 +32,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
-	"istio.io/pkg/log"
 )
 
 // Config for an echo server Instance.
@@ -50,6 +50,7 @@ type Config struct {
 	Cluster               string
 	Dialer                common.Dialer
 	IstioVersion          string
+	Namespace             string
 	DisableALPN           bool
 }
 
@@ -65,12 +66,13 @@ func (c Config) String() string {
 	b.WriteString(fmt.Sprintf("UDSServer:             %v\n", c.UDSServer))
 	b.WriteString(fmt.Sprintf("Cluster:               %v\n", c.Cluster))
 	b.WriteString(fmt.Sprintf("IstioVersion:          %v\n", c.IstioVersion))
+	b.WriteString(fmt.Sprintf("Namespace:             %v\n", c.Namespace))
 
 	return b.String()
 }
 
 var (
-	serverLog           = log.RegisterScope("server", "echo server", 0)
+	serverLog           = log.RegisterScope("server", "echo server")
 	_         io.Closer = &Instance{}
 )
 

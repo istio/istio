@@ -11,6 +11,7 @@ import (
 const (
 	Address Kind = iota
 	AuthorizationPolicy
+	CertificateSigningRequest
 	ConfigMap
 	CustomResourceDefinition
 	Deployment
@@ -44,6 +45,7 @@ const (
 	TLSRoute
 	Telemetry
 	UDPRoute
+	ValidatingWebhookConfiguration
 	VirtualService
 	WasmPlugin
 	WorkloadEntry
@@ -56,6 +58,8 @@ func (k Kind) String() string {
 		return "Address"
 	case AuthorizationPolicy:
 		return "AuthorizationPolicy"
+	case CertificateSigningRequest:
+		return "CertificateSigningRequest"
 	case ConfigMap:
 		return "ConfigMap"
 	case CustomResourceDefinition:
@@ -122,6 +126,8 @@ func (k Kind) String() string {
 		return "Telemetry"
 	case UDPRoute:
 		return "UDPRoute"
+	case ValidatingWebhookConfiguration:
+		return "ValidatingWebhookConfiguration"
 	case VirtualService:
 		return "VirtualService"
 	case WasmPlugin:
@@ -139,6 +145,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 	switch g {
 	case gvk.AuthorizationPolicy:
 		return AuthorizationPolicy
+	case gvk.CertificateSigningRequest:
+		return CertificateSigningRequest
 	case gvk.ConfigMap:
 		return ConfigMap
 	case gvk.CustomResourceDefinition:
@@ -205,6 +213,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return Telemetry
 	case gvk.UDPRoute:
 		return UDPRoute
+	case gvk.ValidatingWebhookConfiguration:
+		return ValidatingWebhookConfiguration
 	case gvk.VirtualService:
 		return VirtualService
 	case gvk.WasmPlugin:

@@ -27,7 +27,6 @@ import (
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"golang.org/x/exp/slices"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -44,11 +43,12 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/proto"
 	secconst "istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -150,45 +150,24 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	if proxy.Metadata != nil && proxy.Metadata.Raw[secconst.CredentialMetaDataName] == "true" {
 		credentialSocketExist = true
 	}
-	if features.EnableLegacyIstioMutualCredentialName {
-		// Legacy code path. Can be removed after a couple releases.
-		switch {
-		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
-		case serverTLSSettings.CredentialName != "":
-			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
-		case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
-		default:
-			certProxy := &model.Proxy{}
-			certProxy.IstioVersion = proxy.IstioVersion
-			// If certificate files are specified in gateway configuration, use file based SDS.
-			certProxy.Metadata = &model.NodeMetadata{
-				TLSServerCertChain: serverTLSSettings.ServerCertificate,
-				TLSServerKey:       serverTLSSettings.PrivateKey,
-				TLSServerRootCert:  serverTLSSettings.CaCertificates,
-			}
 
-			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+	switch {
+	case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+	// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
+	case serverTLSSettings.CredentialName != "":
+		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
+	default:
+		certProxy := &model.Proxy{}
+		certProxy.IstioVersion = proxy.IstioVersion
+		// If certificate files are specified in gateway configuration, use file based SDS.
+		certProxy.Metadata = &model.NodeMetadata{
+			TLSServerCertChain: serverTLSSettings.ServerCertificate,
+			TLSServerKey:       serverTLSSettings.PrivateKey,
+			TLSServerRootCert:  serverTLSSettings.CaCertificates,
 		}
-	} else {
-		switch {
-		case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
-		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
-		case serverTLSSettings.CredentialName != "":
-			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
-		default:
-			certProxy := &model.Proxy{}
-			certProxy.IstioVersion = proxy.IstioVersion
-			// If certificate files are specified in gateway configuration, use file based SDS.
-			certProxy.Metadata = &model.NodeMetadata{
-				TLSServerCertChain: serverTLSSettings.ServerCertificate,
-				TLSServerKey:       serverTLSSettings.PrivateKey,
-				TLSServerRootCert:  serverTLSSettings.CaCertificates,
-			}
 
-			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
-		}
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
 	}
 
 	if isSimpleOrMutual(serverTLSSettings.Mode) {
@@ -615,7 +594,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 		},
 	}
 	if err := mutable.build(lb, opts); err != nil {
-		log.Warn("buildHTTPProxy filter chain error  ", err.Error())
+		log.Warnf("buildHTTPProxy filter chain: %v", err)
 		return nil
 	}
 	return l
@@ -1000,7 +979,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 
 	// Filters are serialized one time into an opaque struct once we have the complete list.
 	if err := mutable.build(lb, listenerOpts); err != nil {
-		log.Warn("buildSidecarOutboundListeners: ", err.Error())
+		log.Warnf("buildSidecarOutboundListeners: %v", err)
 		return
 	}
 
@@ -1320,7 +1299,6 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				QuicOptions:            &listener.QuicProtocolOptions{},
 				DownstreamSocketConfig: &core.UdpSocketConfig{},
 			},
-			EnableReusePort: proto.BoolTrue,
 		}
 		// add extra addresses for the listener
 		if features.EnableDualStack && len(opts.extraBind) > 0 {

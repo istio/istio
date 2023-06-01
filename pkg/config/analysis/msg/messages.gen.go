@@ -33,10 +33,6 @@ var (
 	// Description: Unhandled gateway port
 	GatewayPortNotOnWorkload = diag.NewMessageType(diag.Warning, "IST0104", "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)")
 
-	// IstioProxyImageMismatch defines a diag.MessageType for message "IstioProxyImageMismatch".
-	// Description: The image of the Istio proxy running on the pod does not match the image defined in the injection configuration.
-	IstioProxyImageMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The image of the Istio proxy running on the pod does not match the image defined in the injection configuration (pod image: %s; injection configuration image: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
-
 	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
 	// Description: The resource has a schema validation error.
 	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "Schema validation error: %v")
@@ -237,9 +233,9 @@ var (
 	// Description: More than one telemetry resource in a namespace has no workload selector
 	MultipleTelemetriesWithoutWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0160", "The Telemetries %v in namespace %q have no workload selector, which can lead to undefined behavior.")
 
-	// DeprecatedLightstepProvider defines a diag.MessageType for message "DeprecatedLightstepProvider".
-	// Description: Lightstep provider is still being used
-	DeprecatedLightstepProvider = diag.NewMessageType(diag.Warning, "IST0161", "The Lightstep provider %s is deprecated, please migrate to OpenTelemetry provider.")
+	// InvalidGatewayCredential defines a diag.MessageType for message "InvalidGatewayCredential".
+	// Description: The credential provided for the Gateway resource is invalid
+	InvalidGatewayCredential = diag.NewMessageType(diag.Error, "IST0161", "The credential referenced by the Gateway %s in namespace %s is invalid, which can cause the traffic not to work as expected.")
 )
 
 // All returns a list of all known message types.
@@ -251,7 +247,6 @@ func All() []*diag.MessageType {
 		NamespaceNotInjected,
 		PodMissingProxy,
 		GatewayPortNotOnWorkload,
-		IstioProxyImageMismatch,
 		SchemaValidationError,
 		MisplacedAnnotation,
 		UnknownAnnotation,
@@ -302,7 +297,7 @@ func All() []*diag.MessageType {
 		PodsIstioProxyImageMismatchInNamespace,
 		ConflictingTelemetryWorkloadSelectors,
 		MultipleTelemetriesWithoutWorkloadSelectors,
-		DeprecatedLightstepProvider,
+		InvalidGatewayCredential,
 	}
 }
 
@@ -360,16 +355,6 @@ func NewGatewayPortNotOnWorkload(r *resource.Instance, selector string, port int
 		r,
 		selector,
 		port,
-	)
-}
-
-// NewIstioProxyImageMismatch returns a new diag.Message based on IstioProxyImageMismatch.
-func NewIstioProxyImageMismatch(r *resource.Instance, proxyImage string, injectionImage string) diag.Message {
-	return diag.NewMessage(
-		IstioProxyImageMismatch,
-		r,
-		proxyImage,
-		injectionImage,
 	)
 }
 
@@ -866,11 +851,12 @@ func NewMultipleTelemetriesWithoutWorkloadSelectors(r *resource.Instance, confli
 	)
 }
 
-// NewDeprecatedLightstepProvider returns a new diag.Message based on DeprecatedLightstepProvider.
-func NewDeprecatedLightstepProvider(r *resource.Instance, providerName string) diag.Message {
+// NewInvalidGatewayCredential returns a new diag.Message based on InvalidGatewayCredential.
+func NewInvalidGatewayCredential(r *resource.Instance, gatewayName string, gatewayNamespace string) diag.Message {
 	return diag.NewMessage(
-		DeprecatedLightstepProvider,
+		InvalidGatewayCredential,
 		r,
-		providerName,
+		gatewayName,
+		gatewayNamespace,
 	)
 }

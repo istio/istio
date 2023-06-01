@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"reflect"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -24,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -133,7 +133,7 @@ func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodC
 
 func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 	// If labels updated, trigger proxy push
-	if cur.Status.PodIP != "" && !reflect.DeepEqual(old.Labels, cur.Labels) {
+	if cur.Status.PodIP != "" && !maps.Equal(old.Labels, cur.Labels) {
 		pc.proxyUpdates(cur.Status.PodIP)
 	}
 

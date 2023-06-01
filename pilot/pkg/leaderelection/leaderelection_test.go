@@ -36,17 +36,17 @@ const testLock = "test-lock"
 func createElection(t *testing.T,
 	name string, revision string,
 	watcher revisions.DefaultWatcher,
-	prioritized, expectLeader bool,
+	expectLeader bool,
 	client kubernetes.Interface, fns ...func(stop <-chan struct{}),
 ) (*LeaderElection, chan struct{}) {
-	return createElectionMulticluster(t, name, revision, false, watcher, prioritized, expectLeader, client, fns...)
+	return createElectionMulticluster(t, name, revision, false, watcher, expectLeader, client, fns...)
 }
 
 func createElectionMulticluster(t *testing.T,
 	name, revision string,
 	remote bool,
 	watcher revisions.DefaultWatcher,
-	prioritized, expectLeader bool,
+	expectLeader bool,
 	client kubernetes.Interface, fns ...func(stop <-chan struct{}),
 ) (*LeaderElection, chan struct{}) {
 	t.Helper()
@@ -57,7 +57,6 @@ func createElectionMulticluster(t *testing.T,
 		client:         client,
 		revision:       revision,
 		remote:         remote,
-		prioritized:    prioritized,
 		defaultWatcher: watcher,
 		ttl:            time.Second,
 		cycle:          atomic.NewInt32(0),
@@ -102,9 +101,9 @@ func TestLeaderElection(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	watcher := &fakeDefaultWatcher{}
 	// First pod becomes the leader
-	_, stop := createElection(t, "pod1", "", watcher, true, true, client)
+	_, stop := createElection(t, "pod1", "", watcher, true, client)
 	// A new pod is not the leader
-	_, stop2 := createElection(t, "pod2", "", watcher, true, false, client)
+	_, stop2 := createElection(t, "pod2", "", watcher, false, client)
 	close(stop2)
 	close(stop)
 }
@@ -114,38 +113,34 @@ func TestPrioritizedLeaderElection(t *testing.T) {
 	watcher := &fakeDefaultWatcher{defaultRevision: "red"}
 
 	// First pod, revision "green" becomes the leader, but is not the default revision
-	_, stop := createElection(t, "pod1", "green", watcher, true, true, client)
+	_, stop := createElection(t, "pod1", "green", watcher, true, client)
 	// Second pod, revision "red", steals the leader lock from "green" since it is the default revision
-	_, stop2 := createElection(t, "pod2", "red", watcher, true, true, client)
+	_, stop2 := createElection(t, "pod2", "red", watcher, true, client)
 	// Third pod with revision "red" comes in and cannot take the lock since another revision with "red" has it
-	_, stop3 := createElection(t, "pod3", "red", watcher, true, false, client)
+	_, stop3 := createElection(t, "pod3", "red", watcher, false, client)
 	// Fourth pod with revision "green" cannot take the lock since a revision with "red" has it.
-	_, stop4 := createElection(t, "pod4", "green", watcher, true, false, client)
+	_, stop4 := createElection(t, "pod4", "green", watcher, false, client)
 	close(stop2)
 	close(stop3)
 	close(stop4)
 	// Now that revision "green" has stopped acting as leader, revision "red" should be able to claim lock.
-	_, stop5 := createElection(t, "pod2", "red", watcher, true, true, client)
+	_, stop5 := createElection(t, "pod2", "red", watcher, true, client)
 	close(stop5)
 	close(stop)
 	// Revision "green" can reclaim once "red" releases.
-	_, stop6 := createElection(t, "pod4", "green", watcher, true, true, client)
-	// Test that "red" doesn't steal lock if "prioritized" is disabled
-	_, stop7 := createElection(t, "pod5", "red", watcher, false, false, client)
+	_, stop6 := createElection(t, "pod4", "green", watcher, true, client)
 	close(stop6)
-
-	close(stop7)
 }
 
 func TestMulticlusterLeaderElection(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	watcher := &fakeDefaultWatcher{}
 	// First remote pod becomes the leader
-	_, stop := createElectionMulticluster(t, "pod1", "", true, watcher, false, true, client)
-	// A new local pod cannot become leader
-	_, stop2 := createElectionMulticluster(t, "pod2", "", false, watcher, false, false, client)
+	_, stop := createElectionMulticluster(t, "pod1", "", true, watcher, true, client)
+	// A new local pod should become leader
+	_, stop2 := createElectionMulticluster(t, "pod2", "", false, watcher, true, client)
 	// A new remote pod cannot become leader
-	_, stop3 := createElectionMulticluster(t, "pod3", "", true, watcher, false, false, client)
+	_, stop3 := createElectionMulticluster(t, "pod3", "", true, watcher, false, client)
 	close(stop3)
 	close(stop2)
 	close(stop)
@@ -156,13 +151,13 @@ func TestPrioritizedMulticlusterLeaderElection(t *testing.T) {
 	watcher := &fakeDefaultWatcher{defaultRevision: "red"}
 
 	// First pod, revision "green" becomes the remote leader
-	_, stop := createElectionMulticluster(t, "pod1", "green", true, watcher, true, true, client)
+	_, stop := createElectionMulticluster(t, "pod1", "green", true, watcher, true, client)
 	// Second pod, revision "red", steals the leader lock from "green" since it is the default revision
-	_, stop2 := createElectionMulticluster(t, "pod2", "red", true, watcher, true, true, client)
+	_, stop2 := createElectionMulticluster(t, "pod2", "red", true, watcher, true, client)
 	// Third pod with revision "red" comes in and can take the lock since it is a local revision "red"
-	_, stop3 := createElectionMulticluster(t, "pod3", "red", false, watcher, true, true, client)
+	_, stop3 := createElectionMulticluster(t, "pod3", "red", false, watcher, true, client)
 	// Fourth pod with revision "red" cannot take the lock since it is remote
-	_, stop4 := createElectionMulticluster(t, "pod4", "red", true, watcher, true, false, client)
+	_, stop4 := createElectionMulticluster(t, "pod4", "red", true, watcher, false, client)
 	close(stop4)
 	close(stop3)
 	close(stop2)
@@ -253,7 +248,7 @@ func checkCycles(t *testing.T, start instance, cases []instance, chain []instanc
 func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	watcher := &fakeDefaultWatcher{}
-	_, stop := createElection(t, "pod1", "", watcher, true, true, client)
+	_, stop := createElection(t, "pod1", "", watcher, true, client)
 	if err := client.CoreV1().ConfigMaps("ns").Delete(context.TODO(), testLock, metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +277,7 @@ func TestLeaderElectionNoPermission(t *testing.T) {
 	})
 
 	completions := atomic.NewInt32(0)
-	l, stop := createElection(t, "pod1", "", watcher, true, true, client, func(stop <-chan struct{}) {
+	l, stop := createElection(t, "pod1", "", watcher, true, client, func(stop <-chan struct{}) {
 		completions.Add(1)
 	})
 	// Expect to run once
@@ -331,7 +326,6 @@ func TestLeaderElectionDisabled(t *testing.T) {
 		electionID:     testLock,
 		client:         client,
 		revision:       "",
-		prioritized:    true,
 		defaultWatcher: watcher,
 		ttl:            time.Second,
 		cycle:          atomic.NewInt32(0),
