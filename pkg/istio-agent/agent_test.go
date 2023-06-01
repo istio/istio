@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"istio.io/istio/pkg/http"
 	"net"
 	"os"
 	"path"
@@ -483,8 +484,8 @@ func TestAgent(t *testing.T) {
 	})
 	envoyReady := func(t test.Failer, name string, port int) {
 		retry.UntilSuccessOrFail(t, func() error {
-			code, _, _ := env.HTTPGet(fmt.Sprintf("http://localhost:%d/ready", port))
-			if code != 200 {
+			_, err := http.DoHTTPGet(fmt.Sprintf("http://localhost:%d/ready", port))
+			if err != nil {
 				return fmt.Errorf("envoy %q is not ready", name)
 			}
 			return nil
