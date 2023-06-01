@@ -48,6 +48,7 @@ import (
 	pkgenv "istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/http"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
@@ -483,8 +484,8 @@ func TestAgent(t *testing.T) {
 	})
 	envoyReady := func(t test.Failer, name string, port int) {
 		retry.UntilSuccessOrFail(t, func() error {
-			code, _, _ := env.HTTPGet(fmt.Sprintf("http://localhost:%d/ready", port))
-			if code != 200 {
+			_, err := http.DoHTTPGet(fmt.Sprintf("http://localhost:%d/ready", port))
+			if err != nil {
 				return fmt.Errorf("envoy %q is not ready", name)
 			}
 			return nil
