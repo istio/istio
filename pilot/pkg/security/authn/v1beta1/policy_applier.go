@@ -380,27 +380,23 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 	}
 }
 
-func (a v1beta1PolicyApplier) PortLevelSetting() map[uint32]v1beta1.PeerAuthentication_MutualTLS_Mode {
+func (a v1beta1PolicyApplier) PortLevelSetting() map[uint32]model.MutualTLSMode {
 	return a.consolidatedPeerPolicy.PerPort
 }
 
 func (a v1beta1PolicyApplier) GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
 	if portMtls, ok := a.consolidatedPeerPolicy.PerPort[endpointPort]; ok {
-		return getMutualTLSMode(portMtls)
+		return portMtls
 	}
 
-	return getMutualTLSMode(a.consolidatedPeerPolicy.Mode)
-}
-
-// getMutualTLSMode returns the MutualTLSMode enum corresponding peer MutualTLS settings.
-// Input cannot be nil.
-func getMutualTLSMode(mtls v1beta1.PeerAuthentication_MutualTLS_Mode) model.MutualTLSMode {
-	return model.ConvertToMutualTLSMode(mtls)
+	return a.consolidatedPeerPolicy.Mode
 }
 
 type MergedPeerAuthentication struct {
-	Mode    v1beta1.PeerAuthentication_MutualTLS_Mode
-	PerPort map[uint32]v1beta1.PeerAuthentication_MutualTLS_Mode
+	// Mode is the overall mode of policy. May be overriden by PerPort
+	Mode model.MutualTLSMode
+	// PerPort is the per-port policy
+	PerPort map[uint32]model.MutualTLSMode
 }
 
 // ComposePeerAuthentication returns the effective PeerAuthentication given the list of applicable
@@ -421,7 +417,7 @@ func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) M
 
 	// Initial outputPolicy is set to a PERMISSIVE.
 	outputPolicy := MergedPeerAuthentication{
-		Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+		Mode: model.MTLSPermissive,
 	}
 
 	for _, cfg := range configs {
@@ -452,13 +448,13 @@ func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) M
 
 	if meshCfg != nil && !isMtlsModeUnset(meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls) {
 		// If mesh policy is defined, update parent policy to mesh policy.
-		outputPolicy.Mode = meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls.Mode
+		outputPolicy.Mode = model.ConvertToMutualTLSMode(meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls.Mode)
 	}
 
 	if namespaceCfg != nil && !isMtlsModeUnset(namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls) {
 		// If namespace policy is defined, update output policy to namespace policy. This means namespace
 		// policy overwrite mesh policy.
-		outputPolicy.Mode = namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls.Mode
+		outputPolicy.Mode = model.ConvertToMutualTLSMode(namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls.Mode)
 	}
 
 	var workloadPolicy *v1beta1.PeerAuthentication
@@ -468,17 +464,17 @@ func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) M
 
 	if workloadPolicy != nil && !isMtlsModeUnset(workloadPolicy.Mtls) {
 		// If workload policy is defined, update parent policy to workload policy.
-		outputPolicy.Mode = workloadPolicy.Mtls.Mode
+		outputPolicy.Mode = model.ConvertToMutualTLSMode(workloadPolicy.Mtls.Mode)
 	}
 
 	if workloadPolicy != nil && workloadPolicy.PortLevelMtls != nil {
-		outputPolicy.PerPort = make(map[uint32]v1beta1.PeerAuthentication_MutualTLS_Mode, len(workloadPolicy.PortLevelMtls))
+		outputPolicy.PerPort = make(map[uint32]model.MutualTLSMode, len(workloadPolicy.PortLevelMtls))
 		for port, mtls := range workloadPolicy.PortLevelMtls {
 			if isMtlsModeUnset(mtls) {
 				// Inherit from workload level.
 				outputPolicy.PerPort[port] = outputPolicy.Mode
 			} else {
-				outputPolicy.PerPort[port] = mtls.Mode
+				outputPolicy.PerPort[port] = model.ConvertToMutualTLSMode(mtls.Mode)
 			}
 		}
 	}

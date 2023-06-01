@@ -39,16 +39,16 @@ func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config, sub
 	}
 }
 
-// isMtlsDisabled returns true if the given lbEp has mTLS disabled due to any of
-// This must be called after computeMtlsEnabled
-func (c *mtlsChecker) isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
+// isMtlsDisabled returns true if the given lbEp has mTLS disabled.
+func isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
 	return lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].
 		GetFields()[model.TLSModeLabelShortname].
 		GetStringValue() != model.IstioMutualTLSModeLabel
 }
 
-// computeMtlsEnabled computes whether mTLS should be enabled or not
-func (c *mtlsChecker) computeMtlsEnabled(ep *model.IstioEndpoint) bool {
+// checkMtlsEnabled computes whether mTLS should be enabled or not. This is determined based
+// on the DR, original endpoint TLSMode (based on injection of sidecar), and PeerAuthentication settings.
+func (c *mtlsChecker) checkMtlsEnabled(ep *model.IstioEndpoint) bool {
 	if drMode := c.destinationRule; drMode != nil {
 		switch *drMode {
 		case networkingapi.ClientTLSSettings_DISABLE:
