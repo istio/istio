@@ -833,7 +833,7 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
 // AdsPushAll will send updates to all nodes, with a full push.
 // Mainly used in Debug interface.
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo(), &model.PushRequest{
+	s.AdsPushAll(s.PushVersion.CurrentVersion(), &model.PushRequest{
 		Full:   true,
 		Push:   s.globalPushContext(),
 		Reason: []model.TriggerReason{model.DebugTrigger},
