@@ -863,7 +863,11 @@ func (i AddressInfo) Aliases() []string {
 		}
 		return aliases
 	case *workloadapi.Address_Service:
-		return nil
+		aliases := make([]string, 0, len(addr.Service.Addresses))
+		for _, networkAddr := range addr.Service.Addresses {
+			ip, _ := netip.AddrFromSlice(networkAddr.Address)
+			aliases = append(aliases, networkAddr.Network+"/"+ip.String())
+		}
 	}
 	return nil
 }
