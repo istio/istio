@@ -110,7 +110,7 @@ require (
 	k8s.io/cli-runtime v0.27.2
 	k8s.io/client-go v0.27.2
 	k8s.io/klog/v2 v2.100.1
-	k8s.io/kube-openapi v0.0.0-20230531092745-9b4dcd38a4bf
+	k8s.io/kube-openapi v0.0.0-20230523194449-df37dd07aa00
 	k8s.io/kubectl v0.27.2
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 	sigs.k8s.io/controller-runtime v0.15.0
@@ -164,7 +164,6 @@ require (
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
-	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/pprof v0.0.0-20230406165453-00490a63f317 // indirect
 	github.com/google/s2a-go v0.1.4 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
