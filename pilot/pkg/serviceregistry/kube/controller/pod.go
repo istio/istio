@@ -148,7 +148,7 @@ func GetPodIPs(pod *v1.Pod) []string {
 
 func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 	// If labels updated, trigger proxy push
-	if cur.Status.PodIP != "" && !maps.Equal(old.Labels, cur.Labels) {
+	if len(cur.Status.PodIPs) > 0 && !maps.Equal(old.Labels, cur.Labels) {
 		podIPs := GetPodIPs(cur)
 		pc.proxyUpdates(podIPs)
 	}

@@ -159,10 +159,25 @@ func TestWorkloadInstances(t *testing.T) {
 			Annotations: map[string]string{},
 		},
 		Status: v1.PodStatus{
-			PodIP: "1.2.3.4",
-			Phase: v1.PodPending,
+			PodIP:  "1.2.3.4",
+			PodIPs: []string{ "1.2.3.4" },
+			Phase:  v1.PodPending,
 		},
 	}
+	podMultiIPs := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "podMultiIPs",
+			Namespace:   namespace,
+			Labels:      labels,
+			Annotations: map[string]string{},
+		},
+		Status: v1.PodStatus{
+			PodIP:  "5.6.7.8",
+			PodIPs: []string{ "5.6.7.8", "2001:4860:0:2001::68" },
+			Phase:  v1.PodPending,
+		},
+	}
+
 	workloadEntry := config.Config{
 		Meta: config.Meta{
 			Name:             "workload",
@@ -208,6 +223,24 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
+	t.Run("Kubernetes only for podMultiIPs", func(t *testing.T) {
+		kc, _, _, kube, _ := setupTest(t)
+		makeService(t, kube, service)
+		makePod(t, kube, podMultiIPs)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, podMultiIPs.Status.PodIPs)
+
+		var instances []ServiceInstanceResponse
+		for _, address := range podMultiIPs.Status.PodIPs {
+			instances = append(instances, ServiceInstanceResponse{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    address,
+				Port:       80,
+			})
+		}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
 	t.Run("Kubernetes pod labels update", func(t *testing.T) {
 		_, _, _, kube, xdsUpdater := setupTest(t)
 		makeService(t, kube, service)
@@ -215,6 +248,18 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 		xdsUpdater.WaitOrFail(t, "proxy")
 		newPod := pod.DeepCopy()
+		newPod.Labels["newlabel"] = "new"
+		makePod(t, kube, newPod)
+		xdsUpdater.WaitOrFail(t, "proxy")
+	})
+
+	t.Run("Kubernetes podMultiIPs labels update", func(t *testing.T) {
+		_, _, _, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, service)
+		xdsUpdater.WaitOrFail(t, "service")
+		makePod(t, kube, podMultiIPs)
+		xdsUpdater.WaitOrFail(t, "proxy")
+		newPod := podMultiIPs.DeepCopy()
 		newPod.Labels["newlabel"] = "new"
 		makePod(t, kube, newPod)
 		xdsUpdater.WaitOrFail(t, "proxy")
@@ -237,6 +282,26 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
+	t.Run("Kubernetes only for podMultiIPs: headless service", func(t *testing.T) {
+		kc, _, _, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, headlessService)
+		xdsUpdater.WaitOrFail(t, "service")
+		makePod(t, kube, podMultiIPs)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, podMultiIPs.Status.PodIPs)
+		xdsUpdater.WaitOrFail(t, "eds")
+		xdsUpdater.WaitOrFail(t, "xds full")
+		var instances []ServiceInstanceResponse
+		for _, address := range podMultiIPs.Status.PodIPs {
+			instances = append(instances, ServiceInstanceResponse{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    address,
+				Port:       80,
+			})
+		}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
 	t.Run("Kubernetes only: endpoint occur earlier", func(t *testing.T) {
 		kc, _, _, kube, fx := setupTest(t)
 		makePod(t, kube, pod)
@@ -254,6 +319,29 @@ func TestWorkloadInstances(t *testing.T) {
 			Address:    pod.Status.PodIP,
 			Port:       80,
 		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("Kubernetes only for podMultiIPs: endpoint occur earlier", func(t *testing.T) {
+		kc, _, _, kube, fx := setupTest(t)
+		makePod(t, kube, podMultiIPs)
+
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, podMultiIPs.Status.PodIPs)
+		waitForEdsUpdate(t, fx, 1)
+
+		// make service populated later than endpoint
+		makeService(t, kube, service)
+		fx.WaitOrFail(t, "eds cache")
+
+		var instances []ServiceInstanceResponse
+		for _, address := range podMultiIPs.Status.PodIPs {
+			instances = append(instances, ServiceInstanceResponse{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    address,
+				Port:       80,
+			})
+		}
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
@@ -503,6 +591,38 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
+	t.Run("Service selects both podMultiIPs and WorkloadEntry", func(t *testing.T) {
+		kc, _, store, kube, xdsUpdater := setupTest(t)
+		makeService(t, kube, service)
+		xdsUpdater.WaitOrFail(t, "service")
+
+		makeIstioObject(t, store, workloadEntry)
+		xdsUpdater.WaitOrFail(t, "eds")
+
+		makePod(t, kube, podMultiIPs)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, podMultiIPs.Status.PodIPs)
+		waitForEdsUpdate(t, xdsUpdater, 2)
+
+		var instances []ServiceInstanceResponse
+		for _, address := range podMultiIPs.Status.PodIPs {
+			instances = append(instances, ServiceInstanceResponse{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    address,
+				Port:       80,
+			})
+		}
+		instances = append(instances, ServiceInstanceResponse{
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:       80,
+			}
+		})
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
 	t.Run("Service selects both pods and WorkloadEntry: wle occur earlier", func(t *testing.T) {
 		kc, _, store, kube, fx := setupTest(t)
 		makeIstioObject(t, store, workloadEntry)
@@ -532,6 +652,41 @@ func TestWorkloadInstances(t *testing.T) {
 				Port:       80,
 			},
 		}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("Service selects both podMultiIPs and WorkloadEntry: wle occur earlier", func(t *testing.T) {
+		kc, _, store, kube, fx := setupTest(t)
+		makeIstioObject(t, store, workloadEntry)
+
+		// 	Other than proxy update, no event pushed when workload entry created as no service entry
+		fx.WaitOrFail(t, "proxy")
+		fx.AssertEmpty(t, 200*time.Millisecond)
+
+		makePod(t, kube, podMultiIPs)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, podMultiIPs.Status.PodIPs)
+		waitForEdsUpdate(t, fx, 1)
+
+		makeService(t, kube, service)
+		fx.WaitOrFail(t, "eds cache")
+
+		var instances []ServiceInstanceResponse
+		for _, address := range podMultiIPs.Status.PodIPs {
+			instances = append(instances, ServiceInstanceResponse{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    address,
+				Port:       80,
+			})
+		}
+		instances = append(instances, ServiceInstanceResponse{
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:       80,
+			}
+		})
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
@@ -687,6 +842,23 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 	})
 
+	t.Run("ServiceEntry selects podMultiIPs", func(t *testing.T) {
+		_, wc, store, kube, _ := setupTest(t)
+		makeIstioObject(t, store, serviceEntry)
+		makePod(t, kube, podMultiIPs)
+
+		var instances []ServiceInstanceResponse
+		for _, address := range podMultiIPs.Status.PodIPs {
+			instances = append(instances, ServiceInstanceResponse{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    address,
+				Port:       80,
+			})
+		}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+	})
+
 	t.Run("ServiceEntry selects Pod that is in transit states", func(t *testing.T) {
 		_, wc, store, kube, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
@@ -710,6 +882,38 @@ func TestWorkloadInstances(t *testing.T) {
 
 		setPodReady(pod)
 		_, err = kube.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), pod, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+	})
+
+	t.Run("ServiceEntry selects podMultiIPs that is in transit states", func(t *testing.T) {
+		_, wc, store, kube, _ := setupTest(t)
+		makeIstioObject(t, store, serviceEntry)
+		makePod(t, kube, podMultiIPs)
+
+		var instances []ServiceInstanceResponse
+		for _, address := range podMultiIPs.Status.PodIPs {
+			instances = append(instances, ServiceInstanceResponse{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    address,
+				Port:       80,
+			})
+		}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+
+		// when podMultiIPs become unready, we should see the instances being removed from the registry
+		setPodUnready(podMultiIPs)
+		_, err := kube.CoreV1().Pods(podMultiIPs.Namespace).UpdateStatus(context.TODO(), podMultiIPs, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectServiceInstances(t, wc, expectedSvc, 80, []ServiceInstanceResponse{})
+
+		setPodReady(podMultiIPs)
+		_, err = kube.CoreV1().Pods(podMultiIPs.Namespace).UpdateStatus(context.TODO(), podMultiIPs, metav1.UpdateOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -749,6 +953,42 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 	})
 
+	t.Run("ServiceEntry selects podMultiIPs with targetPort number", func(t *testing.T) {
+		_, wc, store, kube, _ := setupTest(t)
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"service.namespace.svc.cluster.local"},
+				Ports: []*networking.ServicePort{{
+					Name:       "http",
+					Number:     80,
+					Protocol:   "http",
+					TargetPort: 8080,
+				}},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: labels,
+				},
+			},
+		})
+		makePod(t, kube, podMultiIPs)
+
+		var instances []ServiceInstanceResponse
+		for _, address := range podMultiIPs.Status.PodIPs {
+			instances = append(instances, ServiceInstanceResponse{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    address,
+				Port:       80,
+			})
+		}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+	})
+
 	t.Run("All directions", func(t *testing.T) {
 		kc, wc, store, kube, _ := setupTest(t)
 		makeService(t, kube, service)
@@ -773,6 +1013,36 @@ func TestWorkloadInstances(t *testing.T) {
 			},
 		}
 
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
+	t.Run("All directions for podMultiIPs", func(t *testing.T) {
+		kc, wc, store, kube, _ := setupTest(t)
+		makeService(t, kube, service)
+		makeIstioObject(t, store, serviceEntry)
+
+		makePod(t, kube, podMultiIPs)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, podMultiIPs.Status.PodIPs)
+		makeIstioObject(t, store, workloadEntry)
+
+		var instances []ServiceInstanceResponse
+		for _, address := range podMultiIPs.Status.PodIPs {
+			instances = append(instances,  ServiceInstanceResponse{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    address,
+				Port:       80,
+			})
+		}
+		instances = append(instances, ServiceInstanceResponse{
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:       80,
+			},
+		})
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
@@ -805,6 +1075,42 @@ func TestWorkloadInstances(t *testing.T) {
 
 		_ = kube.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 		_ = kube.DiscoveryV1().EndpointSlices(pod.Namespace).Delete(context.TODO(), "service", metav1.DeleteOptions{})
+		_ = store.Delete(gvk.WorkloadEntry, workloadEntry.Name, workloadEntry.Namespace, nil)
+		expectServiceInstances(t, wc, expectedSvc, 80, []ServiceInstanceResponse{})
+		expectServiceInstances(t, kc, expectedSvc, 80, []ServiceInstanceResponse{})
+	})
+
+	t.Run("All directions with deletion and podMultiIPs", func(t *testing.T) {
+		kc, wc, store, kube, _ := setupTest(t)
+		makeService(t, kube, service)
+		makeIstioObject(t, store, serviceEntry)
+
+		makePod(t, kube, podMultiIPs)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, podMultiIPs.Status.PodIPs)
+		makeIstioObject(t, store, workloadEntry)
+
+		var instances []ServiceInstanceResponse
+		for _, address := range podMultiIPs.Status.PodIPs {
+			instances = append(instances, ServiceInstanceResponse{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    address,
+				Port:       80,
+			})
+		}
+		instances = append(instances, ServiceInstanceResponse{
+			{
+				Hostname:   expectedSvc.Hostname,
+				Namestring: expectedSvc.Attributes.Namespace,
+				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:       80,
+			}
+		})
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		_ = kube.CoreV1().Pods(podMultiIPs.Namespace).Delete(context.TODO(), podMultiIPs.Name, metav1.DeleteOptions{})
+		_ = kube.DiscoveryV1().EndpointSlices(podMultiIPs.Namespace).Delete(context.TODO(), "service", metav1.DeleteOptions{})
 		_ = store.Delete(gvk.WorkloadEntry, workloadEntry.Name, workloadEntry.Namespace, nil)
 		expectServiceInstances(t, wc, expectedSvc, 80, []ServiceInstanceResponse{})
 		expectServiceInstances(t, kc, expectedSvc, 80, []ServiceInstanceResponse{})
@@ -908,6 +1214,7 @@ func TestWorkloadInstances(t *testing.T) {
 
 				newPod := pod.DeepCopy()
 				newPod.Status.PodIP = "2.3.4.5"
+				newPod.Status.PodIPs = []string{ "2.3.4.5" }
 				makePod(t, s.KubeClient().Kube(), newPod)
 				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"2.3.4.5:80"}, ambient), nodeMeta)
 
@@ -925,6 +1232,24 @@ func TestWorkloadInstances(t *testing.T) {
 
 				// Simulate pod being deleted by setting deletion timestamp
 				newPod := pod.DeepCopy()
+				newPod.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+				makePod(t, s.KubeClient().Kube(), newPod)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nodeMeta)
+
+				if err := s.KubeClient().Kube().CoreV1().Pods(newPod.Namespace).Delete(context.Background(), newPod.Name, metav1.DeleteOptions{}); err != nil {
+					t.Fatal(err)
+				}
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nodeMeta)
+			})
+
+			t.Run("ServiceEntry selects podMultiIPs: deleting pod", func(t *testing.T) {
+				s := xds.NewFakeDiscoveryServer(t, opts)
+				makeIstioObject(t, s.Store(), serviceEntry)
+				makePod(t, s.KubeClient().Kube(), podMultiIPs)
+				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"5.6.7.8:80", "[2001:4860:0:2001::68]:80"}, ambient), nodeMeta)
+
+				// Simulate pod being deleted by setting deletion timestamp
+				newPod := podMultiIPs.DeepCopy()
 				newPod.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 				makePod(t, s.KubeClient().Kube(), newPod)
 				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nodeMeta)
@@ -1279,8 +1604,9 @@ func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 	}
 	// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
 	// events - since PodIP will be "".
-	newPod.Status.PodIP = pod.Status.PodIP
-	newPod.Status.Phase = v1.PodRunning
+	newPod.Status.PodIP  = pod.Status.PodIP
+	newPod.Status.PodIPs = pod.Status.PodIPs
+	newPod.Status.Phase  = v1.PodRunning
 
 	// Also need to sets the pod to be ready as now we only add pod into service entry endpoint when it's ready
 	setPodReady(newPod)

@@ -83,6 +83,7 @@ type configKey struct {
 	kind      configType
 	name      string
 	namespace string
+	address   string
 }
 
 // Controller communicates with ServiceEntry CRDs and monitors for changes.
@@ -219,6 +220,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		kind:      workloadEntryConfigType,
 		name:      curr.Name,
 		namespace: curr.Namespace,
+		address:   wle.Address,
 	}
 
 	// If an entry is unhealthy, we will mark this as a delete instead
@@ -469,6 +471,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		kind:      podConfigType,
 		name:      wi.Name,
 		namespace: wi.Namespace,
+		address:   wi.Endpoint.Address,
 	}
 	// Used to indicate if this event was fired for a pod->workloadentry conversion
 	// and that the event can be ignored due to no relevant change in the workloadentry
@@ -1042,7 +1045,7 @@ func (s *Controller) buildServiceInstances(
 			}
 			instances := convertWorkloadInstanceToServiceInstance(wi, services, currentServiceEntry)
 			serviceInstances = append(serviceInstances, instances...)
-			ckey := configKey{namespace: wi.Namespace, name: wi.Name}
+			ckey := configKey{namespace: wi.Namespace, name: wi.Name, address: wi.Endpoint.Address}
 			if wi.Kind == model.PodKind {
 				ckey.kind = podConfigType
 			} else {
