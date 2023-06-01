@@ -316,16 +316,6 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
-			// detect if mTLS is possible for this endpoint, used later during ep filtering
-			// this must be done while converting IstioEndpoints because we still have workload labels
-			enabled := b.mtlsChecker.computeMtlsEnabled(ep)
-			tlsMode := ep.TLSMode
-			if !enabled {
-				tlsMode = ""
-			}
-			if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
-				ep.EnvoyEndpoint = nep
-			}
 			locLbEps.append(ep, ep.EnvoyEndpoint)
 		}
 	}
@@ -393,8 +383,15 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
-	// Do not remove pilot/pkg/xds/fake.go
-	util.AppendLbEndpointMetadata(e.Metadata(), ep.Metadata)
+	// Do not remove
+	meta := e.Metadata()
+
+	// detect if mTLS is possible for this endpoint, used later during ep filtering
+	// this must be done while converting IstioEndpoints because we still have workload labels
+	if !b.mtlsChecker.computeMtlsEnabled(e) {
+		meta.TLSMode = ""
+	}
+	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
 	address, port := e.Address, e.EndpointPort
 	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
