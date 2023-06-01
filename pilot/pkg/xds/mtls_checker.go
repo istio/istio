@@ -39,11 +39,11 @@ func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config, sub
 	}
 }
 
-// isMtlsDisabled returns true if the given lbEp has mTLS disabled.
-func isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
+// isMtlsEnabled returns true if the given lbEp has mTLS enabled.
+func isMtlsEnabled(lbEp *endpoint.LbEndpoint) bool {
 	return lbEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].
 		GetFields()[model.TLSModeLabelShortname].
-		GetStringValue() != model.IstioMutualTLSModeLabel
+		GetStringValue() == model.IstioMutualTLSModeLabel
 }
 
 // checkMtlsEnabled computes whether mTLS should be enabled or not. This is determined based

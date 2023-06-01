@@ -100,7 +100,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 			// Cross-network traffic relies on mTLS to be enabled for SNI routing
 			// TODO BTS may allow us to work around this
-			if isMtlsDisabled(lbEp) {
+			if !isMtlsEnabled(lbEp) {
 				continue
 			}
 
@@ -223,7 +223,7 @@ func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocalityEndpoints
 		}
 
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
-			if isMtlsDisabled(lbEp) {
+			if !isMtlsEnabled(lbEp) {
 				// no mTLS, skip it
 				continue
 			}
