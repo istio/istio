@@ -202,7 +202,7 @@ spec:
   configPatches:
   - applyTo: LISTENER_FILTER
     patch:
-      operation: ADD
+      operation: INSERT_FIRST
       value:
         name: proxy_protocol
         typed_config:
