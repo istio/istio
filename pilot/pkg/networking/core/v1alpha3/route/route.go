@@ -433,7 +433,7 @@ func translateRoute(
 	} else if in.DirectResponse != nil {
 		ApplyDirectResponse(out, in.DirectResponse)
 	} else {
-		applyHTTPRouteDestination(out, node, virtualService, in, opts.Mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		applyHTTPRouteDestination(out, virtualService, in, opts.Mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -457,7 +457,6 @@ func translateRoute(
 
 func applyHTTPRouteDestination(
 	out *route.Route,
-	node *model.Proxy,
 	vs config.Config,
 	in *networking.HTTPRoute,
 	mesh *meshconfig.MeshConfig,
