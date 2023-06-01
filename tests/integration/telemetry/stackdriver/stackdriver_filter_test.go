@@ -103,6 +103,10 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 meshConfig:
   enableTracing: true
+values:
+ pilot:
+    env:
+      PILOT_ENABLE_UNSAFE_ENVOY_FILTER: "true"
 `
 	// enable stackdriver filter
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
