@@ -2292,35 +2292,27 @@ func TestComposePeerAuthentication(t *testing.T) {
 func TestGetMutualTLSMode(t *testing.T) {
 	tests := []struct {
 		name string
-		in   *v1beta1.PeerAuthentication_MutualTLS
+		in   v1beta1.PeerAuthentication_MutualTLS_Mode
 		want model.MutualTLSMode
 	}{
 		{
 			name: "unset",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_UNSET,
-			},
+			in:   v1beta1.PeerAuthentication_MutualTLS_UNSET,
 			want: model.MTLSUnknown,
 		},
 		{
 			name: "disable",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
-			},
+			in:   v1beta1.PeerAuthentication_MutualTLS_DISABLE,
 			want: model.MTLSDisable,
 		},
 		{
 			name: "permissive",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-			},
+			in:   v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
 			want: model.MTLSPermissive,
 		},
 		{
 			name: "strict",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-			},
+			in:   v1beta1.PeerAuthentication_MutualTLS_STRICT,
 			want: model.MTLSStrict,
 		},
 	}
