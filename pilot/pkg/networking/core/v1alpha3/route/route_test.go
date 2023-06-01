@@ -77,8 +77,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// Validate that when timeout is not specified, we disable it based on default value of flag.
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.GetMaxStreamDuration()).To(gomega.Equal(int64(0)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.GetGrpcTimeoutHeaderMax()).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.GetMaxStreamDuration().GetSeconds()).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.GetGrpcTimeoutHeaderMax().GetSeconds()).To(gomega.Equal(int64(0)))
 	})
 
 	t.Run("for virtual service with HTTP/3 discovery enabled", func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// Validate that when timeout specified, we send the configured timeout to Envoys.
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(10)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.GetMaxStreamDuration()).To(gomega.Equal(int64(10)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.GetMaxStreamDuration().GetSeconds()).To(gomega.Equal(int64(10)))
 	})
 
 	t.Run("for virtual service with disabled timeout", func(t *testing.T) {
@@ -126,7 +126,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
-		g.Expect(routes[0].GetRoute().MaxStreamDuration.GetMaxStreamDuration()).To(gomega.Equal(int64(0)))
+		g.Expect(routes[0].GetRoute().MaxStreamDuration.GetMaxStreamDuration().GetSeconds()).To(gomega.Equal(int64(0)))
 	})
 
 	t.Run("for virtual service with catch all route", func(t *testing.T) {
