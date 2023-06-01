@@ -54,8 +54,8 @@ type AmbientIndex struct {
 	byService map[networkAddress][]*model.WorkloadInfo
 	// byPod indexes by network/podIP address.
 	byPod map[networkAddress]*model.WorkloadInfo
-	// byUid indexes by workloads by their uid
-	byUid map[string]*model.WorkloadInfo
+	// byUID indexes by workloads by their uid
+	byUID map[string]*model.WorkloadInfo
 	// serviceByAddr are indexed by the network/clusterIP
 	serviceByAddr map[networkAddress]*model.ServiceInfo
 	// serviceByHostname are indexed by the namespace/hostname
@@ -88,8 +88,8 @@ func serviceToAddressInfo(s *workloadapi.Service) *model.AddressInfo {
 	}
 }
 
-// cluster/group/kind/namespace/name/section-name
-func (c *Controller) generatePodUid(p *v1.Pod) string {
+// name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
+func (c *Controller) generatePodUID(p *v1.Pod) string {
 	return c.clusterID.String() + "//" + "v1/pod/" + p.Namespace + "/" + p.Name
 }
 
@@ -101,7 +101,7 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	defer a.mu.RUnlock()
 
 	// uid is primary key, attempt lookup first
-	if wl, f := a.byUid[key]; f {
+	if wl, f := a.byUID[key]; f {
 		return []*model.AddressInfo{workloadToAddressInfo(wl.Workload)}
 	}
 
@@ -144,13 +144,13 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	return res
 }
 
-func (a *AmbientIndex) dropWorkloadFromService(svcAddress networkAddress, workloadUid string) {
+func (a *AmbientIndex) dropWorkloadFromService(svcAddress networkAddress, workloadUID string) {
 	wls := a.byService[svcAddress]
 	// TODO: this is inefficient, but basically we are trying to update a keyed element in a list
 	// Probably we want a Map? But the list is nice for fast lookups
 	filtered := make([]*model.WorkloadInfo, 0, len(wls))
 	for _, inc := range wls {
-		if inc.ResourceName() != workloadUid {
+		if inc.ResourceName() != workloadUID {
 			filtered = append(filtered, inc)
 		}
 	}
@@ -380,7 +380,7 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 			for _, networkAddr := range networkAddrs {
 				c.ambientIndex.byPod[networkAddr] = newWl
 			}
-			c.ambientIndex.byUid[c.generatePodUid(pod)] = newWl
+			c.ambientIndex.byUID[c.generatePodUID(pod)] = newWl
 			c.ambientIndex.mu.Unlock()
 			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
 		}
@@ -677,7 +677,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 	idx := AmbientIndex{
 		byService:         map[networkAddress][]*model.WorkloadInfo{},
 		byPod:             map[networkAddress]*model.WorkloadInfo{},
-		byUid:             map[string]*model.WorkloadInfo{},
+		byUID:             map[string]*model.WorkloadInfo{},
 		waypoints:         map[model.WaypointScope]*workloadapi.GatewayAddress{},
 		serviceByAddr:     map[networkAddress]*model.ServiceInfo{},
 		serviceByHostname: map[string]*model.ServiceInfo{},
@@ -786,12 +786,12 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	}
 	wlNetwork := c.Network(p.Status.PodIP, p.Labels).String()
 	networkAddr := networkAddress{network: wlNetwork, ip: p.Status.PodIP}
-	uid := c.generatePodUid(p)
-	oldWl := a.byUid[uid]
+	uid := c.generatePodUID(p)
+	oldWl := a.byUID[uid]
 	if wl == nil {
 		// This is an explicit delete event, or there is no longer a Workload to create (pod NotReady, etc)
 		delete(a.byPod, networkAddr)
-		delete(a.byUid, uid)
+		delete(a.byUID, uid)
 		if oldWl != nil {
 			// If we already knew about this workload, we need to make sure we drop all VIP references as well
 			for vip := range oldWl.VirtualIps {
@@ -814,7 +814,7 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	for _, networkAddr := range networkAddressFromWorkload(wl) {
 		a.byPod[networkAddr] = wl
 	}
-	a.byUid[c.generatePodUid(p)] = wl
+	a.byUID[c.generatePodUID(p)] = wl
 	if oldWl != nil {
 		// For updates, we will drop the VIPs and then add the new ones back. This could be optimized
 		for vip := range oldWl.VirtualIps {
@@ -918,7 +918,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 			for _, networkAddr := range networkAddressFromWorkload(wl) {
 				a.byPod[networkAddr] = wl
 			}
-			a.byUid[c.generatePodUid(p)] = wl
+			a.byUID[c.generatePodUID(p)] = wl
 			wls = append(wls, wl)
 		}
 
@@ -935,7 +935,6 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		for _, networkAddr := range networkAddrs {
 			delete(a.byService, networkAddr)
 			delete(a.serviceByAddr, networkAddr)
-			// updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
 		delete(a.serviceByHostname, si.ResourceName())
 		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
@@ -943,7 +942,6 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		for _, networkAddr := range networkAddrs {
 			a.byService[networkAddr] = wls
 			a.serviceByAddr[networkAddr] = si
-			// updates.Insert(model.ConfigKey{Kind: kind.Address, Name: networkAddr.String()})
 		}
 		a.serviceByHostname[si.ResourceName()] = si
 		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
@@ -1026,7 +1024,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.Gatewa
 	}
 
 	wl := &workloadapi.Workload{
-		Uid:                   c.generatePodUid(pod),
+		Uid:                   c.generatePodUID(pod),
 		Name:                  pod.Name,
 		Addresses:             addresses,
 		Network:               c.Network(pod.Status.PodIP, pod.Labels).String(),
