@@ -16,13 +16,10 @@ package repair
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,11 +28,10 @@ import (
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -244,7 +240,7 @@ func TestLabelPods(t *testing.T) {
 		config     config.RepairConfig
 		wantLabels map[string]string
 		wantCount  float64
-		wantTags   []tag.Tag
+		wantTags   map[string]string
 	}{
 		{
 			name:   "No broken pods",
@@ -271,7 +267,7 @@ func TestLabelPods(t *testing.T) {
 			},
 			wantLabels: map[string]string{workingPod.Name: "", workingPodDiedPreviously.Name: "", brokenPodWaiting.Name: "testkey=testval"},
 			wantCount:  1,
-			wantTags:   []tag.Tag{{Key: tag.Key(resultLabel), Value: resultSuccess}, {Key: tag.Key(typeLabel), Value: labelType}},
+			wantTags:   map[string]string{"result": resultSuccess, "type": labelType},
 		},
 		{
 			name:   "With already labeled pod",
@@ -285,13 +281,13 @@ func TestLabelPods(t *testing.T) {
 			},
 			wantLabels: map[string]string{workingPod.Name: "", workingPodDiedPreviously.Name: "", brokenPodTerminating.Name: "testlabel=true"},
 			wantCount:  1,
-			wantTags:   []tag.Tag{{Key: tag.Key(resultLabel), Value: resultSkip}, {Key: tag.Key(typeLabel), Value: labelType}},
+			wantTags:   map[string]string{"result": resultSkip, "type": labelType},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mt := monitortest.New(t)
 			tt.config.LabelPods = true
-			exp := initStats(tt.name)
 			c, err := NewRepairController(tt.client, tt.config)
 			assert.NoError(t, err)
 			t.Cleanup(func() {
@@ -309,7 +305,9 @@ func TestLabelPods(t *testing.T) {
 				})
 				return makePodLabelMap(havePods)
 			}, tt.wantLabels)
-			checkStats(t, tt.wantCount, tt.wantTags, exp)
+			if tt.wantCount > 0 {
+				mt.Assert(podsRepaired.Name(), tt.wantTags, monitortest.Exactly(tt.wantCount))
+			}
 		})
 	}
 }
@@ -353,7 +351,6 @@ func TestDeletePods(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.config.DeletePods = true
-			exp := initStats(tt.name)
 			c, err := NewRepairController(tt.client, tt.config)
 			assert.NoError(t, err)
 			t.Cleanup(func() {
@@ -371,55 +368,6 @@ func TestDeletePods(t *testing.T) {
 				})
 				return havePods
 			}, tt.wantPods)
-			checkStats(t, tt.wantCount, tt.wantTags, exp)
 		})
 	}
-}
-
-type testExporter struct {
-	sync.Mutex
-
-	rows        map[string][]*view.Row
-	invalidTags bool
-}
-
-func (t *testExporter) ExportView(d *view.Data) {
-	t.Lock()
-	for _, tk := range d.View.TagKeys {
-		if len(tk.Name()) < 1 {
-			t.invalidTags = true
-		}
-	}
-	t.rows[d.View.Name] = append(t.rows[d.View.Name], d.Rows...)
-	t.Unlock()
-}
-
-// returns 0 when the metric has not been incremented.
-func readFloat64(exp *testExporter, metric monitoring.Metric, tags []tag.Tag) float64 {
-	exp.Lock()
-	defer exp.Unlock()
-	for _, r := range exp.rows[metric.Name()] {
-		if !reflect.DeepEqual(r.Tags, tags) {
-			continue
-		}
-		if sd, ok := r.Data.(*view.SumData); ok {
-			return sd.Value
-		}
-	}
-	return 0
-}
-
-func initStats(name string) *testExporter {
-	podsRepaired = monitoring.NewSum(name, "", monitoring.WithLabels(typeLabel, resultLabel))
-	monitoring.MustRegister(podsRepaired)
-	exp := &testExporter{rows: make(map[string][]*view.Row)}
-	view.RegisterExporter(exp)
-	view.SetReportingPeriod(1 * time.Millisecond)
-	return exp
-}
-
-func checkStats(t test.Failer, wantCount float64, wantTags []tag.Tag, exp *testExporter) {
-	assert.EventuallyEqual(t, func() float64 {
-		return readFloat64(exp, podsRepaired, wantTags)
-	}, wantCount, retry.Message(fmt.Sprintf("wanted tags %v", wantTags)))
 }
