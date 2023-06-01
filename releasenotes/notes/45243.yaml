@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 45242
+releaseNotes:
+  - |
+    **Fixed** `istioctl operator remove` will remove all revisions of operator controller when the revision is "default" or not specified.
