@@ -110,3 +110,24 @@ func Map[E any, O any](s []E, f func(E) O) []O {
 	}
 	return n
 }
+
+// Reference takes a pointer to all elements in the slice
+func Reference[E any](s []E) []*E {
+	res := make([]*E, 0, len(s))
+	for _, v := range s {
+		v := v
+		res = append(res, &v)
+	}
+	return res
+}
+
+// Dereference returns all non-nil references, derefernced
+func Dereference[E any](s []*E) []E {
+	res := make([]E, 0, len(s))
+	for _, v := range s {
+		if v != nil {
+			res = append(res, *v)
+		}
+	}
+	return res
+}
