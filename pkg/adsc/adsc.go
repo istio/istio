@@ -374,6 +374,9 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		serverCABytes = a.cfg.RootCert
 	} else if a.cfg.XDSRootCAFile != "" {
 		serverCABytes, err = os.ReadFile(a.cfg.XDSRootCAFile)
+		if err != nil {
+			return nil, err
+		}
 	} else if a.cfg.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
 		rootCA, err := a.cfg.SecretManager.GenerateSecret(security.RootCertReqResourceName)
