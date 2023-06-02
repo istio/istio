@@ -74,8 +74,7 @@ const (
 )
 
 var (
-	// Function that creates Kubernetes client-go; making it a variable lets us mock client-go
-	interfaceFactory = createInterface
+	interfaceFactory = kubeClientWithRevision
 
 	// Ignore unmeshed pods.  This makes it easy to suppress warnings about kube-system etc
 	ignoreUnmeshed = false
@@ -97,11 +96,11 @@ the configuration objects that affect that pod.`,
 
 			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 
-			client, err := interfaceFactory(kubeconfig)
+			client, err := kubeClientWithRevision("")
 			if err != nil {
 				return err
 			}
-			pod, err := client.CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
+			pod, err := client.Kube().CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -114,7 +113,7 @@ the configuration objects that affect that pod.`,
 
 			printPod(writer, pod, opts.Revision)
 
-			svcs, err := client.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
+			svcs, err := client.Kube().CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -163,9 +162,9 @@ the configuration objects that affect that pod.`,
 			// TODO find sidecar configs that select this workload and render them
 
 			// Now look for ingress gateways
-			return printIngressInfo(writer, matchingServices, podsLabels, client, configClient, kubeClient)
+			return printIngressInfo(writer, matchingServices, podsLabels, client.Kube(), configClient, kubeClient)
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: validPodsNameArgs(kubeClient),
 	}
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
@@ -1020,8 +1019,6 @@ func getIngressIP(service corev1.Service, pod corev1.Pod) string {
 	return "unknown"
 }
 
-var newCLIClient = newKubeClientWithRevision
-
 func svcDescribeCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
@@ -1045,7 +1042,7 @@ the configuration objects that affect that service.`,
 			if err != nil {
 				return err
 			}
-			svc, err := client.CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
+			svc, err := client.Kube().CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -1060,7 +1057,7 @@ the configuration objects that affect that service.`,
 			matchingPods := make([]corev1.Pod, 0)
 			var selectedPodCount int
 			if len(labels) > 0 {
-				pods, err := client.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{
+				pods, err := client.Kube().CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{
 					LabelSelector: strings.Join(labels, ","),
 				})
 				if err != nil {
@@ -1096,7 +1093,7 @@ the configuration objects that affect that service.`,
 				return nil
 			}
 
-			kubeClient, err := newCLIClient(opts.Revision)
+			kubeClient, err := kubeClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -1125,7 +1122,7 @@ the configuration objects that affect that service.`,
 			}
 
 			// Now look for ingress gateways
-			return printIngressInfo(writer, svcs, podsLabels, client, configClient, kubeClient)
+			return printIngressInfo(writer, svcs, podsLabels, client.Kube(), configClient, kubeClient)
 		},
 		ValidArgsFunction: validServiceArgs,
 	}

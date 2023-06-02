@@ -78,10 +78,8 @@ func TestWaypointList(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			kubeClientWithRevision =
 			kubeClient = kube.NewFakeClient()
-			getKubeClient = func() error {
-				return nil
-			}
 			for _, gw := range tt.gateways {
 				_, _ = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).Create(context.Background(), gw, metav1.CreateOptions{})
 			}

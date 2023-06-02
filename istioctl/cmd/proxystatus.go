@@ -150,14 +150,6 @@ func newKubeClientWithRevision(revision string) (kube.CLIClient, error) {
 	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
-func initKubeClient() error {
-	var err error
-	once.Do(func() {
-		kubeClient, err = newKubeClientWithRevision("")
-	})
-	return err
-}
-
 func xdsStatusCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions

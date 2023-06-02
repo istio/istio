@@ -38,7 +38,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/kubectl/pkg/polymorphichelpers"
 	"k8s.io/kubectl/pkg/util/podutils"
@@ -233,16 +232,8 @@ func GetFirstPod(client v1.CoreV1Interface, namespace string, selector string) (
 	return nil, fmt.Errorf("no pods matching selector %q found in namespace %q", selector, namespace)
 }
 
-func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	restConfig, err := kube.BuildClientConfig(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-	return kubernetes.NewForConfig(restConfig)
-}
-
-func getMeshConfigFromConfigMap(kubeconfig, command, revision string) (*meshconfig.MeshConfig, error) {
-	client, err := createInterface(kubeconfig)
+func getMeshConfigFromConfigMap(command, revision string) (*meshconfig.MeshConfig, error) {
+	client, err := kubeClientWithRevision("")
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +241,7 @@ func getMeshConfigFromConfigMap(kubeconfig, command, revision string) (*meshconf
 	if meshConfigMapName == defaultMeshConfigMapName && revision != "" {
 		meshConfigMapName = fmt.Sprintf("%s-%s", defaultMeshConfigMapName, revision)
 	}
-	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not read valid configmap %q from namespace %q: %v - "+
 			"Use --meshConfigFile or re-run "+command+" with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
@@ -272,8 +263,8 @@ func getMeshConfigFromConfigMap(kubeconfig, command, revision string) (*meshconf
 }
 
 // grabs the raw values from the ConfigMap. These are encoded as JSON.
-func getValuesFromConfigMap(kubeconfig, revision string) (string, error) {
-	client, err := createInterface(kubeconfig)
+func getValuesFromConfigMap(revision string) (string, error) {
+	client, err := kubeClientWithRevision("")
 	if err != nil {
 		return "", err
 	}
@@ -281,7 +272,7 @@ func getValuesFromConfigMap(kubeconfig, revision string) (string, error) {
 	if revision != "" {
 		injectConfigMapName = fmt.Sprintf("%s-%s", defaultInjectConfigMapName, revision)
 	}
-	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
 			"Use --valuesFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-sidecar-injector configmap exists",
@@ -311,8 +302,8 @@ func readInjectConfigFile(f []byte) (inject.RawTemplates, error) {
 	return cfg.RawTemplates, err
 }
 
-func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTemplates, error) {
-	client, err := createInterface(kubeconfig)
+func getInjectConfigFromConfigMap(revision string) (inject.RawTemplates, error) {
+	client, err := kubeClientWithRevision("")
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +311,7 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTempla
 	if injectConfigMapName == defaultInjectConfigMapName && revision != "" {
 		injectConfigMapName = fmt.Sprintf("%s-%s", defaultInjectConfigMapName, revision)
 	}
-	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
 			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace>` and ensure istio-sidecar-injector configmap exists",
@@ -395,7 +386,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 				return nil, nil, err
 			}
 		} else {
-			if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject", revision); err != nil {
+			if meshConfig, err = getMeshConfigFromConfigMap("kube-inject", revision); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -417,7 +408,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 		if err != nil || injector.clientConfig == nil {
 			log.Warnf("failed to get injection config from mutatingWebhookConfigurations %q, will fall back to "+
 				"get injection from the injection configmap %q : %v", whcName, defaultInjectWebhookConfigName, err)
-			if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision); err != nil {
+			if *sidecarTemplate, err = getInjectConfigFromConfigMap(revision); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -434,7 +425,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 				return nil, nil, err
 			}
 			*valuesConfig = string(valuesConfigBytes)
-		} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
+		} else if *valuesConfig, err = getValuesFromConfigMap(revision); err != nil {
 			return nil, nil, err
 		}
 	}

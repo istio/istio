@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-func IsZtunnelPod(client kube.Client, podName, podNamespace string) bool {
+func IsZtunnelPod(client kube.CLIClient, podName, podNamespace string) bool {
 	isZtunnel := strings.HasPrefix(podName, "ztunnel")
 	if client == nil {
 		return isZtunnel

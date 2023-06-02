@@ -175,19 +175,18 @@ func revisionListCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			kubeClient, err := kubeClientWithRevision("")
+			if err != nil {
+				return fmt.Errorf("failed to create k8s client: %w", err)
+			}
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
-			return revisionList(cmd.OutOrStdout(), &revArgs, logger)
+			return revisionList(kubeClient, cmd.OutOrStdout(), &revArgs, logger)
 		},
 	}
 	return listCmd
 }
 
-func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) error {
-	err := getKubeClient()
-	if err != nil {
-		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v", kubeconfig, configContext, err)
-	}
-
+func revisionList(kubeClient kube.CLIClient, writer io.Writer, args *revisionArgs, logger clog.Logger) error {
 	revisions, err := tag.ListRevisionDescriptions(kubeClient)
 	if err != nil {
 		return fmt.Errorf("cannot list revisions for kubeconfig=%s, context=%s: %v", kubeconfig, configContext, err)
@@ -227,7 +226,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 
 	if args.verbose {
 		for rev, desc := range revisions {
-			revClient, err := newKubeClientWithRevision(rev)
+			revClient, err := kubeClientWithRevision(rev)
 			if err != nil {
 				return fmt.Errorf("failed to get revision based kubeclient for revision: %s", rev)
 			}
@@ -495,7 +494,7 @@ func getAllMergedIstioOperatorCRs(client kube.CLIClient, logger clog.Logger) ([]
 
 func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logger) error {
 	revision := args.name
-	client, err := newKubeClientWithRevision(revision)
+	client, err := kubeClientWithRevision(revision)
 	if err != nil {
 		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v", kubeconfig, configContext, err)
 	}
@@ -527,7 +526,7 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 		for _, wh := range revDescription.Webhooks {
 			revAliases = append(revAliases, wh.Tag)
 		}
-		if err = annotateWithNamespaceAndPodInfo(revDescription, revAliases); err != nil {
+		if err = annotateWithNamespaceAndPodInfo(kubeClient, revDescription, revAliases); err != nil {
 			return err
 		}
 	}
@@ -553,11 +552,7 @@ func revisionExists(revDescription *tag.RevisionDescription) bool {
 		len(revDescription.EgressGatewayPods) != 0
 }
 
-func annotateWithNamespaceAndPodInfo(revDescription *tag.RevisionDescription, revisionAliases []string) error {
-	err := getKubeClient()
-	if err != nil {
-		return fmt.Errorf("failed to create kubeclient: %v", err)
-	}
+func annotateWithNamespaceAndPodInfo(kubeClient kube.CLIClient, revDescription *tag.RevisionDescription, revisionAliases []string) error {
 	nsMap := make(map[string]*tag.NsInfo)
 	for _, ra := range revisionAliases {
 		pods, err := getPodsWithSelector(kubeClient, "", &metav1.LabelSelector{

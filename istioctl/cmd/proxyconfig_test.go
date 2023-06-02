@@ -42,9 +42,6 @@ func TestProxyConfig(t *testing.T) {
 		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
 		"ztunnel-9v7nw":               []byte("current log level is debug"),
 	}
-	isZtunnelPod = func(podName, _ string) (bool, error) {
-		return strings.HasPrefix(podName, "ztunnel"), nil
-	}
 	cases := []execTestCase{
 		{
 			args:           strings.Split("proxy-config", " "),
@@ -195,7 +192,6 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 
 	// Override the exec client factory used by proxyconfig.go and proxystatus.go
 	kubeClientWithRevision = mockClientExecFactoryGenerator(c.execClientConfig)
-	getKubeClient = mockEnvoyClientFactoryGenerator(c.execClientConfig)
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
@@ -238,18 +234,6 @@ func mockClientExecFactoryGenerator(testResults map[string][]byte) func(_ string
 			CLIClient: kube.NewFakeClient(),
 			Results:   testResults,
 		}, nil
-	}
-
-	return outFactory
-}
-
-func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func() error {
-	outFactory := func() error {
-		kubeClient = MockClient{
-			CLIClient: kube.NewFakeClient(),
-			Results:   testResults,
-		}
-		return nil
 	}
 
 	return outFactory

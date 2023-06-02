@@ -261,6 +261,10 @@ func envoyDashCmd() *cobra.Command {
   istioctl d envoy productpage-123-456.default
 `,
 		RunE: func(c *cobra.Command, args []string) error {
+			kubeClient, err := kubeClientWithRevision("")
+			if err != nil {
+				return fmt.Errorf("failed to create k8s client: %v", err)
+			}
 			if labelSelector == "" && len(args) < 1 {
 				c.Println(c.UsageString())
 				return fmt.Errorf("specify a pod or --selector")
@@ -271,7 +275,6 @@ func envoyDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			err := getKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}

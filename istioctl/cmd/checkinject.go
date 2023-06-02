@@ -63,7 +63,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := getKubeClient()
+			kubeClient, err := kubeClientWithRevision("")
 			if err != nil {
 				return err
 			}

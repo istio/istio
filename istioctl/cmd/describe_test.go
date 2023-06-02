@@ -23,21 +23,19 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
-
 	apiannotation "istio.io/api/annotation"
 	v1alpha32 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // execAndK8sConfigTestCase lets a test case hold some Envoy, Istio, and Kubernetes configuration
@@ -398,7 +396,7 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	if c.configDumps == nil {
 		c.configDumps = map[string][]byte{}
 	}
-	newCLIClient = mockClientExecFactoryGenerator(c.configDumps)
+	kubeClientWithRevision = mockClientExecFactoryGenerator(c.configDumps)
 
 	// Override the K8s config factory
 	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
@@ -438,9 +436,9 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	}
 }
 
-func mockInterfaceFactoryGenerator(k8sConfigs []runtime.Object) func(kubeconfig string) (kubernetes.Interface, error) {
-	outFactory := func(_ string) (kubernetes.Interface, error) {
-		client := fake.NewSimpleClientset(k8sConfigs...)
+func mockInterfaceFactoryGenerator(k8sConfigs []runtime.Object) func(rev string) (kube.CLIClient, error) {
+	outFactory := func(_ string) (kube.CLIClient, error) {
+		client := kube.NewFakeClient(k8sConfigs...)
 		return client, nil
 	}
 

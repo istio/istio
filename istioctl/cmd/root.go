@@ -80,9 +80,6 @@ var (
 	// time the client is not initialized again and is shared between callers.
 	kubeClient kube.CLIClient
 
-	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
-	getKubeClient = initKubeClient
-
 	loggingOptions = defaultLogOptions()
 
 	// scope is for dev logging.  Warning: log levels are not set by --log_output_level until command is Run().
@@ -166,7 +163,9 @@ debug and diagnose their Istio mesh.
 	rootCmd.PersistentFlags().StringVarP(&namespace, FlagNamespace, "n", v1.NamespaceAll,
 		"Config namespace")
 
-	_ = rootCmd.RegisterFlagCompletionFunc(FlagIstioNamespace, validNamespaceArgs)
+	_ = rootCmd.RegisterFlagCompletionFunc(FlagIstioNamespace, func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+
+	})
 	_ = rootCmd.RegisterFlagCompletionFunc(FlagNamespace, validNamespaceArgs)
 
 	// Attach the Istio logging options to the command.

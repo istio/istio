@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"istio.io/istio/pkg/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/authz"
@@ -56,25 +57,24 @@ The command also supports reading from a standalone config dump file with flag -
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		kubeClient, err := kubeClientWithRevision("")
+		if err != nil {
+			return fmt.Errorf("failed to create k8s client: %w", err)
+		}
 		var configDump *configdump.Wrapper
-		var err error
 		if configDumpFile != "" {
 			configDump, err = getConfigDumpFromFile(configDumpFile)
 			if err != nil {
 				return fmt.Errorf("failed to get config dump from file %s: %s", configDumpFile, err)
 			}
 		} else if len(args) == 1 {
-			err := getKubeClient()
-			if err != nil {
-				return fmt.Errorf("failed to create k8s client: %w", err)
-			}
 			podName, podNamespace, err := handlers.InferPodInfoFromTypedResource(args[0],
 				handlers.HandleNamespace(namespace, defaultNamespace),
 				MakeKubeFactory(kubeClient))
 			if err != nil {
 				return err
 			}
-			configDump, err = getConfigDumpFromPod(podName, podNamespace)
+			configDump, err = getConfigDumpFromPod(kubeClient, podName, podNamespace)
 			if err != nil {
 				return fmt.Errorf("failed to get config dump from pod %s in %s", podName, podNamespace)
 			}
@@ -113,12 +113,7 @@ func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
 	return envoyConfig, nil
 }
 
-func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, error) {
-	err := getKubeClient()
-	if err != nil {
-		return nil, err
-	}
-
+func getConfigDumpFromPod(kubeClient kube.CLIClient, podName, podNamespace string) (*configdump.Wrapper, error) {
 	pods, err := kubeClient.GetIstioPods(context.TODO(), podNamespace, metav1.ListOptions{
 		FieldSelector: "metadata.name=" + podName,
 	})

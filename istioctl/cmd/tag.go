@@ -136,7 +136,7 @@ injection labels.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := initKubeClient()
+			kubeClient, err := newKubeClientWithRevision("")
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -184,7 +184,7 @@ injection labels.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := initKubeClient()
+			kubeClient, err := newKubeClientWithRevision("")
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -217,7 +217,7 @@ func tagListCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := initKubeClient()
+			kubeClient, err := newKubeClientWithRevision("")
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -252,7 +252,7 @@ revision tag before removing using the "istioctl tag list" command.
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := initKubeClient()
+			kubeClient, err := newKubeClientWithRevision("")
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}

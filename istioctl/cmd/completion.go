@@ -19,17 +19,13 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"istio.io/istio/pkg/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
 )
 
-func getPodsNameInDefaultNamespace(toComplete string) ([]string, error) {
-	err := getKubeClient()
-	if err != nil {
-		return nil, err
-	}
-
+func getPodsNameInDefaultNamespace(kubeClient kube.CLIClient, toComplete string) ([]string, error) {
 	ctx := context.Background()
 	ns := handlers.HandleNamespace(namespace, defaultNamespace)
 	podList, err := kubeClient.Kube().CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
@@ -47,24 +43,19 @@ func getPodsNameInDefaultNamespace(toComplete string) ([]string, error) {
 	return podsName, nil
 }
 
-func validPodsNameArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func validPodsNameArgs(cmd *cobra.Command, kubeClient kube.CLIClient, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	podsName, err := getPodsNameInDefaultNamespace(toComplete)
+	podsName, err := getPodsNameInDefaultNamespace(kubeClient, toComplete)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 	return podsName, cobra.ShellCompDirectiveNoFileComp
 }
 
-func getServicesName(toComplete string) ([]string, error) {
-	err := getKubeClient()
-	if err != nil {
-		return nil, err
-	}
-
+func getServicesName(kubeClient kube.CLIClient, toComplete string) ([]string, error) {
 	ctx := context.Background()
 	ns := handlers.HandleNamespace(namespace, defaultNamespace)
 	serviceList, err := kubeClient.Kube().CoreV1().Services(ns).List(ctx, metav1.ListOptions{})
@@ -82,24 +73,19 @@ func getServicesName(toComplete string) ([]string, error) {
 	return serviceNameList, nil
 }
 
-func validServiceArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func validServiceArgs(cmd *cobra.Command, kubeClient kube.CLIClient, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	servicesName, err := getServicesName(toComplete)
+	servicesName, err := getServicesName(kubeClient, toComplete)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 	return servicesName, cobra.ShellCompDirectiveNoFileComp
 }
 
-func getNamespacesName(toComplete string) ([]string, error) {
-	err := getKubeClient()
-	if err != nil {
-		return nil, err
-	}
-
+func getNamespacesName(kubeClient kube.CLIClient, toComplete string) ([]string, error) {
 	ctx := context.Background()
 	nsList, err := getNamespaces(ctx, kubeClient)
 	if err != nil {
@@ -116,12 +102,12 @@ func getNamespacesName(toComplete string) ([]string, error) {
 	return nsNameList, nil
 }
 
-func validNamespaceArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func validNamespaceArgs(cmd *cobra.Command, kubeClient kube.CLIClient, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	nsName, err := getNamespacesName(toComplete)
+	nsName, err := getNamespacesName(kubeClient, toComplete)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

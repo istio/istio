@@ -25,7 +25,6 @@ import (
 
 func TestDashboard(t *testing.T) {
 	kubeClientWithRevision = mockExecClientDashboard
-	getKubeClient = mockEnvoyClientDashboard
 
 	cases := []testCase{
 		{ // case 0
@@ -129,11 +128,4 @@ func mockExecClientDashboard(_ string) (kube.CLIClient, error) {
 	return MockClient{
 		CLIClient: kube.NewFakeClient(),
 	}, nil
-}
-
-func mockEnvoyClientDashboard() error {
-	kubeClient = MockClient{
-		CLIClient: kube.NewFakeClient(),
-	}
-	return nil
 }
