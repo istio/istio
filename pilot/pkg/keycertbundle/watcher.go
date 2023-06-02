@@ -17,8 +17,6 @@ package keycertbundle
 import (
 	"os"
 	"sync"
-
-	"go.uber.org/atomic"
 )
 
 // KeyCertBundle stores the cert, private key and root cert for istiod.
@@ -29,9 +27,7 @@ type KeyCertBundle struct {
 }
 
 type Watcher struct {
-	// Indicated whether bundle has been set, it is used to invoke watcher for the first time.
-	initDone  atomic.Bool
-	mutex     sync.Mutex
+	mutex     sync.RWMutex
 	bundle    KeyCertBundle
 	watcherID int32
 	watchers  map[int32]chan struct{}
@@ -79,7 +75,6 @@ func (w *Watcher) SetAndNotify(key, cert, caBundle []byte) {
 	if len(caBundle) != 0 {
 		w.bundle.CABundle = caBundle
 	}
-	w.initDone.Store(true)
 	for _, ch := range w.watchers {
 		select {
 		case ch <- struct{}{}:
@@ -113,7 +108,6 @@ func (w *Watcher) SetFromFilesAndNotify(keyFile, certFile, rootCert string) erro
 	if len(caBundle) != 0 {
 		w.bundle.CABundle = caBundle
 	}
-	w.initDone.Store(true)
 	for _, ch := range w.watchers {
 		select {
 		case ch <- struct{}{}:
@@ -125,14 +119,14 @@ func (w *Watcher) SetFromFilesAndNotify(keyFile, certFile, rootCert string) erro
 
 // GetCABundle returns the CABundle.
 func (w *Watcher) GetCABundle() []byte {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
 	return w.bundle.CABundle
 }
 
-// GetCABundle returns the CABundle.
+// GetKeyCertBundle returns the bundle.
 func (w *Watcher) GetKeyCertBundle() KeyCertBundle {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
 	return w.bundle
 }
