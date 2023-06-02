@@ -43,7 +43,7 @@ type Server struct {
 	namespaces kclient.Client[*corev1.Namespace]
 	pods       kclient.Client[*corev1.Pod]
 
-	mu         sync.Mutex
+	mu         sync.RWMutex
 	ztunnelPod *corev1.Pod
 
 	iptablesCommand lazy.Lazy[string]
@@ -98,8 +98,8 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 }
 
 func (s *Server) isZTunnelRunning() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.ztunnelPod != nil
 }
 

@@ -111,8 +111,8 @@ type Webhook struct {
 }
 
 func (wh *Webhook) GetConfig() WebhookConfig {
-	wh.mu.Lock()
-	defer wh.mu.Unlock()
+	wh.mu.RLock()
+	defer wh.mu.RUnlock()
 	return WebhookConfig{
 		Templates:  wh.Config.Templates,
 		Values:     wh.valuesConfig,
