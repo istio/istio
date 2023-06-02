@@ -868,6 +868,7 @@ func (i AddressInfo) Aliases() []string {
 			ip, _ := netip.AddrFromSlice(networkAddr.Address)
 			aliases = append(aliases, networkAddr.Network+"/"+ip.String())
 		}
+		return aliases
 	}
 	return nil
 }
