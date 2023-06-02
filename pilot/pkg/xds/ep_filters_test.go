@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -179,6 +180,7 @@ var mtlsCases = map[string]map[string]struct {
 	Config         config.Config
 	Configs        []config.Config
 	IsMtlsDisabled bool
+	SubsetName     string
 }{
 	gvk.PeerAuthentication.String(): {
 		"mtls-off-ineffective": {
@@ -410,6 +412,7 @@ var mtlsCases = map[string]map[string]struct {
 				},
 			},
 			IsMtlsDisabled: true,
+			SubsetName:     "disable-tls",
 		},
 		"mtls-on-subset-level": {
 			Config: config.Config{
@@ -425,7 +428,7 @@ var mtlsCases = map[string]map[string]struct {
 						Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
 					},
 					Subsets: []*networking.Subset{{
-						Name:   "disable-tls",
+						Name:   "enable-tls",
 						Labels: map[string]string{"app": "example"},
 						TrafficPolicy: &networking.TrafficPolicy{
 							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
@@ -434,6 +437,7 @@ var mtlsCases = map[string]map[string]struct {
 				},
 			},
 			IsMtlsDisabled: false,
+			SubsetName:     "enable-tls",
 		},
 	},
 }
@@ -443,7 +447,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	env.Env().InitNetworksManager(env.Discovery)
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
-	runNetworkFilterTest(t, env, networkFiltered)
+	runNetworkFilterTest(t, env, networkFiltered, "")
 }
 
 func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
@@ -557,7 +561,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					} else {
 						tests = networkFiltered
 					}
-					runNetworkFilterTest(t, env, tests)
+					runNetworkFilterTest(t, env, tests, pa.SubsetName)
 				})
 			}
 		})
@@ -595,7 +599,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	})
 
 	// Run the tests and ensure that the new gateway is never used.
-	runNetworkFilterTest(t, ds, networkFiltered)
+	runNetworkFilterTest(t, ds, networkFiltered, "")
 }
 
 type networkFilterCase struct {
@@ -606,11 +610,12 @@ type networkFilterCase struct {
 
 // runNetworkFilterTest calls the endpoints filter from each one of the
 // networks and examines the returned filtered endpoints
-func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase) {
+func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase, subset string) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cn := fmt.Sprintf("outbound|80|%s|example.ns.svc.cluster.local", subset)
 			proxy := ds.SetupProxy(tt.conn.proxy)
-			b := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", proxy, ds.PushContext())
+			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			for _, e := range testEndpoints {
@@ -618,7 +623,7 @@ func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []network
 			}
 			compareEndpoints(t, filtered, tt.want)
 
-			b2 := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", proxy, ds.PushContext())
+			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
 			if !reflect.DeepEqual(filtered2, filtered) {
@@ -701,18 +706,19 @@ func TestEndpointsWithMTLSFilter(t *testing.T) {
 					} else {
 						tests = networkFiltered
 					}
-					runMTLSFilterTest(t, env, tests)
+					runMTLSFilterTest(t, env, tests, pa.SubsetName)
 				})
 			}
 		})
 	}
 }
 
-func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase) {
+func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase, subset string) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := ds.SetupProxy(tt.conn.proxy)
-			b := NewEndpointBuilder("outbound_.80_._.example.ns.svc.cluster.local", proxy, ds.PushContext())
+			cn := fmt.Sprintf("outbound_.80_.%s_.example.ns.svc.cluster.local", subset)
+			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			filtered = b.EndpointsWithMTLSFilter(filtered)
@@ -721,7 +727,7 @@ func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFil
 			}
 			compareEndpoints(t, filtered, tt.want)
 
-			b2 := NewEndpointBuilder("outbound_.80_._.example.ns.svc.cluster.local", proxy, ds.PushContext())
+			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
 			filtered2 = b2.EndpointsWithMTLSFilter(filtered2)

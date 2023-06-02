@@ -32,6 +32,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -267,7 +269,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 	for _, tt := range tests {
 		b.Run(fmt.Sprintf("%d/%d", tt.endpoints, tt.services), func(b *testing.B) {
 			s := NewFakeDiscoveryServer(b, FakeOptions{
-				Configs: createEndpoints(tt.endpoints, tt.services, numNetworks),
+				Configs: createEndpointsConfig(tt.endpoints, tt.services, numNetworks),
 				NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 					Networks: createGateways(numNetworks),
 				}),
@@ -505,20 +507,25 @@ func logDebug(b *testing.B, m model.Resources) {
 	b.StartTimer()
 }
 
-func createEndpoints(numEndpoints, numServices, numNetworks int) []config.Config {
+func createEndpointsConfig(numEndpoints, numServices, numNetworks int) []config.Config {
 	result := make([]config.Config, 0, numServices)
 	for s := 0; s < numServices; s++ {
 		endpoints := make([]*networking.WorkloadEntry, 0, numEndpoints)
 		for e := 0; e < numEndpoints; e++ {
 			endpoints = append(endpoints, &networking.WorkloadEntry{
-				Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256),
-				Network: fmt.Sprintf("network-%d", e%numNetworks),
+				Labels: map[string]string{
+					"type": "eds-benchmark",
+					"app":  "foo-" + strconv.Itoa(s),
+				},
+				Address:        fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256),
+				Network:        fmt.Sprintf("network-%d", e%numNetworks),
+				ServiceAccount: "something",
 			})
 		}
 		result = append(result, config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.ServiceEntry,
-				Name:              fmt.Sprintf("foo-%d", s),
+				Name:              "foo-" + strconv.Itoa(s),
 				Namespace:         "default",
 				CreationTimestamp: time.Now(),
 			},
@@ -532,6 +539,41 @@ func createEndpoints(numEndpoints, numServices, numNetworks int) []config.Config
 			},
 		})
 	}
+	// EDS looks up PA, so add a few...
+	result = append(result, config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  gvk.PeerAuthentication,
+			Name:              "global",
+			Namespace:         "istio-system",
+			CreationTimestamp: time.Now(),
+		},
+		Spec: &security.PeerAuthentication{
+			Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_PERMISSIVE},
+		},
+	},
+		config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.PeerAuthentication,
+				Name:              "namespace",
+				Namespace:         "default",
+				CreationTimestamp: time.Now(),
+			},
+			Spec: &security.PeerAuthentication{
+				Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+			},
+		},
+		config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.PeerAuthentication,
+				Name:              "selector",
+				Namespace:         "default",
+				CreationTimestamp: time.Now(),
+			},
+			Spec: &security.PeerAuthentication{
+				Selector: &v1beta1.WorkloadSelector{MatchLabels: map[string]string{"type": "eds-benchmark"}},
+				Mtls:     &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+			},
+		})
 	return result
 }
 
