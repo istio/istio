@@ -39,6 +39,13 @@ spec:
             description: 'Extend the functionality provided by the Istio proxy through
               WebAssembly filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/wasm-plugin.html'
             properties:
+              failStrategy:
+                description: Specifies the failure behavior for the plugin due to
+                  fatal errors.
+                enum:
+                - FAIL_CLOSE
+                - FAIL_OPEN
+                type: string
               imagePullPolicy:
                 enum:
                 - UNSPECIFIED_POLICY
