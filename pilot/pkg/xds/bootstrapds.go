@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"io"
 
-
-
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	envoycorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -82,7 +80,8 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, w *model.WatchedResour
 										filter.GetTypedConfig().TypeUrl = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
 										err = filter.GetTypedConfig().UnmarshalTo(httpProxy)
 										if err != nil {
-											log.Warnf("try to deal with bootstrap static resources for proxy[%s], failed to unmarshal filter [%s->%s] to hcm,errMsg: [%s]", proxy.ID, listener.GetAddress().String(), filter.Name, err.Error())
+											log.Warnf("try to deal with bootstrap static resources for proxy[%s], failed to unmarshal filter [%s->%s] to hcm,errMsg: [%s]",
+												proxy.ID, listener.GetAddress().String(), filter.Name, err.Error())
 											continue
 										}
 										if httpProxy.HttpProtocolOptions != nil {
@@ -94,12 +93,11 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, w *model.WatchedResour
 										}
 										err = filter.GetTypedConfig().MarshalFrom(httpProxy)
 										if err != nil {
-											log.Warnf("after add http10 option, hcm filter failed to marshal from it ")
+											log.Warnf("after add http10 option for the hcm filter, failed to marshal from it ")
 											continue
-										} else {
-											log.Infof("Due to enabled http10 for [%s], the filter [%s->%s] under bootstrap static resources be added http10 option successfully",
-												proxy.ID, listener.GetAddress().String(), filter.GetName())
 										}
+										log.Infof("Due to enabled http10 for [%s], the filter [%s->%s] under bootstrap static resources be added http10 option successfully",
+											proxy.ID, listener.GetAddress().String(), filter.GetName())
 									}
 								}
 							}
