@@ -167,6 +167,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 			RootId:        wasmPlugin.PluginName,
 			Configuration: cfg,
 			Vm:            buildVMConfig(datasource, plugin.ResourceVersion, wasmPlugin),
+			FailOpen:      wasmPlugin.FailStrategy == extensions.FailStrategy_FAIL_OPEN,
 		},
 	}
 	if err != nil {

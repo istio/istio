@@ -256,14 +256,7 @@ func setupWasmExtension(ctx resource.Context) error {
 	proxySHA := "359dcd3a19f109c50e97517fe6b1e2676e870c4d"
 	attrGenURL := fmt.Sprintf("https://storage.googleapis.com/istio-build/proxy/attributegen-%v.wasm", proxySHA)
 	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:%v", registry.Address(), proxySHA)
-	useRemoteWasmModule := false
-	resp, err := http.Get(attrGenURL)
-	if err == nil && resp.StatusCode == http.StatusOK {
-		useRemoteWasmModule = true
-	}
-
 	args := map[string]any{
-		"WasmRemoteLoad":  useRemoteWasmModule,
 		"AttributeGenURL": attrGenImageURL,
 		"DockerConfigJson": base64.StdEncoding.EncodeToString(
 			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
