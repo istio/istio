@@ -143,7 +143,8 @@ type DiscoveryServer struct {
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[cluster.ID]cluster.ID
 
-	PushVersion PushVersion
+	// pushVersion stores the numeric push version. This should be accessed via NextVersion()
+	pushVersion atomic.Uint64
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -277,7 +278,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
 		s.dropCacheForRequest(req)
-		s.AdsPushAll(s.PushVersion.CurrentVersion(), req)
+		s.AdsPushAll(req)
 		return
 	}
 	// Reset the status during the push.
@@ -291,7 +292,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// saved.
 	t0 := time.Now()
 
-	versionLocal := s.PushVersion.NextVersion()
+	versionLocal := s.NextVersion()
 	push, err := s.initPushContext(req, oldPushContext, versionLocal)
 	if err != nil {
 		return
@@ -300,10 +301,8 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 	pushContextInitTime.Record(initContextTime.Seconds())
 
-	s.PushVersion.SetVersion(versionLocal)
-
 	req.Push = push
-	s.AdsPushAll(versionLocal, req)
+	s.AdsPushAll(req)
 }
 
 func nonce(noncePrefix string) string {
@@ -644,21 +643,6 @@ func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
 	return s.RequestRateLimit.Wait(wait)
 }
 
-type PushVersion struct {
-	// version is the timestamp of the last registry event.
-	version atomic.String
-	// versionNum counts versions
-	versionNum atomic.Uint64
-}
-
-func (v PushVersion) NextVersion() string {
-	return time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(v.versionNum.Inc(), 10)
-}
-
-func (v PushVersion) SetVersion(s string) {
-	v.version.Store(s)
-}
-
-func (v PushVersion) CurrentVersion() string {
-	return v.version.Load()
+func (s *DiscoveryServer) NextVersion() string {
+	return time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(s.pushVersion.Inc(), 10)
 }
