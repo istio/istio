@@ -26,6 +26,7 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
+	"github.com/hashicorp/go-multierror"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -148,6 +150,7 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 
 func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 	resources := model.Resources{}
+	multiErr := istiomultierror.New()
 	for _, resourceName := range resourceNames {
 		secret, err := s.st.GenerateSecret(resourceName)
 		if err != nil {
@@ -157,7 +160,8 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			// of resources, and failures here are generally due to temporary networking issues to the CA
 			// rather than a result of configuration issues, which trigger updates in Istiod when resolved.
 			// Instead, we rely on the client to retry (with backoff) on failures.
-			return nil, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err)
+			multiErr = multierror.Append(multiErr, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err))
+			continue
 		}
 
 		res := protoconv.MessageToAny(toEnvoySecret(secret, s.rootCaPath, s.pkpConf))
@@ -166,7 +170,7 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			Resource: res,
 		})
 	}
-	return resources, nil
+	return resources, multiErr.ErrorOrNil()
 }
 
 // Generate implements the XDS Generator interface. This allows the XDS server to dispatch requests
