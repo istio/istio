@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - 44889
+
+releaseNotes:
+  - |
+    **Added** If the feature HTTP/1.0 be enabled, "acceptHttp10" HTTP/1.0 option will also be added to static listeners under bootstrap.
