@@ -550,30 +550,30 @@ func createEndpointsConfig(numEndpoints, numServices, numNetworks int) []config.
 		Spec: &security.PeerAuthentication{
 			Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_PERMISSIVE},
 		},
-	})
-	result = append(result, config.Config{
-		Meta: config.Meta{
-			GroupVersionKind:  gvk.PeerAuthentication,
-			Name:              "namespace",
-			Namespace:         "default",
-			CreationTimestamp: time.Now(),
+	},
+		config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.PeerAuthentication,
+				Name:              "namespace",
+				Namespace:         "default",
+				CreationTimestamp: time.Now(),
+			},
+			Spec: &security.PeerAuthentication{
+				Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+			},
 		},
-		Spec: &security.PeerAuthentication{
-			Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-		},
-	})
-	result = append(result, config.Config{
-		Meta: config.Meta{
-			GroupVersionKind:  gvk.PeerAuthentication,
-			Name:              "selector",
-			Namespace:         "default",
-			CreationTimestamp: time.Now(),
-		},
-		Spec: &security.PeerAuthentication{
-			Selector: &v1beta1.WorkloadSelector{MatchLabels: map[string]string{"type": "eds-benchmark"}},
-			Mtls:     &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
-		},
-	})
+		config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.PeerAuthentication,
+				Name:              "selector",
+				Namespace:         "default",
+				CreationTimestamp: time.Now(),
+			},
+			Spec: &security.PeerAuthentication{
+				Selector: &v1beta1.WorkloadSelector{MatchLabels: map[string]string{"type": "eds-benchmark"}},
+				Mtls:     &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+			},
+		})
 	return result
 }
 

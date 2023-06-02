@@ -393,7 +393,7 @@ func (a v1beta1PolicyApplier) GetMutualTLSModeForPort(endpointPort uint32) model
 }
 
 type MergedPeerAuthentication struct {
-	// Mode is the overall mode of policy. May be overriden by PerPort
+	// Mode is the overall mode of policy. May be overridden by PerPort
 	Mode model.MutualTLSMode
 	// PerPort is the per-port policy
 	PerPort map[uint32]model.MutualTLSMode

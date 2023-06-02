@@ -30,7 +30,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"istio.io/istio/pkg/test/util/assert"
 
 	authn_alpha "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
@@ -46,6 +45,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	protovalue "istio.io/istio/pkg/proto"
 	istiotest "istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestJwtFilter(t *testing.T) {
