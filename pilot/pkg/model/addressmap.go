@@ -41,6 +41,16 @@ func (m *AddressMap) IsEmpty() bool {
 	return len(m.Addresses) == 0
 }
 
+func (m *AddressMap) Len() int {
+	if m == nil {
+		return 0
+	}
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	return len(m.Addresses)
+}
+
 func (m *AddressMap) DeepCopy() *AddressMap {
 	if m == nil {
 		return nil

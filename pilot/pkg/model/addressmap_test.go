@@ -109,6 +109,47 @@ func TestAddressMapIsEmpty(t *testing.T) {
 	}
 }
 
+func TestAddressMapLen(t *testing.T) {
+	cases := []struct {
+		name     string
+		newMap   func() *model.AddressMap
+		expected int
+	}{
+		{
+			name: "nil addresses map",
+			newMap: func() *model.AddressMap {
+				return nil
+			},
+			expected: 0,
+		},
+		{
+			name: "empty addresses map",
+			newMap: func() *model.AddressMap {
+				m := model.AddressMap{}
+				m.AddAddressesFor(c1ID, make([]string, 0))
+				return &m
+			},
+			expected: 0,
+		},
+		{
+			name: "non-empty addresses map",
+			newMap: func() *model.AddressMap {
+				m := model.AddressMap{}
+				m.AddAddressesFor(c1ID, c1Addresses)
+				return &m
+			},
+			expected: 1,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			g := NewWithT(t)
+			g.Expect(c.newMap().Len()).To(Equal(c.expected))
+		})
+	}
+}
+
 func TestAddressMapGetAddressesFor(t *testing.T) {
 	g := NewWithT(t)
 
