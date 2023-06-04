@@ -148,12 +148,6 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 			continue
 		}
 
-		// We don't support DISABLE policies in Ambient mode
-		if isMtlsModeDisable(spec.Mtls) {
-			log.Debugf("Skipped disable PeerAuthentication %s/%s because they aren't supported in Ambient", cfg.Name, cfg.Namespace)
-			continue
-		}
-
 		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
 			// Namespace-level or mesh-level policy
 			if cfg.Namespace == rootNamespace {
@@ -217,8 +211,8 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 		isEffectiveStrictPolicy = true
 	}
 
-	// Regardless of if we have port-level overrides, if the workload policy is PERMISSIVE, then we shouldn't send our static STRICT policy
-	if isMtlsModePermissive(workloadSpec.Mtls) {
+	// Regardless of if we have port-level overrides, if the workload policy is PERMISSIVE or DISABLE, then we shouldn't send our static STRICT policy
+	if isMtlsModePermissive(workloadSpec.Mtls) || isMtlsModeDisable(workloadSpec.Mtls) {
 		isEffectiveStrictPolicy = false
 	}
 
@@ -227,7 +221,7 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 		case v1beta1.PeerAuthentication_MutualTLS_STRICT:
 			foundPermissive := false
 			for _, portMtls := range workloadSpec.PortLevelMtls {
-				if isMtlsModePermissive(portMtls) {
+				if isMtlsModePermissive(portMtls) || isMtlsModeDisable(portMtls) {
 					foundPermissive = true
 					break
 				}
@@ -238,13 +232,12 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 				effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
 				isEffectiveStrictPolicy = false // don't send our static STRICT policy since the converted form of this policy will include the default STRICT mode
 			}
-		case v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE:
-			isEffectiveStrictPolicy = false // any ports that aren't specified will be PERMISSIVE so this workload isn't effectively under a STRICT policy
+		case v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE, v1beta1.PeerAuthentication_MutualTLS_DISABLE:
 			foundStrict := false
 			for _, portMtls := range workloadSpec.PortLevelMtls {
 				if isMtlsModeStrict(portMtls) {
 					foundStrict = true
-					continue
+					break
 				}
 			}
 
@@ -389,6 +382,8 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 		}
 
 		mtlsUnchanged := oldPa.GetMtls().GetMode() == newPa.GetMtls().GetMode()
+		mtlsUnchanged = mtlsUnchanged || (oldPa.GetMtls().GetMode() == v1beta1.PeerAuthentication_MutualTLS_DISABLE && newPa.GetMtls().GetMode() == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE)
+		mtlsUnchanged = mtlsUnchanged || (oldPa.GetMtls().GetMode() == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE && newPa.GetMtls().GetMode() == v1beta1.PeerAuthentication_MutualTLS_DISABLE)
 
 		portLevelMtlsUnchanged := portMtlsEqual(oldPa.GetPortLevelMtls(), newPa.GetPortLevelMtls())
 		if maps.Equal(sel, oldSel) && mtlsUnchanged && portLevelMtlsUnchanged {
@@ -540,8 +535,7 @@ func (c *Controller) getPodsInPolicy(ns string, sel map[string]string, meshWideS
 // 1. the PeerAuthentication has a workload selector
 // 2. The PeerAuthentication is NOT in the root namespace
 // 3. There is a portLevelMtls policy (technically implied by 1)
-// 4. The top-level PeerAuthentication mode is STRICT, UNSET, or PERMISSIVE
-// 5. If the top-level mode is PERMISSIVE, there is at least one portLevelMtls policy with mode STRICT
+// 4. If the top-level mode is PERMISSIVE or DISABLE, there is at least one portLevelMtls policy with mode STRICT
 // STRICT policies that don't have portLevelMtls will be
 // handled when the Workload xDS resource is pushed (a static STRICT-equivalent policy will always be pushed)
 func convertPeerAuthentication(rootNamespace string, cfg config.Config) *security.Authorization {
@@ -552,12 +546,6 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 	}
 
 	mode := pa.GetMtls().GetMode()
-
-	// Violates case #4
-	if mode == v1beta1.PeerAuthentication_MutualTLS_DISABLE {
-		log.Debugf("skipping PeerAuthentication %s/%s for ambient with mTLS %s mode", cfg.Namespace, cfg.Name, mode)
-		return nil
-	}
 
 	scope := security.Scope_WORKLOAD_SELECTOR
 	// violates case #1, #2, or #3
@@ -613,9 +601,30 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 			})
 		case portMtlsMode == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE:
 			// Check top-level mode
-			if mode == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE {
+			if mode == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE || mode == v1beta1.PeerAuthentication_MutualTLS_DISABLE {
 				// we don't care; log and continue
-				log.Debugf("skipping port %s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is also PERMISSIVE", port, cfg.Namespace, cfg.Name)
+				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s", port, portMtlsMode, cfg.Namespace, cfg.Name, mode)
+				continue
+			}
+			foundNonStrictPortmTLS = true
+
+			// If the top level policy is STRICT, we need to add a rule for the port that exempts it from the deny policy
+			groups = append(groups, &security.Group{
+				Rules: []*security.Rules{
+					{
+						Matches: []*security.Match{
+							{
+								NotDestinationPorts: []uint32{port}, // if the incoming connection does not match this port, deny (notice there's no principals requirement)
+							},
+						},
+					},
+				},
+			})
+		case portMtlsMode == v1beta1.PeerAuthentication_MutualTLS_DISABLE:
+			// Check top-level mode
+			if mode == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE || mode == v1beta1.PeerAuthentication_MutualTLS_DISABLE {
+				// we don't care; log and continue
+				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s", port, portMtlsMode, cfg.Namespace, cfg.Name, mode)
 				continue
 			}
 			foundNonStrictPortmTLS = true
@@ -633,7 +642,7 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 				},
 			})
 		default:
-			log.Debugf("skipping port %s for PeerAuthentication %s/%s for ambient since it is UNSET or DISABLED", port, cfg.Namespace, cfg.Name)
+			log.Debugf("skipping port %s for PeerAuthentication %s/%s for ambient since it is %s", port, cfg.Namespace, cfg.Name, portMtlsMode)
 			continue
 		}
 	}
