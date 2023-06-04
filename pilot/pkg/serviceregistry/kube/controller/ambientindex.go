@@ -38,6 +38,11 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
+const (
+	convertedPeerAuthenticationPrefix = "converted-peer-authentication"
+	staticStrictPolicyName            = "istio-converted-static-strict"
+)
+
 // AmbientIndex maintains an index of ambient WorkloadInfo objects by various keys.
 // These are intentionally pre-computed based on events such that lookups are efficient.
 type AmbientIndex struct {
@@ -316,6 +321,7 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	}
 
 	policies := c.selectorAuthorizationPolicies(p.Namespace, p.Labels)
+	policies = append(policies, c.convertedSelectorPeerAuthentications(p.Namespace, p.Labels)...)
 	wl := c.constructWorkload(p, waypoint, policies)
 	if wl == nil {
 		return nil
