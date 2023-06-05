@@ -669,6 +669,19 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
+	disabledAllMetricsImplicit := &tpb.Telemetry{
+		Metrics: []*tpb.Metrics{
+			{
+				Overrides: []*tpb.MetricsOverrides{{
+					Disabled: &wrappers.BoolValue{
+						Value: true,
+					},
+				}},
+
+				Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+			},
+		},
+	}
 
 	cfg := `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`
 
@@ -693,6 +706,15 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"disabled-prometheus",
 			[]config.Config{newTelemetry("istio-system", disbaledAllMetrics)},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{},
+		},
+		{
+			"disabled-prometheus-implicit",
+			[]config.Config{newTelemetry("istio-system", disabledAllMetricsImplicit)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,

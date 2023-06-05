@@ -869,7 +869,7 @@ func isAllMetrics(match *tpb.MetricSelector) bool {
 	case *tpb.MetricSelector_Metric:
 		return m.Metric == tpb.MetricSelector_ALL_METRICS
 	default:
-		return false
+		return true
 	}
 }
 
