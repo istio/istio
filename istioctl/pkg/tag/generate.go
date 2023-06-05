@@ -23,6 +23,8 @@ import (
 	"strings"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -137,7 +139,7 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 		// instead grab the endpoint information from the mutating webhook. This is not strictly correct.
 		validationWhConfig := fixWhConfig(tagWhConfig)
 
-		vwhYAML, err := generateValidatingWebhook(validationWhConfig, opts.ManifestsPath, opts.CustomLabels)
+		vwhYAML, err := generateValidatingWebhook(client, validationWhConfig, opts.ManifestsPath, opts.CustomLabels)
 		if err != nil {
 			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
@@ -147,6 +149,29 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 	}
 
 	return tagWhYAML, nil
+}
+
+func fixWhFailurePolicy(client kube.Client, vwc *admitv1.ValidatingWebhookConfiguration) (*admitv1.ValidatingWebhookConfiguration, error) {
+	var curWebhooks []admitv1.ValidatingWebhook
+	curObj, err := client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().
+		Get(context.Background(), vwc.Name, metav1.GetOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, err
+		}
+	}
+	if curObj != nil {
+		curWebhooks = curObj.Webhooks
+	}
+	for i := range vwc.Webhooks {
+		if curWebhooks != nil && i < len(curWebhooks) {
+			failurePolicy := curWebhooks[i].FailurePolicy
+			if *failurePolicy == admitv1.Fail {
+				vwc.Webhooks[i].FailurePolicy = nil
+			}
+		}
+	}
+	return vwc, nil
 }
 
 func fixWhConfig(whConfig *tagWebhookConfig) *tagWebhookConfig {
@@ -169,7 +194,7 @@ func Create(client kube.CLIClient, manifests, ns string) error {
 }
 
 // generateValidatingWebhook renders a validating webhook configuration from the given tagWebhookConfig.
-func generateValidatingWebhook(config *tagWebhookConfig, chartPath string, customLabels map[string]string) (string, error) {
+func generateValidatingWebhook(client kube.Client, config *tagWebhookConfig, chartPath string, customLabels map[string]string) (string, error) {
 	r := helm.NewHelmRenderer(chartPath, defaultChart, "Pilot", config.IstioNamespace, nil)
 
 	if err := r.Run(); err != nil {
@@ -212,6 +237,13 @@ base:
 	decodedWh.Labels = mergeMaps(decodedWh.Labels, config.Labels)
 	decodedWh.Labels = mergeMaps(decodedWh.Labels, customLabels)
 	decodedWh.Annotations = mergeMaps(decodedWh.Annotations, config.Annotations)
+
+	// webhook failurePolicy is managed by istiod, so if currently we already have a webhook in cluster,
+	// we remove setting it from the manifest
+	decodedWh, err = fixWhFailurePolicy(client, decodedWh)
+	if err != nil {
+		return "", err
+	}
 
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {

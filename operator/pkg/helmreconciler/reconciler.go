@@ -22,8 +22,6 @@ import (
 	"sync"
 	"time"
 
-	admission "k8s.io/api/admissionregistration/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -662,52 +660,7 @@ func applyManifests(kubeClient kube.Client, manifests string) error {
 			ogvr = gvr.ValidatingWebhookConfiguration
 		}
 
-		// webhook failurePolicy is managed by istiod, so if currently we already have a webhook in cluster,
-		// we remove setting it from the manifest
-		webhooks, found, err := unstructured.NestedSlice(obj.Object, "webhooks")
-		if err != nil {
-			return fmt.Errorf("failed to get webhooks: %w", err)
-		}
-		if found && ogvr == gvr.ValidatingWebhookConfiguration {
-			var curWebhooks []interface{}
-			curObj, err := kubeClient.Dynamic().Resource(ogvr).Namespace(obj.GetNamespace()).Get(
-				context.TODO(), obj.GetName(), metav1.GetOptions{})
-			if err != nil && !errors.IsNotFound(err) {
-				return fmt.Errorf("failed to get current object: %w", err)
-			}
-			if curObj != nil {
-				curWebhooks, _, _ = unstructured.NestedSlice(curObj.Object, "webhooks")
-			}
-
-			for i := range webhooks {
-				webhook, ok := webhooks[i].(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("failed to convert webhook to map")
-				}
-				if curWebhooks != nil && i < len(curWebhooks) {
-					curWebhook, ok := curWebhooks[i].(map[string]interface{})
-					if !ok {
-						return fmt.Errorf("failed to convert current webhook to map")
-					}
-					if v := curWebhook["failurePolicy"]; v != nil && v.(string) == string(admission.Fail) {
-						delete(webhook, "failurePolicy")
-					}
-				}
-				webhooks[i] = webhook
-			}
-			if err := unstructured.SetNestedSlice(obj.Object, webhooks, "webhooks"); err != nil {
-				return fmt.Errorf("failed to set webhooks: %w", err)
-			}
-
-			patchYAML, err := yaml.Marshal(obj)
-			if err != nil {
-				return fmt.Errorf("failed to marshal YAML: %w", err)
-			}
-
-			yml = string(patchYAML)
-		}
-
-		_, err = kubeClient.Dynamic().Resource(ogvr).Namespace(obj.GetNamespace()).Patch(
+		_, err := kubeClient.Dynamic().Resource(ogvr).Namespace(obj.GetNamespace()).Patch(
 			context.TODO(), obj.GetName(), types.ApplyPatchType, []byte(yml), metav1.PatchOptions{
 				Force:        nil,
 				FieldManager: fieldOwnerOperator,
