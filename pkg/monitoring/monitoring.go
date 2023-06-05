@@ -43,9 +43,6 @@ type (
 		// Record makes an observation of the provided value for the given measure.
 		Record(value float64)
 
-		// RecordInt makes an observation of the provided value for the measure.
-		RecordInt(value int64)
-
 		// With creates a new Metric, with the LabelValues provided. This allows creating
 		// a set of pre-dimensioned data for recording purposes. This is primarily used
 		// for documentation and convenience. Metrics created with this method do not need

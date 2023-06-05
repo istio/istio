@@ -30,9 +30,6 @@ func (dm *disabledMetric) Name() string {
 // Record implements Metric
 func (dm *disabledMetric) Record(value float64) {}
 
-// RecordInt implements Metric
-func (dm *disabledMetric) RecordInt(value int64) {}
-
 // Register implements Metric
 func (dm *disabledMetric) Register() error {
 	return nil

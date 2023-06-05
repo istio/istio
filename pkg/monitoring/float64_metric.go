@@ -98,10 +98,6 @@ func (f *float64Metric) recordMeasurements(m []stats.Measurement) {
 	stats.Record(f.ctx, m...)
 }
 
-func (f *float64Metric) RecordInt(value int64) {
-	f.Record(float64(value))
-}
-
 func (f *float64Metric) With(labelValues ...LabelValue) Metric {
 	t := make([]tag.Mutator, len(f.tags), len(f.tags)+len(labelValues))
 	copy(t, f.tags)
