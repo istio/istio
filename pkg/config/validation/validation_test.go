@@ -3313,6 +3313,12 @@ func TestValidateWorkloadEntry(t *testing.T) {
 			valid: false,
 		},
 		{
+			name:    "missing address with network",
+			in:      &networking.WorkloadEntry{Network: "network-2"},
+			valid:   true,
+			warning: true,
+		},
+		{
 			name:  "valid unix endpoint",
 			in:    &networking.WorkloadEntry{Address: "unix:///lon/google/com"},
 			valid: true,
