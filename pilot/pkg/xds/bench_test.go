@@ -290,7 +290,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
 					loadAssignments = append(loadAssignments, protoconv.MessageToAny(l))
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.LedgerVersion)
+				response = endpointDiscoveryResponse(loadAssignments, push.PushVersion, push.LedgerVersion)
 			}
 			logDebug(b, model.AnyToUnnamedResources(response.GetResources()))
 		})
