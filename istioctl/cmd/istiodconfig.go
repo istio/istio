@@ -415,7 +415,7 @@ func istiodLogCmd(ctx *clicontext.CLIContext) *cobra.Command {
 			return nil
 		},
 		RunE: func(logCmd *cobra.Command, args []string) error {
-			client, err := ctx.CLIClientWithRevision(opts.Revision)
+			client, err := kubeClientWithRevision(ctx, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
