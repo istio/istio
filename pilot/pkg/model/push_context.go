@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
@@ -2173,17 +2174,11 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 	}]
 }
 
-func (ps *PushContext) SupportsTunnel(ip string) bool {
-	infos, _ := ps.ambientIndex.AddressInformation(sets.New(types.NamespacedName{Name: ip}))
-	for _, p := range infos {
-		switch addr := p.Address.Type.(type) {
-		case *workloadapi.Address_Workload:
-			if addr.Workload.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
-				return true
-			}
-		case *workloadapi.Address_Service:
-			// Services do not directly support tunneling, their individual Workloads can though
-			continue
+func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
+	infos, _ := ps.ambientIndex.AddressInformation(sets.New(n.String() + "/" + ip))
+	for _, wl := range ExtractWorkloadsFromAddresses(infos) {
+		if wl.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
+			return true
 		}
 	}
 	return false

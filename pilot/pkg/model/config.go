@@ -95,15 +95,28 @@ func ConfigNamesOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.String 
 }
 
 // ConfigNamespacedNameOfKind extracts config names of the specified kind.
-func ConfigNamespacedNameOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[types.NamespacedName]struct{} {
-	ret := map[types.NamespacedName]struct{}{}
+func ConfigNamespacedNameOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) sets.Set[types.NamespacedName] {
+	ret := sets.New[types.NamespacedName]()
 
 	for conf := range configs {
 		if conf.Kind == kind {
-			ret[types.NamespacedName{
+			ret.Insert(types.NamespacedName{
 				Namespace: conf.Namespace,
 				Name:      conf.Name,
-			}] = struct{}{}
+			})
+		}
+	}
+
+	return ret
+}
+
+// ConfigNameOfKind extracts config names of the specified kind.
+func ConfigNameOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) sets.String {
+	ret := sets.New[string]()
+
+	for conf := range configs {
+		if conf.Kind == kind {
+			ret.Insert(conf.Name)
 		}
 	}
 

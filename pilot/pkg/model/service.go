@@ -32,7 +32,6 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 	"google.golang.org/protobuf/proto"
-	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -808,12 +807,12 @@ type ServiceDiscovery interface {
 }
 
 type AmbientIndexes interface {
-	AddressInformation(addresses sets.Set[types.NamespacedName]) ([]*AddressInfo, []string)
+	AddressInformation(addresses sets.String) ([]*AddressInfo, []string)
 	AdditionalPodSubscriptions(
 		proxy *Proxy,
-		allAddresses sets.Set[types.NamespacedName],
-		currentSubs sets.Set[types.NamespacedName],
-	) sets.Set[types.NamespacedName]
+		allAddresses sets.String,
+		currentSubs sets.String,
+	) sets.Set[string]
 	Policies(requested sets.Set[ConfigKey]) []*security.Authorization
 	Waypoint(scope WaypointScope) []netip.Addr
 	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
@@ -822,15 +821,15 @@ type AmbientIndexes interface {
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
 type NoopAmbientIndexes struct{}
 
-func (u NoopAmbientIndexes) AddressInformation(sets.Set[types.NamespacedName]) ([]*AddressInfo, []string) {
+func (u NoopAmbientIndexes) AddressInformation(sets.String) ([]*AddressInfo, []string) {
 	return nil, nil
 }
 
 func (u NoopAmbientIndexes) AdditionalPodSubscriptions(
 	*Proxy,
-	sets.Set[types.NamespacedName],
-	sets.Set[types.NamespacedName],
-) sets.Set[types.NamespacedName] {
+	sets.String,
+	sets.String,
+) sets.String {
 	return nil
 }
 
@@ -913,8 +912,39 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 	}
 }
 
-func (i WorkloadInfo) ResourceName() string {
+func (i *WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
+}
+
+func ExtractWorkloadsFromAddresses(addrs []*AddressInfo) []WorkloadInfo {
+	return slices.MapFilter(addrs, func(a *AddressInfo) *WorkloadInfo {
+		switch addr := a.Type.(type) {
+		case *workloadapi.Address_Workload:
+			return &WorkloadInfo{Workload: addr.Workload}
+		default:
+			return nil
+		}
+	})
+}
+
+func WorkloadToAddressInfo(w *workloadapi.Workload) *AddressInfo {
+	return &AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Workload{
+				Workload: w,
+			},
+		},
+	}
+}
+
+func ServiceToAddressInfo(s *workloadapi.Service) *AddressInfo {
+	return &AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Service{
+				Service: s,
+			},
+		},
+	}
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This

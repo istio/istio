@@ -111,6 +111,17 @@ func Map[E any, O any](s []E, f func(E) O) []O {
 	return n
 }
 
+// MapFilter runs f() over all elements in s and returns any non-nil results
+func MapFilter[E any, O any](s []E, f func(E) *O) []O {
+	n := make([]O, 0, len(s))
+	for _, e := range s {
+		if res := f(e); res != nil {
+			n = append(n, *res)
+		}
+	}
+	return n
+}
+
 // Reference takes a pointer to all elements in the slice
 func Reference[E any](s []E) []*E {
 	res := make([]*E, 0, len(s))
