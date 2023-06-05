@@ -169,7 +169,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 			}
 			caOpts.RotatorConfig.secretName = caCertName
-			pkiCaLog.Infof("Set secret name for self-signed CA cert rotator to %s", string(caCertName))
+			pkiCaLog.Infof("Set secret name for self-signed CA cert rotator to %s", caCertName)
 			pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))
 			return nil
 		}
