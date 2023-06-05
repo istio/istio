@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -98,13 +99,33 @@ func (e WorkloadGenerator) GenerateDeltas(
 
 	have := sets.New[string]()
 	for _, addr := range addrs {
+		aliases := addr.Aliases()
 		n := addr.ResourceName()
 		have.Insert(n)
-		resources = append(resources, &discovery.Resource{
-			Name:     n,
-			Aliases:  addr.Aliases(),
-			Resource: protoconv.MessageToAny(addr), // TODO: pre-marshal
-		})
+		switch w.TypeUrl {
+		case v3.WorkloadType:
+			if addr.GetWorkload() != nil {
+				resources = append(resources, &discovery.Resource{
+					Name:     n,
+					Aliases:  aliases,
+					Resource: protoconv.MessageToAny(addr.GetWorkload()), // TODO: pre-marshal
+				})
+			}
+		case v3.ServiceType:
+			if addr.GetService() != nil {
+				resources = append(resources, &discovery.Resource{
+					Name:     n,
+					Aliases:  aliases,
+					Resource: protoconv.MessageToAny(addr.GetService()), // TODO: pre-marshal
+				})
+			}
+		case v3.AddressType:
+			resources = append(resources, &discovery.Resource{
+				Name:     n,
+				Aliases:  aliases,
+				Resource: protoconv.MessageToAny(addr), // TODO: pre-marshal
+			})
+		}
 	}
 
 	if !w.Wildcard {
