@@ -306,6 +306,47 @@ func TestApplyListenerPatches(t *testing.T) {
 		{
 			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
 			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      wellknown.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter-to-be-removed-then-add"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      wellknown.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter-to-be-removed-then-add"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"http-filter-to-be-removed-then-add"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 					Listener: &networking.EnvoyFilter_ListenerMatch{
@@ -784,6 +825,35 @@ func TestApplyListenerPatches(t *testing.T) {
 								"tls_params":{
 									"tls_maximum_protocol_version":"TLSv1_3",
 									"tls_minimum_protocol_version":"TLSv1_2"}}}}}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 12345,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 12345,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"http-filter-to-be-removed-then-add"}`),
 			},
 		},
 		// Patch custom TLS type
@@ -1285,6 +1355,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			ListenerFilters: []*listener.ListenerFilter{
 				{
+					Name: "http-filter-to-be-removed-then-add",
+				},
+				{
 					Name: "before proxy_protocol",
 				},
 				{
@@ -1584,6 +1657,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			ListenerFilters: []*listener.ListenerFilter{
 				{
+					Name: "http-filter-to-be-removed-then-add",
+				},
+				{
 					Name: "before proxy_protocol",
 				},
 				{
@@ -1691,6 +1767,7 @@ func TestApplyListenerPatches(t *testing.T) {
 										{Name: "http-filter1"},
 										{Name: "http-filter2"},
 										{Name: "http-filter3"},
+										{Name: "http-filter-to-be-removed-then-add"},
 									},
 								}),
 							},
