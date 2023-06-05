@@ -15,16 +15,19 @@
 package mesh
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/istioctl/pkg/tag"
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -32,6 +35,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/config/constants"
@@ -135,12 +139,30 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 		l.LogAndFatal(err)
 	}
 
-	if uiArgs.revision != "" {
-		revisions, err := tag.ListRevisionDescriptions(kubeClient)
+	if uiArgs.revision != "" && uiArgs.revision != "default" {
+		iopCRs, err := kubeClient.Dynamic().Resource(apimachinery_schema.GroupVersionResource{
+			Group:    iopv1alpha1.SchemeGroupVersion.Group,
+			Version:  iopv1alpha1.SchemeGroupVersion.Version,
+			Resource: "istiooperators",
+		}).List(context.Background(), metav1.ListOptions{})
 		if err != nil {
-			return fmt.Errorf("could not list revisions: %s", err)
+			return fmt.Errorf("could not list revision: %s", err)
 		}
-		if _, exists := revisions[uiArgs.revision]; !exists {
+		if len(iopCRs.Items) == 0 {
+			return fmt.Errorf("could not find target revision")
+		}
+		var find bool
+		for _, u := range iopCRs.Items {
+			iop, err := operator_istio.UnmarshalIstioOperator(util.ToYAML(u.Object), true)
+			if err != nil {
+				return fmt.Errorf("could not unmarshal installed profile: %s", err)
+			}
+			if iop.Spec.GetRevision() == uiArgs.revision {
+				find = true
+				break
+			}
+		}
+		if !find {
 			return errors.New("could not find target revision")
 		}
 	}
