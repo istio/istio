@@ -865,16 +865,17 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 
 	adscLog.Infof("CDS: %d size=%d", len(cn), cdsSize)
 
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	if len(cn) > 0 {
 		a.sendRsc(v3.EndpointType, cn)
 	}
+
 	if adscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(ll, " ", " ")
 		adscLog.Debugf(string(b))
 	}
 
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
 	a.edsClusters = edscds
 	a.clusters = cds
 
