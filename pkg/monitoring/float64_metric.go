@@ -91,7 +91,7 @@ func (f *float64Metric) Name() string {
 
 func (f *float64Metric) Record(value float64) {
 	m := f.M(value)
-	stats.Record(f.ctx, m) //nolint:errcheck
+	stats.Record(f.ctx, m)
 }
 
 func (f *float64Metric) recordMeasurements(m []stats.Measurement) {
