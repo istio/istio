@@ -97,23 +97,7 @@ func (w *Watcher) SetFromFilesAndNotify(keyFile, certFile, rootCert string) erro
 	if err != nil {
 		return err
 	}
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-	if len(key) != 0 {
-		w.bundle.KeyPem = key
-	}
-	if len(cert) != 0 {
-		w.bundle.CertPem = cert
-	}
-	if len(caBundle) != 0 {
-		w.bundle.CABundle = caBundle
-	}
-	for _, ch := range w.watchers {
-		select {
-		case ch <- struct{}{}:
-		default:
-		}
-	}
+	w.SetAndNotify(key, cert, caBundle)
 	return nil
 }
 
