@@ -141,6 +141,7 @@ debug and diagnose their Istio mesh.
 	flags := rootCmd.PersistentFlags()
 	rootOptions := option.NewRootFlags()
 	rootOptions.AddFlags(flags)
+	_ = flags.Parse(args)
 	rootOptions.ConfigureDefaultNamespace()
 	ctx := context.NewCLIContext(*rootOptions)
 

@@ -80,8 +80,8 @@ var (
 	// Ignore unmeshed pods.  This makes it easy to suppress warnings about kube-system etc
 	ignoreUnmeshed = false
 
-	ns             string
-	istioNamespace string
+	describeNamespace string
+	istioNamespace    string
 )
 
 func podDescribeCmd(cliContext *clicontext.CLIContext) *cobra.Command {
@@ -190,7 +190,7 @@ func getRevisionFromPodAnnotation(anno klabels.Set) string {
 }
 
 func describe(ctx *clicontext.CLIContext) *cobra.Command {
-	ns = handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace())
+	describeNamespace = handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace())
 	istioNamespace = ctx.IstioNamespace()
 
 	describeCmd := &cobra.Command{
@@ -506,7 +506,7 @@ func printPod(writer io.Writer, pod *corev1.Pod, revision string) {
 }
 
 func kname(meta metav1.ObjectMeta) string {
-	if meta.Namespace == ns {
+	if meta.Namespace == describeNamespace {
 		return meta.Name
 	}
 
@@ -1044,7 +1044,7 @@ the configuration objects that affect that service.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svcName, ns := handlers.InferPodInfo(args[0], ctx.DefaultNamespace())
+			svcName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace()))
 
 			client, err := interfaceFactory(ctx, "")
 			if err != nil {
