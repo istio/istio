@@ -703,11 +703,14 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 		b, _ := json.MarshalIndent(ll, " ", " ")
 		adscLog.Debugf(string(b))
 	}
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+
 	if len(routes) > 0 {
 		a.sendRsc(v3.RouteType, routes)
 	}
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	
 	a.httpListeners = lh
 	a.tcpListeners = lt
 
@@ -865,8 +868,6 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 
 	adscLog.Infof("CDS: %d size=%d", len(cn), cdsSize)
 
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
 	if len(cn) > 0 {
 		a.sendRsc(v3.EndpointType, cn)
 	}
@@ -875,6 +876,9 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 		b, _ := json.MarshalIndent(ll, " ", " ")
 		adscLog.Debugf(string(b))
 	}
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 
 	a.edsClusters = edscds
 	a.clusters = cds
@@ -1127,7 +1131,9 @@ func ConfigInitialRequests() []*discovery.DiscoveryRequest {
 }
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
+	a.mutex.RLock()
 	ex := a.Received[typeurl]
+	a.mutex.RUnlock()
 	version := ""
 	nonce := ""
 	if ex != nil {
