@@ -71,6 +71,7 @@ var (
 	ports          []string
 	resourceLabels []string
 	annotations    []string
+	namespace      string
 )
 
 const (
@@ -79,6 +80,7 @@ const (
 )
 
 func workloadCommands(ctx *clicontext.CLIContext) *cobra.Command {
+	namespace = ctx.Namespace()
 	workloadCmd := &cobra.Command{
 		Use:   "workload",
 		Short: "Commands to assist in configuring and deploying workloads running on VMs and other non-Kubernetes environments",
@@ -114,7 +116,6 @@ func entryCommand(ctx *clicontext.CLIContext) *cobra.Command {
 }
 
 func createCommand(ctx *clicontext.CLIContext) *cobra.Command {
-	namespace := ctx.Namespace()
 	createCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",
@@ -185,7 +186,6 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 
 func configureCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
-	namespace := ctx.Namespace()
 
 	configureCmd := &cobra.Command{
 		Use:   "configure",

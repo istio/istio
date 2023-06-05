@@ -30,12 +30,12 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	clicontext "istio.io/istio/istioctl/pkg/context"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/log"
 )
 
