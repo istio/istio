@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 45089
+
+releaseNotes:
+- |
+   **Fixed** EnvoyFilter run delete at last, It is not follow priority concept
