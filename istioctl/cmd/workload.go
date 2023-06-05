@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -77,7 +78,7 @@ const (
 	filePerms                       = os.FileMode(0o744)
 )
 
-func workloadCommands() *cobra.Command {
+func workloadCommands(ctx *clicontext.CLIContext) *cobra.Command {
 	workloadCmd := &cobra.Command{
 		Use:   "workload",
 		Short: "Commands to assist in configuring and deploying workloads running on VMs and other non-Kubernetes environments",
@@ -87,32 +88,33 @@ func workloadCommands() *cobra.Command {
   # workload entry configuration generation
   istioctl x workload entry configure`,
 	}
-	workloadCmd.AddCommand(groupCommand())
-	workloadCmd.AddCommand(entryCommand())
+	workloadCmd.AddCommand(groupCommand(ctx))
+	workloadCmd.AddCommand(entryCommand(ctx))
 	return workloadCmd
 }
 
-func groupCommand() *cobra.Command {
+func groupCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	groupCmd := &cobra.Command{
 		Use:     "group",
 		Short:   "Commands dealing with WorkloadGroup resources",
 		Example: "  istioctl x workload group create --name foo --namespace bar --labels app=foobar",
 	}
-	groupCmd.AddCommand(createCommand())
+	groupCmd.AddCommand(createCommand(ctx))
 	return groupCmd
 }
 
-func entryCommand() *cobra.Command {
+func entryCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	entryCmd := &cobra.Command{
 		Use:     "entry",
 		Short:   "Commands dealing with WorkloadEntry resources",
 		Example: "  istioctl x workload entry configure -f workloadgroup.yaml -o outputDir",
 	}
-	entryCmd.AddCommand(configureCommand())
+	entryCmd.AddCommand(configureCommand(ctx))
 	return entryCmd
 }
 
-func createCommand() *cobra.Command {
+func createCommand(ctx *clicontext.CLIContext) *cobra.Command {
+	namespace := ctx.Namespace()
 	createCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",
@@ -181,8 +183,9 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 	return wgYAML, nil
 }
 
-func configureCommand() *cobra.Command {
+func configureCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
+	namespace := ctx.Namespace()
 
 	configureCmd := &cobra.Command{
 		Use:   "configure",
@@ -205,7 +208,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(opts.Revision)
+			kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
 			if err != nil {
 				return err
 			}

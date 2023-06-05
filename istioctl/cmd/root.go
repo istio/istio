@@ -217,7 +217,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(waitCmd(ctx))
 	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(loggingOptions)))
 	experimentalCmd.AddCommand(configCmd())
-	experimentalCmd.AddCommand(workloadCommands())
+	experimentalCmd.AddCommand(workloadCommands(ctx))
 	experimentalCmd.AddCommand(revisionCommand(ctx))
 	experimentalCmd.AddCommand(debugCommand(ctx))
 	experimentalCmd.AddCommand(preCheck(ctx))
