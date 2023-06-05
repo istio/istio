@@ -102,9 +102,7 @@ type (
 	}
 )
 
-var (
-	derivedRegistry = metric.NewRegistry()
-)
+var derivedRegistry = metric.NewRegistry()
 
 func init() {
 	// ensures exporters can see any derived metrics
