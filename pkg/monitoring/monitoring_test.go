@@ -15,14 +15,11 @@
 package monitoring_test
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"testing"
 
-	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/monitoring/monitortest"
@@ -44,13 +41,6 @@ var (
 		"hook_total",
 		"Number of hook events observed",
 		monitoring.WithLabels(name),
-	)
-
-	int64Sum = monitoring.NewSum(
-		"int64_sum",
-		"Number of events (int values)",
-		monitoring.WithLabels(name, kind),
-		monitoring.WithInt64Values(),
 	)
 
 	testDistribution = monitoring.NewDistribution(
@@ -80,7 +70,7 @@ var (
 )
 
 func init() {
-	monitoring.MustRegister(testSum, hookSum, int64Sum, testDistribution, testGauge)
+	monitoring.MustRegister(testSum, hookSum, testDistribution, testGauge)
 	testDisabledSum = monitoring.RegisterIf(testDisabledSum, func() bool { return false })
 	testConditionalSum = monitoring.RegisterIf(testConditionalSum, func() bool { return true })
 }
@@ -90,15 +80,10 @@ func TestSum(t *testing.T) {
 
 	testSum.With(name.Value("foo"), kind.Value("bar")).Increment()
 	goofySum.With(name.Value("baz")).Record(45)
-	goofySum.With(name.Value("baz")).Decrement()
-
-	int64Sum.With(name.Value("foo"), kind.Value("bar")).Increment()
-	int64Sum.With(name.Value("foo"), kind.Value("bar")).RecordInt(10)
-	int64Sum.With(name.Value("foo"), kind.Value("bar")).Record(10.75) // should use floor, so this will be counted as 10
+	goofySum.With(name.Value("baz")).Decrement() // should use floor, so this will be counted as 10
 
 	mt.Assert(goofySum.Name(), map[string]string{"name": "baz"}, monitortest.Exactly(44))
 	mt.Assert(testSum.Name(), map[string]string{"kind": "bar"}, monitortest.Exactly(1))
-	mt.Assert(int64Sum.Name(), map[string]string{"kind": "bar"}, monitortest.Exactly(21))
 }
 
 func TestRegisterIfSum(t *testing.T) {
@@ -217,22 +202,6 @@ func TestMustRegister(t *testing.T) {
 	monitoring.MustRegister(&registerFail{})
 }
 
-func TestRecordHook(t *testing.T) {
-	mt := monitortest.New(t)
-
-	// testRecordHook will record value for hookSum measure when testSum is recorded
-	rh := &testRecordHook{}
-	monitoring.RegisterRecordHook(testSum.Name(), rh)
-
-	testSum.With(name.Value("foo"), kind.Value("bar")).Increment()
-	testSum.With(name.Value("baz"), kind.Value("bar")).Record(45)
-
-	mt.Assert(testSum.Name(), map[string]string{"name": "foo", "kind": "bar"}, monitortest.Exactly(1))
-	mt.Assert(testSum.Name(), map[string]string{"name": "baz", "kind": "bar"}, monitortest.Exactly(45))
-	mt.Assert(hookSum.Name(), map[string]string{"name": "foo"}, monitortest.Exactly(1))
-	mt.Assert(hookSum.Name(), map[string]string{"name": "baz"}, monitortest.Exactly(45))
-}
-
 type registerFail struct {
 	monitoring.Metric
 }
@@ -241,37 +210,9 @@ func (r registerFail) Register() error {
 	return errors.New("fail")
 }
 
-type testRecordHook struct{}
-
-func (r *testRecordHook) OnRecordInt64Measure(i *stats.Int64Measure, tags []tag.Mutator, value int64) {
-}
-
-func (r *testRecordHook) OnRecordFloat64Measure(f *stats.Float64Measure, tags []tag.Mutator, value float64) {
-	// Check if this is `events_total` metric.
-	if f.Name() != "events_total" {
-		return
-	}
-
-	// Get name tag of recorded testSume metric, and record the corresponding hookSum metric.
-	ctx, err := tag.New(context.Background(), tags...)
-	if err != nil {
-		return
-	}
-	tm := tag.FromContext(ctx)
-	tk, err := tag.NewKey("name")
-	if err != nil {
-		return
-	}
-	v, found := tm.Value(tk)
-	if !found {
-		return
-	}
-	hookSum.With(name.Value(v)).Record(value)
-}
-
 func BenchmarkCounter(b *testing.B) {
 	monitortest.New(b)
 	for n := 0; n < b.N; n++ {
-		int64Sum.Increment()
+		testSum.Increment()
 	}
 }
