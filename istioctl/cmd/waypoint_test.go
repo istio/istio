@@ -79,9 +79,8 @@ func TestWaypointList(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			var kubeClient kube.CLIClient
+			kubeClient := kube.NewFakeClient()
 			kubeClientWithRevision = func(ctx *clicontext.CLIContext, revision string) (kube.CLIClient, error) {
-				kubeClient = kube.NewFakeClient()
 				return kubeClient, nil
 			}
 
