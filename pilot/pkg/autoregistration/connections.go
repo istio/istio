@@ -15,6 +15,7 @@
 package autoregistration
 
 import (
+	"istio.io/istio/pkg/maps"
 	"sync"
 	"time"
 
@@ -38,11 +39,13 @@ type Connection interface {
 // when OnDisconnect occurs, we only trigger cleanup when there are no more connections for that proxy
 type adsConnections struct {
 	sync.Mutex
-	byProxy map[proxyKey]connectionSet
+
+	// keyed by proxy id, then connection id
+	byProxy map[proxyKey]map[string]Connection
 }
 
 func newAdsConnections() *adsConnections {
-	return &adsConnections{byProxy: map[proxyKey]connectionSet{}}
+	return &adsConnections{byProxy: map[proxyKey]map[string]Connection{}}
 }
 
 func (m *adsConnections) ForceDisconnectGroup(wg types.NamespacedName) {
@@ -53,20 +56,23 @@ func (m *adsConnections) ForceDisconnectGroup(wg types.NamespacedName) {
 	for key, connections := range m.byProxy {
 		if key.GroupName == wg.Name && key.Namespace == wg.Namespace {
 			proxies++
-			conns = append(conns, connections.Items()...)
+			conns = append(conns, maps.Values(connections)...)
 		}
 	}
 	m.Unlock()
 
+	stopped := 0
 	for _, connection := range conns {
 		// should never happen..
 		if !connection.Proxy().WorkloadEntryAutoCreated {
 			log.Errorf("auto-registration controller incorrectly tracking connection for %s", connection.Proxy().ID)
+			continue
 		}
+		stopped++
 		connection.Stop()
 	}
 	log.Infof("WorkloadGroup deletion for %s/%s: force closed %d connections for %d proxies",
-		wg.Namespace, wg.Name, len(conns), proxies)
+		wg.Namespace, wg.Name, stopped, proxies)
 }
 
 func (m *adsConnections) Connect(conn Connection) {
@@ -76,7 +82,7 @@ func (m *adsConnections) Connect(conn Connection) {
 
 	connections := m.byProxy[k]
 	if connections == nil {
-		connections = make(connectionSet)
+		connections = make(map[string]Connection)
 		m.byProxy[k] = connections
 	}
 	connections[conn.ID()] = conn
@@ -110,25 +116,6 @@ type proxyKey struct {
 	IP        string
 	GroupName string
 	Namespace string
-}
-
-// a single proxy may have multiple connections
-type connectionSet map[string]Connection
-
-func (cs connectionSet) Add(connection Connection) {
-	cs[connection.ID()] = connection
-}
-
-func (cs connectionSet) Remove(connection Connection) {
-	delete(cs, connection.ID())
-}
-
-func (cs connectionSet) Items() []Connection {
-	var out []Connection
-	for _, connection := range cs {
-		out = append(out, connection)
-	}
-	return out
 }
 
 func makeProxyKey(proxy *model.Proxy) proxyKey {

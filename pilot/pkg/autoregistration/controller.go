@@ -188,7 +188,7 @@ type workItem struct {
 // setupEjectOnDelete adds a handler to force disconnect proxies that use
 // auto-registration when their associated WorkloadGroup is deleted
 func (c *Controller) setupEjectOnDelete() {
-	c.disconnectQueue = controllers.NewQueue("eject_auto_registered_connections",
+	c.disconnectQueue = controllers.NewQueue("eject auto registered connections",
 		controllers.WithReconciler(func(key kubetypes.NamespacedName) error {
 			if c.store.Get(gvk.WorkloadGroup, key.Name, key.Namespace) != nil {
 				// this shouldn't happen in practice, but it could if the queue is draining really slow
@@ -423,6 +423,7 @@ func (c *Controller) OnDisconnect(conn Connection) {
 		return
 	}
 
+	// if there is still an ads connection, do not unregister.
 	if remainingConnections := c.adsConnections.Disconnect(conn); remainingConnections {
 		return
 	}
