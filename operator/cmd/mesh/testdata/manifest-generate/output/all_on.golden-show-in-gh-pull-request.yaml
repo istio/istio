@@ -5115,6 +5115,18 @@ spec:
                 description: An ordered list of route rules for HTTP traffic.
                 items:
                   properties:
+                    oneOf:
+                      - anyOf:
+                        - required:
+                          - redirect
+                        - required:
+                          - rewrite
+                        - required:
+                          - route
+                        - required:
+                          - delegate
+                        - required:
+                          - directResponse
                     corsPolicy:
                       description: Cross-Origin Resource Sharing policy (CORS).
                       properties:
@@ -5898,6 +5910,18 @@ spec:
                 description: An ordered list of route rules for HTTP traffic.
                 items:
                   properties:
+                    oneOf:
+                      - anyOf:
+                        - required:
+                          - redirect
+                        - required:
+                          - rewrite
+                        - required:
+                          - route
+                        - required:
+                          - delegate
+                        - required:
+                          - directResponse
                     corsPolicy:
                       description: Cross-Origin Resource Sharing policy (CORS).
                       properties:
