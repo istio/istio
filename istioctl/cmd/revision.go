@@ -25,6 +25,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,7 +99,7 @@ var (
 	revArgs = revisionArgs{}
 )
 
-func revisionCommand() *cobra.Command {
+func revisionCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	revisionCmd := &cobra.Command{
 		Use: "revision",
 		Long: "The revision command provides a revision centric view of istio deployments. " +
@@ -111,13 +113,13 @@ func revisionCommand() *cobra.Command {
 	revisionCmd.PersistentFlags().StringVarP(&revArgs.output, "output", "o", tableFormat, "Output format for revision description "+
 		"(available formats: table,json)")
 
-	revisionCmd.AddCommand(revisionListCommand())
-	revisionCmd.AddCommand(revisionDescribeCommand())
-	revisionCmd.AddCommand(tagCommand())
+	revisionCmd.AddCommand(revisionListCommand(ctx))
+	revisionCmd.AddCommand(revisionDescribeCommand(ctx))
+	revisionCmd.AddCommand(tagCommand(ctx))
 	return revisionCmd
 }
 
-func revisionDescribeCommand() *cobra.Command {
+func revisionDescribeCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	describeCmd := &cobra.Command{
 		Use: "describe",
 		Example: `  # View the details of a revision named 'canary'
@@ -150,14 +152,14 @@ func revisionDescribeCommand() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
-			return printRevisionDescription(cmd.OutOrStdout(), &revArgs, logger)
+			return printRevisionDescription(ctx, cmd.OutOrStdout(), &revArgs, logger)
 		},
 	}
 	describeCmd.Flags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Enable verbose output")
 	return describeCmd
 }
 
-func revisionListCommand() *cobra.Command {
+func revisionListCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Show list of control plane and gateway revisions that are currently installed in cluster",
@@ -175,21 +177,21 @@ func revisionListCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision("")
+			kubeClient, err := kubeClientWithRevision(ctx, "")
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %w", err)
 			}
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
-			return revisionList(kubeClient, cmd.OutOrStdout(), &revArgs, logger)
+			return revisionList(ctx, kubeClient, cmd.OutOrStdout(), &revArgs, logger)
 		},
 	}
 	return listCmd
 }
 
-func revisionList(kubeClient kube.CLIClient, writer io.Writer, args *revisionArgs, logger clog.Logger) error {
+func revisionList(ctx *clicontext.CLIContext, kubeClient kube.CLIClient, writer io.Writer, args *revisionArgs, logger clog.Logger) error {
 	revisions, err := tag.ListRevisionDescriptions(kubeClient)
 	if err != nil {
-		return fmt.Errorf("cannot list revisions for kubeconfig=%s, context=%s: %v", kubeconfig, configContext, err)
+		return fmt.Errorf("cannot list revisions: %v", err)
 	}
 
 	// Get a list of all CRs which are installed in this cluster
@@ -226,7 +228,7 @@ func revisionList(kubeClient kube.CLIClient, writer io.Writer, args *revisionArg
 
 	if args.verbose {
 		for rev, desc := range revisions {
-			revClient, err := kubeClientWithRevision(rev)
+			revClient, err := kubeClientWithRevision(ctx, rev)
 			if err != nil {
 				return fmt.Errorf("failed to get revision based kubeclient for revision: %s", rev)
 			}
@@ -492,11 +494,11 @@ func getAllMergedIstioOperatorCRs(client kube.CLIClient, logger clog.Logger) ([]
 	return iopCRs, nil
 }
 
-func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logger) error {
+func printRevisionDescription(ctx *clicontext.CLIContext, w io.Writer, args *revisionArgs, logger clog.Logger) error {
 	revision := args.name
-	client, err := kubeClientWithRevision(revision)
+	client, err := kubeClientWithRevision(ctx, revision)
 	if err != nil {
-		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v", kubeconfig, configContext, err)
+		return fmt.Errorf("cannot create kubeclient: %v", err)
 	}
 	allIops, err := getAllMergedIstioOperatorCRs(client, logger)
 	if err != nil {
@@ -526,7 +528,7 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 		for _, wh := range revDescription.Webhooks {
 			revAliases = append(revAliases, wh.Tag)
 		}
-		if err = annotateWithNamespaceAndPodInfo(kubeClient, revDescription, revAliases); err != nil {
+		if err = annotateWithNamespaceAndPodInfo(client, revDescription, revAliases); err != nil {
 			return err
 		}
 	}

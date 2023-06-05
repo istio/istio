@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -76,7 +77,7 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 	return nil, nil
 }
 
-func debugCommand() *cobra.Command {
+func debugCommand(cliContext *clicontext.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 
@@ -112,7 +113,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
   istioctl x internal-debug syncz --xds-label istio.io/rev=default
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(opts.Revision)
+			kubeClient, err := kubeClientWithRevision(cliContext, opts.Revision)
 			if err != nil {
 				return err
 			}

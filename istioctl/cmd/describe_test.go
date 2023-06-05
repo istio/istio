@@ -23,10 +23,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
 	apiannotation "istio.io/api/annotation"
 	v1alpha32 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
@@ -406,7 +408,7 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&out)
 	if c.namespace != "" {
-		namespace = c.namespace
+		ns = c.namespace
 	}
 
 	fErr := rootCmd.Execute()
@@ -436,8 +438,8 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	}
 }
 
-func mockInterfaceFactoryGenerator(k8sConfigs []runtime.Object) func(rev string) (kube.CLIClient, error) {
-	outFactory := func(_ string) (kube.CLIClient, error) {
+func mockInterfaceFactoryGenerator(k8sConfigs []runtime.Object) func(_ *clicontext.CLIContext, rev string) (kube.CLIClient, error) {
+	outFactory := func(_ *clicontext.CLIContext, _ string) (kube.CLIClient, error) {
 		client := kube.NewFakeClient(k8sConfigs...)
 		return client, nil
 	}

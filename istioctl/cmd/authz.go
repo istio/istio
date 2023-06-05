@@ -25,23 +25,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/authz"
+	context2 "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/util/configdump"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/log"
 )
 
 var configDumpFile string
 
-var checkCmd = &cobra.Command{
-	Use:   "check [<type>/]<name>[.<namespace>]",
-	Short: "Check AuthorizationPolicy applied in the pod.",
-	Long: `Check prints the AuthorizationPolicy applied to a pod by directly checking
+func checkCmd(ctx *context2.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "check [<type>/]<name>[.<namespace>]",
+		Short: "Check AuthorizationPolicy applied in the pod.",
+		Long: `Check prints the AuthorizationPolicy applied to a pod by directly checking
 the Envoy configuration of the pod. The command is especially useful for inspecting
 the policy propagation from Istiod to Envoy and the final AuthorizationPolicy list merged
 from multiple sources (mesh-level, namespace-level and workload-level).
 
 The command also supports reading from a standalone config dump file with flag -f.`,
-	Example: `  # Check AuthorizationPolicy applied to pod httpbin-88ddbcfdd-nt5jb:
+		Example: `  # Check AuthorizationPolicy applied to pod httpbin-88ddbcfdd-nt5jb:
   istioctl x authz check httpbin-88ddbcfdd-nt5jb
 
   # Check AuthorizationPolicy applied to one pod under a deployment
@@ -49,46 +50,45 @@ The command also supports reading from a standalone config dump file with flag -
 
   # Check AuthorizationPolicy from Envoy config dump file:
   istioctl x authz check -f httpbin_config_dump.json`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		if len(args) > 1 {
-			cmd.Println(cmd.UsageString())
-			return fmt.Errorf("check requires only <pod-name>[.<pod-namespace>]")
-		}
-		return nil
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		kubeClient, err := kubeClientWithRevision("")
-		if err != nil {
-			return fmt.Errorf("failed to create k8s client: %w", err)
-		}
-		var configDump *configdump.Wrapper
-		if configDumpFile != "" {
-			configDump, err = getConfigDumpFromFile(configDumpFile)
-			if err != nil {
-				return fmt.Errorf("failed to get config dump from file %s: %s", configDumpFile, err)
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("check requires only <pod-name>[.<pod-namespace>]")
 			}
-		} else if len(args) == 1 {
-			podName, podNamespace, err := handlers.InferPodInfoFromTypedResource(args[0],
-				handlers.HandleNamespace(namespace, defaultNamespace),
-				MakeKubeFactory(kubeClient))
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			kubeClient, err := newKubeClientWithRevision(ctx, "")
+			if err != nil {
+				return fmt.Errorf("failed to create k8s client: %w", err)
+			}
+			var configDump *configdump.Wrapper
+			if configDumpFile != "" {
+				configDump, err = getConfigDumpFromFile(configDumpFile)
+				if err != nil {
+					return fmt.Errorf("failed to get config dump from file %s: %s", configDumpFile, err)
+				}
+			} else if len(args) == 1 {
+				podName, podNamespace, err := ctx.InferPodInfoFromTypedResource(args[0])
+				if err != nil {
+					return err
+				}
+				configDump, err = getConfigDumpFromPod(kubeClient, podName, podNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to get config dump from pod %s in %s", podName, podNamespace)
+				}
+			} else {
+				return fmt.Errorf("expecting pod name or config dump, found: %d", len(args))
+			}
+
+			analyzer, err := authz.NewAnalyzer(configDump)
 			if err != nil {
 				return err
 			}
-			configDump, err = getConfigDumpFromPod(kubeClient, podName, podNamespace)
-			if err != nil {
-				return fmt.Errorf("failed to get config dump from pod %s in %s", podName, podNamespace)
-			}
-		} else {
-			return fmt.Errorf("expecting pod name or config dump, found: %d", len(args))
-		}
-
-		analyzer, err := authz.NewAnalyzer(configDump)
-		if err != nil {
-			return err
-		}
-		analyzer.Print(cmd.OutOrStdout())
-		return nil
-	},
+			analyzer.Print(cmd.OutOrStdout())
+			return nil
+		},
+	}
 }
 
 func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
@@ -137,18 +137,16 @@ func getConfigDumpFromPod(kubeClient kube.CLIClient, podName, podNamespace strin
 
 // AuthZ groups commands used for inspecting and interacting the authorization policy.
 // Note: this is still under active development and is not ready for real use.
-func AuthZ() *cobra.Command {
+func AuthZ(ctx *context2.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "authz",
 		Short: "Inspect Istio AuthorizationPolicy",
 	}
 
-	cmd.AddCommand(checkCmd)
+	check := checkCmd(ctx)
+	check.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"The json file with Envoy config dump to be checked")
+	cmd.AddCommand(checkCmd(ctx))
 	cmd.Long += "\n\n" + ExperimentalMsg
 	return cmd
-}
-
-func init() {
-	checkCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
-		"The json file with Envoy config dump to be checked")
 }

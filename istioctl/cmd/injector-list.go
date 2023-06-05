@@ -33,6 +33,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -50,7 +51,7 @@ type revisionCount struct {
 	needsRestart int
 }
 
-func injectorCommand() *cobra.Command {
+func injectorCommand(cliContext *clicontext.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "injector",
 		Short:   "List sidecar injector and sidecar versions",
@@ -68,11 +69,11 @@ func injectorCommand() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(injectorListCommand())
+	cmd.AddCommand(injectorListCommand(cliContext))
 	return cmd
 }
 
-func injectorListCommand() *cobra.Command {
+func injectorListCommand(cliContext *clicontext.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -80,7 +81,7 @@ func injectorListCommand() *cobra.Command {
 		Long:    `List sidecar injector and sidecar versions`,
 		Example: `  istioctl experimental injector list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(opts.Revision)
+			client, err := kubeClientWithRevision(cliContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}

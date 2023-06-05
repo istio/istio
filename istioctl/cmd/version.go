@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	clicontext "istio.io/istio/istioctl/pkg/context"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
@@ -36,12 +37,12 @@ import (
 	istioVersion "istio.io/istio/pkg/version"
 )
 
-func newVersionCommand() *cobra.Command {
+func newVersionCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	profileCmd := mesh.ProfileCmd(log.DefaultOptions())
 	var opts clioptions.ControlPlaneOptions
 	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
-		GetRemoteVersion: getRemoteInfoWrapper(&profileCmd, &opts),
-		GetProxyVersions: getProxyInfoWrapper(&opts),
+		GetRemoteVersion: getRemoteInfoWrapper(ctx, &profileCmd, &opts),
+		GetProxyVersions: getProxyInfoWrapper(ctx, &opts),
 	})
 	opts.AttachControlPlaneFlags(versionCmd)
 
@@ -62,8 +63,8 @@ func newVersionCommand() *cobra.Command {
 	return versionCmd
 }
 
-func getRemoteInfo(opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo, error) {
-	kubeClient, err := kubeClientWithRevision(opts.Revision)
+func getRemoteInfo(ctx *clicontext.CLIContext, opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo, error) {
+	kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
 	if err != nil {
 		return nil, err
 	}
@@ -71,9 +72,9 @@ func getRemoteInfo(opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo,
 	return kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
 }
 
-func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptions) func() (*istioVersion.MeshInfo, error) {
+func getRemoteInfoWrapper(ctx *clicontext.CLIContext, pc **cobra.Command, opts *clioptions.ControlPlaneOptions) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
-		remInfo, err := getRemoteInfo(*opts)
+		remInfo, err := getRemoteInfo(ctx, *opts)
 		if err != nil {
 			fmt.Fprintf((*pc).OutOrStderr(), "%v\n", err)
 			// Return nil so that the client version is printed
@@ -86,19 +87,19 @@ func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptio
 	}
 }
 
-func getProxyInfoWrapper(opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
+func getProxyInfoWrapper(ctx *clicontext.CLIContext, opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
-		return proxy.GetProxyInfo(kubeconfig, configContext, opts.Revision, istioNamespace)
+		return proxy.GetProxyInfo(ctx.KubeConfig(), ctx.KubeContext(), opts.Revision, istioNamespace)
 	}
 }
 
 // xdsVersionCommand gets the Control Plane and Sidecar versions via XDS
-func xdsVersionCommand() *cobra.Command {
+func xdsVersionCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 	var xdsResponses *discovery.DiscoveryResponse
 	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
-		GetRemoteVersion: xdsRemoteVersionWrapper(&opts, &centralOpts, &xdsResponses),
+		GetRemoteVersion: xdsRemoteVersionWrapper(ctx, &opts, &centralOpts, &xdsResponses),
 		GetProxyVersions: xdsProxyVersionWrapper(&xdsResponses),
 	})
 	opts.AttachControlPlaneFlags(versionCmd)
@@ -149,12 +150,13 @@ istioctl x version --xds-label istio.io/rev=default
 // xdsRemoteVersionWrapper uses outXDS to share the XDS response with xdsProxyVersionWrapper.
 // (Screwy API on istioVersion.CobraCommandWithOptions)
 // nolint: lll
-func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **discovery.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
+func xdsRemoteVersionWrapper(ctx *clicontext.CLIContext, opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions,
+	outXDS **discovery.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
 		xdsRequest := discovery.DiscoveryRequest{
 			TypeUrl: "istio.io/connections",
 		}
-		kubeClient, err := kubeClientWithRevision(opts.Revision)
+		kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
 		if err != nil {
 			return nil, err
 		}

@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/cmd/mesh"
@@ -68,7 +69,7 @@ type tagDescription struct {
 	Namespaces []string `json:"namespaces"`
 }
 
-func tagCommand() *cobra.Command {
+func tagCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
 		Short: "Command group used to interact with revision tags",
@@ -95,15 +96,15 @@ without manual relabeling of the "istio.io/rev" tag.
 		},
 	}
 
-	cmd.AddCommand(tagSetCommand())
-	cmd.AddCommand(tagGenerateCommand())
-	cmd.AddCommand(tagListCommand())
-	cmd.AddCommand(tagRemoveCommand())
+	cmd.AddCommand(tagSetCommand(ctx))
+	cmd.AddCommand(tagGenerateCommand(ctx))
+	cmd.AddCommand(tagListCommand(ctx))
+	cmd.AddCommand(tagRemoveCommand(ctx))
 
 	return cmd
 }
 
-func tagSetCommand() *cobra.Command {
+func tagSetCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set <revision-tag>",
 		Short: "Create or modify revision tags",
@@ -136,7 +137,7 @@ injection labels.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := newKubeClientWithRevision("")
+			kubeClient, err := kubeClientWithRevision(ctx, "")
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -156,7 +157,7 @@ injection labels.`,
 	return cmd
 }
 
-func tagGenerateCommand() *cobra.Command {
+func tagGenerateCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "generate <revision-tag>",
 		Short: "Generate configuration for a revision tag to stdout",
@@ -184,7 +185,7 @@ injection labels.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := newKubeClientWithRevision("")
+			kubeClient, err := kubeClientWithRevision(ctx, "")
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -204,7 +205,7 @@ injection labels.`,
 	return cmd
 }
 
-func tagListCommand() *cobra.Command {
+func tagListCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Short:   "List existing revision tags",
@@ -217,7 +218,7 @@ func tagListCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := newKubeClientWithRevision("")
+			kubeClient, err := kubeClientWithRevision(ctx, "")
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -228,7 +229,7 @@ func tagListCommand() *cobra.Command {
 	return cmd
 }
 
-func tagRemoveCommand() *cobra.Command {
+func tagRemoveCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <revision-tag>",
 		Short: "Remove Istio control plane revision tag",
@@ -252,7 +253,7 @@ revision tag before removing using the "istioctl tag list" command.
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := newKubeClientWithRevision("")
+			kubeClient, err := kubeClientWithRevision(ctx, "")
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}

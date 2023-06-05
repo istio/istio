@@ -22,9 +22,8 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/rest"
-
 	"istio.io/istio/istioctl/pkg/clioptions"
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/compare"
@@ -34,7 +33,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func statusCommand() *cobra.Command {
+func statusCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	statusCmd := &cobra.Command{
@@ -67,13 +66,13 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(opts.Revision)
+			kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
 			if err != nil {
 				return err
 			}
 			if len(args) > 0 {
 				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
+					handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace()),
 					MakeKubeFactory(kubeClient))
 				if err != nil {
 					return err
@@ -137,20 +136,11 @@ func readConfigFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func newKubeClientWithRevision(revision string) (kube.CLIClient, error) {
-	rc, err := kube.DefaultRestConfig(kubeconfig, configContext, func(config *rest.Config) {
-		// We are running a one-off command locally, so we don't need to worry too much about rate limiting
-		// Bumping this up greatly decreases install time
-		config.QPS = 50
-		config.Burst = 100
-	})
-	if err != nil {
-		return nil, err
-	}
-	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
+func newKubeClientWithRevision(ctx *clicontext.CLIContext, revision string) (kube.CLIClient, error) {
+	return ctx.CLIClientWithRevision(revision)
 }
 
-func xdsStatusCommand() *cobra.Command {
+func xdsStatusCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 	var multiXdsOpts multixds.Options
@@ -187,7 +177,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(opts.Revision)
+			kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -195,7 +185,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 
 			if len(args) > 0 {
 				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
+					handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace()),
 					MakeKubeFactory(kubeClient))
 				if err != nil {
 					return err

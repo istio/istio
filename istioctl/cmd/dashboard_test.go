@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -124,7 +125,7 @@ func TestDashboard(t *testing.T) {
 	}
 }
 
-func mockExecClientDashboard(_ string) (kube.CLIClient, error) {
+func mockExecClientDashboard(_ *context.CLIContext, _ string) (kube.CLIClient, error) {
 	return MockClient{
 		CLIClient: kube.NewFakeClient(),
 	}, nil

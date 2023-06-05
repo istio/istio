@@ -18,14 +18,15 @@ package cmd
 
 import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	"istio.io/istio/istioctl/pkg/context"
 	kubecfg "istio.io/istio/pkg/kube"
 )
 
 // Create a model.ConfigStore (or sortedConfigStore)
 var configStoreFactory = newConfigStore
 
-func newConfigStore() (istioclient.Interface, error) {
-	cfg, err := kubecfg.BuildClientConfig(kubeconfig, configContext)
+func newConfigStore(ctx *context.CLIContext) (istioclient.Interface, error) {
+	cfg, err := ctx.RestConfig()
 	if err != nil {
 		return nil, err
 	}

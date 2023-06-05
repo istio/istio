@@ -26,11 +26,12 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	context2 "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/util/formatting"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -81,7 +82,7 @@ var (
 )
 
 // Analyze command
-func Analyze() *cobra.Command {
+func Analyze(ctx *context2.CLIContext) *cobra.Command {
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
@@ -131,17 +132,17 @@ func Analyze() *cobra.Command {
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
-			selectedNamespace = handlers.HandleNamespace(namespace, defaultNamespace)
+			selectedNamespace = handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace())
 
 			// check whether selected namespace exists.
-			if namespace != "" && useKube {
-				client, err := kube.NewClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+			if ctx.Namespace() != "" && useKube {
+				client, err := newKubeClientWithRevision(ctx, "")
 				if err != nil {
 					return err
 				}
-				_, err = client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+				_, err = client.Kube().CoreV1().Namespaces().Get(context.TODO(), ctx.Namespace(), metav1.GetOptions{})
 				if errors.IsNotFound(err) {
-					fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", namespace)
+					fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", ctx.Namespace())
 					return nil
 				}
 			}
@@ -153,7 +154,7 @@ func Analyze() *cobra.Command {
 
 			sa := local.NewIstiodAnalyzer(analyzers.AllCombined(),
 				resource.Namespace(selectedNamespace),
-				resource.Namespace(istioNamespace), nil)
+				resource.Namespace(ctx.IstioNamespace()), nil)
 
 			// Check for suppressions and add them to our SourceAnalyzer
 			suppressions := make([]local.AnalysisSuppression, 0, len(suppress))
@@ -185,15 +186,11 @@ func Analyze() *cobra.Command {
 			// If we're using kube, use that as a base source.
 			if useKube {
 				// Set up the kube client
-				restConfig, err := kube.DefaultRestConfig(kubeconfig, configContext)
+				clik, err := newKubeClientWithRevision(ctx, "")
 				if err != nil {
 					return err
 				}
-				k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), "")
-				if err != nil {
-					return err
-				}
-				k = kube.EnableCrdWatcher(k)
+				k := kube.EnableCrdWatcher(clik.(kube.Client))
 				sa.AddRunningKubeSourceWithRevision(k, revisionSpecified)
 			}
 

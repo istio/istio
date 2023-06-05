@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
 )
@@ -228,8 +229,8 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 // mockClientExecFactoryGenerator generates a function with the same signature as
 // kubernetes.NewExecClient() that returns a mock client.
 // nolint: lll
-func mockClientExecFactoryGenerator(testResults map[string][]byte) func(_ string) (kube.CLIClient, error) {
-	outFactory := func(_ string) (kube.CLIClient, error) {
+func mockClientExecFactoryGenerator(testResults map[string][]byte) func(_ *context.CLIContext, _ string) (kube.CLIClient, error) {
+	outFactory := func(_ *context.CLIContext, _ string) (kube.CLIClient, error) {
 		return MockClient{
 			CLIClient: kube.NewFakeClient(),
 			Results:   testResults,

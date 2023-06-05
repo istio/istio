@@ -46,6 +46,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/tag"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
@@ -232,8 +233,8 @@ func GetFirstPod(client v1.CoreV1Interface, namespace string, selector string) (
 	return nil, fmt.Errorf("no pods matching selector %q found in namespace %q", selector, namespace)
 }
 
-func getMeshConfigFromConfigMap(command, revision string) (*meshconfig.MeshConfig, error) {
-	client, err := kubeClientWithRevision("")
+func getMeshConfigFromConfigMap(cliContext *clicontext.CLIContext, command, revision string) (*meshconfig.MeshConfig, error) {
+	client, err := kubeClientWithRevision(cliContext, "")
 	if err != nil {
 		return nil, err
 	}
@@ -263,8 +264,8 @@ func getMeshConfigFromConfigMap(command, revision string) (*meshconfig.MeshConfi
 }
 
 // grabs the raw values from the ConfigMap. These are encoded as JSON.
-func getValuesFromConfigMap(revision string) (string, error) {
-	client, err := kubeClientWithRevision("")
+func getValuesFromConfigMap(cliContext *clicontext.CLIContext, revision string) (string, error) {
+	client, err := kubeClientWithRevision(cliContext, "")
 	if err != nil {
 		return "", err
 	}
@@ -302,8 +303,8 @@ func readInjectConfigFile(f []byte) (inject.RawTemplates, error) {
 	return cfg.RawTemplates, err
 }
 
-func getInjectConfigFromConfigMap(revision string) (inject.RawTemplates, error) {
-	client, err := kubeClientWithRevision("")
+func getInjectConfigFromConfigMap(cliContext *clicontext.CLIContext, revision string) (inject.RawTemplates, error) {
+	client, err := kubeClientWithRevision(cliContext, "")
 	if err != nil {
 		return nil, err
 	}
@@ -334,9 +335,9 @@ func getInjectConfigFromConfigMap(revision string) (inject.RawTemplates, error) 
 	return injectConfig.RawTemplates, nil
 }
 
-func setUpExternalInjector(kubeconfig, revision, injectorAddress string) (*ExternalInjector, error) {
+func setUpExternalInjector(cliContext *clicontext.CLIContext, revision, injectorAddress string) (*ExternalInjector, error) {
 	e := &ExternalInjector{}
-	client, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+	client, err := newKubeClientWithRevision(cliContext, "")
 	if err != nil {
 		return e, err
 	}
@@ -371,7 +372,7 @@ func validateFlags() error {
 	return err
 }
 
-func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string,
+func setupKubeInjectParameters(cliContext *clicontext.CLIContext, sidecarTemplate *inject.RawTemplates, valuesConfig *string,
 	revision, injectorAddress string,
 ) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
@@ -386,7 +387,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 				return nil, nil, err
 			}
 		} else {
-			if meshConfig, err = getMeshConfigFromConfigMap("kube-inject", revision); err != nil {
+			if meshConfig, err = getMeshConfigFromConfigMap(cliContext, "kube-inject", revision); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -404,11 +405,11 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 		}
 		*sidecarTemplate = injectConfig
 	} else {
-		injector, err = setUpExternalInjector(kubeconfig, revision, injectorAddress)
+		injector, err = setUpExternalInjector(cliContext, revision, injectorAddress)
 		if err != nil || injector.clientConfig == nil {
 			log.Warnf("failed to get injection config from mutatingWebhookConfigurations %q, will fall back to "+
 				"get injection from the injection configmap %q : %v", whcName, defaultInjectWebhookConfigName, err)
-			if *sidecarTemplate, err = getInjectConfigFromConfigMap(revision); err != nil {
+			if *sidecarTemplate, err = getInjectConfigFromConfigMap(cliContext, revision); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -425,7 +426,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 				return nil, nil, err
 			}
 			*valuesConfig = string(valuesConfigBytes)
-		} else if *valuesConfig, err = getValuesFromConfigMap(revision); err != nil {
+		} else if *valuesConfig, err = getValuesFromConfigMap(cliContext, revision); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -493,7 +494,7 @@ const (
 	defaultWebhookName             = "sidecar-injector.istio.io"
 )
 
-func injectCommand() *cobra.Command {
+func injectCommand(cliContext *clicontext.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 
@@ -588,7 +589,7 @@ It's best to do kube-inject when the resource is initially created.
 			if index != -1 {
 				injectorAddress = injectorAddress[:index]
 			}
-			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, rev, injectorAddress)
+			injector, meshConfig, err := setupKubeInjectParameters(cliContext, &sidecarTemplate, &valuesConfig, rev, injectorAddress)
 			if err != nil {
 				return err
 			}

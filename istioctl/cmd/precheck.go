@@ -36,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	pkgversion "istio.io/istio/operator/pkg/version"
@@ -54,7 +55,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-func preCheck() *cobra.Command {
+func preCheck(ctx *clicontext.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var skipControlPlane bool
 	// cmd represents the upgradeCheck command
@@ -68,19 +69,19 @@ func preCheck() *cobra.Command {
   # Check only a single namespace
   istioctl x precheck --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			cli, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+			cli, err := newKubeClientWithRevision(ctx, revision)
 			if err != nil {
 				return err
 			}
 
 			msgs := diag.Messages{}
 			if !skipControlPlane {
-				msgs, err = checkControlPlane(cli)
+				msgs, err = checkControlPlane(ctx)
 				if err != nil {
 					return err
 				}
 			}
-			nsmsgs, err := checkDataPlane(cli, namespace)
+			nsmsgs, err := checkDataPlane(cli, ctx.Namespace())
 			if err != nil {
 				return err
 			}
@@ -112,7 +113,11 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 	return cmd
 }
 
-func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
+func checkControlPlane(ctx *clicontext.CLIContext) (diag.Messages, error) {
+	cli, err := ctx.CLIClient()
+	if err != nil {
+		return nil, err
+	}
 	msgs := diag.Messages{}
 
 	m, err := checkServerVersion(cli)
@@ -136,18 +141,10 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 		resource.Namespace(istioNamespace),
 		nil,
 	)
-	// Set up the kube client
-	config := kube.BuildClientCmd(kubeconfig, configContext)
-	restConfig, err := config.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
-
-	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), "")
-	if err != nil {
-		return nil, err
-	}
-	sa.AddRunningKubeSource(k)
+	sa.AddRunningKubeSource(cli)
 	cancel := make(chan struct{})
 	result, err := sa.Analyze(cancel)
 	if err != nil {

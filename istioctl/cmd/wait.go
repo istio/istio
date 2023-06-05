@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 
@@ -50,7 +51,8 @@ var (
 const pollInterval = time.Second
 
 // waitCmd represents the wait command
-func waitCmd() *cobra.Command {
+func waitCmd(cliCtx *clicontext.CLIContext) *cobra.Command {
+	namespace := cliCtx.Namespace()
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "wait [flags] <type> <name>[.<namespace>]",
@@ -63,8 +65,8 @@ func waitCmd() *cobra.Command {
   istioctl experimental wait --for=distribution --threshold=.99 --timeout=300s virtualservice bookinfo.default
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			printVerbosef(cmd, "kubeconfig %s", kubeconfig)
-			printVerbosef(cmd, "ctx %s", configContext)
+			printVerbosef(cmd, "kubeconfig %s", cliCtx.KubeConfig())
+			printVerbosef(cmd, "ctx %s", cliCtx.KubeContext())
 			if forFlag == "delete" {
 				return errors.New("wait for delete is not yet implemented")
 			} else if forFlag != "distribution" {
@@ -74,7 +76,7 @@ func waitCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			if generation == "" {
-				w = getAndWatchResource(ctx) // setup version getter from kubernetes
+				w = getAndWatchResource(cliCtx, ctx) // setup version getter from kubernetes
 			} else {
 				w = withContext(ctx)
 				w.Go(func(result chan string) error {
@@ -96,7 +98,7 @@ func waitCmd() *cobra.Command {
 			for {
 				// run the check here as soon as we start
 				// because tickers won't run immediately
-				present, notpresent, sdcnum, err := poll(cmd, generations, targetResource, opts)
+				present, notpresent, sdcnum, err := poll(cliCtx, cmd, generations, targetResource, opts)
 				printVerbosef(cmd, "Received poll result: %d/%d", present, present+notpresent)
 				if err != nil {
 					return err
@@ -128,7 +130,7 @@ func waitCmd() *cobra.Command {
 			if err := cobra.ExactArgs(2)(cmd, args); err != nil {
 				return err
 			}
-			nameflag, namespace = handlers.InferPodInfo(args[1], handlers.HandleNamespace(namespace, defaultNamespace))
+			nameflag, namespace = handlers.InferPodInfo(args[1], handlers.HandleNamespace(namespace, cliCtx.DefaultNamespace()))
 			return validateType(args[0])
 		},
 	}
@@ -179,12 +181,13 @@ func countVersions(versionCount map[string]int, configVersion string) {
 const distributionTrackingDisabledErrorString = "pilot version tracking is disabled " +
 	"(To enable this feature, please set PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING=true)"
 
-func poll(cmd *cobra.Command,
+func poll(ctx *clicontext.CLIContext,
+	cmd *cobra.Command,
 	acceptedVersions []string,
 	targetResource string,
 	opts clioptions.ControlPlaneOptions,
 ) (present, notpresent, sdcnum int, err error) {
-	kubeClient, err := kubeClientWithRevision(opts.Revision)
+	kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -243,17 +246,17 @@ func init() {
 // getAndWatchResource ensures that Generations always contains
 // the current generation of the targetResource, adding new versions
 // as they are created.
-func getAndWatchResource(ictx context.Context) *watcher {
+func getAndWatchResource(cliCtx *clicontext.CLIContext, ictx context.Context) *watcher {
 	g := withContext(ictx)
 	// copy nameflag to avoid race
 	nf := nameflag
 	g.Go(func(result chan string) error {
 		// retrieve latest generation from Kubernetes
-		dclient, err := clientGetter(kubeconfig, configContext)
+		dclient, err := clientGetter(cliCtx.KubeConfig(), cliCtx.KubeContext())
 		if err != nil {
 			return err
 		}
-		r := dclient.Resource(targetSchema.GroupVersionResource()).Namespace(namespace)
+		r := dclient.Resource(targetSchema.GroupVersionResource()).Namespace(cliCtx.Namespace())
 		watch, err := r.Watch(context.TODO(), metav1.ListOptions{FieldSelector: "metadata.name=" + nf})
 		if err != nil {
 			return err

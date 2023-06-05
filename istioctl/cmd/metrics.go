@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/pkg/log"
 )
 
@@ -45,7 +46,7 @@ const (
 	reqDur                     = "istio_request_duration_milliseconds"
 )
 
-func metricsCmd() *cobra.Command {
+func metricsCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "metrics <workload name>...",
 		Short: "Prints the metrics for the specified workload(s) when running in Kubernetes.",
@@ -80,7 +81,9 @@ calculated over a time interval of 1 minute.
 			}
 			return nil
 		},
-		RunE:                  run,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(cmd, ctx, args)
+		},
 		DisableFlagsInUseLine: true,
 	}
 
@@ -95,10 +98,10 @@ type workloadMetrics struct {
 	p50Latency, p90Latency, p99Latency time.Duration
 }
 
-func run(c *cobra.Command, args []string) error {
+func run(c *cobra.Command, ctx *clicontext.CLIContext, args []string) error {
 	log.Debugf("metrics command invoked for workload(s): %v", args)
 
-	client, err := kubeClientWithRevision(metricsOpts.Revision)
+	client, err := kubeClientWithRevision(ctx, metricsOpts.Revision)
 	if err != nil {
 		return fmt.Errorf("failed to create k8s client: %v", err)
 	}

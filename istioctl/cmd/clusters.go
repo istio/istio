@@ -24,21 +24,22 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	context2 "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/pkg/cluster"
 )
 
 // TODO move to multicluster package; requires exposing some private funcs/vars in this package
-func clustersCommand() *cobra.Command {
+func clustersCommand(ctx *context2.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "remote-clusters",
 		Short: "Lists the remote clusters each istiod instance is connected to.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
-			res, err := kubeClient.AllDiscoveryDo(context.Background(), istioNamespace, "debug/clusterz")
+			res, err := kubeClient.AllDiscoveryDo(context.Background(), ctx.IstioNamespace(), "debug/clusterz")
 			if err != nil {
 				return err
 			}

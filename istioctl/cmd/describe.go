@@ -45,6 +45,7 @@ import (
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -78,9 +79,12 @@ var (
 
 	// Ignore unmeshed pods.  This makes it easy to suppress warnings about kube-system etc
 	ignoreUnmeshed = false
+
+	ns             string
+	istioNamespace string
 )
 
-func podDescribeCmd() *cobra.Command {
+func podDescribeCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "pod <pod>",
@@ -94,9 +98,9 @@ the configuration objects that affect that pod.`,
 				return fmt.Errorf("expecting pod name")
 			}
 
-			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+			podName, ns := handlers.InferPodInfo(args[0], cliContext.DefaultNamespace())
 
-			client, err := kubeClientWithRevision("")
+			client, err := kubeClientWithRevision(cliContext, "")
 			if err != nil {
 				return err
 			}
@@ -135,13 +139,13 @@ the configuration objects that affect that pod.`,
 			}
 			// TODO look for port collisions between services targeting this pod
 
-			kubeClient, err := kubeClientWithRevision(opts.Revision)
+			kubeClient, err := kubeClientWithRevision(cliContext, opts.Revision)
 			if err != nil {
 				return err
 			}
 
 			var configClient istioclient.Interface
-			if configClient, err = configStoreFactory(); err != nil {
+			if configClient, err = configStoreFactory(cliContext); err != nil {
 				return err
 			}
 
@@ -164,7 +168,9 @@ the configuration objects that affect that pod.`,
 			// Now look for ingress gateways
 			return printIngressInfo(writer, matchingServices, podsLabels, client.Kube(), configClient, kubeClient)
 		},
-		ValidArgsFunction: validPodsNameArgs(kubeClient),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, cliContext, args, toComplete)
+		},
 	}
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
@@ -183,7 +189,10 @@ func getRevisionFromPodAnnotation(anno klabels.Set) string {
 	return injectionStatus.Revision
 }
 
-func describe() *cobra.Command {
+func describe(ctx *clicontext.CLIContext) *cobra.Command {
+	ns = handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace())
+	istioNamespace = ctx.IstioNamespace()
+
 	describeCmd := &cobra.Command{
 		Use:     "describe",
 		Aliases: []string{"des"},
@@ -200,8 +209,8 @@ func describe() *cobra.Command {
 		},
 	}
 
-	describeCmd.AddCommand(podDescribeCmd())
-	describeCmd.AddCommand(svcDescribeCmd())
+	describeCmd.AddCommand(podDescribeCmd(ctx))
+	describeCmd.AddCommand(svcDescribeCmd(ctx))
 	return describeCmd
 }
 
@@ -497,7 +506,6 @@ func printPod(writer io.Writer, pod *corev1.Pod, revision string) {
 }
 
 func kname(meta metav1.ObjectMeta) string {
-	ns := handlers.HandleNamespace(namespace, defaultNamespace)
 	if meta.Namespace == ns {
 		return meta.Name
 	}
@@ -1019,7 +1027,7 @@ func getIngressIP(service corev1.Service, pod corev1.Pod) string {
 	return "unknown"
 }
 
-func svcDescribeCmd() *cobra.Command {
+func svcDescribeCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "service <svc>",
@@ -1036,9 +1044,9 @@ the configuration objects that affect that service.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svcName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+			svcName, ns := handlers.InferPodInfo(args[0], ctx.DefaultNamespace())
 
-			client, err := interfaceFactory(kubeconfig)
+			client, err := interfaceFactory(ctx, "")
 			if err != nil {
 				return err
 			}
@@ -1093,13 +1101,13 @@ the configuration objects that affect that service.`,
 				return nil
 			}
 
-			kubeClient, err := kubeClientWithRevision(opts.Revision)
+			kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
 			if err != nil {
 				return err
 			}
 
 			var configClient istioclient.Interface
-			if configClient, err = configStoreFactory(); err != nil {
+			if configClient, err = configStoreFactory(ctx); err != nil {
 				return err
 			}
 
@@ -1124,7 +1132,9 @@ the configuration objects that affect that service.`,
 			// Now look for ingress gateways
 			return printIngressInfo(writer, svcs, podsLabels, client.Kube(), configClient, kubeClient)
 		},
-		ValidArgsFunction: validServiceArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validServiceArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,

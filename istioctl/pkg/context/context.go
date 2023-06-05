@@ -1,4 +1,4 @@
-package kube
+package context
 
 import (
 	"istio.io/istio/istioctl/pkg/option"
@@ -9,12 +9,12 @@ import (
 )
 
 type CLIContext struct {
-	client   kube.CLIClient
-	revision string
+	// clients are cached clients for each revision
+	clients map[string]kube.CLIClient
 
 	factory cmdutil.Factory
 
-	opts option.RootFlags
+	option.RootFlags
 }
 
 func newKubeClientWithRevision(kubeconfig, configContext, revision string) (kube.CLIClient, error) {
@@ -32,24 +32,33 @@ func newKubeClientWithRevision(kubeconfig, configContext, revision string) (kube
 
 func NewCLIContext(rootFlags option.RootFlags) *CLIContext {
 	return &CLIContext{
-		opts: rootFlags,
+		RootFlags: rootFlags,
 	}
 }
 
 func (c *CLIContext) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
-	c.revision = rev
-	return c.CLIClient()
-}
-
-func (c *CLIContext) CLIClient() (kube.CLIClient, error) {
-	if c.client == nil {
-		client, err := newKubeClientWithRevision(c.opts.KubeConfig(), c.opts.KubeContext(), c.revision)
+	if c.clients == nil {
+		c.clients = make(map[string]kube.CLIClient)
+	}
+	if rev == "default" {
+		rev = ""
+	}
+	if c.clients[rev] == nil {
+		client, err := newKubeClientWithRevision(c.KubeConfig(), c.KubeContext(), rev)
 		if err != nil {
 			return nil, err
 		}
-		c.client = client
+		c.clients[rev] = client
 	}
-	return c.client, nil
+	return c.clients[rev], nil
+}
+
+func (c *CLIContext) CLIClient() (kube.CLIClient, error) {
+	return c.CLIClientWithRevision("")
+}
+
+func (c *CLIContext) RestConfig() (*rest.Config, error) {
+	return kube.BuildClientConfig(c.KubeConfig(), c.KubeContext())
 }
 
 func (c *CLIContext) InferPodInfoFromTypedResource(arg string) (pod string, ns string, err error) {
@@ -60,25 +69,5 @@ func (c *CLIContext) InferPodInfoFromTypedResource(arg string) (pod string, ns s
 		}
 		c.factory = MakeKubeFactory(client)
 	}
-	return handlers.InferPodInfoFromTypedResource(arg, c.opts.DefaultNamespace(), c.factory)
-}
-
-func (c *CLIContext) DefaultNamespace() string {
-	return c.opts.IstioNamespace()
-}
-
-func (c *CLIContext) IstioNamespace() string {
-	return c.opts.DefaultNamespace()
-}
-
-func (c *CLIContext) Namespace() string {
-	return c.opts.Namespace()
-}
-
-func NewFakeCLIContext(rootFlags option.RootFlags) *CLIContext {
-	return &CLIContext{
-		client:   kube.NewFakeClient(),
-		revision: "",
-		opts:     rootFlags,
-	}
+	return handlers.InferPodInfoFromTypedResource(arg, handlers.HandleNamespace(c.Namespace(), c.DefaultNamespace()), c.factory)
 }
