@@ -111,7 +111,17 @@ var (
 			},
 		},
 	}
-	remoteValidationURL = "https://random.host.com/validate"
+	remoteValidationURL     = "https://random.host.com/validate"
+	defaultValidatorWebhook = admitv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "istiod-default-validator",
+		},
+		Webhooks: []admitv1.ValidatingWebhook{
+			{
+				Name: fmt.Sprintf("validation.istio.io"),
+			},
+		},
+	}
 )
 
 func TestGenerateValidatingWebhook(t *testing.T) {
@@ -147,6 +157,14 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			whSVC:          "",
 			whCA:           "ca",
 		},
+		{
+			name:           "webhook-process-failure-policy",
+			istioNamespace: "istio-system",
+			webhook:        revisionCanonicalWebhook,
+			whURL:          "",
+			whSVC:          "istiod-revision",
+			whCA:           "ca",
+		},
 	}
 	scheme := runtime.NewScheme()
 	codecFactory := serializer.NewCodecFactory(scheme)
@@ -160,7 +178,11 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 		},
 		Webhooks: []admitv1.ValidatingWebhook{
 			{
+				Name: "random",
+			},
+			{
 				FailurePolicy: &fail,
+				Name:          "validation.istio.io",
 			},
 		},
 	})
@@ -170,7 +192,11 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			if err != nil {
 				t.Fatalf("webhook parsing failed with error: %v", err)
 			}
-			webhookYAML, err := generateValidatingWebhook(fakeClient, fixWhConfig(webhookConfig), filepath.Join(env.IstioSrc, "manifests"), nil)
+			webhookConfig, err = fixWhConfig(fakeClient, webhookConfig)
+			if err != nil {
+				t.Fatalf("webhook fixing failed with error: %v", err)
+			}
+			webhookYAML, err := generateValidatingWebhook(webhookConfig, filepath.Join(env.IstioSrc, "manifests"), nil)
 			if err != nil {
 				t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 			}
