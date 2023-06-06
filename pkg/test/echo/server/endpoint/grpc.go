@@ -39,8 +39,8 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/xds"
-	"k8s.io/utils/env"
 
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -131,7 +131,7 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 		Forwarder: s.f,
 	})
 	reflection.Register(s.server)
-	if val, _ := env.GetBool("EXPOSE_GRPC_ADMIN", false); val {
+	if val := env.Register("EXPOSE_GRPC_ADMIN", false, "").Get(); val {
 		cleanup, err := admin.Register(s.server)
 		if err != nil {
 			return err
