@@ -946,23 +946,22 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	hnMap := make(map[string]octetPair)
 	allocated := 0
 	for _, svc := range hashedServices {
-		if svc == nil {
-			// There is no service in the slot. Just increment x and move forward.
+		// Regardless of wether a slot is used, if we have IP re-use or allocate a new IP, we want to preserve
+		// a relation between the index in hashedServices and the allocated IP
+		x++
+		if x%255 == 0 {
 			x++
-			if x%255 == 0 {
-				x++
-			}
+		}
+
+		if svc == nil {
 			continue
 		}
+
 		n := makeServiceKey(svc)
 		if v, ok := hnMap[n]; ok {
 			log.Debugf("Reuse IP for domain %s", n)
 			setAutoAllocatedIPs(svc, v)
 		} else {
-			x++
-			if x%255 == 0 {
-				x++
-			}
 			if allocated >= maxIPs {
 				log.Errorf("out of IPs to allocate for service entries. x:= %d, maxips:= %d", x, maxIPs)
 				return services
