@@ -179,3 +179,162 @@ Despite this expectation in SotW, due to a quirk in the protocol we can actually
 However, all other types *cannot* be deleted explicitly, and instead are cleaned up when all references are removed. This means we can send partial updates for non-root types, without deleting unsent resources. This effectively allows doing delta updates over SotW. This optimization is critical for our endpoints generator, ensuring that when a pod scales we only need to update the endpoints within that pod.
 
 Istio currently supports both SotW and Delta protocol. However, the delta implementation is not yet optimized well, so it performs mostly the same as SotW.
+
+## Controllers
+
+Istiod consists of a collection of controllers. Per Kubernetes, "controllers are control loops that watch the state of your cluster, then make or request changes where needed."
+
+In Istio, we use the term a bit more liberally. Istio controllers watch more than just the start of *a* cluster -- many are reading from multiple clusters, or even external sources (files and XDS). Generally Kubernetes controllers are then writing state back to the cluster; Istio does have a few of these controllers, but most of them are centered around driving the [Proxy Configuration](#proxy-configuration).
+
+### Writing controllers
+
+Istio provides a few helper libraries to get started writing a controller. While these libraries help, there are still a lot of subtleties in correctly writing (and testing!) a controller properly.
+
+To get started writing a controller, review the [Example Controller](pkg/kube/controllers/example_test.go).
+
+### Controllers overview
+
+Below provides a high level overview of controllers in Istiod. For more information about each controller, consulting the controllers Go docs is recommended.
+
+```mermaid
+graph BT
+    crd("CRD Watcher")
+    subgraph Service Discovery
+        ksd("Kubernetes Controller")
+        sesd("Service Entry Controller")
+        msd("Memory Controller")
+        asd("Aggregate")
+        ksd--Join-->asd
+        sesd--Join-->asd
+        msd--Join-->asd
+        ksd<--"Data Sharing"-->sesd
+    end
+    subgraph ConfigStore
+        ccs("CRD Client")
+        xcs("XDS Store")
+        fcs("File Store")
+        mcs("Memory Store")
+        acs("Aggregate")
+        ccs--Join-->acs
+        xcs--Join-->acs
+        fcs--Join-->acs
+        mcs--Join-->acs
+    end
+    subgraph VMs
+        vmhc("Health Check")
+        vmar("Auto Registration")
+    end
+    subgraph Gateway
+        twc("Tag Watcher")
+        gdc("Gateway Deployment")
+        gcc("Gateway Class")
+        twc--Depends-->gdc
+        gdc-.-gcc
+    end
+    subgraph Ingress
+        ic("Ingress Controller")
+        isc("Ingress Status Controller")
+        ic-.-isc
+    end
+    mcsc("Multicluster Secret")
+    scr("Credentials Controller")
+    mcsc--"1 per cluster"-->scr
+    mcsc--"1 per cluster"-->ksd
+    crd--Depends-->ccs
+
+    iwhc("Injection Webhook")
+    vwhc("Validation Webhook")
+    nsc("Namespace Controller")
+    ksd--"External Istiod"-->nsc
+    ksd--"External Istiod"-->iwhc
+
+    df("Discovery Filter")
+
+    axc("Auto Export Controller")
+
+    mcfg("Mesh Config")
+    dfc("Default Revision Controller")
+```
+
+As you can see, the landscape of controllers is pretty extensive at this point.
+
+[Service Discovery](#ServiceDiscovery) and [Config Store](#ConfigStore) were already discussed above, so do not need more explanation here.
+
+#### Mesh Config
+
+Mesh Config controller is a pretty simple controller, reading from `ConfigMap`(s) (multiple if `SHARED_MESH_CONFIG` is used), processing and merging these into a the typed `MeshConfig`. It then exposes this over a simple `mesh.Watcher`, which just exposes a way to access the current `MeshConfig` and get notified when it changes.
+
+#### Ingress
+
+In addition to `VirtualService` and `Gateway`, Istio supports the `Ingress` core resource type. Like CRDs, the `Ingress` controller implements `ConfigStore`, but a bit differently. `Ingress` resources are converted on the fly to `VirtualService` and `Gateway`, so while the controller reads `Ingress` resources (and a few related types like `IngressClass`), it emits other types. This allows the rest of the code to be unaware of Ingress and just focus on the core types
+
+In addition to this conversion, `Ingress` requires writing the address it can be reached at in status. This is done by the Ingress Status controller.
+
+#### Gateway
+
+Gateway (referring to the [Kubernetes API](http://gateway-api.org/), not the same-named Istio type) works very similarly to [Ingress](#ingress). The Gateway controller also coverts Gateway API types into `VirtualService` and `Gateway`, implementing the `ConfigStore` interface.
+
+However, there is also a bit of additional logic. Gateway types have extensive status reporting. Unlike Ingress, this is status reporting is done inline in the main controller, allowing status generation to be done directly in the logic processing the resources.
+
+Additionally, Gateway involves two components writing to the cluster:
+* The Gateway Class controller is a simple controller that just writes a default `GatewayClass` object describing our implementation.
+* The Gateway Deployment controller enables users to create a Gateway which actually provisions the underlying resources for the implementation (Deployment and Service). This is more like a traditional "operator". Part of this logic is determining which Istiod revision should handle the resource based on `istio.io/rev` labeling (mirroring sidecar injection); as a result, this takes a dependency on the "Tag Watcher" controller.
+
+#### CRD Watcher
+
+For watches against custom types (CRDs), we want to gracefully handle missing CRDs. Naively starting informers against the missing types would result in errors and blocking startup. Instead, we introduce a "CRD Watcher" component that watches the CRDs in the cluster to determine if they are available or not.
+
+This is consumed in two ways:
+* Some components just block on `watcher.WaitForCRD(...)` before doing the work they need.
+* `kclient.NewDelayedInformer` can also fully abstract this away, by providing a client that handles this behind the scenes.
+
+#### Credentials Controller
+
+The Credentials controller exposes access to TLS certificate information, stored in cluster as `Secrets`. Aside from simply accessing certificates, it also has an authorization component that can verify whether a requester has access to read `Secret`s in its namespace.
+
+#### Discovery Filter
+
+The Discovery Filter controller is used to implement the `discoverySelectors` field of `MeshConfig`. This controller reads `Namespace`s in the cluster to determine if they should be "selected". Many controllers consumer this filter to only process a subset of configurations.
+
+#### Multicluster
+
+Various controllers read from multiple clusters.
+
+This is rooted in the Multicluster Secret controller, which reads `kubeconfig` files (stored as `Secrets`), and creating Kubernetes clients for each. The controller allows registering handlers which can process Add/Update/Delete of clusters.
+
+This has two implementations:
+* The Credentials controller is responsible for reading TLS certificates, stored as Secrets.
+* The Kubernetes Service Discovery controller is a bit of a monolith, and spins off a bunch of other sub-controllers in addition to the core service discovery controller.
+
+Because of the monolithic complexity it helps to see this magnified a bit:
+
+```mermaid
+graph BT
+    mcsc("Multicluster Secret")
+    scr("Credentials Controller")
+    ksd("Kubernetes Service Controller")
+    nsc("Namespace Controller")
+    wes("Workload Entry Store")
+    iwh("Injection Patcher")
+    aex("Auto Service Export")
+    scr-->mcsc
+    ksd-->mcsc
+    nsc-->ksd
+    wes-->ksd
+    iwh-->ksd
+    aex-->ksd
+```
+
+#### VMs
+
+Virtual Machine support consists of two controllers.
+
+The Auto Registration controller is pretty unique as a controller - the inputs to the controller are XDS connections. In response to each XDS connection, a `WorkloadEntry` is created to register the XDS client (which is generally `istio-proxy` running on a VM) to the mesh. This `WorkloadEntry` is tied to the lifecycle of the connection, with some logic to ensure that temporary downtime (reconnecting, etc) does not remove the `WorkloadEntry`.
+
+The Health Check controller additionally controls the health status of the `WorkloadEntry`. The health is reported over the XDS client and synced with the `WorkloadEntry`.
+
+#### Webhooks
+
+Istio contains both Validation and Mutating webhook configurations. These need a `caBundle` specified in order to provision the TLS trust. Because Istiod's CA certificate is somewhat dynamic, this is patched at runtime (rather than part of the install). The webhook controllers handle this patching.
+
+These controllers are very similar but are distinct components for a variety of reasons.
