@@ -20,4 +20,5 @@ spec:
     global:
       platform: openshift
     istio_cni:
+      enabled: true
       chained: false
