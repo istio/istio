@@ -31,16 +31,6 @@ type AddressMap struct {
 	mutex sync.RWMutex
 }
 
-func (m *AddressMap) IsEmpty() bool {
-	if m == nil {
-		return true
-	}
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	return len(m.Addresses) == 0
-}
-
 func (m *AddressMap) Len() int {
 	if m == nil {
 		return 0
