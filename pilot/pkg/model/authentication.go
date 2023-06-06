@@ -222,11 +222,13 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 	workloadLabels labels.Instance,
 ) []*config.Config {
 	configs := make([]*config.Config, 0)
-	lookupInNamespaces := []string{namespace}
+	var lookupInNamespaces []string
 	if namespace != rootNamespace {
 		// Only check the root namespace if the (workload) namespace is not already the root namespace
 		// to avoid double inclusion.
-		lookupInNamespaces = append(lookupInNamespaces, rootNamespace)
+		lookupInNamespaces = []string{namespace, rootNamespace}
+	} else {
+		lookupInNamespaces = []string{namespace}
 	}
 	for _, ns := range lookupInNamespaces {
 		if nsConfig, ok := configsByNamespace[ns]; ok {

@@ -52,11 +52,31 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 			input:        "testdata/configmap-changed.yaml",
 			want:         "testdata/configmap-changed.yaml",
 		},
+		// Test IstioOperator field removals
+		{
+			name:  "creates if not present",
+			input: "testdata/iop-test-gw-1.yaml",
+			want:  "testdata/iop-test-gw-1.yaml",
+		},
+		{
+			name:         "updates if present",
+			currentState: "testdata/iop-test-gw-1.yaml",
+			input:        "testdata/iop-changed.yaml",
+			want:         "testdata/iop-changed.yaml",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			obj := loadData(t, tt.input)
-			cl := &fakeClientWrapper{fake.NewClientBuilder().WithRuntimeObjects(loadData(t, tt.input).UnstructuredObject()).Build()}
+			var k8sClient client.Client
+			if tt.currentState != "" {
+				k8sClient = fake.NewClientBuilder().WithRuntimeObjects(loadData(t, tt.currentState).UnstructuredObject()).Build()
+			} else {
+				// no current state provided, initialize fake client without runtime object
+				k8sClient = fake.NewClientBuilder().Build()
+			}
+
+			cl := &fakeClientWrapper{k8sClient}
 			h := &HelmReconciler{
 				client: cl,
 				opts:   &Options{},

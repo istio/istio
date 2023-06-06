@@ -17,19 +17,15 @@ package monitoring_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
-	"go.opencensus.io/metric/metricdata"
-	"go.opencensus.io/metric/metricexport"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring/monitortest"
 )
 
 var (
@@ -90,9 +86,7 @@ func init() {
 }
 
 func TestSum(t *testing.T) {
-	exp := &testExporter{rows: make(map[string][]*view.Row)}
-	view.RegisterExporter(exp)
-	view.SetReportingPeriod(1 * time.Millisecond)
+	mt := monitortest.New(t)
 
 	testSum.With(name.Value("foo"), kind.Value("bar")).Increment()
 	goofySum.With(name.Value("baz")).Record(45)
@@ -102,57 +96,9 @@ func TestSum(t *testing.T) {
 	int64Sum.With(name.Value("foo"), kind.Value("bar")).RecordInt(10)
 	int64Sum.With(name.Value("foo"), kind.Value("bar")).Record(10.75) // should use floor, so this will be counted as 10
 
-	err := retry(
-		func() error {
-			exp.Lock()
-			defer exp.Unlock()
-			if len(exp.rows[testSum.Name()]) < 2 {
-				// we should have two values goofySum (which is a dimensioned testSum) and
-				// testSum.
-				return errors.New("no values recorded for sum, want 2")
-			}
-
-			// only check the final values to ensure that the sum has been properly calculated
-			goofySumVal := float64(0)
-			testSumVal := float64(0)
-			for _, r := range exp.rows[testSum.Name()] {
-				if findTagWithValue("kind", "goofy", r.Tags) {
-					if sd, ok := r.Data.(*view.SumData); ok {
-						goofySumVal = sd.Value
-					}
-				} else if findTagWithValue("kind", "bar", r.Tags) {
-					if sd, ok := r.Data.(*view.SumData); ok {
-						testSumVal = sd.Value
-					}
-				} else {
-					return fmt.Errorf("unknown row in results: %+v", r)
-				}
-			}
-			if got, want := goofySumVal, 44.0; got != want {
-				return fmt.Errorf("bad value for %q: %f, want %f", goofySum.Name(), got, want)
-			}
-			if got, want := testSumVal, 1.0; got != want {
-				return fmt.Errorf("bad value for %q: %f, want %f", testSum.Name(), got, want)
-			}
-			int64SumVal := int64(0)
-			for _, r := range exp.rows[int64Sum.Name()] {
-				if findTagWithValue("kind", "bar", r.Tags) {
-					if sd, ok := r.Data.(*view.SumData); ok {
-						int64SumVal = int64(sd.Value)
-					}
-				} else {
-					return fmt.Errorf("unknown row in results: %+v", r)
-				}
-			}
-			if got, want := int64SumVal, int64(21); got != want {
-				return fmt.Errorf("bad value for %q: %d, want %d", int64Sum.Name(), got, want)
-			}
-			return nil
-		},
-	)
-	if err != nil {
-		t.Errorf("failure recording sum values: %v", err)
-	}
+	mt.Assert(goofySum.Name(), map[string]string{"name": "baz"}, monitortest.Exactly(44))
+	mt.Assert(testSum.Name(), map[string]string{"kind": "bar"}, monitortest.Exactly(1))
+	mt.Assert(int64Sum.Name(), map[string]string{"kind": "bar"}, monitortest.Exactly(21))
 }
 
 func TestRegisterIfSum(t *testing.T) {
@@ -173,38 +119,12 @@ func TestRegisterIfSum(t *testing.T) {
 }
 
 func TestGauge(t *testing.T) {
-	exp := &testExporter{rows: make(map[string][]*view.Row)}
-	view.RegisterExporter(exp)
-	view.SetReportingPeriod(1 * time.Millisecond)
+	mt := monitortest.New(t)
 
 	testGauge.Record(42)
 	testGauge.Record(77)
 
-	err := retry(
-		func() error {
-			exp.Lock()
-			defer exp.Unlock()
-
-			if len(exp.rows[testGauge.Name()]) < 1 {
-				return errors.New("no values recorded for gauge, want 1")
-			}
-
-			// we only want to verify that the last value was exported
-			found := false
-			for _, r := range exp.rows[testGauge.Name()] {
-				if lvd, ok := r.Data.(*view.LastValueData); ok {
-					found = lvd.Value == 77.0
-				}
-			}
-			if !found {
-				return fmt.Errorf("expected value for gauge %q not found; expected 77.0", testGauge.Name())
-			}
-			return nil
-		},
-	)
-	if err != nil {
-		t.Errorf("failure recording gauge values: %v", err)
-	}
+	mt.Assert(testGauge.Name(), nil, monitortest.Exactly(77))
 }
 
 func TestDerivedGauge(t *testing.T) {
@@ -218,36 +138,8 @@ func TestDerivedGauge(t *testing.T) {
 			},
 		),
 	)
-	exp := &testExporter{rows: make(map[string][]*view.Row), metrics: make(map[string][]*metricdata.TimeSeries)}
-
-	reader := metricexport.NewReader()
-
-	err := retry(
-		func() error {
-			reader.ReadAndExport(exp)
-
-			if len(exp.metrics[testDerivedGauge.Name()]) < 1 {
-				return errors.New("no values recorded for gauge, want 1")
-			}
-
-			found := false
-			for _, ts := range exp.metrics[testDerivedGauge.Name()] {
-				for _, point := range ts.Points {
-					if got, want := point.Value.(float64), 17.76; got != want {
-						return fmt.Errorf("unexpected value for gauge %q found; got %f; expected %f", testDerivedGauge.Name(), got, want)
-					}
-					found = true
-				}
-			}
-			if !found {
-				return fmt.Errorf("expected value for gauge %q not found; expected 17.76", testDerivedGauge.Name())
-			}
-			return nil
-		},
-	)
-	if err != nil {
-		t.Errorf("failure recording derived gauge values: %v", err)
-	}
+	mt := monitortest.New(t)
+	mt.Assert(testDerivedGauge.Name(), nil, monitortest.Exactly(17.76))
 }
 
 func TestDerivedGaugeWithLabels(t *testing.T) {
@@ -271,8 +163,7 @@ func TestDerivedGaugeWithLabels(t *testing.T) {
 		"baz",
 	)
 
-	exp := &testExporter{rows: make(map[string][]*view.Row), metrics: make(map[string][]*metricdata.TimeSeries)}
-	reader := metricexport.NewReader()
+	mt := monitortest.New(t)
 
 	cases := []struct {
 		wantLabel string
@@ -283,47 +174,13 @@ func TestDerivedGaugeWithLabels(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.wantLabel, func(tt *testing.T) {
-			err := retry(
-				func() error {
-					reader.ReadAndExport(exp)
-
-					if got, want := len(exp.metrics[testDerivedGauge.Name()]), 2; got <= want {
-						return fmt.Errorf("incorrect number of values recorded for gauge; got %d, want at least %d", got, want)
-					}
-
-					for _, ts := range exp.metrics[testDerivedGauge.Name()] {
-						labelFound := false
-						for _, l := range ts.LabelValues {
-							if got, want := l.Value, tc.wantLabel; got != want {
-								continue
-							}
-							labelFound = true
-						}
-						if !labelFound {
-							continue
-						}
-
-						for _, point := range ts.Points {
-							if got, want := point.Value.(float64), tc.wantValue; got != want {
-								continue
-							}
-							return nil
-						}
-					}
-					return fmt.Errorf("expected value for gauge %q with label 'foo' of %q not found; expected 17.76", testDerivedGauge.Name(), "bar")
-				},
-			)
-			if err != nil {
-				tt.Errorf("failure recording derived gauge values: %v", err)
-			}
+			mt.Assert(testDerivedGauge.Name(), map[string]string{"foo": tc.wantLabel}, monitortest.Exactly(tc.wantValue))
 		})
 	}
 }
 
 func TestDistribution(t *testing.T) {
-	exp := &testExporter{rows: make(map[string][]*view.Row)}
-	view.RegisterExporter(exp)
-	view.SetReportingPeriod(1 * time.Millisecond)
+	mt := monitortest.New(t)
 
 	funDistribution := testDistribution.With(name.Value("fun"))
 	funDistribution.Record(7.7773)
@@ -331,51 +188,8 @@ func TestDistribution(t *testing.T) {
 	testDistribution.With(name.Value("foo")).Record(6.8)
 	testDistribution.With(name.Value("foo")).Record(10.2)
 
-	err := retry(
-		func() error {
-			exp.Lock()
-			defer exp.Unlock()
-			if len(exp.rows[testDistribution.Name()]) < 2 {
-				return errors.New("no values recorded for distribution, want 2")
-			}
-
-			// regardless of how the observations get batched and exported, we expect to see
-			// 1 total value recorded and exported for the fun distribution and 3 for the
-			// test distribution
-			maxFunCount := int64(0)
-			maxTestCount := int64(0)
-			for _, r := range exp.rows[testDistribution.Name()] {
-				if findTagWithValue("name", "fun", r.Tags) {
-					if dd, ok := r.Data.(*view.DistributionData); ok {
-						if dd.Count > maxFunCount {
-							maxFunCount = dd.Count
-						}
-					}
-				} else if findTagWithValue("name", "foo", r.Tags) {
-					if dd, ok := r.Data.(*view.DistributionData); ok {
-						if dd.Count > maxTestCount {
-							maxTestCount = dd.Count
-						}
-					}
-				} else {
-					return errors.New("expected distributions not found")
-				}
-			}
-
-			if got, want := maxFunCount, int64(1); got != want {
-				return fmt.Errorf("bad count for %q: %d, want %d", testDistribution.Name(), got, want)
-			}
-
-			if got, want := maxTestCount, int64(3); got != want {
-				return fmt.Errorf("bad count for %q: %d, want %d", testDistribution.Name(), got, want)
-			}
-
-			return nil
-		},
-	)
-	if err != nil {
-		t.Errorf("failure recording distribution values: %v", err)
-	}
+	mt.Assert(testDistribution.Name(), map[string]string{"name": "fun"}, monitortest.Distribution(1, 7.7773))
+	mt.Assert(testDistribution.Name(), map[string]string{"name": "foo"}, monitortest.Distribution(3, 24.4))
 }
 
 func TestMustCreateLabel(t *testing.T) {
@@ -403,33 +217,8 @@ func TestMustRegister(t *testing.T) {
 	monitoring.MustRegister(&registerFail{})
 }
 
-func TestViewExport(t *testing.T) {
-	exp := &testExporter{rows: make(map[string][]*view.Row)}
-	view.RegisterExporter(exp)
-	view.SetReportingPeriod(1 * time.Millisecond)
-
-	testSum.With(name.Value("foo"), kind.Value("bar")).Increment()
-	goofySum.With(name.Value("baz")).Record(45)
-
-	err := retry(
-		func() error {
-			exp.Lock()
-			defer exp.Unlock()
-			if exp.invalidTags {
-				return errors.New("view registration includes invalid tag keys")
-			}
-			return nil
-		},
-	)
-	if err != nil {
-		t.Errorf("failure with view export: %v", err)
-	}
-}
-
 func TestRecordHook(t *testing.T) {
-	exp := &testExporter{rows: make(map[string][]*view.Row)}
-	view.RegisterExporter(exp)
-	view.SetReportingPeriod(1 * time.Millisecond)
+	mt := monitortest.New(t)
 
 	// testRecordHook will record value for hookSum measure when testSum is recorded
 	rh := &testRecordHook{}
@@ -437,38 +226,11 @@ func TestRecordHook(t *testing.T) {
 
 	testSum.With(name.Value("foo"), kind.Value("bar")).Increment()
 	testSum.With(name.Value("baz"), kind.Value("bar")).Record(45)
-	err := retry(
-		func() error {
-			exp.Lock()
-			defer exp.Unlock()
-			if len(exp.rows[hookSum.Name()]) < 2 {
-				return errors.New("less than 2 values recorded for hook events sum")
-			}
-			hookFooSumVal := float64(0)
-			hookBazSumVal := float64(0)
-			for _, r := range exp.rows[hookSum.Name()] {
-				if findTagWithValue("name", "foo", r.Tags) {
-					if sd, ok := r.Data.(*view.SumData); ok {
-						hookFooSumVal = sd.Value
-					}
-				} else if findTagWithValue("name", "baz", r.Tags) {
-					if sd, ok := r.Data.(*view.SumData); ok {
-						hookBazSumVal = sd.Value
-					}
-				}
-			}
-			if got, want := hookFooSumVal, 1.0; got != want {
-				return fmt.Errorf("bad value for %q: %f, want %f", hookSum.Name(), got, want)
-			}
-			if got, want := hookBazSumVal, 45.0; got != want {
-				return fmt.Errorf("bad value for %q: %f, want %f", hookSum.Name(), got, want)
-			}
-			return nil
-		},
-	)
-	if err != nil {
-		t.Errorf("failure recording sum values with record hook: %v", err)
-	}
+
+	mt.Assert(testSum.Name(), map[string]string{"name": "foo", "kind": "bar"}, monitortest.Exactly(1))
+	mt.Assert(testSum.Name(), map[string]string{"name": "baz", "kind": "bar"}, monitortest.Exactly(45))
+	mt.Assert(hookSum.Name(), map[string]string{"name": "foo"}, monitortest.Exactly(1))
+	mt.Assert(hookSum.Name(), map[string]string{"name": "baz"}, monitortest.Exactly(45))
 }
 
 type registerFail struct {
@@ -477,62 +239,6 @@ type registerFail struct {
 
 func (r registerFail) Register() error {
 	return errors.New("fail")
-}
-
-type testExporter struct {
-	sync.Mutex
-
-	rows        map[string][]*view.Row
-	metrics     map[string][]*metricdata.TimeSeries
-	invalidTags bool
-}
-
-func (t *testExporter) ExportView(d *view.Data) {
-	t.Lock()
-	for _, tk := range d.View.TagKeys {
-		if len(tk.Name()) < 1 {
-			t.invalidTags = true
-		}
-	}
-	t.rows[d.View.Name] = append(t.rows[d.View.Name], d.Rows...)
-	t.Unlock()
-}
-
-func (t *testExporter) ExportMetrics(ctx context.Context, data []*metricdata.Metric) error {
-	for _, m := range data {
-		t.metrics[m.Descriptor.Name] = append(t.metrics[m.Descriptor.Name], m.TimeSeries...)
-	}
-	return nil
-}
-
-func findTagWithValue(key, value string, tags []tag.Tag) bool {
-	for _, t := range tags {
-		if t.Key.Name() == key && t.Value == value {
-			return true
-		}
-	}
-	return false
-}
-
-// because OC uses goroutines to async export, validating proper export
-// can introduce timing problems. this helper just trys validation over
-// and over until the supplied method either succeeds or it times out.
-func retry(fn func() error) error {
-	var lasterr error
-	to := time.After(1 * time.Second)
-	for {
-		select {
-		case <-to:
-			return fmt.Errorf("timeout while waiting (last error: %v)", lasterr)
-		default:
-		}
-		if err := fn(); err != nil {
-			lasterr = err
-		} else {
-			return nil
-		}
-		<-time.After(10 * time.Millisecond)
-	}
 }
 
 type testRecordHook struct{}
@@ -564,10 +270,7 @@ func (r *testRecordHook) OnRecordFloat64Measure(f *stats.Float64Measure, tags []
 }
 
 func BenchmarkCounter(b *testing.B) {
-	exp := &testExporter{rows: make(map[string][]*view.Row)}
-	view.RegisterExporter(exp)
-	view.SetReportingPeriod(1 * time.Millisecond)
-
+	monitortest.New(b)
 	for n := 0; n < b.N; n++ {
 		int64Sum.Increment()
 	}

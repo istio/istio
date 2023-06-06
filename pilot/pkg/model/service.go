@@ -722,7 +722,7 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 		return false
 	}
 
-	if len(s.ClusterExternalAddresses.GetAddresses()) != len(other.ClusterExternalAddresses.GetAddresses()) {
+	if s.ClusterExternalAddresses.Len() != other.ClusterExternalAddresses.Len() {
 		return false
 	}
 

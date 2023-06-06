@@ -93,7 +93,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		destinationRule: dr,
 		nodeType:        proxy.Type,
 
-		mtlsChecker: newMtlsChecker(push, port, dr.GetRule()),
+		mtlsChecker: newMtlsChecker(push, port, dr.GetRule(), subsetName),
 		push:        push,
 		proxy:       proxy,
 		subsetName:  subsetName,
@@ -295,11 +295,21 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				}
 			}
 
-			// Currently the HBONE implementation leads to different endpoint generation depending on if the
-			// client proxy supports HBONE or not. This breaks the cache.
-			// For now, just disable caching if the global HBONE flag is enabled.
-			if ep.EnvoyEndpoint == nil || features.EnableHBONE {
-				eep := buildEnvoyLbEndpoint(b, ep)
+			mtlsEnabled := b.mtlsChecker.checkMtlsEnabled(ep)
+			// Determine if we need to build the endpoint. We try to cache it for performance reasons
+			needToCompute := ep.EnvoyEndpoint == nil
+			if features.EnableHBONE {
+				// Currently the HBONE implementation leads to different endpoint generation depending on if the
+				// client proxy supports HBONE or not. This breaks the cache.
+				// For now, just disable caching if the global HBONE flag is enabled.
+				needToCompute = true
+			}
+			if ep.EnvoyEndpoint != nil && mtlsEnabled != isMtlsEnabled(ep.EnvoyEndpoint) {
+				// The mTLS settings may have changed, invalidating the cache endpoint. Rebuild it
+				needToCompute = true
+			}
+			if needToCompute {
+				eep := buildEnvoyLbEndpoint(b, ep, mtlsEnabled)
 				if eep == nil {
 					continue
 				}
@@ -315,18 +325,6 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 					},
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
-			}
-			// detect if mTLS is possible for this endpoint, used later during ep filtering
-			// this must be done while converting IstioEndpoints because we still have workload labels
-			if b.mtlsChecker != nil {
-				b.mtlsChecker.computeForEndpoint(ep)
-				tlsMode := ep.TLSMode
-				if b.mtlsChecker.isMtlsDisabled(ep.EnvoyEndpoint) {
-					tlsMode = ""
-				}
-				if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
-					ep.EnvoyEndpoint = nep
-				}
 			}
 			locLbEps.append(ep, ep.EnvoyEndpoint)
 		}
@@ -373,7 +371,7 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnabled bool) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
 	healthStatus := e.HealthStatus
 	if features.DrainingLabel != "" && e.Labels[features.DrainingLabel] != "" {
@@ -395,8 +393,15 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
-	// Do not remove pilot/pkg/xds/fake.go
-	util.AppendLbEndpointMetadata(e.Metadata(), ep.Metadata)
+	// Do not remove
+	meta := e.Metadata()
+
+	// detect if mTLS is possible for this endpoint, used later during ep filtering
+	// this must be done while converting IstioEndpoints because we still have workload labels
+	if !mtlsEnabled {
+		meta.TLSMode = ""
+	}
+	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
 	address, port := e.Address, e.EndpointPort
 	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort

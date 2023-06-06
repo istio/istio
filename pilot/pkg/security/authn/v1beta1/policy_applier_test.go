@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	protovalue "istio.io/istio/pkg/proto"
 	istiotest "istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestJwtFilter(t *testing.T) {
@@ -1783,15 +1784,13 @@ func TestComposePeerAuthentication(t *testing.T) {
 	tests := []struct {
 		name    string
 		configs []*config.Config
-		want    *v1beta1.PeerAuthentication
+		want    MergedPeerAuthentication
 	}{
 		{
 			name:    "no config",
 			configs: []*config.Config{},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1809,10 +1808,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSStrict,
 			},
 		},
 		{
@@ -1844,10 +1841,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1870,10 +1865,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1900,10 +1893,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1932,10 +1923,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1978,10 +1967,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -2024,10 +2011,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -2085,10 +2070,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -2106,10 +2089,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -2140,10 +2121,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSStrict,
 			},
 		},
 		{
@@ -2174,10 +2153,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSStrict,
 			},
 		},
 		{
@@ -2219,10 +2196,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSStrict,
 			},
 		},
 		{
@@ -2262,73 +2237,20 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-				},
-				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-					80: {
-						Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
-					},
-					90: {
-						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-					},
-					100: {
-						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-					},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSStrict,
+				PerPort: map[uint32]model.MutualTLSMode{
+					80:  model.MTLSDisable,
+					90:  model.MTLSStrict,
+					100: model.MTLSStrict,
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ComposePeerAuthentication("root-namespace", tt.configs); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("composePeerAuthentication() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGetMutualTLSMode(t *testing.T) {
-	tests := []struct {
-		name string
-		in   *v1beta1.PeerAuthentication_MutualTLS
-		want model.MutualTLSMode
-	}{
-		{
-			name: "unset",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_UNSET,
-			},
-			want: model.MTLSUnknown,
-		},
-		{
-			name: "disable",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
-			},
-			want: model.MTLSDisable,
-		},
-		{
-			name: "permissive",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-			},
-			want: model.MTLSPermissive,
-		},
-		{
-			name: "strict",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-			},
-			want: model.MTLSStrict,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := getMutualTLSMode(tt.in); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getMutualTLSMode() = %v, want %v", got, tt.want)
-			}
+			got := ComposePeerAuthentication("root-namespace", tt.configs)
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }

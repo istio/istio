@@ -178,6 +178,20 @@ func TestAdsBadId(t *testing.T) {
 	ads.ExpectNoResponse(t)
 }
 
+func TestVersionNonce(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	ads := s.ConnectADS().WithType(v3.ClusterType)
+	resp1 := ads.RequestResponseAck(t, nil)
+	fullPush(s)
+	resp2 := ads.ExpectResponse(t)
+	if !(resp1.VersionInfo < resp2.VersionInfo) {
+		t.Fatalf("version should be incrementing: %v -> %v", resp1.VersionInfo, resp2.VersionInfo)
+	}
+	if resp1.Nonce == resp2.Nonce {
+		t.Fatalf("nonce should change %v -> %v", resp1.Nonce, resp2.Nonce)
+	}
+}
+
 func TestAdsClusterUpdate(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.EndpointType)

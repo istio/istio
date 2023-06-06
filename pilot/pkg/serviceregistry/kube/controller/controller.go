@@ -429,7 +429,7 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
-	if !currConv.Attributes.ClusterExternalAddresses.IsEmpty() {
+	if currConv.Attributes.ClusterExternalAddresses.Len() > 0 {
 		needsFullPush = c.extractGatewaysFromService(currConv)
 	} else if isNodePortGatewayService(curr) {
 		// We need to know which services are using node selectors because during node events,

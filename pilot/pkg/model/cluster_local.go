@@ -64,14 +64,14 @@ func NewClusterLocalProvider(e *Environment) ClusterLocalProvider {
 var _ ClusterLocalProvider = &clusterLocalProvider{}
 
 type clusterLocalProvider struct {
-	mutex sync.Mutex
+	mutex sync.RWMutex
 	hosts ClusterLocalHosts
 }
 
 func (c *clusterLocalProvider) GetClusterLocalHosts() ClusterLocalHosts {
-	c.mutex.Lock()
+	c.mutex.RLock()
 	out := c.hosts
-	c.mutex.Unlock()
+	c.mutex.RUnlock()
 	return out
 }
 

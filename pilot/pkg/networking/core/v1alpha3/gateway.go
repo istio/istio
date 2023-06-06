@@ -450,7 +450,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 					newVHost := &route.VirtualHost{
 						Name:                       util.DomainName(string(hostname), port),
-						Domains:                    buildGatewayVirtualHostDomains(node, string(hostname), port),
+						Domains:                    []string{hostname.String()},
 						Routes:                     routes,
 						TypedPerFilterConfig:       perRouteFilters,
 						IncludeRequestAttemptCount: true,
@@ -475,7 +475,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 			newVHost := &route.VirtualHost{
 				Name:                       util.DomainName(hostname, port),
-				Domains:                    buildGatewayVirtualHostDomains(node, hostname, port),
+				Domains:                    []string{hostname},
 				IncludeRequestAttemptCount: true,
 				RequireTls:                 route.VirtualHost_ALL,
 			}
@@ -1036,24 +1036,4 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 		}
 	}
 	return false
-}
-
-func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int) []string {
-	domains := []string{hostname}
-	if hostname == "*" || !node.IsProxylessGrpc() {
-		return domains
-	}
-
-	// Per https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto#config-route-v3-virtualhost
-	// we can only have one wildcard. Ideally, we want to match any port, as the host
-	// header may have a different port (behind a LB, nodeport, etc). However, if we
-	// have a wildcard domain we cannot do that since we would need two wildcards.
-	// Therefore, we we will preserve the original port if there is a wildcard host.
-	// TODO(https://github.com/envoyproxy/envoy/issues/12647) support wildcard host with wildcard port.
-	if len(hostname) > 0 && hostname[0] == '*' {
-		domains = append(domains, util.DomainName(hostname, port))
-	} else {
-		domains = append(domains, util.IPv6Compliant(hostname)+":*")
-	}
-	return domains
 }

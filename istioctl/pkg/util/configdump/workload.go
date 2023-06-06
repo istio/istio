@@ -15,24 +15,40 @@
 package configdump
 
 type ZtunnelWorkload struct {
-	WorkloadIP        string   `json:"workloadIp"`
-	WaypointAddresses []string `json:"waypointAddresses"`
-	GatewayIP         []byte   `json:"gatewayIp"`
-	Protocol          string   `json:"protocol"`
-	Name              string   `json:"name"`
-	Namespace         string   `json:"namespace"`
-	ServiceAccount    string   `json:"serviceAccount"`
-	WorkloadName      string   `json:"workloadName"`
-	WorkloadType      string   `json:"workloadType"`
-	CanonicalName     string   `json:"canonicalName"`
-	CanonicalRevision string   `json:"canonicalRevision"`
-	Node              string   `json:"node"`
-	NativeHbone       bool     `json:"nativeHbone"`
+	WorkloadIP        string    `json:"workloadIp"`
+	Waypoint          *Waypoint `json:"waypoint"`
+	GatewayIP         []byte    `json:"gatewayIp"`
+	Protocol          string    `json:"protocol"`
+	Name              string    `json:"name"`
+	Namespace         string    `json:"namespace"`
+	ServiceAccount    string    `json:"serviceAccount"`
+	WorkloadName      string    `json:"workloadName"`
+	WorkloadType      string    `json:"workloadType"`
+	CanonicalName     string    `json:"canonicalName"`
+	CanonicalRevision string    `json:"canonicalRevision"`
+	Node              string    `json:"node"`
+	NativeHbone       bool      `json:"nativeHbone"`
+}
+
+type Waypoint struct {
+	Destination struct {
+		Address string `json:"address"`
+		Content string `json:"content"`
+	} `json:"destination"`
+}
+
+type ZtunnelService struct {
+	Name      string         `json:"name"`
+	Namespace string         `json:"namespace"`
+	Hostname  string         `json:"hostname"`
+	Addresses []string       `json:"addresses"`
+	Ports     map[string]int `json:"ports"`
 }
 
 type ZtunnelDump struct {
-	Workloads    map[string]*ZtunnelWorkload
-	Certificates []*CertsDump
+	Workloads    map[string]*ZtunnelWorkload `json:"workloads"`
+	Services     map[string]*ZtunnelService  `json:"services_by_ip"`
+	Certificates []*CertsDump                `json:"certificates"`
 }
 
 type CertsDump struct {
