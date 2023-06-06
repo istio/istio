@@ -22,6 +22,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
@@ -69,9 +70,10 @@ func buildExpectExpectRemoved(t *testing.T) func(resp *discovery.DeltaDiscoveryR
 func TestWorkloadReconnect(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	expect := buildExpect(t)
-	s := NewFakeDiscoveryServer(t, FakeOptions{})
+	s := NewFakeDiscoveryServer(t, FakeOptions{
+		KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
+	})
 	ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
-	createPod(s, "pod", "sa", "127.0.0.1", "not-node")
 	ads.Request(&discovery.DeltaDiscoveryRequest{
 		ResourceNamesSubscribe:   []string{"*"},
 		ResourceNamesUnsubscribe: []string{"*"},
@@ -229,8 +231,8 @@ func createRBAC(s *FakeDiscoveryServer, name string, ns string) {
 	}
 }
 
-func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node string) {
-	pod := &corev1.Pod{
+func mkPod(name string, sa string, ip string, node string) *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
@@ -262,6 +264,10 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node s
 			},
 		},
 	}
+}
+
+func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node string) {
+	pod := mkPod(name, sa, ip, node)
 	pods := clienttest.NewWriter[*corev1.Pod](s.t, s.kubeClient)
 	pods.CreateOrUpdate(pod)
 	pods.UpdateStatus(pod)
