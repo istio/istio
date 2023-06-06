@@ -158,29 +158,6 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 	return tagWhYAML, nil
 }
 
-func fixWhFailurePolicy(client kube.Client, vwc *admitv1.ValidatingWebhookConfiguration) (*admitv1.ValidatingWebhookConfiguration, error) {
-	var curWebhooks []admitv1.ValidatingWebhook
-	curObj, err := client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().
-		Get(context.Background(), vwc.Name, metav1.GetOptions{})
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return nil, err
-		}
-	}
-	if curObj != nil {
-		curWebhooks = curObj.Webhooks
-	}
-	for i := range vwc.Webhooks {
-		if curWebhooks != nil && i < len(curWebhooks) {
-			failurePolicy := curWebhooks[i].FailurePolicy
-			if *failurePolicy == admitv1.Fail {
-				vwc.Webhooks[i].FailurePolicy = nil
-			}
-		}
-	}
-	return vwc, nil
-}
-
 func fixWhConfig(client kube.Client, whConfig *tagWebhookConfig) (*tagWebhookConfig, error) {
 	if whConfig.URL != "" {
 		webhookURL, err := url.Parse(whConfig.URL)
