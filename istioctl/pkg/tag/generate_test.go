@@ -111,17 +111,7 @@ var (
 			},
 		},
 	}
-	remoteValidationURL     = "https://random.host.com/validate"
-	defaultValidatorWebhook = admitv1.ValidatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "istiod-default-validator",
-		},
-		Webhooks: []admitv1.ValidatingWebhook{
-			{
-				Name: fmt.Sprintf("validation.istio.io"),
-			},
-		},
-	}
+	remoteValidationURL = "https://random.host.com/validate"
 )
 
 func TestGenerateValidatingWebhook(t *testing.T) {

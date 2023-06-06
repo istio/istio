@@ -167,8 +167,8 @@ func fixWhConfig(client kube.Client, whConfig *tagWebhookConfig) (*tagWebhookCon
 		}
 	}
 
-	// ValidatingWebhookConfiguration failurePolicy is managed by istiod, so if currently we already have a webhook in cluster,
-	// we avoid of setting it from the manifest
+	// ValidatingWebhookConfiguration failurePolicy is managed by Istiod, so if currently we already have a webhook in cluster
+	// that is set to `Fail` by Istiod, we avoid of setting it back to the default `Ignore`.
 	vwh, err := client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().
 		Get(context.Background(), vwhBaseTemplateName, metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
