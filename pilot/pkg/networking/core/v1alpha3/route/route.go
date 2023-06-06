@@ -214,20 +214,6 @@ func buildSidecarVirtualHostsForVirtualService(
 
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
 
-	// Gateway allows only routes from the namespace of the proxy, or namespace of the destination.
-	if model.UseGatewaySemantics(virtualService) {
-		res := make([]*model.Service, 0, len(servicesInVirtualService))
-		for _, s := range servicesInVirtualService {
-			if s.Attributes.Namespace != virtualService.Namespace && node.ConfigNamespace != virtualService.Namespace {
-				continue
-			}
-			res = append(res, s)
-		}
-		if len(res) == 0 {
-			return nil
-		}
-	}
-
 	// Now group these Services by port so that we can infer the destination.port if the user
 	// doesn't specify any port for a multiport service. We need to know the destination port in
 	// order to build the cluster name (outbound|<port>|<subset>|<serviceFQDN>)

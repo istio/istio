@@ -945,18 +945,7 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 		len(ps.virtualServiceIndex.publicByGateway[gateway]))
 	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name]...)
 	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name]...)
-	// Favor same-namespace Gateway routes, to give the "consumer override" preference.
-	// We do 2 iterations here to avoid extra allocations.
-	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
-		if UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace {
-			res = append(res, vs)
-		}
-	}
-	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
-		if !(UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace) {
-			res = append(res, vs)
-		}
-	}
+	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
 
 	return res
 }

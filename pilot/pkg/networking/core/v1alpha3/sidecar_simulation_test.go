@@ -1626,9 +1626,6 @@ func (args vsArgs) Config(t *testing.T, variant string) string {
 				if len(spl) != 5 {
 					t.Skipf("unsupported match: %v", spl)
 				}
-				if spl[0] == "*" {
-					t.Skipf("unsupported match: %v", spl)
-				}
 				args.GwMatches = append(args.GwMatches, types.NamespacedName{
 					Namespace: spl[1],
 					Name:      spl[0],
@@ -1805,9 +1802,6 @@ spec:
 			expected: map[string][]string{
 				"foo.default.svc.cluster.local": {"outbound|80||foo.default.svc.cluster.local"},
 			},
-			expectedGateway: map[string][]string{
-				"foo.default.svc.cluster.local": nil,
-			},
 		},
 		{
 			name: "unknown port 8080",
@@ -1923,9 +1917,6 @@ spec:
 			expected: map[string][]string{
 				"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
 			},
-			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||known.default.svc.cluster.local"},
-			},
 		},
 		{
 			name: "arbitrary rule port 8080",
@@ -1939,8 +1930,8 @@ spec:
 			expected: map[string][]string{
 				"known.default.svc.cluster.local": {"outbound|8080||alt-known.default.svc.cluster.local"},
 			},
-			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|8080||known.default.svc.cluster.local"},
+			expectedGateway: map[string][]string{ // No implicit port matching for gateway
+				"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
 			},
 		},
 		{
@@ -1972,7 +1963,8 @@ spec:
 				"known.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
 			},
 			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||not-default.example.com"},
+				// TODO: consumer namespace wins
+				"known.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
 			},
 		},
 		{
@@ -2004,7 +1996,8 @@ spec:
 				"known.default.svc.cluster.local": {"outbound|8080||arbitrary.example.com"},
 			},
 			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||not-default.example.com"},
+				// TODO: Consumer gateway wins. No implicit destination port for Gateway
+				"known.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
 			},
 		},
 		{
@@ -2339,8 +2332,7 @@ spec:
 				// even though there is an *.svc.cluster.local, since we do not import it we should create a wildcard matcher
 				"*.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
 				// We did not import this, shouldn't show up
-				"explicit.default.svc.cluster.local":        nil,
-				"not-default.not-default.svc.cluster.local": {"outbound|80||not-default.not-default.svc.cluster.local"},
+				"explicit.default.svc.cluster.local": nil,
 			},
 		},
 		{
@@ -2388,8 +2380,8 @@ spec:
 				"known.default.svc.cluster.local": {"outbound|80||producer.example.com"},
 			},
 			expectedGateway: map[string][]string{
-				// consumer wins
-				"known.default.svc.cluster.local": {"outbound|80||consumer.example.com"},
+				// TODO: consumer namespace wins
+				"known.default.svc.cluster.local": {"outbound|80||producer.example.com"},
 			},
 		},
 		{
@@ -2439,6 +2431,7 @@ spec:
 			},
 		},
 	}
+	// TODO test httproute when support for arbitrary hostnames is added in the GEP
 	for _, variant := range []string{"httproute", "virtualservice"} {
 		t.Run(variant, func(t *testing.T) {
 			for _, tt := range cases {
