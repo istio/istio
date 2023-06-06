@@ -19,3 +19,5 @@ spec:
       provider: "multus"
     global:
       platform: openshift
+    istio_cni:
+      chained: false
