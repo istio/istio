@@ -662,13 +662,6 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 			Namespace:        proxy.Metadata.Namespace,
 			Labels:           entry.Labels,
 			Annotations:      annotations,
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion: groupCfg.GroupVersionKind.GroupVersion(),
-				Kind:       groupCfg.GroupVersionKind.Kind,
-				Name:       groupCfg.Name,
-				UID:        kubetypes.UID(groupCfg.UID),
-				Controller: &workloadGroupIsController,
-			}},
 		},
 		Spec: entry,
 		// TODO status fields used for garbage collection
