@@ -40,7 +40,7 @@ import (
 type SimpleServer struct {
 	// DiscoveryServer is the gRPC XDS implementation
 	// Env and MemRegistry are available as fields, as well as the default
-	// pushContext.
+	// PushContext.
 	DiscoveryServer *DiscoveryServer
 
 	// GRPCListener is the listener used for GRPC. For agent it is
@@ -63,7 +63,6 @@ type SimpleServer struct {
 func NewXDS(stop chan struct{}) *SimpleServer {
 	// Prepare a working XDS server, with aggregate config and registry stores and a memory store for each.
 	// TODO: refactor bootstrap code to use this server, and add more registries.
-
 	env := model.NewEnvironment()
 	env.Watcher = mesh.NewFixedWatcher(mesh.DefaultMeshConfig())
 	env.PushContext().Mesh = env.Watcher.Mesh()
