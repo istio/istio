@@ -15,7 +15,6 @@
 package aggregate
 
 import (
-	"istio.io/istio/pkg/maps"
 	"net/netip"
 	"sync"
 
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi/security"
 )

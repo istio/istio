@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"istio.io/istio/pkg/maps"
 	"math"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -28,6 +27,7 @@ import (
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 )
 

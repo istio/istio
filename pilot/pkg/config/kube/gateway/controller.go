@@ -16,7 +16,6 @@ package gateway
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/maps"
 	"sync"
 	"time"
 
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )

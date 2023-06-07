@@ -17,7 +17,6 @@ package xds
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/maps"
 	"net/http"
 	"strconv"
 	"sync"
@@ -39,6 +38,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/security"
 )
 

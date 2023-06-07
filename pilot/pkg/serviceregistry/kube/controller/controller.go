@@ -16,7 +16,6 @@ package controller
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/maps"
 	"sort"
 	"sync"
 	"time"
@@ -48,6 +47,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/namespace"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
