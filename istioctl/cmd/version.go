@@ -24,9 +24,9 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	structpb "google.golang.org/protobuf/types/known/structpb"
-	clicontext "istio.io/istio/istioctl/pkg/context"
+	"google.golang.org/protobuf/types/known/structpb"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/operator/cmd/mesh"
@@ -37,7 +37,7 @@ import (
 	istioVersion "istio.io/istio/pkg/version"
 )
 
-func newVersionCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func newVersionCommand(ctx *cli.Context) *cobra.Command {
 	profileCmd := mesh.ProfileCmd(log.DefaultOptions())
 	var opts clioptions.ControlPlaneOptions
 	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
@@ -63,7 +63,7 @@ func newVersionCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	return versionCmd
 }
 
-func getRemoteInfo(ctx *clicontext.CLIContext, opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo, error) {
+func getRemoteInfo(ctx *cli.Context, opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo, error) {
 	kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func getRemoteInfo(ctx *clicontext.CLIContext, opts clioptions.ControlPlaneOptio
 	return kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
 }
 
-func getRemoteInfoWrapper(ctx *clicontext.CLIContext, pc **cobra.Command, opts *clioptions.ControlPlaneOptions) func() (*istioVersion.MeshInfo, error) {
+func getRemoteInfoWrapper(ctx *cli.Context, pc **cobra.Command, opts *clioptions.ControlPlaneOptions) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
 		remInfo, err := getRemoteInfo(ctx, *opts)
 		if err != nil {
@@ -87,14 +87,14 @@ func getRemoteInfoWrapper(ctx *clicontext.CLIContext, pc **cobra.Command, opts *
 	}
 }
 
-func getProxyInfoWrapper(ctx *clicontext.CLIContext, opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
+func getProxyInfoWrapper(ctx *cli.Context, opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
 		return proxy.GetProxyInfo(ctx.KubeConfig(), ctx.KubeContext(), opts.Revision, istioNamespace)
 	}
 }
 
 // xdsVersionCommand gets the Control Plane and Sidecar versions via XDS
-func xdsVersionCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func xdsVersionCommand(ctx *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 	var xdsResponses *discovery.DiscoveryResponse
@@ -150,7 +150,7 @@ istioctl x version --xds-label istio.io/rev=default
 // xdsRemoteVersionWrapper uses outXDS to share the XDS response with xdsProxyVersionWrapper.
 // (Screwy API on istioVersion.CobraCommandWithOptions)
 // nolint: lll
-func xdsRemoteVersionWrapper(ctx *clicontext.CLIContext, opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions,
+func xdsRemoteVersionWrapper(ctx *cli.Context, opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions,
 	outXDS **discovery.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
 		xdsRequest := discovery.DiscoveryRequest{

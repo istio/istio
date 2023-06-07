@@ -12,23 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package context
+package cli
 
 import (
-	"istio.io/istio/istioctl/pkg/option"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/kube"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
-	cmdutil "k8s.io/kubectl/pkg/cmd/util"
+	"k8s.io/utils/pointer"
 )
 
-type CLIContext struct {
+type Context struct {
 	// clients are cached clients for each revision
 	clients map[string]kube.CLIClient
-
-	factory cmdutil.Factory
-
-	option.RootFlags
+	RootFlags
 }
 
 func newKubeClientWithRevision(kubeconfig, configContext, revision string) (kube.CLIClient, error) {
@@ -44,13 +41,13 @@ func newKubeClientWithRevision(kubeconfig, configContext, revision string) (kube
 	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
-func NewCLIContext(rootFlags option.RootFlags) *CLIContext {
-	return &CLIContext{
+func NewCLIContext(rootFlags RootFlags) *Context {
+	return &Context{
 		RootFlags: rootFlags,
 	}
 }
 
-func (c *CLIContext) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
+func (c *Context) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 	if c.clients == nil {
 		c.clients = make(map[string]kube.CLIClient)
 	}
@@ -67,21 +64,49 @@ func (c *CLIContext) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 	return c.clients[rev], nil
 }
 
-func (c *CLIContext) CLIClient() (kube.CLIClient, error) {
+func (c *Context) CLIClient() (kube.CLIClient, error) {
 	return c.CLIClientWithRevision("")
 }
 
-func (c *CLIContext) RestConfig() (*rest.Config, error) {
-	return kube.BuildClientConfig(c.KubeConfig(), c.KubeContext())
+func (c *Context) InferPodInfoFromTypedResource(name, namespace string) (pod string, ns string, err error) {
+	client, err := c.CLIClient()
+	if err != nil {
+		return "", "", err
+	}
+	return handlers.InferPodInfoFromTypedResource(name, c.NamespaceOrDefault(namespace), MakeKubeFactory(client))
 }
 
-func (c *CLIContext) InferPodInfoFromTypedResource(arg string) (pod string, ns string, err error) {
-	if c.factory == nil {
-		client, err := c.CLIClient()
-		if err != nil {
-			return "", "", err
-		}
-		c.factory = MakeKubeFactory(client)
+func (c *Context) InferPodsFromTypedResource(name, namespace string) ([]string, string, error) {
+	client, err := c.CLIClient()
+	if err != nil {
+		return nil, "", err
 	}
-	return handlers.InferPodInfoFromTypedResource(arg, handlers.HandleNamespace(c.Namespace(), c.DefaultNamespace()), c.factory)
+	return handlers.InferPodsFromTypedResource(name, c.NamespaceOrDefault(namespace), MakeKubeFactory(client))
+}
+
+func (c *Context) NamespaceOrDefault(namespace string) string {
+	return handleNamespace(namespace, c.DefaultNamespace())
+}
+
+// handleNamespace returns the defaultNamespace if the namespace is empty
+func handleNamespace(ns, defaultNamespace string) string {
+	if ns == corev1.NamespaceAll {
+		ns = defaultNamespace
+	}
+	return ns
+}
+
+// TODO(hanxiaop) use interface for context and handle real and fake contexts separately.
+func NewFakeContext(namespace, istioNamespace string) *Context {
+	ns := namespace
+	ins := istioNamespace
+	return &Context{
+		RootFlags: RootFlags{
+			kubeconfig:       pointer.String(""),
+			configContext:    pointer.String(""),
+			namespace:        &ns,
+			istioNamespace:   &ins,
+			defaultNamespace: "",
+		},
+	}
 }

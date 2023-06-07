@@ -29,8 +29,8 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/pkg/log"
 )
 
@@ -46,7 +46,7 @@ const (
 	reqDur                     = "istio_request_duration_milliseconds"
 )
 
-func metricsCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func metricsCmd(ctx *cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "metrics <workload name>...",
 		Short: "Prints the metrics for the specified workload(s) when running in Kubernetes.",
@@ -98,7 +98,7 @@ type workloadMetrics struct {
 	p50Latency, p90Latency, p99Latency time.Duration
 }
 
-func run(c *cobra.Command, ctx *clicontext.CLIContext, args []string) error {
+func run(c *cobra.Command, ctx *cli.Context, args []string) error {
 	log.Debugf("metrics command invoked for workload(s): %v", args)
 
 	client, err := kubeClientWithRevision(ctx, metricsOpts.Revision)

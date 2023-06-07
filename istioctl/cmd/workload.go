@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	clicontext "istio.io/istio/istioctl/pkg/context"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,6 +36,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -79,7 +79,7 @@ const (
 	filePerms                       = os.FileMode(0o744)
 )
 
-func workloadCommands(ctx *clicontext.CLIContext) *cobra.Command {
+func workloadCommands(ctx *cli.Context) *cobra.Command {
 	namespace = ctx.Namespace()
 	workloadCmd := &cobra.Command{
 		Use:   "workload",
@@ -95,7 +95,7 @@ func workloadCommands(ctx *clicontext.CLIContext) *cobra.Command {
 	return workloadCmd
 }
 
-func groupCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func groupCommand(ctx *cli.Context) *cobra.Command {
 	groupCmd := &cobra.Command{
 		Use:     "group",
 		Short:   "Commands dealing with WorkloadGroup resources",
@@ -105,7 +105,7 @@ func groupCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	return groupCmd
 }
 
-func entryCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func entryCommand(ctx *cli.Context) *cobra.Command {
 	entryCmd := &cobra.Command{
 		Use:     "entry",
 		Short:   "Commands dealing with WorkloadEntry resources",
@@ -115,7 +115,7 @@ func entryCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	return entryCmd
 }
 
-func createCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func createCommand(ctx *cli.Context) *cobra.Command {
 	createCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",
@@ -184,7 +184,7 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 	return wgYAML, nil
 }
 
-func configureCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func configureCommand(ctx *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	configureCmd := &cobra.Command{

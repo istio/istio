@@ -22,11 +22,11 @@ import (
 	"strings"
 	"testing"
 
-	clicontext "istio.io/istio/istioctl/pkg/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -80,7 +80,7 @@ func TestWaypointList(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			kubeClient := kube.NewFakeClient()
-			kubeClientWithRevision = func(ctx *clicontext.CLIContext, revision string) (kube.CLIClient, error) {
+			kubeClientWithRevision = func(ctx *cli.Context, revision string) (kube.CLIClient, error) {
 				return kubeClient, nil
 			}
 

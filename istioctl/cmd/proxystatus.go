@@ -23,10 +23,9 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/multixds"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
@@ -34,7 +33,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func statusCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func statusCommand(ctx *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	statusCmd := &cobra.Command{
@@ -72,9 +71,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				return err
 			}
 			if len(args) > 0 {
-				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace()),
-					MakeKubeFactory(kubeClient))
+				podName, ns, err := ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
 				if err != nil {
 					return err
 				}
@@ -137,11 +134,11 @@ func readConfigFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func newKubeClientWithRevision(ctx *clicontext.CLIContext, revision string) (kube.CLIClient, error) {
+func newKubeClientWithRevision(ctx *cli.Context, revision string) (kube.CLIClient, error) {
 	return ctx.CLIClientWithRevision(revision)
 }
 
-func xdsStatusCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func xdsStatusCommand(ctx *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 	var multiXdsOpts multixds.Options
@@ -185,9 +182,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			multiXdsOpts.MessageWriter = c.OutOrStdout()
 
 			if len(args) > 0 {
-				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace()),
-					MakeKubeFactory(kubeClient))
+				podName, ns, err := ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
 				if err != nil {
 					return err
 				}

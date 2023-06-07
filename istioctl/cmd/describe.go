@@ -44,8 +44,8 @@ import (
 	typev1beta1 "istio.io/api/type/v1beta1"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -84,7 +84,7 @@ var (
 	istioNamespace    string
 )
 
-func podDescribeCmd(cliContext *clicontext.CLIContext) *cobra.Command {
+func podDescribeCmd(cliContext *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "pod <pod>",
@@ -94,6 +94,9 @@ func podDescribeCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 the configuration objects that affect that pod.`,
 		Example: `  istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			describeNamespace = cliContext.NamespaceOrDefault(cliContext.Namespace())
+			istioNamespace = cliContext.IstioNamespace()
+
 			if len(args) != 1 {
 				return fmt.Errorf("expecting pod name")
 			}
@@ -189,10 +192,7 @@ func getRevisionFromPodAnnotation(anno klabels.Set) string {
 	return injectionStatus.Revision
 }
 
-func describe(ctx *clicontext.CLIContext) *cobra.Command {
-	describeNamespace = handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace())
-	istioNamespace = ctx.IstioNamespace()
-
+func describe(ctx *cli.Context) *cobra.Command {
 	describeCmd := &cobra.Command{
 		Use:     "describe",
 		Aliases: []string{"des"},
@@ -204,6 +204,8 @@ func describe(ctx *clicontext.CLIContext) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
+			istioNamespace = ctx.IstioNamespace()
 			cmd.HelpFunc()(cmd, args)
 			return nil
 		},
@@ -1027,7 +1029,7 @@ func getIngressIP(service corev1.Service, pod corev1.Pod) string {
 	return "unknown"
 }
 
-func svcDescribeCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func svcDescribeCmd(ctx *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "service <svc>",
@@ -1044,7 +1046,10 @@ the configuration objects that affect that service.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svcName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace()))
+			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
+			istioNamespace = ctx.IstioNamespace()
+
+			svcName, ns := handlers.InferPodInfo(args[0], ctx.NamespaceOrDefault(ctx.Namespace()))
 
 			client, err := interfaceFactory(ctx, "")
 			if err != nil {

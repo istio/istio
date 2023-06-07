@@ -24,10 +24,9 @@ import (
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 
-	"istio.io/istio/istioctl/pkg/context"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/multicluster"
-	"istio.io/istio/istioctl/pkg/option"
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pkg/cmd"
@@ -139,16 +138,14 @@ debug and diagnose their Istio mesh.
 	rootCmd.SetArgs(args)
 
 	flags := rootCmd.PersistentFlags()
-	rootOptions := option.NewRootFlags()
-	rootOptions.AddFlags(flags)
-	_ = flags.Parse(args)
-	rootOptions.ConfigureDefaultNamespace()
-	ctx := context.NewCLIContext(*rootOptions)
+	rootOptions := cli.AddRootFlags(flags)
 
-	_ = rootCmd.RegisterFlagCompletionFunc(option.FlagIstioNamespace, func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	ctx := cli.NewCLIContext(*rootOptions)
+
+	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagIstioNamespace, func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return validNamespaceArgs(cmd, ctx, args, toComplete)
 	})
-	_ = rootCmd.RegisterFlagCompletionFunc(option.FlagNamespace, func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagNamespace, func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return validNamespaceArgs(cmd, ctx, args, toComplete)
 	})
 
@@ -165,7 +162,7 @@ debug and diagnose their Istio mesh.
 	cmd.AddFlags(rootCmd)
 
 	kubeInjectCmd := injectCommand(ctx)
-	hideInheritedFlags(kubeInjectCmd, option.FlagNamespace)
+	hideInheritedFlags(kubeInjectCmd, cli.FlagNamespace)
 	rootCmd.AddCommand(kubeInjectCmd)
 
 	experimentalCmd := &cobra.Command{
@@ -227,39 +224,39 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(waypointCmd(ctx))
 
 	analyzeCmd := Analyze(ctx)
-	hideInheritedFlags(analyzeCmd, option.FlagIstioNamespace)
+	hideInheritedFlags(analyzeCmd, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(analyzeCmd)
 
 	dashboardCmd := dashboard(ctx)
-	hideInheritedFlags(dashboardCmd, option.FlagNamespace, option.FlagIstioNamespace)
+	hideInheritedFlags(dashboardCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
 
 	manifestCmd := mesh.ManifestCmd(loggingOptions)
-	hideInheritedFlags(manifestCmd, option.FlagNamespace, option.FlagIstioNamespace, FlagCharts)
+	hideInheritedFlags(manifestCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(manifestCmd)
 
 	operatorCmd := mesh.OperatorCmd()
-	hideInheritedFlags(operatorCmd, option.FlagNamespace, option.FlagIstioNamespace, FlagCharts)
+	hideInheritedFlags(operatorCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(operatorCmd)
 
 	installCmd := mesh.InstallCmd(loggingOptions)
-	hideInheritedFlags(installCmd, option.FlagNamespace, option.FlagIstioNamespace, FlagCharts)
+	hideInheritedFlags(installCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(installCmd)
 
 	profileCmd := mesh.ProfileCmd(loggingOptions)
-	hideInheritedFlags(profileCmd, option.FlagNamespace, option.FlagIstioNamespace, FlagCharts)
+	hideInheritedFlags(profileCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(profileCmd)
 
 	upgradeCmd := mesh.UpgradeCmd(loggingOptions)
-	hideInheritedFlags(upgradeCmd, option.FlagNamespace, option.FlagIstioNamespace, FlagCharts)
+	hideInheritedFlags(upgradeCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
 	bugReportCmd := bugreport.Cmd(loggingOptions)
-	hideInheritedFlags(bugReportCmd, option.FlagNamespace, option.FlagIstioNamespace)
+	hideInheritedFlags(bugReportCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(bugReportCmd)
 
 	tagCmd := tagCommand(ctx)
-	hideInheritedFlags(tagCommand(ctx), option.FlagNamespace, option.FlagIstioNamespace, FlagCharts)
+	hideInheritedFlags(tagCommand(ctx), cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(tagCmd)
 
 	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
@@ -276,9 +273,7 @@ debug and diagnose their Istio mesh.
 		Manual:  "Istio Control",
 	}))
 
-	istioNamespace := rootOptions.IstioNamespace()
-	namespace := rootOptions.Namespace()
-	validateCmd := validate.NewValidateCommand(&istioNamespace, &namespace)
+	validateCmd := validate.NewValidateCommand(ctx)
 	hideInheritedFlags(validateCmd, "kubeconfig")
 	rootCmd.AddCommand(validateCmd)
 

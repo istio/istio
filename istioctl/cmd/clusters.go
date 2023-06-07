@@ -23,13 +23,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	context2 "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/pkg/cluster"
 )
 
 // TODO move to multicluster package; requires exposing some private funcs/vars in this package
-func clustersCommand(ctx *context2.CLIContext) *cobra.Command {
+func clustersCommand(ctx *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "remote-clusters",

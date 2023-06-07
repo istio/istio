@@ -32,8 +32,8 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -51,7 +51,7 @@ type revisionCount struct {
 	needsRestart int
 }
 
-func injectorCommand(cliContext *clicontext.CLIContext) *cobra.Command {
+func injectorCommand(cliContext *cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "injector",
 		Short:   "List sidecar injector and sidecar versions",
@@ -73,7 +73,7 @@ func injectorCommand(cliContext *clicontext.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func injectorListCommand(cliContext *clicontext.CLIContext) *cobra.Command {
+func injectorListCommand(cliContext *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "list",

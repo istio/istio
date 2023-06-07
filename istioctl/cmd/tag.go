@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	clicontext "istio.io/istio/istioctl/pkg/context"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/cmd/mesh"
@@ -69,7 +69,7 @@ type tagDescription struct {
 	Namespaces []string `json:"namespaces"`
 }
 
-func tagCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func tagCommand(ctx *cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
 		Short: "Command group used to interact with revision tags",
@@ -104,7 +104,7 @@ without manual relabeling of the "istio.io/rev" tag.
 	return cmd
 }
 
-func tagSetCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func tagSetCommand(ctx *cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set <revision-tag>",
 		Short: "Create or modify revision tags",
@@ -157,7 +157,7 @@ injection labels.`,
 	return cmd
 }
 
-func tagGenerateCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func tagGenerateCommand(ctx *cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "generate <revision-tag>",
 		Short: "Generate configuration for a revision tag to stdout",
@@ -205,7 +205,7 @@ injection labels.`,
 	return cmd
 }
 
-func tagListCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func tagListCommand(ctx *cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Short:   "List existing revision tags",
@@ -229,7 +229,7 @@ func tagListCommand(ctx *clicontext.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func tagRemoveCommand(ctx *clicontext.CLIContext) *cobra.Command {
+func tagRemoveCommand(ctx *cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <revision-tag>",
 		Short: "Remove Istio control plane revision tag",

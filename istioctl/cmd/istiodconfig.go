@@ -33,9 +33,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	clicontext "istio.io/istio/istioctl/pkg/context"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/log"
 )
 
@@ -375,7 +374,7 @@ var (
 	validationPattern   = `^\w+:(debug|error|warn|info|debug)`
 )
 
-func istiodLogCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func istiodLogCmd(ctx *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	outputLogLevel := ""
 	stackTraceLevel := ""
@@ -430,7 +429,7 @@ func istiodLogCmd(ctx *clicontext.CLIContext) *cobra.Command {
 				} else {
 					istiodLabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, opts.Revision)
 				}
-				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace()), istiodLabelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.Namespace()), istiodLabelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", istiodLabelSelector, err)
 				}

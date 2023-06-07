@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	clicontext "istio.io/istio/istioctl/pkg/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/xds"
@@ -51,7 +51,7 @@ var (
 const pollInterval = time.Second
 
 // waitCmd represents the wait command
-func waitCmd(cliCtx *clicontext.CLIContext) *cobra.Command {
+func waitCmd(cliCtx *cli.Context) *cobra.Command {
 	namespace := cliCtx.Namespace()
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
@@ -130,7 +130,7 @@ func waitCmd(cliCtx *clicontext.CLIContext) *cobra.Command {
 			if err := cobra.ExactArgs(2)(cmd, args); err != nil {
 				return err
 			}
-			nameflag, namespace = handlers.InferPodInfo(args[1], handlers.HandleNamespace(namespace, cliCtx.DefaultNamespace()))
+			nameflag, namespace = handlers.InferPodInfo(args[1], cliCtx.NamespaceOrDefault(namespace))
 			return validateType(args[0])
 		},
 	}
@@ -181,7 +181,7 @@ func countVersions(versionCount map[string]int, configVersion string) {
 const distributionTrackingDisabledErrorString = "pilot version tracking is disabled " +
 	"(To enable this feature, please set PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING=true)"
 
-func poll(ctx *clicontext.CLIContext,
+func poll(ctx *cli.Context,
 	cmd *cobra.Command,
 	acceptedVersions []string,
 	targetResource string,
@@ -246,7 +246,7 @@ func init() {
 // getAndWatchResource ensures that Generations always contains
 // the current generation of the targetResource, adding new versions
 // as they are created.
-func getAndWatchResource(cliCtx *clicontext.CLIContext, ictx context.Context) *watcher {
+func getAndWatchResource(cliCtx *cli.Context, ictx context.Context) *watcher {
 	g := withContext(ictx)
 	// copy nameflag to avoid race
 	nf := nameflag

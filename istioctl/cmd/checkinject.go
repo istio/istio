@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
-	context2 "istio.io/istio/istioctl/pkg/context"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/writer/table"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -37,7 +37,7 @@ import (
 
 var labelPairs string
 
-func checkInjectCommand(ctx *context2.CLIContext) *cobra.Command {
+func checkInjectCommand(ctx *cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "check-inject [<type>/]<name>[.<namespace>]",
 		Short: "Check the injection status or inject-ability of a given resource, explains why it is (or will be) injected or not",
@@ -70,7 +70,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 			var podName, podNs string
 			var podLabels, nsLabels map[string]string
 			if len(args) == 1 {
-				podName, podNs, err = ctx.InferPodInfoFromTypedResource(args[0])
+				podName, podNs, err = ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
 				if err != nil {
 					return err
 				}

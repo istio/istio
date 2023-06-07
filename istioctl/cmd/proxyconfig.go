@@ -30,9 +30,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
-	clicontext "istio.io/istio/istioctl/pkg/context"
+	"istio.io/istio/istioctl/pkg/cli"
 	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer"
 	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
@@ -71,8 +70,7 @@ var (
 
 	proxyAdminPort int
 
-	proxyConfigNamespace        string
-	proxyConfigDefaultNamespace string
+	proxyConfigNamespace string
 )
 
 // Level is an enumeration of all supported log levels.
@@ -280,7 +278,7 @@ func setupEnvoyLogConfig(kubeClient kube.CLIClient, param, podName, podNamespace
 	return string(result), nil
 }
 
-func getLogLevelFromConfigMap(ctx *clicontext.CLIContext) (string, error) {
+func getLogLevelFromConfigMap(ctx *cli.Context) (string, error) {
 	valuesConfig, err := getValuesFromConfigMap(ctx, "")
 	if err != nil {
 		return "", err
@@ -328,7 +326,7 @@ func setupClustersEnvoyConfigWriter(debug []byte, out io.Writer) (*clusters.Conf
 	return cw, nil
 }
 
-func clusterConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func clusterConfigCmd(ctx *cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	clusterConfigCmd := &cobra.Command{
@@ -363,7 +361,7 @@ func clusterConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 			}
 			var configWriter *configdump.ConfigWriter
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(kubeClient, args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
@@ -404,7 +402,7 @@ func clusterConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	return clusterConfigCmd
 }
 
-func allConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func allConfigCmd(ctx *cli.Context) *cobra.Command {
 	allConfigCmd := &cobra.Command{
 		Use:   "all [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves all configuration for the Envoy in the specified pod",
@@ -440,7 +438,7 @@ func allConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 				var dump []byte
 				var err error
 				if len(args) == 1 {
-					podName, podNamespace, err := getPodName(kubeClient, args[0])
+					podName, podNamespace, err := getPodName(ctx, args[0])
 					if err != nil {
 						return err
 					}
@@ -469,7 +467,7 @@ func allConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 			case summaryOutput:
 				var configWriter *configdump.ConfigWriter
 				if len(args) == 1 {
-					podName, podNamespace, err := getPodName(kubeClient, args[0])
+					podName, podNamespace, err := getPodName(ctx, args[0])
 					if err != nil {
 						return err
 					}
@@ -558,7 +556,7 @@ func allConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	return allConfigCmd
 }
 
-func workloadConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func workloadConfigCmd(ctx *cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	workloadConfigCmd := &cobra.Command{
@@ -595,7 +593,7 @@ func workloadConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 			}
 			var configWriter *ztunnelDump.ConfigWriter
 			if len(args) == 1 {
-				if podName, podNamespace, err = getComponentPodName(kubeClient, args[0]); err != nil {
+				if podName, podNamespace, err = getComponentPodName(ctx, args[0]); err != nil {
 					return err
 				}
 				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
@@ -639,7 +637,7 @@ func workloadConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	return workloadConfigCmd
 }
 
-func listenerConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func listenerConfigCmd(ctx *cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	listenerConfigCmd := &cobra.Command{
@@ -674,7 +672,7 @@ func listenerConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 			}
 			var configWriter *configdump.ConfigWriter
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(kubeClient, args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
@@ -722,7 +720,7 @@ func listenerConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	return listenerConfigCmd
 }
 
-func statsConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func statsConfigCmd(ctx *cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	statsConfigCmd := &cobra.Command{
@@ -755,7 +753,7 @@ func statsConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if podName, podNamespace, err = getPodName(kubeClient, args[0]); err != nil {
+			if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 				return err
 			}
 			if statsType == "" || statsType == "server" {
@@ -803,7 +801,7 @@ const (
 	Ztunnel
 )
 
-func logCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func logCmd(ctx *cli.Context) *cobra.Command {
 	var podNamespace string
 	var podNames []string
 
@@ -842,11 +840,11 @@ func logCmd(ctx *clicontext.CLIContext) *cobra.Command {
 			}
 			loggerNames := map[string]proxyType{}
 			if labelSelector != "" {
-				if podNames, podNamespace, err = getPodNameBySelector(kubeClient, labelSelector); err != nil {
+				if podNames, podNamespace, err = getPodNameBySelector(ctx, kubeClient, labelSelector); err != nil {
 					return err
 				}
 			} else {
-				if podNames, podNamespace, err = getPodNames(kubeClient, args[0]); err != nil {
+				if podNames, podNamespace, err = getPodNames(ctx, args[0]); err != nil {
 					return err
 				}
 			}
@@ -975,7 +973,7 @@ func logCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	return logCmd
 }
 
-func routeConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func routeConfigCmd(ctx *cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	routeConfigCmd := &cobra.Command{
@@ -1010,7 +1008,7 @@ func routeConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 				return err
 			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(kubeClient, args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
@@ -1047,7 +1045,7 @@ func routeConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	return routeConfigCmd
 }
 
-func endpointConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func endpointConfigCmd(ctx *cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	endpointConfigCmd := &cobra.Command{
@@ -1087,7 +1085,7 @@ func endpointConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 				return err
 			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(kubeClient, args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
 				configWriter, err = setupPodClustersWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
@@ -1132,7 +1130,7 @@ func endpointConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 
 // edsConfigCmd is a command to dump EDS output. This differs from "endpoints" which pulls from /clusters.
 // Notably, this shows metadata and locality, while clusters shows outlier health status
-func edsConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func edsConfigCmd(ctx *cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	endpointConfigCmd := &cobra.Command{
@@ -1175,7 +1173,7 @@ func edsConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 				return err
 			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(kubeClient, args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
@@ -1218,7 +1216,7 @@ func edsConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	return endpointConfigCmd
 }
 
-func bootstrapConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func bootstrapConfigCmd(ctx *cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	// Shadow outputVariable since this command uses a different default value
@@ -1253,7 +1251,7 @@ func bootstrapConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 				return err
 			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(kubeClient, args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
@@ -1285,7 +1283,7 @@ func bootstrapConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	return bootstrapConfigCmd
 }
 
-func secretConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func secretConfigCmd(ctx *cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	secretConfigCmd := &cobra.Command{
@@ -1313,7 +1311,7 @@ func secretConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 				return err
 			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(kubeClient, args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
 				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
@@ -1358,7 +1356,7 @@ func secretConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	return secretConfigCmd
 }
 
-func rootCACompareConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func rootCACompareConfigCmd(ctx *cli.Context) *cobra.Command {
 	var podName1, podName2, podNamespace1, podNamespace2 string
 
 	rootCACompareConfigCmd := &cobra.Command{
@@ -1382,7 +1380,7 @@ func rootCACompareConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 				return err
 			}
 			if len(args) == 2 {
-				if podName1, podNamespace1, err = getPodName(kubeClient, args[0]); err != nil {
+				if podName1, podNamespace1, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
 				configWriter1, err = setupPodConfigdumpWriter(kubeClient, podName1, podNamespace1, false, c.OutOrStdout())
@@ -1390,7 +1388,7 @@ func rootCACompareConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 					return err
 				}
 
-				if podName2, podNamespace2, err = getPodName(kubeClient, args[1]); err != nil {
+				if podName2, podNamespace2, err = getPodName(ctx, args[1]); err != nil {
 					return err
 				}
 				configWriter2, err = setupPodConfigdumpWriter(kubeClient, podName2, podNamespace2, false, c.OutOrStdout())
@@ -1433,9 +1431,8 @@ func rootCACompareConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 	return rootCACompareConfigCmd
 }
 
-func proxyConfig(ctx *clicontext.CLIContext) *cobra.Command {
+func proxyConfig(ctx *cli.Context) *cobra.Command {
 	proxyConfigNamespace = ctx.Namespace()
-	proxyConfigDefaultNamespace = ctx.DefaultNamespace()
 	istioNamespace = ctx.IstioNamespace()
 
 	configCmd := &cobra.Command{
@@ -1466,10 +1463,8 @@ func proxyConfig(ctx *clicontext.CLIContext) *cobra.Command {
 	return configCmd
 }
 
-func getPodNames(kubeClient kube.CLIClient, podflag string) ([]string, string, error) {
-	podNames, ns, err := handlers.InferPodsFromTypedResource(podflag,
-		handlers.HandleNamespace(proxyConfigNamespace, proxyConfigDefaultNamespace),
-		MakeKubeFactory(kubeClient))
+func getPodNames(ctx *cli.Context, podflag string) ([]string, string, error) {
+	podNames, ns, err := ctx.InferPodsFromTypedResource(podflag, proxyConfigNamespace)
 	if err != nil {
 		log.Errorf("pods lookup failed")
 		return []string{}, "", err
@@ -1477,15 +1472,13 @@ func getPodNames(kubeClient kube.CLIClient, podflag string) ([]string, string, e
 	return podNames, ns, nil
 }
 
-func getPodName(kubeClient kube.CLIClient, podflag string) (string, string, error) {
-	return getPodNameWithNamespace(kubeClient, podflag, proxyConfigDefaultNamespace)
+func getPodName(ctx *cli.Context, podflag string) (string, string, error) {
+	return getPodNameWithNamespace(ctx, podflag, ctx.Namespace())
 }
 
-func getPodNameWithNamespace(kubeClient kube.CLIClient, podflag, ns string) (string, string, error) {
+func getPodNameWithNamespace(ctx *cli.Context, podflag, ns string) (string, string, error) {
 	var podName, podNamespace string
-	podName, podNamespace, err := handlers.InferPodInfoFromTypedResource(podflag,
-		handlers.HandleNamespace(proxyConfigNamespace, ns),
-		MakeKubeFactory(kubeClient))
+	podName, podNamespace, err := ctx.InferPodInfoFromTypedResource(podflag, ns)
 	if err != nil {
 		return "", "", err
 	}
@@ -1493,16 +1486,16 @@ func getPodNameWithNamespace(kubeClient kube.CLIClient, podflag, ns string) (str
 }
 
 // getComponentPodName returns the pod name and namespace of the Istio component
-func getComponentPodName(kubeClient kube.CLIClient, podflag string) (string, string, error) {
+func getComponentPodName(kubeClient *cli.Context, podflag string) (string, string, error) {
 	return getPodNameWithNamespace(kubeClient, podflag, istioNamespace)
 }
 
-func getPodNameBySelector(kubeClient kube.CLIClient, labelSelector string) ([]string, string, error) {
+func getPodNameBySelector(ctx *cli.Context, kubeClient kube.CLIClient, labelSelector string) ([]string, string, error) {
 	var (
 		podNames []string
 		ns       string
 	)
-	pl, err := kubeClient.PodsForSelector(context.TODO(), handlers.HandleNamespace(proxyConfigNamespace, proxyConfigDefaultNamespace), labelSelector)
+	pl, err := kubeClient.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.Namespace()), labelSelector)
 	if err != nil {
 		return nil, "", fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 	}
@@ -1516,7 +1509,7 @@ func getPodNameBySelector(kubeClient kube.CLIClient, labelSelector string) ([]st
 	return podNames, ns, nil
 }
 
-func ecdsConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func ecdsConfigCmd(ctx *cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	ecdsConfigCmd := &cobra.Command{
@@ -1545,7 +1538,7 @@ func ecdsConfigCmd(ctx *clicontext.CLIContext) *cobra.Command {
 				return err
 			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(kubeClient, args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())

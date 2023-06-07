@@ -26,9 +26,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	clicontext "istio.io/istio/istioctl/pkg/context"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
@@ -66,7 +65,7 @@ const (
 )
 
 // port-forward to Istio System Prometheus; open browser
-func promDashCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func promDashCmd(ctx *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "prometheus",
@@ -102,7 +101,7 @@ func promDashCmd(ctx *clicontext.CLIContext) *cobra.Command {
 }
 
 // port-forward to Istio System Grafana; open browser
-func grafanaDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
+func grafanaDashCmd(cliContext *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "grafana",
@@ -138,7 +137,7 @@ func grafanaDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 }
 
 // port-forward to Istio System Kiali; open browser
-func kialiDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
+func kialiDashCmd(cliContext *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "kiali",
@@ -174,7 +173,7 @@ func kialiDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 }
 
 // port-forward to Istio System Jaeger; open browser
-func jaegerDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
+func jaegerDashCmd(cliContext *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "jaeger",
@@ -210,7 +209,7 @@ func jaegerDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 }
 
 // port-forward to Istio System Zipkin; open browser
-func zipkinDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
+func zipkinDashCmd(cliContext *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "zipkin",
@@ -246,7 +245,7 @@ func zipkinDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 }
 
 // port-forward to sidecar Envoy admin port; open browser
-func envoyDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
+func envoyDashCmd(cliContext *cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "envoy [<type>/]<name>[.<namespace>]",
 		Short: "Open Envoy admin web UI",
@@ -282,7 +281,7 @@ func envoyDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := kubeClient.PodsForSelector(context.TODO(), handlers.HandleNamespace(envoyDashNs, cliContext.DefaultNamespace()), labelSelector)
+				pl, err := kubeClient.PodsForSelector(context.TODO(), cliContext.NamespaceOrDefault(envoyDashNs), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -299,9 +298,7 @@ func envoyDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 				podName = pl.Items[0].Name
 				ns = pl.Items[0].Namespace
 			} else {
-				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(envoyDashNs, cliContext.DefaultNamespace()),
-					MakeKubeFactory(kubeClient))
+				podName, ns, err = cliContext.InferPodInfoFromTypedResource(args[0], envoyDashNs)
 				if err != nil {
 					return err
 				}
@@ -316,7 +313,7 @@ func envoyDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 }
 
 // port-forward to sidecar ControlZ port; open browser
-func controlZDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
+func controlZDashCmd(cliContext *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "controlz [<type>/]<name>[.<namespace>]",
@@ -353,7 +350,7 @@ func controlZDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(addonNamespace, cliContext.DefaultNamespace()), labelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), cliContext.NamespaceOrDefault(addonNamespace), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -370,9 +367,7 @@ func controlZDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 				podName = pl.Items[0].Name
 				ns = pl.Items[0].Namespace
 			} else {
-				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(addonNamespace, cliContext.DefaultNamespace()),
-					MakeKubeFactory(client))
+				podName, ns, err = cliContext.InferPodInfoFromTypedResource(args[0], addonNamespace)
 				if err != nil {
 					return err
 				}
@@ -387,7 +382,7 @@ func controlZDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
 }
 
 // port-forward to SkyWalking UI on istio-system
-func skywalkingDashCmd(cliContext *clicontext.CLIContext) *cobra.Command {
+func skywalkingDashCmd(cliContext *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "skywalking",
@@ -501,7 +496,7 @@ func openBrowser(url string, writer io.Writer, browser bool) {
 	}
 }
 
-func dashboard(cliContext *clicontext.CLIContext) *cobra.Command {
+func dashboard(cliContext *cli.Context) *cobra.Command {
 	dashboardCmd := &cobra.Command{
 		Use:     "dashboard",
 		Aliases: []string{"dash", "d"},

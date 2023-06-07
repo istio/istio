@@ -28,7 +28,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	clicontext "istio.io/istio/istioctl/pkg/context"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -37,7 +37,7 @@ type mockPromAPI struct {
 	cannedResponse map[string]prometheus_model.Value
 }
 
-func mockExecClientAuthNoPilot(_ *clicontext.CLIContext, _ string) (kube.CLIClient, error) {
+func mockExecClientAuthNoPilot(_ *cli.Context, _ string) (kube.CLIClient, error) {
 	return MockClient{
 		CLIClient: kube.NewFakeClient(),
 	}, nil
@@ -84,7 +84,7 @@ func TestMetrics(t *testing.T) {
 	}
 }
 
-func mockPortForwardClientAuthPrometheus(_ *clicontext.CLIContext, _ string) (kube.CLIClient, error) {
+func mockPortForwardClientAuthPrometheus(_ *cli.Context, _ string) (kube.CLIClient, error) {
 	return MockClient{
 		CLIClient: kube.NewFakeClient(&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{

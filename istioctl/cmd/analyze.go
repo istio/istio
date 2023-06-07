@@ -29,9 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	context2 "istio.io/istio/istioctl/pkg/context"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/formatting"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -82,7 +81,7 @@ var (
 )
 
 // Analyze command
-func Analyze(ctx *context2.CLIContext) *cobra.Command {
+func Analyze(ctx *cli.Context) *cobra.Command {
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
@@ -132,7 +131,7 @@ func Analyze(ctx *context2.CLIContext) *cobra.Command {
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
-			selectedNamespace = handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace())
+			selectedNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
 
 			// check whether selected namespace exists.
 			if ctx.Namespace() != "" && useKube {

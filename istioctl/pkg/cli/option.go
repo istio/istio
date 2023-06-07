@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package option
+package cli
 
 import (
 	"github.com/spf13/pflag"
@@ -38,16 +38,13 @@ type RootFlags struct {
 	defaultNamespace string
 }
 
-func NewRootFlags() *RootFlags {
-	return &RootFlags{
+func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
+	r := &RootFlags{
 		kubeconfig:     pointer.String(""),
 		configContext:  pointer.String(""),
 		namespace:      pointer.String(""),
 		istioNamespace: pointer.String(""),
 	}
-}
-
-func (r *RootFlags) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(r.kubeconfig, FlagKubeConfig, "c", "",
 		"Kubernetes configuration file")
 	flags.StringVar(r.configContext, FlagContext, "",
@@ -56,6 +53,7 @@ func (r *RootFlags) AddFlags(flags *pflag.FlagSet) {
 		"Kubernetes namespace")
 	flags.StringVarP(r.istioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
 		"Istio system namespace")
+	return r
 }
 
 func (r *RootFlags) KubeConfig() string {
@@ -66,19 +64,25 @@ func (r *RootFlags) KubeContext() string {
 	return *r.configContext
 }
 
+// Namespace returns the namespace flag value.
 func (r *RootFlags) Namespace() string {
 	return *r.namespace
 }
 
+// IstioNamespace returns the istioNamespace flag value.
 func (r *RootFlags) IstioNamespace() string {
 	return *r.istioNamespace
 }
 
+// DefaultNamespace returns the default namespace to use.
 func (r *RootFlags) DefaultNamespace() string {
+	if r.defaultNamespace == "" {
+		r.configureDefaultNamespace()
+	}
 	return r.defaultNamespace
 }
 
-func (r *RootFlags) ConfigureDefaultNamespace() {
+func (r *RootFlags) configureDefaultNamespace() {
 	configAccess := clientcmd.NewDefaultPathOptions()
 
 	kubeconfig := *r.kubeconfig

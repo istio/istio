@@ -23,8 +23,8 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -77,7 +77,7 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 	return nil, nil
 }
 
-func debugCommand(cliContext *clicontext.CLIContext) *cobra.Command {
+func debugCommand(cliContext *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 

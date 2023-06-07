@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+	"istio.io/istio/istioctl/pkg/cli"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -375,7 +376,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 }
 
 // NewValidateCommand creates a new command for validating Istio k8s resources.
-func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra.Command {
+func NewValidateCommand(ctx *cli.Context) *cobra.Command {
 	var filenames []string
 	var referential bool
 
@@ -403,7 +404,9 @@ func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateFiles(istioNamespace, *defaultNamespace, filenames, c.OutOrStderr())
+			istioNamespace := ctx.IstioNamespace()
+			defaultNamespace := ctx.DefaultNamespace()
+			return validateFiles(&istioNamespace, defaultNamespace, filenames, c.OutOrStderr())
 		},
 	}
 

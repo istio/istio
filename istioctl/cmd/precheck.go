@@ -35,8 +35,8 @@ import (
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	clicontext "istio.io/istio/istioctl/pkg/context"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	pkgversion "istio.io/istio/operator/pkg/version"
@@ -55,7 +55,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-func preCheck(ctx *clicontext.CLIContext) *cobra.Command {
+func preCheck(ctx *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var skipControlPlane bool
 	// cmd represents the upgradeCheck command
@@ -113,7 +113,7 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 	return cmd
 }
 
-func checkControlPlane(ctx *clicontext.CLIContext) (diag.Messages, error) {
+func checkControlPlane(ctx *cli.Context) (diag.Messages, error) {
 	cli, err := ctx.CLIClient()
 	if err != nil {
 		return nil, err

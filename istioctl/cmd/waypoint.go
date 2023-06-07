@@ -21,7 +21,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	clicontext "istio.io/istio/istioctl/pkg/context"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,7 +28,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
-	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -37,7 +36,7 @@ import (
 	"istio.io/istio/pkg/slices"
 )
 
-func waypointCmd(ctx *clicontext.CLIContext) *cobra.Command {
+func waypointCmd(ctx *cli.Context) *cobra.Command {
 	var waypointServiceAccount string
 	makeGatewayName := func(sa string) string {
 		name := sa
@@ -47,7 +46,7 @@ func waypointCmd(ctx *clicontext.CLIContext) *cobra.Command {
 		return name
 	}
 	makeGateway := func(forApply bool) *gateway.Gateway {
-		ns := handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace())
+		ns := ctx.NamespaceOrDefault(ctx.Namespace())
 		if ctx.Namespace() == "" && !forApply {
 			ns = ""
 		}
@@ -118,7 +117,7 @@ func waypointCmd(ctx *clicontext.CLIContext) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			gwc := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace()))
+			gwc := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace()))
 			b, err := yaml.Marshal(gw)
 			if err != nil {
 				return err
@@ -159,7 +158,7 @@ func waypointCmd(ctx *clicontext.CLIContext) *cobra.Command {
 			}
 			if len(args) == 1 {
 				name := args[0]
-				ns := handlers.HandleNamespace(ctx.Namespace(), ctx.DefaultNamespace())
+				ns := ctx.NamespaceOrDefault(ctx.Namespace())
 				gw, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
