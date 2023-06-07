@@ -706,13 +706,6 @@ var (
 	}
 )
 
-func init() {
-	for _, m := range metrics {
-		monitoring.MustRegister(m)
-	}
-	monitoring.MustRegister(totalVirtualServices)
-}
-
 // NewPushContext creates a new PushContext structure to track push status.
 func NewPushContext() *PushContext {
 	return &PushContext{

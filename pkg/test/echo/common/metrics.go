@@ -25,7 +25,7 @@ type EchoMetrics struct {
 }
 
 var (
-	PortLabel = monitoring.MustCreateLabel("port")
+	PortLabel = monitoring.CreateLabel("port")
 	Metrics   = &EchoMetrics{
 		HTTPRequests: monitoring.NewSum(
 			"istio_echo_http_requests_total",
@@ -41,7 +41,3 @@ var (
 		),
 	}
 )
-
-func init() {
-	monitoring.MustRegister(Metrics.HTTPRequests, Metrics.GrpcRequests, Metrics.TCPRequests)
-}

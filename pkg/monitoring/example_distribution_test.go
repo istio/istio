@@ -16,20 +16,15 @@ package monitoring_test
 import "istio.io/istio/pkg/monitoring"
 
 var (
-	method = monitoring.MustCreateLabel("method")
+	method = monitoring.CreateLabel("method")
 
 	receivedBytes = monitoring.NewDistribution(
 		"received_bytes_total",
 		"Distribution of received bytes by method",
 		[]float64{10, 100, 1000, 10000},
-		monitoring.WithLabels(method),
 		monitoring.WithUnit(monitoring.Bytes),
 	)
 )
-
-func init() {
-	monitoring.MustRegister(receivedBytes)
-}
 
 func ExampleNewDistribution() {
 	receivedBytes.With(method.Value("/projects/1")).Record(458)

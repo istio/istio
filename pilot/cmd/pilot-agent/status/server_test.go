@@ -33,6 +33,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/prometheus/model/textparse"
 	"go.uber.org/atomic"
@@ -44,7 +45,9 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/lazy"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -181,7 +184,8 @@ func TestNewServer(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		_, err := NewServer(Options{
-			KubeAppProbers: tc.probe,
+			KubeAppProbers:     tc.probe,
+			PrometheusRegistry: TestingRegistry(t),
 		})
 
 		if err == nil {
@@ -203,7 +207,7 @@ func TestNewServer(t *testing.T) {
 func TestPprof(t *testing.T) {
 	pprofPath := "/debug/pprof/cmdline"
 	// Starts the pilot agent status server.
-	server, err := NewServer(Options{StatusPort: 0, EnableProfiling: true})
+	server, err := NewServer(Options{StatusPort: 0, EnableProfiling: true, PrometheusRegistry: TestingRegistry(t)})
 	if err != nil {
 		t.Fatalf("failed to create status server %v", err)
 	}
@@ -346,17 +350,13 @@ my_metric{app="bar"} 0
 			if err != nil {
 				t.Fatal(err)
 			}
-			registry, err := initializeMonitoring()
-			if err != nil {
-				t.Fatal(err)
-			}
 			server := &Server{
 				prometheus: &PrometheusScrapeConfiguration{
 					Port: strings.Split(app.URL, ":")[2],
 				},
 				envoyStatsPort: envoyPort,
 				http:           &http.Client{},
-				registry:       registry,
+				registry:       TestingRegistry(t),
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)
@@ -493,15 +493,11 @@ my_other_metric{} 0
 			if err != nil {
 				t.Fatal(err)
 			}
-			registry, err := initializeMonitoring()
-			if err != nil {
-				t.Fatal(err)
-			}
 			server := &Server{
 				prometheus: &PrometheusScrapeConfiguration{
 					Port: strings.Split(app.URL, ":")[2],
 				},
-				registry:       registry,
+				registry:       TestingRegistry(t),
 				envoyStatsPort: envoyPort,
 				http:           &http.Client{},
 			}
@@ -564,15 +560,11 @@ func TestStatsError(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			registry, err := initializeMonitoring()
-			if err != nil {
-				t.Fatal(err)
-			}
 			server := &Server{
 				prometheus: &PrometheusScrapeConfiguration{
 					Port: strconv.Itoa(tt.app),
 				},
-				registry:       registry,
+				registry:       TestingRegistry(t),
 				envoyStatsPort: tt.envoy,
 				http:           &http.Client{},
 			}
@@ -869,10 +861,11 @@ func TestAppProbe(t *testing.T) {
 			t.Fatalf("invalid app probers")
 		}
 		config := Options{
-			StatusPort:     0,
-			KubeAppProbers: string(appProber),
-			PodIP:          tc.podIP,
-			IPv6:           tc.ipv6,
+			StatusPort:         0,
+			PrometheusRegistry: TestingRegistry(t),
+			KubeAppProbers:     string(appProber),
+			PodIP:              tc.podIP,
+			IPv6:               tc.ipv6,
 		}
 		// Starts the pilot agent status server.
 		server, err := NewServer(config)
@@ -974,7 +967,8 @@ func TestHttpsAppProbe(t *testing.T) {
 
 		// Starts the pilot agent status server.
 		server, err := NewServer(Options{
-			StatusPort: 0,
+			StatusPort:         0,
+			PrometheusRegistry: TestingRegistry(t),
 			KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"}},
 "/app-health/hello-world/livez": {"httpGet": {"port": %v, "scheme": "HTTPS"}}}`, appPort, appPort),
 		})
@@ -1099,7 +1093,8 @@ func TestGRPCAppProbe(t *testing.T) {
 	appPort := listener.Addr().(*net.TCPAddr).Port
 	// Starts the pilot agent status server.
 	server, err := NewServer(Options{
-		StatusPort: 0,
+		StatusPort:         0,
+		PrometheusRegistry: TestingRegistry(t),
 		KubeAppProbers: fmt.Sprintf(`
 {
     "/app-health/foo/livez": {
@@ -1220,9 +1215,10 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 	appPort := listener.Addr().(*net.TCPAddr).Port
 	// Starts the pilot agent status server.
 	server, err := NewServer(Options{
-		StatusPort: 0,
-		IPv6:       true,
-		PodIP:      "::1",
+		StatusPort:         0,
+		IPv6:               true,
+		PodIP:              "::1",
+		PrometheusRegistry: TestingRegistry(t),
 		KubeAppProbers: fmt.Sprintf(`
 {
     "/app-health/foo/livez": {
@@ -1441,8 +1437,9 @@ func TestProbeHeader(t *testing.T) {
 				t.Fatalf("invalid app probers")
 			}
 			config := Options{
-				StatusPort:     0,
-				KubeAppProbers: string(appProber),
+				StatusPort:         0,
+				PrometheusRegistry: TestingRegistry(t),
+				KubeAppProbers:     string(appProber),
 			}
 			// Starts the pilot agent status server.
 			server, err := NewServer(config)
@@ -1480,7 +1477,7 @@ func TestProbeHeader(t *testing.T) {
 
 func TestHandleQuit(t *testing.T) {
 	statusPort := 15020
-	s, err := NewServer(Options{StatusPort: uint16(statusPort)})
+	s, err := NewServer(Options{StatusPort: uint16(statusPort), PrometheusRegistry: TestingRegistry(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1579,8 +1576,9 @@ func TestAdditionalProbes(t *testing.T) {
 	defer testServer.Close()
 	for _, tc := range testCases {
 		server, err := NewServer(Options{
-			Probes:    tc.probes,
-			AdminPort: uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
+			Probes:             tc.probes,
+			PrometheusRegistry: TestingRegistry(t),
+			AdminPort:          uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
 		})
 		if err != nil {
 			t.Errorf("failed to construct server")
@@ -1609,4 +1607,14 @@ type unreadyProbe struct{}
 
 func (u unreadyProbe) Check() error {
 	return errors.New("not ready")
+}
+
+var reg = lazy.New(initializeMonitoring)
+
+func TestingRegistry(t test.Failer) prometheus.Gatherer {
+	r, err := reg.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
 }

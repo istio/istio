@@ -18,26 +18,28 @@ import (
 	"istio.io/istio/pkg/monitoring"
 )
 
-var RequestType = monitoring.MustCreateLabel("request_type")
+var (
+	RequestType  = monitoring.CreateLabel("request_type")
+	ResourceName = monitoring.CreateLabel("resource_name")
+)
 
 // Metrics for outgoing requests from citadel agent to external services such as token exchange server or a CA.
 // This is different from incoming request metrics (i.e. from Envoy to citadel agent).
 var (
 	outgoingLatency = monitoring.NewSum(
 		"outgoing_latency",
-		"The latency of "+
-			"outgoing requests (e.g. to a token exchange server, CA, etc.) in milliseconds.",
-		monitoring.WithLabels(RequestType), monitoring.WithUnit(monitoring.Milliseconds))
+		"The latency of outgoing requests (e.g. to a token exchange server, CA, etc.) in milliseconds.",
+	)
 
 	numOutgoingRequests = monitoring.NewSum(
 		"num_outgoing_requests",
 		"Number of total outgoing requests (e.g. to a token exchange server, CA, etc.)",
-		monitoring.WithLabels(RequestType))
+	)
 
 	numFailedOutgoingRequests = monitoring.NewSum(
 		"num_failed_outgoing_requests",
 		"Number of failed outgoing requests (e.g. to a token exchange server, CA, etc.)",
-		monitoring.WithLabels(RequestType))
+	)
 
 	numFileWatcherFailures = monitoring.NewSum(
 		"num_file_watcher_failures_total",
@@ -45,21 +47,12 @@ var (
 
 	numFileSecretFailures = monitoring.NewSum(
 		"num_file_secret_failures_total",
-		"Number of times secret generation failed for files")
+		"Number of times secret generation failed for files",
+	)
 
 	certExpirySeconds = monitoring.NewDerivedGauge(
 		"cert_expiry_seconds",
 		"The time remaining, in seconds, before the certificate chain will expire. "+
 			"A negative value indicates the cert is expired.",
-		monitoring.WithLabelKeys("resource_name"))
-)
-
-func init() {
-	monitoring.MustRegister(
-		outgoingLatency,
-		numOutgoingRequests,
-		numFailedOutgoingRequests,
-		numFileWatcherFailures,
-		numFileSecretFailures,
 	)
-}
+)

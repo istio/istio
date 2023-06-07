@@ -75,6 +75,7 @@ func TestGetFederatedToken(t *testing.T) {
 		tag := map[string]string{
 			"request_type": monitoring.TokenExchange,
 		}
+		// TODO: this is broken due to prometheus auto adding "_total"
 		mt.Assert("num_outgoing_retries", tag, monitortest.AtLeast(1))
 	})
 }

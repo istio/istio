@@ -40,24 +40,18 @@ var (
 	uptime = monitoring.NewDerivedGauge( // nolint: deadcode, varcheck
 		"istiod_uptime_seconds",
 		"Current istiod server uptime in seconds",
-	)
-
-	versionTag   = monitoring.MustCreateLabel("version")
-	pilotVersion = monitoring.NewGauge(
-		"pilot_info",
-		"Pilot version and build information.",
-		monitoring.WithLabels(versionTag))
-)
-
-func init() {
-	monitoring.MustRegister(
-		pilotVersion,
-	)
-
-	uptime.ValueFrom(func() float64 {
+	).ValueFrom(func() float64 {
 		return time.Since(serverStart).Seconds()
 	})
 
+	versionTag   = monitoring.CreateLabel("version")
+	pilotVersion = monitoring.NewGauge(
+		"pilot_info",
+		"Pilot version and build information.",
+	)
+)
+
+func init() {
 	pilotVersion.With(versionTag.Value(version.Info.String())).Record(1)
 }
 
