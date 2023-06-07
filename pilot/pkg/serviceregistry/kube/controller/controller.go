@@ -325,7 +325,7 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 
 	// Add the ServiceExport info.
 	for _, se := range c.exports.ExportedServices() {
-		mcsService := model.MCSServiceInfo{}
+		mcsService := &model.MCSServiceInfo{}
 		if mcsService, ok := outMap[se.namespacedName]; !ok {
 			outMap[se.namespacedName] = mcsService
 		}
@@ -338,7 +338,7 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 
 	// Add the ServiceImport info.
 	for _, si := range c.imports.ImportedServices() {
-		mcsService := model.MCSServiceInfo{}
+		mcsService := &model.MCSServiceInfo{}
 		if mcsService, ok := outMap[si.namespacedName]; !ok {
 			outMap[si.namespacedName] = mcsService
 		}
