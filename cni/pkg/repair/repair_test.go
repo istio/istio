@@ -319,7 +319,7 @@ func TestDeletePods(t *testing.T) {
 		wantErr   bool
 		wantPods  []*corev1.Pod
 		wantCount float64
-		wantTags   map[string]string
+		wantTags  map[string]string
 	}{
 		{
 			name:   "No broken pods",
@@ -344,7 +344,7 @@ func TestDeletePods(t *testing.T) {
 			wantPods:  []*corev1.Pod{workingPod, workingPodDiedPreviously},
 			wantErr:   false,
 			wantCount: 1,
-			wantTags:   map[string]string{"result": resultSuccess, "type": deleteType},
+			wantTags:  map[string]string{"result": resultSuccess, "type": deleteType},
 		},
 	}
 	for _, tt := range tests {

@@ -15,8 +15,9 @@
 package version
 
 import (
-	"istio.io/istio/pkg/monitoring/monitortest"
 	"testing"
+
+	"istio.io/istio/pkg/monitoring/monitortest"
 )
 
 func TestRecordComponentBuildTag(t *testing.T) {
