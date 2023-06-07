@@ -38,6 +38,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/security"
 )
 
@@ -595,11 +596,7 @@ func (s *DiscoveryServer) Clients() []*Connection {
 func (s *DiscoveryServer) AllClients() []*Connection {
 	s.adsClientsMutex.RLock()
 	defer s.adsClientsMutex.RUnlock()
-	clients := make([]*Connection, 0, len(s.adsClients))
-	for _, con := range s.adsClients {
-		clients = append(clients, con)
-	}
-	return clients
+	return maps.Values(s.adsClients)
 }
 
 // SendResponse will immediately send the response to all connections.

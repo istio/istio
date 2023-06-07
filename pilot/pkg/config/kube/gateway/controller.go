@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -333,11 +334,7 @@ func getLabelKeys(ns *corev1.Namespace) []string {
 	if ns == nil {
 		return nil
 	}
-	keys := make([]string, 0, len(ns.Labels))
-	for k := range ns.Labels {
-		keys = append(keys, k)
-	}
-	return keys
+	return maps.Keys(ns.Labels)
 }
 
 func (c *Controller) secretEvent(name, namespace string) {
