@@ -660,9 +660,10 @@ func applyManifests(kubeClient kube.Client, manifests string) error {
 			ogvr = gvr.ValidatingWebhookConfiguration
 		}
 
+		t := true
 		_, err := kubeClient.Dynamic().Resource(ogvr).Namespace(obj.GetNamespace()).Patch(
 			context.TODO(), obj.GetName(), types.ApplyPatchType, []byte(yml), metav1.PatchOptions{
-				Force:        nil,
+				Force:        &t,
 				FieldManager: fieldOwnerOperator,
 			})
 		if err != nil {
