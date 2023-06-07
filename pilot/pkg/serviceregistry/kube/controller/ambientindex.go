@@ -147,7 +147,6 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 func (a *AmbientIndex) dropWorkloadFromService(svcAddress networkAddress, workloadUID string) {
 	wls := a.byService[svcAddress]
 	delete(wls, workloadUID)
-
 }
 
 func (a *AmbientIndex) insertWorkloadToService(svcAddress networkAddress, workload *model.WorkloadInfo) {
