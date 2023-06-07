@@ -325,28 +325,24 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 
 	// Add the ServiceExport info.
 	for _, se := range c.exports.ExportedServices() {
-		mcsService := &model.MCSServiceInfo{}
-		if mcsService, ok := outMap[se.namespacedName]; !ok {
-			outMap[se.namespacedName] = mcsService
-		}
+		mcsService := outMap[se.namespacedName]
 		mcsService.Cluster = c.Cluster()
 		mcsService.Name = se.namespacedName.Name
 		mcsService.Namespace = se.namespacedName.Namespace
 		mcsService.Exported = true
 		mcsService.Discoverability = se.discoverability
+		outMap[se.namespacedName] = mcsService
 	}
 
 	// Add the ServiceImport info.
 	for _, si := range c.imports.ImportedServices() {
-		mcsService := &model.MCSServiceInfo{}
-		if mcsService, ok := outMap[si.namespacedName]; !ok {
-			outMap[si.namespacedName] = mcsService
-		}
+		mcsService := outMap[si.namespacedName]
 		mcsService.Cluster = c.Cluster()
 		mcsService.Name = si.namespacedName.Name
 		mcsService.Namespace = si.namespacedName.Namespace
 		mcsService.Imported = true
 		mcsService.ClusterSetVIP = si.clusterSetVIP
+		outMap[si.namespacedName] = mcsService
 	}
 
 	return maps.Values(outMap)
