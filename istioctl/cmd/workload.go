@@ -258,7 +258,8 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
 	configureCmd.PersistentFlags().StringVar(&ingressSvc, "ingressService", istioEastWestGatewayServiceName, "Name of the Service to be"+
-		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+ctx.IstioNamespace()+" namespace will be used.")
+		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+ctx.IstioNamespace()+
+		" namespace will be used.")
 	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
 	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "Creates a WorkloadEntry upon connection to istiod (if enabled in pilot).")
 	configureCmd.PersistentFlags().BoolVar(&dnsCapture, "capture-dns", true, "Enables the capture of outgoing DNS packets on port 53, redirecting to istio-agent")
@@ -439,7 +440,9 @@ func createCertsTokens(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGro
 	return nil
 }
 
-func createMeshConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGroup, istioNamespace, clusterID, dir, revision string) (*meshconfig.ProxyConfig, error) {
+func createMeshConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGroup, istioNamespace, clusterID, dir,
+	revision string,
+) (*meshconfig.ProxyConfig, error) {
 	istioCM := "istio"
 	// Case with multiple control planes
 	if isRevisioned(revision) {

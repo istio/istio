@@ -902,8 +902,8 @@ func printIngressInfo(
 	kubeClient kubernetes.Interface,
 	configClient istioclient.Interface,
 	client kube.CLIClient,
-	istioNamespace string) error {
-
+	istioNamespace string,
+) error {
 	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
 		FieldSelector: "status.phase=Running",
@@ -1247,7 +1247,8 @@ func describePeerAuthentication(
 	configClient istioclient.Interface,
 	workloadNamespace string,
 	podsLabels klabels.Set,
-	istioNamespace string) error {
+	istioNamespace string,
+) error {
 	meshCfg, err := getMeshConfig(kubeClient, istioNamespace)
 	if err != nil {
 		return fmt.Errorf("failed to fetch mesh config: %v", err)

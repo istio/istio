@@ -209,7 +209,6 @@ func extractCRDVersions(r *crd.CustomResourceDefinition) sets.String {
 }
 
 func checkInstallPermissions(cli kube.CLIClient, istioNamespace string) diag.Messages {
-
 	Resources := []struct {
 		namespace string
 		group     string
