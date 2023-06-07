@@ -191,6 +191,7 @@ func (e *envoy) Run(abort <-chan error) error {
 		log.Warnf("Aborting proxy")
 		if errKill := cmd.Process.Kill(); errKill != nil {
 			log.Warnf("killing proxy caused an error %v", errKill)
+			return errKill
 		}
 		return err
 	case err := <-done:
