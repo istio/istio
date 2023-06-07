@@ -16,7 +16,6 @@ package xds
 
 import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -46,34 +45,27 @@ func (e WorkloadGenerator) GenerateDeltas(
 	req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	updatedAddresses := model.ConfigNamespacedNameOfKind(req.ConfigsUpdated, kind.Address)
+	updatedAddresses := model.ConfigNameOfKind(req.ConfigsUpdated, kind.Address)
 	isReq := req.IsRequest()
 	if len(updatedAddresses) == 0 && len(req.ConfigsUpdated) > 0 {
 		// Nothing changed..
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
 	subs := sets.New(w.ResourceNames...)
-	typedSubs := sets.NewWithLength[types.NamespacedName](subs.Len())
-	for s := range subs {
-		typedSubs.Insert(types.NamespacedName{Name: s})
-	}
 
-	addresses := sets.New[types.NamespacedName]()
-	for ip := range updatedAddresses {
-		// IP was updated. We need to include it for this client if we are subscribed or a wildcard
-		if w.Wildcard || subs.Contains(ip.Name) {
-			addresses.Insert(ip)
-		}
+	addresses := updatedAddresses
+	if !w.Wildcard {
+		// If it;s not a wildcard, filter out resources we are not subscribed to
+		addresses = updatedAddresses.Intersection(subs)
 	}
 	// Specific requested resource: always include
-	for ip := range req.Delta.Subscribed {
-		addresses.Insert(types.NamespacedName{Name: ip})
-	}
+	addresses = addresses.Merge(req.Delta.Subscribed)
+
 	if !w.Wildcard {
 		// We only need this for on-demand. This allows us to subscribe the client to resources they
 		// didn't explicitly request.
 		// For wildcard, they subscribe to everything already.
-		additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, updatedAddresses, typedSubs)
+		additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
 		addresses.Merge(additional)
 	}
 

@@ -19,8 +19,6 @@ import (
 	"net/netip"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -79,11 +77,11 @@ func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.Wo
 	return res
 }
 
-func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.Set[types.NamespacedName]) sets.Set[types.NamespacedName] {
+func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.String) sets.String {
 	if !features.EnableAmbientControllers {
 		return nil
 	}
-	res := sets.New[types.NamespacedName]()
+	res := sets.New[string]()
 	for _, p := range c.GetRegistries() {
 		res = res.Merge(p.AdditionalPodSubscriptions(proxy, addr, cur))
 	}
@@ -101,7 +99,7 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 	return res
 }
 
-func (c *Controller) AddressInformation(addresses sets.Set[types.NamespacedName]) ([]*model.AddressInfo, []string) {
+func (c *Controller) AddressInformation(addresses sets.String) ([]*model.AddressInfo, []string) {
 	i := []*model.AddressInfo{}
 	removed := sets.New[string]()
 	if !features.EnableAmbientControllers {

@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -121,4 +122,19 @@ func (c *ClusterStore) Len() int {
 		out += len(clusterMap)
 	}
 	return out
+}
+
+func (c *ClusterStore) HasSynced() bool {
+	c.RLock()
+	defer c.RUnlock()
+	for _, clusterMap := range c.remoteClusters {
+		for _, cl := range clusterMap {
+			if !cl.HasSynced() {
+				log.Debugf("remote cluster %s registered informers have not been synced up yet", cl.ID)
+				return false
+			}
+		}
+	}
+
+	return true
 }

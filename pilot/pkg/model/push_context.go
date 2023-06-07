@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
@@ -2173,17 +2174,15 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 	}]
 }
 
-func (ps *PushContext) SupportsTunnel(ip string) bool {
-	infos, _ := ps.ambientIndex.AddressInformation(sets.New(types.NamespacedName{Name: ip}))
-	for _, p := range infos {
-		switch addr := p.Address.Type.(type) {
-		case *workloadapi.Address_Workload:
-			if addr.Workload.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
-				return true
-			}
-		case *workloadapi.Address_Service:
-			// Services do not directly support tunneling, their individual Workloads can though
-			continue
+// SupportsTunnel checks if a given IP address supports tunneling.
+// This currently only accepts workload IPs as arguments; services will always return "false".
+func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
+	// There should be a 1:1 relationship between IP and Workload but the interface doesn't allow this lookup.
+	// We should get 0 or 1 workloads, so just return the first.
+	infos, _ := ps.ambientIndex.AddressInformation(sets.New(n.String() + "/" + ip))
+	for _, wl := range ExtractWorkloadsFromAddresses(infos) {
+		if wl.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
+			return true
 		}
 	}
 	return false
