@@ -17,7 +17,6 @@ package controller
 import (
 	"fmt"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/slices"
 	"sort"
 	"sync"
 	"time"
@@ -322,13 +321,12 @@ func (c *Controller) Cluster() cluster.ID {
 }
 
 func (c *Controller) MCSServices() []model.MCSServiceInfo {
-	outMap := make(map[types.NamespacedName]*model.MCSServiceInfo)
+	outMap := make(map[types.NamespacedName]model.MCSServiceInfo)
 
 	// Add the ServiceExport info.
 	for _, se := range c.exports.ExportedServices() {
-		mcsService := outMap[se.namespacedName]
-		if mcsService == nil {
-			mcsService = &model.MCSServiceInfo{}
+		mcsService := model.MCSServiceInfo{}
+		if mcsService, ok := outMap[se.namespacedName]; !ok {
 			outMap[se.namespacedName] = mcsService
 		}
 		mcsService.Cluster = c.Cluster()
@@ -340,9 +338,8 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 
 	// Add the ServiceImport info.
 	for _, si := range c.imports.ImportedServices() {
-		mcsService := outMap[si.namespacedName]
-		if mcsService == nil {
-			mcsService = &model.MCSServiceInfo{}
+		mcsService := model.MCSServiceInfo{}
+		if mcsService, ok := outMap[si.namespacedName]; !ok {
 			outMap[si.namespacedName] = mcsService
 		}
 		mcsService.Cluster = c.Cluster()
@@ -352,8 +349,7 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 		mcsService.ClusterSetVIP = si.clusterSetVIP
 	}
 
-	out := maps.Values(outMap)
-	return slices.Dereference(out)
+	return maps.Values(outMap)
 }
 
 func (c *Controller) Network(endpointIP string, labels labels.Instance) network.ID {
