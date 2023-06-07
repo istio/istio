@@ -24,9 +24,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubetypes "k8s.io/apimachinery/pkg/types"
-
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -288,13 +285,6 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 				AutoRegistrationGroupAnnotation: group.Name,
 				"foo":                           "bar",
 			},
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion: group.GroupVersionKind.GroupVersion(),
-				Kind:       group.GroupVersionKind.Kind,
-				Name:       group.Name,
-				UID:        kubetypes.UID(group.UID),
-				Controller: &workloadGroupIsController,
-			}},
 		},
 		Spec: &v1alpha3.WorkloadEntry{
 			Address: "10.0.0.1",
