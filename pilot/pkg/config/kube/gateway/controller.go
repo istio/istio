@@ -335,7 +335,6 @@ func getLabelKeys(ns *corev1.Namespace) []string {
 		return nil
 	}
 	return maps.Keys(ns.Labels)
-
 }
 
 func (c *Controller) secretEvent(name, namespace string) {
