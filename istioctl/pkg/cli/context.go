@@ -15,11 +15,12 @@
 package cli
 
 import (
-	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/istio/pkg/kube"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
-	"k8s.io/utils/pointer"
+
+	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/ptr"
 )
 
 type Context struct {
@@ -102,8 +103,8 @@ func NewFakeContext(namespace, istioNamespace string) *Context {
 	ins := istioNamespace
 	return &Context{
 		RootFlags: RootFlags{
-			kubeconfig:       pointer.String(""),
-			configContext:    pointer.String(""),
+			kubeconfig:       ptr.Of[string](""),
+			configContext:    ptr.Of[string](""),
 			namespace:        &ns,
 			istioNamespace:   &ins,
 			defaultNamespace: "",

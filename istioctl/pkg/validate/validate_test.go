@@ -24,10 +24,10 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/istioctl/pkg/cli"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/test/util/assert"
 )
 

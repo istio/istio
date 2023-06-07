@@ -26,11 +26,11 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
-	"istio.io/istio/istioctl/pkg/cli"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"

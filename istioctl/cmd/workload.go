@@ -101,7 +101,7 @@ func groupCommand(ctx *cli.Context) *cobra.Command {
 		Short:   "Commands dealing with WorkloadGroup resources",
 		Example: "  istioctl x workload group create --name foo --namespace bar --labels app=foobar",
 	}
-	groupCmd.AddCommand(createCommand(ctx))
+	groupCmd.AddCommand(createCommand())
 	return groupCmd
 }
 
@@ -115,7 +115,7 @@ func entryCommand(ctx *cli.Context) *cobra.Command {
 	return entryCmd
 }
 
-func createCommand(ctx *cli.Context) *cobra.Command {
+func createCommand() *cobra.Command {
 	createCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",

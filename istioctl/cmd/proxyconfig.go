@@ -22,11 +22,9 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"istio.io/istio/pkg/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
@@ -40,6 +38,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -122,7 +121,6 @@ var stringToLevel = map[string]Level{
 var (
 	loggerLevelString = ""
 	reset             = false
-	once              sync.Once
 )
 
 func ztunnelLogLevel(level string) string {

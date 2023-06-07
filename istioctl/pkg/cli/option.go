@@ -19,7 +19,8 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/utils/pointer"
+
+	"istio.io/istio/pkg/ptr"
 )
 
 const (
@@ -40,10 +41,10 @@ type RootFlags struct {
 
 func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 	r := &RootFlags{
-		kubeconfig:     pointer.String(""),
-		configContext:  pointer.String(""),
-		namespace:      pointer.String(""),
-		istioNamespace: pointer.String(""),
+		kubeconfig:     ptr.Of[string](""),
+		configContext:  ptr.Of[string](""),
+		namespace:      ptr.Of[string](""),
+		istioNamespace: ptr.Of[string](""),
 	}
 	flags.StringVarP(r.kubeconfig, FlagKubeConfig, "c", "",
 		"Kubernetes configuration file")

@@ -76,7 +76,7 @@ func waitCmd(cliCtx *cli.Context) *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			if generation == "" {
-				w = getAndWatchResource(cliCtx, ctx) // setup version getter from kubernetes
+				w = getAndWatchResource(ctx, cliCtx) // setup version getter from kubernetes
 			} else {
 				w = withContext(ctx)
 				w.Go(func(result chan string) error {
@@ -246,7 +246,7 @@ func init() {
 // getAndWatchResource ensures that Generations always contains
 // the current generation of the targetResource, adding new versions
 // as they are created.
-func getAndWatchResource(cliCtx *cli.Context, ictx context.Context) *watcher {
+func getAndWatchResource(ictx context.Context, cliCtx *cli.Context) *watcher {
 	g := withContext(ictx)
 	// copy nameflag to avoid race
 	nf := nameflag

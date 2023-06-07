@@ -46,7 +46,7 @@ func getPodsNameInDefaultNamespace(ctx *cli.Context, toComplete string) ([]strin
 	return podsName, nil
 }
 
-func validPodsNameArgs(cmd *cobra.Command, ctx *cli.Context, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func validPodsNameArgs(_ *cobra.Command, ctx *cli.Context, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -79,7 +79,7 @@ func getServicesName(ctx *cli.Context, toComplete string) ([]string, error) {
 	return serviceNameList, nil
 }
 
-func validServiceArgs(cmd *cobra.Command, ctx *cli.Context, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func validServiceArgs(_ *cobra.Command, ctx *cli.Context, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -108,7 +108,7 @@ func getNamespacesName(kubeClient kube.CLIClient, toComplete string) ([]string, 
 	return nsNameList, nil
 }
 
-func validNamespaceArgs(cmd *cobra.Command, ctx *cli.Context, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func validNamespaceArgs(_ *cobra.Command, ctx *cli.Context, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
