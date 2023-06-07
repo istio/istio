@@ -143,11 +143,13 @@ debug and diagnose their Istio mesh.
 	ctx := cli.NewCLIContext(*rootOptions)
 
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagIstioNamespace, func(
-		cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		cmd *cobra.Command, args []string, toComplete string,
+	) ([]string, cobra.ShellCompDirective) {
 		return validNamespaceArgs(cmd, ctx, args, toComplete)
 	})
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagNamespace, func(
-		cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		cmd *cobra.Command, args []string, toComplete string,
+	) ([]string, cobra.ShellCompDirective) {
 		return validNamespaceArgs(cmd, ctx, args, toComplete)
 	})
 

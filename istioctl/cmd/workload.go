@@ -90,12 +90,12 @@ func workloadCommands(ctx *cli.Context) *cobra.Command {
   # workload entry configuration generation
   istioctl x workload entry configure`,
 	}
-	workloadCmd.AddCommand(groupCommand(ctx))
+	workloadCmd.AddCommand(groupCommand())
 	workloadCmd.AddCommand(entryCommand(ctx))
 	return workloadCmd
 }
 
-func groupCommand(ctx *cli.Context) *cobra.Command {
+func groupCommand() *cobra.Command {
 	groupCmd := &cobra.Command{
 		Use:     "group",
 		Short:   "Commands dealing with WorkloadGroup resources",
