@@ -106,6 +106,9 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
+          {{- if .Values.pilot.args }}
+          {{- toYaml .Values.pilot.args | nindent 10 }}
+          {{- end }}
           ports:
           - containerPort: 8080
             protocol: TCP
@@ -211,6 +214,9 @@ spec:
           - name: istio-csr-ca-configmap
             mountPath: /var/run/secrets/istiod/ca
             readOnly: true
+          {{- if .Values.pilot.volumeMounts }}
+          {{- toYaml .Values.pilot.volumeMounts | nindent 10 }}
+          {{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -250,5 +256,7 @@ spec:
         configMap:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
-
+      {{- if .Values.pilot.volumes }}}
+      {{- toYaml .Values.pilot.volumes | nindent 6}}
+      {{- end }}
 ---

@@ -29,6 +29,15 @@ pilot:
 
   env: {}
 
+  # Additional arguments to pass to pilot
+  args: {}
+
+  # Additional volumes to add to the pilot pod
+  volumes: {}
+
+  # Additional volume mounts to add to the pilot container
+  volumeMounts: {}
+
   cpu:
     targetAverageUtilization: 80
 
