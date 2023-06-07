@@ -15,30 +15,15 @@
 package metrics_test
 
 import (
-	"fmt"
-	"reflect"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/collateral/metrics"
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestExportedMetrics(t *testing.T) {
-	r := metrics.NewOpenCensusRegistry()
-	err := retry(
-		func() error {
-			if got := r.ExportedMetrics(); !reflect.DeepEqual(got, want) {
-				return fmt.Errorf("got %v, want %v", got, want)
-			}
-			return nil
-		},
-		1*time.Second,
-		10*time.Millisecond,
-	)
-	if err != nil {
-		t.Errorf("failure exporting metrics: %v", err)
-	}
+	assert.Equal(t, metrics.ExportedMetrics(), want)
 }
 
 var (
@@ -49,15 +34,16 @@ var (
 	)
 
 	// HandlersTotal is a measure of the number of known handlers.
-	HandlersTotal = monitoring.NewGauge(
+	HandlersTotal = monitoring.NewSum(
 		"mixer/config/handler_configs_total",
 		"The number of known handlers in the current config.",
 	)
 
 	// InstancesTotal is a measure of the number of known instances.
-	InstancesTotal = monitoring.NewGauge(
+	InstancesTotal = monitoring.NewDistribution(
 		"mixer/config/instance_configs_total",
 		"The number of known instances in the current config.",
+		[]float64{0, 1, 2},
 	)
 
 	// InstanceErrs is a measure of the number of errors for processing instance config.
@@ -84,46 +70,42 @@ var (
 		"The number of known adapters in the current config.",
 	)
 
-	want = []metrics.Exported{
-		{"mixer_config_adapter_info_configs_total", "LastValue", "The number of known adapters in the current config."},
-		{"mixer_config_attributes_total", "LastValue", "The number of known attributes in the current config."},
-		{"mixer_config_handler_configs_total", "LastValue", "The number of known handlers in the current config."},
-		{"mixer_config_instance_config_errors_total", "LastValue", "The number of errors encountered during processing of the instance configuration."},
-		{"mixer_config_instance_configs_total", "LastValue", "The number of known instances in the current config."},
-		{"mixer_config_rule_config_errors_total", "LastValue", "The number of errors encountered during processing of the rule configuration."},
-		{"mixer_config_rule_configs_total", "LastValue", "The number of known rules in the current config."},
+	want = []monitoring.MetricDefinition{
+		{
+			Name:        "mixer_config_adapter_info_configs_total",
+			Type:        "LastValue",
+			Description: "The number of known adapters in the current config.",
+		},
+		{
+			Name:        "mixer_config_attributes_total",
+			Type:        "LastValue",
+			Description: "The number of known attributes in the current config.",
+		},
+		{
+			Name:        "mixer_config_handler_configs_total",
+			Type:        "Sum",
+			Description: "The number of known handlers in the current config.",
+		},
+		{
+			Name:        "mixer_config_instance_config_errors_total",
+			Type:        "LastValue",
+			Description: "The number of errors encountered during processing of the instance configuration.",
+		},
+		{
+			Name:        "mixer_config_instance_configs_total",
+			Type:        "Distribution",
+			Description: "The number of known instances in the current config.",
+			Bounds:      []float64{0, 1, 2},
+		},
+		{
+			Name:        "mixer_config_rule_config_errors_total",
+			Type:        "LastValue",
+			Description: "The number of errors encountered during processing of the rule configuration.",
+		},
+		{
+			Name:        "mixer_config_rule_configs_total",
+			Type:        "LastValue",
+			Description: "The number of known rules in the current config.",
+		},
 	}
 )
-
-func init() {
-	monitoring.MustRegister(
-		AttributesTotal,
-		HandlersTotal,
-		InstancesTotal,
-		InstanceErrs,
-		RulesTotal,
-		RuleErrs,
-		AdapterInfosTotal,
-	)
-}
-
-// because OC uses goroutines to async export, validating proper export
-// can introduce timing problems. this helper just trys validation over
-// and over until the supplied method either succeeds or the timeout is hit.
-func retry(fn func() error, timeout, delay time.Duration) error {
-	var lasterr error
-	to := time.After(timeout)
-	for {
-		select {
-		case <-to:
-			return fmt.Errorf("timeout while waiting (last error: %v)", lasterr)
-		default:
-		}
-		if err := fn(); err != nil {
-			lasterr = err
-		} else {
-			return nil
-		}
-		<-time.After(delay)
-	}
-}

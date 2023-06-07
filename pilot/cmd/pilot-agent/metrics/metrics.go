@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	typeTag = monitoring.MustCreateLabel("type")
+	typeTag = monitoring.CreateLabel("type")
 
 	// StartupTime measures the time it takes for the agent to get ready Note: This
 	// is dependant on readiness probes. This means our granularity is correlated to
@@ -36,7 +36,6 @@ var (
 	scrapeErrors = monitoring.NewSum(
 		"scrape_failures_total",
 		"The total number of failed scrapes.",
-		monitoring.WithLabels(typeTag),
 	)
 	EnvoyScrapeErrors = scrapeErrors.With(typeTag.Value(ScrapeTypeEnvoy))
 	AppScrapeErrors   = scrapeErrors.With(typeTag.Value(ScrapeTypeApp))
@@ -61,12 +60,4 @@ func RecordStartupTime() {
 	delta := time.Since(processStartTime)
 	startupTime.Record(delta.Seconds())
 	log.Infof("Readiness succeeded in %v", delta)
-}
-
-func init() {
-	monitoring.MustRegister(
-		ScrapeTotals,
-		scrapeErrors,
-		startupTime,
-	)
 }
