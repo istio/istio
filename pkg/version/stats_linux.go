@@ -15,13 +15,7 @@
 package version
 
 import (
-	"context"
-
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
-
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 )
 
 // Note that this code uses go.opencensus.io/stats,
@@ -30,48 +24,20 @@ import (
 // ensures this is only built on Linux.
 
 var (
-	gitTagKey       tag.Key
-	componentTagKey tag.Key
-	istioBuildTag   = stats.Int64(
-		"istio/build",
+	gitTagKey       = monitoring.MustCreateLabel("tag")
+	componentTagKey = monitoring.MustCreateLabel("component")
+	istioBuildTag   = monitoring.NewGauge(
+		"istio_build",
 		"Istio component build info",
-		stats.UnitDimensionless)
+		monitoring.WithLabels(gitTagKey, componentTagKey))
 )
 
 // RecordComponentBuildTag sets the value for a metric that will be used to track component build tags for
 // tracking rollouts, etc.
 func (b BuildInfo) RecordComponentBuildTag(component string) {
-	b.recordBuildTag(component, tag.New)
-}
-
-func (b BuildInfo) recordBuildTag(component string, newTagCtxFn func(context.Context, ...tag.Mutator) (context.Context, error)) {
-	ctx := context.Background()
-	var err error
-	if ctx, err = newTagCtxFn(ctx, tag.Insert(gitTagKey, b.GitTag), tag.Insert(componentTagKey, component)); err != nil {
-		log.Errorf("Could not establish build and component tag keys in context: %v", err)
-	}
-	stats.Record(ctx, istioBuildTag.M(1))
+	istioBuildTag.With(gitTagKey.Value(b.GitTag), componentTagKey.Value(component)).Increment()
 }
 
 func init() {
-	registerStats(tag.NewKey)
-}
-
-func registerStats(newTagKeyFn func(string) (tag.Key, error)) {
-	var err error
-	if gitTagKey, err = newTagKeyFn("tag"); err != nil {
-		panic(err)
-	}
-	if componentTagKey, err = newTagKeyFn("component"); err != nil {
-		panic(err)
-	}
-	gitTagView := &view.View{
-		Measure:     istioBuildTag,
-		TagKeys:     []tag.Key{componentTagKey, gitTagKey},
-		Aggregation: view.LastValue(),
-	}
-
-	if err = view.Register(gitTagView); err != nil {
-		panic(err)
-	}
+	monitoring.MustRegister(istioBuildTag)
 }

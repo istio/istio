@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"go.opencensus.io/tag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -320,7 +319,7 @@ func TestDeletePods(t *testing.T) {
 		wantErr   bool
 		wantPods  []*corev1.Pod
 		wantCount float64
-		wantTags  []tag.Tag
+		wantTags  map[string]string
 	}{
 		{
 			name:   "No broken pods",
@@ -345,11 +344,12 @@ func TestDeletePods(t *testing.T) {
 			wantPods:  []*corev1.Pod{workingPod, workingPodDiedPreviously},
 			wantErr:   false,
 			wantCount: 1,
-			wantTags:  []tag.Tag{{Key: tag.Key(resultLabel), Value: resultSuccess}, {Key: tag.Key(typeLabel), Value: deleteType}},
+			wantTags:  map[string]string{"result": resultSuccess, "type": deleteType},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mt := monitortest.New(t)
 			tt.config.DeletePods = true
 			c, err := NewRepairController(tt.client, tt.config)
 			assert.NoError(t, err)
@@ -368,6 +368,9 @@ func TestDeletePods(t *testing.T) {
 				})
 				return havePods
 			}, tt.wantPods)
+			if tt.wantCount > 0 {
+				mt.Assert(podsRepaired.Name(), tt.wantTags, monitortest.Exactly(tt.wantCount))
+			}
 		})
 	}
 }

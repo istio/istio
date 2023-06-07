@@ -15,94 +15,44 @@
 package controller
 
 import (
-	"context"
-
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
 
-const (
-	reason = "reason"
+	"istio.io/istio/pkg/monitoring"
 )
-
-// reasonTag holds the error reason for the context.
-var reasonTag tag.Key
 
 var (
-	metricWebhookConfigurationUpdateError = stats.Int64(
-		"galley/validation/config_update_error",
+	// reasonLabel describes reason
+	reasonLabel = monitoring.MustCreateLabel("reason")
+
+	metricWebhookConfigurationUpdateError = monitoring.NewSum(
+		"galley_validation_config_update_error",
 		"k8s webhook configuration update error",
-		stats.UnitDimensionless)
-	metricWebhookConfigurationUpdates = stats.Int64(
-		"galley/validation_config_updates",
-		"k8s webhook configuration updates",
-		stats.UnitDimensionless)
-	metricWebhookConfigurationDeleteError = stats.Int64(
-		"galley/validation/config_delete_error",
-		"k8s webhook configuration delete error",
-		stats.UnitDimensionless)
-	metricWebhookConfigurationLoadError = stats.Int64(
-		"galley/validation/config_load_error",
+		monitoring.WithLabels(reasonLabel))
+	metricWebhookConfigurationUpdates = monitoring.NewSum(
+		"galley_validation_config_updates",
+		"k8s webhook configuration updates")
+	metricWebhookConfigurationLoadError = monitoring.NewSum(
+		"galley_validation_config_load_error",
 		"k8s webhook configuration (re)load error",
-		stats.UnitDimensionless)
-	metricWebhookConfigurationLoad = stats.Int64(
-		"galley/validation/config_load",
-		"k8s webhook configuration (re)loads",
-		stats.UnitDimensionless)
+		monitoring.WithLabels(reasonLabel))
 )
 
-func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
-	return &view.View{
-		Name:        measure.Name(),
-		Description: measure.Description(),
-		Measure:     measure,
-		TagKeys:     keys,
-		Aggregation: aggregation,
-	}
-}
-
 func init() {
-	var err error
-	if reasonTag, err = tag.NewKey(reason); err != nil {
-		panic(err)
-	}
-
-	var noKeys []tag.Key
-	reasonKey := []tag.Key{reasonTag}
-
-	err = view.Register(
-		newView(metricWebhookConfigurationUpdateError, reasonKey, view.Count()),
-		newView(metricWebhookConfigurationUpdates, noKeys, view.Count()),
-		newView(metricWebhookConfigurationDeleteError, reasonKey, view.Count()),
-		newView(metricWebhookConfigurationLoadError, reasonKey, view.Count()),
-		newView(metricWebhookConfigurationLoad, noKeys, view.Count()),
+	monitoring.MustRegister(
+		metricWebhookConfigurationUpdateError,
+		metricWebhookConfigurationUpdates,
+		metricWebhookConfigurationLoadError,
 	)
-
-	if err != nil {
-		panic(err)
-	}
 }
 
 func reportValidationConfigUpdateError(reason metav1.StatusReason) {
-	ctx, err := tag.New(context.Background(), tag.Insert(reasonTag, string(reason)))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationConfigUpdateError: %v", err)
-	} else {
-		stats.Record(ctx, metricWebhookConfigurationUpdateError.M(1))
-	}
+	metricWebhookConfigurationUpdateError.With(reasonLabel.Value(string(reason))).Increment()
 }
 
 func reportValidationConfigLoadError(reason string) {
-	ctx, err := tag.New(context.Background(), tag.Insert(reasonTag, reason))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for reportValidationConfigLoadError: %v", err)
-	} else {
-		stats.Record(ctx, metricWebhookConfigurationLoadError.M(1))
-	}
+	metricWebhookConfigurationLoadError.With(reasonLabel.Value(reason)).Increment()
 }
 
 func reportValidationConfigUpdate() {
-	stats.Record(context.Background(), metricWebhookConfigurationUpdates.M(1))
+	metricWebhookConfigurationUpdates.Increment()
 }
