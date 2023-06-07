@@ -41,15 +41,7 @@ import (
 	"istio.io/istio/pkg/security"
 )
 
-var (
-	versionMutex sync.RWMutex
-	// version is the timestamp of the last registry event.
-	version = "0"
-	// versionNum counts versions
-	versionNum = atomic.NewUint64(0)
-
-	periodicRefreshMetrics = 10 * time.Second
-)
+var periodicRefreshMetrics = 10 * time.Second
 
 type debounceOptions struct {
 	// debounceAfter is the delay added to events to wait
@@ -150,6 +142,9 @@ type DiscoveryServer struct {
 	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[cluster.ID]cluster.ID
+
+	// pushVersion stores the numeric push version. This should be accessed via NextVersion()
+	pushVersion atomic.Uint64
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -283,7 +278,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
 		s.dropCacheForRequest(req)
-		s.AdsPushAll(versionInfo(), req)
+		s.AdsPushAll(req)
 		return
 	}
 	// Reset the status during the push.
@@ -297,7 +292,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// saved.
 	t0 := time.Now()
 
-	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Inc(), 10)
+	versionLocal := s.NextVersion()
 	push, err := s.initPushContext(req, oldPushContext, versionLocal)
 	if err != nil {
 		return
@@ -306,22 +301,12 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 	pushContextInitTime.Record(initContextTime.Seconds())
 
-	versionMutex.Lock()
-	version = versionLocal
-	versionMutex.Unlock()
-
 	req.Push = push
-	s.AdsPushAll(versionLocal, req)
+	s.AdsPushAll(req)
 }
 
 func nonce(noncePrefix string) string {
 	return noncePrefix + uuid.New().String()
-}
-
-func versionInfo() string {
-	versionMutex.RLock()
-	defer versionMutex.RUnlock()
-	return version
 }
 
 // Returns the global push context. This should be used with caution; generally the proxy-specific
@@ -558,7 +543,10 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
 
-	s.Generators[v3.AddressType] = &WorkloadGenerator{s: s}
+	workloadGen := &WorkloadGenerator{s: s}
+	s.Generators[v3.AddressType] = workloadGen
+	s.Generators[v3.WorkloadType] = workloadGen
+	s.Generators[v3.ServiceType] = workloadGen
 	s.Generators[v3.WorkloadAuthorizationType] = &WorkloadRBACGenerator{s: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
@@ -656,4 +644,8 @@ func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
 	wait, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	return s.RequestRateLimit.Wait(wait)
+}
+
+func (s *DiscoveryServer) NextVersion() string {
+	return time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(s.pushVersion.Inc(), 10)
 }

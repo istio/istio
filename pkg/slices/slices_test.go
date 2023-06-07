@@ -140,3 +140,150 @@ func TestMap(t *testing.T) {
 		})
 	}
 }
+
+var (
+	i1, i2, i3 = 1, 2, 3
+	s1, s2, s3 = "a", "b", "c"
+)
+
+func TestReference(t *testing.T) {
+	type args[E any] struct {
+		s []E
+	}
+	type testCase[E any] struct {
+		name string
+		args args[E]
+		want []*E
+	}
+	stringTests := []testCase[string]{
+		{
+			name: "empty slice",
+			args: args[string]{
+				[]string{},
+			},
+			want: []*string{},
+		},
+		{
+			name: "slice with 1 element",
+			args: args[string]{
+				[]string{s1},
+			},
+			want: []*string{&s1},
+		},
+		{
+			name: "slice with many elements",
+			args: args[string]{
+				[]string{s1, s2, s3},
+			},
+			want: []*string{&s1, &s2, &s3},
+		},
+	}
+	intTests := []testCase[int]{
+		{
+			name: "empty slice",
+			args: args[int]{
+				[]int{},
+			},
+			want: []*int{},
+		},
+		{
+			name: "slice with 1 element",
+			args: args[int]{
+				[]int{i1},
+			},
+			want: []*int{&i1},
+		},
+		{
+			name: "slice with many elements",
+			args: args[int]{
+				[]int{i1, i2, i3},
+			},
+			want: []*int{&i1, &i2, &i3},
+		},
+	}
+	for _, tt := range stringTests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Reference(tt.args.s); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Reference() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+	for _, tt := range intTests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Reference(tt.args.s); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Reference() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDereference(t *testing.T) {
+	type args[E any] struct {
+		s []*E
+	}
+	type testCase[E any] struct {
+		name string
+		args args[E]
+		want []E
+	}
+	stringTests := []testCase[string]{
+		{
+			name: "empty slice",
+			args: args[string]{
+				[]*string{},
+			},
+			want: []string{},
+		},
+		{
+			name: "slice with 1 element",
+			args: args[string]{
+				[]*string{&s1},
+			},
+			want: []string{s1},
+		},
+		{
+			name: "slice with many elements",
+			args: args[string]{
+				[]*string{&s1, &s2, &s3},
+			},
+			want: []string{s1, s2, s3},
+		},
+	}
+	intTests := []testCase[int]{
+		{
+			name: "empty slice",
+			args: args[int]{
+				[]*int{},
+			},
+			want: []int{},
+		},
+		{
+			name: "slice with 1 element",
+			args: args[int]{
+				[]*int{&i1},
+			},
+			want: []int{i1},
+		},
+		{
+			name: "slice with many elements",
+			args: args[int]{
+				[]*int{&i1, &i2, &i3},
+			},
+			want: []int{i1, i2, i3},
+		},
+	}
+	for _, tt := range stringTests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Dereference(tt.args.s); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Dereference() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+	for _, tt := range intTests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Dereference(tt.args.s); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Dereference() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

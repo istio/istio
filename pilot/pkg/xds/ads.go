@@ -833,7 +833,7 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
 // AdsPushAll will send updates to all nodes, with a full push.
 // Mainly used in Debug interface.
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo(), &model.PushRequest{
+	s.AdsPushAll(&model.PushRequest{
 		Full:   true,
 		Push:   s.globalPushContext(),
 		Reason: []model.TriggerReason{model.DebugTrigger},
@@ -841,14 +841,14 @@ func AdsPushAll(s *DiscoveryServer) {
 }
 
 // AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
-func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
+func (s *DiscoveryServer) AdsPushAll(req *model.PushRequest) {
 	if !req.Full {
-		log.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d Version:%s",
-			version, s.adsClientCount(), req.Push.PushVersion)
+		log.Infof("XDS: Incremental Pushing ConnectedEndpoints:%d Version:%s",
+			s.adsClientCount(), req.Push.PushVersion)
 	} else {
 		totalService := len(req.Push.GetAllServices())
-		log.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d Version:%s",
-			version, totalService, s.adsClientCount(), req.Push.PushVersion)
+		log.Infof("XDS: Pushing Services:%d ConnectedEndpoints:%d Version:%s",
+			totalService, s.adsClientCount(), req.Push.PushVersion)
 		monServices.Record(float64(totalService))
 
 		// Make sure the ConfigsUpdated map exists

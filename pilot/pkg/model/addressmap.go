@@ -31,14 +31,14 @@ type AddressMap struct {
 	mutex sync.RWMutex
 }
 
-func (m *AddressMap) IsEmpty() bool {
+func (m *AddressMap) Len() int {
 	if m == nil {
-		return true
+		return 0
 	}
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	return len(m.Addresses) == 0
+	return len(m.Addresses)
 }
 
 func (m *AddressMap) DeepCopy() *AddressMap {

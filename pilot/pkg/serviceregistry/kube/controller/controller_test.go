@@ -2220,7 +2220,12 @@ func generatePod(ip, name, namespace, saName, node string, labels map[string]str
 			},
 			PodIP:  ip,
 			HostIP: ip,
-			Phase:  corev1.PodRunning,
+			PodIPs: []corev1.PodIP{
+				{
+					IP: ip,
+				},
+			},
+			Phase: corev1.PodRunning,
 		},
 	}
 }

@@ -81,7 +81,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 			instances := gc.ps.ServiceInstancesByPort(svc, port, nil)
 			if len(instances) > 0 {
 				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
-				if !svc.Attributes.ClusterExternalAddresses.IsEmpty() {
+				if svc.Attributes.ClusterExternalAddresses.Len() > 0 {
 					// Fetch external IPs from all clusters
 					svc.Attributes.ClusterExternalAddresses.ForEach(func(c cluster.ID, externalIPs []string) {
 						foundExternal.InsertAll(externalIPs...)

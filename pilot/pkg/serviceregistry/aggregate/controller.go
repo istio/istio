@@ -254,7 +254,7 @@ func (c *Controller) Services() []*model.Service {
 				} else {
 					// We must deepcopy before merge, and after merging, the ClusterVips length will be >= 2.
 					// This is an optimization to prevent deepcopy multi-times
-					if len(services[previous].ClusterVIPs.GetAddresses()) < 2 {
+					if services[previous].ClusterVIPs.Len() < 2 {
 						// Deep copy before merging, otherwise there is a case
 						// a service in remote cluster can be deleted, but the ClusterIP left.
 						services[previous] = services[previous].DeepCopy()

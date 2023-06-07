@@ -11,9 +11,6 @@ spec:
         operation: MERGE
         value:
           stats_config:
-            stats_tags:
-              - regex: "(custom_dimension=\\.=(.*?);\\.;)"
-                tag_name: "custom_dimension"
             histogram_bucket_settings:
               - match:
                   prefix: istio

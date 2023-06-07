@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -236,6 +237,42 @@ func TestToSecretName(t *testing.T) {
 			}
 			if sr.Namespace != tt.wantResourceNamespace {
 				t.Errorf("parse secret name got %v want %v", sr.Name, tt.name)
+			}
+		})
+	}
+}
+
+func TestFailStrategy(t *testing.T) {
+	cases := []struct {
+		desc string
+		in   *extensions.WasmPlugin
+		out  bool
+	}{
+		{
+			desc: "close",
+			in: &extensions.WasmPlugin{
+				Url:          "file://fake.wasm",
+				FailStrategy: extensions.FailStrategy_FAIL_CLOSE,
+			},
+			out: false,
+		},
+		{
+			desc: "open",
+			in: &extensions.WasmPlugin{
+				Url:          "file://fake.wasm",
+				FailStrategy: extensions.FailStrategy_FAIL_OPEN,
+			},
+			out: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			out := convertToWasmPluginWrapper(config.Config{Spec: tc.in})
+			if out == nil {
+				t.Fatalf("must not get nil")
+			}
+			if got := out.WasmExtensionConfig.Config.FailOpen; got != tc.out {
+				t.Errorf("got %t, want %t", got, tc.out)
 			}
 		})
 	}

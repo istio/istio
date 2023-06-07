@@ -722,7 +722,7 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 		return false
 	}
 
-	if len(s.ClusterExternalAddresses.GetAddresses()) != len(other.ClusterExternalAddresses.GetAddresses()) {
+	if s.ClusterExternalAddresses.Len() != other.ClusterExternalAddresses.Len() {
 		return false
 	}
 
@@ -852,6 +852,27 @@ type AddressInfo struct {
 	*workloadapi.Address
 }
 
+func (i AddressInfo) Aliases() []string {
+	switch addr := i.Type.(type) {
+	case *workloadapi.Address_Workload:
+		aliases := make([]string, 0, len(addr.Workload.Addresses))
+		network := addr.Workload.Network
+		for _, workloadAddr := range addr.Workload.Addresses {
+			ip, _ := netip.AddrFromSlice(workloadAddr)
+			aliases = append(aliases, network+"/"+ip.String())
+		}
+		return aliases
+	case *workloadapi.Address_Service:
+		aliases := make([]string, 0, len(addr.Service.Addresses))
+		for _, networkAddr := range addr.Service.Addresses {
+			ip, _ := netip.AddrFromSlice(networkAddr.Address)
+			aliases = append(aliases, networkAddr.Network+"/"+ip.String())
+		}
+		return aliases
+	}
+	return nil
+}
+
 func (i AddressInfo) ResourceName() string {
 	var name string
 	switch addr := i.Type.(type) {
@@ -882,10 +903,7 @@ type WorkloadInfo struct {
 }
 
 func workloadResourceName(w *workloadapi.Workload) string {
-	// TODO per design doc, primary xds key is UID and secondary keys are network/address
-	// but address is repeated. primary key is not implemented yet
-	ii, _ := netip.AddrFromSlice(w.Address)
-	return w.Network + "/" + ii.String()
+	return w.Uid
 }
 
 func (i *WorkloadInfo) Clone() *WorkloadInfo {
