@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"istio.io/istio/pkg/maps"
 	"math"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -109,10 +110,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 		}
 
 		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
-		gateways := make([]model.NetworkGateway, 0, len(gatewayWeights))
-		for gw := range gatewayWeights {
-			gateways = append(gateways, gw)
-		}
+		gateways := maps.Keys(gatewayWeights)
 		gateways = model.SortGateways(gateways)
 
 		// Create endpoints for the gateways.

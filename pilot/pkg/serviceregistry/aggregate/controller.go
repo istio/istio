@@ -15,6 +15,7 @@
 package aggregate
 
 import (
+	"istio.io/istio/pkg/maps"
 	"net/netip"
 	"sync"
 
@@ -156,11 +157,7 @@ func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan 
 func (c *Controller) getClusterHandlers() []*model.ControllerHandlers {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
-	out := make([]*model.ControllerHandlers, 0, len(c.handlersByCluster))
-	for _, handlers := range c.handlersByCluster {
-		out = append(out, handlers)
-	}
-	return out
+	return maps.Values(c.handlersByCluster)
 }
 
 // AddRegistry adds registries into the aggregated controller.

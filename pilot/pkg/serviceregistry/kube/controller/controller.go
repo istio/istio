@@ -16,6 +16,8 @@ package controller
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"sort"
 	"sync"
 	"time"
@@ -350,12 +352,8 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 		mcsService.ClusterSetVIP = si.clusterSetVIP
 	}
 
-	out := make([]model.MCSServiceInfo, 0, len(outMap))
-	for _, v := range outMap {
-		out = append(out, *v)
-	}
-
-	return out
+	out := maps.Values(outMap)
+	return slices.Dereference(out)
 }
 
 func (c *Controller) Network(endpointIP string, labels labels.Instance) network.ID {

@@ -17,6 +17,7 @@ package xds
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pkg/maps"
 	"net/http"
 	"strconv"
 	"sync"
@@ -595,11 +596,7 @@ func (s *DiscoveryServer) Clients() []*Connection {
 func (s *DiscoveryServer) AllClients() []*Connection {
 	s.adsClientsMutex.RLock()
 	defer s.adsClientsMutex.RUnlock()
-	clients := make([]*Connection, 0, len(s.adsClients))
-	for _, con := range s.adsClients {
-		clients = append(clients, con)
-	}
-	return clients
+	return maps.Values(s.adsClients)
 }
 
 // SendResponse will immediately send the response to all connections.
