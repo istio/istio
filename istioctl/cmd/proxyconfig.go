@@ -68,8 +68,6 @@ var (
 	outputFormat string
 
 	proxyAdminPort int
-
-	proxyConfigNamespace string
 )
 
 // Level is an enumeration of all supported log levels.
@@ -842,7 +840,7 @@ func logCmd(ctx *cli.Context) *cobra.Command {
 					return err
 				}
 			} else {
-				if podNames, podNamespace, err = getPodNames(ctx, args[0]); err != nil {
+				if podNames, podNamespace, err = getPodNames(ctx, args[0], ctx.Namespace()); err != nil {
 					return err
 				}
 			}
@@ -1430,9 +1428,6 @@ func rootCACompareConfigCmd(ctx *cli.Context) *cobra.Command {
 }
 
 func proxyConfig(ctx *cli.Context) *cobra.Command {
-	proxyConfigNamespace = ctx.Namespace()
-	istioNamespace = ctx.IstioNamespace()
-
 	configCmd := &cobra.Command{
 		Use:   "proxy-config",
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",
@@ -1461,8 +1456,8 @@ func proxyConfig(ctx *cli.Context) *cobra.Command {
 	return configCmd
 }
 
-func getPodNames(ctx *cli.Context, podflag string) ([]string, string, error) {
-	podNames, ns, err := ctx.InferPodsFromTypedResource(podflag, proxyConfigNamespace)
+func getPodNames(ctx *cli.Context, podflag, ns string) ([]string, string, error) {
+	podNames, ns, err := ctx.InferPodsFromTypedResource(podflag, ns)
 	if err != nil {
 		log.Errorf("pods lookup failed")
 		return []string{}, "", err
@@ -1484,8 +1479,8 @@ func getPodNameWithNamespace(ctx *cli.Context, podflag, ns string) (string, stri
 }
 
 // getComponentPodName returns the pod name and namespace of the Istio component
-func getComponentPodName(kubeClient *cli.Context, podflag string) (string, string, error) {
-	return getPodNameWithNamespace(kubeClient, podflag, istioNamespace)
+func getComponentPodName(ctx *cli.Context, podflag string) (string, string, error) {
+	return getPodNameWithNamespace(ctx, podflag, ctx.IstioNamespace())
 }
 
 func getPodNameBySelector(ctx *cli.Context, kubeClient kube.CLIClient, labelSelector string) ([]string, string, error) {

@@ -69,7 +69,7 @@ func getRemoteInfo(ctx *cli.Context, opts clioptions.ControlPlaneOptions) (*isti
 		return nil, err
 	}
 
-	return kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
+	return kubeClient.GetIstioVersions(context.TODO(), ctx.IstioNamespace())
 }
 
 func getRemoteInfoWrapper(ctx *cli.Context, pc **cobra.Command, opts *clioptions.ControlPlaneOptions) func() (*istioVersion.MeshInfo, error) {
@@ -81,7 +81,7 @@ func getRemoteInfoWrapper(ctx *cli.Context, pc **cobra.Command, opts *clioptions
 			return nil, nil
 		}
 		if remInfo == nil {
-			fmt.Fprintf((*pc).OutOrStderr(), "Istio is not present in the cluster with namespace %q\n", istioNamespace)
+			fmt.Fprintf((*pc).OutOrStderr(), "Istio is not present in the cluster with namespace %q\n", ctx.IstioNamespace())
 		}
 		return remInfo, err
 	}
@@ -89,7 +89,7 @@ func getRemoteInfoWrapper(ctx *cli.Context, pc **cobra.Command, opts *clioptions
 
 func getProxyInfoWrapper(ctx *cli.Context, opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
-		return proxy.GetProxyInfo(ctx.KubeConfig(), ctx.KubeContext(), opts.Revision, istioNamespace)
+		return proxy.GetProxyInfo(ctx.KubeConfig(), ctx.KubeContext(), opts.Revision, ctx.IstioNamespace())
 	}
 }
 
@@ -159,7 +159,7 @@ func xdsRemoteVersionWrapper(ctx *cli.Context, opts *clioptions.ControlPlaneOpti
 		if err != nil {
 			return nil, err
 		}
-		xdsResponse, err := multixds.RequestAndProcessXds(&xdsRequest, *centralOpts, istioNamespace, kubeClient)
+		xdsResponse, err := multixds.RequestAndProcessXds(&xdsRequest, *centralOpts, ctx.IstioNamespace(), kubeClient)
 		if err != nil {
 			return nil, err
 		}

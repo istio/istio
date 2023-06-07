@@ -85,10 +85,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 				podLabels = pod.GetLabels()
 				nsLabels = ns.GetLabels()
 			} else {
-				namespace := ctx.Namespace()
-				if namespace == "" {
-					namespace = ctx.DefaultNamespace()
-				}
+				namespace := ctx.NamespaceOrDefault(ctx.Namespace())
 				ns, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 				if err != nil {
 					return err

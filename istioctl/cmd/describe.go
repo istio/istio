@@ -81,7 +81,6 @@ var (
 	ignoreUnmeshed = false
 
 	describeNamespace string
-	istioNamespace    string
 )
 
 func podDescribeCmd(cliContext *cli.Context) *cobra.Command {
@@ -95,8 +94,6 @@ the configuration objects that affect that pod.`,
 		Example: `  istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			describeNamespace = cliContext.NamespaceOrDefault(cliContext.Namespace())
-			istioNamespace = cliContext.IstioNamespace()
-
 			if len(args) != 1 {
 				return fmt.Errorf("expecting pod name")
 			}
@@ -161,7 +158,7 @@ the configuration objects that affect that pod.`,
 
 			// render PeerAuthentication info
 			fmt.Fprintf(writer, "--------------------\n")
-			err = describePeerAuthentication(writer, kubeClient, configClient, ns, klabels.Set(pod.ObjectMeta.Labels))
+			err = describePeerAuthentication(writer, kubeClient, configClient, ns, klabels.Set(pod.ObjectMeta.Labels), cliContext.IstioNamespace())
 			if err != nil {
 				return err
 			}
@@ -169,7 +166,7 @@ the configuration objects that affect that pod.`,
 			// TODO find sidecar configs that select this workload and render them
 
 			// Now look for ingress gateways
-			return printIngressInfo(writer, matchingServices, podsLabels, client.Kube(), configClient, kubeClient)
+			return printIngressInfo(writer, matchingServices, podsLabels, client.Kube(), configClient, kubeClient, cliContext.IstioNamespace())
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return validPodsNameArgs(cmd, cliContext, args, toComplete)
@@ -205,7 +202,6 @@ func describe(ctx *cli.Context) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
-			istioNamespace = ctx.IstioNamespace()
 			cmd.HelpFunc()(cmd, args)
 			return nil
 		},
@@ -899,7 +895,14 @@ func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, 
 	}
 }
 
-func printIngressInfo(writer io.Writer, matchingServices []corev1.Service, podsLabels []klabels.Set, kubeClient kubernetes.Interface, configClient istioclient.Interface, client kube.CLIClient) error { // nolint: lll
+func printIngressInfo(
+	writer io.Writer,
+	matchingServices []corev1.Service,
+	podsLabels []klabels.Set,
+	kubeClient kubernetes.Interface,
+	configClient istioclient.Interface,
+	client kube.CLIClient,
+	istioNamespace string) error {
 
 	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
@@ -1047,8 +1050,6 @@ the configuration objects that affect that service.`,
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
-			istioNamespace = ctx.IstioNamespace()
-
 			svcName, ns := handlers.InferPodInfo(args[0], ctx.NamespaceOrDefault(ctx.Namespace()))
 
 			client, err := interfaceFactory(ctx, "")
@@ -1135,7 +1136,7 @@ the configuration objects that affect that service.`,
 			}
 
 			// Now look for ingress gateways
-			return printIngressInfo(writer, svcs, podsLabels, client.Kube(), configClient, kubeClient)
+			return printIngressInfo(writer, svcs, podsLabels, client.Kube(), configClient, kubeClient, ctx.IstioNamespace())
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return validServiceArgs(cmd, ctx, args, toComplete)
@@ -1240,8 +1241,14 @@ func containerReady(pod *corev1.Pod, containerName string) (bool, error) {
 // describePeerAuthentication fetches all PeerAuthentication in workload and root namespace.
 // It lists the ones applied to the pod, and the current active mTLS mode.
 // When the client doesn't have access to root namespace, it will only show workload namespace Peerauthentications.
-func describePeerAuthentication(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, workloadNamespace string, podsLabels klabels.Set) error { // nolint: lll
-	meshCfg, err := getMeshConfig(kubeClient)
+func describePeerAuthentication(
+	writer io.Writer,
+	kubeClient kube.CLIClient,
+	configClient istioclient.Interface,
+	workloadNamespace string,
+	podsLabels klabels.Set,
+	istioNamespace string) error {
+	meshCfg, err := getMeshConfig(kubeClient, istioNamespace)
 	if err != nil {
 		return fmt.Errorf("failed to fetch mesh config: %v", err)
 	}
@@ -1329,7 +1336,7 @@ func printPeerAuthentication(writer io.Writer, pa authnv1beta1.MergedPeerAuthent
 	}
 }
 
-func getMeshConfig(kubeClient kube.CLIClient) (*meshconfig.MeshConfig, error) {
+func getMeshConfig(kubeClient kube.CLIClient, istioNamespace string) (*meshconfig.MeshConfig, error) {
 	rev := kubeClient.Revision()
 	meshConfigMapName := defaultMeshConfigMapName
 

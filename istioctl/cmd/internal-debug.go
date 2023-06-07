@@ -34,6 +34,7 @@ import (
 func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
 	centralOpts clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
+	istioNamespace string,
 ) (map[string]*discovery.DiscoveryResponse, error) {
 	var namespace, serviceAccount string
 	xdsRequest := discovery.DiscoveryRequest{
@@ -55,6 +56,7 @@ func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
 func HandlerForDebugErrors(kubeClient kube.CLIClient,
 	centralOpts *clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
+	istioNamespace string,
 	xdsResponses map[string]*discovery.DiscoveryResponse,
 ) (map[string]*discovery.DiscoveryResponse, error) {
 	for _, response := range xdsResponses {
@@ -66,7 +68,7 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 					"edsz?proxyID=istio-ingressgateway")
 
 			case strings.Contains(eString, "404 page not found"):
-				return HandlerForRetrieveDebugList(kubeClient, *centralOpts, writer)
+				return HandlerForRetrieveDebugList(kubeClient, *centralOpts, writer, istioNamespace)
 
 			case strings.Contains(eString, "querystring parameter 'resource' is required"):
 				return nil, fmt.Errorf("querystring parameter 'resource' is required, e.g. [%s]",
@@ -133,7 +135,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				TypeUrl: v3.DebugType,
 			}
 
-			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, &xdsRequest, centralOpts, istioNamespace,
+			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, &xdsRequest, centralOpts, cliContext.IstioNamespace(),
 				namespace, serviceAccount, kubeClient, multixds.DefaultOptions)
 			if err != nil {
 				return err
@@ -142,7 +144,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				Writer:                 c.OutOrStdout(),
 				InternalDebugAllIstiod: internalDebugAllIstiod,
 			}
-			newResponse, err := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
+			newResponse, err := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), cliContext.IstioNamespace(), xdsResponses)
 			if err != nil {
 				return err
 			}

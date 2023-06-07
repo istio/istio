@@ -52,9 +52,6 @@ func (c *Context) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 	if c.clients == nil {
 		c.clients = make(map[string]kube.CLIClient)
 	}
-	if rev == "default" {
-		rev = ""
-	}
 	if c.clients[rev] == nil {
 		client, err := newKubeClientWithRevision(c.KubeConfig(), c.KubeContext(), rev)
 		if err != nil {

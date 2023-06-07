@@ -229,7 +229,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 			// extract the cluster ID from the injector config (.Values.global.multiCluster.clusterName)
 			if !validateFlagIsSetManuallyOrNot(cmd, "clusterID") {
 				// extract the cluster ID from the injector config if it is not set by user
-				clusterName, err := extractClusterIDFromInjectionConfig(kubeClient)
+				clusterName, err := extractClusterIDFromInjectionConfig(kubeClient, ctx.IstioNamespace())
 				if err != nil {
 					return fmt.Errorf("failed to automatically determine the --clusterID: %v", err)
 				}
@@ -238,7 +238,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 				}
 			}
 
-			if err = createConfig(kubeClient, wg, clusterID, ingressIP, internalIP, externalIP, outputDir, cmd.OutOrStderr()); err != nil {
+			if err = createConfig(kubeClient, wg, ctx.IstioNamespace(), clusterID, ingressIP, internalIP, externalIP, outputDir, cmd.OutOrStderr()); err != nil {
 				return err
 			}
 			fmt.Printf("Configuration generation into directory %s was successful\n", outputDir)
@@ -258,7 +258,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
 	configureCmd.PersistentFlags().StringVar(&ingressSvc, "ingressService", istioEastWestGatewayServiceName, "Name of the Service to be"+
-		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+istioNamespace+" namespace will be used.")
+		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+ctx.IstioNamespace()+" namespace will be used.")
 	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
 	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "Creates a WorkloadEntry upon connection to istiod (if enabled in pilot).")
 	configureCmd.PersistentFlags().BoolVar(&dnsCapture, "capture-dns", true, "Enables the capture of outgoing DNS packets on port 53, redirecting to istio-agent")
@@ -293,7 +293,7 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 }
 
 // Creates all the relevant config for the given workload group and cluster
-func createConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGroup, clusterID, ingressIP, internalIP,
+func createConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGroup, istioNamespace, clusterID, ingressIP, internalIP,
 	externalIP string, outputDir string, out io.Writer,
 ) error {
 	if err := os.MkdirAll(outputDir, filePerms); err != nil {
@@ -304,23 +304,23 @@ func createConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGroup, c
 		proxyConfig *meshconfig.ProxyConfig
 	)
 	revision := kubeClient.Revision()
-	if proxyConfig, err = createMeshConfig(kubeClient, wg, clusterID, outputDir, revision); err != nil {
+	if proxyConfig, err = createMeshConfig(kubeClient, wg, istioNamespace, clusterID, outputDir, revision); err != nil {
 		return err
 	}
-	if err := createClusterEnv(wg, proxyConfig, revision, internalIP, externalIP, outputDir); err != nil {
+	if err := createClusterEnv(wg, proxyConfig, istioNamespace, revision, internalIP, externalIP, outputDir); err != nil {
 		return err
 	}
 	if err := createCertsTokens(kubeClient, wg, outputDir, out); err != nil {
 		return err
 	}
-	if err := createHosts(kubeClient, ingressIP, outputDir, revision); err != nil {
+	if err := createHosts(kubeClient, istioNamespace, ingressIP, outputDir, revision); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Write cluster.env into the given directory
-func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.ProxyConfig, revision, internalIP, externalIP, dir string) error {
+func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.ProxyConfig, istioNamespace, revision, internalIP, externalIP, dir string) error {
 	we := wg.Spec.Template
 	ports := []string{}
 	for _, v := range we.Ports {
@@ -439,7 +439,7 @@ func createCertsTokens(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGro
 	return nil
 }
 
-func createMeshConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGroup, clusterID, dir, revision string) (*meshconfig.ProxyConfig, error) {
+func createMeshConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGroup, istioNamespace, clusterID, dir, revision string) (*meshconfig.ProxyConfig, error) {
 	istioCM := "istio"
 	// Case with multiple control planes
 	if isRevisioned(revision) {
@@ -558,7 +558,7 @@ func marshalWorkloadEntryPodPorts(p map[string]uint32) string {
 }
 
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
-func createHosts(kubeClient kube.CLIClient, ingressIP, dir string, revision string) error {
+func createHosts(kubeClient kube.CLIClient, istioNamespace, ingressIP, dir string, revision string) error {
 	// try to infer the ingress IP if the provided one is invalid
 	if validation.ValidateIPAddress(ingressIP) != nil {
 		p := strings.Split(ingressSvc, ".")
@@ -616,7 +616,7 @@ func mapToString(m map[string]string) string {
 }
 
 // extractClusterIDFromInjectionConfig can extract clusterID from injection configmap
-func extractClusterIDFromInjectionConfig(kubeClient kube.CLIClient) (string, error) {
+func extractClusterIDFromInjectionConfig(kubeClient kube.CLIClient, istioNamespace string) (string, error) {
 	injectionConfigMap := "istio-sidecar-injector"
 	// Case with multiple control planes
 	revision := kubeClient.Revision()

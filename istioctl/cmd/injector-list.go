@@ -88,7 +88,7 @@ func injectorListCommand(cliContext *cli.Context) *cobra.Command {
 			ctx := context.Background()
 
 			nslist, err := getNamespaces(ctx, client)
-			nslist = filterSystemNamespaces(nslist)
+			nslist = filterSystemNamespaces(nslist, cliContext.IstioNamespace())
 			if err != nil {
 				return err
 			}
@@ -124,7 +124,7 @@ func injectorListCommand(cliContext *cli.Context) *cobra.Command {
 	return cmd
 }
 
-func filterSystemNamespaces(nss []corev1.Namespace) []corev1.Namespace {
+func filterSystemNamespaces(nss []corev1.Namespace, istioNamespace string) []corev1.Namespace {
 	filtered := make([]corev1.Namespace, 0)
 	for _, ns := range nss {
 		if analyzer_util.IsSystemNamespace(resource.Namespace(ns.Name)) || ns.Name == istioNamespace {
@@ -150,10 +150,6 @@ func printNS(writer io.Writer, namespaces []corev1.Namespace, hooks []admitv1.Mu
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	for _, namespace := range namespaces {
-		if hideFromOutput(resource.Namespace(namespace.Name)) {
-			continue
-		}
-
 		revision := getInjectedRevision(&namespace, hooks)
 		podCount := podCountByRevision(allPods[resource.Namespace(namespace.Name)], revision)
 		if len(podCount) == 0 {
@@ -319,10 +315,6 @@ func extractRevisionFromPod(pod *corev1.Pod) string {
 		return ""
 	}
 	return sidecarinjection.Revision
-}
-
-func hideFromOutput(ns resource.Namespace) bool {
-	return (analyzer_util.IsSystemNamespace(ns) || ns == resource.Namespace(istioNamespace))
 }
 
 func injectionDisabled(pod *corev1.Pod) bool {

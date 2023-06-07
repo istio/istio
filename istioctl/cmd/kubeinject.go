@@ -242,11 +242,11 @@ func getMeshConfigFromConfigMap(cliContext *cli.Context, command, revision strin
 	if meshConfigMapName == defaultMeshConfigMapName && revision != "" {
 		meshConfigMapName = fmt.Sprintf("%s-%s", defaultMeshConfigMapName, revision)
 	}
-	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(cliContext.IstioNamespace()).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not read valid configmap %q from namespace %q: %v - "+
 			"Use --meshConfigFile or re-run "+command+" with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
-			meshConfigMapName, istioNamespace, err)
+			meshConfigMapName, cliContext.IstioNamespace(), err)
 	}
 	// values in the data are strings, while proto might use a
 	// different data type.  therefore, we have to get a value by a
@@ -273,11 +273,11 @@ func getValuesFromConfigMap(cliContext *cli.Context, revision string) (string, e
 	if revision != "" {
 		injectConfigMapName = fmt.Sprintf("%s-%s", defaultInjectConfigMapName, revision)
 	}
-	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(cliContext.IstioNamespace()).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
 			"Use --valuesFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-sidecar-injector configmap exists",
-			injectConfigMapName, istioNamespace, err)
+			injectConfigMapName, cliContext.IstioNamespace(), err)
 	}
 
 	valuesData, exists := meshConfigMap.Data[valuesConfigMapKey]
@@ -312,11 +312,11 @@ func getInjectConfigFromConfigMap(cliContext *cli.Context, revision string) (inj
 	if injectConfigMapName == defaultInjectConfigMapName && revision != "" {
 		injectConfigMapName = fmt.Sprintf("%s-%s", defaultInjectConfigMapName, revision)
 	}
-	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(cliContext.IstioNamespace()).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
 			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace>` and ensure istio-sidecar-injector configmap exists",
-			injectConfigMapName, istioNamespace, err)
+			injectConfigMapName, cliContext.IstioNamespace(), err)
 	}
 	// values in the data are strings, while proto might use a
 	// different data type.  therefore, we have to get a value by a

@@ -126,7 +126,7 @@ func checkControlPlane(ctx *cli.Context) (diag.Messages, error) {
 	}
 	msgs = append(msgs, m...)
 
-	msgs = append(msgs, checkInstallPermissions(cli)...)
+	msgs = append(msgs, checkInstallPermissions(cli, ctx.IstioNamespace())...)
 	gwMsg, err := checkGatewayAPIs(cli)
 	if err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func checkControlPlane(ctx *cli.Context) (diag.Messages, error) {
 	sa := local.NewSourceAnalyzer(
 		analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
 		resource.Namespace(selectedNamespace),
-		resource.Namespace(istioNamespace),
+		resource.Namespace(ctx.IstioNamespace()),
 		nil,
 	)
 	if err != nil {
@@ -208,7 +208,8 @@ func extractCRDVersions(r *crd.CustomResourceDefinition) sets.String {
 	return res
 }
 
-func checkInstallPermissions(cli kube.CLIClient) diag.Messages {
+func checkInstallPermissions(cli kube.CLIClient, istioNamespace string) diag.Messages {
+
 	Resources := []struct {
 		namespace string
 		group     string

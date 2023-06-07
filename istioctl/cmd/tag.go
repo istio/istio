@@ -142,7 +142,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), kubeClient, args[0], revision, istioNamespace, false, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), kubeClient, args[0], revision, ctx.IstioNamespace(), false, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -190,7 +190,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), kubeClient, args[0], revision, istioNamespace, true, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), kubeClient, args[0], revision, ctx.IstioNamespace(), true, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -286,7 +286,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 	if resName == "" {
 		resName = fmt.Sprintf("%s-%s", "istio-revision-tag", tagName)
 	}
-	if err := analyzeWebhook(resName, tagWhYAML, revision, kubeClient.RESTConfig()); err != nil {
+	if err := analyzeWebhook(resName, istioNS, tagWhYAML, revision, kubeClient.RESTConfig()); err != nil {
 		// if we have a conflict, we will fail. If --skip-confirmation is set, we will continue with a
 		// warning; when actually applying we will also confirm to ensure the user does not see the
 		// warning *after* it has applied
@@ -315,7 +315,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 	return nil
 }
 
-func analyzeWebhook(name, wh, revision string, config *rest.Config) error {
+func analyzeWebhook(name, istioNamespace, wh, revision string, config *rest.Config) error {
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}), resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil)
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err
