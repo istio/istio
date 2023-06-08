@@ -1,6 +1,5 @@
 linters-settings:
   depguard:
-    # configuration for depguard v2
     rules:
       # deny for all go files
       AllGoFiles:
