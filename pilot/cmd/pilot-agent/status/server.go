@@ -33,11 +33,9 @@ import (
 	"syscall"
 	"time"
 
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/expfmt"
-	"go.opencensus.io/stats/view"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -55,6 +53,7 @@ import (
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -151,17 +150,15 @@ type Server struct {
 
 func init() {
 	registry := prometheus.NewRegistry()
-	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", prometheus.Registerer(registry))
+	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", registry)
 	wrapped.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	wrapped.MustRegister(collectors.NewGoCollector())
 
-	promRegistry = registry
-	// go collector metrics collide with other metrics.
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry, Registerer: wrapped})
+	_, err := monitoring.RegisterPrometheusExporter(wrapped, registry)
 	if err != nil {
 		log.Fatalf("could not setup exporter: %v", err)
 	}
-	view.RegisterExporter(exporter)
+	promRegistry = registry
 }
 
 // NewServer creates a new status server.

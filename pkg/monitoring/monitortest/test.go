@@ -154,6 +154,7 @@ func (m *MetricsTest) Assert(name string, tags map[string]string, val Compare, o
 		return fmt.Errorf("no matching rows found")
 	}, opt...)
 	if err != nil {
+		m.t.Logf("Metric %v not found; Dumping known metrics:", name)
 		m.Dump()
 		m.t.Fatal(err)
 	}
@@ -174,6 +175,8 @@ func toFloat(r interface{}) float64 {
 
 func (m *MetricsTest) Dump() {
 	m.t.Helper()
+	reader := metricexport.NewReader()
+	reader.ReadAndExport(m.exp)
 	m.exp.Lock()
 	defer m.exp.Unlock()
 	for name, met := range m.exp.metrics {
