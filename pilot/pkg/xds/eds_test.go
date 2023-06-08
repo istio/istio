@@ -1084,7 +1084,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 					Kind: kind.ServiceEntry,
 					Name: edsIncSvc,
 				}),
-				Push: s.Discovery.Env.PushContext,
+				Push: s.Discovery.Env.PushContext(),
 			})
 		} else {
 			xds.AdsPushAll(s.Discovery)

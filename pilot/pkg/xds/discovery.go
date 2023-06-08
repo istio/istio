@@ -100,9 +100,6 @@ type DiscoveryServer struct {
 	// after debouncing the pushRequest will be sent to pushQueue
 	pushChannel chan *model.PushRequest
 
-	// mutex used for protecting Environment.PushContext
-	updateMutex sync.RWMutex
-
 	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
 
@@ -292,7 +289,6 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// PushContext is reset after a config change. Previous status is
 	// saved.
 	t0 := time.Now()
-
 	versionLocal := s.NextVersion()
 	push, err := s.initPushContext(req, oldPushContext, versionLocal)
 	if err != nil {
@@ -314,9 +310,7 @@ func nonce(noncePrefix string) string {
 // PushContext should be used to get the current state in the context of a single proxy. This should
 // only be used for "global" lookups, such as initiating a new push to all proxies.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
-	s.updateMutex.RLock()
-	defer s.updateMutex.RUnlock()
-	return s.Env.PushContext
+	return s.Env.PushContext()
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
@@ -514,11 +508,8 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 		return nil, err
 	}
 
-	s.updateMutex.Lock()
-	s.Env.PushContext = push
-	// Ensure we drop the cache in the lock to avoid races, where we drop the cache, fill it back up, then update push context
 	s.dropCacheForRequest(req)
-	s.updateMutex.Unlock()
+	s.Env.SetPushContext(push)
 
 	return push, nil
 }

@@ -446,14 +446,14 @@ func TestInjection(t *testing.T) {
 			// overwrite golden files, as we do not have identical textual output as
 			// kube-inject. Instead, we just compare the desired/actual pod specs.
 			t.Run("webhook", func(t *testing.T) {
+				env := &model.Environment{}
+				env.SetPushContext(&model.PushContext{
+					ProxyConfigs: &model.ProxyConfigs{},
+				})
 				webhook := &Webhook{
-					Config:     sidecarTemplate,
-					meshConfig: mc,
-					env: &model.Environment{
-						PushContext: &model.PushContext{
-							ProxyConfigs: &model.ProxyConfigs{},
-						},
-					},
+					Config:       sidecarTemplate,
+					meshConfig:   mc,
+					env:          env,
 					valuesConfig: valuesConfig,
 					revision:     "default",
 				}
@@ -484,17 +484,17 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	env := &model.Environment{}
+	env.SetPushContext(&model.PushContext{
+		ProxyConfigs: &model.ProxyConfigs{},
+	})
 	webhook := &Webhook{
 		Config: &Config{
 			Templates:        tmpl,
 			Policy:           InjectionPolicyEnabled,
 			DefaultTemplates: []string{SidecarTemplateName},
 		},
-		env: &model.Environment{
-			PushContext: &model.PushContext{
-				ProxyConfigs: &model.ProxyConfigs{},
-			},
-		},
+		env: env,
 	}
 	runWebhook(t, webhook, []byte(input), []byte(expected), false)
 }
@@ -517,17 +517,17 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
+	env := &model.Environment{}
+	env.SetPushContext(&model.PushContext{
+		ProxyConfigs: &model.ProxyConfigs{},
+	})
 	webhook := &Webhook{
 		Config: &Config{
 			Templates: p,
 			Aliases:   map[string][]string{"both": {"sidecar", "init"}},
 			Policy:    InjectionPolicyEnabled,
 		},
-		env: &model.Environment{
-			PushContext: &model.PushContext{
-				ProxyConfigs: &model.ProxyConfigs{},
-			},
-		},
+		env: env,
 	}
 
 	input := `
@@ -1090,14 +1090,14 @@ func BenchmarkInjection(b *testing.B) {
 		b.Run(tt.name, func(b *testing.B) {
 			// Preload default settings. Computation here is expensive, so this speeds the tests up substantially
 			sidecarTemplate, valuesConfig, mc := readInjectionSettings(b, "default")
+			env := &model.Environment{}
+			env.SetPushContext(&model.PushContext{
+				ProxyConfigs: &model.ProxyConfigs{},
+			})
 			webhook := &Webhook{
-				Config:     sidecarTemplate,
-				meshConfig: mc,
-				env: &model.Environment{
-					PushContext: &model.PushContext{
-						ProxyConfigs: &model.ProxyConfigs{},
-					},
-				},
+				Config:       sidecarTemplate,
+				meshConfig:   mc,
+				env:          env,
 				valuesConfig: valuesConfig,
 				revision:     "default",
 			}

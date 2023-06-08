@@ -2934,7 +2934,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 	}
 	proxy = cg.SetupProxy(proxy)
 
-	nameToServiceMap := buildNameToServiceMapForHTTPRoutes(proxy, cg.env.PushContext, virtualService)
+	nameToServiceMap := buildNameToServiceMapForHTTPRoutes(proxy, cg.env.PushContext(), virtualService)
 
 	if len(nameToServiceMap) != 3 {
 		t.Errorf("The length of nameToServiceMap is wrong.")

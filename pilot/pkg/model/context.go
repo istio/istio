@@ -56,7 +56,7 @@ var _ mesh.Holder = &Environment{}
 
 func NewEnvironment() *Environment {
 	return &Environment{
-		PushContext:   NewPushContext(),
+		pushContext:   NewPushContext(),
 		EndpointIndex: NewEndpointIndex(),
 	}
 }
@@ -81,13 +81,15 @@ type Environment struct {
 
 	NetworkManager *NetworkManager
 
-	// PushContext holds information during push generation. It is reset on config change, at the beginning
+	// mutex used for protecting Environment.pushContext
+	mutex sync.RWMutex
+	// pushContext holds information during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
 	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
-	PushContext *PushContext
+	pushContext *PushContext
 
 	// DomainSuffix provides a default domain for the Istio server.
 	DomainSuffix string
@@ -122,6 +124,20 @@ func (e *Environment) MeshNetworks() *meshconfig.MeshNetworks {
 	return nil
 }
 
+// SetPushContext sets the push context with lock protected
+func (e *Environment) SetPushContext(pc *PushContext) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+	e.pushContext = pc
+}
+
+// PushContext returns the push context with lock protected
+func (e *Environment) PushContext() *PushContext {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+	return e.pushContext
+}
+
 // GetDiscoveryAddress parses the DiscoveryAddress specified via MeshConfig.
 func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
 	proxyConfig := mesh.DefaultProxyConfig()
@@ -151,8 +167,8 @@ func (e *Environment) AddNetworksHandler(h func()) {
 }
 
 func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, msg string) {
-	if e != nil && e.PushContext != nil {
-		e.PushContext.AddMetric(metric, key, proxyID, msg)
+	if e != nil {
+		e.PushContext().AddMetric(metric, key, proxyID, msg)
 	}
 }
 
@@ -192,8 +208,9 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 }
 
 func (e *Environment) GetProxyConfigOrDefault(ns string, labels, annotations map[string]string, meshConfig *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
-	if e.PushContext != nil && e.PushContext.ProxyConfigs != nil {
-		if generatedProxyConfig := e.PushContext.ProxyConfigs.EffectiveProxyConfig(
+	push := e.PushContext()
+	if push != nil && push.ProxyConfigs != nil {
+		if generatedProxyConfig := push.ProxyConfigs.EffectiveProxyConfig(
 			&NodeMetadata{
 				Namespace:   ns,
 				Labels:      labels,

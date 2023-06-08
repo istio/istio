@@ -60,6 +60,6 @@ func FuzzBuildSidecarOutboundListeners(f *testing.F) {
 		cg := NewConfigGenTest(t, to)
 		req := fuzz.Struct[*model.PushRequest](fg)
 		req.Push = cg.PushContext()
-		NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext)
+		NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext())
 	})
 }

@@ -123,10 +123,10 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *mes
 		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 
-	e.PushContext = model.NewPushContext()
+	pushContext := model.NewPushContext()
 	e.Init()
-	_ = e.PushContext.InitContext(e, nil, nil)
-
+	_ = pushContext.InitContext(e, nil, nil)
+	e.SetPushContext(pushContext)
 	return e
 }
 
