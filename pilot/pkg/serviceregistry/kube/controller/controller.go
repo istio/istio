@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvr"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -328,6 +329,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		c.reloadMeshNetworks()
 	}
 
+	if c.client.CrdWatcher().KnownOrCallback(gvr.KubernetesGateway, func(stop <-chan struct{}) {
+		c.networkManager.watchGatewayResources(c)
+	}) {
+		c.networkManager.watchGatewayResources(c)
+	}
+
 	return c
 }
 
@@ -586,16 +593,15 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) informersSynced() bool {
-	if !c.namespaces.HasSynced() ||
-		!c.services.HasSynced() ||
-		!c.endpoints.slices.HasSynced() ||
-		!c.pods.pods.HasSynced() ||
-		!c.nodes.HasSynced() ||
-		!c.imports.HasSynced() ||
-		!c.exports.HasSynced() {
-		return false
-	}
-	return true
+	return c.namespaces.HasSynced() &&
+		c.services.HasSynced() &&
+		c.endpoints.slices.HasSynced() &&
+		c.pods.pods.HasSynced() &&
+		c.nodes.HasSynced() &&
+		c.imports.HasSynced() &&
+		c.exports.HasSynced() &&
+		c.client.CrdWatcher().HasSynced() &&
+		c.networkManager.HasSynced()
 }
 
 func (c *Controller) syncPods() error {

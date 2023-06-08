@@ -22,21 +22,29 @@ import (
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 )
 
 type networkManager struct {
 	sync.RWMutex
 	// CIDR ranger based on path-compressed prefix trie
-	ranger              cidranger.Ranger
-	clusterID           cluster.ID
-	meshNetworksWatcher mesh.NetworksWatcher
+	ranger    cidranger.Ranger
+	clusterID cluster.ID
+
+	gatewayResourceClient kclient.Client[*v1beta1.Gateway]
+	meshNetworksWatcher   mesh.NetworksWatcher
 
 	// Network name for to be used when the meshNetworks fromRegistry nor network label on pod is specified
 	// This is defined by a topology.istio.io/network label on the system namespace.
@@ -48,6 +56,9 @@ type networkManager struct {
 	registryServiceNameGateways map[host.Name][]model.NetworkGateway
 	// gateways for each service
 	networkGatewaysBySvc map[host.Name]model.NetworkGatewaySet
+	// gateways from kubernetes Gateway resources
+	gatewaysFromResource map[types.UID]model.NetworkGatewaySet
+
 	// implements NetworkGatewaysWatcher; we need to call c.NotifyGatewayHandlers when our gateways change
 	model.NetworkGatewaysHandler
 }
@@ -208,6 +219,9 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 	for _, gateways := range c.networkGatewaysBySvc {
 		out.Merge(gateways)
 	}
+	for _, gateways := range c.gatewaysFromResource {
+		out.AddAll(gateways)
+	}
 
 	unsorted := out.UnsortedList()
 	return model.SortGateways(unsorted)
@@ -312,6 +326,73 @@ func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGa
 	}
 
 	return nil
+}
+
+func (n *networkManager) watchGatewayResources(c *Controller) {
+	n.gatewayResourceClient = kclient.NewFiltered[*v1beta1.Gateway](c.client, kubetypes.Filter{
+		LabelSelector: label.TopologyNetwork.Name,
+		FieldSelector: "spec.gatewayClassName=istio",
+	})
+	registerHandlers[*v1beta1.Gateway](c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
+
+}
+
+// handleGateway resource adds a NetworkGateway for each combination of address and auto-passthrough listener
+// discovering duplicates from the generated Service is not a huge concern as we de-duplicate in NetworkGateways
+// which returns a set, although it's not totally efficient.
+func (n *networkManager) handleGatewayResource(old *v1beta1.Gateway, new *v1beta1.Gateway, event model.Event) error {
+	gatewaysChanged := false
+	n.Lock()
+	defer func() {
+		n.Unlock()
+		if gatewaysChanged {
+			n.NotifyGatewayHandlers()
+		}
+	}()
+
+	previousGateways := n.gatewaysFromResource[new.UID]
+
+	if event == model.EventDelete {
+		gatewaysChanged = len(previousGateways) > 0
+		delete(n.gatewaysFromResource, old.UID)
+		return nil
+	}
+
+	autoPassthrough := func(l v1beta1.Listener) bool {
+		return kube.IsAutoPassthrough(new.GetLabels(), l)
+	}
+
+	base := model.NetworkGateway{
+		Network: network.ID(new.GetLabels()[label.TopologyNetwork.Name]),
+		Cluster: n.clusterID,
+	}
+	newGateways := model.NetworkGatewaySet{}
+	for _, addr := range new.Spec.Addresses {
+		for _, l := range slices.Filter(new.Spec.Listeners, autoPassthrough) {
+			gw := base
+			gw.Addr = addr.Value
+			gw.Port = uint32(l.Port)
+		}
+	}
+	n.gatewaysFromResource[new.UID] = newGateways
+
+	if len(previousGateways) != len(newGateways) {
+		gatewaysChanged = true
+		return nil
+	}
+
+	gatewaysChanged = !newGateways.Equals(previousGateways)
+	if len(newGateways) > 0 {
+		n.gatewaysFromResource[new.UID] = newGateways
+	} else {
+		delete(n.gatewaysFromResource, new.UID)
+	}
+
+	return nil
+}
+
+func (n *networkManager) HasSynced() bool {
+	return n.gatewayResourceClient == nil || n.gatewayResourceClient.HasSynced()
 }
 
 // updateServiceNodePortAddresses updates ClusterExternalAddresses for Services of nodePort type
