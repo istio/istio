@@ -24,7 +24,7 @@ spec:
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 1
+      maxUnavailable: {{ .Values.cni.rollingMaxUnavailable }}
   template:
     metadata:
       labels:
