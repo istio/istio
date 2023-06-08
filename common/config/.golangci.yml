@@ -7,7 +7,7 @@
 
 service:
   # When updating this, also update the version stored in docker/build-tools/Dockerfile in the istio/tools repo.
-  golangci-lint-version: 1.52.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.53.x # use the fixed version to not introduce new linters unexpectedly
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 20m
@@ -231,6 +231,54 @@ linters-settings:
       # - unnamedResult
       # - wrapperFunc
   depguard:
+    # configuration for depguard v2
+    rules:
+      DenyGogoProtobuf:
+        files:
+          - $all
+        deny:
+          - pkg: github.com/gogo/protobuf
+            desc: "gogo/protobuf is deprecated, use golang/protobuf"
+      # deny for all go files
+      AllGoFiles:
+        files:
+          - $all
+        deny:
+          - pkg: golang.org/x/net/http2/h2c
+            desc: "h2c.NewHandler is unsafe; use wrapper istio.io/istio/pkg/h2c"
+          - pkg: github.com/golang/protobuf/jsonpb
+            desc: "don't use the jsonpb package directly; use util/protomarshal instead"
+          - pkg: google.golang.org/protobuf/encoding/protojson
+            desc: "don't use the protojson package directly; use util/protomarshal instead"
+          - pkg: gomodules.xyz/jsonpatch/v3
+            desc: "don't use v3; v2 is orders of magnitude higher performance"
+          - pkg: k8s.io/apimachinery/pkg/util/sets
+            desc: "use istio.io/istio/pkg/sets"
+          - pkg: k8s.io/utils/env
+            desc: "use istio.io/istio/pkg/env"
+          - pkg: k8s.io/utils/strings/slices
+            desc: "use istio.io/istio/pkg/slices"
+          - pkg: k8s.io/utils/pointer
+            desc: "use istio.io/istio/pkg/ptr"
+      DenyOperatorAndIstioctl:
+        files:
+          # Tests can do anything
+          - "!$test"
+          # Main code should only be used by appropriate binaries
+          - "!**/operator/**"
+          - "!**/istioctl/**"
+          - "!**/tools/bug-report/**"
+          # This should only really import operator API, but that is hard to express without a larger refactoring
+          - "!**/pkg/kube/**"
+          - "!**/pkg/url/**"
+          - "!**/pkg/test/framework/**"
+          - "!**/tests/fuzz/**"
+        deny:
+          - pkg: istio.io/istio/operator
+            desc: "operator should not be imported"
+          - pkg: istio.io/istio/istioctl
+            desc: "istioctl should not be imported"
+    # configuration for depguard
     packages-with-error-message:
       - github.com/gogo/protobuf: "gogo/protobuf is deprecated, use golang/protobuf"
         golang.org/x/net/http2/h2c: "h2c.NewHandler is unsafe; use wrapper istio.io/istio/pkg/h2c"
