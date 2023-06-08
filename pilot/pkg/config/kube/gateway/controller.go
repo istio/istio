@@ -54,7 +54,7 @@ var errUnsupportedOp = fmt.Errorf("unsupported operation: the gateway config sto
 
 // Controller defines the controller for the gateway-api. The controller acts a bit different from most.
 // Rather than watching the CRs directly, we depend on the existing model.ConfigStoreController which
-// already watches all CRs. When there are updates, a new pushContext will be computed, which will eventually
+// already watches all CRs. When there are updates, a new PushContext will be computed, which will eventually
 // call Controller.Reconcile(). Once this happens, we will inspect the current state of the world, and transform
 // gateway-api types into Istio types (Gateway/VirtualService). Future calls to Get/List will return these
 // Istio types. These are not stored in the cluster at all, and are purely internal; they can be seen on /debug/configz.

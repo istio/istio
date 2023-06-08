@@ -286,10 +286,9 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 		// Push the previous push Envoy metrics.
 		envoyfilter.RecordMetrics()
 	}
-	// pushContext is reset after a config change. Previous status is
+	// PushContext is reset after a config change. Previous status is
 	// saved.
 	t0 := time.Now()
-
 	versionLocal := s.NextVersion()
 	push, err := s.initPushContext(req, oldPushContext, versionLocal)
 	if err != nil {
@@ -308,7 +307,7 @@ func nonce(noncePrefix string) string {
 }
 
 // Returns the global push context. This should be used with caution; generally the proxy-specific
-// pushContext should be used to get the current state in the context of a single proxy. This should
+// PushContext should be used to get the current state in the context of a single proxy. This should
 // only be used for "global" lookups, such as initiating a new push to all proxies.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 	return s.Env.PushContext()

@@ -197,7 +197,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/authorizationz", "Internal authorization policies", s.authorizationz)
 	s.addDebugHandler(mux, internalMux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
 	s.addDebugHandler(mux, internalMux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
-	s.addDebugHandler(mux, internalMux, "/debug/push_status", "Last pushContext Details", s.pushStatusHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/push_status", "Last PushContext Details", s.pushStatusHandler)
 	s.addDebugHandler(mux, internalMux, "/debug/pushcontext", "Debug support for current push context", s.pushContextHandler)
 	s.addDebugHandler(mux, internalMux, "/debug/connections", "Info about the connected XDS clients", s.connectionsHandler)
 
@@ -897,7 +897,7 @@ func (s *DiscoveryServer) meshHandler(w http.ResponseWriter, req *http.Request) 
 	writeJSON(w, s.Env.Mesh(), req)
 }
 
-// pushStatusHandler dumps the last pushContext
+// pushStatusHandler dumps the last PushContext
 func (s *DiscoveryServer) pushStatusHandler(w http.ResponseWriter, req *http.Request) {
 	model.LastPushMutex.Lock()
 	defer model.LastPushMutex.Unlock()
@@ -920,7 +920,7 @@ type PushContextDebug struct {
 	NetworkGateways       []model.NetworkGateway
 }
 
-// pushContextHandler dumps the current pushContext
+// pushContextHandler dumps the current PushContext
 func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Request) {
 	push := PushContextDebug{}
 	pc := s.globalPushContext()
