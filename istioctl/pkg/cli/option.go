@@ -77,13 +77,10 @@ func (r *RootFlags) IstioNamespace() string {
 
 // DefaultNamespace returns the default namespace to use.
 func (r *RootFlags) DefaultNamespace() string {
-	if r.defaultNamespace == "" {
-		r.configureDefaultNamespace()
-	}
 	return r.defaultNamespace
 }
 
-func (r *RootFlags) configureDefaultNamespace() {
+func (r *RootFlags) ConfigureDefaultNamespace() {
 	configAccess := clientcmd.NewDefaultPathOptions()
 
 	kubeconfig := *r.kubeconfig

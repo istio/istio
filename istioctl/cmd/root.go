@@ -132,7 +132,6 @@ func GetRootCmd(args []string) *cobra.Command {
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
-		PersistentPreRunE: configureLogging,
 	}
 
 	rootCmd.SetArgs(args)
@@ -141,6 +140,14 @@ debug and diagnose their Istio mesh.
 	rootOptions := cli.AddRootFlags(flags)
 
 	ctx := cli.NewCLIContext(*rootOptions)
+
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if err := configureLogging(cmd, args); err != nil {
+			return err
+		}
+		ctx.ConfigureDefaultNamespace()
+		return nil
+	}
 
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagIstioNamespace, func(
 		cmd *cobra.Command, args []string, toComplete string,
