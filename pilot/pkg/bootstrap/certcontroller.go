@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/security/pkg/k8s/chiron"
+	"istio.io/istio/security/pkg/pki/ca"
 	certutil "istio.io/istio/security/pkg/util"
 )
 
@@ -125,6 +127,16 @@ func (s *Server) initDNSCerts() error {
 		// check if signing key file exists the cert dir
 		if _, err := os.Stat(fileBundle.SigningKeyFile); err != nil {
 			log.Infof("No plugged-in cert at %v; self-signed cert is used", fileBundle.SigningKeyFile)
+			caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
+			s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
+				go func() {
+					// regenerate istiod key cert when root cert changes.
+					s.watchRootCertAndGenKeyCert(stop)
+				}()
+				return nil
+			})
+		} else if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
+			log.Infof("Found cert at %v, but is istio-generated; self-signed cert is used", fileBundle.SigningKeyFile)
 			caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
 			s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
 				go func() {
