@@ -61,7 +61,7 @@ func (s smtLedger) Put(key, value string) (result string, err error) {
 
 // Delete removes a key value pair from the ledger, marking it for removal after the retention specified in Make()
 func (s smtLedger) Delete(key string) (err error) {
-	_, err = s.tree.Update([][]byte{[]byte(key)}, [][]byte{defaultLeaf})
+	_, err = s.tree.Update([][]byte{coerceKeyToHashLen(key)}, [][]byte{defaultLeaf})
 	return
 }
 
