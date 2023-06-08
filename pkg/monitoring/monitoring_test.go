@@ -271,7 +271,20 @@ func (r *testRecordHook) OnRecordFloat64Measure(f *stats.Float64Measure, tags []
 
 func BenchmarkCounter(b *testing.B) {
 	monitortest.New(b)
-	for n := 0; n < b.N; n++ {
-		int64Sum.Increment()
-	}
+	b.Run("no labels", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			int64Sum.Increment()
+		}
+	})
+	b.Run("dynamic labels", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			int64Sum.With(name.Value("test")).Increment()
+		}
+	})
+	b.Run("static labels", func(b *testing.B) {
+		testSum := int64Sum.With(name.Value("test"))
+		for n := 0; n < b.N; n++ {
+			testSum.Increment()
+		}
+	})
 }
