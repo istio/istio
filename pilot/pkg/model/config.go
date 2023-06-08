@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -255,6 +256,10 @@ func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 	}
 
 	return host.Name(out)
+}
+
+func isK8SGatewayGenerated(meta config.Meta) bool {
+	return strings.HasSuffix(meta.Name, constants.KubernetesGatewayName)
 }
 
 // resolveGatewayName uses metadata information to resolve a reference
