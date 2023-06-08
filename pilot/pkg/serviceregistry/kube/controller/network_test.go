@@ -155,7 +155,7 @@ func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int)
 				{
 					Name: "tls",
 					TLS:  &v1beta1.GatewayTLSConfig{Mode: &passthroughMode},
-					Port: 35443,
+					Port: v1beta1.PortNumber(customPort),
 				},
 				{
 					Name: "detected-by-number",

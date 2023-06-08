@@ -73,6 +73,7 @@ func initNetworkManager(options Options) networkManager {
 		networkFromMeshConfig:       "",
 		registryServiceNameGateways: make(map[host.Name][]model.NetworkGateway),
 		networkGatewaysBySvc:        make(map[host.Name]model.NetworkGatewaySet),
+		gatewaysFromResource:        make(map[types.UID]model.NetworkGatewaySet),
 	}
 }
 
@@ -328,19 +329,19 @@ func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGa
 	return nil
 }
 
-func (n *networkManager) watchGatewayResources(c *Controller) {
+func (n *networkManager) watchGatewayResources(c *Controller, stop <-chan struct{}) {
 	n.gatewayResourceClient = kclient.NewFiltered[*v1beta1.Gateway](c.client, kubetypes.Filter{
 		LabelSelector: label.TopologyNetwork.Name,
 		FieldSelector: "spec.gatewayClassName=istio",
 	})
 	registerHandlers[*v1beta1.Gateway](c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
-
+	go n.gatewayResourceClient.Start(stop)
 }
 
 // handleGateway resource adds a NetworkGateway for each combination of address and auto-passthrough listener
 // discovering duplicates from the generated Service is not a huge concern as we de-duplicate in NetworkGateways
 // which returns a set, although it's not totally efficient.
-func (n *networkManager) handleGatewayResource(old *v1beta1.Gateway, new *v1beta1.Gateway, event model.Event) error {
+func (n *networkManager) handleGatewayResource(old *v1beta1.Gateway, obj *v1beta1.Gateway, event model.Event) error {
 	gatewaysChanged := false
 	n.Lock()
 	defer func() {
@@ -350,31 +351,32 @@ func (n *networkManager) handleGatewayResource(old *v1beta1.Gateway, new *v1beta
 		}
 	}()
 
-	previousGateways := n.gatewaysFromResource[new.UID]
+	previousGateways := n.gatewaysFromResource[obj.UID]
 
 	if event == model.EventDelete {
 		gatewaysChanged = len(previousGateways) > 0
-		delete(n.gatewaysFromResource, old.UID)
+		delete(n.gatewaysFromResource, obj.UID)
 		return nil
 	}
 
 	autoPassthrough := func(l v1beta1.Listener) bool {
-		return kube.IsAutoPassthrough(new.GetLabels(), l)
+		return kube.IsAutoPassthrough(obj.GetLabels(), l)
 	}
 
 	base := model.NetworkGateway{
-		Network: network.ID(new.GetLabels()[label.TopologyNetwork.Name]),
+		Network: network.ID(obj.GetLabels()[label.TopologyNetwork.Name]),
 		Cluster: n.clusterID,
 	}
 	newGateways := model.NetworkGatewaySet{}
-	for _, addr := range new.Spec.Addresses {
-		for _, l := range slices.Filter(new.Spec.Listeners, autoPassthrough) {
+	for _, addr := range obj.Spec.Addresses {
+		for _, l := range slices.Filter(obj.Spec.Listeners, autoPassthrough) {
 			gw := base
 			gw.Addr = addr.Value
 			gw.Port = uint32(l.Port)
+			newGateways.Add(gw)
 		}
 	}
-	n.gatewaysFromResource[new.UID] = newGateways
+	n.gatewaysFromResource[obj.UID] = newGateways
 
 	if len(previousGateways) != len(newGateways) {
 		gatewaysChanged = true
@@ -383,9 +385,9 @@ func (n *networkManager) handleGatewayResource(old *v1beta1.Gateway, new *v1beta
 
 	gatewaysChanged = !newGateways.Equals(previousGateways)
 	if len(newGateways) > 0 {
-		n.gatewaysFromResource[new.UID] = newGateways
+		n.gatewaysFromResource[obj.UID] = newGateways
 	} else {
-		delete(n.gatewaysFromResource, new.UID)
+		delete(n.gatewaysFromResource, obj.UID)
 	}
 
 	return nil
