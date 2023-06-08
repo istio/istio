@@ -510,13 +510,13 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		if p == nil {
 			continue
 		}
-		_, logging := tml[k]
+		loggingCfg, logging := tml[k]
 		_, metrics := tmm[k]
 
 		cfg := telemetryFilterConfig{
 			Provider:      p,
 			metricsConfig: tmm[k],
-			AccessLogging: logging,
+			AccessLogging: logging && !loggingCfg.Disabled,
 			Metrics:       metrics,
 			LogsFilter:    tml[p.Name].Filter,
 		}

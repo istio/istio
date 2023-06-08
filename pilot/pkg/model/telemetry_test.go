@@ -591,6 +591,20 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
+	stackdriverDisabled := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "stackdriver",
+					},
+				},
+				Disabled: &wrappers.BoolValue{
+					Value: true,
+				},
+			},
+		},
+	}
 
 	tests := []struct {
 		name             string
@@ -813,6 +827,20 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 			map[string]string{
 				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL","metric_expiry_duration":"3600s"}`,
+			},
+		},
+		{
+			"disable stackdriver",
+			[]config.Config{newTelemetry("istio-system", stackdriverDisabled)},
+			sidecar,
+			networking.ListenerClassSidecarInbound,
+			networking.ListenerProtocolHTTP,
+			&meshconfig.MeshConfig_DefaultProviders{
+				Metrics:       []string{"stackdriver"},
+				AccessLogging: []string{"stackdriver"},
+			},
+			map[string]string{
+				"istio.stackdriver": `{"disable_server_access_logging":true,"disable_host_header_fallback":true,"metric_expiry_duration":"3600s"}`,
 			},
 		},
 	}
