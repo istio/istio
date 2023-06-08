@@ -254,5 +254,5 @@ func IsAutoPassthrough(gwLabels map[string]string, l v1beta1.Listener) bool {
 	if port, f := gwLabels[label.NetworkingGatewayPort.Name]; f {
 		expectedPort = port
 	}
-	return l.Name == "tls" && fmt.Sprint(l.Port) == expectedPort
+	return fmt.Sprint(l.Port) == expectedPort
 }

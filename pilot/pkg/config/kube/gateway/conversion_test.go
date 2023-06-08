@@ -372,6 +372,8 @@ func TestConvertResources(t *testing.T) {
 		{"reference-policy-service"},
 		{"serviceentry"},
 		{"eastwest"},
+		{"eastwest-namedport"},
+		{"eastwest-labelport"},
 		{"alias"},
 		{"mcs"},
 		{"route-precedence"},
