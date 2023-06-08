@@ -98,11 +98,11 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 	})
 	t.Run("add kubernetes gateway", func(t *testing.T) {
 		addOrUpdateGatewayResource(t, c, 35443)
-		expectGateways(t, 5)
+		expectGateways(t, 7)
 	})
 	t.Run("update kubernetes gateway", func(t *testing.T) {
 		addOrUpdateGatewayResource(t, c, 45443)
-		expectGateways(t, 5)
+		expectGateways(t, 7)
 	})
 	t.Run("remove kubernetes gateway", func(t *testing.T) {
 		removeGatewayResource(t, c)
@@ -139,6 +139,8 @@ func removeLabeledServiceGateway(t *testing.T, c *FakeController) {
 	clienttest.Wrap(t, c.services).Delete("istio-labeled-gw", "arbitrary-ns")
 }
 
+// creates a gateway that exposes 2 ports that are valid auto-passthrough ports
+// and it does so on an IP and a hostname
 func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int) {
 	passthroughMode := v1beta1.TLSModePassthrough
 	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).CreateOrUpdate(&v1beta1.Gateway{
