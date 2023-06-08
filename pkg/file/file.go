@@ -15,8 +15,10 @@
 package file
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -105,7 +107,7 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 
 func Exists(name string) bool {
 	_, err := os.Stat(name)
-	return err == nil
+	return !errors.Is(err, fs.ErrNotExist)
 }
 
 const (
