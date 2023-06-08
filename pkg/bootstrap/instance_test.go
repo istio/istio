@@ -276,6 +276,12 @@ func TestGolden(t *testing.T) {
 		{
 			base: "tracing_tls_custom_sni",
 		},
+		{
+			base: "lrs",
+			envVars: map[string]string{
+				"ISTIO_META_LOAD_STATS_CONFIG_JSON": `{"api_type": "GRPC", "transport_api_version": "V3"}`,
+			},
+		},
 	}
 
 	for _, c := range cases {
