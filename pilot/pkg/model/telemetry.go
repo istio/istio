@@ -525,7 +525,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		cfg := telemetryFilterConfig{
 			Provider:      p,
 			metricsConfig: mertricCfg,
-			AccessLogging: logging,
+			AccessLogging: logging && !tml[k].Disabled,
 			Metrics:       metrics,
 			LogsFilter:    tml[p.Name].Filter,
 			NodeType:      proxy.Type,
