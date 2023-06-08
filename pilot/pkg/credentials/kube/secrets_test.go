@@ -72,11 +72,20 @@ var (
 	tlsMtlsCert = makeSecret("tls-mtls", map[string]string{
 		TLSSecretCert: "tls-mtls-cert", TLSSecretKey: "tls-mtls-key", TLSSecretCaCert: "tls-mtls-ca",
 	}, corev1.SecretTypeTLS)
+	tlsMtlsCertWithCrl = makeSecret("tls-mtls-crl", map[string]string{
+		TLSSecretCert: "tls-mtls-cert", TLSSecretKey: "tls-mtls-key", TLSSecretCaCert: "tls-mtls-ca", TLSSecretCrl: "tls-mtls-crl",
+	}, corev1.SecretTypeTLS)
 	tlsMtlsCertSplit = makeSecret("tls-mtls-split", map[string]string{
 		TLSSecretCert: "tls-mtls-split-cert", TLSSecretKey: "tls-mtls-split-key",
 	}, corev1.SecretTypeTLS)
 	tlsMtlsCertSplitCa = makeSecret("tls-mtls-split-cacert", map[string]string{
 		TLSSecretCaCert: "tls-mtls-split-ca",
+	}, corev1.SecretTypeTLS)
+	tlsMtlsCertSplitCaWithCrl = makeSecret("tls-mtls-split-crl-cacert", map[string]string{
+		TLSSecretCaCert: "tls-mtls-split-ca", TLSSecretCrl: "tls-mtls-split-crl",
+	}, corev1.SecretTypeTLS)
+	tlsMtlsCertSplitWithCrl = makeSecret("tls-mtls-split-crl", map[string]string{
+		TLSSecretCert: "tls-mtls-split-crl-cert", TLSSecretKey: "tls-mtls-split-crl-key",
 	}, corev1.SecretTypeTLS)
 	emptyCert = makeSecret("empty-cert", map[string]string{
 		TLSSecretCert: "", TLSSecretKey: "tls-key",
@@ -102,8 +111,11 @@ func TestSecretsController(t *testing.T) {
 		overlappingCa,
 		tlsCert,
 		tlsMtlsCert,
+		tlsMtlsCertWithCrl,
 		tlsMtlsCertSplit,
 		tlsMtlsCertSplitCa,
+		tlsMtlsCertSplitCaWithCrl,
+		tlsMtlsCertSplitWithCrl,
 		emptyCert,
 		wrongKeys,
 	}
@@ -117,6 +129,8 @@ func TestSecretsController(t *testing.T) {
 		key             string
 		staple          string
 		caCert          string
+		caCrl           string
+		crl             string
 		expectedError   string
 		expectedCAError string
 	}{
@@ -170,6 +184,15 @@ func TestSecretsController(t *testing.T) {
 			caCert:    "tls-mtls-ca",
 		},
 		{
+			name:      "tls-mtls-crl",
+			namespace: "default",
+			cert:      "tls-mtls-cert",
+			key:       "tls-mtls-key",
+			caCert:    "tls-mtls-ca",
+			crl:       "tls-mtls-crl",
+			caCrl:     "tls-mtls-crl",
+		},
+		{
 			name:            "tls-mtls-split",
 			namespace:       "default",
 			cert:            "tls-mtls-split-cert",
@@ -181,6 +204,20 @@ func TestSecretsController(t *testing.T) {
 			namespace:     "default",
 			caCert:        "tls-mtls-split-ca",
 			expectedError: "found secret, but didn't have expected keys (cert and key) or (tls.crt and tls.key); found: ca.crt",
+		},
+		{
+			name:          "tls-mtls-split-crl-cacert",
+			namespace:     "default",
+			caCert:        "tls-mtls-split-ca",
+			expectedError: "found secret, but didn't have expected keys (cert and key) or (tls.crt and tls.key); found: ca.crl, ca.crt",
+			caCrl:         "tls-mtls-split-crl",
+		},
+		{
+			name:            "tls-mtls-split-crl",
+			namespace:       "default",
+			cert:            "tls-mtls-split-crl-cert",
+			key:             "tls-mtls-split-crl-key",
+			expectedCAError: "found secret, but didn't have expected keys cacert or ca.crt; found: tls.crt, tls.key",
 		},
 		{
 			name:            "generic",
@@ -203,22 +240,38 @@ func TestSecretsController(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			key, cert, staple, err := sc.GetKeyCertAndStaple(tt.name, tt.namespace)
-			if tt.key != string(key) {
-				t.Errorf("got key %q, wanted %q", string(key), tt.key)
+			certInfo, err := sc.GetCertInfo(tt.name, tt.namespace)
+			var actualKey []byte
+			var actualCert []byte
+			var actualStaple []byte
+			var actualCrl []byte
+			if certInfo != nil {
+				actualKey = certInfo.Key
+				actualCert = certInfo.Cert
+				actualStaple = certInfo.Staple
+				actualCrl = certInfo.CRL
 			}
-			if tt.cert != string(cert) {
-				t.Errorf("got cert %q, wanted %q", string(cert), tt.cert)
+			if tt.key != string(actualKey) {
+				t.Errorf("got key %q, wanted %q", string(actualKey), tt.key)
 			}
-			if tt.staple != string(staple) {
-				t.Errorf("got staple %q, wanted %q", string(staple), tt.staple)
+			if tt.cert != string(actualCert) {
+				t.Errorf("got cert %q, wanted %q", string(actualCert), tt.cert)
+			}
+			if tt.staple != string(actualStaple) {
+				t.Errorf("got staple %q, wanted %q", string(actualStaple), tt.staple)
+			}
+			if tt.crl != string(actualCrl) {
+				t.Errorf("got crl %q, wanted %q", string(actualCrl), tt.crl)
 			}
 			if tt.expectedError != errString(err) {
 				t.Errorf("got err %q, wanted %q", errString(err), tt.expectedError)
 			}
-			caCert, err := sc.GetCaCert(tt.name, tt.namespace)
-			if tt.caCert != string(caCert) {
-				t.Errorf("got caCert %q, wanted %q", string(caCert), tt.caCert)
+			caCertInfo, err := sc.GetCaCert(tt.name, tt.namespace)
+			if caCertInfo != nil && tt.caCert != string(caCertInfo.Cert) {
+				t.Errorf("got caCert %q, wanted %q", string(caCertInfo.Cert), tt.caCert)
+			}
+			if caCertInfo != nil && tt.caCrl != string(caCertInfo.CRL) {
+				t.Errorf("got caCrl %q, wanted %q", string(caCertInfo.CRL), tt.crl)
 			}
 			if tt.expectedCAError != errString(err) {
 				t.Errorf("got ca err %q, wanted %q", errString(err), tt.expectedCAError)
@@ -453,16 +506,22 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			key, cert, _, _ := con.GetKeyCertAndStaple(tt.name, tt.namespace)
-			if tt.key != string(key) {
-				t.Errorf("got key %q, wanted %q", string(key), tt.key)
+			certInfo, _ := con.GetCertInfo(tt.name, tt.namespace)
+			var actualKey []byte
+			var actualCert []byte
+			if certInfo != nil {
+				actualKey = certInfo.Key
+				actualCert = certInfo.Cert
 			}
-			if tt.cert != string(cert) {
-				t.Errorf("got cert %q, wanted %q", string(cert), tt.cert)
+			if tt.key != string(actualKey) {
+				t.Errorf("got key %q, wanted %q", string(actualKey), tt.key)
 			}
-			caCert, err := con.GetCaCert(tt.name, tt.namespace)
-			if tt.caCert != string(caCert) {
-				t.Errorf("got caCert %q, wanted %q with err %v", string(caCert), tt.caCert, err)
+			if tt.cert != string(actualCert) {
+				t.Errorf("got cert %q, wanted %q", string(actualCert), tt.cert)
+			}
+			caCertInfo, err := con.GetCaCert(tt.name, tt.namespace)
+			if caCertInfo != nil && tt.caCert != string(caCertInfo.Cert) {
+				t.Errorf("got caCert %q, wanted %q with err %v", string(caCertInfo.Cert), tt.caCert, err)
 			}
 		})
 	}

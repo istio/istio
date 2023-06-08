@@ -112,11 +112,11 @@ func isValidSecret(secret *resource.Instance) bool {
 	if !ok {
 		return false
 	}
-	_, certs, _, err := kube.ExtractKeyCertAndStaple(s)
+	certs, err := kube.ExtractCertInfo(s)
 	if err != nil {
 		return false
 	}
-	if err = xds.ValidateCertificate(certs); err != nil {
+	if err = xds.ValidateCertificate(certs.Cert); err != nil {
 		return false
 	}
 	return true
