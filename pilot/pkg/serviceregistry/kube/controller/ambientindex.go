@@ -50,7 +50,8 @@ import (
 type AmbientIndex struct {
 	mu sync.RWMutex
 	// byService indexes by network/Service (virtual) *IP address*. A given Service may have multiple IPs, thus
-	// multiple entries in the map. A given IP can have many workloads associated.
+	// multiple entries in the map.
+	// A given IP can map to many workloads associated, indexed by workload uid.
 	byService map[networkAddress]map[string]*model.WorkloadInfo
 	// byPod indexes by network/podIP address.
 	byPod map[networkAddress]*model.WorkloadInfo
