@@ -588,28 +588,36 @@ func VirtualServiceDependencies(vs config.Config) []ConfigKey {
 	out := make([]ConfigKey, 0, len(internalParents))
 	for _, p := range internalParents {
 		// kind/name.namespace
-		knn := strings.Split(p, "/")
+		ks, nsname, ok := strings.Cut(p, "/")
+		if !ok {
+			log.Errorf("invalid InternalParentName parts: %s", p)
+			continue
+		}
 		var k kind.Kind
-		switch knn[0] {
+		switch ks {
 		case kind.HTTPRoute.String():
 			k = kind.HTTPRoute
 		case kind.TCPRoute.String():
 			k = kind.TCPRoute
 		case kind.TLSRoute.String():
 			k = kind.TLSRoute
+		case kind.GRPCRoute.String():
+			k = kind.GRPCRoute
+		case kind.UDPRoute.String():
+			k = kind.UDPRoute
 		default:
 			// shouldn't happen
 			continue
 		}
-		if len(knn) < 2 {
-			log.Errorf("invalid InternalParentName parts: %s", knn)
+		name, ns, ok := strings.Cut(nsname, ".")
+		if !ok {
+			log.Errorf("invalid InternalParentName name: %s", nsname)
 			continue
 		}
-		nn := strings.Split(knn[1], ".")
 		out = append(out, ConfigKey{
 			Kind:      k,
-			Name:      nn[0],
-			Namespace: nn[1],
+			Name:      name,
+			Namespace: ns,
 		})
 	}
 	return out
