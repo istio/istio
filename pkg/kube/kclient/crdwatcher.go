@@ -92,8 +92,6 @@ func (c *crdWatcher) WaitForCRD(s schema.GroupVersionResource, stop <-chan struc
 		return true
 	}
 	select {
-	case <-c.stop:
-		return false
 	case <-stop:
 		return false
 	case <-done:
