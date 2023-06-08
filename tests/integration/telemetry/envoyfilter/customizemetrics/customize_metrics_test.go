@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/registryredirector"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 	"istio.io/istio/tests/integration/telemetry/common"
@@ -161,7 +160,6 @@ func TestMain(m *testing.M) {
 }
 
 func testSetup(ctx resource.Context) (err error) {
-	var err error
 	registry, err = registryredirector.New(ctx, registryredirector.Config{Cluster: ctx.AllClusters().Default()})
 	if err != nil {
 		return

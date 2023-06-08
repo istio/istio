@@ -263,6 +263,8 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 			sort.Slice(buckets, func(i, j int) bool {
 				return buckets[i].Match.Prefix < buckets[j].Match.Prefix
 			})
+		} else {
+			log.Warnf("Failed to unmarshal histogram buckets: %v", bucketsAnno, err)
 		}
 	}
 
