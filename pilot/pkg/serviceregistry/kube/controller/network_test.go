@@ -17,6 +17,7 @@ package controller
 import (
 	"fmt"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/kube/kclient"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sync"
@@ -140,7 +141,7 @@ func removeLabeledServiceGateway(t *testing.T, c *FakeController) {
 
 func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int) {
 	passthroughMode := v1beta1.TLSModePassthrough
-	clienttest.Wrap(t, c.networkManager.gatewayResourceClient).CreateOrUpdate(&v1beta1.Gateway{
+	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).CreateOrUpdate(&v1beta1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "eastwest-gwapi",
 			Namespace: "istio-system",
@@ -169,7 +170,7 @@ func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int)
 }
 
 func removeGatewayResource(t *testing.T, c *FakeController) {
-	clienttest.Wrap(t, c.networkManager.gatewayResourceClient).Delete("eastwest-gwapi", "istio-system")
+	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).Delete("eastwest-gwapi", "istio-system")
 }
 
 func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher mesh.NetworksWatcher) {
