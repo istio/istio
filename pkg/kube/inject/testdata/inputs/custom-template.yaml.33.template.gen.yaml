@@ -1440,28 +1440,11 @@ templates:
           containers:
           - name: istio-proxy
             image: "{{ .ProxyImage }}"
-            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
-            {{ if or (isset .Annotations "sidecar.istio.io/proxyCPU") (isset .Annotations "sidecar.istio.io/proxyMemory") (isset .Annotations "sidecar.istio.io/proxyCPULimit") (isset .Annotations "sidecar.istio.io/proxyMemoryLimit")  }}
+            {{- if .Values.global.proxy.resources }}
             resources:
-              {{ if or (isset .Annotations "sidecar.istio.io/proxyCPU") (isset .Annotations "sidecar.istio.io/proxyMemory") }}
-              requests:
-                {{ if (isset .Annotations "sidecar.istio.io/proxyCPU") -}}
-                cpu: {{ index .Annotations "sidecar.istio.io/proxyCPU" | quote }}
-                {{ end }}
-                {{ if (isset .Annotations "sidecar.istio.io/proxyMemory") -}}
-                memory: {{ index .Annotations "sidecar.istio.io/proxyMemory" | quote }}
-                {{ end }}
-              {{ end }}
-              {{ if or (isset .Annotations "sidecar.istio.io/proxyCPULimit") (isset .Annotations "sidecar.istio.io/proxyMemoryLimit") }}
-              limits:
-                {{ if (isset .Annotations "sidecar.istio.io/proxyCPULimit") -}}
-                cpu: {{ index .Annotations "sidecar.istio.io/proxyCPULimit" | quote }}
-                {{ end }}
-                {{ if (isset .Annotations "sidecar.istio.io/proxyMemoryLimit") -}}
-                memory: {{ index .Annotations "sidecar.istio.io/proxyMemoryLimit" | quote }}
-                {{ end }}
-              {{ end }}
-            {{ end }}
+              {{- toYaml .Values.global.proxy.resources | nindent 10 }}
+            {{- end }}
+            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             securityContext:
             {{- if .KubeVersion122 }}
               # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
