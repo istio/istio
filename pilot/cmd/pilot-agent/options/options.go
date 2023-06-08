@@ -80,8 +80,6 @@ var (
 		"Specify the RSA key size to use for workload certificates.").Get()
 	pkcs8KeysEnv = env.Register("PKCS8_KEY", false,
 		"Whether to generate PKCS#8 private keys").Get()
-	eccSigAlgEnv        = env.Register("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
-	eccCurvEnv          = env.Register("ECC_CURVE", "P256", "The elliptic curve to use when ECC_SIGNATURE_ALGORITHM is set to ECDSA").Get()
 	fileMountedCertsEnv = env.Register("FILE_MOUNTED_CERTS", false, "").Get()
 	credFetcherTypeEnv  = env.Register("CREDENTIAL_FETCHER_TYPE", security.JWT,
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()

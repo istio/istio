@@ -663,6 +663,11 @@ var (
 		"Metric scope rotation interval, set to 0 to disable the metric scope rotation").Get()
 	MetricGracefulDeletionInterval = env.Register("METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute,
 		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disabled.").Get()
+
+	SelfSignedAlgorithm = env.Register("CITADEL_SELF_SIGNED_CA_CERT_ALGORITHM", "RSA",
+		"The algorithm type of the self-signed CA cert created by istiod. Only RSA or ECC is supported. RSA is the default value").Get()
+	EccSigAlgEnv = env.Register("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
+	EccCurvEnv   = env.Register("ECC_CURVE", "P256", "The elliptic curve to use when ECC_SIGNATURE_ALGORITHM is set to ECDSA").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

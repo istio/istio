@@ -442,15 +442,17 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 				selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 				selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
 				maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
-				opts.Namespace, s.kubeClient.Kube().CoreV1(), fileBundle.RootCertFile,
-				enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
+				opts.Namespace, s.kubeClient.Kube().CoreV1(), fileBundle.RootCertFile, enableJitterForRootCertRotator.Get(), caRSAKeySize.Get(),
+				features.SelfSignedAlgorithm, features.EccSigAlgEnv, features.EccCurvEnv,
+			)
 		} else {
 			log.Warnf(
 				"Use local self-signed CA certificate for testing. Will use in-memory root CA, no K8S access and no ca key file %s",
 				fileBundle.SigningKeyFile)
 
 			caOpts, err = ca.NewSelfSignedDebugIstioCAOptions(fileBundle.RootCertFile, SelfSignedCACertTTL.Get(),
-				workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), opts.TrustDomain, caRSAKeySize.Get())
+				workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), opts.TrustDomain, caRSAKeySize.Get(),
+				features.SelfSignedAlgorithm, features.EccSigAlgEnv, features.EccCurvEnv)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a self-signed istiod CA: %v", err)
@@ -458,7 +460,8 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	} else {
 		log.Info("Use local CA certificate")
 
-		caOpts, err = ca.NewPluggedCertIstioCAOptions(fileBundle, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), caRSAKeySize.Get())
+		caOpts, err = ca.NewPluggedCertIstioCAOptions(fileBundle, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), caRSAKeySize.Get(),
+			features.SelfSignedAlgorithm, features.EccSigAlgEnv, features.EccCurvEnv)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}

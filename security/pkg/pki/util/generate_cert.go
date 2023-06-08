@@ -38,6 +38,10 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// SupportedAlgorithmTypes are the types of Algorithms
+// to be used (e.g. RSA or ECC)
+type SupportedAlgorithmTypes string
+
 // SupportedECSignatureAlgorithms are the types of EC Signature Algorithms
 // to be used in key generation (e.g. ECDSA or ED2551)
 type SupportedECSignatureAlgorithms string
@@ -47,6 +51,10 @@ type SupportedECSignatureAlgorithms string
 type SupportedEllipticCurves string
 
 const (
+	// supported algorithms for using self-signed certs
+	RsaAlg SupportedAlgorithmTypes = "RSA"
+	EcAlg  SupportedAlgorithmTypes = "ECC"
+
 	// only ECDSA is currently supported
 	EcdsaSigAlg SupportedECSignatureAlgorithms = "ECDSA"
 

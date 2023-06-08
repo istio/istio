@@ -17,6 +17,9 @@ package ca
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"os"
@@ -93,62 +96,101 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	maxCertTTL := time.Hour
 	org := "test.ca.Org"
 	const caNamespace = "default"
-	client := fake.NewSimpleClientset()
 	rootCertFile := ""
 	rootCertCheckInverval := time.Hour
-	rsaKeySize := 2048
 
-	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
-		0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
-		maxCertTTL, org, false, caNamespace, client.CoreV1(),
-		rootCertFile, false, rsaKeySize)
-	if err != nil {
-		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
-	}
-
-	ca, err := NewIstioCA(caopts)
-	if err != nil {
-		t.Errorf("Got error while creating self-signed CA: %v", err)
-	}
-	if ca == nil {
-		t.Fatalf("Failed to create a self-signed CA.")
-	}
-
-	signingCert, _, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
-	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
-	if err != nil {
-		t.Error(err)
-	}
-	// Root cert and siging cert are the same for self-signed CA.
-	if !rootCert.Equal(signingCert) {
-		t.Error("CA root cert does not match signing cert")
+	cases := []struct {
+		name          string
+		algorithmType string
+		eccSigAlg     string
+		eccCurve      string
+		rsaKeySize    int
+	}{
+		{
+			name:          "Test RSA",
+			algorithmType: "RSA",
+			rsaKeySize:    2048,
+		},
+		{
+			name:          "Test ECC",
+			algorithmType: "ECC",
+			eccSigAlg:     "ECDSA",
+			eccCurve:      "P256",
+		},
 	}
 
-	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != caCertTTL {
-		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", caCertTTL, ttl)
-	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := fake.NewSimpleClientset()
+			caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
+				0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
+				maxCertTTL, org, false, caNamespace, client.CoreV1(),
+				rootCertFile, false, tc.rsaKeySize, tc.algorithmType, tc.eccSigAlg, tc.eccCurve)
+			if err != nil {
+				t.Fatalf("Failed to create a self-signed CA Options: %v", err)
+			}
 
-	if certOrg := rootCert.Issuer.Organization[0]; certOrg != org {
-		t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", org, certOrg)
-	}
+			ca, err := NewIstioCA(caopts)
+			if err != nil {
+				t.Errorf("Got error while creating self-signed CA: %v", err)
+			}
+			if ca == nil {
+				t.Fatalf("Failed to create a self-signed CA.")
+			}
 
-	if len(certChainBytes) != 0 {
-		t.Errorf("Cert chain should be empty")
-	}
+			signingCert, privKey, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
+			rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
+			if err != nil {
+				t.Error(err)
+			}
+			// Root cert and siging cert are the same for self-signed CA.
+			if !rootCert.Equal(signingCert) {
+				t.Error("CA root cert does not match signing cert")
+			}
 
-	// Check the signing cert stored in K8s secret.
-	caSecret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CASecret, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Failed to get secret (error: %s)", err)
-	}
+			switch key := (*privKey).(type) {
+			case *ecdsa.PrivateKey:
+				if tc.algorithmType != "ECC" {
+					t.Errorf("not using expected algorithm type (%v)", tc.algorithmType)
+				}
+				if key.Curve != elliptic.P256() {
+					t.Errorf("not using expected EC curve (%v)", key.Curve)
+				}
+			case *rsa.PrivateKey:
+				if key.N.BitLen() != tc.rsaKeySize {
+					t.Errorf("rsa key size does not match (%v)", key.N.BitLen())
+				}
+			default:
+				t.Error("private key is not RSA or ECC based")
+			}
 
-	signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[CACertFile])
-	if err != nil {
-		t.Errorf("Failed to parse cert (error: %s)", err)
-	}
+			if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != caCertTTL {
+				t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", caCertTTL, ttl)
+			}
 
-	if !signingCertFromSecret.Equal(signingCert) {
-		t.Error("CA signing cert does not match the K8s secret")
+			if certOrg := rootCert.Issuer.Organization[0]; certOrg != org {
+				t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", org, certOrg)
+			}
+
+			if len(certChainBytes) != 0 {
+				t.Errorf("Cert chain should be empty")
+			}
+
+			// Check the signing cert stored in K8s secret.
+			caSecret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CASecret, metav1.GetOptions{})
+			if err != nil {
+				t.Errorf("Failed to get secret (error: %s)", err)
+			}
+
+			signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[CACertFile])
+			if err != nil {
+				t.Errorf("Failed to parse cert (error: %s)", err)
+			}
+
+			if !signingCertFromSecret.Equal(signingCert) {
+				t.Error("CA signing cert does not match the K8s secret")
+			}
+		})
 	}
 }
 
@@ -177,7 +219,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
 		org, false, caNamespace, client.CoreV1(),
-		rootCertFile, false, rsaKeySize)
+		rootCertFile, false, rsaKeySize, "RSA", "", "")
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -227,7 +269,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	defer cancel0()
 	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
 		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
+		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize, "RSA", "", "")
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -243,7 +285,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	defer cancel1()
 	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
 		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
+		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize, "RSA", "", "")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -296,7 +338,7 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 			defer cancel0()
 			caOpts, err := NewSelfSignedIstioCAOptions(ctx0, 0,
 				caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-				caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
+				caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize, "RSA", "", "")
 			if err != nil {
 				t.Errorf("NewSelfSignedIstioCAOptions got unexpected error: %v", err)
 			}
@@ -347,7 +389,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	maxWorkloadCertTTL := time.Hour
 
 	caopts, err := NewPluggedCertIstioCAOptions(SigningCAFileBundle{rootCertFile, certChainFile, signingCertFile, signingKeyFile},
-		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
+		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize, "RSA", "", "")
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
 	}
@@ -398,6 +440,7 @@ func TestSignCSR(t *testing.T) {
 		requestedTTL  time.Duration
 		verifyFields  util.VerifyFields
 		expectedError string
+		algorithmType string
 	}{
 		"Workload uses RSA": {
 			forCA: false,
@@ -416,6 +459,7 @@ func TestSignCSR(t *testing.T) {
 				Host:        subjectID,
 			},
 			expectedError: "",
+			algorithmType: "RSA",
 		},
 		"Workload uses EC": {
 			forCA: false,
@@ -434,6 +478,7 @@ func TestSignCSR(t *testing.T) {
 				Host:        subjectID,
 			},
 			expectedError: "",
+			algorithmType: "RSA",
 		},
 		"CA uses RSA": {
 			forCA: true,
@@ -449,6 +494,7 @@ func TestSignCSR(t *testing.T) {
 				Host:     subjectID,
 			},
 			expectedError: "",
+			algorithmType: "RSA",
 		},
 		"CA uses EC": {
 			forCA: true,
@@ -464,6 +510,7 @@ func TestSignCSR(t *testing.T) {
 				Host:     subjectID,
 			},
 			expectedError: "",
+			algorithmType: "ECC",
 		},
 		"CSR uses RSA TTL error": {
 			forCA: false,
@@ -474,6 +521,7 @@ func TestSignCSR(t *testing.T) {
 			maxTTL:        2 * time.Hour,
 			requestedTTL:  3 * time.Hour,
 			expectedError: "requested TTL 3h0m0s is greater than the max allowed TTL 2h0m0s",
+			algorithmType: "RSA",
 		},
 		"CSR uses EC TTL error": {
 			forCA: false,
@@ -484,6 +532,7 @@ func TestSignCSR(t *testing.T) {
 			maxTTL:        2 * time.Hour,
 			requestedTTL:  3 * time.Hour,
 			expectedError: "requested TTL 3h0m0s is greater than the max allowed TTL 2h0m0s",
+			algorithmType: "RSA",
 		},
 	}
 
@@ -493,7 +542,7 @@ func TestSignCSR(t *testing.T) {
 			t.Errorf("%s: GenCSR error: %v", id, err)
 		}
 
-		ca, err := createCA(tc.maxTTL, tc.certOpts.ECSigAlg)
+		ca, err := createCA(tc.maxTTL, tc.certOpts.ECSigAlg, tc.algorithmType)
 		if err != nil {
 			t.Errorf("%s: createCA error: %v", id, err)
 		}
@@ -584,7 +633,7 @@ func TestSignWithCertChain(t *testing.T) {
 	maxWorkloadCertTTL := time.Hour
 
 	caopts, err := NewPluggedCertIstioCAOptions(SigningCAFileBundle{rootCertFile, certChainFile, signingCertFile, signingKeyFile},
-		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
+		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize, "RSA", "", "")
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
 	}
@@ -682,7 +731,7 @@ func TestGenKeyCert(t *testing.T) {
 
 	for id, tc := range cases {
 		caopts, err := NewPluggedCertIstioCAOptions(SigningCAFileBundle{tc.rootCertFile, tc.certChainFile, tc.signingCertFile, tc.signingKeyFile},
-			defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
+			defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize, "RSA", "", "")
 		if err != nil {
 			t.Fatalf("%s: failed to create a plugged-cert CA Options: %v", id, err)
 		}
@@ -760,7 +809,7 @@ func TestBuildSecret(t *testing.T) {
 	}
 }
 
-func createCA(maxTTL time.Duration, ecSigAlg util.SupportedECSignatureAlgorithms) (*IstioCA, error) {
+func createCA(maxTTL time.Duration, ecSigAlg util.SupportedECSignatureAlgorithms, caAlgorithmType string) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,
@@ -816,6 +865,9 @@ func createCA(maxTTL time.Duration, ecSigAlg util.SupportedECSignatureAlgorithms
 		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
 			CheckInterval: rootCertCheckInverval,
 		},
+		AlgorithmType: util.SupportedAlgorithmTypes(caAlgorithmType),
+		ECSigAlg:      ecSigAlg,
+		ECCCurve:      util.P256Curve,
 	}
 
 	return NewIstioCA(caOpts)

@@ -106,7 +106,13 @@ type IstioCAOptions struct {
 
 	DefaultCertTTL time.Duration
 	MaxCertTTL     time.Duration
-	CARSAKeySize   int
+
+	// the specification for certificate algorithm and
+	// their parameters
+	AlgorithmType util.SupportedAlgorithmTypes
+	CARSAKeySize  int
+	ECSigAlg      util.SupportedECSignatureAlgorithms
+	ECCCurve      util.SupportedEllipticCurves
 
 	KeyCertBundle *util.KeyCertBundle
 
@@ -118,7 +124,7 @@ type IstioCAOptions struct {
 func NewSelfSignedIstioCAOptions(ctx context.Context,
 	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, defaultCertTTL,
 	maxCertTTL time.Duration, org string, dualUse bool, namespace string, client corev1.CoreV1Interface,
-	rootCertFile string, enableJitter bool, caRSAKeySize int,
+	rootCertFile string, enableJitter bool, caRSAKeySize int, algorithmType, ecSigAlg, eccCurve string,
 ) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         selfSignedCA,
@@ -137,6 +143,12 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			enableJitter:       enableJitter,
 			client:             client,
 		},
+		AlgorithmType: util.SupportedAlgorithmTypes(algorithmType),
+	}
+
+	err = specifySelfSignedAlgorithmIstioCAOptions(caOpts, caRSAKeySize, ecSigAlg, eccCurve)
+	if err != nil {
+		return nil, err
 	}
 
 	b := backoff.NewExponentialBackOff(backoff.DefaultOption())
@@ -165,9 +177,14 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 				Org:          org,
 				IsCA:         true,
 				IsSelfSigned: true,
-				RSAKeySize:   caRSAKeySize,
 				IsDualUse:    dualUse,
 			}
+
+			err := specifySelfSignedAlgorithmOptions(&options, caRSAKeySize, util.SupportedAlgorithmTypes(algorithmType), ecSigAlg, eccCurve)
+			if err != nil {
+				return err
+			}
+
 			pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
 			if ckErr != nil {
 				return fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
@@ -199,12 +216,18 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 // which runs without K8s, and no local ca key file presented.
 func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCertTTL, maxCertTTL time.Duration,
 	org string, caRSAKeySize int,
+	algorithmType, ecSigAlg, eccCurve string,
 ) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         selfSignedCA,
 		DefaultCertTTL: defaultCertTTL,
 		MaxCertTTL:     maxCertTTL,
-		CARSAKeySize:   caRSAKeySize,
+		AlgorithmType:  util.SupportedAlgorithmTypes(algorithmType),
+	}
+
+	err = specifySelfSignedAlgorithmIstioCAOptions(caOpts, caRSAKeySize, ecSigAlg, eccCurve)
+	if err != nil {
+		return nil, err
 	}
 
 	options := util.CertOptions{
@@ -212,9 +235,14 @@ func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCer
 		Org:          org,
 		IsCA:         true,
 		IsSelfSigned: true,
-		RSAKeySize:   caRSAKeySize,
 		IsDualUse:    true, // hardcoded to true for K8S as well
 	}
+
+	err = specifySelfSignedAlgorithmOptions(&options, caRSAKeySize, util.SupportedAlgorithmTypes(algorithmType), ecSigAlg, eccCurve)
+	if err != nil {
+		return nil, err
+	}
+
 	pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
 	if ckErr != nil {
 		return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
@@ -232,15 +260,49 @@ func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCer
 	return caOpts, nil
 }
 
+func specifySelfSignedAlgorithmIstioCAOptions(opts *IstioCAOptions, caRSAKeySize int, ecSigAlg, eccCurve string) error {
+	switch opts.AlgorithmType {
+	case util.RsaAlg:
+		opts.CARSAKeySize = caRSAKeySize
+	case util.EcAlg:
+		opts.ECSigAlg = util.SupportedECSignatureAlgorithms(ecSigAlg)
+		opts.ECCCurve = util.SupportedEllipticCurves(eccCurve)
+	default:
+		return fmt.Errorf("unknown algorithm type specified (%v)", opts.AlgorithmType)
+	}
+
+	return nil
+}
+
+func specifySelfSignedAlgorithmOptions(opts *util.CertOptions, caRSAKeySize int, algorithmType util.SupportedAlgorithmTypes, ecSigAlg, eccCurve string) error {
+	switch algorithmType {
+	case util.RsaAlg:
+		opts.RSAKeySize = caRSAKeySize
+	case util.EcAlg:
+		opts.ECSigAlg = util.SupportedECSignatureAlgorithms(ecSigAlg)
+		opts.ECCCurve = util.SupportedEllipticCurves(eccCurve)
+	default:
+		return fmt.Errorf("unknown algorithm type specified (%v)", algorithmType)
+	}
+
+	return nil
+}
+
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int,
+	algorithmType, ecSigAlg, eccCurve string,
 ) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         pluggedCertCA,
 		DefaultCertTTL: defaultCertTTL,
 		MaxCertTTL:     maxCertTTL,
-		CARSAKeySize:   caRSAKeySize,
+		AlgorithmType:  util.SupportedAlgorithmTypes(algorithmType),
+	}
+
+	err = specifySelfSignedAlgorithmIstioCAOptions(caOpts, caRSAKeySize, ecSigAlg, eccCurve)
+	if err != nil {
+		return nil, err
 	}
 
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
@@ -292,7 +354,13 @@ func BuildSecret(scrtName, namespace string, certChain, privateKey, rootCert, ca
 type IstioCA struct {
 	defaultCertTTL time.Duration
 	maxCertTTL     time.Duration
-	caRSAKeySize   int
+
+	// the specification for certificate algorithm and
+	// their parameters
+	algorithmType util.SupportedAlgorithmTypes
+	caRSAKeySize  int
+	ecSigAlg      util.SupportedECSignatureAlgorithms
+	eccCurve      util.SupportedEllipticCurves
 
 	keyCertBundle *util.KeyCertBundle
 
@@ -306,7 +374,17 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
 		maxCertTTL:    opts.MaxCertTTL,
 		keyCertBundle: opts.KeyCertBundle,
-		caRSAKeySize:  opts.CARSAKeySize,
+		algorithmType: opts.AlgorithmType,
+	}
+
+	switch ca.algorithmType {
+	case util.RsaAlg:
+		ca.caRSAKeySize = opts.CARSAKeySize
+	case util.EcAlg:
+		ca.ecSigAlg = opts.ECSigAlg
+		ca.eccCurve = opts.ECCCurve
+	default:
+		return nil, fmt.Errorf("unknown algorithm type specified (%v)", ca.algorithmType)
 	}
 
 	if opts.CAType == selfSignedCA && opts.RotatorConfig != nil && opts.RotatorConfig.CheckInterval > time.Duration(0) {
