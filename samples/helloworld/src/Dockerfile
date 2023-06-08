@@ -26,4 +26,6 @@ EXPOSE 5000
 ARG service_version
 ENV SERVICE_VERSION ${service_version:-v1}
 
-CMD ["python", "app.py"]
+# image will bind on TCP6 by default. In k8s pod spec (in a deployment pod template most likely) override for explicit IPv4 if needed with the command shown below:
+# ["gunicorn", "-b", "[0.0.0.0]:5000", "app:app", "-k", "gevent"]
+CMD ["gunicorn", "-b", "[::]:5000", "app:app", "-k", "gevent"]

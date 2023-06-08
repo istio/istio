@@ -38,4 +38,4 @@ def health():
 
 
 if __name__ == "__main__":
-    app.run(host='::', threaded=True)
+    app.run(host='127.0.0.1', threaded=True) # listen on IPv4; gunicorn will accept IPv6 from outside the pod
