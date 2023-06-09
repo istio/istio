@@ -43,8 +43,9 @@ import (
 type AmbientIndex struct {
 	mu sync.RWMutex
 	// byService indexes by network/Service (virtual) *IP address*. A given Service may have multiple IPs, thus
-	// multiple entries in the map. A given IP can have many workloads associated.
-	byService map[networkAddress][]*model.WorkloadInfo
+	// multiple entries in the map.
+	// A given IP can map to many workloads associated, indexed by workload uid.
+	byService map[networkAddress]map[string]*model.WorkloadInfo
 	// byPod indexes by network/podIP address.
 	byPod map[networkAddress]*model.WorkloadInfo
 	// byUID indexes by workloads by their uid
@@ -136,22 +137,14 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 
 func (a *AmbientIndex) dropWorkloadFromService(svcAddress networkAddress, workloadUID string) {
 	wls := a.byService[svcAddress]
-	// TODO: this is inefficient, but basically we are trying to update a keyed element in a list
-	// Probably we want a Map? But the list is nice for fast lookups
-	filtered := make([]*model.WorkloadInfo, 0, len(wls))
-	for _, inc := range wls {
-		if inc.ResourceName() != workloadUID {
-			filtered = append(filtered, inc)
-		}
-	}
-	a.byService[svcAddress] = filtered
+	delete(wls, workloadUID)
 }
 
 func (a *AmbientIndex) insertWorkloadToService(svcAddress networkAddress, workload *model.WorkloadInfo) {
-	// For simplicity, to insert we drop it then add it to the end.
-	// TODO: optimize this
-	a.dropWorkloadFromService(svcAddress, workload.ResourceName())
-	a.byService[svcAddress] = append(a.byService[svcAddress], workload)
+	if _, ok := a.byService[svcAddress]; !ok {
+		a.byService[svcAddress] = map[string]*model.WorkloadInfo{}
+	}
+	a.byService[svcAddress][workload.Uid] = workload
 }
 
 func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloadapi.GatewayAddress, isDelete bool) map[model.ConfigKey]struct{} {
@@ -254,16 +247,6 @@ func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
 }
 
 func (a *AmbientIndex) matchesScope(scope model.WaypointScope, w *model.WorkloadInfo) bool {
-	if len(scope.ServiceAccount) == 0 {
-		// We are a namespace wide waypoint. SA scope take precedence.
-		// Check if there is one for this workloads service account
-		if _, f := a.waypoints[model.WaypointScope{Namespace: scope.Namespace, ServiceAccount: w.ServiceAccount}]; f {
-			return false
-		}
-	}
-	if scope.ServiceAccount != "" && (w.ServiceAccount != scope.ServiceAccount) {
-		return false
-	}
 	if w.Namespace != scope.Namespace {
 		return false
 	}
@@ -271,7 +254,15 @@ func (a *AmbientIndex) matchesScope(scope model.WaypointScope, w *model.Workload
 	if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 		return false
 	}
-	return true
+	if len(scope.ServiceAccount) == 0 {
+		// We are a namespace wide waypoint. SA scope take precedence.
+		// Check if there is one for this workloads service account
+		if _, f := a.waypoints[model.WaypointScope{Namespace: scope.Namespace, ServiceAccount: w.ServiceAccount}]; f {
+			return false
+		}
+		return true
+	}
+	return w.ServiceAccount == scope.ServiceAccount
 }
 
 func (c *Controller) constructService(svc *v1.Service) *model.ServiceInfo {
@@ -336,7 +327,7 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 
 func (c *Controller) setupIndex() *AmbientIndex {
 	idx := AmbientIndex{
-		byService:         map[networkAddress][]*model.WorkloadInfo{},
+		byService:         map[networkAddress]map[string]*model.WorkloadInfo{},
 		byPod:             map[networkAddress]*model.WorkloadInfo{},
 		byUID:             map[string]*model.WorkloadInfo{},
 		waypoints:         map[model.WaypointScope]*workloadapi.GatewayAddress{},
@@ -569,7 +560,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		}
 	}
 	pods := c.getPodsInService(svc)
-	var wls []*model.WorkloadInfo
+	wls := make(map[string]*model.WorkloadInfo, len(pods))
 	for _, p := range pods {
 		// Can be nil if it's not ready, hostNetwork, etc
 		wl := c.extractWorkload(p)
@@ -578,8 +569,8 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 			for _, networkAddr := range networkAddressFromWorkload(wl) {
 				a.byPod[networkAddr] = wl
 			}
-			a.byUID[c.generatePodUID(p)] = wl
-			wls = append(wls, wl)
+			a.byUID[wl.Uid] = wl
+			wls[wl.Uid] = wl
 		}
 
 	}
