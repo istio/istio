@@ -97,23 +97,17 @@ func vsHostMatches(vsHost string, importedHost host.Name, vs config.Config) bool
 }
 
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
-	// for internal generated Gateway API virtual services, we don't need to resolve shortnames for hosts
-	skipTopLevelResolution := UseGatewaySemantics(config.Config{
-		Meta: meta,
-	})
+	// Kubernetes Gateway API semantics support shortnames
+	if UseGatewaySemantics(config.Config{Meta: meta}) {
+		return
+	}
 
 	// resolve top level hosts
 	for i, h := range rule.Hosts {
-		if skipTopLevelResolution {
-			continue
-		}
 		rule.Hosts[i] = string(ResolveShortnameToFQDN(h, meta))
 	}
 	// resolve gateways to bind to
 	for i, g := range rule.Gateways {
-		if skipTopLevelResolution {
-			continue
-		}
 		if g != constants.IstioMeshGateway {
 			rule.Gateways[i] = resolveGatewayName(g, meta)
 		}

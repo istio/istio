@@ -180,6 +180,18 @@ spec:
 			Options: []retry.Option{retry.Timeout(time.Minute)},
 		},
 	})
+	apps.B[0].CallOrFail(t, echo.CallOptions{
+		Port:   echo.Port{ServicePort: 80},
+		Scheme: scheme.HTTP,
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost("bar").Build(),
+		},
+		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+		Check:   check.NotOK(),
+		Retry: echo.Retry{
+			Options: []retry.Option{retry.Timeout(time.Minute)},
+		},
+	})
 }
 
 func ManagedGatewayShortNameTest(t framework.TestContext) {
@@ -215,6 +227,18 @@ spec:
 		},
 		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
 		Check:   check.OK(),
+		Retry: echo.Retry{
+			Options: []retry.Option{retry.Timeout(time.Minute)},
+		},
+	})
+	apps.B[0].CallOrFail(t, echo.CallOptions{
+		Port:   echo.Port{ServicePort: 80},
+		Scheme: scheme.HTTP,
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost("bar.example.com").Build(),
+		},
+		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+		Check:   check.NotOK(),
 		Retry: echo.Retry{
 			Options: []retry.Option{retry.Timeout(time.Minute)},
 		},
