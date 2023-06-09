@@ -57,10 +57,9 @@ spec:
     spec:
 {{- if not $gateway.runAsRoot }}
       securityContext:
-        runAsUser: 1337
-        runAsGroup: 1337
+        runAsUser: {{ .ProxyUID | default "1337" }}
+        runAsGroup: {{ .ProxyGID | default "1337" }}
         runAsNonRoot: true
-        fsGroup: 1337
 {{- end }}
       serviceAccountName: {{ $gateway.name | default "istio-egressgateway" }}-service-account
 {{- if .Values.global.priorityClassName }}
