@@ -21,6 +21,9 @@ COPY requirements.txt ./
 # install the dependencies and packages in the requirements file
 RUN pip install --no-cache-dir -r requirements.txt
 
+# old image had curl and could be used as a sample client if desired
+RUN apt-get update && apt-get install -y curl
+
 EXPOSE 5000
 
 ARG service_version
