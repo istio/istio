@@ -98,7 +98,9 @@ func vsHostMatches(vsHost string, importedHost host.Name, vs config.Config) bool
 
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
 	// for internal generated Gateway API virtual services, we don't need to resolve shortnames for hosts
-	skipTopLevelResolution := isK8SGatewayGenerated(meta)
+	skipTopLevelResolution := UseGatewaySemantics(config.Config{
+		Meta: meta,
+	})
 
 	// resolve top level hosts
 	for i, h := range rule.Hosts {
