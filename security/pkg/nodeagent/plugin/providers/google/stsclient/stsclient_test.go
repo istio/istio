@@ -16,13 +16,11 @@ package stsclient
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/security/pkg/monitoring"
-	"istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 )
 
@@ -67,24 +65,16 @@ func TestGetFederatedToken(t *testing.T) {
 	})
 
 	t.Run("retry", func(t *testing.T) {
-		monitoring.Reset()
+		mt := monitortest.New(t)
 		ms.SetGenFedTokenError(errors.New("fake error"))
 		_, err := r.ExchangeToken(mock.FakeSubjectToken)
 		if err == nil {
 			t.Fatalf("expected error %v", err)
 		}
 
-		retry.UntilSuccessOrFail(t, func() error {
-			g, err := util.GetMetricsCounterValueWithTags("num_outgoing_retries", map[string]string{
-				"request_type": monitoring.TokenExchange,
-			})
-			if err != nil {
-				return err
-			}
-			if g <= 0 {
-				return fmt.Errorf("expected retries, got %v", g)
-			}
-			return nil
-		}, retry.Timeout(time.Second*5))
+		tag := map[string]string{
+			"request_type": monitoring.TokenExchange,
+		}
+		mt.Assert("num_outgoing_retries", tag, monitortest.AtLeast(1))
 	})
 }

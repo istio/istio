@@ -15,14 +15,11 @@
 package monitoring_test
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"testing"
 
-	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/monitoring/monitortest"
@@ -243,30 +240,19 @@ func (r registerFail) Register() error {
 
 type testRecordHook struct{}
 
-func (r *testRecordHook) OnRecordInt64Measure(i *stats.Int64Measure, tags []tag.Mutator, value int64) {
-}
-
-func (r *testRecordHook) OnRecordFloat64Measure(f *stats.Float64Measure, tags []tag.Mutator, value float64) {
+func (r *testRecordHook) OnRecord(name string, tags monitoring.LabelSet, value float64) {
 	// Check if this is `events_total` metric.
-	if f.Name() != "events_total" {
+	if name != "events_total" {
 		return
 	}
 
-	// Get name tag of recorded testSume metric, and record the corresponding hookSum metric.
-	ctx, err := tag.New(context.Background(), tags...)
-	if err != nil {
+	nl := monitoring.MustCreateLabel("name")
+	// Get name tag of recorded testSum metric, and record the corresponding hookSum metric.
+	v, f := tags.Value(nl)
+	if !f {
 		return
 	}
-	tm := tag.FromContext(ctx)
-	tk, err := tag.NewKey("name")
-	if err != nil {
-		return
-	}
-	v, found := tm.Value(tk)
-	if !found {
-		return
-	}
-	hookSum.With(name.Value(v)).Record(value)
+	hookSum.With(nl.Value(v)).Record(value)
 }
 
 func BenchmarkCounter(b *testing.B) {

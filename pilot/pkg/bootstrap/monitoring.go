@@ -20,10 +20,6 @@ import (
 	"net/http"
 	"time"
 
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
-	"github.com/prometheus/client_golang/prometheus"
-	"go.opencensus.io/stats/view"
-
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/version"
@@ -66,11 +62,10 @@ func init() {
 }
 
 func addMonitor(mux *http.ServeMux) error {
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
+	exporter, err := monitoring.RegisterPrometheusExporter(nil, nil)
 	if err != nil {
 		return fmt.Errorf("could not set up prometheus exporter: %v", err)
 	}
-	view.RegisterExporter(exporter)
 	mux.Handle(metricsPath, exporter)
 
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {

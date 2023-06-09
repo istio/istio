@@ -54,10 +54,9 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/retry"
-	sutil "istio.io/istio/security/pkg/nodeagent/util"
 )
 
 const yamlSeparator = "\n---"
@@ -1040,6 +1039,7 @@ func TestRunAndServe(t *testing.T) {
 }
 
 func testSideCarInjectorMetrics(t *testing.T) {
+	mt := monitortest.New(t)
 	expected := []string{
 		"sidecar_injection_requests_total",
 		"sidecar_injection_success_total",
@@ -1047,16 +1047,7 @@ func testSideCarInjectorMetrics(t *testing.T) {
 		"sidecar_injection_failure_total",
 	}
 	for _, e := range expected {
-		retry.UntilSuccessOrFail(t, func() error {
-			got, err := sutil.GetMetricsCounterValueWithTags(e, nil)
-			if err != nil {
-				return err
-			}
-			if got <= 0 {
-				return fmt.Errorf("metric empty")
-			}
-			return nil
-		})
+		mt.Assert(e, nil, monitortest.AtLeast(1))
 	}
 }
 

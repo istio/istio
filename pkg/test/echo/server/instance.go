@@ -25,14 +25,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/hashicorp/go-multierror"
-	"github.com/prometheus/client_golang/prometheus"
-	"go.opencensus.io/stats/view"
 
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
 )
@@ -272,12 +270,11 @@ func (s *Instance) validate() error {
 func (s *Instance) startMetricsServer() {
 	mux := http.NewServeMux()
 
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
+	exporter, err := monitoring.RegisterPrometheusExporter(nil, nil)
 	if err != nil {
 		log.Errorf("could not set up prometheus exporter: %v", err)
 		return
 	}
-	view.RegisterExporter(exporter)
 	mux.Handle("/metrics", LogRequests(exporter))
 	s.metricsServer = &http.Server{
 		Handler: mux,
