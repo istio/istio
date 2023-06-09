@@ -318,9 +318,9 @@ func ValidateTrustDomain(domain string) error {
 		if i == len(parts)-1 && label == "" {
 			return nil
 		}
-		if !labels.IsDNS1123Label(label) {
-			return fmt.Errorf("trust domain name %q invalid", domain)
-		}
+		//if !labels.IsDNS1123Label(label) {
+		//	return fmt.Errorf("trust domain name %q invalid", domain)
+		//}
 	}
 	return nil
 }

@@ -66,7 +66,16 @@ func ParseIdentity(s string) (Identity, error) {
 	if !strings.HasPrefix(s, URIPrefix) {
 		return Identity{}, fmt.Errorf("identity is not a spiffe format")
 	}
-	split := strings.Split(s[URIPrefixLen:], "/")
+
+	//given that we know kubernetes identities are spiffe://<trustDomain>/ns/*/sa/* we can actually look for the /ns/ first and assume anything before it is the trust domain
+	nsSegment := fmt.Sprintf("/%v/", NamespaceSegment)
+	i := strings.Index(s, nsSegment)
+	if i == -1 {
+		return Identity{}, fmt.Errorf("no namespace segment found")
+	}
+	trustDomain = s[URIPrefixLen:i]
+
+	split := strings.Split(s[i:], "/")
 	if len(split) != 5 {
 		return Identity{}, fmt.Errorf("identity is not a spiffe format")
 	}
@@ -74,7 +83,7 @@ func ParseIdentity(s string) (Identity, error) {
 		return Identity{}, fmt.Errorf("identity is not a spiffe format")
 	}
 	return Identity{
-		TrustDomain:    split[0],
+		TrustDomain:    trustDomain,
 		Namespace:      split[2],
 		ServiceAccount: split[4],
 	}, nil
