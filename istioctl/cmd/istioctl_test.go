@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
 )
@@ -72,8 +73,8 @@ func TestBadParse(t *testing.T) {
 }
 
 // mockClientFactoryGenerator creates a factory for model.ConfigStore preloaded with data
-func mockClientFactoryGenerator(setupFn ...func(c istioclient.Interface)) func() (istioclient.Interface, error) {
-	outFactory := func() (istioclient.Interface, error) {
+func mockClientFactoryGenerator(setupFn ...func(c istioclient.Interface)) func(_ *cli.Context) (istioclient.Interface, error) {
+	outFactory := func(_ *cli.Context) (istioclient.Interface, error) {
 		c := kube.NewFakeClient().Istio()
 		for _, f := range setupFn {
 			f(c)

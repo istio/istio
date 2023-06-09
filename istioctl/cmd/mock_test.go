@@ -24,6 +24,7 @@ import (
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	"k8s.io/kubectl/pkg/cmd/util"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -76,7 +77,7 @@ func (c MockClient) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, 
 }
 
 func init() {
-	MakeKubeFactory = func(k kube.CLIClient) util.Factory {
+	cli.MakeKubeFactory = func(k kube.CLIClient) util.Factory {
 		tf := cmdtesting.NewTestFactory()
 		_, _, codec := cmdtesting.NewExternalScheme()
 		tf.UnstructuredClient = &fake.RESTClient{

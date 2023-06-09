@@ -38,7 +38,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/kubectl/pkg/polymorphichelpers"
 	"k8s.io/kubectl/pkg/util/podutils"
@@ -46,6 +45,7 @@ import (
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/tag"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -233,16 +233,8 @@ func GetFirstPod(client v1.CoreV1Interface, namespace string, selector string) (
 	return nil, fmt.Errorf("no pods matching selector %q found in namespace %q", selector, namespace)
 }
 
-func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	restConfig, err := kube.BuildClientConfig(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-	return kubernetes.NewForConfig(restConfig)
-}
-
-func getMeshConfigFromConfigMap(kubeconfig, command, revision string) (*meshconfig.MeshConfig, error) {
-	client, err := createInterface(kubeconfig)
+func getMeshConfigFromConfigMap(cliContext *cli.Context, command, revision string) (*meshconfig.MeshConfig, error) {
+	client, err := kubeClientWithRevision(cliContext, "")
 	if err != nil {
 		return nil, err
 	}
@@ -250,11 +242,11 @@ func getMeshConfigFromConfigMap(kubeconfig, command, revision string) (*meshconf
 	if meshConfigMapName == defaultMeshConfigMapName && revision != "" {
 		meshConfigMapName = fmt.Sprintf("%s-%s", defaultMeshConfigMapName, revision)
 	}
-	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(cliContext.IstioNamespace()).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not read valid configmap %q from namespace %q: %v - "+
 			"Use --meshConfigFile or re-run "+command+" with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
-			meshConfigMapName, istioNamespace, err)
+			meshConfigMapName, cliContext.IstioNamespace(), err)
 	}
 	// values in the data are strings, while proto might use a
 	// different data type.  therefore, we have to get a value by a
@@ -272,8 +264,8 @@ func getMeshConfigFromConfigMap(kubeconfig, command, revision string) (*meshconf
 }
 
 // grabs the raw values from the ConfigMap. These are encoded as JSON.
-func getValuesFromConfigMap(kubeconfig, revision string) (string, error) {
-	client, err := createInterface(kubeconfig)
+func getValuesFromConfigMap(cliContext *cli.Context, revision string) (string, error) {
+	client, err := kubeClientWithRevision(cliContext, "")
 	if err != nil {
 		return "", err
 	}
@@ -281,11 +273,11 @@ func getValuesFromConfigMap(kubeconfig, revision string) (string, error) {
 	if revision != "" {
 		injectConfigMapName = fmt.Sprintf("%s-%s", defaultInjectConfigMapName, revision)
 	}
-	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(cliContext.IstioNamespace()).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
 			"Use --valuesFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-sidecar-injector configmap exists",
-			injectConfigMapName, istioNamespace, err)
+			injectConfigMapName, cliContext.IstioNamespace(), err)
 	}
 
 	valuesData, exists := meshConfigMap.Data[valuesConfigMapKey]
@@ -311,8 +303,8 @@ func readInjectConfigFile(f []byte) (inject.RawTemplates, error) {
 	return cfg.RawTemplates, err
 }
 
-func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTemplates, error) {
-	client, err := createInterface(kubeconfig)
+func getInjectConfigFromConfigMap(cliContext *cli.Context, revision string) (inject.RawTemplates, error) {
+	client, err := kubeClientWithRevision(cliContext, "")
 	if err != nil {
 		return nil, err
 	}
@@ -320,11 +312,11 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTempla
 	if injectConfigMapName == defaultInjectConfigMapName && revision != "" {
 		injectConfigMapName = fmt.Sprintf("%s-%s", defaultInjectConfigMapName, revision)
 	}
-	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(cliContext.IstioNamespace()).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
 			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace>` and ensure istio-sidecar-injector configmap exists",
-			injectConfigMapName, istioNamespace, err)
+			injectConfigMapName, cliContext.IstioNamespace(), err)
 	}
 	// values in the data are strings, while proto might use a
 	// different data type.  therefore, we have to get a value by a
@@ -343,9 +335,9 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTempla
 	return injectConfig.RawTemplates, nil
 }
 
-func setUpExternalInjector(kubeconfig, revision, injectorAddress string) (*ExternalInjector, error) {
+func setUpExternalInjector(cliContext *cli.Context, revision, injectorAddress string) (*ExternalInjector, error) {
 	e := &ExternalInjector{}
-	client, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+	client, err := newKubeClientWithRevision(cliContext, "")
 	if err != nil {
 		return e, err
 	}
@@ -380,7 +372,7 @@ func validateFlags() error {
 	return err
 }
 
-func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string,
+func setupKubeInjectParameters(cliContext *cli.Context, sidecarTemplate *inject.RawTemplates, valuesConfig *string,
 	revision, injectorAddress string,
 ) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
@@ -395,7 +387,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 				return nil, nil, err
 			}
 		} else {
-			if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject", revision); err != nil {
+			if meshConfig, err = getMeshConfigFromConfigMap(cliContext, "kube-inject", revision); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -413,11 +405,11 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 		}
 		*sidecarTemplate = injectConfig
 	} else {
-		injector, err = setUpExternalInjector(kubeconfig, revision, injectorAddress)
+		injector, err = setUpExternalInjector(cliContext, revision, injectorAddress)
 		if err != nil || injector.clientConfig == nil {
 			log.Warnf("failed to get injection config from mutatingWebhookConfigurations %q, will fall back to "+
 				"get injection from the injection configmap %q : %v", whcName, defaultInjectWebhookConfigName, err)
-			if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision); err != nil {
+			if *sidecarTemplate, err = getInjectConfigFromConfigMap(cliContext, revision); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -434,7 +426,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfi
 				return nil, nil, err
 			}
 			*valuesConfig = string(valuesConfigBytes)
-		} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
+		} else if *valuesConfig, err = getValuesFromConfigMap(cliContext, revision); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -502,7 +494,7 @@ const (
 	defaultWebhookName             = "sidecar-injector.istio.io"
 )
 
-func injectCommand() *cobra.Command {
+func injectCommand(cliContext *cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 
@@ -597,7 +589,7 @@ It's best to do kube-inject when the resource is initially created.
 			if index != -1 {
 				injectorAddress = injectorAddress[:index]
 			}
-			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, rev, injectorAddress)
+			injector, meshConfig, err := setupKubeInjectParameters(cliContext, &sidecarTemplate, &valuesConfig, rev, injectorAddress)
 			if err != nil {
 				return err
 			}

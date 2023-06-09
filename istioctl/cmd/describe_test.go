@@ -28,15 +28,15 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 
 	apiannotation "istio.io/api/annotation"
 	v1alpha32 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -398,7 +398,7 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	if c.configDumps == nil {
 		c.configDumps = map[string][]byte{}
 	}
-	newCLIClient = mockClientExecFactoryGenerator(c.configDumps)
+	kubeClientWithRevision = mockClientExecFactoryGenerator(c.configDumps)
 
 	// Override the K8s config factory
 	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
@@ -408,7 +408,7 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&out)
 	if c.namespace != "" {
-		namespace = c.namespace
+		describeNamespace = c.namespace
 	}
 
 	fErr := rootCmd.Execute()
@@ -438,9 +438,9 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	}
 }
 
-func mockInterfaceFactoryGenerator(k8sConfigs []runtime.Object) func(kubeconfig string) (kubernetes.Interface, error) {
-	outFactory := func(_ string) (kubernetes.Interface, error) {
-		client := fake.NewSimpleClientset(k8sConfigs...)
+func mockInterfaceFactoryGenerator(k8sConfigs []runtime.Object) func(_ *cli.Context, rev string) (kube.CLIClient, error) {
+	outFactory := func(_ *cli.Context, _ string) (kube.CLIClient, error) {
+		client := kube.NewFakeClient(k8sConfigs...)
 		return client, nil
 	}
 

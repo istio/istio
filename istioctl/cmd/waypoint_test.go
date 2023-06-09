@@ -26,6 +26,7 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -78,10 +79,11 @@ func TestWaypointList(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			kubeClient = kube.NewFakeClient()
-			getKubeClient = func() error {
-				return nil
+			kubeClient := kube.NewFakeClient()
+			kubeClientWithRevision = func(ctx *cli.Context, revision string) (kube.CLIClient, error) {
+				return kubeClient, nil
 			}
+
 			for _, gw := range tt.gateways {
 				_, _ = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).Create(context.Background(), gw, metav1.CreateOptions{})
 			}

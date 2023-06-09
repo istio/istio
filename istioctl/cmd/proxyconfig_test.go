@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
 )
@@ -41,9 +42,6 @@ func TestProxyConfig(t *testing.T) {
 		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile(t, "../pkg/writer/envoy/logging/testdata/logging.txt"),
 		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
 		"ztunnel-9v7nw":               []byte("current log level is debug"),
-	}
-	isZtunnelPod = func(podName, _ string) (bool, error) {
-		return strings.HasPrefix(podName, "ztunnel"), nil
 	}
 	cases := []execTestCase{
 		{
@@ -195,7 +193,6 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 
 	// Override the exec client factory used by proxyconfig.go and proxystatus.go
 	kubeClientWithRevision = mockClientExecFactoryGenerator(c.execClientConfig)
-	getKubeClient = mockEnvoyClientFactoryGenerator(c.execClientConfig)
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
@@ -232,24 +229,12 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 // mockClientExecFactoryGenerator generates a function with the same signature as
 // kubernetes.NewExecClient() that returns a mock client.
 // nolint: lll
-func mockClientExecFactoryGenerator(testResults map[string][]byte) func(_ string) (kube.CLIClient, error) {
-	outFactory := func(_ string) (kube.CLIClient, error) {
+func mockClientExecFactoryGenerator(testResults map[string][]byte) func(_ *cli.Context, _ string) (kube.CLIClient, error) {
+	outFactory := func(_ *cli.Context, _ string) (kube.CLIClient, error) {
 		return MockClient{
 			CLIClient: kube.NewFakeClient(),
 			Results:   testResults,
 		}, nil
-	}
-
-	return outFactory
-}
-
-func mockEnvoyClientFactoryGenerator(testResults map[string][]byte) func() error {
-	outFactory := func() error {
-		kubeClient = MockClient{
-			CLIClient: kube.NewFakeClient(),
-			Results:   testResults,
-		}
-		return nil
 	}
 
 	return outFactory
