@@ -318,9 +318,22 @@ func ValidateTrustDomain(domain string) error {
 		if i == len(parts)-1 && label == "" {
 			return nil
 		}
-		//if !labels.IsDNS1123Label(label) {
-		//	return fmt.Errorf("trust domain name %q invalid", domain)
-		//}
+
+		if strings.Contains(label, "/") {
+			split := strings.Split(label, "/")
+			for _, l := range split {
+				if !labels.IsDNS1123Label(l) {
+					return fmt.Errorf("trust domain name %q invalid", domain)
+				}
+				if strings.Contains(l, "/ns/") || strings.Contains(l, "/sa/") {
+					return fmt.Errorf("trust domain name %q invalid", domain)
+				}
+			}
+		} else {
+			if !labels.IsDNS1123Label(label) {
+				return fmt.Errorf("trust domain name %q invalid", domain)
+			}
+		}
 	}
 	return nil
 }

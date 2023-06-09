@@ -144,7 +144,9 @@ func TestValidateTrustDomain(t *testing.T) {
 		{"middle dash", "f-oo.bar.com", ""},
 		{"trailing dot", "foo.bar.com.", ""},
 		{"prefix dash", "-foo.bar.com", "invalid"},
-		{"forward slash separated", "foo/bar/com", "invalid"},
+		{"forward slash separated", "foo/bar/com", ""},
+		{"forward slash separated ns", "foo/ns/com", ""},
+		{"forward slash separated sa", "foo/sa/com", ""},
 		{"colon separated", "foo:bar:com", "invalid"},
 	}
 	for _, tt := range tests {
