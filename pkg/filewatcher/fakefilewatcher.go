@@ -116,6 +116,7 @@ func (w *FakeWatcher) Remove(path string) error {
 // Close is a fake implementation of the FileWatcher interface.
 func (w *FakeWatcher) Close() error {
 	w.Lock()
+	defer w.Unlock()
 	for path, ch := range w.events {
 		close(ch)
 		delete(w.events, path)
@@ -124,7 +125,6 @@ func (w *FakeWatcher) Close() error {
 		close(ch)
 		delete(w.errors, path)
 	}
-	defer w.Unlock()
 	return nil
 }
 

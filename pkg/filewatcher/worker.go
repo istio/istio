@@ -169,13 +169,13 @@ func (wk *worker) drainRetiringTrackers() {
 // used only by the worker goroutine
 func (wk *worker) getTrackers() map[string]*fileTracker {
 	wk.mu.RLock()
+	defer wk.mu.RUnlock()
 
 	result := make(map[string]*fileTracker, len(wk.watchedFiles))
 	for k, v := range wk.watchedFiles {
 		result[k] = v
 	}
 
-	wk.mu.RUnlock()
 	return result
 }
 
@@ -193,10 +193,10 @@ func (wk *worker) terminate() {
 
 func (wk *worker) addPath(path string) error {
 	wk.mu.Lock()
+	defer wk.mu.Unlock()
 
 	ft := wk.watchedFiles[path]
 	if ft != nil {
-		wk.mu.Unlock()
 		return fmt.Errorf("path %s is already being watched", path)
 	}
 
@@ -207,22 +207,20 @@ func (wk *worker) addPath(path string) error {
 	}
 
 	wk.watchedFiles[path] = ft
-	wk.mu.Unlock()
 
 	return nil
 }
 
 func (wk *worker) removePath(path string) error {
 	wk.mu.Lock()
+	defer wk.mu.Unlock()
 
 	ft := wk.watchedFiles[path]
 	if ft == nil {
-		wk.mu.Unlock()
 		return fmt.Errorf("path %s not found", path)
 	}
 
 	delete(wk.watchedFiles, path)
-	wk.mu.Unlock()
 
 	wk.retireTrackerCh <- ft
 	return nil

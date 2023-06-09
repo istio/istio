@@ -52,6 +52,7 @@ func NewUnbounded[T any]() *Unbounded[T] {
 // Put will never block
 func (b *Unbounded[T]) Put(t T) {
 	b.mu.Lock()
+	defer b.mu.Unlock()
 	if len(b.backlog) == 0 {
 		select {
 		case b.c <- t:
@@ -61,7 +62,6 @@ func (b *Unbounded[T]) Put(t T) {
 		}
 	}
 	b.backlog = append(b.backlog, t)
-	b.mu.Unlock()
 }
 
 // Load sends the earliest buffered data, if any, onto the read channel
@@ -69,6 +69,7 @@ func (b *Unbounded[T]) Put(t T) {
 // value from the read channel.
 func (b *Unbounded[T]) Load() {
 	b.mu.Lock()
+	defer b.mu.Unlock()
 	if len(b.backlog) > 0 {
 		n := new(T)
 		select {
@@ -78,7 +79,6 @@ func (b *Unbounded[T]) Load() {
 		default:
 		}
 	}
-	b.mu.Unlock()
 }
 
 // Get returns a read channel on which values added to the buffer, via Put(),

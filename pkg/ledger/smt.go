@@ -430,10 +430,10 @@ func (s *smt) deleteOldNode(root []byte) {
 		// dont delete old nodes with atomic updated except when
 		// moving up a shortcut, we dont record every single move
 		s.db.updatedMux.Lock()
+		defer s.db.updatedMux.Unlock()
 		// mark for expiration?
 		if val, ok := s.db.updatedNodes.Get(node); ok {
 			s.db.updatedNodes.SetWithExpiration(node, val, s.retentionDuration)
 		}
-		s.db.updatedMux.Unlock()
 	}
 }
