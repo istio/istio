@@ -512,6 +512,13 @@ func applyHTTPRouteDestination(
 				},
 				Substitution: fullURI,
 			}
+		} else if regexRewrite := in.Rewrite.GetUriRegexRewrite(); regexRewrite != nil {
+			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
+				Pattern: &matcher.RegexMatcher{
+					Regex: regexRewrite.Match,
+				},
+				Substitution: regexRewrite.Rewrite,
+			}
 		} else {
 			action.PrefixRewrite = uri
 		}
