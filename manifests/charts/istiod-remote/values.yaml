@@ -32,6 +32,7 @@ pilot:
   nodeSelector: {}
   podAnnotations: {}
   serviceAnnotations: {}
+  topologySpreadConstraints: []
   # You can use jwksResolverExtraRootCA to provide a root certificate
   # in PEM format. This will then be trusted by pilot when resolving
   # JWKS URIs.
