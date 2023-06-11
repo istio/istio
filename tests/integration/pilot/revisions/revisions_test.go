@@ -57,6 +57,10 @@ revision: canary
 components:
   pilot:
     enabled: true
+values:
+  pilot:
+    env:
+      PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS: false
 `
 		})).
 		Run()

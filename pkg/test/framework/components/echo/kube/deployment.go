@@ -399,11 +399,16 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		}
 
 		vmIstioHost, vmIstioIP = getVMOverrideForIstiodDNS(ctx, cfg)
+		var ipv6 bool
+		if strings.Contains(vmIstioIP, ":") {
+			ipv6 = true
+		}
 
 		params["VM"] = map[string]any{
 			"Image":     vmImage,
 			"IstioHost": vmIstioHost,
 			"IstioIP":   vmIstioIP,
+			"IPv6":      ipv6,
 		}
 	}
 

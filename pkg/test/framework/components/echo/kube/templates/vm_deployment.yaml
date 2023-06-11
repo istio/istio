@@ -31,7 +31,11 @@ spec:
       dnsPolicy: None
       dnsConfig:
         nameservers:
+{{- if $.VM.IPv6 }}
+        - "2001:4860:4860::8888"
+{{- else }}
         - "8.8.8.8"
+{{- end }}
         options:
         - name: "ndots"
           value: "1"
@@ -184,6 +188,13 @@ spec:
           name: custom-bootstrap-volume
         {{- end }}
         {{- end }}
+        startupProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 3
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz
         image: {{ $.ImageHub }}/ext-authz:{{ $.ImageTag }}
