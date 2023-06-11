@@ -3171,8 +3171,14 @@ func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) (
 }
 
 func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
-	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
-		return errors.New("rewrite must specify URI, authority, or both")
+	if rewrite == nil {
+		return nil
+	}
+	if rewrite.Uri != "" && rewrite.UriRegexRewrite != nil {
+		return errors.New("rewrite may only contain one of URI or uriRegexRewrite")
+	}
+	if rewrite.Uri == "" && rewrite.UriRegexRewrite == nil && rewrite.Authority == "" {
+		return errors.New("rewrite must specify at least one of URI, uriRegexRewrite, or authority. Only one of URI or uriRegexRewrite may be specified")
 	}
 	return nil
 }
