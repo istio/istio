@@ -3197,6 +3197,9 @@ func validateUriRegexRewrite(regexRewrite *networking.RegexRewrite) error {
 		return errors.New("UriRegexRewrite requires both Rewrite and Match fields to be specified")
 	}
 	var err error
+	// In the validation context we cannot directly run the Match and Rewrite strings through regexp.Compile() because
+	// they are still strings at this point. We need to verify that they would be valid RE2 regex after they are written
+	// to Envoy route, hence escape the backslashes
 	err = errors.Join(err, validateStringRegexp(strings.ReplaceAll(regexRewrite.Match, "\\", "\\\\"), "HTTPRewrite.UriRegexRewrite.Match"))
 	err = errors.Join(err, validateStringRegexp(strings.ReplaceAll(regexRewrite.Rewrite, "\\", "\\\\"), "HTTPRewrite.UriRegexRewrite.Rewrite"))
 	return err
