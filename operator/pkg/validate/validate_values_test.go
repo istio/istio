@@ -75,6 +75,7 @@ global:
 cni:
   cniBinDir: "/var/lib/cni/bin"
   cniConfDir: "/var/run/multus/cni/net.d"
+  cniAmbientConfigDir: "/etc/ambient-config"
 `,
 		},
 

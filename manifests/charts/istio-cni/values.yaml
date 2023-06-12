@@ -19,6 +19,7 @@ cni:
   # defaults:
   cniBinDir: "" # Auto-detected based on version; defaults to /opt/cni/bin.
   cniConfDir: /etc/cni/net.d
+  cniAmbientConfigDir: "" # defaults to /etc/ambient-config
   cniConfFileName: ""
 
   excludeNamespaces:
