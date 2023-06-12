@@ -115,6 +115,7 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 				}
 			}
 		}
+		return res
 	}
 
 	networkAddr := networkAddress{network: network, ip: ip}
