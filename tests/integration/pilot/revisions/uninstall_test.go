@@ -59,6 +59,13 @@ func TestUninstallByRevision(t *testing.T) {
 		NewTest(t).
 		Features("installation.istioctl.uninstall_revision").
 		Run(func(t framework.TestContext) {
+			// Revision is deleted by IOP CR. Missing resources won't affect the test.
+			cluster := t.Clusters().Default().Kube()
+			revisionWh := fmt.Sprintf("istio-sidecar-injector-%s", stableRevision)
+			if err := cluster.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.TODO(),
+				revisionWh, metav1.DeleteOptions{}); err != nil {
+				return fmt.Errorf("could not delete mutating webhook config %s: %v", revisionWh, err)
+			}
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 				uninstallCmd := []string{
