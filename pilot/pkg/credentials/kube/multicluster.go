@@ -105,7 +105,8 @@ func (m *Multicluster) AddSecretHandler(h func(name string, namespace string)) {
 }
 
 type AggregateController struct {
-	// controllers to use to look up certs. Generally this will consistent of the primary (config) cluster
+	// controllers to use to look up certs and dataSources (https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/base.proto#config-core-v3-datasource).
+	// Generally this will consistent of the primary (config) cluster
 	// and a single remote cluster where the proxy resides
 	controllers    []*CredentialsController
 	authController *CredentialsController
@@ -143,6 +144,22 @@ func (a *AggregateController) GetCaCert(name, namespace string) (certInfo *crede
 		}
 	}
 	return nil, firstError
+}
+
+func (a *AggregateController) GetDataSourceKeyAndValue(name, namespace string) (key []byte, value []byte, err error) {
+	// Search through all clusters, find first non-empty result
+	var firstError error
+	for _, c := range a.controllers {
+		k, c, err := c.GetDataSourceKeyAndValue(name, namespace)
+		if err != nil {
+			if firstError == nil {
+				firstError = err
+			}
+		} else {
+			return k, c, nil
+		}
+	}
+	return nil, nil, firstError
 }
 
 func (a *AggregateController) Authorize(serviceAccount, namespace string) error {

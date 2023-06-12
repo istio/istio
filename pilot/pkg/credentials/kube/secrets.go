@@ -57,6 +57,15 @@ const (
 	TLSSecretCaCert = "ca.crt"
 	// The ID/name for the CRL in kubernetes tls secret.
 	TLSSecretCrl = "ca.crl"
+
+	// The ID/name for filename in kubernetes generic secret.
+	DataSourceFileName = "filename"
+	// The ID/name for inline_bytes in kubernetes generic secret.
+	DataSourceInlineBytes = "inline_bytes"
+	// The ID/name for inline_string in generic secret.
+	DataSourceInlineString = "inline_string"
+	// The ID/name for environment_variable in generic secret.
+	DataSourceEnvironmentVariable = "environment_variable"
 )
 
 type CredentialsController struct {
@@ -193,6 +202,15 @@ func (s *CredentialsController) GetCaCert(name, namespace string) (certInfo *cre
 	return extractRoot(k8sSecret)
 }
 
+func (s *CredentialsController) GetDataSourceKeyAndValue(name, namespace string) (key []byte, value []byte, err error) {
+	k8sSecret := s.secrets.Get(name, namespace)
+	if k8sSecret == nil {
+		return nil, nil, fmt.Errorf("secret %v/%v not found", namespace, name)
+	}
+
+	return extractDataSourceKeyAndValue(k8sSecret)
+}
+
 func (s *CredentialsController) GetDockerCredential(name, namespace string) ([]byte, error) {
 	k8sSecret := s.secrets.Get(name, namespace)
 	if k8sSecret == nil {
@@ -253,6 +271,37 @@ func ExtractCertInfo(scrt *v1.Secret) (certInfo *credentials.CertInfo, err error
 	found := truncatedKeysMessage(scrt.Data)
 	return nil, fmt.Errorf("found secret, but didn't have expected keys (%s and %s) or (%s and %s); found: %s",
 		GenericScrtCert, GenericScrtKey, TLSSecretCert, TLSSecretKey, found)
+}
+
+func extractDataSourceKeyAndValue(scrt *v1.Secret) (key, value []byte, err error) {
+	if hasValue(scrt.Data, DataSourceFileName) {
+		return []byte(DataSourceFileName), scrt.Data[DataSourceFileName], nil
+	}
+	if hasValue(scrt.Data, DataSourceInlineBytes) {
+		return []byte(DataSourceInlineBytes), scrt.Data[DataSourceInlineBytes], nil
+	}
+	if hasValue(scrt.Data, DataSourceInlineString) {
+		return []byte(DataSourceInlineString), scrt.Data[DataSourceInlineString], nil
+	}
+	if hasValue(scrt.Data, DataSourceEnvironmentVariable) {
+		return []byte(DataSourceEnvironmentVariable), scrt.Data[DataSourceEnvironmentVariable], nil
+	}
+	// No value found. Try to generate corresponding helpful error message
+	if hasKeys(scrt.Data, DataSourceFileName) {
+		return nil, nil, fmt.Errorf("found key %q but it was empty", DataSourceFileName)
+	}
+	if hasKeys(scrt.Data, DataSourceInlineBytes) {
+		return nil, nil, fmt.Errorf("found key %q but it was empty", DataSourceInlineBytes)
+	}
+	if hasKeys(scrt.Data, DataSourceInlineString) {
+		return nil, nil, fmt.Errorf("found key %q but it was empty", DataSourceInlineString)
+	}
+	if hasKeys(scrt.Data, DataSourceEnvironmentVariable) {
+		return nil, nil, fmt.Errorf("found key %q but it was empty", DataSourceEnvironmentVariable)
+	}
+	found := truncatedKeysMessage(scrt.Data)
+	return nil, nil, fmt.Errorf("found secret, but didn't have expected key (%s) or (%s) or (%s) or (%s); found: %s",
+		DataSourceFileName, DataSourceInlineBytes, DataSourceInlineString, DataSourceEnvironmentVariable, found)
 }
 
 func truncatedKeysMessage(data map[string][]byte) string {

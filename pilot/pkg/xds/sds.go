@@ -33,6 +33,7 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
+	secrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -197,6 +198,18 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
 		return res
 	}
+
+	res := s.mayBeGetEnvoyTlsCertificate(secretController, sr, proxy)
+	if res == nil {
+		res = s.mayBeGetEnvoyGenericSecret(secretController, sr, proxy)
+	}
+	if res == nil {
+		log.Debugf("no secret found for %s", sr.ResourceName)
+	}
+	return res
+}
+
+func (s *SecretGen) mayBeGetEnvoyTlsCertificate(secretController credscontroller.Controller, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
 	certInfo, err := secretController.GetCertInfo(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
@@ -209,8 +222,17 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 	}
-	res := toEnvoyTLSSecret(sr.ResourceName, certInfo, proxy, s.meshConfig)
-	return res
+	return toEnvoyTLSSecret(sr.ResourceName, certInfo, proxy, s.meshConfig)
+}
+
+func (s *SecretGen) mayBeGetEnvoyGenericSecret(secretController credscontroller.Controller, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
+	key, value, err := secretController.GetDataSourceKeyAndValue(sr.Name, sr.Namespace)
+	if err != nil {
+		pilotSDSCertificateErrors.Increment()
+		log.Warnf("mayBeGetEnvoyGenericSecret failed to fetch data source key and value for %s: %v", sr.ResourceName, err)
+		return nil
+	}
+	return toEnvoyGenericSecret(sr.ResourceName, key, value, proxy, s.meshConfig)
 }
 
 func ValidateCertificate(data []byte) error {
@@ -432,6 +454,70 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 				TlsCertificate: tlsCertificate,
 			},
 		})
+	}
+	return &discovery.Resource{
+		Name:     name,
+		Resource: res,
+	}
+}
+
+func toEnvoyGenericSecret(name string, key, value []byte, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
+	var res *anypb.Any
+	switch string(key) {
+	case secrets.DataSourceFileName:
+		res = protoconv.MessageToAny(&envoytls.Secret{
+			Name: name,
+			Type: &envoytls.Secret_GenericSecret{
+				GenericSecret: &envoytls.GenericSecret{
+					Secret: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: string(value),
+						},
+					},
+				},
+			},
+		})
+	case secrets.DataSourceInlineBytes:
+		res = protoconv.MessageToAny(&envoytls.Secret{
+			Name: name,
+			Type: &envoytls.Secret_GenericSecret{
+				GenericSecret: &envoytls.GenericSecret{
+					Secret: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: value,
+						},
+					},
+				},
+			},
+		})
+	case secrets.DataSourceInlineString:
+		res = protoconv.MessageToAny(&envoytls.Secret{
+			Name: name,
+			Type: &envoytls.Secret_GenericSecret{
+				GenericSecret: &envoytls.GenericSecret{
+					Secret: &core.DataSource{
+						Specifier: &core.DataSource_InlineString{
+							InlineString: string(value),
+						},
+					},
+				},
+			},
+		})
+	case secrets.DataSourceEnvironmentVariable:
+		res = protoconv.MessageToAny(&envoytls.Secret{
+			Name: name,
+			Type: &envoytls.Secret_GenericSecret{
+				GenericSecret: &envoytls.GenericSecret{
+					Secret: &core.DataSource{
+						Specifier: &core.DataSource_EnvironmentVariable{
+							EnvironmentVariable: string(value),
+						},
+					},
+				},
+			},
+		})
+	default:
+		log.Warnf("Unsupported generic secret key: %s", key)
 	}
 	return &discovery.Resource{
 		Name:     name,
