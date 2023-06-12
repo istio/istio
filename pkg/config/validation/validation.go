@@ -3180,6 +3180,9 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	if rewrite.Uri == "" && rewrite.UriRegexRewrite == nil && rewrite.Authority == "" {
 		return errors.New("rewrite must specify at least one of URI, UriRegexRewrite, or authority. Only one of URI or UriRegexRewrite may be specified")
 	}
+	if rewrite.UriRegexRewrite != nil && (rewrite.UriRegexRewrite.Rewrite == "" || rewrite.UriRegexRewrite.Match == "") {
+		return errors.New("UriRegexRewrite requires both Rewrite and Match fields to be specified")
+	}
 	return nil
 }
 

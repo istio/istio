@@ -2089,6 +2089,24 @@ func TestValidateHTTPRewrite(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "uriRegexRewrite missing match",
+			in: &networking.HTTPRewrite{
+				UriRegexRewrite: &networking.RegexRewrite{
+					Rewrite: "\\2/instance/\\1",
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "uriRegexRewrite missing rewrite",
+			in: &networking.HTTPRewrite{
+				UriRegexRewrite: &networking.RegexRewrite{
+					Match: "^/service/([^/]+)(/.*)$",
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "uriRegexRewrite and authority",
 			in: &networking.HTTPRewrite{
 				Authority: "foobar.org",
