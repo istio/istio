@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/version"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -578,6 +580,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		return nil, err
 	}
 
+	meta = SetIstioVersion(meta)
+
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
 
@@ -663,6 +667,13 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		RawMetadata: untypedMeta,
 		Locality:    l,
 	}, nil
+}
+
+func SetIstioVersion(meta *model.BootstrapNodeMetadata) *model.BootstrapNodeMetadata {
+	if meta.IstioVersion == "" {
+		meta.IstioVersion = version.Info.Version
+	}
+	return meta
 }
 
 // ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.
