@@ -2083,7 +2083,7 @@ func TestValidateHTTPRewrite(t *testing.T) {
 			in: &networking.HTTPRewrite{
 				UriRegexRewrite: &networking.RegexRewrite{
 					Match:   "^/service/([^/]+)(/.*)$",
-					Rewrite: "\\2/instance/\\1",
+					Rewrite: `\2/instance/\1`,
 				},
 			},
 			valid: true,
@@ -2094,7 +2094,7 @@ func TestValidateHTTPRewrite(t *testing.T) {
 				Authority: "foobar.org",
 				UriRegexRewrite: &networking.RegexRewrite{
 					Match:   "^/service/([^/]+)(/.*)$",
-					Rewrite: "\\2/instance/\\1",
+					Rewrite: `\2/instance/\1`,
 				},
 			},
 			valid: true,
@@ -2105,7 +2105,7 @@ func TestValidateHTTPRewrite(t *testing.T) {
 				Uri: "/path/to/resource",
 				UriRegexRewrite: &networking.RegexRewrite{
 					Match:   "^/service/([^/]+)(/.*)$",
-					Rewrite: "\\2/instance/\\1",
+					Rewrite: `\2/instance/\1`,
 				},
 			},
 			valid: false,
@@ -2142,14 +2142,14 @@ func TestValidateUriRegexRewrite(t *testing.T) {
 			name: "uriRegexRewrite happy path",
 			in: &networking.RegexRewrite{
 				Match:   "^/service/([^/]+)(/.*)$",
-				Rewrite: "\\2/instance/\\1",
+				Rewrite: `\2/instance/\1`,
 			},
 			valid: true,
 		},
 		{
 			name: "uriRegexRewrite missing match",
 			in: &networking.RegexRewrite{
-				Rewrite: "\\2/instance/\\1",
+				Rewrite: `\2/instance/\1`,
 			},
 			valid: false,
 		},
