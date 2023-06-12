@@ -137,7 +137,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	}
 
 	// Check the signing cert stored in K8s secret.
-	caSecret, err := client.CoreV1().Secrets("default").Get(context.TODO(), ExternalCASecret, metav1.GetOptions{})
+	caSecret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get secret (error: %s)", err)
 	}
@@ -233,7 +233,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	}
 
 	// Using existing CASecret.
-	secret, err := client.CoreV1().Secrets("default").Get(context.TODO(), ExternalCASecret, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Got unexpected error %v", err)
 	}
@@ -313,7 +313,7 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	caSecret, err := client.CoreV1().Secrets(caNamespace).Get(context.TODO(), ExternalCASecret, metav1.GetOptions{})
+	caSecret, err := client.CoreV1().Secrets(caNamespace).Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("failed getting ca secret %v", err)
 	}

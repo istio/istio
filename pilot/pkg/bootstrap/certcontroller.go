@@ -136,6 +136,7 @@ func (s *Server) initDNSCerts() error {
 				return nil
 			})
 		} else if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
+			// TODO(jaellio): Modify to read secret data from file.
 			log.Infof("Found cert at %v, but is istio-generated; self-signed cert is used", fileBundle.SigningKeyFile)
 			caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
 			s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
