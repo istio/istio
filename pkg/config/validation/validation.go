@@ -3175,10 +3175,10 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 		return nil
 	}
 	if rewrite.Uri != "" && rewrite.UriRegexRewrite != nil {
-		return errors.New("rewrite may only contain one of URI or uriRegexRewrite")
+		return errors.New("rewrite may only contain one of URI or UriRegexRewrite")
 	}
 	if rewrite.Uri == "" && rewrite.UriRegexRewrite == nil && rewrite.Authority == "" {
-		return errors.New("rewrite must specify at least one of URI, uriRegexRewrite, or authority. Only one of URI or uriRegexRewrite may be specified")
+		return errors.New("rewrite must specify at least one of URI, UriRegexRewrite, or authority. Only one of URI or UriRegexRewrite may be specified")
 	}
 	return nil
 }
