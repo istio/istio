@@ -478,6 +478,7 @@ func toEnvoyGenericSecret(name string, key, value []byte, proxy *model.Proxy, me
 			},
 		})
 	case secrets.DataSourceInlineBytes:
+		// inline_string and inline_bytes can convert each other
 		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_GenericSecret{
@@ -485,19 +486,6 @@ func toEnvoyGenericSecret(name string, key, value []byte, proxy *model.Proxy, me
 					Secret: &core.DataSource{
 						Specifier: &core.DataSource_InlineBytes{
 							InlineBytes: value,
-						},
-					},
-				},
-			},
-		})
-	case secrets.DataSourceInlineString:
-		res = protoconv.MessageToAny(&envoytls.Secret{
-			Name: name,
-			Type: &envoytls.Secret_GenericSecret{
-				GenericSecret: &envoytls.GenericSecret{
-					Secret: &core.DataSource{
-						Specifier: &core.DataSource_InlineString{
-							InlineString: string(value),
 						},
 					},
 				},

@@ -62,9 +62,7 @@ const (
 	DataSourceFileName = "filename"
 	// The ID/name for inline_bytes in kubernetes generic secret.
 	DataSourceInlineBytes = "inline_bytes"
-	// The ID/name for inline_string in generic secret.
-	DataSourceInlineString = "inline_string"
-	// The ID/name for environment_variable in generic secret.
+	// The ID/name for environment_variable in kubernetes generic secret.
 	DataSourceEnvironmentVariable = "environment_variable"
 )
 
@@ -280,9 +278,6 @@ func extractDataSourceKeyAndValue(scrt *v1.Secret) (key, value []byte, err error
 	if hasValue(scrt.Data, DataSourceInlineBytes) {
 		return []byte(DataSourceInlineBytes), scrt.Data[DataSourceInlineBytes], nil
 	}
-	if hasValue(scrt.Data, DataSourceInlineString) {
-		return []byte(DataSourceInlineString), scrt.Data[DataSourceInlineString], nil
-	}
 	if hasValue(scrt.Data, DataSourceEnvironmentVariable) {
 		return []byte(DataSourceEnvironmentVariable), scrt.Data[DataSourceEnvironmentVariable], nil
 	}
@@ -293,15 +288,12 @@ func extractDataSourceKeyAndValue(scrt *v1.Secret) (key, value []byte, err error
 	if hasKeys(scrt.Data, DataSourceInlineBytes) {
 		return nil, nil, fmt.Errorf("found key %q but it was empty", DataSourceInlineBytes)
 	}
-	if hasKeys(scrt.Data, DataSourceInlineString) {
-		return nil, nil, fmt.Errorf("found key %q but it was empty", DataSourceInlineString)
-	}
 	if hasKeys(scrt.Data, DataSourceEnvironmentVariable) {
 		return nil, nil, fmt.Errorf("found key %q but it was empty", DataSourceEnvironmentVariable)
 	}
 	found := truncatedKeysMessage(scrt.Data)
-	return nil, nil, fmt.Errorf("found secret, but didn't have expected key (%s) or (%s) or (%s) or (%s); found: %s",
-		DataSourceFileName, DataSourceInlineBytes, DataSourceInlineString, DataSourceEnvironmentVariable, found)
+	return nil, nil, fmt.Errorf("found secret, but didn't have expected key (%s) or (%s) or (%s); found: %s",
+		DataSourceFileName, DataSourceInlineBytes, DataSourceEnvironmentVariable, found)
 }
 
 func truncatedKeysMessage(data map[string][]byte) string {
