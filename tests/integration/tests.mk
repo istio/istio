@@ -47,13 +47,6 @@ else ifeq ($(IP_FAMILY),dual)
 endif
 ifdef support_ipv6
 	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-ipv4"
-	# Fundamentally, VMs should support IPv6. However, our test framework uses a contrived setup to test VMs
-	# such that they run in the cluster. In particular, they configure DNS to a public DNS server.
-	# For CI, our nodes do not have IPv6 external connectivity. This means the cluster *cannot* reach these external
-	# DNS servers.
-	# Extensive work was done to try to hack around this, but ultimately nothing was able to cover all
-	# of the edge cases. This work was captured in https://github.com/howardjohn/istio/tree/tf/vm-ipv6.
-	_INTEGRATION_TEST_FLAGS += --istio.test.skipVM
 endif
 
 # $(INTEGRATION_TEST_KUBECONFIG) overrides all kube config settings.
