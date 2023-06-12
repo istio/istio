@@ -54,6 +54,7 @@ func TestGateway(t *testing.T) {
 			t.NewSubTest("managed").Run(ManagedGatewayTest)
 			t.NewSubTest("managed-owner").Run(ManagedOwnerGatewayTest)
 			t.NewSubTest("status").Run(StatusGatewayTest)
+			t.NewSubTest("managed-short-name").Run(ManagedGatewayShortNameTest)
 		})
 }
 
@@ -175,6 +176,69 @@ spec:
 		},
 		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
 		Check:   check.OK(),
+		Retry: echo.Retry{
+			Options: []retry.Option{retry.Timeout(time.Minute)},
+		},
+	})
+	apps.B[0].CallOrFail(t, echo.CallOptions{
+		Port:   echo.Port{ServicePort: 80},
+		Scheme: scheme.HTTP,
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost("bar").Build(),
+		},
+		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+		Check:   check.NotOK(),
+		Retry: echo.Retry{
+			Options: []retry.Option{retry.Timeout(time.Minute)},
+		},
+	})
+}
+
+func ManagedGatewayShortNameTest(t framework.TestContext) {
+	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "bar"
+    port: 80
+    protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http
+spec:
+  parentRefs:
+  - name: gateway
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+`).ApplyOrFail(t)
+	apps.B[0].CallOrFail(t, echo.CallOptions{
+		Port:   echo.Port{ServicePort: 80},
+		Scheme: scheme.HTTP,
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost("bar").Build(),
+		},
+		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+		Check:   check.OK(),
+		Retry: echo.Retry{
+			Options: []retry.Option{retry.Timeout(time.Minute)},
+		},
+	})
+	apps.B[0].CallOrFail(t, echo.CallOptions{
+		Port:   echo.Port{ServicePort: 80},
+		Scheme: scheme.HTTP,
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost("bar.example.com").Build(),
+		},
+		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+		Check:   check.NotOK(),
 		Retry: echo.Retry{
 			Options: []retry.Option{retry.Timeout(time.Minute)},
 		},
