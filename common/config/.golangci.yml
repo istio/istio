@@ -231,7 +231,6 @@ linters-settings:
       # - unnamedResult
       # - wrapperFunc
   depguard:
-    # configuration for depguard v2
     rules:
       DenyGogoProtobuf:
         files:
@@ -278,9 +277,6 @@ linters-settings:
             desc: "operator should not be imported"
           - pkg: istio.io/istio/istioctl
             desc: "istioctl should not be imported"
-    # configuration for depguard
-    packages-with-error-message:
-      - github.com/gogo/protobuf: "gogo/protobuf is deprecated, use golang/protobuf"
   gosec:
     includes:
       - G401
