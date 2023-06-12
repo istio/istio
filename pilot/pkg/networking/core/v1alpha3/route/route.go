@@ -504,22 +504,15 @@ func applyHTTPRouteDestination(
 		action.ClusterSpecifier = &route.RouteAction_Cluster{
 			Cluster: in.Name,
 		}
-		uri := in.Rewrite.GetUri()
-		if fullURI, isFullPathRewrite := cutPrefix(uri, "%FULLREPLACE()%"); isFullPathRewrite && model.UseGatewaySemantics(vs) {
-			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
-				Pattern: &matcher.RegexMatcher{
-					Regex: "/.*",
-				},
-				Substitution: fullURI,
-			}
-		} else if regexRewrite := in.Rewrite.GetUriRegexRewrite(); regexRewrite != nil {
+
+		if regexRewrite := in.Rewrite.GetUriRegexRewrite(); regexRewrite != nil {
 			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
 				Pattern: &matcher.RegexMatcher{
 					Regex: regexRewrite.Match,
 				},
 				Substitution: regexRewrite.Rewrite,
 			}
-		} else {
+		} else if uri := in.Rewrite.GetUri(); uri != "" {
 			action.PrefixRewrite = uri
 		}
 		if in.Rewrite.GetAuthority() != "" {
