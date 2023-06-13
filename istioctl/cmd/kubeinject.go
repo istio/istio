@@ -623,9 +623,15 @@ It's best to do kube-inject when the resource is initially created.
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// istioctl kube-inject is typically redirected to a .yaml file;
 			// the default for log messages should be stderr, not stdout
-			_ = c.Root().PersistentFlags().Set("log_target", "stderr")
+			root := c.Root()
+			if root != nil {
+				_ = c.Root().PersistentFlags().Set("log_target", "stderr")
+			}
+			if c.Parent() != nil {
+				return c.Parent().PersistentPreRunE(c, args)
+			}
 
-			return c.Parent().PersistentPreRunE(c, args)
+			return nil
 		},
 	}
 

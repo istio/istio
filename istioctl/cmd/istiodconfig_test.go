@@ -23,6 +23,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"istio.io/istio/istioctl/pkg/cli"
 )
 
 func TestCtlPlaneConfig(t *testing.T) {
@@ -34,33 +36,33 @@ ads                    ads debugging                                info
 
 	cases := []execTestCase{
 		{
-			args:           strings.Split("admin", " "),
+			args:           []string{},
 			expectedString: "Manage istiod logging",
 		},
 		{
-			args:           strings.Split("admin log -l app=invalid", " "),
+			args:           strings.Split("log -l app=invalid", " "),
 			expectedString: "no pods found",
 			wantException:  true,
 		},
 		{
-			args:           strings.Split("admin log", " "),
+			args:           strings.Split("log", " "),
 			expectedString: "no pods found",
 			wantException:  true,
 		},
 		{
 			execClientConfig: istiodConfigMap,
-			args:             strings.Split("admin log istiod-7b69ff6f8c-fvjvw --level invalid", " "),
+			args:             strings.Split("log istiod-7b69ff6f8c-fvjvw --level invalid", " "),
 			expectedString:   "pattern invalid did not match",
 			wantException:    true,
 		},
 		{
 			execClientConfig: istiodConfigMap,
-			args:             strings.Split("admin log istiod-7b69ff6f8c-fvjvw --stack-trace-level invalid", " "),
+			args:             strings.Split("log istiod-7b69ff6f8c-fvjvw --stack-trace-level invalid", " "),
 			expectedString:   "pattern invalid did not match",
 			wantException:    true,
 		},
 		{
-			args:           strings.Split("admin log --reset --level invalid", " "),
+			args:           strings.Split("log --reset --level invalid", " "),
 			expectedString: "--level cannot be combined with --reset",
 			wantException:  true,
 		},
@@ -68,7 +70,7 @@ ads                    ads debugging                                info
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyExecTestOutput(t, c)
+			verifyExecTestOutput(t, adminCmd(cli.NewFakeContext(nil)), c)
 		})
 	}
 }

@@ -73,6 +73,6 @@ func TestSkipPodsInFiles(t *testing.T) {
 			" "),
 		wantException: false,
 	}
-	analyze := Analyze(cli.NewFakeContext("", ""))
+	analyze := Analyze(cli.NewFakeContext(nil))
 	verifyOutput(t, analyze, c)
 }

@@ -115,7 +115,9 @@ func TestDashboard(t *testing.T) {
 		},
 	}
 
-	dbCmd := dashboard(cli.NewFakeContext("istio-system", ""))
+	dbCmd := dashboard(cli.NewFakeContext(&cli.NewFakeContextOption{
+		Namespace: "istio-system",
+	}))
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			verifyOutput(t, dbCmd, c)

@@ -25,7 +25,7 @@ import (
 func TestKubeInject(t *testing.T) {
 	cases := []testCase{
 		{ // case 0
-			args:           strings.Split("", " "),
+			args:           []string{},
 			expectedRegexp: regexp.MustCompile(`filename not specified \(see --filename or -f\)`),
 			wantException:  true,
 		},
@@ -83,10 +83,19 @@ func TestKubeInject(t *testing.T) {
 		},
 	}
 
-	kubeInject := injectCommand(cli.NewFakeContext("", ""))
+	kubeInject := injectCommand(cli.NewFakeContext(nil))
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			verifyOutput(t, kubeInject, c)
+			cleanUpKubeInjectTestEnv()
 		})
 	}
+}
+
+func cleanUpKubeInjectTestEnv() {
+	meshConfigFile = ""
+	injectConfigFile = ""
+	valuesFile = ""
+	inFilename = ""
+	iopFilename = ""
 }

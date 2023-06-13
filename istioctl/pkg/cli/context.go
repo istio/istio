@@ -123,12 +123,18 @@ type fakeInstance struct {
 	// clients are cached clients for each revision
 	clients   map[string]kube.CLIClient
 	rootFlags *RootFlags
+	results   map[string][]byte
 }
 
 func (f *fakeInstance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 	if _, ok := f.clients[rev]; !ok {
+		cliclient := kube.NewFakeClient()
+		if rev != "" {
+			kube.SetRevisionForTest(cliclient, rev)
+		}
 		c := MockClient{
-			CLIClient: kube.NewFakeClient(),
+			CLIClient: cliclient,
+			Results:   f.results,
 		}
 		f.clients[rev] = c
 	}
@@ -179,9 +185,18 @@ func (f *fakeInstance) ConfigureDefaultNamespace() {
 	return
 }
 
-func NewFakeContext(namespace, istioNamespace string) Context {
-	ns := namespace
-	ins := istioNamespace
+type NewFakeContextOption struct {
+	Namespace      string
+	IstioNamespace string
+	Results        map[string][]byte
+}
+
+func NewFakeContext(opts *NewFakeContextOption) Context {
+	if opts == nil {
+		opts = &NewFakeContextOption{}
+	}
+	ns := opts.Namespace
+	ins := opts.IstioNamespace
 	return &fakeInstance{
 		clients: map[string]kube.CLIClient{},
 		rootFlags: &RootFlags{
@@ -191,5 +206,6 @@ func NewFakeContext(namespace, istioNamespace string) Context {
 			istioNamespace:   &ins,
 			defaultNamespace: "",
 		},
+		results: opts.Results,
 	}
 }

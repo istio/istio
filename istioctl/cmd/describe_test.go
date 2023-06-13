@@ -377,7 +377,11 @@ func TestFindProtocolForPort(t *testing.T) {
 func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTestCase) {
 	t.Helper()
 
-	ctx := cli.NewFakeContext(c.namespace, c.istioNamespace)
+	ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+		Namespace:      c.namespace,
+		IstioNamespace: c.istioNamespace,
+		Results:        c.configDumps,
+	})
 	client, err := ctx.CLIClient()
 	assert.NoError(t, err)
 	// Override the Istio config factory

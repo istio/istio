@@ -26,6 +26,8 @@ import (
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prometheus_model "github.com/prometheus/common/model"
 	"istio.io/istio/istioctl/pkg/cli"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // mockPromAPI lets us mock calls to Prometheus API
@@ -36,18 +38,18 @@ type mockPromAPI struct {
 func TestMetricsNoPrometheus(t *testing.T) {
 	cases := []testCase{
 		{ // case 0
-			args:           strings.Split("metrics", " "),
+			args:           []string{},
 			expectedRegexp: regexp.MustCompile("Error: metrics requires workload name\n"),
 			wantException:  true,
 		},
 		{ // case 1
-			args:           strings.Split("metrics details", " "),
+			args:           strings.Split("details", " "),
 			expectedOutput: "Error: no Prometheus pods found\n",
 			wantException:  true,
 		},
 	}
 
-	metricCmd := metricsCmd(cli.NewFakeContext("", ""))
+	metricCmd := metricsCmd(cli.NewFakeContext(nil))
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			verifyOutput(t, metricCmd, c)
@@ -64,7 +66,23 @@ func TestMetrics(t *testing.T) {
 		},
 	}
 
-	metricCmd := metricsCmd(cli.NewFakeContext("", ""))
+	ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+		IstioNamespace: "istio-system",
+	})
+	client, err := ctx.CLIClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "prometheus",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				"app": "prometheus",
+			},
+		},
+	}, metav1.CreateOptions{})
+	metricCmd := metricsCmd(ctx)
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			verifyOutput(t, metricCmd, c)

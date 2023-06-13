@@ -46,7 +46,7 @@ func TestWaypointList(t *testing.T) {
 		},
 		{
 			name: "default namespace gateway",
-			args: strings.Split("list  -n default", " "),
+			args: strings.Split("list", " "),
 			gateways: []*gateway.Gateway{
 				makeGateway("namespace", "default", "", true, true),
 				makeGateway("namespace", "fake", "", true, true),
@@ -78,7 +78,9 @@ func TestWaypointList(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := cli.NewFakeContext("default", "")
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+				Namespace: "default",
+			})
 			client, err := ctx.CLIClient()
 			if err != nil {
 				t.Fatal(err)
