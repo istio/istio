@@ -258,6 +258,7 @@ func ExtractLocalityLbEndpoints(cla []*endpoint.ClusterLoadAssignment) map[strin
 	}
 	return got
 }
+
 func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]string {
 	got := map[string][]string{}
 	for _, cla := range cla {

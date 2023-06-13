@@ -553,7 +553,6 @@ spec:
 			}
 		})
 	}
-
 }
 
 func gatewaySvc(name, ip, network string) *corev1.Service {
@@ -713,6 +712,7 @@ func (w *workload) testWeighted(t *testing.T, s *FakeDiscoveryServer) {
 		}, retry.Timeout(3*time.Second))
 	})
 }
+
 func (w *workload) clusterName(subset string) string {
 	name := w.name
 	if w.kind == Pod {
