@@ -118,7 +118,9 @@ type fakeContext struct {
 }
 
 func (f fakeContext) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
-	c := kube.NewFakeClient()
+	c := MockClient{
+		CLIClient: kube.NewFakeClient(),
+	}
 	f.clients[rev] = c
 	return c, nil
 }

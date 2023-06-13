@@ -119,6 +119,11 @@ func TestDashboard(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			verifyOutput(t, dbCmd, c)
+			cleanupTestCase()
 		})
 	}
+}
+
+func cleanupTestCase() {
+	labelSelector = ""
 }

@@ -78,6 +78,7 @@ func verifyOutput(t *testing.T, cmd *cobra.Command, c testCase) {
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
+	cmd.SilenceUsage = true
 
 	fErr := cmd.Execute()
 	output := out.String()
