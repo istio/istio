@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -128,7 +129,6 @@ func TestWorkloadGroupCreate(t *testing.T) {
 func verifyTestcaseOutput(t *testing.T, c testcase) {
 	t.Helper()
 
-	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOut(&out)
@@ -209,29 +209,28 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 		}
 		t.Run(dir.Name(), func(t *testing.T) {
 			testdir := path.Join("testdata/vmconfig", dir.Name())
-			kubeClientWithRevision = func(_ *cli.Context, _ string) (kube.CLIClient, error) {
-				return kube.SetRevisionForTest(kube.NewFakeClient(
-					&v1.ServiceAccount{
-						ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
-						Secrets:    []v1.ObjectReference{{Name: "test"}},
+			createClientFunc := func(client kube.CLIClient) kube.CLIClient {
+				client.Kube().CoreV1().ServiceAccounts("bar").Create(context.Background(), &v1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
+					Secrets:    []v1.ObjectReference{{Name: "test"}},
+				}, metav1.CreateOptions{})
+				client.Kube().CoreV1().ConfigMaps("bar").Create(context.Background(), &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
+					Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+				}, metav1.CreateOptions{})
+				client.Kube().CoreV1().ConfigMaps("istio-system").Create(context.Background(), &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
+					Data: map[string]string{
+						"mesh": string(util.ReadFile(t, path.Join(testdir, "meshconfig.yaml"))),
 					},
-					&v1.ConfigMap{
-						ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
-						Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+				}, metav1.CreateOptions{})
+				client.Kube().CoreV1().Secrets("bar").Create(context.Background(), &v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
+					Data: map[string][]byte{
+						"token": {},
 					},
-					&v1.ConfigMap{
-						ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
-						Data: map[string]string{
-							"mesh": string(util.ReadFile(t, path.Join(testdir, "meshconfig.yaml"))),
-						},
-					},
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
-						Data: map[string][]byte{
-							"token": {},
-						},
-					},
-				), "rev-1"), nil
+				}, metav1.CreateOptions{})
+				return kube.SetRevisionForTest(client, "rev-1")
 			}
 
 			cmdWithClusterID := []string{
@@ -241,7 +240,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 				"--clusterID", "Kubernetes",
 				"-o", testdir,
 			}
-			if _, err := runTestCmd(t, cmdWithClusterID); err != nil {
+			if _, err := runTestCmd(t, createClientFunc, cmdWithClusterID); err != nil {
 				t.Fatal(err)
 			}
 
@@ -251,7 +250,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 				"--internalIP", "10.10.10.10",
 				"-o", testdir,
 			}
-			if output, err := runTestCmd(t, cmdNoClusterID); err != nil {
+			if output, err := runTestCmd(t, createClientFunc, cmdNoClusterID); err != nil {
 				if !strings.Contains(output, noClusterID) {
 					t.Fatal(err)
 				}
@@ -300,29 +299,28 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	testdir := "testdata/vmconfig-nil-proxy-metadata"
 	noClusterID := "failed to automatically determine the --clusterID"
 
-	kubeClientWithRevision = func(_ *cli.Context, _ string) (kube.CLIClient, error) {
-		return kube.NewFakeClient(
-			&v1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
-				Secrets:    []v1.ObjectReference{{Name: "test"}},
+	createClientFunc := func(client kube.CLIClient) kube.CLIClient {
+		client.Kube().CoreV1().ServiceAccounts("bar").Create(context.Background(), &v1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
+			Secrets:    []v1.ObjectReference{{Name: "test"}},
+		}, metav1.CreateOptions{})
+		client.Kube().CoreV1().ConfigMaps("bar").Create(context.Background(), &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
+			Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+		}, metav1.CreateOptions{})
+		client.Kube().CoreV1().ConfigMaps("istio-system").Create(context.Background(), &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
+			Data: map[string]string{
+				"mesh": string(util.ReadFile(t, path.Join(testdir, "meshconfig.yaml"))),
 			},
-			&v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
-				Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+		}, metav1.CreateOptions{})
+		client.Kube().CoreV1().Secrets("bar").Create(context.Background(), &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
+			Data: map[string][]byte{
+				"token": {},
 			},
-			&v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio"},
-				Data: map[string]string{
-					"mesh": "defaultConfig: {}",
-				},
-			},
-			&v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
-				Data: map[string][]byte{
-					"token": {},
-				},
-			},
-		), nil
+		}, metav1.CreateOptions{})
+		return kube.SetRevisionForTest(client, "rev-1")
 	}
 
 	cmdWithClusterID := []string{
@@ -332,7 +330,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 		"--clusterID", "Kubernetes",
 		"-o", testdir,
 	}
-	if output, err := runTestCmd(t, cmdWithClusterID); err != nil {
+	if output, err := runTestCmd(t, createClientFunc, cmdWithClusterID); err != nil {
 		t.Logf("output: %v", output)
 		t.Fatal(err)
 	}
@@ -343,7 +341,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 		"--internalIP", "10.10.10.10",
 		"-o", testdir,
 	}
-	if output, err := runTestCmd(t, cmdNoClusterID); err != nil {
+	if output, err := runTestCmd(t, createClientFunc, cmdNoClusterID); err != nil {
 		if !strings.Contains(output, noClusterID) {
 			t.Fatal(err)
 		}
@@ -359,14 +357,24 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	checkOutputFiles(t, testdir, checkFiles)
 }
 
-func runTestCmd(t *testing.T, args []string) (string, error) {
+func runTestCmd(t *testing.T, createClientFunc func(client kube.CLIClient) kube.CLIClient, args []string) (string, error) {
 	t.Helper()
 	// TODO there is already probably something else that does this
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(args)
+
+	flags := rootCmd.PersistentFlags()
+	rootOptions := cli.AddRootFlags(flags)
+	ctx := cli.NewFakeContext(rootOptions.Namespace(), rootOptions.IstioNamespace())
+	client, err := ctx.CLIClient()
+	if err != nil {
+		return "", err
+	}
+	client = createClientFunc(client)
+
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&out)
-	err := rootCmd.Execute()
+	err = rootCmd.Execute()
 	output := out.String()
 	return output, err
 }

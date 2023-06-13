@@ -29,11 +29,10 @@ import (
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
-func statusCommand(ctx *cli.Context) *cobra.Command {
+func statusCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	statusCmd := &cobra.Command{
@@ -66,7 +65,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -134,11 +133,7 @@ func readConfigFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func newKubeClientWithRevision(ctx *cli.Context, revision string) (kube.CLIClient, error) {
-	return ctx.CLIClientWithRevision(revision)
-}
-
-func xdsStatusCommand(ctx *cli.Context) *cobra.Command {
+func xdsStatusCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 	var multiXdsOpts multixds.Options
@@ -175,7 +170,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}

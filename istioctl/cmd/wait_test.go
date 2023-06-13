@@ -22,6 +22,7 @@ import (
 	"sync"
 	"testing"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -104,7 +105,7 @@ func TestWaitCmd(t *testing.T) {
 
 func setupK8Sfake() *fake.FakeDynamicClient {
 	client := fake.NewSimpleDynamicClient(runtime.NewScheme())
-	clientGetter = func(_, _ string) (dynamic.Interface, error) {
+	clientGetter = func(_ cli.Context) (dynamic.Interface, error) {
 		return client, nil
 	}
 	l := sync.Mutex{}

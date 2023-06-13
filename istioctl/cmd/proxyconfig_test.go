@@ -20,9 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/kube"
 )
 
 type execTestCase struct {
@@ -191,9 +189,6 @@ func TestProxyConfig(t *testing.T) {
 func verifyExecTestOutput(t *testing.T, c execTestCase) {
 	t.Helper()
 
-	// Override the exec client factory used by proxyconfig.go and proxystatus.go
-	kubeClientWithRevision = mockClientExecFactoryGenerator(c.execClientConfig)
-
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
 	rootCmd.SetOut(&out)
@@ -224,18 +219,4 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
 		}
 	}
-}
-
-// mockClientExecFactoryGenerator generates a function with the same signature as
-// kubernetes.NewExecClient() that returns a mock client.
-// nolint: lll
-func mockClientExecFactoryGenerator(testResults map[string][]byte) func(_ *cli.Context, _ string) (kube.CLIClient, error) {
-	outFactory := func(_ *cli.Context, _ string) (kube.CLIClient, error) {
-		return MockClient{
-			CLIClient: kube.NewFakeClient(),
-			Results:   testResults,
-		}, nil
-	}
-
-	return outFactory
 }

@@ -79,7 +79,7 @@ const (
 	filePerms                       = os.FileMode(0o744)
 )
 
-func workloadCommands(ctx *cli.Context) *cobra.Command {
+func workloadCommands(ctx cli.Context) *cobra.Command {
 	namespace = ctx.Namespace()
 	workloadCmd := &cobra.Command{
 		Use:   "workload",
@@ -105,7 +105,7 @@ func groupCommand() *cobra.Command {
 	return groupCmd
 }
 
-func entryCommand(ctx *cli.Context) *cobra.Command {
+func entryCommand(ctx cli.Context) *cobra.Command {
 	entryCmd := &cobra.Command{
 		Use:     "entry",
 		Short:   "Commands dealing with WorkloadEntry resources",
@@ -184,7 +184,7 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 	return wgYAML, nil
 }
 
-func configureCommand(ctx *cli.Context) *cobra.Command {
+func configureCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	configureCmd := &cobra.Command{
@@ -208,7 +208,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}

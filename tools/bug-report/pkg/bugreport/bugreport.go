@@ -28,7 +28,6 @@ import (
 
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
-
 	label2 "istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/operator/pkg/util"

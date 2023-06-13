@@ -374,7 +374,7 @@ var (
 	validationPattern   = `^\w+:(debug|error|warn|info|debug)`
 )
 
-func istiodLogCmd(ctx *cli.Context) *cobra.Command {
+func istiodLogCmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	outputLogLevel := ""
 	stackTraceLevel := ""
@@ -414,7 +414,7 @@ func istiodLogCmd(ctx *cli.Context) *cobra.Command {
 			return nil
 		},
 		RunE: func(logCmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(ctx, opts.Revision)
+			client, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}

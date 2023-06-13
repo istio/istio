@@ -46,7 +46,7 @@ const (
 	reqDur                     = "istio_request_duration_milliseconds"
 )
 
-func metricsCmd(ctx *cli.Context) *cobra.Command {
+func metricsCmd(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "metrics <workload name>...",
 		Short: "Prints the metrics for the specified workload(s) when running in Kubernetes.",
@@ -98,10 +98,10 @@ type workloadMetrics struct {
 	p50Latency, p90Latency, p99Latency time.Duration
 }
 
-func run(c *cobra.Command, ctx *cli.Context, args []string) error {
+func run(c *cobra.Command, ctx cli.Context, args []string) error {
 	log.Debugf("metrics command invoked for workload(s): %v", args)
 
-	client, err := kubeClientWithRevision(ctx, metricsOpts.Revision)
+	client, err := ctx.CLIClientWithRevision(metricsOpts.Revision)
 	if err != nil {
 		return fmt.Errorf("failed to create k8s client: %v", err)
 	}

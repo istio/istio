@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pkg/slices"
 )
 
-func waypointCmd(ctx *cli.Context) *cobra.Command {
+func waypointCmd(ctx cli.Context) *cobra.Command {
 	var waypointServiceAccount string
 	makeGatewayName := func(sa string) string {
 		name := sa
@@ -109,7 +109,7 @@ func waypointCmd(ctx *cli.Context) *cobra.Command {
   # Apply a waypoint to a specific namespace for a specific service account
   istioctl x waypoint apply --service-account something --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(ctx, "")
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -152,7 +152,7 @@ func waypointCmd(ctx *cli.Context) *cobra.Command {
 			if len(args) > 1 {
 				return fmt.Errorf("too many arguments, expected 0 or 1")
 			}
-			kubeClient, err := kubeClientWithRevision(ctx, "")
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -194,15 +194,15 @@ func waypointCmd(ctx *cli.Context) *cobra.Command {
   istioctl x waypoint list -A`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			writer := cmd.OutOrStdout()
-			kubeClient, err := kubeClientWithRevision(ctx, "")
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			ns := ctx.DefaultNamespace()
+			var ns string
 			if allNamespaces {
 				ns = ""
-			} else if ctx.Namespace() != "" {
-				ns = ctx.Namespace()
+			} else {
+				ns = ctx.NamespaceOrDefault(ctx.Namespace())
 			}
 			gws, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).
 				List(context.Background(), metav1.ListOptions{})

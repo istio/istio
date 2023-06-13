@@ -23,7 +23,24 @@ import (
 	"istio.io/istio/pkg/ptr"
 )
 
-type Context struct {
+type Context interface {
+	CLIClientWithRevision(rev string) (kube.CLIClient, error)
+	CLIClient() (kube.CLIClient, error)
+	InferPodInfoFromTypedResource(name, namespace string) (pod string, ns string, err error)
+	InferPodsFromTypedResource(name, namespace string) ([]string, string, error)
+
+	// TODO(hanxiaop) entirely drop KubeConfig and KubeContext, use CLIClient instead
+	KubeConfig() string
+	KubeContext() string
+	Namespace() string
+	IstioNamespace() string
+	NamespaceOrDefault(namespace string) string
+	// ConfigureDefaultNamespace sets the default namespace to use for commands that don't specify a namespace.
+	// This should be called before NamespaceOrDefault is called.
+	ConfigureDefaultNamespace()
+}
+
+type instance struct {
 	// clients are cached clients for each revision
 	clients map[string]kube.CLIClient
 	RootFlags
@@ -42,48 +59,48 @@ func newKubeClientWithRevision(kubeconfig, configContext, revision string) (kube
 	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
-func NewCLIContext(rootFlags RootFlags) *Context {
-	return &Context{
+func NewCLIContext(rootFlags RootFlags) Context {
+	return &instance{
 		RootFlags: rootFlags,
 	}
 }
 
-func (c *Context) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
-	if c.clients == nil {
-		c.clients = make(map[string]kube.CLIClient)
+func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
+	if i.clients == nil {
+		i.clients = make(map[string]kube.CLIClient)
 	}
-	if c.clients[rev] == nil {
-		client, err := newKubeClientWithRevision(c.KubeConfig(), c.KubeContext(), rev)
+	if i.clients[rev] == nil {
+		client, err := newKubeClientWithRevision(i.KubeConfig(), i.KubeContext(), rev)
 		if err != nil {
 			return nil, err
 		}
-		c.clients[rev] = client
+		i.clients[rev] = client
 	}
-	return c.clients[rev], nil
+	return i.clients[rev], nil
 }
 
-func (c *Context) CLIClient() (kube.CLIClient, error) {
-	return c.CLIClientWithRevision("")
+func (i *instance) CLIClient() (kube.CLIClient, error) {
+	return i.CLIClientWithRevision("")
 }
 
-func (c *Context) InferPodInfoFromTypedResource(name, namespace string) (pod string, ns string, err error) {
-	client, err := c.CLIClient()
+func (i *instance) InferPodInfoFromTypedResource(name, namespace string) (pod string, ns string, err error) {
+	client, err := i.CLIClient()
 	if err != nil {
 		return "", "", err
 	}
-	return handlers.InferPodInfoFromTypedResource(name, c.NamespaceOrDefault(namespace), MakeKubeFactory(client))
+	return handlers.InferPodInfoFromTypedResource(name, i.NamespaceOrDefault(namespace), MakeKubeFactory(client))
 }
 
-func (c *Context) InferPodsFromTypedResource(name, namespace string) ([]string, string, error) {
-	client, err := c.CLIClient()
+func (i *instance) InferPodsFromTypedResource(name, namespace string) ([]string, string, error) {
+	client, err := i.CLIClient()
 	if err != nil {
 		return nil, "", err
 	}
-	return handlers.InferPodsFromTypedResource(name, c.NamespaceOrDefault(namespace), MakeKubeFactory(client))
+	return handlers.InferPodsFromTypedResource(name, i.NamespaceOrDefault(namespace), MakeKubeFactory(client))
 }
 
-func (c *Context) NamespaceOrDefault(namespace string) string {
-	return handleNamespace(namespace, c.DefaultNamespace())
+func (i *instance) NamespaceOrDefault(namespace string) string {
+	return handleNamespace(namespace, i.DefaultNamespace())
 }
 
 // handleNamespace returns the defaultNamespace if the namespace is empty
@@ -94,12 +111,68 @@ func handleNamespace(ns, defaultNamespace string) string {
 	return ns
 }
 
-// TODO(hanxiaop) use interface for context and handle real and fake contexts separately.
-func NewFakeContext(namespace, istioNamespace string) *Context {
+type fakeContext struct {
+	// clients are cached clients for each revision
+	clients   map[string]kube.CLIClient
+	rootFlags *RootFlags
+}
+
+func (f fakeContext) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
+	c := kube.NewFakeClient()
+	f.clients[rev] = c
+	return c, nil
+}
+
+func (f fakeContext) CLIClient() (kube.CLIClient, error) {
+	return f.CLIClientWithRevision("")
+}
+
+func (f fakeContext) InferPodInfoFromTypedResource(name, namespace string) (pod string, ns string, err error) {
+	client, err := f.CLIClient()
+	if err != nil {
+		return "", "", err
+	}
+	return handlers.InferPodInfoFromTypedResource(name, f.NamespaceOrDefault(namespace), MakeKubeFactory(client))
+}
+
+func (f fakeContext) InferPodsFromTypedResource(name, namespace string) ([]string, string, error) {
+	client, err := f.CLIClient()
+	if err != nil {
+		return nil, "", err
+	}
+	return handlers.InferPodsFromTypedResource(name, f.NamespaceOrDefault(namespace), MakeKubeFactory(client))
+}
+
+func (f fakeContext) NamespaceOrDefault(namespace string) string {
+	return handleNamespace(namespace, f.rootFlags.defaultNamespace)
+}
+
+func (f fakeContext) KubeConfig() string {
+	return ""
+}
+
+func (f fakeContext) KubeContext() string {
+	return ""
+}
+
+func (f fakeContext) Namespace() string {
+	return f.rootFlags.Namespace()
+}
+
+func (f fakeContext) IstioNamespace() string {
+	return f.rootFlags.IstioNamespace()
+}
+
+func (f fakeContext) ConfigureDefaultNamespace() {
+	return
+}
+
+func NewFakeContext(namespace, istioNamespace string) Context {
 	ns := namespace
 	ins := istioNamespace
-	return &Context{
-		RootFlags: RootFlags{
+	return &fakeContext{
+		clients: map[string]kube.CLIClient{},
+		rootFlags: &RootFlags{
 			kubeconfig:       ptr.Of[string](""),
 			configContext:    ptr.Of[string](""),
 			namespace:        &ns,

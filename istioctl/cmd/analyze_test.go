@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"istio.io/istio/istioctl/pkg/cli"
 
 	"istio.io/istio/pkg/config/analysis/diag"
 )
@@ -68,10 +69,10 @@ func TestNoErrorIfMessageLevelsBelowThreshold(t *testing.T) {
 func TestSkipPodsInFiles(t *testing.T) {
 	c := testCase{
 		args: strings.Split(
-			"analyze -A --use-kube=false --failure-threshold ERROR testdata/analyze-file/public-gateway.yaml",
+			"-A --use-kube=false --failure-threshold ERROR testdata/analyze-file/public-gateway.yaml",
 			" "),
 		wantException: false,
 	}
-
-	verifyOutput(t, c)
+	analyze := Analyze(cli.NewFakeContext("", ""))
+	verifyOutput(t, analyze, c)
 }

@@ -61,9 +61,6 @@ var (
 
 	loggingOptions = defaultLogOptions()
 
-	// Create a kubernetes client (or mockClient) for talking to control plane components
-	kubeClientWithRevision = newKubeClientWithRevision
-
 	// scope is for dev logging.  Warning: log levels are not set by --log_output_level until command is Run().
 	scope = log.RegisterScope("cli", "istioctl")
 )

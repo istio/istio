@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/kube"
 )
 
 var (
@@ -45,13 +44,13 @@ var (
 	generation   string
 	verbose      bool
 	targetSchema resource.Schema
-	clientGetter func(string, string) (dynamic.Interface, error)
+	clientGetter func(cli.Context) (dynamic.Interface, error)
 )
 
 const pollInterval = time.Second
 
 // waitCmd represents the wait command
-func waitCmd(cliCtx *cli.Context) *cobra.Command {
+func waitCmd(cliCtx cli.Context) *cobra.Command {
 	namespace := cliCtx.Namespace()
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
@@ -65,8 +64,6 @@ func waitCmd(cliCtx *cli.Context) *cobra.Command {
   istioctl experimental wait --for=distribution --threshold=.99 --timeout=300s virtualservice bookinfo.default
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			printVerbosef(cmd, "kubeconfig %s", cliCtx.KubeConfig())
-			printVerbosef(cmd, "ctx %s", cliCtx.KubeContext())
 			if forFlag == "delete" {
 				return errors.New("wait for delete is not yet implemented")
 			} else if forFlag != "distribution" {
@@ -181,13 +178,13 @@ func countVersions(versionCount map[string]int, configVersion string) {
 const distributionTrackingDisabledErrorString = "pilot version tracking is disabled " +
 	"(To enable this feature, please set PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING=true)"
 
-func poll(ctx *cli.Context,
+func poll(ctx cli.Context,
 	cmd *cobra.Command,
 	acceptedVersions []string,
 	targetResource string,
 	opts clioptions.ControlPlaneOptions,
 ) (present, notpresent, sdcnum int, err error) {
-	kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
+	kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -229,30 +226,25 @@ func poll(ctx *cli.Context,
 }
 
 func init() {
-	clientGetter = func(kubeconfig, context string) (dynamic.Interface, error) {
-		config, err := kube.DefaultRestConfig(kubeconfig, context)
+	clientGetter = func(ctx cli.Context) (dynamic.Interface, error) {
+		client, err := ctx.CLIClient()
 		if err != nil {
 			return nil, err
 		}
-		cfg := dynamic.ConfigFor(config)
-		dclient, err := dynamic.NewForConfig(cfg)
-		if err != nil {
-			return nil, err
-		}
-		return dclient, nil
+		return client.Dynamic(), nil
 	}
 }
 
 // getAndWatchResource ensures that Generations always contains
 // the current generation of the targetResource, adding new versions
 // as they are created.
-func getAndWatchResource(ictx context.Context, cliCtx *cli.Context) *watcher {
+func getAndWatchResource(ictx context.Context, cliCtx cli.Context) *watcher {
 	g := withContext(ictx)
 	// copy nameflag to avoid race
 	nf := nameflag
 	g.Go(func(result chan string) error {
 		// retrieve latest generation from Kubernetes
-		dclient, err := clientGetter(cliCtx.KubeConfig(), cliCtx.KubeContext())
+		dclient, err := clientGetter(cliCtx)
 		if err != nil {
 			return err
 		}
