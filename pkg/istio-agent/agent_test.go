@@ -30,6 +30,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/version"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
@@ -70,6 +72,8 @@ import (
 )
 
 func TestAgent(t *testing.T) {
+	test.SetForTest(t, &version.Info.Version, "version")
+
 	wd := t.TempDir()
 	mktemp := t.TempDir
 	// Normally we call leak checker first. Here we call it after TempDir to avoid the (extremely
