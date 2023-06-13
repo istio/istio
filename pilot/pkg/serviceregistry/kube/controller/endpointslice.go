@@ -108,8 +108,10 @@ func serviceNameForEndpointSlice(labels map[string]string) string {
 
 func (esc *endpointSliceController) sliceServiceInstances(ep *v1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
+	esc.endpointCache.mu.RLock()
+	defer esc.endpointCache.mu.RUnlock()
 	for _, svc := range esc.c.servicesForNamespacedName(getServiceNamespacedName(ep)) {
-		for _, instance := range esc.endpointCache.Get(svc.Hostname) {
+		for _, instance := range esc.endpointCache.get(svc.Hostname) {
 			port, f := svc.Ports.Get(instance.ServicePortName)
 			if !f {
 				log.Warnf("unexpected state, svc %v missing port %v", svc.Hostname, instance.ServicePortName)
@@ -139,11 +141,13 @@ func (esc *endpointSliceController) forgetEndpoint(slice *v1.EndpointSlice) map[
 	}
 
 	out := make(map[host.Name][]*model.IstioEndpoint)
+	esc.endpointCache.mu.Lock()
+	defer esc.endpointCache.mu.Unlock()
 	for _, hostName := range esc.c.hostNamesForNamespacedName(getServiceNamespacedName(slice)) {
 		// endpointSlice cache update
-		if esc.endpointCache.Has(hostName) {
-			esc.endpointCache.Delete(hostName, slice.Name)
-			out[hostName] = esc.endpointCache.Get(hostName)
+		if esc.endpointCache.has(hostName) {
+			esc.endpointCache.delete(hostName, slice.Name)
+			out[hostName] = esc.endpointCache.get(hostName)
 		}
 	}
 	return out
@@ -281,6 +285,10 @@ func newEndpointSliceCache() *endpointSliceCache {
 func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints []*model.IstioEndpoint) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	e.update(hostname, slice, endpoints)
+}
+
+func (e *endpointSliceCache) update(hostname host.Name, slice string, endpoints []*model.IstioEndpoint) {
 	if len(endpoints) == 0 {
 		delete(e.endpointsByServiceAndSlice[hostname], slice)
 	}
@@ -299,7 +307,10 @@ func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints 
 func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	e.delete(hostname, slice)
+}
 
+func (e *endpointSliceCache) delete(hostname host.Name, slice string) {
 	delete(e.endpointsByServiceAndSlice[hostname], slice)
 	if len(e.endpointsByServiceAndSlice[hostname]) == 0 {
 		delete(e.endpointsByServiceAndSlice, hostname)
@@ -309,6 +320,10 @@ func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
 func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
+	return e.get(hostname)
+}
+
+func (e *endpointSliceCache) get(hostname host.Name) []*model.IstioEndpoint {
 	var endpoints []*model.IstioEndpoint
 	found := sets.New[endpointKey]()
 	for _, eps := range e.endpointsByServiceAndSlice[hostname] {
@@ -328,6 +343,10 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 func (e *endpointSliceCache) Has(hostname host.Name) bool {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
+	return e.has(hostname)
+}
+
+func (e *endpointSliceCache) has(hostname host.Name) bool {
 	_, found := e.endpointsByServiceAndSlice[hostname]
 	return found
 }
