@@ -119,12 +119,7 @@ func TestGetNodeMetaData(t *testing.T) {
 }
 
 func TestSetIstioVersion(t *testing.T) {
-	prevVersion := version.Info.Version
-	defer func() {
-		version.Info.Version = prevVersion
-	}()
-
-	version.Info.Version = "binary"
+	test.SetForTest(t, &version.Info.Version, "binary")
 
 	testCases := []struct {
 		name            string
