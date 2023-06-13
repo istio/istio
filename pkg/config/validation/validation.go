@@ -3183,13 +3183,13 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	if rewrite.Uri == "" && rewrite.UriRegexRewrite == nil && rewrite.Authority == "" {
 		return errors.New("rewrite must specify at least one of URI, UriRegexRewrite, or authority. Only one of URI or UriRegexRewrite may be specified")
 	}
-	if err := validateUriRegexRewrite(rewrite.UriRegexRewrite); err != nil {
+	if err := validateURIRegexRewrite(rewrite.UriRegexRewrite); err != nil {
 		return errors.Join(errors.New("UriRegexRewrite has errors"), err)
 	}
 	return nil
 }
 
-func validateUriRegexRewrite(regexRewrite *networking.RegexRewrite) error {
+func validateURIRegexRewrite(regexRewrite *networking.RegexRewrite) error {
 	if regexRewrite == nil {
 		return nil
 	}
