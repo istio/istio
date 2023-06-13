@@ -15,7 +15,6 @@
 package memory
 
 import (
-	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -141,17 +140,18 @@ func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (newRev
 	return
 }
 
-func (c *Controller) Delete(kind config.GroupVersionKind, key, namespace string, resourceVersion *string) (err error) {
+func (c *Controller) Delete(kind config.GroupVersionKind, key, namespace string, resourceVersion *string) error {
 	if config := c.Get(kind, key, namespace); config != nil {
-		if err = c.configStore.Delete(kind, key, namespace, resourceVersion); err == nil {
-			c.monitor.ScheduleProcessEvent(ConfigEvent{
-				config: *config,
-				event:  model.EventDelete,
-			})
-			return
+		if err := c.configStore.Delete(kind, key, namespace, resourceVersion); err != nil {
+			return err
 		}
+		c.monitor.ScheduleProcessEvent(ConfigEvent{
+			config: *config,
+			event:  model.EventDelete,
+		})
+		return nil
 	}
-	return errors.New("Delete failure: config" + key + "does not exist")
+	return fmt.Errorf("delete: config %v/%v/%v does not exist", kind, namespace, key)
 }
 
 func (c *Controller) List(kind config.GroupVersionKind, namespace string) []config.Config {
