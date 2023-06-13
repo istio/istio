@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"istio.io/istio/istioctl/pkg/cli"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -33,6 +32,7 @@ import (
 	apiannotation "istio.io/api/annotation"
 	v1alpha32 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/util/assert"

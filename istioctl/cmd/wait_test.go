@@ -22,7 +22,6 @@ import (
 	"sync"
 	"testing"
 
-	"istio.io/istio/istioctl/pkg/cli"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,6 +30,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	ktesting "k8s.io/client-go/testing"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/schema/gvr"
 )

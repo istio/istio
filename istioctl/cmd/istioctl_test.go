@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
 	"istio.io/istio/pilot/test/util"
 )
 
