@@ -125,3 +125,5 @@ imagePullSecrets: []
 # podDisruptionBudget: {}
 #
 podDisruptionBudget: {}
+
+terminationGracePeriodSeconds: 30
