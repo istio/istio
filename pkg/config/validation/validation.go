@@ -2807,7 +2807,10 @@ func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
 	if re == "" {
 		return fmt.Errorf("%q: regex string match should not be empty", where)
 	}
+	return validateStringRegexp(re, where)
+}
 
+func validateStringRegexp(re string, where string) error {
 	// Envoy enforces a re2.max_program_size.error_level re2 program size is not the same as length,
 	// but it is always *larger* than length. Because goland does not have a way to evaluate the
 	// program size, we approximate by the length. To ensure that a program that is smaller than 1024
@@ -3180,7 +3183,20 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	if rewrite.Uri == "" && rewrite.UriRegexRewrite == nil && rewrite.Authority == "" {
 		return errors.New("rewrite must specify at least one of URI, UriRegexRewrite, or authority. Only one of URI or UriRegexRewrite may be specified")
 	}
+	if err := validateURIRegexRewrite(rewrite.UriRegexRewrite); err != nil {
+		return errors.Join(errors.New("UriRegexRewrite has errors"), err)
+	}
 	return nil
+}
+
+func validateURIRegexRewrite(regexRewrite *networking.RegexRewrite) error {
+	if regexRewrite == nil {
+		return nil
+	}
+	if regexRewrite.Match == "" || regexRewrite.Rewrite == "" {
+		return errors.New("UriRegexRewrite requires both Rewrite and Match fields to be specified")
+	}
+	return validateStringRegexp(regexRewrite.Match, "HTTPRewrite.UriRegexRewrite.Match")
 }
 
 // ValidateWorkloadEntry validates a workload entry.

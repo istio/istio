@@ -2083,7 +2083,7 @@ func TestValidateHTTPRewrite(t *testing.T) {
 			in: &networking.HTTPRewrite{
 				UriRegexRewrite: &networking.RegexRewrite{
 					Match:   "^/service/([^/]+)(/.*)$",
-					Rewrite: "\\2/instance/\\1",
+					Rewrite: `\2/instance/\1`,
 				},
 			},
 			valid: true,
@@ -2094,7 +2094,7 @@ func TestValidateHTTPRewrite(t *testing.T) {
 				Authority: "foobar.org",
 				UriRegexRewrite: &networking.RegexRewrite{
 					Match:   "^/service/([^/]+)(/.*)$",
-					Rewrite: "\\2/instance/\\1",
+					Rewrite: `\2/instance/\1`,
 				},
 			},
 			valid: true,
@@ -2105,7 +2105,7 @@ func TestValidateHTTPRewrite(t *testing.T) {
 				Uri: "/path/to/resource",
 				UriRegexRewrite: &networking.RegexRewrite{
 					Match:   "^/service/([^/]+)(/.*)$",
-					Rewrite: "\\2/instance/\\1",
+					Rewrite: `\2/instance/\1`,
 				},
 			},
 			valid: false,
@@ -2120,6 +2120,59 @@ func TestValidateHTTPRewrite(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := validateHTTPRewrite(tc.in); (got == nil) != tc.valid {
+				t.Errorf("got valid=%v, want valid=%v: %v",
+					got == nil, tc.valid, got)
+			}
+		})
+	}
+}
+
+func TestValidateUriRegexRewrite(t *testing.T) {
+	testCases := []struct {
+		name  string
+		in    *networking.RegexRewrite
+		valid bool
+	}{
+		{
+			name:  "uriRegexRewrite nil",
+			in:    nil,
+			valid: true,
+		},
+		{
+			name: "uriRegexRewrite happy path",
+			in: &networking.RegexRewrite{
+				Match:   "^/service/([^/]+)(/.*)$",
+				Rewrite: `\2/instance/\1`,
+			},
+			valid: true,
+		},
+		{
+			name: "uriRegexRewrite missing match",
+			in: &networking.RegexRewrite{
+				Rewrite: `\2/instance/\1`,
+			},
+			valid: false,
+		},
+		{
+			name: "uriRegexRewrite missing rewrite",
+			in: &networking.RegexRewrite{
+				Match: "^/service/([^/]+)(/.*)$",
+			},
+			valid: false,
+		},
+		{
+			name: "uriRegexRewrite invalid regex patterns",
+			in: &networking.RegexRewrite{
+				Match:   "[",
+				Rewrite: "[",
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := validateURIRegexRewrite(tc.in); (got == nil) != tc.valid {
 				t.Errorf("got valid=%v, want valid=%v: %v",
 					got == nil, tc.valid, got)
 			}
