@@ -93,7 +93,7 @@ status:
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: tls-passthrough
+    name: cross-network
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: TLSRoute

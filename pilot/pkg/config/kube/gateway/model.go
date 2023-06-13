@@ -28,6 +28,7 @@ import (
 
 const (
 	defaultClassName             = "istio"
+	remoteClassName              = "istio-remote"
 	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
 	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
 	gatewayNameOverride          = "gateway.istio.io/name-override"

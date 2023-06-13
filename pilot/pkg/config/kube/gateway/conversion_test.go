@@ -374,6 +374,7 @@ func TestConvertResources(t *testing.T) {
 		{"eastwest"},
 		{"eastwest-namedport"},
 		{"eastwest-labelport"},
+		{"eastwest-remote"},
 		{"alias"},
 		{"mcs"},
 		{"route-precedence"},

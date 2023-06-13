@@ -231,11 +231,13 @@ func PodTLSMode(pod *corev1.Pod) string {
 	return model.GetTLSModeFromEndpointLabels(pod.Labels)
 }
 
+const AutoPassthroughPortName = "tls-passthrough"
+
 // IsAutoPassthrough determines if a listener should use auto passthrough mode. This is used for
 // multi-network. In the Istio API, this is an explicit tls.Mode. However, this mode is not part of
 // the gateway-api, and leaks implementation details. We already have an API to declare a Gateway as
 // a multi-network gateway, so we will use this as a signal.
-// A user who wishes to expose multi-network connectivity should create a listener named "tls"
+// A user who wishes to expose multi-network connectivity should create a listener named "tls-passthrough"
 // with TLS.Mode Passthrough.
 // For some backwards compatibility, we assume any listener with TLS specified and a port matching
 // 15443 (or the label-override for gateway port) is auto-passtrough as well.
@@ -243,7 +245,7 @@ func IsAutoPassthrough(gwLabels map[string]string, l v1beta1.Listener) bool {
 	if l.TLS == nil {
 		return false
 	}
-	if l.Name == "tls" && l.TLS.Mode != nil && *l.TLS.Mode == v1beta1.TLSModePassthrough {
+	if l.Name == AutoPassthroughPortName && l.TLS.Mode != nil && *l.TLS.Mode == v1beta1.TLSModePassthrough {
 		return true
 	}
 	_, networkSet := gwLabels[label.TopologyNetwork.Name]

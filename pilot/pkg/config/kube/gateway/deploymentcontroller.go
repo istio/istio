@@ -117,6 +117,10 @@ func getClassInfos() map[string]classInfo {
 			description: "The default Istio GatewayClass",
 			templates:   "kube-gateway",
 		},
+		remoteClassName: {
+			controller:  constants.ManagedGatewayController,
+			description: "Istio GatewayClass representing a remote gateway. This will not trigger deploying resources.",
+		},
 	}
 	if features.EnableAmbientControllers {
 		m[constants.WaypointGatewayClassName] = classInfo{
@@ -280,6 +284,10 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	// We will not manage it in this case
 	gi, f := classInfos[string(gw.Spec.GatewayClassName)]
 	if !f {
+		return nil
+	}
+	if gi.templates == "" {
+		log.Debug("skip gateway class without template")
 		return nil
 	}
 	if !IsManaged(&gw.Spec) {

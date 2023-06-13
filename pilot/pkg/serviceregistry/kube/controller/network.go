@@ -60,6 +60,8 @@ type networkManager struct {
 	networkGatewaysBySvc map[host.Name]model.NetworkGatewaySet
 	// gateways from kubernetes Gateway resources
 	gatewaysFromResource map[types.UID]model.NetworkGatewaySet
+	// we don't want to discover gateways with class "istio-remote" from outside cluster's API servers.
+	discoverRemoteGatewayResources bool
 
 	// implements NetworkGatewaysWatcher; we need to call c.NotifyGatewayHandlers when our gateways change
 	model.NetworkGatewaysHandler
@@ -70,12 +72,13 @@ func initNetworkManager(options Options) networkManager {
 		clusterID:           options.ClusterID,
 		meshNetworksWatcher: options.MeshNetworksWatcher,
 		// zero values are a workaround structcheck issue: https://github.com/golangci/golangci-lint/issues/826
-		ranger:                      nil,
-		network:                     "",
-		networkFromMeshConfig:       "",
-		registryServiceNameGateways: make(map[host.Name][]model.NetworkGateway),
-		networkGatewaysBySvc:        make(map[host.Name]model.NetworkGatewaySet),
-		gatewaysFromResource:        make(map[types.UID]model.NetworkGatewaySet),
+		ranger:                         nil,
+		network:                        "",
+		networkFromMeshConfig:          "",
+		registryServiceNameGateways:    make(map[host.Name][]model.NetworkGateway),
+		networkGatewaysBySvc:           make(map[host.Name]model.NetworkGatewaySet),
+		gatewaysFromResource:           make(map[types.UID]model.NetworkGatewaySet),
+		discoverRemoteGatewayResources: options.ConfigCluster,
 	}
 }
 
@@ -334,7 +337,6 @@ func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGa
 func (n *networkManager) watchGatewayResources(c *Controller, stop <-chan struct{}) {
 	n.gatewayResourceClient = kclient.NewDelayedInformer(c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{
 		LabelSelector: label.TopologyNetwork.Name,
-		FieldSelector: "spec.gatewayClassName=istio",
 	})
 	registerHandlers[controllers.Object](c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
 	go n.gatewayResourceClient.Start(stop)
@@ -346,6 +348,11 @@ func (n *networkManager) watchGatewayResources(c *Controller, stop <-chan struct
 func (n *networkManager) handleGatewayResource(_ controllers.Object, obj controllers.Object, event model.Event) error {
 	gw, ok := obj.(*v1beta1.Gateway)
 	if !ok {
+		return nil
+	}
+
+	// we don't want to discover gateways with class "istio-remote" from outside cluster's API servers.
+	if !n.discoverRemoteGatewayResources && gw.Spec.GatewayClassName == "istio-remote" {
 		return nil
 	}
 

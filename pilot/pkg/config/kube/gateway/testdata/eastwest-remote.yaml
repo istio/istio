@@ -18,9 +18,9 @@ spec:
     protocol: TLS
     tls:
       mode: Passthrough
-  - name: tls-passthrough
+  - name: cross-network
     hostname: "*.local"
-    port: 35443
+    port: 15443
     protocol: TLS
     tls:
       mode: Passthrough
