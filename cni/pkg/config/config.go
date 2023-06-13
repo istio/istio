@@ -74,9 +74,6 @@ type InstallConfig struct {
 	// Whether ambient is enabled
 	AmbientEnabled bool
 
-	// Directories into which to copy the CNI ambient config
-	CNIAmbientConfigDir string
-
 	// Whether ebpf is enabled
 	EbpfEnabled bool
 

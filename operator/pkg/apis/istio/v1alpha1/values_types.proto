@@ -93,14 +93,13 @@ message CNIConfig {
 
   // K8s rolling update strategy
   IntOrString rollingMaxUnavailable = 23;
-
-  string cniAmbientConfigDir = 24;
 }
 
 message CNIAmbientConfig {
   // Controls whether ambient redirection is enabled
   google.protobuf.BoolValue enabled = 1;
   string redirectMode = 2;
+  string cniAmbientConfigDir = 3;
 }
 
 message CNIRepairConfig {
