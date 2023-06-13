@@ -20,6 +20,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -76,10 +77,16 @@ func (s SaNode) String() string {
 func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
 	*pb.IstioCertificateResponse, error,
 ) {
+	peerAddr := "0.0.0.0"
+	if peerInfo, ok := peer.FromContext(ctx); ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+
 	s.monitoring.CSR.Increment()
 	am := security.AuthenticationManager{Authenticators: s.Authenticators}
 	caller := am.Authenticate(ctx)
 	if caller == nil {
+		serverCaLog.Errorf("Failed to authenticate client from %s: %s", peerAddr, am.FailedMessages())
 		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
@@ -93,21 +100,21 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		if s.nodeAuthorizer == nil {
 			s.monitoring.AuthnError.Increment()
 			// Return an opaque error (for security purposes) but log the full reason
-			serverCaLog.Warnf("impersonation not allowed, as node authorizer is not configured")
+			serverCaLog.Warnf("impersonation not allowed from client %s, as node authorizer is not configured", peerAddr)
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 
 		}
 		if err := s.nodeAuthorizer.authenticateImpersonation(caller.KubernetesInfo, impersonatedIdentity); err != nil {
 			s.monitoring.AuthnError.Increment()
 			// Return an opaque error (for security purposes) but log the full reason
-			serverCaLog.Warnf("impersonation failed: %v", err)
+			serverCaLog.Warnf("impersonation failed from client %s: %v", peerAddr, err)
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 		}
 		// Node is authorized to impersonate; overwrite the SAN to the impersonated identity.
 		sans = []string{impersonatedIdentity}
 	}
-	serverCaLog.Infof("generating a certificate for %v, requested ttl: %s",
-		sans, time.Duration(request.ValidityDuration*int64(time.Second)))
+	serverCaLog.Infof("generating a certificate for client %s, sans: %v, requested ttl: %s",
+		peerAddr, sans, time.Duration(request.ValidityDuration*int64(time.Second)))
 	certSigner := crMetadata[security.CertSigner].GetStringValue()
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
@@ -125,7 +132,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		respCertChain, signErr = s.ca.SignWithCertChain([]byte(request.Csr), certOpts)
 	}
 	if signErr != nil {
-		serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())
+		serverCaLog.Errorf("CSR signing error for client %s: (%v)", peerAddr, signErr.Error())
 		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
 		return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
 	}
@@ -142,7 +149,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		CertChain: respCertChain,
 	}
 	s.monitoring.Success.Increment()
-	serverCaLog.Debug("CSR successfully signed.")
+	serverCaLog.Debugf("CSR successfully signed for client %s.", peerAddr)
 	return response, nil
 }
 
