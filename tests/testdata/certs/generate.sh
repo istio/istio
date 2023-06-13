@@ -137,6 +137,5 @@ openssl x509 -req -in "${WD}/mountedcerts-client.csr" -CA "${WD}/pilot/root-cert
 
 rm "${WD}/server.conf" "${WD}/client.conf" "${WD}/dns-client.conf"
 rm "${WD}/server.csr" "${WD}/client.csr" "${WD}/dns-client.csr"
-rm "${WD}/pilot/root-cert.srl"
 rm "${WD}/mountedcerts-server.conf" "${WD}/mountedcerts-server.csr"
 rm "${WD}/mountedcerts-client.conf" "${WD}/mountedcerts-client.csr"
