@@ -1378,7 +1378,8 @@ func getGatewayClasses(r GatewayResources) map[string]k8s.GatewayController {
 	for _, obj := range r.GatewayClass {
 		gwc := obj.Spec.(*k8s.GatewayClassSpec)
 		allFound.Insert(obj.Name)
-		if gwc.ControllerName == constants.ManagedGatewayController || gwc.ControllerName == constants.ManagedGatewayMeshController {
+		if gwc.ControllerName == constants.ManagedGatewayController ||
+			features.EnableAmbientControllers && gwc.ControllerName == constants.ManagedGatewayMeshController {
 			res[obj.Name] = gwc.ControllerName
 
 			// Set status. If we created it, it may already be there. If not, set it again
