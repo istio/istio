@@ -194,7 +194,6 @@ func enableMCSServiceDiscovery(t resource.Context, cfg *istio.Config) {
 values:
   pilot:
     env:
-      PILOT_USE_ENDPOINT_SLICE: "true"
       ENABLE_MCS_SERVICE_DISCOVERY: "true"
       ENABLE_MCS_HOST: "true"
       ENABLE_MCS_CLUSTER_LOCAL: "true"
