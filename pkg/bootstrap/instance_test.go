@@ -286,13 +286,14 @@ func TestGolden(t *testing.T) {
 		},
 	}
 
+	prevVersion := version.Info.Version
+	defer func() {
+		version.Info.Version = prevVersion
+	}()
+	version.Info.Version = "binary-1.0"
+
 	for _, c := range cases {
 		t.Run("Bootstrap-"+c.base, func(t *testing.T) {
-			prevVersion := version.Info.Version
-			defer func() {
-				version.Info.Version = prevVersion
-			}()
-			version.Info.Version = "binary-1.0"
 
 			out := t.TempDir()
 			if c.setup != nil {

@@ -119,6 +119,13 @@ func TestGetNodeMetaData(t *testing.T) {
 }
 
 func TestSetIstioVersion(t *testing.T) {
+	prevVersion := version.Info.Version
+	defer func() {
+		version.Info.Version = prevVersion
+	}()
+
+	version.Info.Version = "binary"
+
 	testCases := []struct {
 		name            string
 		meta            *model.BootstrapNodeMetadata
@@ -128,7 +135,6 @@ func TestSetIstioVersion(t *testing.T) {
 		{
 			name:            "if IstioVersion is not specified, set it from binary version",
 			meta:            &model.BootstrapNodeMetadata{},
-			binaryVersion:   "binary",
 			expectedVersion: "binary",
 		},
 		{
@@ -138,19 +144,13 @@ func TestSetIstioVersion(t *testing.T) {
 					IstioVersion: "metadata-version",
 				},
 			},
-			binaryVersion:   "binary",
 			expectedVersion: "metadata-version",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			prevVersion := version.Info.Version
-			defer func() {
-				version.Info.Version = prevVersion
-			}()
 
-			version.Info.Version = tc.binaryVersion
 			ret := SetIstioVersion(tc.meta)
 			if ret.IstioVersion != tc.expectedVersion {
 				t.Fatalf("SetIstioVersion: expected '%s', got '%s'", tc.expectedVersion, ret.IstioVersion)
