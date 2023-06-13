@@ -29,7 +29,7 @@ import (
 )
 
 // TODO move to multicluster package; requires exposing some private funcs/vars in this package
-func clustersCommand(ctx *cli.Context) *cobra.Command {
+func clustersCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "remote-clusters",

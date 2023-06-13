@@ -233,8 +233,8 @@ func GetFirstPod(client v1.CoreV1Interface, namespace string, selector string) (
 	return nil, fmt.Errorf("no pods matching selector %q found in namespace %q", selector, namespace)
 }
 
-func getMeshConfigFromConfigMap(cliContext *cli.Context, command, revision string) (*meshconfig.MeshConfig, error) {
-	client, err := kubeClientWithRevision(cliContext, "")
+func getMeshConfigFromConfigMap(ctx cli.Context, command, revision string) (*meshconfig.MeshConfig, error) {
+	client, err := ctx.CLIClient()
 	if err != nil {
 		return nil, err
 	}
@@ -242,11 +242,11 @@ func getMeshConfigFromConfigMap(cliContext *cli.Context, command, revision strin
 	if meshConfigMapName == defaultMeshConfigMapName && revision != "" {
 		meshConfigMapName = fmt.Sprintf("%s-%s", defaultMeshConfigMapName, revision)
 	}
-	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(cliContext.IstioNamespace()).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(ctx.IstioNamespace()).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not read valid configmap %q from namespace %q: %v - "+
 			"Use --meshConfigFile or re-run "+command+" with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
-			meshConfigMapName, cliContext.IstioNamespace(), err)
+			meshConfigMapName, ctx.IstioNamespace(), err)
 	}
 	// values in the data are strings, while proto might use a
 	// different data type.  therefore, we have to get a value by a
@@ -264,8 +264,8 @@ func getMeshConfigFromConfigMap(cliContext *cli.Context, command, revision strin
 }
 
 // grabs the raw values from the ConfigMap. These are encoded as JSON.
-func getValuesFromConfigMap(cliContext *cli.Context, revision string) (string, error) {
-	client, err := kubeClientWithRevision(cliContext, "")
+func getValuesFromConfigMap(ctx cli.Context, revision string) (string, error) {
+	client, err := ctx.CLIClient()
 	if err != nil {
 		return "", err
 	}
@@ -273,11 +273,11 @@ func getValuesFromConfigMap(cliContext *cli.Context, revision string) (string, e
 	if revision != "" {
 		injectConfigMapName = fmt.Sprintf("%s-%s", defaultInjectConfigMapName, revision)
 	}
-	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(cliContext.IstioNamespace()).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(ctx.IstioNamespace()).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
 			"Use --valuesFile or re-run kube-inject with `-i <istioSystemNamespace> and ensure istio-sidecar-injector configmap exists",
-			injectConfigMapName, cliContext.IstioNamespace(), err)
+			injectConfigMapName, ctx.IstioNamespace(), err)
 	}
 
 	valuesData, exists := meshConfigMap.Data[valuesConfigMapKey]
@@ -303,8 +303,8 @@ func readInjectConfigFile(f []byte) (inject.RawTemplates, error) {
 	return cfg.RawTemplates, err
 }
 
-func getInjectConfigFromConfigMap(cliContext *cli.Context, revision string) (inject.RawTemplates, error) {
-	client, err := kubeClientWithRevision(cliContext, "")
+func getInjectConfigFromConfigMap(ctx cli.Context, revision string) (inject.RawTemplates, error) {
+	client, err := ctx.CLIClient()
 	if err != nil {
 		return nil, err
 	}
@@ -312,11 +312,11 @@ func getInjectConfigFromConfigMap(cliContext *cli.Context, revision string) (inj
 	if injectConfigMapName == defaultInjectConfigMapName && revision != "" {
 		injectConfigMapName = fmt.Sprintf("%s-%s", defaultInjectConfigMapName, revision)
 	}
-	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(cliContext.IstioNamespace()).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
+	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(ctx.IstioNamespace()).Get(context.TODO(), injectConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("could not find valid configmap %q from namespace  %q: %v - "+
 			"Use --injectConfigFile or re-run kube-inject with `-i <istioSystemNamespace>` and ensure istio-sidecar-injector configmap exists",
-			injectConfigMapName, cliContext.IstioNamespace(), err)
+			injectConfigMapName, ctx.IstioNamespace(), err)
 	}
 	// values in the data are strings, while proto might use a
 	// different data type.  therefore, we have to get a value by a
@@ -335,9 +335,9 @@ func getInjectConfigFromConfigMap(cliContext *cli.Context, revision string) (inj
 	return injectConfig.RawTemplates, nil
 }
 
-func setUpExternalInjector(cliContext *cli.Context, revision, injectorAddress string) (*ExternalInjector, error) {
+func setUpExternalInjector(ctx cli.Context, revision, injectorAddress string) (*ExternalInjector, error) {
 	e := &ExternalInjector{}
-	client, err := newKubeClientWithRevision(cliContext, "")
+	client, err := ctx.CLIClient()
 	if err != nil {
 		return e, err
 	}
@@ -372,7 +372,7 @@ func validateFlags() error {
 	return err
 }
 
-func setupKubeInjectParameters(cliContext *cli.Context, sidecarTemplate *inject.RawTemplates, valuesConfig *string,
+func setupKubeInjectParameters(cliContext cli.Context, sidecarTemplate *inject.RawTemplates, valuesConfig *string,
 	revision, injectorAddress string,
 ) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
@@ -494,7 +494,7 @@ const (
 	defaultWebhookName             = "sidecar-injector.istio.io"
 )
 
-func injectCommand(cliContext *cli.Context) *cobra.Command {
+func injectCommand(cliContext cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 
@@ -623,9 +623,15 @@ It's best to do kube-inject when the resource is initially created.
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// istioctl kube-inject is typically redirected to a .yaml file;
 			// the default for log messages should be stderr, not stdout
-			_ = c.Root().PersistentFlags().Set("log_target", "stderr")
+			root := c.Root()
+			if root != nil {
+				_ = c.Root().PersistentFlags().Set("log_target", "stderr")
+			}
+			if c.Parent() != nil {
+				return c.Parent().PersistentPreRunE(c, args)
+			}
 
-			return c.Parent().PersistentPreRunE(c, args)
+			return nil
 		},
 	}
 

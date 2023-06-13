@@ -32,7 +32,7 @@ import (
 
 var configDumpFile string
 
-func checkCmd(ctx *cli.Context) *cobra.Command {
+func checkCmd(ctx cli.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "check [<type>/]<name>[.<namespace>]",
 		Short: "Check AuthorizationPolicy applied in the pod.",
@@ -58,7 +58,7 @@ The command also supports reading from a standalone config dump file with flag -
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := newKubeClientWithRevision(ctx, "")
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %w", err)
 			}
@@ -137,7 +137,7 @@ func getConfigDumpFromPod(kubeClient kube.CLIClient, podName, podNamespace strin
 
 // AuthZ groups commands used for inspecting and interacting the authorization policy.
 // Note: this is still under active development and is not ready for real use.
-func AuthZ(ctx *cli.Context) *cobra.Command {
+func AuthZ(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "authz",
 		Short: "Inspect Istio AuthorizationPolicy",

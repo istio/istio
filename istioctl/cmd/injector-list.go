@@ -51,7 +51,7 @@ type revisionCount struct {
 	needsRestart int
 }
 
-func injectorCommand(cliContext *cli.Context) *cobra.Command {
+func injectorCommand(cliContext cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "injector",
 		Short:   "List sidecar injector and sidecar versions",
@@ -73,7 +73,7 @@ func injectorCommand(cliContext *cli.Context) *cobra.Command {
 	return cmd
 }
 
-func injectorListCommand(cliContext *cli.Context) *cobra.Command {
+func injectorListCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -81,14 +81,13 @@ func injectorListCommand(cliContext *cli.Context) *cobra.Command {
 		Long:    `List sidecar injector and sidecar versions`,
 		Example: `  istioctl experimental injector list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(cliContext, opts.Revision)
+			client, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
-			ctx := context.Background()
 
-			nslist, err := getNamespaces(ctx, client)
-			nslist = filterSystemNamespaces(nslist, cliContext.IstioNamespace())
+			nslist, err := getNamespaces(context.Background(), client)
+			nslist = filterSystemNamespaces(nslist, ctx.IstioNamespace())
 			if err != nil {
 				return err
 			}
@@ -96,11 +95,11 @@ func injectorListCommand(cliContext *cli.Context) *cobra.Command {
 				return nslist[i].Name < nslist[j].Name
 			})
 
-			hooks, err := tag.Webhooks(ctx, client)
+			hooks, err := tag.Webhooks(context.Background(), client)
 			if err != nil {
 				return err
 			}
-			pods, err := getPods(ctx, client)
+			pods, err := getPods(context.Background(), client)
 			if err != nil {
 				return err
 			}
@@ -109,7 +108,7 @@ func injectorListCommand(cliContext *cli.Context) *cobra.Command {
 				return err
 			}
 			fmt.Fprintln(cmd.OutOrStdout())
-			injectedImages, err := getInjectedImages(ctx, client)
+			injectedImages, err := getInjectedImages(context.Background(), client)
 			if err != nil {
 				return err
 			}

@@ -376,7 +376,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 }
 
 // NewValidateCommand creates a new command for validating Istio k8s resources.
-func NewValidateCommand(ctx *cli.Context) *cobra.Command {
+func NewValidateCommand(ctx cli.Context) *cobra.Command {
 	var filenames []string
 	var referential bool
 
@@ -405,7 +405,7 @@ func NewValidateCommand(ctx *cli.Context) *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			istioNamespace := ctx.IstioNamespace()
-			defaultNamespace := ctx.DefaultNamespace()
+			defaultNamespace := ctx.NamespaceOrDefault("")
 			return validateFiles(&istioNamespace, defaultNamespace, filenames, c.OutOrStderr())
 		},
 	}

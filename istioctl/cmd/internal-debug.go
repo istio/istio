@@ -79,7 +79,7 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 	return nil, nil
 }
 
-func debugCommand(cliContext *cli.Context) *cobra.Command {
+func debugCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 
@@ -115,7 +115,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
   istioctl x internal-debug syncz --xds-label istio.io/rev=default
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(cliContext, opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -135,7 +135,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				TypeUrl: v3.DebugType,
 			}
 
-			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, &xdsRequest, centralOpts, cliContext.IstioNamespace(),
+			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, &xdsRequest, centralOpts, ctx.IstioNamespace(),
 				namespace, serviceAccount, kubeClient, multixds.DefaultOptions)
 			if err != nil {
 				return err
@@ -144,7 +144,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				Writer:                 c.OutOrStdout(),
 				InternalDebugAllIstiod: internalDebugAllIstiod,
 			}
-			newResponse, err := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), cliContext.IstioNamespace(), xdsResponses)
+			newResponse, err := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), ctx.IstioNamespace(), xdsResponses)
 			if err != nil {
 				return err
 			}

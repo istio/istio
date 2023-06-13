@@ -710,7 +710,9 @@ Error: 1 error occurred:
 	}
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(t *testing.T) {
-			ctx := cli.NewFakeContext("", "istio-system")
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+				IstioNamespace: "istio-system",
+			})
 			validateCmd := NewValidateCommand(ctx)
 			validateCmd.SilenceUsage = true
 			validateCmd.SetArgs(c.args)

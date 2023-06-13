@@ -37,7 +37,7 @@ import (
 
 var labelPairs string
 
-func checkInjectCommand(ctx *cli.Context) *cobra.Command {
+func checkInjectCommand(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "check-inject [<type>/]<name>[.<namespace>]",
 		Short: "Check the injection status or inject-ability of a given resource, explains why it is (or will be) injected or not",
@@ -63,7 +63,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := newKubeClientWithRevision(ctx, "")
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return err
 			}

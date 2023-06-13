@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	ktesting "k8s.io/client-go/testing"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/schema/gvr"
 )
@@ -52,43 +53,43 @@ func TestWaitCmd(t *testing.T) {
 	cases := []execTestCase{
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --generation=2 --timeout=20ms virtual-service foo.default", " "),
+			args:             strings.Split("--generation=2 --timeout=20ms virtual-service foo.default", " "),
 			wantException:    true,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --generation=1 virtual-service foo.default", " "),
+			args:             strings.Split("--generation=1 virtual-service foo.default", " "),
 			wantException:    false,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --generation=1 VirtualService foo.default", " "),
+			args:             strings.Split("--generation=1 VirtualService foo.default", " "),
 			wantException:    false,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --generation=1 not-service foo.default", " "),
+			args:             strings.Split("--generation=1 not-service foo.default", " "),
 			wantException:    true,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --timeout 20ms virtual-service bar.default", " "),
+			args:             strings.Split("--timeout 20ms virtual-service bar.default", " "),
 			wantException:    true,
 			expectedOutput:   "Error: timeout expired before resource networking.istio.io/v1alpha3/VirtualService/default/bar became effective on all sidecars\n",
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --timeout 2s virtualservice foo.default", " "),
+			args:             strings.Split("--timeout 2s virtualservice foo.default", " "),
 			wantException:    false,
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("x wait --timeout 2s --revision canary virtualservice foo.default", " "),
+			args:             strings.Split("--timeout 2s --revision canary virtualservice foo.default", " "),
 			wantException:    false,
 		},
 		{
 			execClientConfig: distributionTrackingDisabledResponseMap,
-			args:             strings.Split("x wait --timeout 2s --revision canary virtualservice foo.default", " "),
+			args:             strings.Split("--timeout 2s --revision canary virtualservice foo.default", " "),
 			wantException:    true,
 			expectedString:   distributionTrackingDisabledErrorString,
 		},
@@ -97,14 +98,17 @@ func TestWaitCmd(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			_ = setupK8Sfake()
-			verifyExecTestOutput(t, c)
+			verifyExecTestOutput(t, waitCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
+				Namespace: "default",
+				Results:   c.execClientConfig,
+			})), c)
 		})
 	}
 }
 
 func setupK8Sfake() *fake.FakeDynamicClient {
 	client := fake.NewSimpleDynamicClient(runtime.NewScheme())
-	clientGetter = func(_, _ string) (dynamic.Interface, error) {
+	clientGetter = func(_ cli.Context) (dynamic.Interface, error) {
 		return client, nil
 	}
 	l := sync.Mutex{}

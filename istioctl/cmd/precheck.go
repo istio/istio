@@ -55,7 +55,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-func preCheck(ctx *cli.Context) *cobra.Command {
+func preCheck(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var skipControlPlane bool
 	// cmd represents the upgradeCheck command
@@ -69,7 +69,7 @@ func preCheck(ctx *cli.Context) *cobra.Command {
   # Check only a single namespace
   istioctl x precheck --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			cli, err := newKubeClientWithRevision(ctx, revision)
+			cli, err := ctx.CLIClientWithRevision(revision)
 			if err != nil {
 				return err
 			}
@@ -113,7 +113,7 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 	return cmd
 }
 
-func checkControlPlane(ctx *cli.Context) (diag.Messages, error) {
+func checkControlPlane(ctx cli.Context) (diag.Messages, error) {
 	cli, err := ctx.CLIClient()
 	if err != nil {
 		return nil, err

@@ -25,11 +25,10 @@ import (
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prometheus_model "github.com/prometheus/common/model"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/pkg/kube"
 )
 
 // mockPromAPI lets us mock calls to Prometheus API
@@ -37,65 +36,59 @@ type mockPromAPI struct {
 	cannedResponse map[string]prometheus_model.Value
 }
 
-func mockExecClientAuthNoPilot(_ *cli.Context, _ string) (kube.CLIClient, error) {
-	return MockClient{
-		CLIClient: kube.NewFakeClient(),
-	}, nil
-}
-
 func TestMetricsNoPrometheus(t *testing.T) {
-	kubeClientWithRevision = mockExecClientAuthNoPilot
-
 	cases := []testCase{
 		{ // case 0
-			args:           strings.Split("experimental metrics", " "),
+			args:           []string{},
 			expectedRegexp: regexp.MustCompile("Error: metrics requires workload name\n"),
 			wantException:  true,
 		},
 		{ // case 1
-			args:           strings.Split("experimental metrics details", " "),
+			args:           strings.Split("details", " "),
 			expectedOutput: "Error: no Prometheus pods found\n",
 			wantException:  true,
 		},
 	}
 
+	metricCmd := metricsCmd(cli.NewFakeContext(nil))
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
+			verifyOutput(t, metricCmd, c)
 		})
 	}
 }
 
 func TestMetrics(t *testing.T) {
-	kubeClientWithRevision = mockPortForwardClientAuthPrometheus
-
 	cases := []testCase{
 		{ // case 0
-			args:           strings.Split("experimental metrics details", " "),
+			args:           strings.Split("details", " "),
 			expectedRegexp: regexp.MustCompile("could not build metrics for workload"),
 			wantException:  true,
 		},
 	}
 
+	ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+		IstioNamespace: "istio-system",
+	})
+	client, err := ctx.CLIClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "prometheus",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				"app": "prometheus",
+			},
+		},
+	}, metav1.CreateOptions{})
+	metricCmd := metricsCmd(ctx)
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
+			verifyOutput(t, metricCmd, c)
 		})
 	}
-}
-
-func mockPortForwardClientAuthPrometheus(_ *cli.Context, _ string) (kube.CLIClient, error) {
-	return MockClient{
-		CLIClient: kube.NewFakeClient(&v1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "prometheus",
-				Namespace: "istio-system",
-				Labels: map[string]string{
-					"app": "prometheus",
-				},
-			},
-		}),
-	}, nil
 }
 
 func TestAPI(t *testing.T) {

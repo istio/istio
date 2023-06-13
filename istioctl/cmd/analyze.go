@@ -81,7 +81,7 @@ var (
 )
 
 // Analyze command
-func Analyze(ctx *cli.Context) *cobra.Command {
+func Analyze(ctx cli.Context) *cobra.Command {
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
@@ -135,7 +135,7 @@ func Analyze(ctx *cli.Context) *cobra.Command {
 
 			// check whether selected namespace exists.
 			if ctx.Namespace() != "" && useKube {
-				client, err := newKubeClientWithRevision(ctx, "")
+				client, err := ctx.CLIClient()
 				if err != nil {
 					return err
 				}
@@ -185,7 +185,7 @@ func Analyze(ctx *cli.Context) *cobra.Command {
 			// If we're using kube, use that as a base source.
 			if useKube {
 				// Set up the kube client
-				clik, err := newKubeClientWithRevision(ctx, "")
+				clik, err := ctx.CLIClient()
 				if err != nil {
 					return err
 				}

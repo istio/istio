@@ -24,12 +24,12 @@ import (
 func TestConfigList(t *testing.T) {
 	cases := []testCase{
 		{ // case 0
-			args:           strings.Split("experimental config get istioNamespace", " "),
-			expectedRegexp: regexp.MustCompile("Usage:\n  istioctl experimental config"),
+			args:           strings.Split("get istioNamespace", " "),
+			expectedRegexp: regexp.MustCompile("Configure istioctl defaults"),
 			wantException:  false,
 		},
 		{ // case 1
-			args: strings.Split("experimental config list", " "),
+			args: strings.Split("list", " "),
 			expectedOutput: `FLAG                    VALUE            FROM
 authority                                default
 cert-dir                                 default
@@ -46,7 +46,7 @@ xds-port                15012            default
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
+			verifyOutput(t, configCmd(), c)
 		})
 	}
 }

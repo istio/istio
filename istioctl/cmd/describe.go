@@ -75,15 +75,13 @@ const (
 )
 
 var (
-	interfaceFactory = kubeClientWithRevision
-
 	// Ignore unmeshed pods.  This makes it easy to suppress warnings about kube-system etc
 	ignoreUnmeshed = false
 
 	describeNamespace string
 )
 
-func podDescribeCmd(cliContext *cli.Context) *cobra.Command {
+func podDescribeCmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "pod <pod>",
@@ -93,14 +91,14 @@ func podDescribeCmd(cliContext *cli.Context) *cobra.Command {
 the configuration objects that affect that pod.`,
 		Example: `  istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			describeNamespace = cliContext.NamespaceOrDefault(cliContext.Namespace())
+			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
 			if len(args) != 1 {
 				return fmt.Errorf("expecting pod name")
 			}
 
-			podName, ns := handlers.InferPodInfo(args[0], cliContext.DefaultNamespace())
+			podName, ns := handlers.InferPodInfo(args[0], ctx.NamespaceOrDefault(""))
 
-			client, err := kubeClientWithRevision(cliContext, "")
+			client, err := ctx.CLIClient()
 			if err != nil {
 				return err
 			}
@@ -139,15 +137,12 @@ the configuration objects that affect that pod.`,
 			}
 			// TODO look for port collisions between services targeting this pod
 
-			kubeClient, err := kubeClientWithRevision(cliContext, opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
 
-			var configClient istioclient.Interface
-			if configClient, err = configStoreFactory(cliContext); err != nil {
-				return err
-			}
+			configClient := client.Istio()
 
 			podsLabels := []klabels.Set{klabels.Set(pod.ObjectMeta.Labels)}
 			fmt.Fprintf(writer, "--------------------\n")
@@ -158,7 +153,7 @@ the configuration objects that affect that pod.`,
 
 			// render PeerAuthentication info
 			fmt.Fprintf(writer, "--------------------\n")
-			err = describePeerAuthentication(writer, kubeClient, configClient, ns, klabels.Set(pod.ObjectMeta.Labels), cliContext.IstioNamespace())
+			err = describePeerAuthentication(writer, kubeClient, configClient, ns, klabels.Set(pod.ObjectMeta.Labels), ctx.IstioNamespace())
 			if err != nil {
 				return err
 			}
@@ -166,10 +161,10 @@ the configuration objects that affect that pod.`,
 			// TODO find sidecar configs that select this workload and render them
 
 			// Now look for ingress gateways
-			return printIngressInfo(writer, matchingServices, podsLabels, client.Kube(), configClient, kubeClient, cliContext.IstioNamespace())
+			return printIngressInfo(writer, matchingServices, podsLabels, client.Kube(), configClient, kubeClient, ctx.IstioNamespace())
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return validPodsNameArgs(cmd, cliContext, args, toComplete)
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
@@ -189,7 +184,7 @@ func getRevisionFromPodAnnotation(anno klabels.Set) string {
 	return injectionStatus.Revision
 }
 
-func describe(ctx *cli.Context) *cobra.Command {
+func describe(ctx cli.Context) *cobra.Command {
 	describeCmd := &cobra.Command{
 		Use:     "describe",
 		Aliases: []string{"des"},
@@ -1032,7 +1027,7 @@ func getIngressIP(service corev1.Service, pod corev1.Pod) string {
 	return "unknown"
 }
 
-func svcDescribeCmd(ctx *cli.Context) *cobra.Command {
+func svcDescribeCmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "service <svc>",
@@ -1052,7 +1047,7 @@ the configuration objects that affect that service.`,
 			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
 			svcName, ns := handlers.InferPodInfo(args[0], ctx.NamespaceOrDefault(ctx.Namespace()))
 
-			client, err := interfaceFactory(ctx, "")
+			client, err := ctx.CLIClient()
 			if err != nil {
 				return err
 			}
@@ -1107,15 +1102,12 @@ the configuration objects that affect that service.`,
 				return nil
 			}
 
-			kubeClient, err := kubeClientWithRevision(ctx, opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
 
-			var configClient istioclient.Interface
-			if configClient, err = configStoreFactory(ctx); err != nil {
-				return err
-			}
+			configClient := client.Istio()
 
 			// Get all the labels for all the matching pods.  We will used this to complain
 			// if NONE of the pods match a VirtualService
