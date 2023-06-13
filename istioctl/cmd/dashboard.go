@@ -521,7 +521,7 @@ func dashboard(cliContext cli.Context) *cobra.Command {
 	dashboardCmd.PersistentFlags().BoolVar(&browser, "browser", true,
 		"When --browser is supplied as false, istioctl dashboard will not open the browser. "+
 			"Default is true which means istioctl dashboard will always open a browser to view the dashboard.")
-	dashboardCmd.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", cliContext.IstioNamespace(),
+	dashboardCmd.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", "istio-system",
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 
 	kiali := kialiDashCmd(cliContext)
@@ -558,7 +558,7 @@ func dashboard(cliContext cli.Context) *cobra.Command {
 	controlz := controlZDashCmd(cliContext)
 	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
 	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	controlz.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", cliContext.IstioNamespace(),
+	controlz.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", "istio-system",
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 	dashboardCmd.AddCommand(controlz)
 
