@@ -173,7 +173,7 @@ spec:
               resourceFieldRef:
                 resource: limits.memory
           - name: PLATFORM
-            value: "{{ .Values.global.platform | default `k8s` }}"
+            value: "{{ .Values.global.platform }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}

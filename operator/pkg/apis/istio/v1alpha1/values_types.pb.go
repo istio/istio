@@ -1604,7 +1604,9 @@ type GlobalConfig struct {
 	// mechanisms (e.g., environmental variable CA_PROVIDER).
 	CaName           string                `protobuf:"bytes,65,opt,name=caName,proto3" json:"caName,omitempty"`
 	Autoscalingv2API *wrapperspb.BoolValue `protobuf:"bytes,66,opt,name=autoscalingv2API,proto3" json:"autoscalingv2API,omitempty"`
-	// Platform in which Istio is deployed. Possible values are: k8s (default), openshift and gcp
+	// Platform in which Istio is deployed. Possible values are: "openshift" and "gcp"
+	// An empty value means it is a vanilla Kubernetes distribution, therefore no special
+	// treatment will be considered.
 	Platform string `protobuf:"bytes,69,opt,name=platform,proto3" json:"platform,omitempty"` // The next available key is 70
 }
 

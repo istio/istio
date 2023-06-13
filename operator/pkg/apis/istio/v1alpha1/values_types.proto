@@ -460,7 +460,9 @@ message GlobalConfig {
 
   google.protobuf.BoolValue autoscalingv2API = 66;
 
-  // Platform in which Istio is deployed. Possible values are: k8s (default), openshift and gcp
+  // Platform in which Istio is deployed. Possible values are: "openshift" and "gcp"
+  // An empty value means it is a vanilla Kubernetes distribution, therefore no special
+  // treatment will be considered.
   string platform = 69;
   // The next available key is 70
 }
