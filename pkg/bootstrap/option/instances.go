@@ -260,3 +260,15 @@ func LoadStatsConfigJSONStr(node *model.Node) Instance {
 	}
 	return skipOption("load_stats_config_json_str")
 }
+
+type HistogramMatch struct {
+	Prefix string `json:"prefix"`
+}
+type HistogramBucket struct {
+	Match   HistogramMatch `json:"match"`
+	Buckets []float64      `json:"buckets"`
+}
+
+func EnvoyHistogramBuckets(value []HistogramBucket) Instance {
+	return newOption("histogram_buckets", value)
+}

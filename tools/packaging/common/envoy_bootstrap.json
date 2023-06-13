@@ -127,6 +127,9 @@
         "regex": "(\\.shadow_(allowed|denied))"
       }
     ],
+    {{- if .histogram_buckets }}
+    "histogram_bucket_settings": {{ toJson .histogram_buckets }},
+    {{- end }}
     "stats_matcher": {
       "inclusion_list": {
         "patterns": [

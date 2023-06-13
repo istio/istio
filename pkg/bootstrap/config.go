@@ -21,6 +21,7 @@ import (
 	"net/netip"
 	"os"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -251,6 +252,22 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		inclusionSuffixes = requiredEnvoyStatsMatcherInclusionSuffixes
 	}
 
+	var buckets []option.HistogramBucket
+	if bucketsAnno, ok := meta.Annotations[annotation.SidecarStatsHistogramBuckets.Name]; ok {
+		js := map[string][]float64{}
+		err := json.Unmarshal([]byte(bucketsAnno), &js)
+		if err == nil {
+			for prefix, value := range js {
+				buckets = append(buckets, option.HistogramBucket{Match: option.HistogramMatch{Prefix: prefix}, Buckets: value})
+			}
+			sort.Slice(buckets, func(i, j int) bool {
+				return buckets[i].Match.Prefix < buckets[j].Match.Prefix
+			})
+		} else {
+			log.Warnf("Failed to unmarshal histogram buckets: %v", bucketsAnno, err)
+		}
+	}
+
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
@@ -258,6 +275,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 			inclusionSuffixes, proxyConfigSuffixes)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
+		option.EnvoyHistogramBuckets(buckets),
 	}
 }
 
