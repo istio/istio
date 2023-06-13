@@ -71,7 +71,7 @@ func ParseIdentity(s string) (Identity, error) {
 	}
 
 	var td, idp string
-	//given that we know kubernetes identities are spiffe://<trustDomain>/ns/*/sa/* we can actually look for the /ns/ first and assume anything before it is the trust domain
+	// given that we know kubernetes identities are spiffe://<trustDomain>/ns/*/sa/* we can actually look for the /ns/ first and assume anything before it is the trust domain
 	nsSegment := fmt.Sprintf("/%v/", NamespaceSegment)
 	i := strings.Index(s, nsSegment)
 	if i == -1 {
@@ -129,7 +129,7 @@ func GetTrustDomain() string {
 }
 
 func SetIdentityPathPrefix(value string) {
-	//remove leading or trailing slashes
+	// remove leading or trailing slashes
 	v := strings.Trim(value, "/")
 	identityPathPrefixMutex.Lock()
 	identityPathPrefix = v
@@ -151,7 +151,6 @@ func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 	}
 	if GetIdentityPathPrefix() != "" {
 		return URIPrefix + GetTrustDomain() + "/" + GetIdentityPathPrefix() + "/ns/" + ns + "/sa/" + serviceAccount, err
-
 	}
 	return URIPrefix + GetTrustDomain() + "/ns/" + ns + "/sa/" + serviceAccount, err
 }

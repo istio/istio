@@ -337,7 +337,7 @@ func ValidateIdentityPathPrefix(idp string) error {
 			}
 		}
 	}
-	
+
 	return nil
 
 }
