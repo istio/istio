@@ -81,7 +81,7 @@ func serviceToAddressInfo(s *workloadapi.Service) *model.AddressInfo {
 
 // name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
 func (c *Controller) generatePodUID(p *v1.Pod) string {
-	return c.clusterID.String() + "//" + "v1/pod/" + p.Namespace + "/" + p.Name
+	return c.clusterID.String() + "//" + "Pod/" + p.Namespace + "/" + p.Name
 }
 
 // Lookup finds the list of AddressInfos for a given key.
@@ -466,7 +466,7 @@ func (a *AmbientIndex) handlePod(oldObj, newObj any, isDelete bool, c *Controlle
 	for _, networkAddr := range networkAddressFromWorkload(wl) {
 		a.byPod[networkAddr] = wl
 	}
-	a.byUID[c.generatePodUID(p)] = wl
+	a.byUID[wl.Uid] = wl
 	if oldWl != nil {
 		// For updates, we will drop the VIPs and then add the new ones back. This could be optimized
 		for vip := range oldWl.VirtualIps {
