@@ -27,7 +27,6 @@ import (
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/test/util"
@@ -73,7 +72,6 @@ type testcase struct {
 	description       string
 	expectedException bool
 	args              []string
-	k8sConfigs        []runtime.Object
 	expectedOutput    string
 	namespace         string
 }
@@ -211,7 +209,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 		}
 		t.Run(dir.Name(), func(t *testing.T) {
 			testdir := path.Join("testdata/vmconfig", dir.Name())
-			createClientFunc := func(client kube.CLIClient) kube.CLIClient {
+			createClientFunc := func(client kube.CLIClient) {
 				client.Kube().CoreV1().ServiceAccounts("bar").Create(context.Background(), &v1.ServiceAccount{
 					ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
 					Secrets:    []v1.ObjectReference{{Name: "test"}},
@@ -232,7 +230,6 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 						"token": {},
 					},
 				}, metav1.CreateOptions{})
-				return client
 			}
 
 			cmdWithClusterID := []string{
@@ -303,7 +300,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	testdir := "testdata/vmconfig-nil-proxy-metadata"
 	noClusterID := "failed to automatically determine the --clusterID"
 
-	createClientFunc := func(client kube.CLIClient) kube.CLIClient {
+	createClientFunc := func(client kube.CLIClient) {
 		client.Kube().CoreV1().ServiceAccounts("bar").Create(context.Background(), &v1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
 			Secrets:    []v1.ObjectReference{{Name: "test"}},
@@ -324,7 +321,6 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 				"token": {},
 			},
 		}, metav1.CreateOptions{})
-		return client
 	}
 
 	cmdWithClusterID := []string{
@@ -361,7 +357,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	checkOutputFiles(t, testdir, checkFiles)
 }
 
-func runTestCmd(t *testing.T, createClientFunc func(client kube.CLIClient) kube.CLIClient, rev string, args []string) (string, error) {
+func runTestCmd(t *testing.T, createResourceFunc func(client kube.CLIClient), rev string, args []string) (string, error) {
 	t.Helper()
 	// TODO there is already probably something else that does this
 	var out bytes.Buffer
@@ -374,7 +370,7 @@ func runTestCmd(t *testing.T, createClientFunc func(client kube.CLIClient) kube.
 	if err != nil {
 		return "", err
 	}
-	client = createClientFunc(client)
+	createResourceFunc(client)
 
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&out)

@@ -182,7 +182,6 @@ func (f *fakeInstance) IstioNamespace() string {
 }
 
 func (f *fakeInstance) ConfigureDefaultNamespace() {
-	return
 }
 
 type NewFakeContextOption struct {
