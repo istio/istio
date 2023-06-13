@@ -100,14 +100,14 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		if s.nodeAuthorizer == nil {
 			s.monitoring.AuthnError.Increment()
 			// Return an opaque error (for security purposes) but log the full reason
-			serverCaLog.Warnf("impersonation not allowed from client %s, as node authorizer is not configured", peerAddr)
+			serverCaLog.Warnf("impersonation not allowed, as node authorizer is not configured")
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 
 		}
 		if err := s.nodeAuthorizer.authenticateImpersonation(caller.KubernetesInfo, impersonatedIdentity); err != nil {
 			s.monitoring.AuthnError.Increment()
 			// Return an opaque error (for security purposes) but log the full reason
-			serverCaLog.Warnf("impersonation failed from client %s: %v", peerAddr, err)
+			serverCaLog.Warnf("impersonation failed: %v", err)
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 		}
 		// Node is authorized to impersonate; overwrite the SAN to the impersonated identity.
