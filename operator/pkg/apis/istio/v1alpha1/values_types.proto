@@ -459,7 +459,10 @@ message GlobalConfig {
   string caName = 65;
 
   google.protobuf.BoolValue autoscalingv2API = 66;
-  // The next available key is 68
+
+  // Platform in which Istio is deployed. Possible values are: k8s (default), openshift and gcp
+  string platform = 69;
+  // The next available key is 70
 }
 
 // Configuration for Security Token Service (STS) server.
