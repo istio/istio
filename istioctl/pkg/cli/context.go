@@ -24,20 +24,28 @@ import (
 )
 
 type Context interface {
-	CLIClientWithRevision(rev string) (kube.CLIClient, error)
+	// CLIClient returns a client for the default revision
 	CLIClient() (kube.CLIClient, error)
+	// CLIClientWithRevision returns a client for the given revision
+	CLIClientWithRevision(rev string) (kube.CLIClient, error)
+	// InferPodInfoFromTypedResource returns the pod name and namespace for the given typed resource
 	InferPodInfoFromTypedResource(name, namespace string) (pod string, ns string, err error)
+	// InferPodsFromTypedResource returns the pod names and namespace for the given typed resource
 	InferPodsFromTypedResource(name, namespace string) ([]string, string, error)
-
-	// TODO(hanxiaop) entirely drop KubeConfig and KubeContext, use CLIClient instead
-	KubeConfig() string
-	KubeContext() string
+	// Namespace returns the namespace specified by the user
 	Namespace() string
+	// IstioNamespace returns the Istio namespace specified by the user
 	IstioNamespace() string
+	// NamespaceOrDefault returns the namespace specified by the user, or the default namespace if none was specified
 	NamespaceOrDefault(namespace string) string
 	// ConfigureDefaultNamespace sets the default namespace to use for commands that don't specify a namespace.
 	// This should be called before NamespaceOrDefault is called.
 	ConfigureDefaultNamespace()
+	// KubeConfig returns the kubeconfig specified by the user
+	KubeConfig() string
+	// KubeContext returns the kubecontext specified by the user
+	KubeContext() string
+	// TODO(hanxiaop) entirely drop KubeConfig and KubeContext, use CLIClient instead. Currently this is used not only in istioctl package.
 }
 
 type instance struct {
