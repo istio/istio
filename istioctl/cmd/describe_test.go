@@ -64,25 +64,25 @@ func TestDescribe(t *testing.T) {
 		t.Fatalf("failed to read %s: %v", productPageConfigPath, err)
 	}
 	cases := []execAndK8sConfigTestCase{
-		//{ // case 0
-		//	args:           []string{},
-		//	expectedString: "Describe resource and related Istio configuration",
-		//},
-		//{ // case 2 no pod
-		//	args:           strings.Split("pod", " "),
-		//	expectedString: "Error: expecting pod name",
-		//	wantException:  true, // "istioctl experimental inspect pod" should fail
-		//},
-		//{ // case 3 unknown pod
-		//	args:           strings.Split("po not-a-pod", " "),
-		//	expectedString: "pods \"not-a-pod\" not found",
-		//	wantException:  true, // "istioctl experimental describe pod not-a-pod" should fail
-		//},
-		//{ // case 8 unknown service
-		//	args:           strings.Split("service not-a-service", " "),
-		//	expectedString: "services \"not-a-service\" not found",
-		//	wantException:  true, // "istioctl experimental describe service not-a-service" should fail
-		//},
+		{ // case 0
+			args:           []string{},
+			expectedString: "Describe resource and related Istio configuration",
+		},
+		{ // case 2 no pod
+			args:           strings.Split("pod", " "),
+			expectedString: "Error: expecting pod name",
+			wantException:  true, // "istioctl experimental inspect pod" should fail
+		},
+		{ // case 3 unknown pod
+			args:           strings.Split("po not-a-pod", " "),
+			expectedString: "pods \"not-a-pod\" not found",
+			wantException:  true, // "istioctl experimental describe pod not-a-pod" should fail
+		},
+		{ // case 8 unknown service
+			args:           strings.Split("service not-a-service", " "),
+			expectedString: "services \"not-a-service\" not found",
+			wantException:  true, // "istioctl experimental describe service not-a-service" should fail
+		},
 		{
 			k8sConfigs: []runtime.Object{
 				&corev1.Service{

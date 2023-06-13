@@ -123,7 +123,6 @@ func TestWorkloadGroupCreate(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
 			verifyTestcaseOutput(t, workloadCommands(cli.NewFakeContext(nil)), c)
-			cleanUpWorkloadTestCase()
 		})
 	}
 }
@@ -191,7 +190,6 @@ func TestWorkloadEntryConfigureInvalidArgs(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
 			verifyTestcaseOutput(t, workloadCommands(cli.NewFakeContext(nil)), c)
-			cleanUpWorkloadTestCase()
 		})
 	}
 }
@@ -455,9 +453,4 @@ func TestSplitEqual(t *testing.T) {
 			}
 		})
 	}
-}
-
-func cleanUpWorkloadTestCase() {
-	name = ""
-	namespace = ""
 }
