@@ -150,7 +150,6 @@ func TestSetIstioVersion(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			ret := SetIstioVersion(tc.meta)
 			if ret.IstioVersion != tc.expectedVersion {
 				t.Fatalf("SetIstioVersion: expected '%s', got '%s'", tc.expectedVersion, ret.IstioVersion)

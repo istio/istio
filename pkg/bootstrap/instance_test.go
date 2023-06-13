@@ -294,7 +294,6 @@ func TestGolden(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run("Bootstrap-"+c.base, func(t *testing.T) {
-
 			out := t.TempDir()
 			if c.setup != nil {
 				c.setup()
