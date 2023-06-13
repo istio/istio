@@ -60,21 +60,21 @@ message CNIConfig {
 
   string cniConfDir = 7;
 
-  string cniAmbientConfigDir = 8;
+  string cniConfFileName = 8;
 
-  string cniConfFileName = 9;
+  repeated string excludeNamespaces = 9;
 
-  repeated string excludeNamespaces = 10;
+  google.protobuf.Struct affinity = 20;
 
-  google.protobuf.Struct podAnnotations = 11 [deprecated=true];
+  google.protobuf.Struct podAnnotations = 10 [deprecated=true];
 
-  string psp_cluster_role = 12;
+  string psp_cluster_role = 11;
 
-  string logLevel = 13;
+  string logLevel = 12;
 
-  CNIRepairConfig repair = 14;
+  CNIRepairConfig repair = 13;
 
-  google.protobuf.BoolValue chained = 15;
+  google.protobuf.BoolValue chained = 14;
 
   ResourceQuotas resource_quotas = 16;
 
@@ -87,14 +87,14 @@ message CNIConfig {
   // See: https://kubernetes.io/docs/tutorials/security/seccomp/
   google.protobuf.Struct seccompProfile = 19;
 
-  google.protobuf.Struct affinity = 20;
-
   CNIAmbientConfig ambient = 21;
 
   string provider = 22;
 
   // K8s rolling update strategy
   IntOrString rollingMaxUnavailable = 23;
+
+  string cniAmbientConfigDir = 24;
 }
 
 message CNIAmbientConfig {
