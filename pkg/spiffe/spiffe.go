@@ -48,8 +48,10 @@ const (
 )
 
 var (
-	trustDomain      = defaultTrustDomain
-	trustDomainMutex sync.RWMutex
+	trustDomain             = defaultTrustDomain
+	identityPathPrefix      = ""
+	trustDomainMutex        sync.RWMutex
+	identityPathPrefixMutex sync.RWMutex
 
 	firstRetryBackOffTime = time.Millisecond * 50
 
@@ -57,9 +59,10 @@ var (
 )
 
 type Identity struct {
-	TrustDomain    string
-	Namespace      string
-	ServiceAccount string
+	TrustDomain        string
+	Namespace          string
+	IdentityPathPrefix string
+	ServiceAccount     string
 }
 
 func ParseIdentity(s string) (Identity, error) {
@@ -67,13 +70,21 @@ func ParseIdentity(s string) (Identity, error) {
 		return Identity{}, fmt.Errorf("identity is not a spiffe format")
 	}
 
+	var td, idp string
 	//given that we know kubernetes identities are spiffe://<trustDomain>/ns/*/sa/* we can actually look for the /ns/ first and assume anything before it is the trust domain
 	nsSegment := fmt.Sprintf("/%v/", NamespaceSegment)
 	i := strings.Index(s, nsSegment)
 	if i == -1 {
 		return Identity{}, fmt.Errorf("no namespace segment found")
 	}
-	trustDomain = s[URIPrefixLen:i]
+	trustDomainWithPossiblePrefix := s[URIPrefixLen:i]
+	if strings.Contains(trustDomainWithPossiblePrefix, "/") {
+		split := strings.Split(trustDomainWithPossiblePrefix, "")
+		td = split[0]
+		idp = strings.Join(split[1:], "/")
+	} else {
+		td = trustDomainWithPossiblePrefix
+	}
 
 	split := strings.Split(s[i:], "/")
 	if len(split) != 5 {
@@ -83,13 +94,17 @@ func ParseIdentity(s string) (Identity, error) {
 		return Identity{}, fmt.Errorf("identity is not a spiffe format")
 	}
 	return Identity{
-		TrustDomain:    trustDomain,
-		Namespace:      split[2],
-		ServiceAccount: split[4],
+		TrustDomain:        td,
+		IdentityPathPrefix: idp,
+		Namespace:          split[2],
+		ServiceAccount:     split[4],
 	}, nil
 }
 
 func (i Identity) String() string {
+	if i.IdentityPathPrefix != "" {
+		return URIPrefix + i.TrustDomain + "/" + i.IdentityPathPrefix + "/ns/" + i.Namespace + "/sa/" + i.ServiceAccount
+	}
 	return URIPrefix + i.TrustDomain + "/ns/" + i.Namespace + "/sa/" + i.ServiceAccount
 }
 
@@ -113,12 +128,30 @@ func GetTrustDomain() string {
 	return trustDomain
 }
 
+func SetIdentityPathPrefix(value string) {
+	//remove leading or trailing slashes
+	v := strings.Trim(value, "/")
+	identityPathPrefixMutex.Lock()
+	identityPathPrefix = v
+	identityPathPrefixMutex.Unlock()
+}
+
+func GetIdentityPathPrefix() string {
+	identityPathPrefixMutex.RLock()
+	defer identityPathPrefixMutex.RUnlock()
+	return identityPathPrefix
+}
+
 // GenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate.
 func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 	var err error
 	if ns == "" || serviceAccount == "" {
 		err = fmt.Errorf(
 			"namespace or service account empty for SPIFFE uri ns=%v serviceAccount=%v", ns, serviceAccount)
+	}
+	if GetIdentityPathPrefix() != "" {
+		return URIPrefix + GetTrustDomain() + "/" + GetIdentityPathPrefix() + "/ns/" + ns + "/sa/" + serviceAccount, err
+
 	}
 	return URIPrefix + GetTrustDomain() + "/ns/" + ns + "/sa/" + serviceAccount, err
 }

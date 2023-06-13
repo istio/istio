@@ -259,6 +259,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	s.initMeshConfiguration(args, s.fileWatcher)
 	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
+	spiffe.SetIdentityPathPrefix(s.environment.Mesh().GetIdentityPathPrefix())
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
@@ -1205,6 +1206,7 @@ func (s *Server) initMeshHandlers() {
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
 		spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
+		spiffe.SetIdentityPathPrefix(s.environment.Mesh().GetIdentityPathPrefix())
 		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,

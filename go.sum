@@ -656,6 +656,8 @@ github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRW
 github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f h1:KUppIJq7/+SVif2QVs3tOP0zanoHgBEVAwHxUSIzRqU=
 github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f/go.mod h1:ZdcZmHo+o7JKHSa8/e818NopupXU1YMK5fe1lsApnBw=
+github.com/nmnellis/api v0.0.0-20230613141942-349137e2ef1c h1:hXeREFEx1NlHBkTcRUkPHOLMI3Q2xaloC3vsJEPnrNw=
+github.com/nmnellis/api v0.0.0-20230613141942-349137e2ef1c/go.mod h1:dDMe1TsOtrRoUlBzdxqNolWXpXPQjLfbcXvqPMtQ6eo=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=
 github.com/oklog/ulid v1.3.1/go.mod h1:CirwcVhetQ6Lv90oh/F+FBtV6XMibvdAFo93nm5qn4U=
@@ -1417,6 +1419,12 @@ istio.io/api v0.0.0-20230621154315-af4b45718908 h1:nSSqaFDBVGD9rcrLzc9ZLrOZKuuzy
 istio.io/api v0.0.0-20230621154315-af4b45718908/go.mod h1:dDMe1TsOtrRoUlBzdxqNolWXpXPQjLfbcXvqPMtQ6eo=
 istio.io/client-go v1.18.0-alpha.0.0.20230621154715-8f160ddb9dc0 h1:0ibDdTFAAykd2dzrQAPg02N4jhwz/pC2Oe9Ny2Qx0q0=
 istio.io/client-go v1.18.0-alpha.0.0.20230621154715-8f160ddb9dc0/go.mod h1:W8Sv6psDDspFbaa3TnWrpKLKf0E1zg4ZQ+fidoZ4AXY=
+istio.io/api v0.0.0-20230612154653-3458d03e977d h1:6vdBK4J6cD3E7vmWtYPhbAdge+6TBuJ9uGioc4x4vSM=
+istio.io/api v0.0.0-20230612154653-3458d03e977d/go.mod h1:dDMe1TsOtrRoUlBzdxqNolWXpXPQjLfbcXvqPMtQ6eo=
+istio.io/client-go v1.18.0-alpha.0.0.20230612155454-c0dfdf99b8e0 h1:5FIzbwAonCS1mwn30K3+znIL50wHBhWZ0Vk7djWJWpw=
+istio.io/client-go v1.18.0-alpha.0.0.20230612155454-c0dfdf99b8e0/go.mod h1:JH9XCLyujcT8VyLHpdXrv/zOx+PJ8ReUmQOHAIfEnpE=
+istio.io/client-go v1.18.0-alpha.0.0.20230609021605-537d47bc7546 h1:dm/tqs375LoJ8girqImoegi+F1F11S48ULDwVtxjq28=
+istio.io/client-go v1.18.0-alpha.0.0.20230609021605-537d47bc7546/go.mod h1:XrZ+YfcWvMPkSbMutq/qwMsN+Xkf/sdu3fzU+QxljiM=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.3/go.mod h1:UOaMwERbqJMfeeeHc8XJKawj4P9TgDRnViIqqBeH2QA=
 k8s.io/api v0.18.4/go.mod h1:lOIQAKYgai1+vz9J7YcDZwC26Z0zQewYOGWdyIPUUQ4=

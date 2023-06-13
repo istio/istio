@@ -562,9 +562,10 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	logPrefix := cacheLogPrefix(resourceName)
 
 	csrHostName := &spiffe.Identity{
-		TrustDomain:    sc.configOptions.TrustDomain,
-		Namespace:      sc.configOptions.WorkloadNamespace,
-		ServiceAccount: sc.configOptions.ServiceAccount,
+		TrustDomain:        sc.configOptions.TrustDomain,
+		Namespace:          sc.configOptions.WorkloadNamespace,
+		IdentityPathPrefix: sc.configOptions.IdentityPathPrefix,
+		ServiceAccount:     sc.configOptions.ServiceAccount,
 	}
 
 	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName.String())

@@ -2,6 +2,7 @@ defaultConfig:
   proxyMetadata:
     CANONICAL_REVISION: latest
     CANONICAL_SERVICE: foo
+    IDENTITY_PATH_PREFIX: ""
     ISTIO_META_CLUSTER_ID: Kubernetes
     ISTIO_META_DNS_CAPTURE: "true"
     ISTIO_META_MESH_ID: ""

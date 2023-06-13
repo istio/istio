@@ -132,6 +132,41 @@ func TestValidateWildcardDomain(t *testing.T) {
 	}
 }
 
+func TestValidateIdentityPathPrefix(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		err  string
+	}{
+		{"empty", "", ""},
+		{"happy", strings.Repeat("x", 63), ""},
+		{"multi-segment", "foo.bar.com", ""},
+		{"middle dash", "f-oo.bar.com", ""},
+		{"trailing dot", "foo.bar.com.", ""},
+		{"prefix dash", "-foo.bar.com", "invalid"},
+		{"forward slash separated", "foo/bar/com", ""},
+		{"leading forward slash", "/foo/bar/com", "leading"},
+		{"trailing forward slash", "foo/bar/com/", "trailing"},
+		{"forward slash separated ns", "foo/ns/com", "/ns/"},
+		{"forward slash separated sa", "foo/sa/com", "/sa/"},
+		{"happy with multi-segment", "foo.com/sa.google.com/com", ""},
+		{"colon with multi-segment", "foo.com/sa.goo:gle.com/com", "invalid"},
+		{"colon separated", "foo:bar:com", "invalid"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateIdentityPathPrefix(tt.in)
+			if err == nil && tt.err != "" {
+				t.Fatalf("ValidateTrustDomain(%v) = nil, wanted %q", tt.in, tt.err)
+			} else if err != nil && tt.err == "" {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.err) {
+				t.Fatalf("ValidateTrustDomain(%v) = %v, wanted %q", tt.in, err, tt.err)
+			}
+		})
+	}
+}
+
 func TestValidateTrustDomain(t *testing.T) {
 	tests := []struct {
 		name string
@@ -144,9 +179,7 @@ func TestValidateTrustDomain(t *testing.T) {
 		{"middle dash", "f-oo.bar.com", ""},
 		{"trailing dot", "foo.bar.com.", ""},
 		{"prefix dash", "-foo.bar.com", "invalid"},
-		{"forward slash separated", "foo/bar/com", ""},
-		{"forward slash separated ns", "foo/ns/com", ""},
-		{"forward slash separated sa", "foo/sa/com", ""},
+		{"forward slash separated", "foo/bar/com", "invalid"},
 		{"colon separated", "foo:bar:com", "invalid"},
 	}
 	for _, tt := range tests {

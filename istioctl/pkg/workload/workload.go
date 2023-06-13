@@ -508,6 +508,7 @@ func createMeshConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGrou
 	md["POD_NAMESPACE"] = wg.Namespace
 	md["SERVICE_ACCOUNT"] = we.ServiceAccount
 	md["TRUST_DOMAIN"] = meshConfig.TrustDomain
+	md["IDENTITY_PATH_PREFIX"] = meshConfig.IdentityPathPrefix
 
 	md["ISTIO_META_CLUSTER_ID"] = clusterID
 	md["ISTIO_META_MESH_ID"] = meshConfig.DefaultConfig.MeshId

@@ -68,6 +68,9 @@ var (
 	trustDomainEnv = env.Register("TRUST_DOMAIN", "cluster.local",
 		"The trust domain for spiffe certificates").Get()
 
+	identityPathPrefixEnv = env.Register("IDENTITY_PREFIX", "",
+		"Spiffe identity prefix that goes after the trust domain but before the service identity spiffe://<trust_domain>/<identity_prefix>/<identity>").Get()
+
 	secretTTLEnv = env.Register("SECRET_TTL", 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
 

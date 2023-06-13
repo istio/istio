@@ -307,6 +307,41 @@ func validateDNS1123Labels(domain string) error {
 	return nil
 }
 
+func ValidateIdentityPathPrefix(idp string) error {
+	if len(idp) == 0 {
+		return nil
+	}
+	if strings.HasPrefix(idp, "/") {
+		return fmt.Errorf("identity prefix cannot contain leading forward slash %s", idp)
+	}
+	if strings.HasSuffix(idp, "/") {
+		return fmt.Errorf("identity prefix cannot contain trailing forward slash %s", idp)
+	}
+	if strings.Contains(idp, "/ns/") {
+		return fmt.Errorf("identity prefix cannot contain /ns/ string %s", idp)
+	}
+	if strings.Contains(idp, "/sa/") {
+		return fmt.Errorf("identity prefix cannot contain /sa/ string %s", idp)
+	}
+
+	domains := strings.Split(idp, "/")
+	for _, domain := range domains {
+		parts := strings.Split(domain, ".")
+		for i, label := range parts {
+			// Allow the last part to be empty, for unambiguous names like `istio.io.`
+			if i == len(parts)-1 && label == "" {
+				return nil
+			}
+			if !labels.IsDNS1123Label(label) {
+				return fmt.Errorf("identity path prefix %q invalid", domain)
+			}
+		}
+	}
+	
+	return nil
+
+}
+
 // validate the trust domain format
 func ValidateTrustDomain(domain string) error {
 	if len(domain) == 0 {
@@ -318,21 +353,8 @@ func ValidateTrustDomain(domain string) error {
 		if i == len(parts)-1 && label == "" {
 			return nil
 		}
-
-		if strings.Contains(label, "/") {
-			split := strings.Split(label, "/")
-			for _, l := range split {
-				if !labels.IsDNS1123Label(l) {
-					return fmt.Errorf("trust domain name %q invalid", domain)
-				}
-				if strings.Contains(l, "/ns/") || strings.Contains(l, "/sa/") {
-					return fmt.Errorf("trust domain name %q invalid", domain)
-				}
-			}
-		} else {
-			if !labels.IsDNS1123Label(label) {
-				return fmt.Errorf("trust domain name %q invalid", domain)
-			}
+		if !labels.IsDNS1123Label(label) {
+			return fmt.Errorf("trust domain name %q invalid", domain)
 		}
 	}
 	return nil
@@ -1730,6 +1752,7 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 	v = appendValidation(v, validateLocalityLbSetting(mesh.LocalityLbSetting, &networking.OutlierDetection{}))
 	v = appendValidation(v, validateServiceSettings(mesh))
 	v = appendValidation(v, validateTrustDomainConfig(mesh))
+	v = appendValidation(v, validateIdentityPathPrefixConfig(mesh))
 
 	if err := validateExtensionProvider(mesh); err != nil {
 		scope.Warnf("found invalid extension provider (can be ignored if the given extension provider is not used): %v", err)
@@ -1740,6 +1763,13 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 	v = appendValidation(v, ValidateMeshTLSDefaults(mesh))
 
 	return v.Unwrap()
+}
+
+func validateIdentityPathPrefixConfig(config *meshconfig.MeshConfig) (errs error) {
+	if err := ValidateIdentityPathPrefix(config.IdentityPathPrefix); err != nil {
+		errs = multierror.Append(errs, fmt.Errorf("identityPathPrefix: %v", err))
+	}
+	return
 }
 
 func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {

@@ -106,43 +106,64 @@ func TestGenSpiffeURI(t *testing.T) {
 	defer SetTrustDomain(oldTrustDomain)
 
 	testCases := []struct {
-		namespace      string
-		trustDomain    string
-		serviceAccount string
-		expectedError  string
-		expectedURI    string
+		namespace          string
+		trustDomain        string
+		identityPathPrefix string
+		serviceAccount     string
+		expectedError      string
+		expectedURI        string
 	}{
 		{
-			serviceAccount: "sa",
-			trustDomain:    defaultTrustDomain,
-			expectedError:  "namespace or service account empty for SPIFFE uri",
+			serviceAccount:     "sa",
+			trustDomain:        defaultTrustDomain,
+			identityPathPrefix: "",
+			expectedError:      "namespace or service account empty for SPIFFE uri",
 		},
 		{
-			namespace:     "ns",
-			trustDomain:   defaultTrustDomain,
-			expectedError: "namespace or service account empty for SPIFFE uri",
+			namespace:          "ns",
+			trustDomain:        defaultTrustDomain,
+			identityPathPrefix: "",
+			expectedError:      "namespace or service account empty for SPIFFE uri",
 		},
 		{
-			namespace:      "namespace-foo",
-			serviceAccount: "service-bar",
-			trustDomain:    defaultTrustDomain,
-			expectedURI:    "spiffe://cluster.local/ns/namespace-foo/sa/service-bar",
+			namespace:          "namespace-foo",
+			serviceAccount:     "service-bar",
+			trustDomain:        defaultTrustDomain,
+			identityPathPrefix: "",
+			expectedURI:        "spiffe://cluster.local/ns/namespace-foo/sa/service-bar",
 		},
 		{
-			namespace:      "foo",
-			serviceAccount: "bar",
-			trustDomain:    defaultTrustDomain,
-			expectedURI:    "spiffe://cluster.local/ns/foo/sa/bar",
+			namespace:          "foo",
+			serviceAccount:     "bar",
+			trustDomain:        defaultTrustDomain,
+			identityPathPrefix: "",
+			expectedURI:        "spiffe://cluster.local/ns/foo/sa/bar",
 		},
 		{
-			namespace:      "foo",
-			serviceAccount: "bar",
-			trustDomain:    "kube-federating-id@testproj.iam.gserviceaccount.com",
-			expectedURI:    "spiffe://kube-federating-id.testproj.iam.gserviceaccount.com/ns/foo/sa/bar",
+			namespace:          "namespace-foo",
+			serviceAccount:     "service-bar",
+			trustDomain:        defaultTrustDomain,
+			identityPathPrefix: "prefix",
+			expectedURI:        "spiffe://cluster.local/prefix/ns/namespace-foo/sa/service-bar",
+		},
+		{
+			namespace:          "foo",
+			serviceAccount:     "bar",
+			trustDomain:        defaultTrustDomain,
+			identityPathPrefix: "prefix/something/else",
+			expectedURI:        "spiffe://cluster.local/prefix/something/else/ns/foo/sa/bar",
+		},
+		{
+			namespace:          "foo",
+			serviceAccount:     "bar",
+			trustDomain:        "kube-federating-id@testproj.iam.gserviceaccount.com",
+			identityPathPrefix: "",
+			expectedURI:        "spiffe://kube-federating-id.testproj.iam.gserviceaccount.com/ns/foo/sa/bar",
 		},
 	}
 	for id, tc := range testCases {
 		SetTrustDomain(tc.trustDomain)
+		SetIdentityPathPrefix(tc.identityPathPrefix)
 		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
 		if tc.expectedError == "" && err != nil {
 			t.Errorf("teste case [%v] failed, error %v", id, tc)

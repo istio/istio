@@ -167,6 +167,10 @@ type Options struct {
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
 
+	// IdentityPathPrefix Spiffe identity prefix that goes after the trust domain but before the service identity
+	//	spiffe://<trust_domain>/<identity_prefix>/<identity>
+	IdentityPathPrefix string
+
 	// WorkloadRSAKeySize is the size of a private key for a workload certificate.
 	WorkloadRSAKeySize int
 
