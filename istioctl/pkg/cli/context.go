@@ -126,11 +126,13 @@ type fakeInstance struct {
 }
 
 func (f *fakeInstance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
-	c := MockClient{
-		CLIClient: kube.NewFakeClient(),
+	if _, ok := f.clients[rev]; !ok {
+		c := MockClient{
+			CLIClient: kube.NewFakeClient(),
+		}
+		f.clients[rev] = c
 	}
-	f.clients[rev] = c
-	return c, nil
+	return f.clients[rev], nil
 }
 
 func (f *fakeInstance) CLIClient() (kube.CLIClient, error) {
