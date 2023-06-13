@@ -40,3 +40,12 @@ linters-settings:
             desc: "operator should not be imported"
           - pkg: istio.io/istio/istioctl
             desc: "istioctl should not be imported"
+      DenyOpenCensus:
+        files:
+          - $all
+          - "!**/pkg/collateral/**"
+          - "!**/pkg/ctrlz/**"
+          - "!**/pkg/monitoring/**"
+        deny:
+          - pkg: go.opencensus.io
+            desc: "do not use OpenCensus directly"
