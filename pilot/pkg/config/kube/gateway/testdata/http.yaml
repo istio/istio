@@ -166,7 +166,7 @@ spec:
       urlRewrite:
         hostname: "new.example.com"
         path:
-          type: ReplaceFullPath # Not currently supported
+          type: ReplaceFullPath
           replaceFullPath: "/replacement"
     backendRefs:
     - name: httpbin

@@ -1209,14 +1209,17 @@ func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 		case k8sbeta.PrefixMatchHTTPPathModifier:
 			rewrite.Uri = *filter.Path.ReplacePrefixMatch
 		case k8sbeta.FullPathHTTPPathModifier:
-			rewrite.Uri = fmt.Sprintf("%%FULLREPLACE()%%%s", *filter.Path.ReplaceFullPath)
+			rewrite.UriRegexRewrite = &istio.RegexRewrite{
+				Match:   "/.*",
+				Rewrite: *filter.Path.ReplaceFullPath,
+			}
 		}
 	}
 	if filter.Hostname != nil {
 		rewrite.Authority = string(*filter.Hostname)
 	}
 	// Nothing done
-	if rewrite.Uri == "" && rewrite.Authority == "" {
+	if rewrite.Uri == "" && rewrite.UriRegexRewrite == nil && rewrite.Authority == "" {
 		return nil
 	}
 	return rewrite
