@@ -1,5 +1,5 @@
 # Only keep golden and input files
-../vmconfig-nil-proxy-metadata/hosts
+hosts
 istio-token
 mesh.yaml
 root-cert.pem

@@ -505,13 +505,9 @@ func listEqualUnordered(a []string, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	first := make(map[string]struct{}, len(a))
-	for _, c := range a {
-		first[c] = struct{}{}
-	}
+	first := sets.New(a...)
 	for _, c := range b {
-		_, f := first[c]
-		if !f {
+		if !first.Contains(c) {
 			return false
 		}
 	}

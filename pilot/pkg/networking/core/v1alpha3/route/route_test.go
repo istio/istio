@@ -1787,7 +1787,10 @@ var virtualServiceWithRewriteFullPath = config.Config{
 					},
 				},
 				Rewrite: &networking.HTTPRewrite{
-					Uri: "%FULLREPLACE()%/replace-full",
+					UriRegexRewrite: &networking.RegexRewrite{
+						Match:   "/.*",
+						Rewrite: "/replace-full",
+					},
 				},
 				Route: []*networking.HTTPRouteDestination{
 					{
@@ -1821,7 +1824,10 @@ var virtualServiceWithRewriteFullPathAndHost = config.Config{
 					},
 				},
 				Rewrite: &networking.HTTPRewrite{
-					Uri:       "%FULLREPLACE()%/replace-full",
+					UriRegexRewrite: &networking.RegexRewrite{
+						Match:   "/.*",
+						Rewrite: "/replace-full",
+					},
 					Authority: "bar.example.org",
 				},
 				Route: []*networking.HTTPRouteDestination{

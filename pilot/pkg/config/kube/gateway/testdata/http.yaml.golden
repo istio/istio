@@ -161,7 +161,9 @@ spec:
     name: default.rewrite.1
     rewrite:
       authority: new.example.com
-      uri: '%FULLREPLACE()%/replacement'
+      uriRegexRewrite:
+        match: /.*
+        rewrite: /replacement
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix

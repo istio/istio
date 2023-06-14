@@ -203,6 +203,16 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	testCases := map[string]map[string]string{
+		"ipv4": {
+			"internalIP": "10.10.10.10",
+			"ingressIP":  "10.10.10.11",
+		},
+		"ipv6": {
+			"internalIP": "fd00:10:96::1",
+			"ingressIP":  "fd00:10:96::2",
+		},
+	}
 	for _, dir := range files {
 		if !dir.IsDir() {
 			continue
@@ -235,7 +245,8 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 			cmdWithClusterID := []string{
 				"entry", "configure",
 				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
-				"--internalIP", "10.10.10.10",
+				"--internalIP", testCases[dir.Name()]["internalIP"],
+				"--ingressIP", testCases[dir.Name()]["ingressIP"],
 				"--clusterID", "Kubernetes",
 				"--revision", "rev-1",
 				"-o", testdir,
@@ -247,7 +258,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 			cmdNoClusterID := []string{
 				"entry", "configure",
 				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
-				"--internalIP", "10.10.10.10",
+				"--internalIP", testCases[dir.Name()]["internalIP"],
 				"--revision", "rev-1",
 				"-o", testdir,
 			}

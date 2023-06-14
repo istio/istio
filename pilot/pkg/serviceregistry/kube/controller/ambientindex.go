@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -289,10 +289,7 @@ func (c *Controller) constructService(svc *v1.Service) *model.ServiceInfo {
 		Service: &workloadapi.Service{
 			Name:      svc.Name,
 			Namespace: svc.Namespace,
-			Hostname: string(model.ResolveShortnameToFQDN(svc.Name, config.Meta{
-				Namespace: svc.Namespace,
-				Domain:    spiffe.GetTrustDomain(),
-			})),
+			Hostname:  string(kube.ServiceHostname(svc.Name, svc.Namespace, c.opts.DomainSuffix)),
 			Addresses: addrs,
 			Ports:     ports,
 		},

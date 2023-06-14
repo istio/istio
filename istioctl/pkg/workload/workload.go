@@ -583,7 +583,7 @@ func createHosts(kubeClient kube.CLIClient, istioNamespace, ingressIP, dir strin
 	}
 
 	var hosts string
-	if netutil.IsIPv4Address(ingressIP) {
+	if netutil.IsValidIPAddress(ingressIP) {
 		hosts = fmt.Sprintf("%s %s\n", ingressIP, IstiodHost(istioNamespace, revision))
 	} else {
 		log.Warnf("Could not auto-detect IP for %s/%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
