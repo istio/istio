@@ -23,6 +23,19 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
+	"istio.io/istio/istioctl/pkg/admin"
+	"istio.io/istio/istioctl/pkg/analyze"
+	"istio.io/istio/istioctl/pkg/authz"
+	"istio.io/istio/istioctl/pkg/checkinject"
+	"istio.io/istio/istioctl/pkg/completion"
+	"istio.io/istio/istioctl/pkg/config"
+	"istio.io/istio/istioctl/pkg/dashboard"
+	"istio.io/istio/istioctl/pkg/describe"
+	"istio.io/istio/istioctl/pkg/injector"
+	"istio.io/istio/istioctl/pkg/kubeinject"
+	"istio.io/istio/istioctl/pkg/precheck"
+	"istio.io/istio/istioctl/pkg/waypoint"
+	"istio.io/istio/istioctl/pkg/workload"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/install"
@@ -36,15 +49,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/bug-report/pkg/bugreport"
 )
-
-// CommandParseError distinguishes an error parsing istioctl CLI arguments from an error processing
-type CommandParseError struct {
-	e error
-}
-
-func (c CommandParseError) Error() string {
-	return c.e.Error()
-}
 
 const (
 	// Location to read istioctl defaults from
@@ -149,12 +153,12 @@ debug and diagnose their Istio mesh.
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagIstioNamespace, func(
 		cmd *cobra.Command, args []string, toComplete string,
 	) ([]string, cobra.ShellCompDirective) {
-		return validNamespaceArgs(cmd, ctx, args, toComplete)
+		return completion.validNamespaceArgs(cmd, ctx, args, toComplete)
 	})
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagNamespace, func(
 		cmd *cobra.Command, args []string, toComplete string,
 	) ([]string, cobra.ShellCompDirective) {
-		return validNamespaceArgs(cmd, ctx, args, toComplete)
+		return completion.validNamespaceArgs(cmd, ctx, args, toComplete)
 	})
 
 	// Attach the Istio logging options to the command.
@@ -169,7 +173,7 @@ debug and diagnose their Istio mesh.
 
 	cmd.AddFlags(rootCmd)
 
-	kubeInjectCmd := injectCommand(ctx)
+	kubeInjectCmd := kubeinject.injectCommand(ctx)
 	hideInheritedFlags(kubeInjectCmd, cli.FlagNamespace)
 	rootCmd.AddCommand(kubeInjectCmd)
 
@@ -210,32 +214,32 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyConfig(ctx))
-	rootCmd.AddCommand(adminCmd(ctx))
-	experimentalCmd.AddCommand(injectorCommand(ctx))
+	rootCmd.AddCommand(admin.adminCmd(ctx))
+	experimentalCmd.AddCommand(injector.injectorCommand(ctx))
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
 	rootCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 
-	experimentalCmd.AddCommand(AuthZ(ctx))
+	experimentalCmd.AddCommand(authz.AuthZ(ctx))
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(metricsCmd(ctx))
-	experimentalCmd.AddCommand(describe(ctx))
+	experimentalCmd.AddCommand(describe.describe(ctx))
 	experimentalCmd.AddCommand(waitCmd(ctx))
 	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(loggingOptions)))
-	experimentalCmd.AddCommand(configCmd())
-	experimentalCmd.AddCommand(workloadCommands(ctx))
+	experimentalCmd.AddCommand(config.configCmd())
+	experimentalCmd.AddCommand(workload.workloadCommands(ctx))
 	experimentalCmd.AddCommand(revisionCommand(ctx))
 	experimentalCmd.AddCommand(debugCommand(ctx))
-	experimentalCmd.AddCommand(preCheck(ctx))
+	experimentalCmd.AddCommand(precheck.preCheck(ctx))
 	experimentalCmd.AddCommand(statsConfigCmd(ctx))
-	experimentalCmd.AddCommand(checkInjectCommand(ctx))
-	experimentalCmd.AddCommand(waypointCmd(ctx))
+	experimentalCmd.AddCommand(checkinject.checkInjectCommand(ctx))
+	experimentalCmd.AddCommand(waypoint.waypointCmd(ctx))
 
-	analyzeCmd := Analyze(ctx)
+	analyzeCmd := analyze.Analyze(ctx)
 	hideInheritedFlags(analyzeCmd, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(analyzeCmd)
 
-	dashboardCmd := dashboard(ctx)
+	dashboardCmd := dashboard.dashboard(ctx)
 	hideInheritedFlags(dashboardCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
 

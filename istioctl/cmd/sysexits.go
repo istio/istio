@@ -14,7 +14,11 @@
 
 package cmd
 
-import "strings"
+import (
+	"strings"
+
+	"istio.io/istio/istioctl/pkg/analyze"
+)
 
 // Values should try to use sendmail-style values as in <sysexits.h>
 // See e.g. https://man.openbsd.org/sysexits.3
@@ -44,9 +48,9 @@ func GetExitCode(e error) int {
 	switch e.(type) {
 	case CommandParseError:
 		return ExitIncorrectUsage
-	case FileParseError:
+	case analyze.FileParseError:
 		return ExitDataError
-	case AnalyzerFoundIssuesError:
+	case analyze.AnalyzerFoundIssuesError:
 		return ExitAnalyzerFoundIssues
 	default:
 		return ExitUnknownError

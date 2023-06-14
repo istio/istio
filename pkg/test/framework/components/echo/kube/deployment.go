@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	istioctlcmd "istio.io/istio/istioctl/pkg/workload"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +36,6 @@ import (
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	istioctlcmd "istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"

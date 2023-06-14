@@ -22,6 +22,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/pkg/authz"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -58,7 +59,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 `,
 		Aliases: []string{"ps"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 0) && (configDumpFile != "") {
+			if (len(args) == 0) && (authz.configDumpFile != "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("--file can only be used when pod-name is specified")
 			}
@@ -75,8 +76,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					return err
 				}
 				var envoyDump []byte
-				if configDumpFile != "" {
-					envoyDump, err = readConfigFile(configDumpFile)
+				if authz.configDumpFile != "" {
+					envoyDump, err = readConfigFile(authz.configDumpFile)
 				} else {
 					path := "config_dump"
 					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
@@ -106,7 +107,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	}
 
 	opts.AttachControlPlaneFlags(statusCmd)
-	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	statusCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return statusCmd
@@ -182,8 +183,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					return err
 				}
 				var envoyDump []byte
-				if configDumpFile != "" {
-					envoyDump, err = readConfigFile(configDumpFile)
+				if authz.configDumpFile != "" {
+					envoyDump, err = readConfigFile(authz.configDumpFile)
 				} else {
 					path := "config_dump"
 					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
@@ -220,7 +221,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 
 	opts.AttachControlPlaneFlags(statusCmd)
 	centralOpts.AttachControlPlaneFlags(statusCmd)
-	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	statusCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 	statusCmd.PersistentFlags().BoolVar(&multiXdsOpts.XdsViaAgents, "xds-via-agents", false,
 		"Access Istiod via the tap service of each agent")

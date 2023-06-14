@@ -21,20 +21,10 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	util2 "istio.io/istio/istioctl/pkg/util"
 
 	"istio.io/istio/pilot/test/util"
 )
-
-type testCase struct {
-	args []string
-
-	// Typically use one of the three
-	expectedOutput string         // Expected constant output
-	expectedRegexp *regexp.Regexp // Expected regexp output
-	goldenFilename string         // Expected output stored in golden file
-
-	wantException bool
-}
 
 func TestBadParse(t *testing.T) {
 	// unknown flags should be a command parse
@@ -42,7 +32,7 @@ func TestBadParse(t *testing.T) {
 	fErr := rootCmd.Execute()
 
 	switch fErr.(type) {
-	case CommandParseError:
+	case util2.CommandParseError:
 		// do nothing
 	default:
 		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
@@ -53,7 +43,7 @@ func TestBadParse(t *testing.T) {
 	fErr = rootCmd.Execute()
 
 	switch fErr.(type) {
-	case CommandParseError:
+	case util2.CommandParseError:
 		// do nothing
 	default:
 		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
@@ -64,14 +54,25 @@ func TestBadParse(t *testing.T) {
 	fErr = rootCmd.Execute()
 
 	switch fErr.(type) {
-	case CommandParseError:
+	case util2.CommandParseError:
 		// do nothing
 	default:
 		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
 	}
 }
 
-func verifyOutput(t *testing.T, cmd *cobra.Command, c testCase) {
+type TestCase struct {
+	args []string
+
+	// Typically use one of the three
+	expectedOutput string         // Expected constant output
+	expectedRegexp *regexp.Regexp // Expected regexp output
+	goldenFilename string         // Expected output stored in golden file
+
+	wantException bool
+}
+
+func verifyOutput(t *testing.T, cmd *cobra.Command, c TestCase) {
 	t.Helper()
 
 	cmd.SetArgs(c.args)

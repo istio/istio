@@ -28,6 +28,7 @@ import (
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/pkg/dashboard"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -128,7 +129,7 @@ func run(c *cobra.Command, ctx cli.Context, args []string) error {
 
 	// Close the forwarder either when we exit or when an this processes is interrupted.
 	defer fw.Close()
-	closePortForwarderOnInterrupt(fw)
+	dashboard.closePortForwarderOnInterrupt(fw)
 
 	log.Debugf("port-forward to prometheus pod ready")
 

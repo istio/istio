@@ -22,6 +22,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/pkg/analyze"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -316,7 +317,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 }
 
 func analyzeWebhook(name, istioNamespace, wh, revision string, config *rest.Config) error {
-	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}), resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil)
+	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}), resource.Namespace(analyze.selectedNamespace), resource.Namespace(istioNamespace), nil)
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err
 	}
@@ -336,7 +337,7 @@ func analyzeWebhook(name, istioNamespace, wh, revision string, config *rest.Conf
 		}
 	}
 	if len(relevantMessages) > 0 {
-		o, err := formatting.Print(relevantMessages, formatting.LogFormat, colorize)
+		o, err := formatting.Print(relevantMessages, formatting.LogFormat, analyze.colorize)
 		if err != nil {
 			return err
 		}

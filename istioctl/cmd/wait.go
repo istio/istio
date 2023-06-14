@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/pkg/describe"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 
@@ -216,7 +217,7 @@ func poll(ctx cli.Context,
 	}
 
 	for version, count := range versionCount {
-		if contains(acceptedVersions, version) {
+		if describe.contains(acceptedVersions, version) {
 			present += count
 		} else {
 			notpresent += count
