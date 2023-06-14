@@ -183,7 +183,7 @@ spec:
         {{- if .Values.cni.ambient.enabled }}
         - name: cni-ambient-config-dir
           hostPath:
-            path: {{ .Values.cni.ambient.cniAmbientConfigDir | default "/etc/ambient-config" }}
+            path: {{ .Values.cni.ambient.configDir | default "/etc/ambient-config" }}
         {{- end }}
         - name: cni-net-dir
           hostPath:

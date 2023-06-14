@@ -55,7 +55,7 @@ cni:
     # Set ambient redirection mode: "iptables" or "ebpf"
     redirectMode: "iptables"
     # Set ambient config dir path: defaults to /etc/ambient-config
-    cniAmbientConfigDir: ""
+    configDir: ""
 
 
   repair:
