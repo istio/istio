@@ -509,7 +509,7 @@ func TestAmbientIndex(t *testing.T) {
 	})
 
 	// All pods have an event (since we're only testing one namespace) but still no policies attached
-	assertEvent("cluster0//Pod/ns1/name1", "cluster0//Pod/ns1/name2", "cluster0//Pod/ns1/waypoint-ns-pod", "cluster0//Pod/ns1/waypoint2-sa") // Every workload should receive an event
+	assertEvent("cluster0//Pod/ns1/name1", "cluster0//Pod/ns1/name2", "cluster0//Pod/ns1/waypoint-ns-pod", "cluster0//Pod/ns1/waypoint2-sa")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.1")[0].Address.GetWorkload().AuthorizationPolicies,
 		nil)
@@ -570,7 +570,7 @@ func TestAmbientIndex(t *testing.T) {
 		}
 	})
 	// All pods have an event (since we're only testing one namespace)
-	assertEvent("cluster0//Pod/ns1/name1", "cluster0//Pod/ns1/name2", "cluster0//Pod/ns1/waypoint-ns-pod", "cluster0//Pod/ns1/waypoint2-sa") // Every workload should receive an event
+	assertEvent("cluster0//Pod/ns1/name1", "cluster0//Pod/ns1/name2", "cluster0//Pod/ns1/waypoint-ns-pod", "cluster0//Pod/ns1/waypoint2-sa")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.1")[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)}) // Effective mode is STRICT so set static policy
@@ -655,7 +655,8 @@ func TestAmbientIndex(t *testing.T) {
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 		}
 	})
-	assertEvent("cluster0//Pod/ns1/name1", "cluster0//Pod/ns1/name2", "cluster0//Pod/ns1/waypoint-ns-pod", "cluster0//Pod/ns1/waypoint2-sa") // Every workload should receive an event
+	// Every workload should receive an event
+	assertEvent("cluster0//Pod/ns1/name1", "cluster0//Pod/ns1/name2", "cluster0//Pod/ns1/waypoint-ns-pod", "cluster0//Pod/ns1/waypoint2-sa")
 	// Static STRICT policy should be sent
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.1")[0].Address.GetWorkload().AuthorizationPolicies,
@@ -737,7 +738,8 @@ func TestAmbientIndex(t *testing.T) {
 
 	// Delete global policy
 	cfg.Delete(gvk.PeerAuthentication, "strict", "istio-system", nil)
-	assertEvent("cluster0//Pod/ns1/name1", "cluster0//Pod/ns1/name2", "cluster0//Pod/ns1/waypoint-ns-pod", "cluster0//Pod/ns1/waypoint2-sa") // Every workload should receive an event
+	// Every workload should receive an event
+	assertEvent("cluster0//Pod/ns1/name1", "cluster0//Pod/ns1/name2", "cluster0//Pod/ns1/waypoint-ns-pod", "cluster0//Pod/ns1/waypoint2-sa")
 	// Now no policies are in effect
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.1")[0].Address.GetWorkload().AuthorizationPolicies,

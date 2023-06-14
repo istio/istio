@@ -230,7 +230,7 @@ type Group struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Rules are AND-ed
+	// Rules are OR-ed (e.g. ANY rule can match)
 	// This is a generic form of the authz policy's to, from and when
 	Rules []*Rules `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
 }
@@ -279,9 +279,7 @@ type Rules struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// The logical behavior between the matches (if there are more than one)
-	//
-	//	MatchBehavior match_behavior = 1;
+	// Conditions within a rule are AND-ed (e.g. ALL conditions must be true)
 	Matches []*Match `protobuf:"bytes,2,rep,name=matches,proto3" json:"matches,omitempty"`
 }
 

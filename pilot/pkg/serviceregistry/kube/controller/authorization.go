@@ -41,8 +41,12 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 		return nil
 	}
 
-	cfgs := c.configController.List(gvk.AuthorizationPolicy, metav1.NamespaceAll)
-	cfgs = append(cfgs, c.configController.List(gvk.PeerAuthentication, metav1.NamespaceAll)...)
+	var cfgs []config.Config
+	authzPolicies := c.configController.List(gvk.AuthorizationPolicy, metav1.NamespaceAll)
+	peerAuthenticationPolicies := c.configController.List(gvk.PeerAuthentication, metav1.NamespaceAll)
+
+	cfgs = append(cfgs, authzPolicies...)
+	cfgs = append(cfgs, peerAuthenticationPolicies...)
 	l := len(cfgs)
 	if len(requested) > 0 {
 		l = len(requested)
@@ -82,21 +86,23 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 		}
 	}
 
-	// Always send the equivalent of a STRICT policy so that workloads can reference it
-	res = append(res, &security.Authorization{
-		Name:      staticStrictPolicyName,
-		Namespace: c.meshWatcher.Mesh().GetRootNamespace(),
-		Scope:     security.Scope_WORKLOAD_SELECTOR,
-		Action:    security.Action_DENY,
-		Groups: []*security.Group{
-			{
-				Rules: []*security.Rules{
-					{
-						Matches: []*security.Match{
-							{
-								NotPrincipals: []*security.StringMatch{
-									{
-										MatchType: &security.StringMatch_Presence{},
+	// If there are any PeerAuthentications in our cache, send our static STRICT policy
+	if len(peerAuthenticationPolicies) > 0 {
+		res = append(res, &security.Authorization{
+			Name:      staticStrictPolicyName,
+			Namespace: c.meshWatcher.Mesh().GetRootNamespace(),
+			Scope:     security.Scope_WORKLOAD_SELECTOR,
+			Action:    security.Action_DENY,
+			Groups: []*security.Group{
+				{
+					Rules: []*security.Rules{
+						{
+							Matches: []*security.Match{
+								{
+									NotPrincipals: []*security.StringMatch{
+										{
+											MatchType: &security.StringMatch_Presence{},
+										},
 									},
 								},
 							},
@@ -104,8 +110,8 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 					},
 				},
 			},
-		},
-	})
+		})
+	}
 
 	return res
 }
@@ -343,7 +349,9 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 			}
 		}
 
-		if maps.Equal(sel, oldSel) && oldPa.GetMtls().GetMode() == newPa.GetMtls().GetMode() && reflect.DeepEqual(oldPa.GetPortLevelMtls(), newPa.GetPortLevelMtls()) {
+		mtlsUnchanged := oldPa.GetMtls().GetMode() == newPa.GetMtls().GetMode()
+		portLevelMtlsUnchanged := reflect.DeepEqual(oldPa.GetPortLevelMtls(), newPa.GetPortLevelMtls())
+		if maps.Equal(sel, oldSel) && mtlsUnchanged && portLevelMtlsUnchanged {
 			// Update event, but nothing we care about changed. No workloads to push.
 			return
 		}
@@ -451,9 +459,10 @@ func (c *Controller) getPodsInPolicy(ns string, sel map[string]string, meshWideS
 
 // convertPeerAuthentication converts a PeerAuthentication to an L4 authorization policy (i.e. security.Authorization) iff
 // 1. the PeerAuthentication has a workload selector
-// 2. There is a portLevelMtls policy (technically implied by 1)
-// 3. The top-level PeerAuthentication mode is STRICT, UNSET, or PERMISSIVE
-// 4. If the top-level mode is PERMISSIVE, there is at least one portLevelMtls policy with mode STRICT
+// 2. The PeerAuthentication is NOT in the root namespace
+// 3. There is a portLevelMtls policy (technically implied by 1)
+// 4. The top-level PeerAuthentication mode is STRICT, UNSET, or PERMISSIVE
+// 5. If the top-level mode is PERMISSIVE, there is at least one portLevelMtls policy with mode STRICT
 // STRICT policies that don't have portLevelMtls will be
 // handled when the Workload xDS resource is pushed (a static STRICT-equivalent policy will always be pushed)
 func convertPeerAuthentication(rootNamespace string, cfg config.Config) *security.Authorization {
@@ -465,15 +474,15 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 
 	mode := pa.GetMtls().GetMode()
 
-	// Violates case #3
+	// Violates case #4
 	if mode == v1beta1.PeerAuthentication_MutualTLS_DISABLE {
 		log.Debugf("skipping PeerAuthentication %s/%s for ambient with mTLS %s mode", cfg.Namespace, cfg.Name, mode)
 		return nil
 	}
 
 	scope := security.Scope_WORKLOAD_SELECTOR
-	// violates case #1 or #2
-	if pa.Selector == nil || len(pa.PortLevelMtls) == 0 {
+	// violates case #1, #2, or #3
+	if cfg.Namespace == rootNamespace || pa.Selector == nil || len(pa.PortLevelMtls) == 0 {
 		log.Debugf("skipping PeerAuthentication %s/%s for ambient  since it isn't a workload policy with port level mTLS", cfg.Namespace, cfg.Name)
 		return nil
 	}
@@ -543,7 +552,7 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 				},
 			})
 		default:
-			log.Debugf("skipping port %s for PeerAuthentication %s/%s for ambient since it is %s and not STRICT or PERMISSIVE", port, cfg.Namespace, cfg.Name, portMtlsMode)
+			log.Debugf("skipping port %s for PeerAuthentication %s/%s for ambient since it is UNSET or DISABLED", port, cfg.Namespace, cfg.Name)
 			continue
 		}
 	}
