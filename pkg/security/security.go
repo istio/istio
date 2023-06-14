@@ -426,15 +426,15 @@ type Authenticator interface {
 	AuthenticatorType() string
 }
 
-// AuthenticationManager orchestrates all authenticators to perform authentication.
-type AuthenticationManager struct {
+// authenticationManager orchestrates all authenticators to perform authentication.
+type authenticationManager struct {
 	Authenticators []Authenticator
 	// authFailMsgs contains list of messages that authenticator wants to record - mainly used for logging.
 	authFailMsgs []string
 }
 
 // Authenticate loops through all the configured Authenticators and returns if one of the authenticator succeeds.
-func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
+func (am *authenticationManager) authenticate(ctx context.Context) *Caller {
 	req := AuthContext{GrpcContext: ctx}
 	for _, authn := range am.Authenticators {
 		u, err := authn.Authenticate(req)
@@ -456,7 +456,7 @@ func GetConnectionAddress(ctx context.Context) string {
 	return peerAddr
 }
 
-func (am *AuthenticationManager) FailedMessages() string {
+func (am *authenticationManager) FailedMessages() string {
 	return strings.Join(am.authFailMsgs, "; ")
 }
 

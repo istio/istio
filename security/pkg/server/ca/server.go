@@ -20,7 +20,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -77,18 +76,10 @@ func (s SaNode) String() string {
 func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertificateRequest) (
 	*pb.IstioCertificateResponse, error,
 ) {
-	peerAddr := "0.0.0.0"
-	if peerInfo, ok := peer.FromContext(ctx); ok {
-		peerAddr = peerInfo.Addr.String()
-	}
-
 	s.monitoring.CSR.Increment()
-	am := security.AuthenticationManager{Authenticators: s.Authenticators}
-	caller := am.Authenticate(ctx)
-	if caller == nil {
-		serverCaLog.Errorf("Failed to authenticate client from %s: %s", peerAddr, am.FailedMessages())
-		s.monitoring.AuthnError.Increment()
-		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
+	caller, err := security.Authenticate(ctx, s.Authenticators)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 	// By default, we will use the callers identity for the certificate
 	sans := caller.Identities
@@ -113,8 +104,8 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		// Node is authorized to impersonate; overwrite the SAN to the impersonated identity.
 		sans = []string{impersonatedIdentity}
 	}
-	serverCaLog.Infof("generating a certificate for client %s, sans: %v, requested ttl: %s",
-		peerAddr, sans, time.Duration(request.ValidityDuration*int64(time.Second)))
+	serverCaLog.Debugf("generating a certificate for client %s, sans: %v, requested ttl: %s",
+		security.GetConnectionAddress(ctx), sans, time.Duration(request.ValidityDuration*int64(time.Second)))
 	certSigner := crMetadata[security.CertSigner].GetStringValue()
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
@@ -132,7 +123,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		respCertChain, signErr = s.ca.SignWithCertChain([]byte(request.Csr), certOpts)
 	}
 	if signErr != nil {
-		serverCaLog.Errorf("CSR signing error for client %s: (%v)", peerAddr, signErr.Error())
+		serverCaLog.Errorf("CSR signing error for client %s: (%v)", security.GetConnectionAddress(ctx), signErr.Error())
 		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
 		return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
 	}
@@ -149,7 +140,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		CertChain: respCertChain,
 	}
 	s.monitoring.Success.Increment()
-	serverCaLog.Debugf("CSR successfully signed for client %s.", peerAddr)
+	serverCaLog.Debugf("CSR successfully signed for client %s, sans %v.", security.GetConnectionAddress(ctx), caller.Identities)
 	return response, nil
 }
 
