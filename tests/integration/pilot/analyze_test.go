@@ -24,8 +24,8 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"istio.io/istio/istioctl/pkg/analyze"
 
+	"istio.io/istio/istioctl/pkg/analyze"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test"

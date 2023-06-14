@@ -33,8 +33,7 @@ import (
 )
 
 type execTestCase struct {
-	execClientConfig map[string][]byte
-	args             []string
+	args []string
 
 	// Typically use one of the three
 	expectedOutput string // Expected constant output

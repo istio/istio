@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/spf13/viper"
+
 	"istio.io/istio/istioctl/pkg/util/testutil"
 	"istio.io/istio/pkg/config/constants"
 )

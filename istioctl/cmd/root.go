@@ -23,7 +23,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
-	"istio.io/istio/istioctl/pkg/root"
 
 	"istio.io/istio/istioctl/pkg/admin"
 	"istio.io/istio/istioctl/pkg/analyze"
@@ -36,7 +35,7 @@ import (
 	"istio.io/istio/istioctl/pkg/describe"
 	"istio.io/istio/istioctl/pkg/injector"
 	"istio.io/istio/istioctl/pkg/install"
-	"istio.io/istio/istioctl/pkg/internal-debug"
+	"istio.io/istio/istioctl/pkg/internaldebug"
 	"istio.io/istio/istioctl/pkg/kubeinject"
 	"istio.io/istio/istioctl/pkg/metrics"
 	"istio.io/istio/istioctl/pkg/multicluster"
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/istioctl/pkg/proxyconfig"
 	"istio.io/istio/istioctl/pkg/proxystatus"
 	"istio.io/istio/istioctl/pkg/revision"
+	"istio.io/istio/istioctl/pkg/root"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/validate"
@@ -207,7 +207,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(config.Cmd())
 	experimentalCmd.AddCommand(workload.Cmd(ctx))
 	experimentalCmd.AddCommand(revision.Cmd(ctx))
-	experimentalCmd.AddCommand(internal_debug.DebugCommand(ctx))
+	experimentalCmd.AddCommand(internaldebug.DebugCommand(ctx))
 	experimentalCmd.AddCommand(precheck.Cmd(ctx))
 	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
 	experimentalCmd.AddCommand(checkinject.Cmd(ctx))

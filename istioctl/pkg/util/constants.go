@@ -37,6 +37,6 @@ const (
 )
 
 const (
-	JsonFormat  = "json"
+	JSONFormat  = "json"
 	TableFormat = "table"
 )

@@ -412,7 +412,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	}
 
 	switch outputFormat {
-	case util.JsonFormat:
+	case util.JSONFormat:
 		return PrintJSON(writer, tags)
 	case util.TableFormat:
 	default:

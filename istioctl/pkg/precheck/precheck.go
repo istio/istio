@@ -55,9 +55,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-var (
-	revision string
-)
+var revision string
 
 func Cmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions

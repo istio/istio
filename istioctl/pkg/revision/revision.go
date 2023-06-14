@@ -66,7 +66,7 @@ const (
 
 var (
 	validFormats = map[string]bool{
-		util2.JsonFormat:  true,
+		util2.JSONFormat:  true,
 		util2.TableFormat: true,
 	}
 
@@ -239,7 +239,7 @@ func revisionList(ctx cli.Context, kubeClient kube.CLIClient, writer io.Writer, 
 	}
 
 	switch revArgs.output {
-	case util2.JsonFormat:
+	case util2.JSONFormat:
 		return tag.PrintJSON(writer, revisions)
 	case util2.TableFormat:
 		if len(revisions) == 0 {
@@ -530,7 +530,7 @@ func printRevisionDescription(ctx cli.Context, w io.Writer, args *revisionArgs, 
 		}
 	}
 	switch revArgs.output {
-	case util2.JsonFormat:
+	case util2.JSONFormat:
 		return tag.PrintJSON(w, revDescription)
 	case util2.TableFormat:
 		sections := defaultSections
