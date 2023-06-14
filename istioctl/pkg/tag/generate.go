@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -139,27 +138,13 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 			}
 		} else {
 			// If not apply, we need to generate the deactivated istio injection webhook that is going to be applied.
-			mwc, err := GenerateDeactivatedIstioInjectionWebhook(ctx, client.Kube())
+			_, yml, err := GenerateDeactivatedIstioInjectionWebhook(ctx, client.Kube())
 			if err != nil {
 				return "", fmt.Errorf("failed to generate deactivated istio injection webhook: %w", err)
 			}
-			// Add missing gvk info
-			mwc.APIVersion = gvk.MutatingWebhookConfiguration.GroupVersion()
-			mwc.Kind = gvk.MutatingWebhookConfiguration.Kind
-
-			serializer := json.NewSerializerWithOptions(
-				json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
-					Yaml:   true,
-					Pretty: true,
-					Strict: true,
-				})
-			whBuf := new(bytes.Buffer)
-			if err = serializer.Encode(mwc, whBuf); err != nil {
-				return "", err
-			}
 			tagWhYAML = fmt.Sprintf(`%s
 %s
-%s`, tagWhYAML, helm.YAMLSeparator, whBuf.String())
+%s`, tagWhYAML, helm.YAMLSeparator, yml)
 		}
 
 		// TODO(Monkeyanator) should extract the validationURL from revision's validating webhook here. However,

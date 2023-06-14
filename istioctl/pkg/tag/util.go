@@ -15,14 +15,17 @@
 package tag
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/config/schema/gvk"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
@@ -152,7 +155,7 @@ func PreviousInstallExists(ctx context.Context, client kubernetes.Interface) boo
 // switch back to it. This is a hack but it is meant to cover a corner case where a user wants to migrate from a non-revisioned
 // old version and then later decides to switch back to the old revision again.
 func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Interface) error {
-	webhook, err := GenerateDeactivatedIstioInjectionWebhook(ctx, client)
+	webhook, _, err := GenerateDeactivatedIstioInjectionWebhook(ctx, client)
 	if err != nil {
 		return err
 	}
@@ -167,17 +170,17 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 	return nil
 }
 
-func GenerateDeactivatedIstioInjectionWebhook(ctx context.Context, client kubernetes.Interface) (*admitv1.MutatingWebhookConfiguration, error) {
+func GenerateDeactivatedIstioInjectionWebhook(ctx context.Context, client kubernetes.Interface) (*admitv1.MutatingWebhookConfiguration, string, error) {
 	whs, err := GetWebhooksWithRevision(ctx, client, DefaultRevisionName)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if len(whs) == 0 {
 		// no revision with default, no action required.
-		return nil, nil
+		return nil, "", nil
 	}
 	if len(whs) > 1 {
-		return nil, fmt.Errorf("expected a single webhook for default revision")
+		return nil, "", fmt.Errorf("expected a single webhook for default revision")
 	}
 	webhook := &whs[0]
 	for i := range webhook.Webhooks {
@@ -188,5 +191,20 @@ func GenerateDeactivatedIstioInjectionWebhook(ctx context.Context, client kubern
 		wh.ObjectSelector = NeverMatch
 		webhook.Webhooks[i] = wh
 	}
-	return webhook, nil
+
+	// Add missing gvk info
+	webhook.APIVersion = gvk.MutatingWebhookConfiguration.GroupVersion()
+	webhook.Kind = gvk.MutatingWebhookConfiguration.Kind
+
+	serializer := json.NewSerializerWithOptions(
+		json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
+			Yaml:   true,
+			Pretty: true,
+			Strict: true,
+		})
+	whBuf := new(bytes.Buffer)
+	if err = serializer.Encode(webhook, whBuf); err != nil {
+		return nil, "", err
+	}
+	return webhook, whBuf.String(), nil
 }
