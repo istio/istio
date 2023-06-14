@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package wait
 
 import (
 	"context"
@@ -51,7 +51,7 @@ var (
 const pollInterval = time.Second
 
 // waitCmd represents the wait command
-func waitCmd(cliCtx cli.Context) *cobra.Command {
+func Cmd(cliCtx cli.Context) *cobra.Command {
 	namespace := cliCtx.Namespace()
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
@@ -217,7 +217,7 @@ func poll(ctx cli.Context,
 	}
 
 	for version, count := range versionCount {
-		if describe.contains(acceptedVersions, version) {
+		if describe.Contains(acceptedVersions, version) {
 			present += count
 		} else {
 			notpresent += count

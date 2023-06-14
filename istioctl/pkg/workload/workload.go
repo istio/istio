@@ -80,7 +80,7 @@ const (
 	filePerms                       = os.FileMode(0o744)
 )
 
-func workloadCommands(ctx cli.Context) *cobra.Command {
+func Cmd(ctx cli.Context) *cobra.Command {
 	namespace = ctx.Namespace()
 	workloadCmd := &cobra.Command{
 		Use:   "workload",

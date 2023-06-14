@@ -22,9 +22,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"istio.io/istio/istioctl/cmd"
-	"istio.io/istio/istioctl/pkg/root"
 
+	"istio.io/istio/istioctl/pkg/root"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
 )
@@ -41,8 +40,8 @@ var settableFlags = map[string]env.VariableInfo{
 	"plaintext":           env.Register("ISTIOCTL_PLAINTEXT", false, "The istioctl --plaintext override"),
 }
 
-// configCmd represents the config subcommand command
-func configCmd() *cobra.Command {
+// Cmd represents the config subcommand command
+func Cmd() *cobra.Command {
 	configCmd := &cobra.Command{
 		Use:   "config SUBCOMMAND",
 		Short: "Configure istioctl defaults",
@@ -60,7 +59,7 @@ func listCommand() *cobra.Command {
 		Short: "List istio configurable defaults",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(c *cobra.Command, _ []string) error {
-			root.Scope.Debugf("Config file %q", cmd.IstioConfig)
+			root.Scope.Debugf("Config file %q", root.IstioConfig)
 			return runList(c.OutOrStdout())
 		},
 	}
@@ -93,7 +92,7 @@ func configSource(flag string, v env.VariableInfo) string {
 	}
 
 	if viper.InConfig(flag) {
-		return cmd.IstioConfig
+		return root.IstioConfig
 	}
 
 	return "default"

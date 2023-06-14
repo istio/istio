@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package proxystatus
 
 import (
 	"context"
@@ -22,7 +22,6 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/authz"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -33,7 +32,9 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func statusCommand(ctx cli.Context) *cobra.Command {
+var configDumpFile string
+
+func StatusCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	statusCmd := &cobra.Command{
@@ -59,7 +60,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 `,
 		Aliases: []string{"ps"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 0) && (authz.configDumpFile != "") {
+			if (len(args) == 0) && (configDumpFile != "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("--file can only be used when pod-name is specified")
 			}
@@ -76,8 +77,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					return err
 				}
 				var envoyDump []byte
-				if authz.configDumpFile != "" {
-					envoyDump, err = readConfigFile(authz.configDumpFile)
+				if configDumpFile != "" {
+					envoyDump, err = readConfigFile(configDumpFile)
 				} else {
 					path := "config_dump"
 					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
@@ -107,7 +108,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	}
 
 	opts.AttachControlPlaneFlags(statusCmd)
-	statusCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
+	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return statusCmd
@@ -134,7 +135,7 @@ func readConfigFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func xdsStatusCommand(ctx cli.Context) *cobra.Command {
+func XdsStatusCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 	var multiXdsOpts multixds.Options
@@ -183,8 +184,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					return err
 				}
 				var envoyDump []byte
-				if authz.configDumpFile != "" {
-					envoyDump, err = readConfigFile(authz.configDumpFile)
+				if configDumpFile != "" {
+					envoyDump, err = readConfigFile(configDumpFile)
 				} else {
 					path := "config_dump"
 					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
@@ -221,7 +222,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 
 	opts.AttachControlPlaneFlags(statusCmd)
 	centralOpts.AttachControlPlaneFlags(statusCmd)
-	statusCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
+	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 	statusCmd.PersistentFlags().BoolVar(&multiXdsOpts.XdsViaAgents, "xds-via-agents", false,
 		"Access Istiod via the tap service of each agent")

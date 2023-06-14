@@ -449,7 +449,7 @@ func portForward(podName, namespace, flavor, urlFormat, localAddress string, rem
 		}
 
 		// Close the port forwarder when the command is terminated.
-		closePortForwarderOnInterrupt(fw)
+		ClosePortForwarderOnInterrupt(fw)
 
 		log.Debugf(fmt.Sprintf("port-forward to %s pod ready", flavor))
 		openBrowser(fmt.Sprintf(urlFormat, fw.Address()), writer, browser)
@@ -463,7 +463,7 @@ func portForward(podName, namespace, flavor, urlFormat, localAddress string, rem
 	return fmt.Errorf("failure running port forward process: %v", err)
 }
 
-func closePortForwarderOnInterrupt(fw kube.PortForwarder) {
+func ClosePortForwarderOnInterrupt(fw kube.PortForwarder) {
 	go func() {
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, os.Interrupt)
@@ -499,7 +499,7 @@ func openBrowser(url string, writer io.Writer, browser bool) {
 	}
 }
 
-func dashboard(cliContext cli.Context) *cobra.Command {
+func Dashboard(cliContext cli.Context) *cobra.Command {
 	dashboardCmd := &cobra.Command{
 		Use:     "dashboard",
 		Aliases: []string{"dash", "d"},

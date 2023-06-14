@@ -32,8 +32,17 @@ import (
 	"istio.io/istio/istioctl/pkg/dashboard"
 	"istio.io/istio/istioctl/pkg/describe"
 	"istio.io/istio/istioctl/pkg/injector"
+	"istio.io/istio/istioctl/pkg/internal-debug"
 	"istio.io/istio/istioctl/pkg/kubeinject"
+	"istio.io/istio/istioctl/pkg/metrics"
 	"istio.io/istio/istioctl/pkg/precheck"
+	"istio.io/istio/istioctl/pkg/proxyconfig"
+	"istio.io/istio/istioctl/pkg/proxystatus"
+	"istio.io/istio/istioctl/pkg/revision"
+	"istio.io/istio/istioctl/pkg/tag"
+	"istio.io/istio/istioctl/pkg/util"
+	"istio.io/istio/istioctl/pkg/version"
+	"istio.io/istio/istioctl/pkg/wait"
 	"istio.io/istio/istioctl/pkg/waypoint"
 	"istio.io/istio/istioctl/pkg/workload"
 
@@ -53,9 +62,6 @@ import (
 const (
 	// Location to read istioctl defaults from
 	defaultIstioctlConfig = "$HOME/.istioctl/config.yaml"
-
-	// ExperimentalMsg indicate active development and not for production use warning.
-	ExperimentalMsg = `THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`
 )
 
 var (
@@ -153,12 +159,12 @@ debug and diagnose their Istio mesh.
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagIstioNamespace, func(
 		cmd *cobra.Command, args []string, toComplete string,
 	) ([]string, cobra.ShellCompDirective) {
-		return completion.validNamespaceArgs(cmd, ctx, args, toComplete)
+		return completion.ValidNamespaceArgs(cmd, ctx, args, toComplete)
 	})
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagNamespace, func(
 		cmd *cobra.Command, args []string, toComplete string,
 	) ([]string, cobra.ShellCompDirective) {
-		return completion.validNamespaceArgs(cmd, ctx, args, toComplete)
+		return completion.ValidNamespaceArgs(cmd, ctx, args, toComplete)
 	})
 
 	// Attach the Istio logging options to the command.
@@ -173,7 +179,7 @@ debug and diagnose their Istio mesh.
 
 	cmd.AddFlags(rootCmd)
 
-	kubeInjectCmd := kubeinject.injectCommand(ctx)
+	kubeInjectCmd := kubeinject.InjectCommand(ctx)
 	hideInheritedFlags(kubeInjectCmd, cli.FlagNamespace)
 	rootCmd.AddCommand(kubeInjectCmd)
 
@@ -184,12 +190,12 @@ debug and diagnose their Istio mesh.
 	}
 
 	xdsBasedTroubleshooting := []*cobra.Command{
-		xdsVersionCommand(ctx),
-		xdsStatusCommand(ctx),
+		version.XdsVersionCommand(ctx),
+		proxystatus.XdsStatusCommand(ctx),
 	}
 	debugBasedTroubleshooting := []*cobra.Command{
-		newVersionCommand(ctx),
-		statusCommand(ctx),
+		version.NewVersionCommand(ctx),
+		proxystatus.StatusCommand(ctx),
 	}
 	var debugCmdAttachmentPoint *cobra.Command
 	if viper.GetBool("PREFER-EXPERIMENTAL") {
@@ -213,33 +219,33 @@ debug and diagnose their Istio mesh.
 	}
 
 	rootCmd.AddCommand(experimentalCmd)
-	rootCmd.AddCommand(proxyConfig(ctx))
-	rootCmd.AddCommand(admin.adminCmd(ctx))
-	experimentalCmd.AddCommand(injector.injectorCommand(ctx))
+	rootCmd.AddCommand(proxyconfig.ProxyConfig(ctx))
+	rootCmd.AddCommand(admin.AdminCmd(ctx))
+	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
 	rootCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 
 	experimentalCmd.AddCommand(authz.AuthZ(ctx))
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
-	experimentalCmd.AddCommand(metricsCmd(ctx))
-	experimentalCmd.AddCommand(describe.describe(ctx))
-	experimentalCmd.AddCommand(waitCmd(ctx))
+	experimentalCmd.AddCommand(metrics.Cmd(ctx))
+	experimentalCmd.AddCommand(describe.Cmd(ctx))
+	experimentalCmd.AddCommand(wait.Cmd(ctx))
 	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(loggingOptions)))
-	experimentalCmd.AddCommand(config.configCmd())
-	experimentalCmd.AddCommand(workload.workloadCommands(ctx))
-	experimentalCmd.AddCommand(revisionCommand(ctx))
-	experimentalCmd.AddCommand(debugCommand(ctx))
-	experimentalCmd.AddCommand(precheck.preCheck(ctx))
-	experimentalCmd.AddCommand(statsConfigCmd(ctx))
-	experimentalCmd.AddCommand(checkinject.checkInjectCommand(ctx))
-	experimentalCmd.AddCommand(waypoint.waypointCmd(ctx))
+	experimentalCmd.AddCommand(config.Cmd())
+	experimentalCmd.AddCommand(workload.Cmd(ctx))
+	experimentalCmd.AddCommand(revision.Cmd(ctx))
+	experimentalCmd.AddCommand(internal_debug.DebugCommand(ctx))
+	experimentalCmd.AddCommand(precheck.Cmd(ctx))
+	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
+	experimentalCmd.AddCommand(checkinject.Cmd(ctx))
+	experimentalCmd.AddCommand(waypoint.Cmd(ctx))
 
 	analyzeCmd := analyze.Analyze(ctx)
 	hideInheritedFlags(analyzeCmd, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(analyzeCmd)
 
-	dashboardCmd := dashboard.dashboard(ctx)
+	dashboardCmd := dashboard.Dashboard(ctx)
 	hideInheritedFlags(dashboardCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
 
@@ -267,12 +273,12 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(bugReportCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(bugReportCmd)
 
-	tagCmd := tagCommand(ctx)
-	hideInheritedFlags(tagCommand(ctx), cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
+	tagCmd := tag.TagCommand(ctx)
+	hideInheritedFlags(tag.TagCommand(ctx), cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(tagCmd)
 
 	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
-	remoteClustersCmd := clustersCommand(ctx)
+	remoteClustersCmd := proxyconfig.ClustersCommand(ctx)
 	// leave the multicluster commands in x for backwards compat
 	rootCmd.AddCommand(remoteSecretCmd)
 	rootCmd.AddCommand(remoteClustersCmd)
@@ -308,7 +314,7 @@ debug and diagnose their Istio mesh.
 			}
 		}
 		curCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
-			return CommandParseError{e}
+			return util.CommandParseError{Err: e}
 		})
 	}
 

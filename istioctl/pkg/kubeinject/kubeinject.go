@@ -31,6 +31,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/pkg/util"
 	admission "k8s.io/api/admission/v1"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistration "k8s.io/api/admissionregistration/v1"
@@ -47,7 +48,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/tag"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/validate"
@@ -264,7 +264,7 @@ func getMeshConfigFromConfigMap(ctx cli.Context, command, revision string) (*mes
 }
 
 // grabs the raw values from the ConfigMap. These are encoded as JSON.
-func getValuesFromConfigMap(ctx cli.Context, revision string) (string, error) {
+func GetValuesFromConfigMap(ctx cli.Context, revision string) (string, error) {
 	client, err := ctx.CLIClient()
 	if err != nil {
 		return "", err
@@ -426,7 +426,7 @@ func setupKubeInjectParameters(cliContext cli.Context, sidecarTemplate *inject.R
 				return nil, nil, err
 			}
 			*valuesConfig = string(valuesConfigBytes)
-		} else if *valuesConfig, err = getValuesFromConfigMap(cliContext, revision); err != nil {
+		} else if *valuesConfig, err = GetValuesFromConfigMap(cliContext, revision); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -494,7 +494,7 @@ const (
 	defaultWebhookName             = "sidecar-injector.istio.io"
 )
 
-func injectCommand(cliContext cli.Context) *cobra.Command {
+func InjectCommand(cliContext cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 
@@ -581,7 +581,7 @@ It's best to do kube-inject when the resource is initially created.
 			var meshConfig *meshconfig.MeshConfig
 			rev := opts.Revision
 			// if the revision is "default", render templates with an empty revision
-			if rev == tag.DefaultRevisionName {
+			if rev == util.DefaultRevisionName {
 				rev = ""
 			}
 			injectorAddress := centralOpts.Xds

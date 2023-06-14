@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package metrics
 
 import (
 	"context"
@@ -47,7 +47,7 @@ const (
 	reqDur                     = "istio_request_duration_milliseconds"
 )
 
-func metricsCmd(ctx cli.Context) *cobra.Command {
+func Cmd(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "metrics <workload name>...",
 		Short: "Prints the metrics for the specified workload(s) when running in Kubernetes.",
@@ -129,7 +129,7 @@ func run(c *cobra.Command, ctx cli.Context, args []string) error {
 
 	// Close the forwarder either when we exit or when an this processes is interrupted.
 	defer fw.Close()
-	dashboard.closePortForwarderOnInterrupt(fw)
+	dashboard.ClosePortForwarderOnInterrupt(fw)
 
 	log.Debugf("port-forward to prometheus pod ready")
 

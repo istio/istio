@@ -47,7 +47,6 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/tag"
 	ikutil "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -186,7 +185,7 @@ func getRevisionFromPodAnnotation(anno klabels.Set) string {
 	return injectionStatus.Revision
 }
 
-func describe(ctx cli.Context) *cobra.Command {
+func Cmd(ctx cli.Context) *cobra.Command {
 	describeCmd := &cobra.Command{
 		Use:     "describe",
 		Aliases: []string{"des"},
@@ -298,13 +297,13 @@ func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTP
 		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			if dest.Destination.Subset != "" {
-				if contains(nonmatchingSubsets, dest.Destination.Subset) {
+				if Contains(nonmatchingSubsets, dest.Destination.Subset) {
 					mismatchNotes = append(mismatchNotes, fmt.Sprintf("Route to non-matching subset %s for (%s)",
 						dest.Destination.Subset,
 						renderMatches(route.Match)))
 					continue
 				}
-				if !contains(matchingSubsets, dest.Destination.Subset) {
+				if !Contains(matchingSubsets, dest.Destination.Subset) {
 					if dr == nil {
 						// Don't bother giving the match conditions, the problem is that there are unknowns in the VirtualService
 						mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to subset %s but NO DESTINATION RULE defining subsets!", dest.Destination.Subset))
@@ -537,7 +536,7 @@ func findProtocolForPort(port *corev1.ServicePort) string {
 	return protocol
 }
 
-func contains(slice []string, s string) bool {
+func Contains(slice []string, s string) bool {
 	for _, candidate := range slice {
 		if candidate == s {
 			return true
@@ -1336,7 +1335,7 @@ func getMeshConfig(kubeClient kube.CLIClient, istioNamespace string) (*meshconfi
 	meshConfigMapName := ikutil.DefaultMeshConfigMapName
 
 	// if the revision is not "default", render mesh config map name with revision
-	if rev != tag.DefaultRevisionName && rev != "" {
+	if rev != "default" && rev != "" {
 		meshConfigMapName = fmt.Sprintf("%s-%s", ikutil.DefaultMeshConfigMapName, rev)
 	}
 

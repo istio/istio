@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package version
 
 import (
 	"context"
@@ -37,7 +37,7 @@ import (
 	istioVersion "istio.io/istio/pkg/version"
 )
 
-func newVersionCommand(ctx cli.Context) *cobra.Command {
+func NewVersionCommand(ctx cli.Context) *cobra.Command {
 	profileCmd := mesh.ProfileCmd(log.DefaultOptions())
 	var opts clioptions.ControlPlaneOptions
 	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
@@ -93,8 +93,8 @@ func getProxyInfoWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions) 
 	}
 }
 
-// xdsVersionCommand gets the Control Plane and Sidecar versions via XDS
-func xdsVersionCommand(ctx cli.Context) *cobra.Command {
+// XdsVersionCommand gets the Control Plane and Sidecar versions via XDS
+func XdsVersionCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 	var xdsResponses *discovery.DiscoveryResponse

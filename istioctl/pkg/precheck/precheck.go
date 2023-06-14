@@ -56,13 +56,10 @@ import (
 )
 
 var (
-	revision          string
-	msgOutputFormat   string
-	colorize          bool
-	selectedNamespace string
+	revision string
 )
 
-func PreCheck(ctx cli.Context) *cobra.Command {
+func Cmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var skipControlPlane bool
 	// cmd represents the upgradeCheck command
@@ -95,7 +92,7 @@ func PreCheck(ctx cli.Context) *cobra.Command {
 			msgs.Add(nsmsgs...)
 			// Print all the messages to stdout in the specified format
 			msgs = msgs.SortedDedupedCopy()
-			output, err := formatting.Print(msgs, msgOutputFormat, colorize)
+			output, err := formatting.Print(msgs, formatting.LogFormat, false)
 			if err != nil {
 				return err
 			}
@@ -144,7 +141,7 @@ func checkControlPlane(ctx cli.Context) (diag.Messages, error) {
 
 	sa := local.NewSourceAnalyzer(
 		analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
-		resource.Namespace(selectedNamespace),
+		resource.Namespace(ctx.Namespace()),
 		resource.Namespace(ctx.IstioNamespace()),
 		nil,
 	)

@@ -13,9 +13,16 @@ const (
 
 	// ValuesConfigMapKey should match the expected Values file name
 	ValuesConfigMapKey = "values"
+
+	DefaultRevisionName = "default"
 )
 
 const (
 	// ExperimentalMsg indicate active development and not for production use warning.
 	ExperimentalMsg = `THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`
+)
+
+const (
+	JsonFormat  = "json"
+	TableFormat = "table"
 )

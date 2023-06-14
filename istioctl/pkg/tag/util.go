@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/istioctl/pkg/util"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -129,12 +130,6 @@ func DeleteDeprecatedValidator(ctx context.Context, client kubernetes.Interface)
 	return errs.ErrorOrNil()
 }
 
-var NeverMatch = &metav1.LabelSelector{
-	MatchLabels: map[string]string{
-		"istio.io/deactivated": "never-match",
-	},
-}
-
 // PreviousInstallExists checks whether there is an existing Istio installation. Should be used in installer when deciding
 // whether to make an installation the default.
 func PreviousInstallExists(ctx context.Context, client kubernetes.Interface) bool {
@@ -168,8 +163,8 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 		wh := webhook.Webhooks[i]
 		// this is an abomination, but if this isn't a per-revision webhook, we want to make it ineffectual
 		// without deleting it. Add a nonsense match.
-		wh.NamespaceSelector = NeverMatch
-		wh.ObjectSelector = NeverMatch
+		wh.NamespaceSelector = util.NeverMatch
+		wh.ObjectSelector = util.NeverMatch
 		webhook.Webhooks[i] = wh
 	}
 	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()

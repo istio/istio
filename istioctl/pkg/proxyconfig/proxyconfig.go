@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package proxyconfig
 
 import (
 	"context"
@@ -25,11 +25,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/completion"
-	"istio.io/istio/istioctl/pkg/dashboard"
 	"istio.io/istio/istioctl/pkg/kubeinject"
-	"istio.io/istio/istioctl/pkg/workload"
+	util2 "istio.io/istio/istioctl/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
@@ -73,6 +71,11 @@ var (
 	outputFormat string
 
 	proxyAdminPort int
+
+	configDumpFile string
+
+	labelSelector = ""
+	name          string
 )
 
 // Level is an enumeration of all supported log levels.
@@ -280,7 +283,7 @@ func setupEnvoyLogConfig(kubeClient kube.CLIClient, param, podName, podNamespace
 }
 
 func getLogLevelFromConfigMap(ctx cli.Context) (string, error) {
-	valuesConfig, err := kubeinject.getValuesFromConfigMap(ctx, "")
+	valuesConfig, err := kubeinject.GetValuesFromConfigMap(ctx, "")
 	if err != nil {
 		return "", err
 	}
@@ -349,7 +352,7 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"clusters", "c"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (authz.configDumpFile == "") {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("cluster requires pod name or --file parameter")
 			}
@@ -367,7 +370,7 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(authz.configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
 			if err != nil {
 				return err
@@ -388,7 +391,7 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 			}
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
@@ -397,7 +400,7 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 	clusterConfigCmd.PersistentFlags().StringVar(&direction, "direction", "", "Filter clusters by Direction field")
 	clusterConfigCmd.PersistentFlags().StringVar(&subset, "subset", "", "Filter clusters by substring of Subset field")
 	clusterConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter clusters by Port field")
-	clusterConfigCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
+	clusterConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return clusterConfigCmd
@@ -423,7 +426,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"a"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (authz.configDumpFile == "") {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("all requires pod name or --file parameter")
 			}
@@ -453,7 +456,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 						return err
 					}
 				} else {
-					dump, err = readFile(authz.configDumpFile)
+					dump, err = readFile(configDumpFile)
 					if err != nil {
 						return err
 					}
@@ -493,7 +496,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 					}
 				} else {
 					var err error
-					configWriter, err = setupFileConfigdumpWriter(authz.configDumpFile, c.OutOrStdout())
+					configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 					if err != nil {
 						return err
 					}
@@ -530,12 +533,12 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
 	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	allConfigCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
+	allConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump file")
 	allConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 
@@ -581,7 +584,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"workloads", "w"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (authz.configDumpFile == "") {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("workload requires pod name or --file parameter")
 			}
@@ -603,7 +606,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileZtunnelConfigdumpWriter(authz.configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
 			if err != nil {
 				return err
@@ -624,7 +627,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 			}
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
@@ -632,7 +635,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 	workloadConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter workloads by address field")
 	workloadConfigCmd.PersistentFlags().StringVar(&node, "node", "", "Filter workloads by node field")
 	workloadConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
-	workloadConfigCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
+	workloadConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"ztunnel config dump JSON file")
 
 	return workloadConfigCmd
@@ -660,7 +663,7 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"listeners", "l"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (authz.configDumpFile == "") {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("listener requires pod name or --file parameter")
 			}
@@ -678,7 +681,7 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(authz.configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
 			if err != nil {
 				return err
@@ -703,7 +706,7 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 			}
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
@@ -715,13 +718,13 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 	listenerConfigCmd.PersistentFlags().BoolVar(&waypointProxyConfig, "waypoint", false, "Output waypoint information")
 	// Until stabilized
 	_ = listenerConfigCmd.PersistentFlags().MarkHidden("waypoint")
-	listenerConfigCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
+	listenerConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return listenerConfigCmd
 }
 
-func statsConfigCmd(ctx cli.Context) *cobra.Command {
+func StatsConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	statsConfigCmd := &cobra.Command{
@@ -742,7 +745,7 @@ func statsConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"es"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 && (dashboard.labelSelector == "") {
+			if len(args) != 1 && (labelSelector == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("stats requires pod name or label selector")
 			}
@@ -786,7 +789,7 @@ func statsConfigCmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|prom|prom-merged")
@@ -824,7 +827,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"o"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if dashboard.labelSelector == "" && len(args) < 1 {
+			if labelSelector == "" && len(args) < 1 {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("log requires pod name or --selector")
 			}
@@ -840,8 +843,8 @@ func logCmd(ctx cli.Context) *cobra.Command {
 				return err
 			}
 			loggerNames := map[string]proxyType{}
-			if dashboard.labelSelector != "" {
-				if podNames, podNamespace, err = getPodNameBySelector(ctx, kubeClient, dashboard.labelSelector); err != nil {
+			if labelSelector != "" {
+				if podNames, podNamespace, err = getPodNameBySelector(ctx, kubeClient, labelSelector); err != nil {
 					return err
 				}
 			} else {
@@ -850,15 +853,15 @@ func logCmd(ctx cli.Context) *cobra.Command {
 				}
 			}
 			for _, pod := range podNames {
-				workload.name, err = setupEnvoyLogConfig(kubeClient, "", pod, podNamespace)
+				name, err = setupEnvoyLogConfig(kubeClient, "", pod, podNamespace)
 				if err != nil {
 					return err
 				}
 				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, pod, podNamespace)
 				if ztunnelPod {
-					loggerNames[workload.name] = Ztunnel
+					loggerNames[name] = Ztunnel
 				} else {
-					loggerNames[workload.name] = Envoy
+					loggerNames[name] = Envoy
 				}
 			}
 
@@ -951,7 +954,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
@@ -965,7 +968,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 		levelToString[OffLevel])
 
 	logCmd.PersistentFlags().BoolVarP(&reset, "reset", "r", reset, "Reset levels to default value (warning).")
-	logCmd.PersistentFlags().StringVarP(&dashboard.labelSelector, "selector", "l", "", "Label selector")
+	logCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
 			" [<logger>:]<level>,[<logger>:]<level>,... where logger components can be listed by running \"istioctl proxy-config log <pod-name[.namespace]>\""+
@@ -996,7 +999,7 @@ func routeConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"routes", "r"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (authz.configDumpFile == "") {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("route requires pod name or --file parameter")
 			}
@@ -1014,7 +1017,7 @@ func routeConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(authz.configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
 			if err != nil {
 				return err
@@ -1033,14 +1036,14 @@ func routeConfigCmd(ctx cli.Context) *cobra.Command {
 			}
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
 	routeConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	routeConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
 	routeConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
-	routeConfigCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
+	routeConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return routeConfigCmd
@@ -1073,7 +1076,7 @@ func endpointConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"endpoints", "ep"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (authz.configDumpFile == "") {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("endpoints requires pod name or --file parameter")
 			}
@@ -1091,7 +1094,7 @@ func endpointConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodClustersWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileClustersWriter(authz.configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileClustersWriter(configDumpFile, c.OutOrStdout())
 			}
 			if err != nil {
 				return err
@@ -1114,7 +1117,7 @@ func endpointConfigCmd(ctx cli.Context) *cobra.Command {
 			}
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
@@ -1123,7 +1126,7 @@ func endpointConfigCmd(ctx cli.Context) *cobra.Command {
 	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
 	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
 	endpointConfigCmd.PersistentFlags().StringVar(&status, "status", "", "Filter endpoints by status field")
-	endpointConfigCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
+	endpointConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return endpointConfigCmd
@@ -1161,7 +1164,7 @@ func edsConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl proxy-config eds --file envoy-config.json
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (authz.configDumpFile == "") {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("eds requires pod name or --file parameter")
 			}
@@ -1179,7 +1182,7 @@ func edsConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(authz.configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
 			if err != nil {
 				return err
@@ -1202,7 +1205,7 @@ func edsConfigCmd(ctx cli.Context) *cobra.Command {
 			}
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
@@ -1211,7 +1214,7 @@ func edsConfigCmd(ctx cli.Context) *cobra.Command {
 	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
 	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
 	endpointConfigCmd.PersistentFlags().StringVar(&status, "status", "", "Filter endpoints by status field")
-	endpointConfigCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
+	endpointConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return endpointConfigCmd
@@ -1239,7 +1242,7 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"b"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (authz.configDumpFile == "") {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("bootstrap requires pod name or --file parameter")
 			}
@@ -1257,7 +1260,7 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(authz.configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
 			if err != nil {
 				return err
@@ -1273,12 +1276,12 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 			}
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
 	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml|short")
-	bootstrapConfigCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
+	bootstrapConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
 	return bootstrapConfigCmd
@@ -1299,7 +1302,7 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl proxy-config secret --file envoy-config.json`,
 		Aliases: []string{"secrets", "s"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (authz.configDumpFile == "") {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("secret requires pod name or --file parameter")
 			}
@@ -1322,10 +1325,10 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
 					newWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 				}
 			} else {
-				newWriter, err = setupFileConfigdumpWriter(authz.configDumpFile, c.OutOrStdout())
+				newWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 				if err != nil {
 					envoyError := err
-					newWriter, err = setupFileZtunnelConfigdumpWriter(authz.configDumpFile, c.OutOrStdout())
+					newWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
 					if err != nil {
 						// failed to parse envoy and ztunnel formats
 						log.Warnf("couldn't parse envoy secrets dump: %v", envoyError)
@@ -1346,14 +1349,14 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
 			}
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	secretConfigCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "",
+	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
-	secretConfigCmd.Long += "\n\n" + ExperimentalMsg
+	secretConfigCmd.Long += "\n\n" + util2.ExperimentalMsg
 	return secretConfigCmd
 }
 
@@ -1424,15 +1427,15 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 			return returnErr
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
-	rootCACompareConfigCmd.Long += "\n\n" + ExperimentalMsg
+	rootCACompareConfigCmd.Long += "\n\n" + util2.ExperimentalMsg
 	return rootCACompareConfigCmd
 }
 
-func proxyConfig(ctx cli.Context) *cobra.Command {
+func ProxyConfig(ctx cli.Context) *cobra.Command {
 	configCmd := &cobra.Command{
 		Use:   "proxy-config",
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",
@@ -1523,7 +1526,7 @@ func ecdsConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl proxy-config ecds --file envoy-config.json
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (authz.configDumpFile == "") {
+			if (len(args) == 1) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("ecds requires pod name or --file parameter")
 			}
@@ -1541,7 +1544,7 @@ func ecdsConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(authz.configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
 			if err != nil {
 				return err
@@ -1557,12 +1560,12 @@ func ecdsConfigCmd(ctx cli.Context) *cobra.Command {
 			}
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.validPodsNameArgs(cmd, ctx, args, toComplete)
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 
 	ecdsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	ecdsConfigCmd.PersistentFlags().StringVarP(&authz.configDumpFile, "file", "f", "", "Envoy config dump JSON file")
+	ecdsConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "", "Envoy config dump JSON file")
 
 	return ecdsConfigCmd
 }

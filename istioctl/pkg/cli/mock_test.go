@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package cli
 
 import (
 	"net/http"
@@ -22,12 +22,11 @@ import (
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
 	"k8s.io/kubectl/pkg/cmd/util"
 
-	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/kube"
 )
 
 func init() {
-	cli.MakeKubeFactory = func(k kube.CLIClient) util.Factory {
+	MakeKubeFactory = func(k kube.CLIClient) util.Factory {
 		tf := cmdtesting.NewTestFactory()
 		_, _, codec := cmdtesting.NewExternalScheme()
 		tf.UnstructuredClient = &fake.RESTClient{

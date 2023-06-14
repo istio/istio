@@ -24,20 +24,20 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/pkg/util"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/writer/table"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 )
 
 var labelPairs string
 
-func CheckInjectCommand(ctx cli.Context) *cobra.Command {
+func Cmd(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "check-inject [<type>/]<name>[.<namespace>]",
 		Short: "Check the injection status or inject-ability of a given resource, explains why it is (or will be) injected or not",
@@ -235,7 +235,7 @@ func analyzeWebhooksMatchStatus(whs []admitv1.MutatingWebhook, podLabels, nsLabe
 
 		var isDeactived bool
 		for _, wh := range whs {
-			if reflect.DeepEqual(wh.NamespaceSelector, tag.NeverMatch) && reflect.DeepEqual(wh.ObjectSelector, tag.NeverMatch) {
+			if reflect.DeepEqual(wh.NamespaceSelector, util.NeverMatch) && reflect.DeepEqual(wh.ObjectSelector, util.NeverMatch) {
 				isDeactived = true
 			}
 			nsMatchedLabels = append(nsMatchedLabels, extractMatchLabels(wh.NamespaceSelector)...)

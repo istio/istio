@@ -12,24 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package tag
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/analyze"
+	"istio.io/istio/istioctl/pkg/util"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
-	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -62,6 +61,7 @@ var (
 	skipConfirmation     = false
 	webhookName          = ""
 	autoInjectNamespaces = false
+	outputFormat         = util.TableFormat
 )
 
 type tagDescription struct {
@@ -70,7 +70,7 @@ type tagDescription struct {
 	Namespaces []string `json:"namespaces"`
 }
 
-func tagCommand(ctx cli.Context) *cobra.Command {
+func TagCommand(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
 		Short: "Command group used to interact with revision tags",
@@ -148,7 +148,7 @@ injection labels.`,
 	}
 
 	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", false, overrideHelpStr)
-	cmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", util.ManifestsFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
@@ -196,7 +196,7 @@ injection labels.`,
 	}
 
 	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", false, overrideHelpStr)
-	cmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", util.ManifestsFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
@@ -269,7 +269,7 @@ revision tag before removing using the "istioctl tag list" command.
 
 // setTag creates or modifies a revision tag.
 func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, istioNS string, generate bool, w, stderr io.Writer) error {
-	opts := &tag.GenerateOptions{
+	opts := &GenerateOptions{
 		Tag:                  tagName,
 		Revision:             revision,
 		WebhookName:          webhookName,
@@ -278,7 +278,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 		Overwrite:            overwrite,
 		AutoInjectNamespaces: autoInjectNamespaces,
 	}
-	tagWhYAML, err := tag.Generate(ctx, kubeClient, opts, istioNS)
+	tagWhYAML, err := Generate(ctx, kubeClient, opts, istioNS)
 	if err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 		if !skipConfirmation {
 			_, _ = stderr.Write([]byte(err.Error()))
 			if !generate {
-				if !mesh.Confirm("Apply anyways? [y/N]", w) {
+				if !util.Confirm("Apply anyways? [y/N]", w) {
 					return nil
 				}
 			}
@@ -309,7 +309,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 		return nil
 	}
 
-	if err := tag.Create(kubeClient, tagWhYAML, istioNS); err != nil {
+	if err := Create(kubeClient, tagWhYAML, istioNS); err != nil {
 		return fmt.Errorf("failed to apply tag webhook MutatingWebhookConfiguration to cluster: %v", err)
 	}
 	fmt.Fprintf(w, tagCreatedStr, tagName, revision, tagName)
@@ -317,7 +317,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 }
 
 func analyzeWebhook(name, istioNamespace, wh, revision string, config *rest.Config) error {
-	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}), resource.Namespace(analyze.selectedNamespace), resource.Namespace(istioNamespace), nil)
+	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}), "", resource.Namespace(istioNamespace), nil)
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err
 	}
@@ -337,7 +337,7 @@ func analyzeWebhook(name, istioNamespace, wh, revision string, config *rest.Conf
 		}
 	}
 	if len(relevantMessages) > 0 {
-		o, err := formatting.Print(relevantMessages, formatting.LogFormat, analyze.colorize)
+		o, err := formatting.Print(relevantMessages, formatting.LogFormat, false)
 		if err != nil {
 			return err
 		}
@@ -349,7 +349,7 @@ func analyzeWebhook(name, istioNamespace, wh, revision string, config *rest.Conf
 
 // removeTag removes an existing revision tag.
 func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName string, skipConfirmation bool, w io.Writer) error {
-	webhooks, err := tag.GetWebhooksWithTag(ctx, kubeClient, tagName)
+	webhooks, err := GetWebhooksWithTag(ctx, kubeClient, tagName)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve tag with name %s: %v", tagName, err)
 	}
@@ -357,20 +357,20 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 		return fmt.Errorf("cannot remove tag %q: cannot find MutatingWebhookConfiguration for tag", tagName)
 	}
 
-	taggedNamespaces, err := tag.GetNamespacesWithTag(ctx, kubeClient, tagName)
+	taggedNamespaces, err := GetNamespacesWithTag(ctx, kubeClient, tagName)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve namespaces dependent on tag %q", tagName)
 	}
 	// warn user if deleting a tag that still has namespaces pointed to it
 	if len(taggedNamespaces) > 0 && !skipConfirmation {
-		if !mesh.Confirm(buildDeleteTagConfirmation(tagName, taggedNamespaces), w) {
+		if !util.Confirm(buildDeleteTagConfirmation(tagName, taggedNamespaces), w) {
 			fmt.Fprintf(w, "Aborting operation.\n")
 			return nil
 		}
 	}
 
 	// proceed with webhook deletion
-	err = tag.DeleteTagWebhooks(ctx, kubeClient, tagName)
+	err = DeleteTagWebhooks(ctx, kubeClient, tagName)
 	if err != nil {
 		return fmt.Errorf("failed to delete Istio revision tag MutatingConfigurationWebhook: %v", err)
 	}
@@ -381,7 +381,7 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 
 // listTags lists existing revision.
 func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Writer) error {
-	tagWebhooks, err := tag.GetTagWebhooks(ctx, kubeClient)
+	tagWebhooks, err := GetTagWebhooks(ctx, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve revision tags: %v", err)
 	}
@@ -391,15 +391,15 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	}
 	tags := make([]tagDescription, 0)
 	for _, wh := range tagWebhooks {
-		tagName, err := tag.GetWebhookTagName(wh)
+		tagName, err := GetWebhookTagName(wh)
 		if err != nil {
 			return fmt.Errorf("error parsing tag name from webhook %q: %v", wh.Name, err)
 		}
-		tagRevision, err := tag.GetWebhookRevision(wh)
+		tagRevision, err := GetWebhookRevision(wh)
 		if err != nil {
 			return fmt.Errorf("error parsing revision from webhook %q: %v", wh.Name, err)
 		}
-		tagNamespaces, err := tag.GetNamespacesWithTag(ctx, kubeClient, tagName)
+		tagNamespaces, err := GetNamespacesWithTag(ctx, kubeClient, tagName)
 		if err != nil {
 			return fmt.Errorf("error retrieving namespaces for tag %q: %v", tagName, err)
 		}
@@ -411,12 +411,12 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 		tags = append(tags, tagDesc)
 	}
 
-	switch revArgs.output {
-	case jsonFormat:
-		return printJSON(writer, tags)
-	case tableFormat:
+	switch outputFormat {
+	case util.JsonFormat:
+		return PrintJSON(writer, tags)
+	case util.TableFormat:
 	default:
-		return fmt.Errorf("unknown format: %s", revArgs.output)
+		return fmt.Errorf("unknown format: %s", outputFormat)
 	}
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	fmt.Fprintln(w, "TAG\tREVISION\tNAMESPACES")
@@ -425,6 +425,15 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	}
 
 	return w.Flush()
+}
+
+func PrintJSON(w io.Writer, res any) error {
+	out, err := json.MarshalIndent(res, "", "\t")
+	if err != nil {
+		return fmt.Errorf("error while marshaling to JSON: %v", err)
+	}
+	fmt.Fprintln(w, string(out))
+	return nil
 }
 
 // buildDeleteTagConfirmation takes a list of webhooks and creates a message prompting confirmation for their deletion.

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package internal_debug
 
 import (
 	"fmt"
@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/kube"
@@ -79,7 +80,7 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 	return nil, nil
 }
 
-func debugCommand(ctx cli.Context) *cobra.Command {
+func DebugCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 
@@ -120,8 +121,8 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				return err
 			}
 			if len(args) == 0 {
-				return CommandParseError{
-					e: fmt.Errorf("debug type is required"),
+				return util.CommandParseError{
+					Err: fmt.Errorf("debug type is required"),
 				}
 			}
 			var xdsRequest discovery.DiscoveryRequest
@@ -158,7 +159,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 
 	opts.AttachControlPlaneFlags(debugCommand)
 	centralOpts.AttachControlPlaneFlags(debugCommand)
-	debugCommand.Long += "\n\n" + ExperimentalMsg
+	debugCommand.Long += "\n\n" + util.ExperimentalMsg
 	debugCommand.PersistentFlags().BoolVar(&internalDebugAllIstiod, "all", false,
 		"Send the same request to all instances of Istiod. Only applicable for in-cluster deployment.")
 	return debugCommand

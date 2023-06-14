@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package metrics
 
 import (
 	"bytes"
@@ -25,6 +25,7 @@ import (
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prometheus_model "github.com/prometheus/common/model"
+	"istio.io/istio/istioctl/pkg/util/testutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -37,33 +38,33 @@ type mockPromAPI struct {
 }
 
 func TestMetricsNoPrometheus(t *testing.T) {
-	cases := []testCase{
+	cases := []testutil.TestCase{
 		{ // case 0
-			args:           []string{},
-			expectedRegexp: regexp.MustCompile("Error: metrics requires workload name\n"),
-			wantException:  true,
+			Args:           []string{},
+			ExpectedRegexp: regexp.MustCompile("Error: metrics requires workload name\n"),
+			WantException:  true,
 		},
 		{ // case 1
-			args:           strings.Split("details", " "),
-			expectedOutput: "Error: no Prometheus pods found\n",
-			wantException:  true,
+			Args:           strings.Split("details", " "),
+			ExpectedOutput: "Error: no Prometheus pods found\n",
+			WantException:  true,
 		},
 	}
 
 	metricCmd := metricsCmd(cli.NewFakeContext(nil))
 	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, metricCmd, c)
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.Args, " ")), func(t *testing.T) {
+			testutil.VerifyOutput(t, metricCmd, c)
 		})
 	}
 }
 
 func TestMetrics(t *testing.T) {
-	cases := []testCase{
+	cases := []testutil.TestCase{
 		{ // case 0
-			args:           strings.Split("details", " "),
-			expectedRegexp: regexp.MustCompile("could not build metrics for workload"),
-			wantException:  true,
+			Args:           strings.Split("details", " "),
+			ExpectedRegexp: regexp.MustCompile("could not build metrics for workload"),
+			WantException:  true,
 		},
 	}
 
@@ -85,8 +86,8 @@ func TestMetrics(t *testing.T) {
 	}, metav1.CreateOptions{})
 	metricCmd := metricsCmd(ctx)
 	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, metricCmd, c)
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.Args, " ")), func(t *testing.T) {
+			testutil.VerifyOutput(t, metricCmd, c)
 		})
 	}
 }

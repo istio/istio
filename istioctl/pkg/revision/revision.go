@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package revision
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -35,7 +34,9 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/root"
 	"istio.io/istio/istioctl/pkg/tag"
+	util2 "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/cmd/mesh"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -61,15 +62,12 @@ const (
 	gatewaysSection        = "GATEWAYS"
 	webhooksSection        = "MUTATING-WEBHOOKS"
 	podsSection            = "PODS"
-
-	jsonFormat  = "json"
-	tableFormat = "table"
 )
 
 var (
 	validFormats = map[string]bool{
-		tableFormat: true,
-		jsonFormat:  true,
+		util2.JsonFormat:  true,
+		util2.TableFormat: true,
 	}
 
 	defaultSections = []string{
@@ -98,7 +96,7 @@ var (
 	revArgs = revisionArgs{}
 )
 
-func revisionCommand(ctx cli.Context) *cobra.Command {
+func Cmd(ctx cli.Context) *cobra.Command {
 	revisionCmd := &cobra.Command{
 		Use: "revision",
 		Long: "The revision command provides a revision centric view of istio deployments. " +
@@ -109,12 +107,12 @@ func revisionCommand(ctx cli.Context) *cobra.Command {
 	}
 	revisionCmd.PersistentFlags().StringVarP(&revArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
 	revisionCmd.PersistentFlags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Enable verbose output")
-	revisionCmd.PersistentFlags().StringVarP(&revArgs.output, "output", "o", tableFormat, "Output format for revision description "+
+	revisionCmd.PersistentFlags().StringVarP(&revArgs.output, "output", "o", util2.TableFormat, "Output format for revision description "+
 		"(available formats: table,json)")
 
 	revisionCmd.AddCommand(revisionListCommand(ctx))
 	revisionCmd.AddCommand(revisionDescribeCommand(ctx))
-	revisionCmd.AddCommand(tagCommand(ctx))
+	revisionCmd.AddCommand(tag.TagCommand(ctx))
 	return revisionCmd
 }
 
@@ -150,7 +148,7 @@ func revisionDescribeCommand(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
+			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), root.Scope)
 			return printRevisionDescription(ctx, cmd.OutOrStdout(), &revArgs, logger, ctx.IstioNamespace())
 		},
 	}
@@ -180,7 +178,7 @@ func revisionListCommand(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %w", err)
 			}
-			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
+			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), root.Scope)
 			return revisionList(ctx, kubeClient, cmd.OutOrStdout(), &revArgs, logger)
 		},
 	}
@@ -241,9 +239,9 @@ func revisionList(ctx cli.Context, kubeClient kube.CLIClient, writer io.Writer, 
 	}
 
 	switch revArgs.output {
-	case jsonFormat:
-		return printJSON(writer, revisions)
-	case tableFormat:
+	case util2.JsonFormat:
+		return tag.PrintJSON(writer, revisions)
+	case util2.TableFormat:
 		if len(revisions) == 0 {
 			_, err = fmt.Fprintln(writer, "No Istio installation found.\n"+
 				"No IstioOperator CR or sidecar injectors found")
@@ -532,9 +530,9 @@ func printRevisionDescription(ctx cli.Context, w io.Writer, args *revisionArgs, 
 		}
 	}
 	switch revArgs.output {
-	case jsonFormat:
-		return printJSON(w, revDescription)
-	case tableFormat:
+	case util2.JsonFormat:
+		return tag.PrintJSON(w, revDescription)
+	case util2.TableFormat:
 		sections := defaultSections
 		if args.verbose {
 			sections = verboseSections
@@ -645,15 +643,6 @@ func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 		})
 	}
 	return revDescription
-}
-
-func printJSON(w io.Writer, res any) error {
-	out, err := json.MarshalIndent(res, "", "\t")
-	if err != nil {
-		return fmt.Errorf("error while marshaling to JSON: %v", err)
-	}
-	fmt.Fprintln(w, string(out))
-	return nil
 }
 
 func filterWebhooksWithRevision(webhooks []admitv1.MutatingWebhookConfiguration, revision string) []admitv1.MutatingWebhookConfiguration {

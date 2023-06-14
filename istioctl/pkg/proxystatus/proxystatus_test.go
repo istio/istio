@@ -12,15 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package proxystatus
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/pilot/test/util"
 )
+
+type execTestCase struct {
+	execClientConfig map[string][]byte
+	args             []string
+
+	// Typically use one of the three
+	expectedOutput string // Expected constant output
+	expectedString string // String output is expected to contain
+	goldenFilename string // Expected output stored in golden file
+
+	wantException bool
+}
 
 func TestProxyStatus(t *testing.T) {
 	cases := []execTestCase{
@@ -58,5 +74,41 @@ func TestProxyStatus(t *testing.T) {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			verifyExecTestOutput(t, statusCommand(cli.NewFakeContext(nil)), c)
 		})
+	}
+}
+
+func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
+	t.Helper()
+
+	var out bytes.Buffer
+	cmd.SetArgs(c.args)
+	cmd.SilenceUsage = true
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	fErr := cmd.Execute()
+	output := out.String()
+
+	if c.expectedOutput != "" && c.expectedOutput != output {
+		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q", strings.Join(c.args, " "), output, c.expectedOutput)
+	}
+
+	if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
+		t.Fatalf("Output didn't match for '%s %s'\n got %v\nwant: %v", cmd.Name(), strings.Join(c.args, " "), output, c.expectedString)
+	}
+
+	if c.goldenFilename != "" {
+		util.CompareContent(t, []byte(output), c.goldenFilename)
+	}
+
+	if c.wantException {
+		if fErr == nil {
+			t.Fatalf("Wanted an exception for 'istioctl %s', didn't get one, output was %q",
+				strings.Join(c.args, " "), output)
+		}
+	} else {
+		if fErr != nil {
+			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
+		}
 	}
 }

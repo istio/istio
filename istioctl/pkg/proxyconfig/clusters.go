@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package proxyconfig
 
 import (
 	"context"
@@ -29,7 +29,7 @@ import (
 )
 
 // TODO move to multicluster package; requires exposing some private funcs/vars in this package
-func clustersCommand(ctx cli.Context) *cobra.Command {
+func ClustersCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "remote-clusters",

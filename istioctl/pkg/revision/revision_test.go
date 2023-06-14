@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package revision
 
 import (
 	"sort"
 	"testing"
 
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-
 	"istio.io/api/operator/v1alpha1"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/test/util/assert"

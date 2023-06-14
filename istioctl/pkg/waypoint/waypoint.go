@@ -42,7 +42,7 @@ var (
 	allNamespaces bool
 )
 
-func waypointCmd(ctx cli.Context) *cobra.Command {
+func Cmd(ctx cli.Context) *cobra.Command {
 	var waypointServiceAccount string
 	makeGatewayName := func(sa string) string {
 		name := sa

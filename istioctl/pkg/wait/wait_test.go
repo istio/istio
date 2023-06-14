@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package wait
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 	"sync"
 	"testing"
 
+	"istio.io/istio/istioctl/cmd"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,7 +51,7 @@ func TestWaitCmd(t *testing.T) {
 	distributionTrackingDisabledResponse := xds.DistributionTrackingDisabledMessage
 	distributionTrackingDisabledResponseMap := map[string][]byte{"onlyonepilot": []byte(distributionTrackingDisabledResponse)}
 
-	cases := []execTestCase{
+	cases := []cmd.execTestCase{
 		{
 			execClientConfig: cannedResponseMap,
 			args:             strings.Split("--generation=2 --timeout=20ms virtual-service foo.default", " "),
@@ -98,7 +99,7 @@ func TestWaitCmd(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			_ = setupK8Sfake()
-			verifyExecTestOutput(t, waitCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
+			cmd.verifyExecTestOutput(t, waitCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
 				Namespace: "default",
 				Results:   c.execClientConfig,
 			})), c)

@@ -12,56 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package tag
 
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
+	"istio.io/istio/istioctl/pkg/util"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/api/label"
-	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/pkg/kube"
 )
-
-const istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
-
-var revisionCanonicalWebhook = admitv1.MutatingWebhookConfiguration{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:   "istio-sidecar-injector-revision",
-		Labels: map[string]string{label.IoIstioRev.Name: "revision"},
-	},
-	Webhooks: []admitv1.MutatingWebhook{
-		{
-			Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
-			ClientConfig: admitv1.WebhookClientConfig{
-				Service: &admitv1.ServiceReference{
-					Namespace: "default",
-					Name:      "istiod-revision",
-				},
-				CABundle: []byte("ca"),
-			},
-		},
-		{
-			Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
-			ClientConfig: admitv1.WebhookClientConfig{
-				Service: &admitv1.ServiceReference{
-					Namespace: "default",
-					Name:      "istiod-revision",
-				},
-				CABundle: []byte("ca"),
-			},
-		},
-	},
-}
 
 func TestTagList(t *testing.T) {
 	tcs := []struct {
@@ -80,7 +48,7 @@ func TestTagList(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "istio-revision-tag-sample",
 							Labels: map[string]string{
-								tag.IstioTagLabel:                     "sample",
+								IstioTagLabel:                         "sample",
 								label.IoIstioRev.Name:                 "sample-revision",
 								helmreconciler.IstioComponentLabelStr: "Pilot",
 							},
@@ -119,7 +87,7 @@ func TestTagList(t *testing.T) {
 							Name: "istio-revision-test",
 							Labels: map[string]string{
 								label.IoIstioRev.Name: "revision",
-								tag.IstioTagLabel:     "test",
+								IstioTagLabel:         "test",
 							},
 						},
 					},
@@ -145,7 +113,7 @@ func TestTagList(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
 			client := fake.NewSimpleClientset(tc.webhooks.DeepCopyObject(), tc.namespaces.DeepCopyObject())
-			revArgs.output = jsonFormat
+			outputFormat = util.JsonFormat
 			err := listTags(context.Background(), client, &out)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
@@ -193,7 +161,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-sample",
-							Labels: map[string]string{tag.IstioTagLabel: "sample"},
+							Labels: map[string]string{IstioTagLabel: "sample"},
 						},
 					},
 				},
@@ -212,7 +180,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-wrong",
-							Labels: map[string]string{tag.IstioTagLabel: "wrong"},
+							Labels: map[string]string{IstioTagLabel: "wrong"},
 						},
 					},
 				},
@@ -222,7 +190,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-wrong",
-							Labels: map[string]string{tag.IstioTagLabel: "wrong"},
+							Labels: map[string]string{IstioTagLabel: "wrong"},
 						},
 					},
 				},
@@ -240,7 +208,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-match",
-							Labels: map[string]string{tag.IstioTagLabel: "match"},
+							Labels: map[string]string{IstioTagLabel: "match"},
 						},
 					},
 				},
@@ -250,7 +218,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-match",
-							Labels: map[string]string{tag.IstioTagLabel: "match"},
+							Labels: map[string]string{IstioTagLabel: "match"},
 						},
 					},
 				},

@@ -34,7 +34,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
@@ -51,7 +50,7 @@ type revisionCount struct {
 	needsRestart int
 }
 
-func injectorCommand(cliContext cli.Context) *cobra.Command {
+func Cmd(cliContext cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "injector",
 		Short:   "List sidecar injector and sidecar versions",
@@ -95,10 +94,11 @@ func injectorListCommand(ctx cli.Context) *cobra.Command {
 				return nslist[i].Name < nslist[j].Name
 			})
 
-			hooks, err := tag.Webhooks(context.Background(), client)
+			hooksList, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
+			hooks := hooksList.Items
 			pods, err := getPods(context.Background(), client)
 			if err != nil {
 				return err

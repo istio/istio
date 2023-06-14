@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"istio.io/istio/istioctl/pkg/analyze"
+	"istio.io/istio/istioctl/pkg/util"
 )
 
 // Values should try to use sendmail-style values as in <sysexits.h>
@@ -42,11 +43,11 @@ const (
 
 func GetExitCode(e error) int {
 	if strings.Contains(e.Error(), "unknown command") {
-		e = CommandParseError{e}
+		e = util.CommandParseError{Err: e}
 	}
 
 	switch e.(type) {
-	case CommandParseError:
+	case util.CommandParseError:
 		return ExitIncorrectUsage
 	case analyze.FileParseError:
 		return ExitDataError

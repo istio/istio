@@ -21,7 +21,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	cmd2 "istio.io/istio/istioctl/cmd"
+	"istio.io/istio/istioctl/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
@@ -147,6 +147,6 @@ func AuthZ(ctx cli.Context) *cobra.Command {
 	check.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"The json file with Envoy config dump to be checked")
 	cmd.AddCommand(checkCmd(ctx))
-	cmd.Long += "\n\n" + cmd2.ExperimentalMsg
+	cmd.Long += "\n\n" + util.ExperimentalMsg
 	return cmd
 }
