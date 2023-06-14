@@ -166,8 +166,8 @@ func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCerti
 	id := []string{"client-identity"}
 	if len(s.Authenticators) > 0 {
 		caller, err := security.Authenticate(ctx, s.Authenticators)
-		if caller == nil {
-			return nil, status.Error(codes.Unauthenticated, err.Error())
+		if caller == nil || err != nil {
+			return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 		}
 		id = caller.Identities
 	}
