@@ -364,8 +364,6 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 		}
 	}
 
-	// TODO: Exclude waypoints from receiving these updates?
-
 	updates := c.calculateUpdatedWorkloads(pods)
 
 	if len(updates) > 0 {
