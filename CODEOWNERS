@@ -62,5 +62,3 @@ Makefile*                                                        @istio/wg-test-
 /tools/packaging/common/envoy_bootstrap.json                     @istio/wg-networking-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
 /tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers
-manifests/charts/global.yaml                                     @istio/wg-environments-maintainers
-**/values.yaml                                                   @istio/wg-environments-maintainers
