@@ -17,13 +17,19 @@ package proxystatus
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
+	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/rest/fake"
+	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
+	util2 "k8s.io/kubectl/pkg/cmd/util"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/kube"
 )
 
 type execTestCase struct {
@@ -110,5 +116,22 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 		if fErr != nil {
 			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
 		}
+	}
+}
+
+func init() {
+	cli.MakeKubeFactory = func(k kube.CLIClient) util2.Factory {
+		tf := cmdtesting.NewTestFactory()
+		_, _, codec := cmdtesting.NewExternalScheme()
+		tf.UnstructuredClient = &fake.RESTClient{
+			NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
+			Resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     cmdtesting.DefaultHeader(),
+				Body: cmdtesting.ObjBody(codec,
+					cmdtesting.NewInternalType("", "", "foo")),
+			},
+		}
+		return tf
 	}
 }

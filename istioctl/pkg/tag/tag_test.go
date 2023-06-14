@@ -27,7 +27,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/util"
-	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -48,9 +47,9 @@ func TestTagList(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "istio-revision-tag-sample",
 							Labels: map[string]string{
-								IstioTagLabel:                         "sample",
-								label.IoIstioRev.Name:                 "sample-revision",
-								helmreconciler.IstioComponentLabelStr: "Pilot",
+								IstioTagLabel:                 "sample",
+								label.IoIstioRev.Name:         "sample-revision",
+								"operator.istio.io/component": "Pilot",
 							},
 						},
 					},

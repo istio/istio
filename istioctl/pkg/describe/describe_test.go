@@ -409,7 +409,7 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	}
 
 	var out bytes.Buffer
-	rootCmd := describe(ctx)
+	rootCmd := Cmd(ctx)
 	rootCmd.SetArgs(c.args)
 
 	rootCmd.SetOut(&out)

@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
+	"istio.io/istio/istioctl/pkg/root"
 
 	"istio.io/istio/istioctl/pkg/admin"
 	"istio.io/istio/istioctl/pkg/analyze"
@@ -54,7 +55,6 @@ import (
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/bug-report/pkg/bugreport"
 )
@@ -64,43 +64,15 @@ const (
 	defaultIstioctlConfig = "$HOME/.istioctl/config.yaml"
 )
 
-var (
-	// IstioConfig is the name of the istioctl config file (if any)
-	IstioConfig = env.Register("ISTIOCONFIG", defaultIstioctlConfig,
-		"Default values for istioctl flags").Get()
-
-	loggingOptions = defaultLogOptions()
-
-	// scope is for dev logging.  Warning: log levels are not set by --log_output_level until command is Run().
-	scope = log.RegisterScope("cli", "istioctl")
-)
-
 const (
 	FlagCharts = "charts"
 )
 
-func defaultLogOptions() *log.Options {
-	o := log.DefaultOptions()
-
-	// These scopes are, at the default "INFO" level, too chatty for command line use
-	o.SetOutputLevel("validation", log.ErrorLevel)
-	o.SetOutputLevel("processing", log.ErrorLevel)
-	o.SetOutputLevel("analysis", log.WarnLevel)
-	o.SetOutputLevel("installer", log.WarnLevel)
-	o.SetOutputLevel("translator", log.WarnLevel)
-	o.SetOutputLevel("adsc", log.WarnLevel)
-	o.SetOutputLevel("default", log.WarnLevel)
-	o.SetOutputLevel("klog", log.WarnLevel)
-	o.SetOutputLevel("kube", log.ErrorLevel)
-
-	return o
-}
-
 // ConfigAndEnvProcessing uses spf13/viper for overriding CLI parameters
 func ConfigAndEnvProcessing() error {
-	configPath := filepath.Dir(IstioConfig)
-	baseName := filepath.Base(IstioConfig)
-	configType := filepath.Ext(IstioConfig)
+	configPath := filepath.Dir(root.IstioConfig)
+	baseName := filepath.Base(root.IstioConfig)
+	configType := filepath.Ext(root.IstioConfig)
 	configName := baseName[0 : len(baseName)-len(configType)]
 	if configType != "" {
 		configType = configType[1:]
@@ -117,7 +89,7 @@ func ConfigAndEnvProcessing() error {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	err := viper.ReadInConfig()
 	// Ignore errors reading the configuration unless the file is explicitly customized
-	if IstioConfig != defaultIstioctlConfig {
+	if root.IstioConfig != defaultIstioctlConfig {
 		return err
 	}
 
@@ -168,7 +140,7 @@ debug and diagnose their Istio mesh.
 	})
 
 	// Attach the Istio logging options to the command.
-	loggingOptions.AttachCobraFlags(rootCmd)
+	root.LoggingOptions.AttachCobraFlags(rootCmd)
 	hiddenFlags := []string{
 		"log_as_json", "log_rotate", "log_rotate_max_age", "log_rotate_max_backups",
 		"log_rotate_max_size", "log_stacktrace_level", "log_target", "log_caller", "log_output_level",
@@ -224,14 +196,14 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
-	rootCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
+	rootCmd.AddCommand(mesh.UninstallCmd(root.LoggingOptions))
 
 	experimentalCmd.AddCommand(authz.AuthZ(ctx))
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(metrics.Cmd(ctx))
 	experimentalCmd.AddCommand(describe.Cmd(ctx))
 	experimentalCmd.AddCommand(wait.Cmd(ctx))
-	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(loggingOptions)))
+	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(root.LoggingOptions)))
 	experimentalCmd.AddCommand(config.Cmd())
 	experimentalCmd.AddCommand(workload.Cmd(ctx))
 	experimentalCmd.AddCommand(revision.Cmd(ctx))
@@ -249,7 +221,7 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(dashboardCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
 
-	manifestCmd := mesh.ManifestCmd(loggingOptions)
+	manifestCmd := mesh.ManifestCmd(root.LoggingOptions)
 	hideInheritedFlags(manifestCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(manifestCmd)
 
@@ -257,19 +229,19 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(operatorCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(operatorCmd)
 
-	installCmd := mesh.InstallCmd(loggingOptions)
+	installCmd := mesh.InstallCmd(root.LoggingOptions)
 	hideInheritedFlags(installCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(installCmd)
 
-	profileCmd := mesh.ProfileCmd(loggingOptions)
+	profileCmd := mesh.ProfileCmd(root.LoggingOptions)
 	hideInheritedFlags(profileCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(profileCmd)
 
-	upgradeCmd := mesh.UpgradeCmd(loggingOptions)
+	upgradeCmd := mesh.UpgradeCmd(root.LoggingOptions)
 	hideInheritedFlags(upgradeCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
-	bugReportCmd := bugreport.Cmd(loggingOptions)
+	bugReportCmd := bugreport.Cmd(root.LoggingOptions)
 	hideInheritedFlags(bugReportCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(bugReportCmd)
 
@@ -333,7 +305,7 @@ func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
 }
 
 func configureLogging(_ *cobra.Command, _ []string) error {
-	if err := log.Configure(loggingOptions); err != nil {
+	if err := log.Configure(root.LoggingOptions); err != nil {
 		return err
 	}
 	return nil

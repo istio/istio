@@ -17,13 +17,19 @@ package proxyconfig
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
+	"k8s.io/cli-runtime/pkg/resource"
+	"k8s.io/client-go/rest/fake"
+	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
+	util2 "k8s.io/kubectl/pkg/cmd/util"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/kube"
 )
 
 type execTestCase struct {
@@ -40,7 +46,7 @@ type execTestCase struct {
 
 func TestProxyConfig(t *testing.T) {
 	loggingConfig := map[string][]byte{
-		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile(t, "../pkg/writer/envoy/logging/testdata/logging.txt"),
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile(t, "../writer/envoy/logging/testdata/logging.txt"),
 		"httpbin-794b576b6c-qx6pf":    []byte("{}"),
 		"ztunnel-9v7nw":               []byte("current log level is debug"),
 	}
@@ -221,5 +227,22 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 		if fErr != nil {
 			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
 		}
+	}
+}
+
+func init() {
+	cli.MakeKubeFactory = func(k kube.CLIClient) util2.Factory {
+		tf := cmdtesting.NewTestFactory()
+		_, _, codec := cmdtesting.NewExternalScheme()
+		tf.UnstructuredClient = &fake.RESTClient{
+			NegotiatedSerializer: resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer,
+			Resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     cmdtesting.DefaultHeader(),
+				Body: cmdtesting.ObjBody(codec,
+					cmdtesting.NewInternalType("", "", "foo")),
+			},
+		}
+		return tf
 	}
 }
