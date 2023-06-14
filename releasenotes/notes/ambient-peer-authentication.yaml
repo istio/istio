@@ -24,7 +24,8 @@ area: security
 
 # issue is a list of GitHub issues resolved in this note.
 # If issue is not in the current repo, specify its full URL instead.
-issue: 42696
+issue:
+- 42696
 
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
