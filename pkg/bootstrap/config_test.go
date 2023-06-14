@@ -20,8 +20,6 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/version"
-
 	. "github.com/onsi/gomega"
 	"k8s.io/kubectl/pkg/util/fieldpath"
 
@@ -31,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/version"
 )
 
 func TestParseDownwardApi(t *testing.T) {
@@ -157,7 +156,6 @@ func TestSetIstioVersion(t *testing.T) {
 				t.Fatalf("SetIstioVersion: expected '%s', got '%s'", tc.expectedVersion, ret.IstioVersion)
 			}
 		})
-
 	}
 }
 

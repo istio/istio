@@ -28,8 +28,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/version"
-
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -46,6 +44,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/version"
 )
 
 type stats struct {

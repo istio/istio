@@ -25,8 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/pkg/version"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -46,6 +44,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/version"
 )
 
 const (
