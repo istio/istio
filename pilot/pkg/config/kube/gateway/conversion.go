@@ -1219,7 +1219,7 @@ func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 		rewrite.Authority = string(*filter.Hostname)
 	}
 	// Nothing done
-	if rewrite.Uri == "" && rewrite.Authority == "" {
+	if rewrite.Uri == "" && rewrite.UriRegexRewrite == nil && rewrite.Authority == "" {
 		return nil
 	}
 	return rewrite
