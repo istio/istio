@@ -25,13 +25,13 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/completion"
-	"istio.io/istio/istioctl/pkg/kubeinject"
-	util2 "istio.io/istio/istioctl/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/completion"
+	"istio.io/istio/istioctl/pkg/kubeinject"
+	util2 "istio.io/istio/istioctl/pkg/util"
 	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/writer"
 	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"

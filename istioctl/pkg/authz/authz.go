@@ -21,10 +21,10 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"

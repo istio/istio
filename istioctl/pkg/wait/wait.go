@@ -24,12 +24,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/describe"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/describe"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
@@ -50,7 +50,7 @@ var (
 
 const pollInterval = time.Second
 
-// waitCmd represents the wait command
+// Cmd represents the wait command
 func Cmd(cliCtx cli.Context) *cobra.Command {
 	namespace := cliCtx.Namespace()
 	var opts clioptions.ControlPlaneOptions

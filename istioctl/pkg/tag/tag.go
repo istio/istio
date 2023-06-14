@@ -23,11 +23,11 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/util"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"

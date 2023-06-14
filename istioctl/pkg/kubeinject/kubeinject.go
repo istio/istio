@@ -31,7 +31,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/util"
 	admission "k8s.io/api/admission/v1"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistration "k8s.io/api/admissionregistration/v1"
@@ -48,6 +47,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/util"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/validate"

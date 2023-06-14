@@ -72,7 +72,7 @@ func TestProxyStatus(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyExecTestOutput(t, statusCommand(cli.NewFakeContext(nil)), c)
+			verifyExecTestOutput(t, StatusCommand(cli.NewFakeContext(nil)), c)
 		})
 	}
 }

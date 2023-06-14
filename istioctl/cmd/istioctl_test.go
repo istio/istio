@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	util2 "istio.io/istio/istioctl/pkg/util"
 
+	util2 "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/pilot/test/util"
 )
 

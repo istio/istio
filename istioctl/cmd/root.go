@@ -23,33 +23,33 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
+
 	"istio.io/istio/istioctl/pkg/admin"
 	"istio.io/istio/istioctl/pkg/analyze"
 	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/checkinject"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/istioctl/pkg/config"
 	"istio.io/istio/istioctl/pkg/dashboard"
 	"istio.io/istio/istioctl/pkg/describe"
 	"istio.io/istio/istioctl/pkg/injector"
+	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/internal-debug"
 	"istio.io/istio/istioctl/pkg/kubeinject"
 	"istio.io/istio/istioctl/pkg/metrics"
+	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/istioctl/pkg/precheck"
 	"istio.io/istio/istioctl/pkg/proxyconfig"
 	"istio.io/istio/istioctl/pkg/proxystatus"
 	"istio.io/istio/istioctl/pkg/revision"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util"
+	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/istioctl/pkg/version"
 	"istio.io/istio/istioctl/pkg/wait"
 	"istio.io/istio/istioctl/pkg/waypoint"
 	"istio.io/istio/istioctl/pkg/workload"
-
-	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/istioctl/pkg/install"
-	"istio.io/istio/istioctl/pkg/multicluster"
-	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
@@ -220,7 +220,7 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyconfig.ProxyConfig(ctx))
-	rootCmd.AddCommand(admin.AdminCmd(ctx))
+	rootCmd.AddCommand(admin.Cmd(ctx))
 	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
 	rootCmd.AddCommand(install.NewVerifyCommand())

@@ -116,7 +116,7 @@ func TestDashboard(t *testing.T) {
 		},
 	}
 
-	dbCmd := dashboard(cli.NewFakeContext(&cli.NewFakeContextOption{
+	dbCmd := Dashboard(cli.NewFakeContext(&cli.NewFakeContextOption{
 		Namespace: "istio-system",
 	}))
 	for i, c := range cases {

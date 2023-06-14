@@ -28,10 +28,10 @@ import (
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/dashboard"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/dashboard"
 	"istio.io/istio/pkg/log"
 )
 

@@ -18,10 +18,11 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
 	"istio.io/istio/istioctl/pkg/cli"
 )
 
-func AdminCmd(ctx cli.Context) *cobra.Command {
+func Cmd(ctx cli.Context) *cobra.Command {
 	adminCmd := &cobra.Command{
 		Use:   "admin",
 		Short: "Manage control plane (istiod) configuration",

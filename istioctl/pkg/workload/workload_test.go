@@ -120,7 +120,7 @@ func TestWorkloadGroupCreate(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
-			verifyTestcaseOutput(t, workloadCommands(cli.NewFakeContext(nil)), c)
+			verifyTestcaseOutput(t, Cmd(cli.NewFakeContext(nil)), c)
 		})
 	}
 }
@@ -187,7 +187,7 @@ func TestWorkloadEntryConfigureInvalidArgs(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
-			verifyTestcaseOutput(t, workloadCommands(cli.NewFakeContext(nil)), c)
+			verifyTestcaseOutput(t, Cmd(cli.NewFakeContext(nil)), c)
 		})
 	}
 }
@@ -364,7 +364,7 @@ func runTestCmd(t *testing.T, createResourceFunc func(client kube.CLIClient), re
 	ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
 		IstioNamespace: "istio-system",
 	})
-	rootCmd := workloadCommands(ctx)
+	rootCmd := Cmd(ctx)
 	rootCmd.SetArgs(args)
 	client, err := ctx.CLIClientWithRevision(rev)
 	if err != nil {

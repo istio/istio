@@ -20,13 +20,13 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/istioctl/pkg/util"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/pkg/kube"
 )

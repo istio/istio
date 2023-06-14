@@ -20,13 +20,13 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"istio.io/istio/istioctl/pkg/util"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/util"
 )
 
 func GetTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admitv1.MutatingWebhookConfiguration, error) {

@@ -26,11 +26,11 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/util"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"

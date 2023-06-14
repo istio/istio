@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/testutil"
 	"istio.io/istio/pkg/config/analysis/diag"

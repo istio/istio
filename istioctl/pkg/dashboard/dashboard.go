@@ -25,10 +25,10 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/util"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )

@@ -180,7 +180,7 @@ func TestProxyConfig(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyExecTestOutput(t, proxyConfig(cli.NewFakeContext(&cli.NewFakeContextOption{
+			verifyExecTestOutput(t, ProxyConfig(cli.NewFakeContext(&cli.NewFakeContextOption{
 				Results:   c.execClientConfig,
 				Namespace: "default",
 			})), c)

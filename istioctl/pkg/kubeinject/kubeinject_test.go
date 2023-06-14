@@ -19,75 +19,75 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/util/testutil"
 )
 
 func TestKubeInject(t *testing.T) {
-	cases := []testCase{
+	cases := []testutil.TestCase{
 		{ // case 0
-			args:           []string{},
-			expectedRegexp: regexp.MustCompile(`filename not specified \(see --filename or -f\)`),
-			wantException:  true,
+			Args:           []string{},
+			ExpectedRegexp: regexp.MustCompile(`filename not specified \(see --filename or -f\)`),
+			WantException:  true,
 		},
 		{ // case 1
-			args:           strings.Split("-f missing.yaml", " "),
-			expectedRegexp: regexp.MustCompile(`open missing.yaml: no such file or directory`),
-			wantException:  true,
+			Args:           strings.Split("-f missing.yaml", " "),
+			ExpectedRegexp: regexp.MustCompile(`open missing.yaml: no such file or directory`),
+			WantException:  true,
 		},
 		{ // case 2
-			args: strings.Split(
+			Args: strings.Split(
 				"--meshConfigFile testdata/mesh-config.yaml"+
 					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello.yaml"+
 					" --valuesFile testdata/inject-values.yaml",
 				" "),
-			goldenFilename: "testdata/deployment/hello.yaml.injected",
+			GoldenFilename: "testdata/deployment/hello.yaml.injected",
 		},
 		{ // case 3
-			args: strings.Split(
+			Args: strings.Split(
 				"--meshConfigFile testdata/mesh-config.yaml"+
 					" --injectConfigFile testdata/inject-config-inline.yaml -f testdata/deployment/hello.yaml"+
 					" --valuesFile testdata/inject-values.yaml",
 				" "),
-			goldenFilename: "testdata/deployment/hello.yaml.injected",
+			GoldenFilename: "testdata/deployment/hello.yaml.injected",
 		},
 		{ // case 4 with only iop files
-			args: strings.Split(
+			Args: strings.Split(
 				"--operatorFileName testdata/istio-operator.yaml"+
 					" --injectConfigFile testdata/inject-config-iop.yaml -f testdata/deployment/hello.yaml",
 				" "),
-			goldenFilename: "testdata/deployment/hello.yaml.iop.injected",
+			GoldenFilename: "testdata/deployment/hello.yaml.iop.injected",
 		},
 		{ // case 5 with only iop files
-			args: strings.Split(
+			Args: strings.Split(
 				"--operatorFileName testdata/istio-operator.yaml"+
 					" --injectConfigFile testdata/inject-config-inline-iop.yaml -f testdata/deployment/hello.yaml",
 				" "),
-			goldenFilename: "testdata/deployment/hello.yaml.iop.injected",
+			GoldenFilename: "testdata/deployment/hello.yaml.iop.injected",
 		},
 		{ // case 6 with iops and values override
-			args: strings.Split(
+			Args: strings.Split(
 				"--operatorFileName testdata/istio-operator.yaml"+
 					" --injectConfigFile testdata/inject-config-iop.yaml -f testdata/deployment/hello.yaml"+
 					" -f testdata/deployment/hello.yaml"+
 					" --valuesFile testdata/inject-values.yaml",
 				" "),
-			goldenFilename: "testdata/deployment/hello.yaml.iop.injected",
+			GoldenFilename: "testdata/deployment/hello.yaml.iop.injected",
 		},
 		{ // case 7
-			args: strings.Split(
+			Args: strings.Split(
 				"--meshConfigFile testdata/mesh-config.yaml"+
 					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello-with-proxyconfig-anno.yaml"+
 					" --valuesFile testdata/inject-values.yaml",
 				" "),
-			goldenFilename: "testdata/deployment/hello-with-proxyconfig-anno.yaml.injected",
+			GoldenFilename: "testdata/deployment/hello-with-proxyconfig-anno.yaml.injected",
 		},
 	}
 
-	kubeInject := injectCommand(cli.NewFakeContext(nil))
+	kubeInject := InjectCommand(cli.NewFakeContext(nil))
 	for i, c := range cases {
-		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			cmd.verifyOutput(t, kubeInject, c)
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.Args, " ")), func(t *testing.T) {
+			testutil.VerifyOutput(t, kubeInject, c)
 			cleanUpKubeInjectTestEnv()
 		})
 	}

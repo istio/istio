@@ -99,7 +99,7 @@ func TestWaypointList(t *testing.T) {
 			}
 
 			var out bytes.Buffer
-			rootCmd := waypointCmd(ctx)
+			rootCmd := Cmd(ctx)
 			rootCmd.SetArgs(tt.args)
 			rootCmd.SetOut(&out)
 			rootCmd.SetErr(&out)

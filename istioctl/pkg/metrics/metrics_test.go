@@ -25,11 +25,11 @@ import (
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prometheus_model "github.com/prometheus/common/model"
-	"istio.io/istio/istioctl/pkg/util/testutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/util/testutil"
 )
 
 // mockPromAPI lets us mock calls to Prometheus API
@@ -51,7 +51,7 @@ func TestMetricsNoPrometheus(t *testing.T) {
 		},
 	}
 
-	metricCmd := metricsCmd(cli.NewFakeContext(nil))
+	metricCmd := Cmd(cli.NewFakeContext(nil))
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.Args, " ")), func(t *testing.T) {
 			testutil.VerifyOutput(t, metricCmd, c)
@@ -84,7 +84,7 @@ func TestMetrics(t *testing.T) {
 			},
 		},
 	}, metav1.CreateOptions{})
-	metricCmd := metricsCmd(ctx)
+	metricCmd := Cmd(ctx)
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.Args, " ")), func(t *testing.T) {
 			testutil.VerifyOutput(t, metricCmd, c)

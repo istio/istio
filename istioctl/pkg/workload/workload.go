@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	util2 "istio.io/istio/istioctl/pkg/util"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,6 +38,7 @@ import (
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	util2 "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"

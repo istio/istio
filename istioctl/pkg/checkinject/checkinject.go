@@ -24,13 +24,13 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/util"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/writer/table"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 )

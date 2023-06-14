@@ -15,6 +15,7 @@
 package wait
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -22,7 +23,7 @@ import (
 	"sync"
 	"testing"
 
-	"istio.io/istio/istioctl/cmd"
+	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +34,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/schema/gvr"
 )
 
@@ -51,7 +53,7 @@ func TestWaitCmd(t *testing.T) {
 	distributionTrackingDisabledResponse := xds.DistributionTrackingDisabledMessage
 	distributionTrackingDisabledResponseMap := map[string][]byte{"onlyonepilot": []byte(distributionTrackingDisabledResponse)}
 
-	cases := []cmd.execTestCase{
+	cases := []execTestCase{
 		{
 			execClientConfig: cannedResponseMap,
 			args:             strings.Split("--generation=2 --timeout=20ms virtual-service foo.default", " "),
@@ -99,7 +101,7 @@ func TestWaitCmd(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			_ = setupK8Sfake()
-			cmd.verifyExecTestOutput(t, waitCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
+			verifyExecTestOutput(t, Cmd(cli.NewFakeContext(&cli.NewFakeContextOption{
 				Namespace: "default",
 				Results:   c.execClientConfig,
 			})), c)
@@ -133,6 +135,54 @@ func setupK8Sfake() *fake.FakeDynamicClient {
 			metav1.CreateOptions{})
 	}()
 	return client
+}
+
+type execTestCase struct {
+	execClientConfig map[string][]byte
+	args             []string
+
+	// Typically use one of the three
+	expectedOutput string // Expected constant output
+	expectedString string // String output is expected to contain
+	goldenFilename string // Expected output stored in golden file
+
+	wantException bool
+}
+
+func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
+	t.Helper()
+
+	var out bytes.Buffer
+	cmd.SetArgs(c.args)
+	cmd.SilenceUsage = true
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	fErr := cmd.Execute()
+	output := out.String()
+
+	if c.expectedOutput != "" && c.expectedOutput != output {
+		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q", strings.Join(c.args, " "), output, c.expectedOutput)
+	}
+
+	if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
+		t.Fatalf("Output didn't match for '%s %s'\n got %v\nwant: %v", cmd.Name(), strings.Join(c.args, " "), output, c.expectedString)
+	}
+
+	if c.goldenFilename != "" {
+		util.CompareContent(t, []byte(output), c.goldenFilename)
+	}
+
+	if c.wantException {
+		if fErr == nil {
+			t.Fatalf("Wanted an exception for 'istioctl %s', didn't get one, output was %q",
+				strings.Join(c.args, " "), output)
+		}
+	} else {
+		if fErr != nil {
+			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
+		}
+	}
 }
 
 func newUnstructured(apiVersion, kind, namespace, name string, generation int64) *unstructured.Unstructured {
