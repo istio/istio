@@ -19,16 +19,21 @@ import "istio.io/istio/pkg/env"
 type PlatformType string
 
 const (
-	Empty     PlatformType = ""
+	Default   PlatformType = ""
 	OpenShift PlatformType = "openshift"
 	GCP       PlatformType = "gcp"
 )
 
 var Platform = env.Register(
 	"PLATFORM",
-	Empty,
+	Default,
 	"Platform where Istio is deployed. Possible values are \"openshift\" and \"gcp\"",
 ).Get()
+
+// IsDefault returns true if the platform is the Default one
+func IsDefault() bool {
+	return Platform == Default
+}
 
 // IsOpenShift returns true if the platform is OpenShift
 func IsOpenShift() bool {
