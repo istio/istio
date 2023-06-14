@@ -26,9 +26,9 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube"
 )
 
 func TestWaypointList(t *testing.T) {
@@ -40,13 +40,13 @@ func TestWaypointList(t *testing.T) {
 	}{
 		{
 			name:            "no gateways",
-			args:            strings.Split("x waypoint list", " "),
+			args:            strings.Split("list", " "),
 			gateways:        []*gateway.Gateway{},
 			expectedOutFile: "no-gateway",
 		},
 		{
 			name: "default namespace gateway",
-			args: strings.Split("x waypoint list  -n default", " "),
+			args: strings.Split("list", " "),
 			gateways: []*gateway.Gateway{
 				makeGateway("namespace", "default", "", true, true),
 				makeGateway("namespace", "fake", "", true, true),
@@ -55,7 +55,7 @@ func TestWaypointList(t *testing.T) {
 		},
 		{
 			name: "all namespaces gateways",
-			args: strings.Split("x waypoint list -A", " "),
+			args: strings.Split("list -A", " "),
 			gateways: []*gateway.Gateway{
 				makeGateway("namespace", "default", "", true, true),
 				makeGateway("namespace", "fake", "", true, true),
@@ -64,7 +64,7 @@ func TestWaypointList(t *testing.T) {
 		},
 		{
 			name: "have both managed and unmanaged gateways",
-			args: strings.Split("x waypoint list -A", " "),
+			args: strings.Split("list -A", " "),
 			gateways: []*gateway.Gateway{
 				makeGateway("bookinfo", "default", "bookinfo", false, true),
 				makeGateway("bookinfo-invalid", "fake", "bookinfo", true, false),
@@ -78,10 +78,14 @@ func TestWaypointList(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			client := kube.NewFakeClient()
-			kubeClient = func(kubeconfig, configContext string) (kube.CLIClient, error) {
-				return client, nil
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+				Namespace: "default",
+			})
+			client, err := ctx.CLIClient()
+			if err != nil {
+				t.Fatal(err)
 			}
+
 			for _, gw := range tt.gateways {
 				_, _ = client.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).Create(context.Background(), gw, metav1.CreateOptions{})
 			}
@@ -95,7 +99,8 @@ func TestWaypointList(t *testing.T) {
 			}
 
 			var out bytes.Buffer
-			rootCmd := GetRootCmd(tt.args)
+			rootCmd := waypointCmd(ctx)
+			rootCmd.SetArgs(tt.args)
 			rootCmd.SetOut(&out)
 			rootCmd.SetErr(&out)
 

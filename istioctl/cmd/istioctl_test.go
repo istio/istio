@@ -20,9 +20,9 @@ import (
 	"strings"
 	"testing"
 
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	"github.com/spf13/cobra"
+
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/kube"
 )
 
 type testCase struct {
@@ -71,31 +71,17 @@ func TestBadParse(t *testing.T) {
 	}
 }
 
-// mockClientFactoryGenerator creates a factory for model.ConfigStore preloaded with data
-func mockClientFactoryGenerator(setupFn ...func(c istioclient.Interface)) func() (istioclient.Interface, error) {
-	outFactory := func() (istioclient.Interface, error) {
-		c := kube.NewFakeClient().Istio()
-		for _, f := range setupFn {
-			f(c)
-		}
-		return c, nil
-	}
-
-	return outFactory
-}
-
-func verifyOutput(t *testing.T, c testCase) {
+func verifyOutput(t *testing.T, cmd *cobra.Command, c testCase) {
 	t.Helper()
 
-	// Override the client factory used by main.go
-	configStoreFactory = mockClientFactoryGenerator()
+	cmd.SetArgs(c.args)
 
 	var out bytes.Buffer
-	rootCmd := GetRootCmd(c.args)
-	rootCmd.SetOut(&out)
-	rootCmd.SetErr(&out)
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SilenceUsage = true
 
-	fErr := rootCmd.Execute()
+	fErr := cmd.Execute()
 	output := out.String()
 
 	if c.expectedOutput != "" && c.expectedOutput != output {

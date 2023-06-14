@@ -32,6 +32,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
@@ -50,7 +51,7 @@ type revisionCount struct {
 	needsRestart int
 }
 
-func injectorCommand() *cobra.Command {
+func injectorCommand(cliContext cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "injector",
 		Short:   "List sidecar injector and sidecar versions",
@@ -68,11 +69,11 @@ func injectorCommand() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(injectorListCommand())
+	cmd.AddCommand(injectorListCommand(cliContext))
 	return cmd
 }
 
-func injectorListCommand() *cobra.Command {
+func injectorListCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -80,14 +81,13 @@ func injectorListCommand() *cobra.Command {
 		Long:    `List sidecar injector and sidecar versions`,
 		Example: `  istioctl experimental injector list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
-			ctx := context.Background()
 
-			nslist, err := getNamespaces(ctx, client)
-			nslist = filterSystemNamespaces(nslist)
+			nslist, err := getNamespaces(context.Background(), client)
+			nslist = filterSystemNamespaces(nslist, ctx.IstioNamespace())
 			if err != nil {
 				return err
 			}
@@ -95,11 +95,11 @@ func injectorListCommand() *cobra.Command {
 				return nslist[i].Name < nslist[j].Name
 			})
 
-			hooks, err := tag.Webhooks(ctx, client)
+			hooks, err := tag.Webhooks(context.Background(), client)
 			if err != nil {
 				return err
 			}
-			pods, err := getPods(ctx, client)
+			pods, err := getPods(context.Background(), client)
 			if err != nil {
 				return err
 			}
@@ -107,8 +107,8 @@ func injectorListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cmd.Println()
-			injectedImages, err := getInjectedImages(ctx, client)
+			fmt.Fprintln(cmd.OutOrStdout())
+			injectedImages, err := getInjectedImages(context.Background(), client)
 			if err != nil {
 				return err
 			}
@@ -123,7 +123,7 @@ func injectorListCommand() *cobra.Command {
 	return cmd
 }
 
-func filterSystemNamespaces(nss []corev1.Namespace) []corev1.Namespace {
+func filterSystemNamespaces(nss []corev1.Namespace, istioNamespace string) []corev1.Namespace {
 	filtered := make([]corev1.Namespace, 0)
 	for _, ns := range nss {
 		if analyzer_util.IsSystemNamespace(resource.Namespace(ns.Name)) || ns.Name == istioNamespace {
@@ -149,10 +149,6 @@ func printNS(writer io.Writer, namespaces []corev1.Namespace, hooks []admitv1.Mu
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	for _, namespace := range namespaces {
-		if hideFromOutput(resource.Namespace(namespace.Name)) {
-			continue
-		}
-
 		revision := getInjectedRevision(&namespace, hooks)
 		podCount := podCountByRevision(allPods[resource.Namespace(namespace.Name)], revision)
 		if len(podCount) == 0 {
@@ -318,10 +314,6 @@ func extractRevisionFromPod(pod *corev1.Pod) string {
 		return ""
 	}
 	return sidecarinjection.Revision
-}
-
-func hideFromOutput(ns resource.Namespace) bool {
-	return (analyzer_util.IsSystemNamespace(ns) || ns == resource.Namespace(istioNamespace))
 }
 
 func injectionDisabled(pod *corev1.Pod) bool {

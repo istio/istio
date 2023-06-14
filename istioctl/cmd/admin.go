@@ -18,9 +18,11 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"istio.io/istio/istioctl/pkg/cli"
 )
 
-func adminCmd() *cobra.Command {
+func adminCmd(ctx cli.Context) *cobra.Command {
 	adminCmd := &cobra.Command{
 		Use:   "admin",
 		Short: "Manage control plane (istiod) configuration",
@@ -40,7 +42,7 @@ func adminCmd() *cobra.Command {
 		},
 	}
 
-	istiodLog := istiodLogCmd()
+	istiodLog := istiodLogCmd(ctx)
 	adminCmd.AddCommand(istiodLog)
 	adminCmd.PersistentFlags().StringVarP(&istiodLabelSelector, "selector", "l", "app=istiod", "label selector")
 

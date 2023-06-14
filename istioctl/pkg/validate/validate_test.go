@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -707,11 +708,12 @@ Error: 1 error occurred:
 			wantError: true, // Since the directory has invalid files
 		},
 	}
-	istioNamespace := "istio-system"
-	defaultNamespace := ""
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(t *testing.T) {
-			validateCmd := NewValidateCommand(&istioNamespace, &defaultNamespace)
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+				IstioNamespace: "istio-system",
+			})
+			validateCmd := NewValidateCommand(ctx)
 			validateCmd.SilenceUsage = true
 			validateCmd.SetArgs(c.args)
 

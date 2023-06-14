@@ -32,7 +32,6 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 	"google.golang.org/protobuf/proto"
-	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -46,7 +45,8 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	workloadapi "istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -232,7 +232,8 @@ type TrafficDirection string
 
 const (
 	// TrafficDirectionInbound indicates inbound traffic
-	TrafficDirectionInbound    TrafficDirection = "inbound"
+	TrafficDirectionInbound TrafficDirection = "inbound"
+	// TrafficDirectionInboundVIP indicates inbound traffic for vip
 	TrafficDirectionInboundVIP TrafficDirection = "inbound-vip"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
@@ -720,7 +721,7 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 		return false
 	}
 
-	if len(s.ClusterExternalAddresses.GetAddresses()) != len(other.ClusterExternalAddresses.GetAddresses()) {
+	if s.ClusterExternalAddresses.Len() != other.ClusterExternalAddresses.Len() {
 		return false
 	}
 
@@ -806,13 +807,13 @@ type ServiceDiscovery interface {
 }
 
 type AmbientIndexes interface {
-	PodInformation(addresses sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string)
+	AddressInformation(addresses sets.String) ([]*AddressInfo, []string)
 	AdditionalPodSubscriptions(
 		proxy *Proxy,
-		allAddresses sets.Set[types.NamespacedName],
-		currentSubs sets.Set[types.NamespacedName],
-	) sets.Set[types.NamespacedName]
-	Policies(requested sets.Set[ConfigKey]) []*workloadapi.Authorization
+		allAddresses sets.String,
+		currentSubs sets.String,
+	) sets.Set[string]
+	Policies(requested sets.Set[ConfigKey]) []*security.Authorization
 	Waypoint(scope WaypointScope) []netip.Addr
 	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
 }
@@ -820,19 +821,19 @@ type AmbientIndexes interface {
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
 type NoopAmbientIndexes struct{}
 
-func (u NoopAmbientIndexes) PodInformation(sets.Set[types.NamespacedName]) ([]*WorkloadInfo, []string) {
+func (u NoopAmbientIndexes) AddressInformation(sets.String) ([]*AddressInfo, []string) {
 	return nil, nil
 }
 
 func (u NoopAmbientIndexes) AdditionalPodSubscriptions(
 	*Proxy,
-	sets.Set[types.NamespacedName],
-	sets.Set[types.NamespacedName],
-) sets.Set[types.NamespacedName] {
+	sets.String,
+	sets.String,
+) sets.String {
 	return nil
 }
 
-func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*workloadapi.Authorization {
+func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*security.Authorization {
 	return nil
 }
 
@@ -846,10 +847,62 @@ func (u NoopAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []*Workloa
 
 var _ AmbientIndexes = NoopAmbientIndexes{}
 
+type AddressInfo struct {
+	*workloadapi.Address
+}
+
+func (i AddressInfo) Aliases() []string {
+	switch addr := i.Type.(type) {
+	case *workloadapi.Address_Workload:
+		aliases := make([]string, 0, len(addr.Workload.Addresses))
+		network := addr.Workload.Network
+		for _, workloadAddr := range addr.Workload.Addresses {
+			ip, _ := netip.AddrFromSlice(workloadAddr)
+			aliases = append(aliases, network+"/"+ip.String())
+		}
+		return aliases
+	case *workloadapi.Address_Service:
+		aliases := make([]string, 0, len(addr.Service.Addresses))
+		for _, networkAddr := range addr.Service.Addresses {
+			ip, _ := netip.AddrFromSlice(networkAddr.Address)
+			aliases = append(aliases, networkAddr.Network+"/"+ip.String())
+		}
+		return aliases
+	}
+	return nil
+}
+
+func (i AddressInfo) ResourceName() string {
+	var name string
+	switch addr := i.Type.(type) {
+	case *workloadapi.Address_Workload:
+		name = workloadResourceName(addr.Workload)
+	case *workloadapi.Address_Service:
+		name = serviceResourceName(addr.Service)
+	}
+	return name
+}
+
+type ServiceInfo struct {
+	*workloadapi.Service
+}
+
+func (i ServiceInfo) ResourceName() string {
+	return serviceResourceName(i.Service)
+}
+
+func serviceResourceName(s *workloadapi.Service) string {
+	return s.Namespace + "/" + s.Hostname
+}
+
 type WorkloadInfo struct {
 	*workloadapi.Workload
 	// Labels for the workload. Note these are only used internally, not sent over XDS
 	Labels map[string]string
+}
+
+func workloadResourceName(w *workloadapi.Workload) string {
+	return w.Uid
 }
 
 func (i *WorkloadInfo) Clone() *WorkloadInfo {
@@ -859,9 +912,39 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 	}
 }
 
-func (i WorkloadInfo) ResourceName() string {
-	ii, _ := netip.AddrFromSlice(i.Address)
-	return ii.String()
+func (i *WorkloadInfo) ResourceName() string {
+	return workloadResourceName(i.Workload)
+}
+
+func ExtractWorkloadsFromAddresses(addrs []*AddressInfo) []WorkloadInfo {
+	return slices.MapFilter(addrs, func(a *AddressInfo) *WorkloadInfo {
+		switch addr := a.Type.(type) {
+		case *workloadapi.Address_Workload:
+			return &WorkloadInfo{Workload: addr.Workload}
+		default:
+			return nil
+		}
+	})
+}
+
+func WorkloadToAddressInfo(w *workloadapi.Workload) *AddressInfo {
+	return &AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Workload{
+				Workload: w,
+			},
+		},
+	}
+}
+
+func ServiceToAddressInfo(s *workloadapi.Service) *AddressInfo {
+	return &AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Service{
+				Service: s,
+			},
+		},
+	}
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This

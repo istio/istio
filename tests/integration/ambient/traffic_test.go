@@ -1,3 +1,6 @@
+//go:build integ
+// +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,26 +15,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// DEPRECATED - These commands are deprecated and will be removed in future releases.
-
-package cmd
+package ambient
 
 import (
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
-	kubecfg "istio.io/istio/pkg/kube"
+	"testing"
+
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
+	"istio.io/istio/tests/integration/pilot/common"
 )
 
-// Create a model.ConfigStore (or sortedConfigStore)
-var configStoreFactory = newConfigStore
-
-func newConfigStore() (istioclient.Interface, error) {
-	cfg, err := kubecfg.BuildClientConfig(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-	kclient, err := kubecfg.NewClient(kubecfg.NewClientConfigForRestConfig(cfg), "")
-	if err != nil {
-		return nil, err
-	}
-	return kclient.Istio(), nil
+func TestTraffic(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		apps := deployment.NewOrFail(t, t, deployment.Config{
+			NoExternalNamespace: true,
+			IncludeExtAuthz:     false,
+		})
+		common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
+	})
 }

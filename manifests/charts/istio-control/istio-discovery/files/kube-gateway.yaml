@@ -54,6 +54,10 @@ spec:
       containers:
       - name: istio-proxy
         image: "{{ .ProxyImage }}"
+        {{- if .Values.global.proxy.resources }}
+        resources:
+          {{- toYaml .Values.global.proxy.resources | nindent 10 }}
+        {{- end }}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         securityContext:
         {{- if .KubeVersion122 }}

@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
@@ -945,7 +946,18 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 		len(ps.virtualServiceIndex.publicByGateway[gateway]))
 	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name]...)
 	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name]...)
-	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
+	// Favor same-namespace Gateway routes, to give the "consumer override" preference.
+	// We do 2 iterations here to avoid extra allocations.
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
+		if UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace {
+			res = append(res, vs)
+		}
+	}
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
+		if !(UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace) {
+			res = append(res, vs)
+		}
+	}
 
 	return res
 }
@@ -2162,10 +2174,14 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 	}]
 }
 
-func (ps *PushContext) SupportsTunnel(ip string) bool {
-	infos, _ := ps.ambientIndex.PodInformation(sets.New(types.NamespacedName{Name: ip}))
-	for _, p := range infos {
-		if p.Protocol == workloadapi.Protocol_HTTP {
+// SupportsTunnel checks if a given IP address supports tunneling.
+// This currently only accepts workload IPs as arguments; services will always return "false".
+func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
+	// There should be a 1:1 relationship between IP and Workload but the interface doesn't allow this lookup.
+	// We should get 0 or 1 workloads, so just return the first.
+	infos, _ := ps.ambientIndex.AddressInformation(sets.New(n.String() + "/" + ip))
+	for _, wl := range ExtractWorkloadsFromAddresses(infos) {
+		if wl.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
 			return true
 		}
 	}

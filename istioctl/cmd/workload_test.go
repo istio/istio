@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -23,10 +24,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
@@ -70,7 +72,6 @@ type testcase struct {
 	description       string
 	expectedException bool
 	args              []string
-	k8sConfigs        []runtime.Object
 	expectedOutput    string
 	namespace         string
 }
@@ -79,38 +80,38 @@ func TestWorkloadGroupCreate(t *testing.T) {
 	cases := []testcase{
 		{
 			description:       "Invalid command args - missing service name and namespace",
-			args:              strings.Split("experimental workload group create", " "),
+			args:              strings.Split("group create", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a workload name\n",
 		},
 		{
 			description:       "Invalid command args - missing service name",
-			args:              strings.Split("experimental workload group create --namespace bar", " "),
+			args:              strings.Split("group create -n bar", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a workload name\n",
 		},
 		{
 			description:       "Invalid command args - missing service namespace",
-			args:              strings.Split("experimental workload group create --name foo", " "),
+			args:              strings.Split("group create --name foo", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a workload namespace\n",
 		},
 		{
 			description:       "valid case - minimal flags, infer defaults",
-			args:              strings.Split("experimental workload group create --name foo --namespace bar", " "),
+			args:              strings.Split("group create --name foo --namespace bar", " "),
 			expectedException: false,
 			expectedOutput:    defaultYAML,
 		},
 		{
 			description: "valid case - create full workload group",
-			args: strings.Split("experimental workload group create --name foo --namespace bar --labels app=foo,bar=baz "+
+			args: strings.Split("group create --name foo --namespace bar --labels app=foo,bar=baz "+
 				" --annotations annotation=foobar --ports grpc=3550,http=8080 --serviceAccount test", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},
 		{
 			description: "valid case - create full workload group with shortnames",
-			args: strings.Split("experimental workload group create --name foo -n bar -l app=foo,bar=baz -p grpc=3550,http=8080"+
+			args: strings.Split("group create --name foo -n bar -l app=foo,bar=baz -p grpc=3550,http=8080"+
 				" -a annotation=foobar --serviceAccount test", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
@@ -119,24 +120,24 @@ func TestWorkloadGroupCreate(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
-			verifyTestcaseOutput(t, c)
+			verifyTestcaseOutput(t, workloadCommands(cli.NewFakeContext(nil)), c)
 		})
 	}
 }
 
-func verifyTestcaseOutput(t *testing.T, c testcase) {
+func verifyTestcaseOutput(t *testing.T, cmd *cobra.Command, c testcase) {
 	t.Helper()
 
-	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
 	var out bytes.Buffer
-	rootCmd := GetRootCmd(c.args)
-	rootCmd.SetOut(&out)
-	rootCmd.SetErr(&out)
+	cmd.SetArgs(c.args)
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SilenceUsage = true
 	if c.namespace != "" {
 		namespace = c.namespace
 	}
 
-	fErr := rootCmd.Execute()
+	fErr := cmd.Execute()
 	output := out.String()
 
 	if c.expectedException {
@@ -160,25 +161,25 @@ func TestWorkloadEntryConfigureInvalidArgs(t *testing.T) {
 	cases := []testcase{
 		{
 			description:       "Invalid command args - missing valid input spec",
-			args:              strings.Split("experimental workload entry configure --name foo -o temp --clusterID cid", " "),
+			args:              strings.Split("entry configure --name foo -o temp --clusterID cid", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup\n",
 		},
 		{
 			description:       "Invalid command args - missing valid input spec",
-			args:              strings.Split("experimental workload entry configure -n bar -o temp --clusterID cid", " "),
+			args:              strings.Split("entry configure -n bar -o temp --clusterID cid", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup\n",
 		},
 		{
 			description:       "Invalid command args - valid filename input but missing output filename",
-			args:              strings.Split("experimental workload entry configure -f file --clusterID cid", " "),
+			args:              strings.Split("entry configure -f file --clusterID cid", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting an output directory\n",
 		},
 		{
 			description:       "Invalid command args - valid kubectl input but missing output filename",
-			args:              strings.Split("experimental workload entry configure --name foo -n bar --clusterID cid", " "),
+			args:              strings.Split("entry configure --name foo -n bar --clusterID cid", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting an output directory\n",
 		},
@@ -186,7 +187,7 @@ func TestWorkloadEntryConfigureInvalidArgs(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
-			verifyTestcaseOutput(t, c)
+			verifyTestcaseOutput(t, workloadCommands(cli.NewFakeContext(nil)), c)
 		})
 	}
 }
@@ -208,49 +209,49 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 		}
 		t.Run(dir.Name(), func(t *testing.T) {
 			testdir := path.Join("testdata/vmconfig", dir.Name())
-			kubeClientWithRevision = func(_, _, _ string) (kube.CLIClient, error) {
-				return kube.SetRevisionForTest(kube.NewFakeClient(
-					&v1.ServiceAccount{
-						ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
-						Secrets:    []v1.ObjectReference{{Name: "test"}},
+			createClientFunc := func(client kube.CLIClient) {
+				client.Kube().CoreV1().ServiceAccounts("bar").Create(context.Background(), &v1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
+					Secrets:    []v1.ObjectReference{{Name: "test"}},
+				}, metav1.CreateOptions{})
+				client.Kube().CoreV1().ConfigMaps("bar").Create(context.Background(), &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
+					Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+				}, metav1.CreateOptions{})
+				client.Kube().CoreV1().ConfigMaps("istio-system").Create(context.Background(), &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
+					Data: map[string]string{
+						"mesh": string(util.ReadFile(t, path.Join(testdir, "meshconfig.yaml"))),
 					},
-					&v1.ConfigMap{
-						ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
-						Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+				}, metav1.CreateOptions{})
+				client.Kube().CoreV1().Secrets("bar").Create(context.Background(), &v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
+					Data: map[string][]byte{
+						"token": {},
 					},
-					&v1.ConfigMap{
-						ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
-						Data: map[string]string{
-							"mesh": string(util.ReadFile(t, path.Join(testdir, "meshconfig.yaml"))),
-						},
-					},
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
-						Data: map[string][]byte{
-							"token": {},
-						},
-					},
-				), "rev-1"), nil
+				}, metav1.CreateOptions{})
 			}
 
 			cmdWithClusterID := []string{
-				"x", "workload", "entry", "configure",
+				"entry", "configure",
 				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
 				"--internalIP", "10.10.10.10",
 				"--clusterID", "Kubernetes",
+				"--revision", "rev-1",
 				"-o", testdir,
 			}
-			if _, err := runTestCmd(t, cmdWithClusterID); err != nil {
+			if _, err := runTestCmd(t, createClientFunc, "rev-1", cmdWithClusterID); err != nil {
 				t.Fatal(err)
 			}
 
 			cmdNoClusterID := []string{
-				"x", "workload", "entry", "configure",
+				"entry", "configure",
 				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
 				"--internalIP", "10.10.10.10",
+				"--revision", "rev-1",
 				"-o", testdir,
 			}
-			if output, err := runTestCmd(t, cmdNoClusterID); err != nil {
+			if output, err := runTestCmd(t, createClientFunc, "rev-1", cmdNoClusterID); err != nil {
 				if !strings.Contains(output, noClusterID) {
 					t.Fatal(err)
 				}
@@ -299,50 +300,48 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	testdir := "testdata/vmconfig-nil-proxy-metadata"
 	noClusterID := "failed to automatically determine the --clusterID"
 
-	kubeClientWithRevision = func(_, _, _ string) (kube.CLIClient, error) {
-		return kube.NewFakeClient(
-			&v1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
-				Secrets:    []v1.ObjectReference{{Name: "test"}},
+	createClientFunc := func(client kube.CLIClient) {
+		client.Kube().CoreV1().ServiceAccounts("bar").Create(context.Background(), &v1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
+			Secrets:    []v1.ObjectReference{{Name: "test"}},
+		}, metav1.CreateOptions{})
+		client.Kube().CoreV1().ConfigMaps("bar").Create(context.Background(), &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
+			Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+		}, metav1.CreateOptions{})
+		client.Kube().CoreV1().ConfigMaps("istio-system").Create(context.Background(), &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio"},
+			Data: map[string]string{
+				"mesh": "defaultConfig: {}",
 			},
-			&v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
-				Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
+		}, metav1.CreateOptions{})
+		client.Kube().CoreV1().Secrets("bar").Create(context.Background(), &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
+			Data: map[string][]byte{
+				"token": {},
 			},
-			&v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio"},
-				Data: map[string]string{
-					"mesh": "defaultConfig: {}",
-				},
-			},
-			&v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
-				Data: map[string][]byte{
-					"token": {},
-				},
-			},
-		), nil
+		}, metav1.CreateOptions{})
 	}
 
 	cmdWithClusterID := []string{
-		"x", "workload", "entry", "configure",
+		"entry", "configure",
 		"-f", path.Join(testdir, "workloadgroup.yaml"),
 		"--internalIP", "10.10.10.10",
 		"--clusterID", "Kubernetes",
 		"-o", testdir,
 	}
-	if output, err := runTestCmd(t, cmdWithClusterID); err != nil {
+	if output, err := runTestCmd(t, createClientFunc, "", cmdWithClusterID); err != nil {
 		t.Logf("output: %v", output)
 		t.Fatal(err)
 	}
 
 	cmdNoClusterID := []string{
-		"x", "workload", "entry", "configure",
+		"entry", "configure",
 		"-f", path.Join(testdir, "workloadgroup.yaml"),
 		"--internalIP", "10.10.10.10",
 		"-o", testdir,
 	}
-	if output, err := runTestCmd(t, cmdNoClusterID); err != nil {
+	if output, err := runTestCmd(t, createClientFunc, "", cmdNoClusterID); err != nil {
 		if !strings.Contains(output, noClusterID) {
 			t.Fatal(err)
 		}
@@ -358,14 +357,24 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	checkOutputFiles(t, testdir, checkFiles)
 }
 
-func runTestCmd(t *testing.T, args []string) (string, error) {
+func runTestCmd(t *testing.T, createResourceFunc func(client kube.CLIClient), rev string, args []string) (string, error) {
 	t.Helper()
 	// TODO there is already probably something else that does this
 	var out bytes.Buffer
-	rootCmd := GetRootCmd(args)
+	ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+		IstioNamespace: "istio-system",
+	})
+	rootCmd := workloadCommands(ctx)
+	rootCmd.SetArgs(args)
+	client, err := ctx.CLIClientWithRevision(rev)
+	if err != nil {
+		return "", err
+	}
+	createResourceFunc(client)
+
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&out)
-	err := rootCmd.Execute()
+	err = rootCmd.Execute()
 	output := out.String()
 	return output, err
 }

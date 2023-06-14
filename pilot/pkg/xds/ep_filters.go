@@ -27,6 +27,7 @@ import (
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 )
 
@@ -100,7 +101,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 			// Cross-network traffic relies on mTLS to be enabled for SNI routing
 			// TODO BTS may allow us to work around this
-			if b.mtlsChecker.isMtlsDisabled(lbEp) {
+			if !isMtlsEnabled(lbEp) {
 				continue
 			}
 
@@ -109,10 +110,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 		}
 
 		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
-		gateways := make([]model.NetworkGateway, 0, len(gatewayWeights))
-		for gw := range gatewayWeights {
-			gateways = append(gateways, gw)
-		}
+		gateways := maps.Keys(gatewayWeights)
 		gateways = model.SortGateways(gateways)
 
 		// Create endpoints for the gateways.
@@ -223,7 +221,7 @@ func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocalityEndpoints
 		}
 
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
-			if b.mtlsChecker.isMtlsDisabled(lbEp) {
+			if !isMtlsEnabled(lbEp) {
 				// no mTLS, skip it
 				continue
 			}

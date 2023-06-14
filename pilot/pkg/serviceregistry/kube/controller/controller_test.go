@@ -340,7 +340,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	k8sSaOnVM := "acct4"
 	canonicalSaOnVM := "acctvm2@gserviceaccount2.com"
 
-	createServiceWait(controller, "svc1", "nsa",
+	createServiceWait(controller, "svc1", "nsa", nil,
 		map[string]string{
 			annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
 			annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM,
@@ -358,7 +358,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	fakeSvcCounts := 100
 	for i := 0; i < fakeSvcCounts; i++ {
 		svcName := fmt.Sprintf("svc-fake-%d", i)
-		createServiceWait(controller, svcName, "nsfake",
+		createServiceWait(controller, svcName, "nsfake", nil,
 			map[string]string{
 				annotation.AlphaKubernetesServiceAccounts.Name: k8sSaOnVM,
 				annotation.AlphaCanonicalServiceAccounts.Name:  canonicalSaOnVM,
@@ -857,6 +857,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 	ctl, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 
 	createServiceWait(ctl, "ratings", "bookinfo-ratings",
+		map[string]string{},
 		map[string]string{
 			annotation.AlphaKubernetesServiceAccounts.Name: "ratings",
 			annotation.AlphaCanonicalServiceAccounts.Name:  "ratings@gserviceaccount2.com",
@@ -864,6 +865,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		[]int32{8080}, map[string]string{"app": "ratings"}, t)
 
 	createServiceWait(ctl, "details", "bookinfo-details",
+		map[string]string{},
 		map[string]string{
 			annotation.AlphaKubernetesServiceAccounts.Name: "details",
 			annotation.AlphaCanonicalServiceAccounts.Name:  "details@gserviceaccount2.com",
@@ -871,6 +873,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		[]int32{9090}, map[string]string{"app": "details"}, t)
 
 	createServiceWait(ctl, "reviews", "bookinfo-reviews",
+		map[string]string{},
 		map[string]string{
 			annotation.AlphaKubernetesServiceAccounts.Name: "reviews",
 			annotation.AlphaCanonicalServiceAccounts.Name:  "reviews@gserviceaccount2.com",
@@ -1081,16 +1084,16 @@ func TestController_Service(t *testing.T) {
 	// Use a timeout to keep the test from hanging.
 
 	createServiceWait(controller, "svc1", "nsA",
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
 	createServiceWait(controller, "svc2", "nsA",
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
 	createServiceWait(controller, "svc3", "nsA",
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
 	createServiceWait(controller, "svc4", "nsA",
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
 
 	expectedSvcList := []*model.Service{
@@ -1231,17 +1234,17 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 
 	// service event handlers should trigger for svc1 and svc2
 	createServiceWait(controller, "svc1", nsA,
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
 	createServiceWait(controller, "svc2", nsA,
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
 	// service event handlers should not trigger for svc3 and svc4
 	createService(controller, "svc3", nsB,
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
 	createService(controller, "svc4", nsB,
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
 
 	expectedSvcList := []*model.Service{svc1, svc2}
@@ -1381,16 +1384,16 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 
 	// service event handlers should trigger for all svcs
 	createServiceWait(controller, "svc1", nsA,
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
 	createServiceWait(controller, "svc2", nsA,
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
 	createServiceWait(controller, "svc3", nsB,
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
 	createServiceWait(controller, "svc4", nsC,
-		map[string]string{},
+		map[string]string{}, map[string]string{},
 		[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
 
 	expectedSvcList := []*model.Service{svc1, svc2, svc3, svc4}
@@ -1581,17 +1584,21 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	// service event handlers should trigger for all svcs
 	createServiceWait(controller, "svc1", nsA,
 		map[string]string{},
+		map[string]string{},
 		[]int32{8080}, map[string]string{"test-app": "test-app-1"}, t)
 
 	createServiceWait(controller, "svc2", nsA,
+		map[string]string{},
 		map[string]string{},
 		[]int32{8081}, map[string]string{"test-app": "test-app-2"}, t)
 
 	createServiceWait(controller, "svc3", nsB,
 		map[string]string{},
+		map[string]string{},
 		[]int32{8082}, map[string]string{"test-app": "test-app-3"}, t)
 
 	createServiceWait(controller, "svc4", nsC,
+		map[string]string{},
 		map[string]string{},
 		[]int32{8083}, map[string]string{"test-app": "test-app-4"}, t)
 
@@ -2002,16 +2009,23 @@ func createServiceWithTargetPorts(controller *FakeController, name, namespace st
 	clienttest.Wrap(t, controller.services).Create(service)
 }
 
-func createServiceWait(controller *FakeController, name, namespace string, annotations map[string]string,
+func createServiceWait(controller *FakeController, name, namespace string, labels, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T,
 ) {
-	createService(controller, name, namespace, annotations, ports, selector, t)
+	createService(controller, name, namespace, labels, annotations, ports, selector, t)
 	controller.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "service")
 }
 
-func createService(controller *FakeController, name, namespace string, annotations map[string]string,
+func createService(controller *FakeController, name, namespace string, labels, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T,
 ) {
+	service := generateService(name, namespace, labels, annotations, ports, selector, "10.0.0.1")
+	clienttest.Wrap(t, controller.services).CreateOrUpdate(service)
+}
+
+func generateService(name, namespace string, labels, annotations map[string]string,
+	ports []int32, selector map[string]string, ip string,
+) *corev1.Service {
 	svcPorts := make([]corev1.ServicePort, 0)
 	for _, p := range ports {
 		svcPorts = append(svcPorts, corev1.ServicePort{
@@ -2020,21 +2034,21 @@ func createService(controller *FakeController, name, namespace string, annotatio
 			Protocol: "http",
 		})
 	}
-	service := &corev1.Service{
+
+	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   namespace,
 			Annotations: annotations,
+			Labels:      labels,
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "10.0.0.1", // FIXME: generate?
+			ClusterIP: ip,
 			Ports:     svcPorts,
 			Selector:  selector,
 			Type:      corev1.ServiceTypeClusterIP,
 		},
 	}
-
-	clienttest.Wrap(t, controller.services).CreateOrUpdate(service)
 }
 
 func createVirtualService(controller *FakeController, name, namespace string,
@@ -2206,7 +2220,12 @@ func generatePod(ip, name, namespace, saName, node string, labels map[string]str
 			},
 			PodIP:  ip,
 			HostIP: ip,
-			Phase:  corev1.PodRunning,
+			PodIPs: []corev1.PodIP{
+				{
+					IP: ip,
+				},
+			},
+			Phase: corev1.PodRunning,
 		},
 	}
 }
@@ -2239,7 +2258,7 @@ func TestEndpointUpdate(t *testing.T) {
 	addPods(t, controller, fx, pods...)
 
 	// 1. incremental eds for normal service endpoint update
-	createServiceWait(controller, "svc1", "nsa", nil,
+	createServiceWait(controller, "svc1", "nsa", nil, nil,
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 
 	// Endpoints are generated by Kubernetes from pod labels and service selectors.
@@ -2293,7 +2312,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	}
 	addService := func(name string) {
 		// create service
-		createServiceWait(controller, name, "nsA", nil,
+		createServiceWait(controller, name, "nsA", nil, nil,
 			[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 	}
 	addEndpoint := func(svcName string, ips []string, pods []string) {
@@ -2423,7 +2442,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	}
 	addNodes(t, controller, nodes...)
 	addPods(t, controller, fx, pods...)
-	createServiceWait(controller, "svc1", "nsA", nil,
+	createServiceWait(controller, "svc1", "nsA", nil, nil,
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 	pod1Ips := []string{"172.0.1.1"}
 	portNames := []string{"tcp-port"}
@@ -2571,7 +2590,7 @@ func TestUpdateEdsCacheOnServiceUpdate(t *testing.T) {
 	}
 	addNodes(t, controller, nodes...)
 	addPods(t, controller, fx, pods...)
-	createServiceWait(controller, "svc1", "nsA", nil,
+	createServiceWait(controller, "svc1", "nsA", nil, nil,
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 
 	pod1Ips := []string{"172.0.1.1"}

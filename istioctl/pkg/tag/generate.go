@@ -23,6 +23,8 @@ import (
 	"strings"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -42,6 +44,8 @@ const (
 	vwhTemplateName         = "validatingwebhook.yaml"
 
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
+
+	vwhBaseTemplateName = "istiod-default-validator"
 )
 
 // tagWebhookConfig holds config needed to render a tag webhook.
@@ -54,6 +58,8 @@ type tagWebhookConfig struct {
 	IstioNamespace string
 	Labels         map[string]string
 	Annotations    map[string]string
+	// FailurePolicy records the failure policy to use for the webhook.
+	FailurePolicy map[string]*admitv1.FailurePolicyType
 }
 
 // GenerateOptions is the group of options needed to generate a tag webhook.
@@ -159,7 +165,10 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 		// TODO(Monkeyanator) should extract the validationURL from revision's validating webhook here. However,
 		// to ease complexity when pointing default to revision without per-revision validating webhook,
 		// instead grab the endpoint information from the mutating webhook. This is not strictly correct.
-		validationWhConfig := fixWhConfig(tagWhConfig)
+		validationWhConfig, err := fixWhConfig(client, tagWhConfig)
+		if err != nil {
+			return "", fmt.Errorf("failed to create validating webhook config: %w", err)
+		}
 
 		vwhYAML, err := generateValidatingWebhook(validationWhConfig, opts.ManifestsPath, opts.CustomLabels)
 		if err != nil {
@@ -173,7 +182,7 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 	return tagWhYAML, nil
 }
 
-func fixWhConfig(whConfig *tagWebhookConfig) *tagWebhookConfig {
+func fixWhConfig(client kube.Client, whConfig *tagWebhookConfig) (*tagWebhookConfig, error) {
 	if whConfig.URL != "" {
 		webhookURL, err := url.Parse(whConfig.URL)
 		if err == nil {
@@ -181,7 +190,28 @@ func fixWhConfig(whConfig *tagWebhookConfig) *tagWebhookConfig {
 			whConfig.URL = webhookURL.String()
 		}
 	}
-	return whConfig
+
+	// ValidatingWebhookConfiguration failurePolicy is managed by Istiod, so if currently we already have a webhook in cluster
+	// that is set to `Fail` by Istiod, we avoid of setting it back to the default `Ignore`.
+	vwh, err := client.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().
+		Get(context.Background(), vwhBaseTemplateName, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	if vwh == nil {
+		return whConfig, nil
+	}
+	if whConfig.FailurePolicy == nil {
+		whConfig.FailurePolicy = map[string]*admitv1.FailurePolicyType{}
+	}
+	for _, wh := range vwh.Webhooks {
+		if wh.FailurePolicy != nil && *wh.FailurePolicy == admitv1.Fail {
+			whConfig.FailurePolicy[wh.Name] = nil
+		} else {
+			whConfig.FailurePolicy[wh.Name] = wh.FailurePolicy
+		}
+	}
+	return whConfig, nil
 }
 
 // Create applies the given tag manifests.
@@ -236,6 +266,12 @@ base:
 	decodedWh.Labels = mergeMaps(decodedWh.Labels, config.Labels)
 	decodedWh.Labels = mergeMaps(decodedWh.Labels, customLabels)
 	decodedWh.Annotations = mergeMaps(decodedWh.Annotations, config.Annotations)
+
+	for i := range decodedWh.Webhooks {
+		if failurePolicy, ok := config.FailurePolicy[decodedWh.Webhooks[i].Name]; ok {
+			decodedWh.Webhooks[i].FailurePolicy = failurePolicy
+		}
+	}
 
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
@@ -378,6 +414,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 		Path:           path,
 		Labels:         filteredLabels,
 		Annotations:    wh.Annotations,
+		FailurePolicy:  map[string]*admitv1.FailurePolicyType{},
 	}, nil
 }
 

@@ -16,7 +16,6 @@ package echo
 
 import (
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	dto "github.com/prometheus/client_model/go"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -50,6 +49,4 @@ type Sidecar interface {
 	Logs() (string, error)
 	// LogsOrFail returns the logs for the sidecar container, or aborts if an error is found
 	LogsOrFail(t test.Failer) string
-	Stats() (map[string]*dto.MetricFamily, error)
-	StatsOrFail(t test.Failer) map[string]*dto.MetricFamily
 }

@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/cmd/mesh"
@@ -68,7 +69,7 @@ type tagDescription struct {
 	Namespaces []string `json:"namespaces"`
 }
 
-func tagCommand() *cobra.Command {
+func tagCommand(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
 		Short: "Command group used to interact with revision tags",
@@ -95,15 +96,15 @@ without manual relabeling of the "istio.io/rev" tag.
 		},
 	}
 
-	cmd.AddCommand(tagSetCommand())
-	cmd.AddCommand(tagGenerateCommand())
-	cmd.AddCommand(tagListCommand())
-	cmd.AddCommand(tagRemoveCommand())
+	cmd.AddCommand(tagSetCommand(ctx))
+	cmd.AddCommand(tagGenerateCommand(ctx))
+	cmd.AddCommand(tagListCommand(ctx))
+	cmd.AddCommand(tagRemoveCommand(ctx))
 
 	return cmd
 }
 
-func tagSetCommand() *cobra.Command {
+func tagSetCommand(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set <revision-tag>",
 		Short: "Create or modify revision tags",
@@ -136,12 +137,12 @@ injection labels.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, istioNamespace, false, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), kubeClient, args[0], revision, ctx.IstioNamespace(), false, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -156,7 +157,7 @@ injection labels.`,
 	return cmd
 }
 
-func tagGenerateCommand() *cobra.Command {
+func tagGenerateCommand(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "generate <revision-tag>",
 		Short: "Generate configuration for a revision tag to stdout",
@@ -184,12 +185,12 @@ injection labels.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, istioNamespace, true, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), kubeClient, args[0], revision, ctx.IstioNamespace(), true, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -204,7 +205,7 @@ injection labels.`,
 	return cmd
 }
 
-func tagListCommand() *cobra.Command {
+func tagListCommand(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Short:   "List existing revision tags",
@@ -217,18 +218,18 @@ func tagListCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			return listTags(context.Background(), client.Kube(), cmd.OutOrStdout())
+			return listTags(context.Background(), kubeClient.Kube(), cmd.OutOrStdout())
 		},
 	}
 
 	return cmd
 }
 
-func tagRemoveCommand() *cobra.Command {
+func tagRemoveCommand(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <revision-tag>",
 		Short: "Remove Istio control plane revision tag",
@@ -252,12 +253,12 @@ revision tag before removing using the "istioctl tag list" command.
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return removeTag(context.Background(), client.Kube(), args[0], skipConfirmation, cmd.OutOrStdout())
+			return removeTag(context.Background(), kubeClient.Kube(), args[0], skipConfirmation, cmd.OutOrStdout())
 		},
 	}
 
@@ -285,7 +286,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 	if resName == "" {
 		resName = fmt.Sprintf("%s-%s", "istio-revision-tag", tagName)
 	}
-	if err := analyzeWebhook(resName, tagWhYAML, revision, kubeClient.RESTConfig()); err != nil {
+	if err := analyzeWebhook(resName, istioNS, tagWhYAML, revision, kubeClient.RESTConfig()); err != nil {
 		// if we have a conflict, we will fail. If --skip-confirmation is set, we will continue with a
 		// warning; when actually applying we will also confirm to ensure the user does not see the
 		// warning *after* it has applied
@@ -314,7 +315,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 	return nil
 }
 
-func analyzeWebhook(name, wh, revision string, config *rest.Config) error {
+func analyzeWebhook(name, istioNamespace, wh, revision string, config *rest.Config) error {
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}), resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil)
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err

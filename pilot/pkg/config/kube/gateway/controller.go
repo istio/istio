@@ -43,6 +43,8 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -115,10 +117,10 @@ func NewController(
 	}
 
 	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
-		AddFunc: func(ns *corev1.Namespace) {
-			gatewayController.namespaceEvent(nil, ns)
-		},
 		UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
+			if options.DiscoveryNamespacesFilter != nil && !options.DiscoveryNamespacesFilter.Filter(newNs) {
+				return
+			}
 			if !labels.Instance(oldNs.Labels).Equals(newNs.Labels) {
 				gatewayController.namespaceEvent(oldNs, newNs)
 			}
@@ -332,11 +334,7 @@ func getLabelKeys(ns *corev1.Namespace) []string {
 	if ns == nil {
 		return nil
 	}
-	keys := make([]string, 0, len(ns.Labels))
-	for k := range ns.Labels {
-		keys = append(keys, k)
-	}
-	return keys
+	return maps.Keys(ns.Labels)
 }
 
 func (c *Controller) secretEvent(name, namespace string) {
@@ -367,16 +365,13 @@ func (c *Controller) secretEvent(name, namespace string) {
 // This allows our functions to call Status.Mutate, and then we can later persist all changes into the
 // API server.
 func deepCopyStatus(configs []config.Config) []config.Config {
-	res := make([]config.Config, 0, len(configs))
-	for _, c := range configs {
-		nc := config.Config{
+	return slices.Map(configs, func(c config.Config) config.Config {
+		return config.Config{
 			Meta:   c.Meta,
 			Spec:   c.Spec,
 			Status: kstatus.Wrap(c.Status),
 		}
-		res = append(res, nc)
-	}
-	return res
+	})
 }
 
 // filterNamespace allows filtering out configs to only a specific namespace. This allows implementing the
@@ -385,13 +380,9 @@ func filterNamespace(cfgs []config.Config, namespace string) []config.Config {
 	if namespace == metav1.NamespaceAll {
 		return cfgs
 	}
-	filtered := make([]config.Config, 0, len(cfgs))
-	for _, c := range cfgs {
-		if c.Namespace == namespace {
-			filtered = append(filtered, c)
-		}
-	}
-	return filtered
+	return slices.Filter(cfgs, func(c config.Config) bool {
+		return c.Namespace == namespace
+	})
 }
 
 // hasResources determines if there are any gateway-api resources created at all.

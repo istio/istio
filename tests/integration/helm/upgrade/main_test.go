@@ -27,6 +27,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		Setup(initVersions).
 		RequireSingleCluster().
 		Run()
 }

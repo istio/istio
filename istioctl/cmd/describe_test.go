@@ -28,13 +28,11 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 
 	apiannotation "istio.io/api/annotation"
 	v1alpha32 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/util/assert"
@@ -42,10 +40,11 @@ import (
 
 // execAndK8sConfigTestCase lets a test case hold some Envoy, Istio, and Kubernetes configuration
 type execAndK8sConfigTestCase struct {
-	k8sConfigs   []runtime.Object // Canned K8s configuration
-	istioConfigs []runtime.Object // Canned Istio configuration
-	configDumps  map[string][]byte
-	namespace    string
+	k8sConfigs     []runtime.Object // Canned K8s configuration
+	istioConfigs   []runtime.Object // Canned Istio configuration
+	configDumps    map[string][]byte
+	namespace      string
+	istioNamespace string
 
 	args []string
 
@@ -66,25 +65,21 @@ func TestDescribe(t *testing.T) {
 	}
 	cases := []execAndK8sConfigTestCase{
 		{ // case 0
-			args:           strings.Split("experimental describe", " "),
-			expectedString: "Describe resource and related Istio configuration",
-		},
-		{ // case 1 short name 'i'
-			args:           strings.Split("x des", " "),
+			args:           []string{},
 			expectedString: "Describe resource and related Istio configuration",
 		},
 		{ // case 2 no pod
-			args:           strings.Split("experimental describe pod", " "),
+			args:           strings.Split("pod", " "),
 			expectedString: "Error: expecting pod name",
 			wantException:  true, // "istioctl experimental inspect pod" should fail
 		},
 		{ // case 3 unknown pod
-			args:           strings.Split("experimental describe po not-a-pod", " "),
+			args:           strings.Split("po not-a-pod", " "),
 			expectedString: "pods \"not-a-pod\" not found",
 			wantException:  true, // "istioctl experimental describe pod not-a-pod" should fail
 		},
 		{ // case 8 unknown service
-			args:           strings.Split("experimental describe service not-a-service", " "),
+			args:           strings.Split("service not-a-service", " "),
 			expectedString: "services \"not-a-service\" not found",
 			wantException:  true, // "istioctl experimental describe service not-a-service" should fail
 		},
@@ -253,9 +248,10 @@ func TestDescribe(t *testing.T) {
 				"productpage-v1-1234567890": config,
 				"ingress":                   []byte("{}"),
 			},
-			namespace: "default",
+			namespace:      "default",
+			istioNamespace: "default",
 			// case 9, vs route to multiple hosts
-			args: strings.Split("experimental describe service productpage -i default", " "),
+			args: strings.Split("service productpage", " "),
 			expectedOutput: `Service: productpage
 DestinationRule: productpage for "productpage"
   WARNING POD DOES NOT MATCH ANY SUBSETS.  (Non matching subsets v1)
@@ -381,34 +377,46 @@ func TestFindProtocolForPort(t *testing.T) {
 func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTestCase) {
 	t.Helper()
 
-	// Override the Istio config factory
-	configStoreFactory = mockClientFactoryGenerator(func(cli istioclient.Interface) {
-		for i := range c.istioConfigs {
-			switch t := c.istioConfigs[i].(type) {
-			case *v1alpha3.DestinationRule:
-				cli.NetworkingV1alpha3().DestinationRules(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
-			case *v1alpha3.Gateway:
-				cli.NetworkingV1alpha3().Gateways(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
-			case *v1alpha3.VirtualService:
-				cli.NetworkingV1alpha3().VirtualServices(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
-			}
-		}
+	ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+		Namespace:      c.namespace,
+		IstioNamespace: c.istioNamespace,
+		Results:        c.configDumps,
 	})
+	client, err := ctx.CLIClient()
+	assert.NoError(t, err)
+	// Override the Istio config factory
+	for i := range c.istioConfigs {
+		switch t := c.istioConfigs[i].(type) {
+		case *v1alpha3.DestinationRule:
+			client.Istio().NetworkingV1alpha3().DestinationRules(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+		case *v1alpha3.Gateway:
+			client.Istio().NetworkingV1alpha3().Gateways(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+		case *v1alpha3.VirtualService:
+			client.Istio().NetworkingV1alpha3().VirtualServices(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+		}
+	}
+	for i := range c.k8sConfigs {
+		switch t := c.k8sConfigs[i].(type) {
+		case *corev1.Service:
+			client.Kube().CoreV1().Services(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+		case *corev1.Pod:
+			client.Kube().CoreV1().Pods(c.namespace).Create(context.TODO(), t, metav1.CreateOptions{})
+		}
+	}
 
 	if c.configDumps == nil {
 		c.configDumps = map[string][]byte{}
 	}
-	newCLIClient = mockClientExecFactoryGenerator(c.configDumps)
-
-	// Override the K8s config factory
-	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
 
 	var out bytes.Buffer
-	rootCmd := GetRootCmd(c.args)
+	rootCmd := describe(ctx)
+	rootCmd.SetArgs(c.args)
+
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&out)
+
 	if c.namespace != "" {
-		namespace = c.namespace
+		describeNamespace = c.namespace
 	}
 
 	fErr := rootCmd.Execute()
@@ -436,15 +444,6 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
 		}
 	}
-}
-
-func mockInterfaceFactoryGenerator(k8sConfigs []runtime.Object) func(kubeconfig string) (kubernetes.Interface, error) {
-	outFactory := func(_ string) (kubernetes.Interface, error) {
-		client := fake.NewSimpleClientset(k8sConfigs...)
-		return client, nil
-	}
-
-	return outFactory
 }
 
 func TestGetIstioVirtualServicePathForSvcFromRoute(t *testing.T) {

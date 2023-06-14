@@ -29,15 +29,15 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/table"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 )
 
 var labelPairs string
 
-func checkInjectCommand() *cobra.Command {
+func checkInjectCommand(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "check-inject [<type>/]<name>[.<namespace>]",
 		Short: "Check the injection status or inject-ability of a given resource, explains why it is (or will be) injected or not",
@@ -63,34 +63,30 @@ Checks associated resources of the given resource, and running webhooks to exami
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return err
 			}
 			var podName, podNs string
 			var podLabels, nsLabels map[string]string
 			if len(args) == 1 {
-				podName, podNs, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
-					MakeKubeFactory(client))
+				podName, podNs, err = ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
 				if err != nil {
 					return err
 				}
-				pod, err := client.Kube().CoreV1().Pods(podNs).Get(context.TODO(), podName, metav1.GetOptions{})
+				pod, err := kubeClient.Kube().CoreV1().Pods(podNs).Get(context.TODO(), podName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
-				ns, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), podNs, metav1.GetOptions{})
+				ns, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), podNs, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				podLabels = pod.GetLabels()
 				nsLabels = ns.GetLabels()
 			} else {
-				if namespace == "" {
-					namespace = defaultNamespace
-				}
-				ns, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+				namespace := ctx.NamespaceOrDefault(ctx.Namespace())
+				ns, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -101,7 +97,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 				podLabels = ls.MatchLabels
 				nsLabels = ns.GetLabels()
 			}
-			whs, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
+			whs, err := kubeClient.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}

@@ -233,14 +233,6 @@ var (
 		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
 
-	enableEndpointSliceController, endpointSliceControllerSpecified = env.Register(
-		"PILOT_USE_ENDPOINT_SLICE",
-		false,
-		"If enabled, Pilot will use EndpointSlices as the source of endpoints for Kubernetes services. "+
-			"By default, this is false, and Endpoints will be used. This requires the Kubernetes EndpointSlice controller to be enabled. "+
-			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
-	).Lookup()
-
 	MCSAPIGroup = env.Register("MCS_API_GROUP", "multicluster.x-k8s.io",
 		"The group to be used for the Kubernetes Multi-Cluster Services (MCS) API.").Get()
 
@@ -376,6 +368,11 @@ var (
 
 	EnableDebugOnHTTP = env.Register("ENABLE_DEBUG_ON_HTTP", true,
 		"If this is set to false, the debug interface will not be enabled, recommended for production").Get()
+
+	MutexProfileFraction = env.Register("MUTEX_PROFILE_FRACTION", 1000,
+		"If set to a non-zero value, enables mutex profiling a rate of 1/MUTEX_PROFILE_FRACTION events."+
+			" For example, '1000' will record 0.1% of events. "+
+			"Set to 0 to disable entirely.").Get()
 
 	EnableUnsafeAdminEndpoints = env.Register("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoints will be exposed on the debug interface. Not recommended for production.").Get()
@@ -667,11 +664,6 @@ var (
 	MetricGracefulDeletionInterval = env.Register("METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute,
 		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disabled.").Get()
 )
-
-// EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
-func EnableEndpointSliceController() (value bool, ok bool) {
-	return enableEndpointSliceController, endpointSliceControllerSpecified
-}
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {

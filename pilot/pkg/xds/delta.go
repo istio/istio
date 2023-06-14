@@ -531,7 +531,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	}
 
 	switch {
-	case !req.Full && w.TypeUrl != v3.WorkloadType:
+	case !req.Full && w.TypeUrl != v3.AddressType:
 		if deltaLog.DebugEnabled() {
 			deltaLog.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
 				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
@@ -553,11 +553,11 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 // requiresResourceNamesModification checks if a generator needs mutable access to w.ResourceNames.
 // This is used when resources are spontaneously pushed during Delta XDS
 func requiresResourceNamesModification(url string) bool {
-	return url == v3.WorkloadType
+	return url == v3.AddressType
 }
 
 func isWildcardResource(w *model.WatchedResource) bool {
-	if w.TypeUrl == v3.WorkloadType {
+	if w.TypeUrl == v3.AddressType {
 		// Both are supported
 		return w.Wildcard
 	}

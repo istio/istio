@@ -22,8 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/utils/env"
-
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
@@ -208,11 +207,11 @@ func DefaultArgs() Args {
 		arch = strings.Split(legacy, ",")
 	}
 
-	hub := []string{env.GetString("HUB", "localhost:5000")}
+	hub := []string{env.Register("HUB", "localhost:5000", "").Get()}
 	if hubs, f := os.LookupEnv("HUBS"); f {
 		hub = strings.Split(hubs, " ")
 	}
-	tag := []string{env.GetString("TAG", "latest")}
+	tag := []string{env.Register("TAG", "latest", "").Get()}
 	if tags, f := os.LookupEnv("TAGS"); f {
 		tag = strings.Split(tags, " ")
 	}

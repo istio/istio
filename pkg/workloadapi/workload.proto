@@ -17,7 +17,80 @@ syntax = "proto3";
 package istio.workload;
 option go_package="pkg/workloadapi";
 
+// Address represents a unique address.
+//
+// Address joins two sub-resources, Workload and Service, to support querying by IP address.
+// Address is intended to be able to be looked up on-demand, allowing a client
+// to answer a question like "what is this IP address", similar to a reverse DNS lookup.
+//
+// Each resource will have a mesh-wide unique opaque name, defined in the individual messages.
+// In addition, to support lookup by IP address, they will have *alias* names for each IP the resource represents.
+// There may be multiple aliases for the same resource (examples: service in multiple networks, or a dual-stack workload).
+// Aliases are keyed by network/IP address. Example: "default/1.2.3.4".
+//
+// In some cases, we do not know the IP address of a Workload. For instance, we may simply know
+// that there is a workload behind a gateway, and rely on the gateway to handle the rest.
+// In this case, the key format will be "resource-uid". The resource can be a Pod, WorkloadEntry, etc.
+// These resources cannot be looked up on-demand.
+//
+// In some cases, we do not know the IP address of a Service. These services cannot be used for matching
+// outbound traffic, as we only have L4 attributes to route based on. However,
+// they can be used for Gateways.
+// In this case, the key format will be "network/hostname".
+// These resources cannot be looked up on-demand.
+message Address {
+  oneof type {
+    // Workload represents an individual workload.
+    // This could be a single Pod, a VM instance, etc.
+    Workload workload = 1;
+    // Service represents a service - a group of workloads that can be accessed together.
+    Service service = 2;
+  }
+}
+
+// Service represents a service - a group of workloads that can be accessed together.
+// The xds primary key is "namespace/hostname".
+// Secondary (alias) keys are the unique `network/IP` pairs that the service can be reached at.
+message Service {
+  // Name represents the name for the service.
+  // For Kubernetes, this is the Service name.
+  string name = 1;
+  // Namespace represents the namespace for the service.
+  string namespace = 2;
+  // Hostname represents the FQDN of the service.
+  // For Kubernetes, this would be <name>.<namespace>.svc.<cluster domain>
+  // TODO: support this field
+  string hostname = 3;
+  // Address represents the addresses the service can be reached at.
+  // There may be multiple addresses for a single service if it resides in multiple networks,
+  // multiple clusters, and/or if it's dual stack (TODO: support dual stack).
+  repeated NetworkAddress addresses = 4;
+  // Ports for the service.
+  // The target_port may be overridden on a per-workload basis.
+  repeated Port ports = 5;
+  // Optional; if set, the SAN to verify for TLS connections.
+  // Typically, this is not set and per-workload identity is used to verfiy
+  // TODO: support this field
+  repeated string subject_alt_names = 6;
+}
+
+// Workload represents a workload - an endpoint (or collection behind a hostname).
+// The xds primary key is "uid" as defined on the workload below.
+// Secondary (alias) keys are the unique `network/IP` pairs that the workload can be reached at.
 message Workload {
+  // UID represents a globally unique opaque identifier for this workload.
+  // For k8s resources, it is recommended to use the more readable format:
+  //
+  // cluster/group/kind/namespace/name/section-name
+  //
+  // As an example, a ServiceEntry with two WorkloadEntries inlined could become
+  // two Workloads with the following UIDs:
+  // - cluster1/networking.istio.io/v1alpha3/ServiceEntry/default/external-svc/endpoint1
+  // - cluster1/networking.istio.io/v1alpha3/ServiceEntry/default/external-svc/endpoint2
+  //
+  // For VMs and other workloads other formats are also supported; for example,
+  // a single UID string: "0ae5c03d-5fb3-4eb9-9de8-2bd4b51606ba"
+  string uid = 20;
   // Name represents the name for the workload.
   // For Kubernetes, this is the pod name.
   // This is just for debugging and may be elided as an optimization.
@@ -29,14 +102,23 @@ message Workload {
   // Address represents the IPv4/IPv6 address for the workload.
   // This should be globally unique.
   // This should not have a port number.
-  // TODO: Add network as discriminator
-  bytes address = 3;
+  // Each workload must have at least either an address or hostname; not both.
+  repeated bytes addresses = 3;
+
+  // The hostname for the workload to be resolved by the ztunnel.
+  // DNS queries are sent on-demand by default.
+  // If the resolved DNS query has several endpoints, the request will be forwarded
+  // to the first response.
+  // Each workload must have at least either an address or hostname; not both.
+  // TODO: support this field
+  string hostname = 21;
+
   // Network represents the network this workload is on. This may be elided for the default network.
   // A (network,address) pair makeup a unique key for a workload *at a point in time*.
   string network = 4;
 
   // Protocol that should be used to connect to this workload.
-  Protocol protocol = 5;
+  TunnelProtocol tunnel_protocol = 5;
 
   // The SPIFFE identity of the workload. The identity is joined to form spiffe://<trust_domain>/ns/<namespace>/sa/<service_account>.
   // TrustDomain of the workload. May be elided if this is the mesh wide default (typically cluster.local)
@@ -45,7 +127,12 @@ message Workload {
   string service_account = 7;
 
   // If present, the waypoint proxy for this workload.
-  repeated bytes waypoint_addresses = 8;
+  // All incoming requests must go through the waypoint.
+  GatewayAddress waypoint = 8;
+
+  // If present, East West network gateway this workload can be reached through.
+  // Requests from remote networks should traverse this gateway.
+  GatewayAddress network_gateway = 19;
 
   // Name of the node the workload runs on
   string node = 9;
@@ -59,17 +146,22 @@ message Workload {
   // WorkloadName represents the name for the workload (of type WorkloadType). Used for telemetry.
   string workload_name = 13;
 
-  // If set, indicates this workload directly speaks HBONE, and we should forward HBONE requests as-is.
-  bool native_hbone = 14;
+  // If set, this indicates a workload expects to directly receive tunnel traffic.
+  // In ztunnel, this means:
+  // * Requests *from* this workload do not need to be tunneled if they already are tunneled by the tunnel_protocol.
+  // * Requests *to* this workload, via the tunnel_protocol, do not need to be de-tunneled.
+  bool native_tunnel = 14;
 
   // Virtual IPs defines a set of virtual IP addresses the workload can be reached at.
   // Typically these represent Service ClusterIPs.
-  // The key is an IP address.
+  // The key is a NetworkAddress string of the format network/IP, or just an IP if network
+  // of the service desired matches the network of the workload.
   map<string, PortList> virtual_ips = 15;
 
   // A list of authorization policies applicable to this workload.
   // NOTE: this *only* includes Selector based policies. Namespace and global polices
   // are returned out of band.
+  // Authorization policies are only valid for workloads with `addresses` rather than `hostname`.
   repeated string authorization_policies = 16;
 
   WorkloadStatus status = 17;
@@ -104,10 +196,40 @@ message Port {
   uint32 target_port = 2;
 }
 
-enum Protocol {
-  // DIRECT means requests should be forwarded as-is.
-  DIRECT = 0;
-  // HTTP means requests should be tunneled over HTTP.
+// TunnelProtocol indicates the tunneling protocol for requests.
+enum TunnelProtocol {
+  // NONE means requests should be forwarded as-is, without tunneling.
+  NONE = 0;
+  // HBONE means requests should be tunneled over HTTP.
   // This does not dictate HTTP/1.1 vs HTTP/2; ALPN should be used for that purpose.
-  HTTP = 1;
+  HBONE = 1;
+  // Future options may include things like QUIC/HTTP3, etc.
+}
+
+// GatewayAddress represents the address of a gateway
+message GatewayAddress {
+  // address can either be a hostname (ex: gateway.example.com) or an IP (ex: 1.2.3.4).
+  oneof destination {
+    // TODO: add support for hostname lookup
+    NamespacedHostname hostname = 1;
+    NetworkAddress address = 2;
+  }
+  // port to reach the gateway at
+  uint32 port = 3;
+}
+
+// NetworkAddress represents an address bound to a specific network.
+message NetworkAddress {
+  // Network represents the network this address is on.
+  string network = 1;
+  // Address presents the IP (v4 or v6).
+  bytes address = 2;
+}
+
+// NamespacedHostname represents a service bound to a specific namespace.
+message NamespacedHostname {
+  // The namespace the service is in.
+  string namespace = 1;
+  // hostname (ex: gateway.example.com)
+  string hostname = 2;
 }

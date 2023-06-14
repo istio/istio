@@ -374,6 +374,9 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		serverCABytes = a.cfg.RootCert
 	} else if a.cfg.XDSRootCAFile != "" {
 		serverCABytes, err = os.ReadFile(a.cfg.XDSRootCAFile)
+		if err != nil {
+			return nil, err
+		}
 	} else if a.cfg.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
 		rootCA, err := a.cfg.SecretManager.GenerateSecret(security.RootCertReqResourceName)
@@ -1180,36 +1183,36 @@ func (a *ADSC) GetHTTPListeners() map[string]*listener.Listener {
 
 // GetTCPListeners returns all the tcp listeners.
 func (a *ADSC) GetTCPListeners() map[string]*listener.Listener {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.tcpListeners
 }
 
 // GetEdsClusters returns all the eds type clusters.
 func (a *ADSC) GetEdsClusters() map[string]*cluster.Cluster {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.edsClusters
 }
 
 // GetClusters returns all the non-eds type clusters.
 func (a *ADSC) GetClusters() map[string]*cluster.Cluster {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.clusters
 }
 
 // GetRoutes returns all the routes.
 func (a *ADSC) GetRoutes() map[string]*route.RouteConfiguration {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.routes
 }
 
 // GetEndpoints returns all the routes.
 func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.eds
 }
 

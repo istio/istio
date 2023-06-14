@@ -49,7 +49,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	pods := []*corev1.Pod{pod}
 	addPods(t, controller, fx, pods...)
 
-	createServiceWait(controller, svcName, ns, nil,
+	createServiceWait(controller, svcName, ns, nil, nil,
 		[]int32{8080}, map[string]string{"app": appName}, t)
 
 	// Ensure that the service is available.

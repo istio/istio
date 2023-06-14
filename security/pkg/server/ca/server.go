@@ -106,8 +106,9 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		// Node is authorized to impersonate; overwrite the SAN to the impersonated identity.
 		sans = []string{impersonatedIdentity}
 	}
+	serverCaLog.Infof("generating a certificate for %v, requested ttl: %s",
+		sans, time.Duration(request.ValidityDuration*int64(time.Second)))
 	certSigner := crMetadata[security.CertSigner].GetStringValue()
-	serverCaLog.Debugf("cert signer from workload %s", certSigner)
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
 		SubjectIDs: sans,

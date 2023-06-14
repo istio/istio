@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -848,30 +849,22 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 	var added, deleted, updated, unchanged []*model.Service
 
 	oldServiceHosts := make(map[host.Name]*model.Service, len(os))
-	newServiceHosts := make(map[host.Name]*model.Service, len(ns))
 	for _, s := range os {
 		oldServiceHosts[s.Hostname] = s
 	}
-	for _, s := range ns {
-		newServiceHosts[s.Hostname] = s
-	}
 
-	for _, s := range os {
-		newSvc, f := newServiceHosts[s.Hostname]
-		if !f {
-			deleted = append(deleted, s)
-		} else if !s.Equals(newSvc) {
-			updated = append(updated, newSvc)
+	for _, s := range ns {
+		oldSvc, ok := oldServiceHosts[s.Hostname]
+		if ok && s.Equals(oldSvc) {
+			unchanged = append(unchanged, s)
+		} else if ok {
+			updated = append(updated, s)
 		} else {
-			unchanged = append(unchanged, newSvc)
-		}
-	}
-
-	for _, s := range ns {
-		if _, f := oldServiceHosts[s.Hostname]; !f {
 			added = append(added, s)
 		}
+		delete(oldServiceHosts, s.Hostname)
 	}
+	deleted = maps.Values(oldServiceHosts)
 
 	return added, deleted, updated, unchanged
 }

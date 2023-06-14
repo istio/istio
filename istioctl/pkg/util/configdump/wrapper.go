@@ -15,13 +15,14 @@
 package configdump
 
 import (
-	"reflect"
 	"strings"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
 	emptypb "github.com/golang/protobuf/ptypes/empty"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -37,13 +38,12 @@ func (m *nonstrictResolver) Resolve(typeURL string) (legacyproto.Message, error)
 	if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
 		mname = mname[slash+1:]
 	}
-	// nolint: staticcheck
-	mt := legacyproto.MessageType(mname)
-	if mt == nil {
+	mt, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(mname))
+	if err != nil {
 		// istioctl should keep going if it encounters new Envoy versions; ignore unknown types
 		return &exprpb.Type{TypeKind: &exprpb.Type_Dyn{Dyn: &emptypb.Empty{}}}, nil
 	}
-	return reflect.New(mt.Elem()).Interface().(legacyproto.Message), nil
+	return legacyproto.MessageV1(mt.New().Interface()), nil
 }
 
 // Wrapper is a wrapper around the Envoy ConfigDump

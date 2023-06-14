@@ -33,6 +33,9 @@ func Equal[E comparable](s1, s2 []E) bool {
 // This sort is not guaranteed to be stable.
 // The slice is modified in place but returned.
 func SortFunc[E any](x []E, less func(a, b E) bool) []E {
+	if len(x) <= 1 {
+		return x
+	}
 	slices.SortFunc(x, less)
 	return x
 }
@@ -40,6 +43,9 @@ func SortFunc[E any](x []E, less func(a, b E) bool) []E {
 // Sort sorts a slice of any ordered type in ascending order.
 // The slice is modified in place but returned.
 func Sort[E constraints.Ordered](x []E) []E {
+	if len(x) <= 1 {
+		return x
+	}
 	slices.Sort(x)
 	return x
 }
@@ -103,4 +109,36 @@ func Map[E any, O any](s []E, f func(E) O) []O {
 		n = append(n, f(e))
 	}
 	return n
+}
+
+// MapFilter runs f() over all elements in s and returns any non-nil results
+func MapFilter[E any, O any](s []E, f func(E) *O) []O {
+	n := make([]O, 0, len(s))
+	for _, e := range s {
+		if res := f(e); res != nil {
+			n = append(n, *res)
+		}
+	}
+	return n
+}
+
+// Reference takes a pointer to all elements in the slice
+func Reference[E any](s []E) []*E {
+	res := make([]*E, 0, len(s))
+	for _, v := range s {
+		v := v
+		res = append(res, &v)
+	}
+	return res
+}
+
+// Dereference returns all non-nil references, derefernced
+func Dereference[E any](s []*E) []E {
+	res := make([]E, 0, len(s))
+	for _, v := range s {
+		if v != nil {
+			res = append(res, *v)
+		}
+	}
+	return res
 }

@@ -407,26 +407,29 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 			},
 		})
 	default:
+		tlsCertificate := &envoytls.TlsCertificate{
+			CertificateChain: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: certInfo.Cert,
+				},
+			},
+			PrivateKey: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: certInfo.Key,
+				},
+			},
+		}
+		if certInfo.Staple != nil {
+			tlsCertificate.OcspStaple = &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: certInfo.Staple,
+				},
+			}
+		}
 		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{
-				TlsCertificate: &envoytls.TlsCertificate{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: certInfo.Cert,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: certInfo.Key,
-						},
-					},
-					OcspStaple: &core.DataSource{
-						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: certInfo.Staple,
-						},
-					},
-				},
+				TlsCertificate: tlsCertificate,
 			},
 		})
 	}

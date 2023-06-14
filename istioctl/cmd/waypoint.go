@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
-	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pkg/slices"
 )
 
-func waypointCmd() *cobra.Command {
+func waypointCmd(ctx cli.Context) *cobra.Command {
 	var waypointServiceAccount string
 	makeGatewayName := func(sa string) string {
 		name := sa
@@ -46,8 +46,8 @@ func waypointCmd() *cobra.Command {
 		return name
 	}
 	makeGateway := func(forApply bool) *gateway.Gateway {
-		ns := handlers.HandleNamespace(namespace, defaultNamespace)
-		if namespace == "" && !forApply {
+		ns := ctx.NamespaceOrDefault(ctx.Namespace())
+		if ctx.Namespace() == "" && !forApply {
 			ns = ""
 		}
 		gw := gateway.Gateway{
@@ -109,12 +109,15 @@ func waypointCmd() *cobra.Command {
   # Apply a waypoint to a specific namespace for a specific service account
   istioctl x waypoint apply --service-account something --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			gw := makeGateway(true)
-			client, err := kubeClient(kubeconfig, configContext)
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			gwc := client.GatewayAPI().GatewayV1beta1().Gateways(handlers.HandleNamespace(namespace, defaultNamespace))
+			gw := makeGateway(true)
+			if err != nil {
+				return fmt.Errorf("failed to create Kubernetes client: %v", err)
+			}
+			gwc := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace()))
 			b, err := yaml.Marshal(gw)
 			if err != nil {
 				return err
@@ -149,14 +152,14 @@ func waypointCmd() *cobra.Command {
 			if len(args) > 1 {
 				return fmt.Errorf("too many arguments, expected 0 or 1")
 			}
-			client, err := kubeClient(kubeconfig, configContext)
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 			if len(args) == 1 {
 				name := args[0]
-				ns := handlers.HandleNamespace(namespace, defaultNamespace)
-				gw, err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
+				ns := ctx.NamespaceOrDefault(ctx.Namespace())
+				gw, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
 				if err != nil {
 					if errors.IsNotFound(err) {
 						fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", ns, name)
@@ -164,7 +167,7 @@ func waypointCmd() *cobra.Command {
 					}
 					return err
 				}
-				if err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).
+				if err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).
 					Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
 					return err
 				}
@@ -172,7 +175,7 @@ func waypointCmd() *cobra.Command {
 				return nil
 			}
 			gw := makeGateway(true)
-			if err = client.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
+			if err = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
 				Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
 				return err
 			}
@@ -191,17 +194,17 @@ func waypointCmd() *cobra.Command {
   istioctl x waypoint list -A`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			writer := cmd.OutOrStdout()
-			client, err := kubeClient(kubeconfig, configContext)
+			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			ns := defaultNamespace
+			var ns string
 			if allNamespaces {
 				ns = ""
-			} else if namespace != "" {
-				ns = namespace
+			} else {
+				ns = ctx.NamespaceOrDefault(ctx.Namespace())
 			}
-			gws, err := client.GatewayAPI().GatewayV1beta1().Gateways(ns).
+			gws, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).
 				List(context.Background(), metav1.ListOptions{})
 			if err != nil {
 				return err

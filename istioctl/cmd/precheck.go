@@ -35,6 +35,7 @@ import (
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
@@ -54,7 +55,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-func preCheck() *cobra.Command {
+func preCheck(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var skipControlPlane bool
 	// cmd represents the upgradeCheck command
@@ -68,19 +69,19 @@ func preCheck() *cobra.Command {
   # Check only a single namespace
   istioctl x precheck --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			cli, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+			cli, err := ctx.CLIClientWithRevision(revision)
 			if err != nil {
 				return err
 			}
 
 			msgs := diag.Messages{}
 			if !skipControlPlane {
-				msgs, err = checkControlPlane(cli)
+				msgs, err = checkControlPlane(ctx)
 				if err != nil {
 					return err
 				}
 			}
-			nsmsgs, err := checkDataPlane(cli, namespace)
+			nsmsgs, err := checkDataPlane(cli, ctx.Namespace())
 			if err != nil {
 				return err
 			}
@@ -112,7 +113,11 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 	return cmd
 }
 
-func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
+func checkControlPlane(ctx cli.Context) (diag.Messages, error) {
+	cli, err := ctx.CLIClient()
+	if err != nil {
+		return nil, err
+	}
 	msgs := diag.Messages{}
 
 	m, err := checkServerVersion(cli)
@@ -121,7 +126,7 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 	}
 	msgs = append(msgs, m...)
 
-	msgs = append(msgs, checkInstallPermissions(cli)...)
+	msgs = append(msgs, checkInstallPermissions(cli, ctx.IstioNamespace())...)
 	gwMsg, err := checkGatewayAPIs(cli)
 	if err != nil {
 		return nil, err
@@ -133,21 +138,13 @@ func checkControlPlane(cli kube.CLIClient) (diag.Messages, error) {
 	sa := local.NewSourceAnalyzer(
 		analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
 		resource.Namespace(selectedNamespace),
-		resource.Namespace(istioNamespace),
+		resource.Namespace(ctx.IstioNamespace()),
 		nil,
 	)
-	// Set up the kube client
-	config := kube.BuildClientCmd(kubeconfig, configContext)
-	restConfig, err := config.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
-
-	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), "")
-	if err != nil {
-		return nil, err
-	}
-	sa.AddRunningKubeSource(k)
+	sa.AddRunningKubeSource(cli)
 	cancel := make(chan struct{})
 	result, err := sa.Analyze(cancel)
 	if err != nil {
@@ -211,7 +208,7 @@ func extractCRDVersions(r *crd.CustomResourceDefinition) sets.String {
 	return res
 }
 
-func checkInstallPermissions(cli kube.CLIClient) diag.Messages {
+func checkInstallPermissions(cli kube.CLIClient, istioNamespace string) diag.Messages {
 	Resources := []struct {
 		namespace string
 		group     string

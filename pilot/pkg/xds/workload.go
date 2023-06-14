@@ -16,10 +16,10 @@ package xds
 
 import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -45,34 +45,27 @@ func (e WorkloadGenerator) GenerateDeltas(
 	req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	updatedAddresses := model.ConfigNamespacedNameOfKind(req.ConfigsUpdated, kind.Address)
+	updatedAddresses := model.ConfigNameOfKind(req.ConfigsUpdated, kind.Address)
 	isReq := req.IsRequest()
 	if len(updatedAddresses) == 0 && len(req.ConfigsUpdated) > 0 {
 		// Nothing changed..
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
 	subs := sets.New(w.ResourceNames...)
-	typedSubs := sets.NewWithLength[types.NamespacedName](subs.Len())
-	for s := range subs {
-		typedSubs.Insert(types.NamespacedName{Name: s})
-	}
 
-	addresses := sets.New[types.NamespacedName]()
-	for ip := range updatedAddresses {
-		// IP was updated. We need to include it for this client if we are subscribed or a wildcard
-		if w.Wildcard || subs.Contains(ip.Name) {
-			addresses.Insert(ip)
-		}
+	addresses := updatedAddresses
+	if !w.Wildcard {
+		// If it;s not a wildcard, filter out resources we are not subscribed to
+		addresses = updatedAddresses.Intersection(subs)
 	}
 	// Specific requested resource: always include
-	for ip := range req.Delta.Subscribed {
-		addresses.Insert(types.NamespacedName{Name: ip})
-	}
+	addresses = addresses.Merge(req.Delta.Subscribed)
+
 	if !w.Wildcard {
 		// We only need this for on-demand. This allows us to subscribe the client to resources they
 		// didn't explicitly request.
 		// For wildcard, they subscribe to everything already.
-		additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, updatedAddresses, typedSubs)
+		additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
 		addresses.Merge(additional)
 	}
 
@@ -92,18 +85,39 @@ func (e WorkloadGenerator) GenerateDeltas(
 	}
 
 	resources := make(model.Resources, 0)
-	wls, removed := e.s.Env.ServiceDiscovery.PodInformation(addresses)
+	addrs, removed := e.s.Env.ServiceDiscovery.AddressInformation(addresses)
 	// Note: while "removed" is a weird name for a resource that never existed, this is how the spec works:
 	// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#id2
 
 	have := sets.New[string]()
-	for _, wl := range wls {
-		n := wl.ResourceName()
+	for _, addr := range addrs {
+		aliases := addr.Aliases()
+		n := addr.ResourceName()
 		have.Insert(n)
-		resources = append(resources, &discovery.Resource{
-			Name:     n,
-			Resource: protoconv.MessageToAny(wl), // TODO: pre-marshal
-		})
+		switch w.TypeUrl {
+		case v3.WorkloadType:
+			if addr.GetWorkload() != nil {
+				resources = append(resources, &discovery.Resource{
+					Name:     n,
+					Aliases:  aliases,
+					Resource: protoconv.MessageToAny(addr.GetWorkload()), // TODO: pre-marshal
+				})
+			}
+		case v3.ServiceType:
+			if addr.GetService() != nil {
+				resources = append(resources, &discovery.Resource{
+					Name:     n,
+					Aliases:  aliases,
+					Resource: protoconv.MessageToAny(addr.GetService()), // TODO: pre-marshal
+				})
+			}
+		case v3.AddressType:
+			resources = append(resources, &discovery.Resource{
+				Name:     n,
+				Aliases:  aliases,
+				Resource: protoconv.MessageToAny(addr), // TODO: pre-marshal
+			})
+		}
 	}
 
 	if !w.Wildcard {
@@ -112,7 +126,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 		w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).Merge(have))
 	}
 	if full {
-		// If it's a full push, PodInformation won't have info to compute the full set of removals.
+		// If it's a full push, AddressInformation won't have info to compute the full set of removals.
 		// Instead, we need can see what resources are missing that we were subscribe to; those were removed.
 		removes := subs.Difference(have).InsertAll(removed...)
 		removed = sets.SortedList(removes)

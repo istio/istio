@@ -335,6 +335,9 @@ func (cl *Client) addCRD(name string) {
 	}
 	filter := kubetypes.Filter{
 		ObjectFilter: func(t any) bool {
+			if cl.namespacesFilter != nil && !cl.namespacesFilter(t) {
+				return false
+			}
 			return config.LabelsInRevision(t.(controllers.Object).GetLabels(), cl.revision)
 		},
 	}

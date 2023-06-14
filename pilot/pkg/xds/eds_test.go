@@ -24,7 +24,6 @@ import (
 	"reflect"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -1079,13 +1078,13 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 	for j := 0; j < nPushes; j++ {
 		if inc {
 			// This will be throttled - we want to trigger a single push
-			s.Discovery.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
+			s.Discovery.AdsPushAll(&model.PushRequest{
 				Full: false,
 				ConfigsUpdated: sets.New(model.ConfigKey{
 					Kind: kind.ServiceEntry,
 					Name: edsIncSvc,
 				}),
-				Push: s.Discovery.Env.PushContext,
+				Push: s.Discovery.Env.PushContext(),
 			})
 		} else {
 			xds.AdsPushAll(s.Discovery)

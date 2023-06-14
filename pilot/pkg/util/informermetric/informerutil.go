@@ -30,6 +30,7 @@ var (
 	errorMetric = monitoring.NewSum(
 		"controller_sync_errors_total",
 		"Total number of errorMetric syncing controllers.",
+		monitoring.WithLabels(clusterLabel),
 	)
 
 	mu       sync.RWMutex

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
@@ -375,7 +376,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 }
 
 // NewValidateCommand creates a new command for validating Istio k8s resources.
-func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra.Command {
+func NewValidateCommand(ctx cli.Context) *cobra.Command {
 	var filenames []string
 	var referential bool
 
@@ -403,7 +404,9 @@ func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateFiles(istioNamespace, *defaultNamespace, filenames, c.OutOrStderr())
+			istioNamespace := ctx.IstioNamespace()
+			defaultNamespace := ctx.NamespaceOrDefault("")
+			return validateFiles(&istioNamespace, defaultNamespace, filenames, c.OutOrStderr())
 		},
 	}
 

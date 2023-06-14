@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kubetypes"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 )
 
@@ -32,8 +31,7 @@ import (
 // but can later be swapped with a real client.
 // The "empty client" returns empty responses for all reads, and fails all writes.
 type delayedClient[T controllers.ComparableObject] struct {
-	kind string
-	inf  *atomic.Pointer[Informer[T]]
+	inf *atomic.Pointer[Informer[T]]
 
 	delayed kubetypes.DelayedFilter
 
@@ -105,7 +103,6 @@ func (s *delayedClient[T]) Start(stop <-chan struct{}) {
 var _ Informer[controllers.Object] = &delayedClient[controllers.Object]{}
 
 func (s *delayedClient[T]) set(inf Informer[T]) {
-	log.Debugf("marking delayed client %s ready", s.kind)
 	if inf != nil {
 		s.inf.Swap(&inf)
 		s.hm.Lock()

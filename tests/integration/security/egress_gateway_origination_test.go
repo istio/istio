@@ -130,6 +130,8 @@ func TestMutualTlsOrigination(t *testing.T) {
 				fakeCredNameA      = "fake-mtls-credential-a"
 				credNameMissing    = "mtls-credential-not-created"
 				simpleCredName     = "tls-credential-simple-cacert"
+				credWithCRL        = "mtls-credential-crl"
+				credWithDummyCRL   = "mtls-credential-dummy-crl"
 			)
 
 			// Add kubernetes secret to provision key/cert for gateway.
@@ -155,6 +157,22 @@ func TestMutualTlsOrigination(t *testing.T) {
 
 			ingressutil.CreateIngressKubeSecret(t, simpleCredName, ingressutil.TLS, ingressutil.IngressCredential{
 				CaCert: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+			}, false)
+
+			// Configured with valid CRL
+			ingressutil.CreateIngressKubeSecret(t, credWithCRL, ingressutil.Mtls, ingressutil.IngressCredential{
+				Certificate: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
+				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
+				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+				Crl:         file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/ca.crl")),
+			}, false)
+
+			// Configured with dummy CRL
+			ingressutil.CreateIngressKubeSecret(t, credWithDummyCRL, ingressutil.Mtls, ingressutil.IngressCredential{
+				Certificate: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
+				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
+				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+				Crl:         file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dummy.crl")),
 			}, false)
 
 			// Set up Host Namespace
@@ -207,6 +225,22 @@ func TestMutualTlsOrigination(t *testing.T) {
 					statusCode:      http.StatusServiceUnavailable,
 					credentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
 					useGateway:      false,
+				},
+				// Set up an UpstreamCluster with a CredentialName where the secret has a CRL specified with the server certificate as revoked.
+				// Certificate revoked error at Gateway, results in a 503 response.
+				{
+					name:            "credential with CRL having server certificate revoked",
+					statusCode:      http.StatusServiceUnavailable,
+					credentialToUse: credWithCRL,
+					useGateway:      false,
+				},
+				// Set up an UpstreamCluster with a CredentialName where the secret has a CRL specified with an unused server certificate as revoked.
+				// Since the certificate in action is not revoked, the communication should not be impacted.
+				{
+					name:            "credential with CRL having unused revoked server certificate",
+					statusCode:      http.StatusOK,
+					credentialToUse: credWithDummyCRL,
+					useGateway:      true,
 				},
 			}
 

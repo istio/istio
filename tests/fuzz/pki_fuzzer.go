@@ -133,6 +133,8 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 	defer certChainFile.Close()
+	defer os.Remove("certChainFile")
+
 	certChainBytes, err := f.GetBytes()
 	if err != nil {
 		return 0
@@ -187,6 +189,8 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 	defer newPrivKeyFile.Close()
+	defer os.Remove("newPrivKeyFile")
+
 	newPrivKeyFileBytes, err := f.GetBytes()
 	if err != nil {
 		return 0

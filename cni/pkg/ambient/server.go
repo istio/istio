@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/cni/pkg/ambient/constants"
 	ebpf "istio.io/istio/cni/pkg/ebpf/server"
+	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -43,7 +44,7 @@ type Server struct {
 	namespaces kclient.Client[*corev1.Namespace]
 	pods       kclient.Client[*corev1.Pod]
 
-	mu         sync.Mutex
+	mu         sync.RWMutex
 	ztunnelPod *corev1.Pod
 
 	iptablesCommand lazy.Lazy[string]
@@ -98,8 +99,8 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 }
 
 func (s *Server) isZTunnelRunning() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.ztunnelPod != nil
 }
 
@@ -279,15 +280,7 @@ func (c *AmbientConfigFile) write() error {
 
 	log.Infof("Writing ambient config: %s", data)
 
-	return atomicWrite(configFile, data)
-}
-
-func atomicWrite(filename string, data []byte) error {
-	tmpFile := filename + ".tmp"
-	if err := os.WriteFile(tmpFile, data, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmpFile, filename)
+	return file.AtomicWrite(configFile, data, os.FileMode(0o644))
 }
 
 func ReadAmbientConfig() (*AmbientConfigFile, error) {

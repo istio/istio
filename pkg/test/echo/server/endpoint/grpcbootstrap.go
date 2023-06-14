@@ -34,11 +34,7 @@ func (b *Bootstrap) FileWatcherProvider() *FileWatcherCertProviderConfig {
 	}
 	for _, provider := range b.CertProviders {
 		if provider.PluginName == FileWatcherCertProviderName {
-			cfg, ok := provider.Config.(FileWatcherCertProviderConfig)
-			if !ok {
-				return nil
-			}
-			return &cfg
+			return &provider.Config
 		}
 	}
 	return nil
@@ -49,6 +45,6 @@ type Bootstrap struct {
 }
 
 type CertificateProvider struct {
-	PluginName string `json:"plugin_name,omitempty"`
-	Config     any    `json:"config,omitempty"`
+	PluginName string                        `json:"plugin_name,omitempty"`
+	Config     FileWatcherCertProviderConfig `json:"config,omitempty"`
 }

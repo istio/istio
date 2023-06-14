@@ -33,8 +33,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/log"
 )
 
@@ -374,7 +374,7 @@ var (
 	validationPattern   = `^\w+:(debug|error|warn|info|debug)`
 )
 
-func istiodLogCmd() *cobra.Command {
+func istiodLogCmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	outputLogLevel := ""
 	stackTraceLevel := ""
@@ -414,7 +414,7 @@ func istiodLogCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(logCmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -429,7 +429,7 @@ func istiodLogCmd() *cobra.Command {
 				} else {
 					istiodLabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, opts.Revision)
 				}
-				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(istioNamespace, defaultNamespace), istiodLabelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.Namespace()), istiodLabelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", istiodLabelSelector, err)
 				}
@@ -446,7 +446,7 @@ func istiodLogCmd() *cobra.Command {
 				podName = pl.Items[0].Name
 				ns = pl.Items[0].Namespace
 			} else if len(args) == 1 {
-				podName, ns = args[0], istioNamespace
+				podName, ns = args[0], ctx.IstioNamespace()
 			}
 
 			portForwarder, err := client.NewPortForwarder(podName, ns, bindAddress, 0, controlZport)

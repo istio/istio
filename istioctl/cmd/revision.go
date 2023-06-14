@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/operator/cmd/mesh"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
@@ -97,7 +98,7 @@ var (
 	revArgs = revisionArgs{}
 )
 
-func revisionCommand() *cobra.Command {
+func revisionCommand(ctx cli.Context) *cobra.Command {
 	revisionCmd := &cobra.Command{
 		Use: "revision",
 		Long: "The revision command provides a revision centric view of istio deployments. " +
@@ -111,13 +112,13 @@ func revisionCommand() *cobra.Command {
 	revisionCmd.PersistentFlags().StringVarP(&revArgs.output, "output", "o", tableFormat, "Output format for revision description "+
 		"(available formats: table,json)")
 
-	revisionCmd.AddCommand(revisionListCommand())
-	revisionCmd.AddCommand(revisionDescribeCommand())
-	revisionCmd.AddCommand(tagCommand())
+	revisionCmd.AddCommand(revisionListCommand(ctx))
+	revisionCmd.AddCommand(revisionDescribeCommand(ctx))
+	revisionCmd.AddCommand(tagCommand(ctx))
 	return revisionCmd
 }
 
-func revisionDescribeCommand() *cobra.Command {
+func revisionDescribeCommand(ctx cli.Context) *cobra.Command {
 	describeCmd := &cobra.Command{
 		Use: "describe",
 		Example: `  # View the details of a revision named 'canary'
@@ -150,14 +151,14 @@ func revisionDescribeCommand() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
-			return printRevisionDescription(cmd.OutOrStdout(), &revArgs, logger)
+			return printRevisionDescription(ctx, cmd.OutOrStdout(), &revArgs, logger, ctx.IstioNamespace())
 		},
 	}
 	describeCmd.Flags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Enable verbose output")
 	return describeCmd
 }
 
-func revisionListCommand() *cobra.Command {
+func revisionListCommand(ctx cli.Context) *cobra.Command {
 	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Show list of control plane and gateway revisions that are currently installed in cluster",
@@ -175,28 +176,25 @@ func revisionListCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return fmt.Errorf("failed to create k8s client: %w", err)
+			}
 			logger := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), scope)
-			return revisionList(cmd.OutOrStdout(), &revArgs, logger)
+			return revisionList(ctx, kubeClient, cmd.OutOrStdout(), &revArgs, logger)
 		},
 	}
 	return listCmd
 }
 
-func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) error {
-	client, err := newKubeClient(kubeconfig, configContext)
+func revisionList(ctx cli.Context, kubeClient kube.CLIClient, writer io.Writer, args *revisionArgs, logger clog.Logger) error {
+	revisions, err := tag.ListRevisionDescriptions(kubeClient)
 	if err != nil {
-		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v",
-			kubeconfig, configContext, err)
-	}
-
-	revisions, err := tag.ListRevisionDescriptions(client)
-	if err != nil {
-		return fmt.Errorf("cannot list revisions for kubeconfig=%s, context=%s: %v",
-			kubeconfig, configContext, err)
+		return fmt.Errorf("cannot list revisions: %v", err)
 	}
 
 	// Get a list of all CRs which are installed in this cluster
-	iopcrs, err := getAllMergedIstioOperatorCRs(client, logger)
+	iopcrs, err := getAllMergedIstioOperatorCRs(kubeClient, logger)
 	if err != nil {
 		return fmt.Errorf("error while listing IstioOperator CRs: %v", err)
 	}
@@ -229,14 +227,14 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 
 	if args.verbose {
 		for rev, desc := range revisions {
-			revClient, err := newKubeClientWithRevision(kubeconfig, configContext, rev)
+			revClient, err := ctx.CLIClientWithRevision(rev)
 			if err != nil {
 				return fmt.Errorf("failed to get revision based kubeclient for revision: %s", rev)
 			}
-			if err = annotateWithControlPlanePodInfo(desc, revClient); err != nil {
+			if err = annotateWithControlPlanePodInfo(desc, revClient, ctx.IstioNamespace()); err != nil {
 				return fmt.Errorf("failed to get control plane pods for revision: %s", rev)
 			}
-			if err = annotateWithGatewayInfo(desc, revClient); err != nil {
+			if err = annotateWithGatewayInfo(desc, revClient, ctx.IstioNamespace()); err != nil {
 				return fmt.Errorf("failed to get gateway pods for revision: %s", rev)
 			}
 		}
@@ -495,12 +493,11 @@ func getAllMergedIstioOperatorCRs(client kube.CLIClient, logger clog.Logger) ([]
 	return iopCRs, nil
 }
 
-func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logger) error {
+func printRevisionDescription(ctx cli.Context, w io.Writer, args *revisionArgs, logger clog.Logger, istioNamespace string) error {
 	revision := args.name
-	client, err := newKubeClientWithRevision(kubeconfig, configContext, revision)
+	client, err := ctx.CLIClientWithRevision(revision)
 	if err != nil {
-		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v",
-			kubeconfig, configContext, err)
+		return fmt.Errorf("cannot create kubeclient: %v", err)
 	}
 	allIops, err := getAllMergedIstioOperatorCRs(client, logger)
 	if err != nil {
@@ -516,10 +513,10 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 	if err = annotateWithIOPCustomization(revDescription, args.manifestsPath, logger); err != nil {
 		return err
 	}
-	if err = annotateWithControlPlanePodInfo(revDescription, client); err != nil {
+	if err = annotateWithControlPlanePodInfo(revDescription, client, istioNamespace); err != nil {
 		return err
 	}
-	if err = annotateWithGatewayInfo(revDescription, client); err != nil {
+	if err = annotateWithGatewayInfo(revDescription, client, istioNamespace); err != nil {
 		return err
 	}
 	if !revisionExists(revDescription) {
@@ -530,7 +527,7 @@ func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logge
 		for _, wh := range revDescription.Webhooks {
 			revAliases = append(revAliases, wh.Tag)
 		}
-		if err = annotateWithNamespaceAndPodInfo(revDescription, revAliases); err != nil {
+		if err = annotateWithNamespaceAndPodInfo(client, revDescription, revAliases); err != nil {
 			return err
 		}
 	}
@@ -556,14 +553,10 @@ func revisionExists(revDescription *tag.RevisionDescription) bool {
 		len(revDescription.EgressGatewayPods) != 0
 }
 
-func annotateWithNamespaceAndPodInfo(revDescription *tag.RevisionDescription, revisionAliases []string) error {
-	client, err := newKubeClient(kubeconfig, configContext)
-	if err != nil {
-		return fmt.Errorf("failed to create kubeclient: %v", err)
-	}
+func annotateWithNamespaceAndPodInfo(kubeClient kube.CLIClient, revDescription *tag.RevisionDescription, revisionAliases []string) error {
 	nsMap := make(map[string]*tag.NsInfo)
 	for _, ra := range revisionAliases {
-		pods, err := getPodsWithSelector(client, "", &metav1.LabelSelector{
+		pods, err := getPodsWithSelector(kubeClient, "", &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				label.IoIstioRev.Name: ra,
 			},
@@ -588,13 +581,13 @@ func annotateWithNamespaceAndPodInfo(revDescription *tag.RevisionDescription, re
 	return nil
 }
 
-func annotateWithGatewayInfo(revDescription *tag.RevisionDescription, client kube.CLIClient) error {
-	ingressPods, err := getPodsForComponent(client, "IngressGateways")
+func annotateWithGatewayInfo(revDescription *tag.RevisionDescription, client kube.CLIClient, istioNamespace string) error {
+	ingressPods, err := getPodsForComponent(client, "IngressGateways", istioNamespace)
 	if err != nil {
 		return fmt.Errorf("error while fetching ingress gateway pods: %v", err)
 	}
 	revDescription.IngressGatewayPods = transformToFilteredPodInfo(ingressPods)
-	egressPods, err := getPodsForComponent(client, "EgressGateways")
+	egressPods, err := getPodsForComponent(client, "EgressGateways", istioNamespace)
 	if err != nil {
 		return fmt.Errorf("error while fetching egress gateway pods: %v", err)
 	}
@@ -602,8 +595,8 @@ func annotateWithGatewayInfo(revDescription *tag.RevisionDescription, client kub
 	return nil
 }
 
-func annotateWithControlPlanePodInfo(revDescription *tag.RevisionDescription, client kube.CLIClient) error {
-	controlPlanePods, err := getPodsForComponent(client, "Pilot")
+func annotateWithControlPlanePodInfo(revDescription *tag.RevisionDescription, client kube.CLIClient, istioNamespace string) error {
+	controlPlanePods, err := getPodsForComponent(client, "Pilot", istioNamespace)
 	if err != nil {
 		return fmt.Errorf("error while fetching control plane pods: %v", err)
 	}
@@ -915,7 +908,7 @@ func getEnabledUserFacingComponents(iop *iopv1alpha1.IstioOperator) ([]string, e
 	return enabledComponents, nil
 }
 
-func getPodsForComponent(client kube.CLIClient, component string) ([]corev1.Pod, error) {
+func getPodsForComponent(client kube.CLIClient, component string, istioNamespace string) ([]corev1.Pod, error) {
 	return getPodsWithSelector(client, istioNamespace, &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			label.IoIstioRev.Name:        client.Revision(),

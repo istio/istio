@@ -23,9 +23,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/clientcmd"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/istioctl/pkg/validate"
@@ -55,33 +54,19 @@ const (
 	ExperimentalMsg = `THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`
 )
 
-const (
-	FlagNamespace      = "namespace"
-	FlagIstioNamespace = "istioNamespace"
-	FlagCharts         = "charts"
-)
-
 var (
 	// IstioConfig is the name of the istioctl config file (if any)
 	IstioConfig = env.Register("ISTIOCONFIG", defaultIstioctlConfig,
 		"Default values for istioctl flags").Get()
 
-	kubeconfig       string
-	configContext    string
-	namespace        string
-	istioNamespace   string
-	defaultNamespace string
-
-	// Create a kubernetes client (or mockClient) for talking to control plane components
-	kubeClientWithRevision = newKubeClientWithRevision
-
-	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
-	kubeClient = newKubeClient
-
 	loggingOptions = defaultLogOptions()
 
 	// scope is for dev logging.  Warning: log levels are not set by --log_output_level until command is Run().
 	scope = log.RegisterScope("cli", "istioctl")
+)
+
+const (
+	FlagCharts = "charts"
 )
 
 func defaultLogOptions() *log.Options {
@@ -144,25 +129,33 @@ func GetRootCmd(args []string) *cobra.Command {
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
-		PersistentPreRunE: configureLogging,
 	}
 
 	rootCmd.SetArgs(args)
 
-	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
-		"Kubernetes configuration file")
+	flags := rootCmd.PersistentFlags()
+	rootOptions := cli.AddRootFlags(flags)
 
-	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
-		"The name of the kubeconfig context to use")
+	ctx := cli.NewCLIContext(*rootOptions)
 
-	rootCmd.PersistentFlags().StringVarP(&istioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
-		"Istio system namespace")
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if err := configureLogging(cmd, args); err != nil {
+			return err
+		}
+		ctx.ConfigureDefaultNamespace()
+		return nil
+	}
 
-	rootCmd.PersistentFlags().StringVarP(&namespace, FlagNamespace, "n", v1.NamespaceAll,
-		"Config namespace")
-
-	_ = rootCmd.RegisterFlagCompletionFunc(FlagIstioNamespace, validNamespaceArgs)
-	_ = rootCmd.RegisterFlagCompletionFunc(FlagNamespace, validNamespaceArgs)
+	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagIstioNamespace, func(
+		cmd *cobra.Command, args []string, toComplete string,
+	) ([]string, cobra.ShellCompDirective) {
+		return validNamespaceArgs(cmd, ctx, args, toComplete)
+	})
+	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagNamespace, func(
+		cmd *cobra.Command, args []string, toComplete string,
+	) ([]string, cobra.ShellCompDirective) {
+		return validNamespaceArgs(cmd, ctx, args, toComplete)
+	})
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
@@ -176,8 +169,8 @@ debug and diagnose their Istio mesh.
 
 	cmd.AddFlags(rootCmd)
 
-	kubeInjectCmd := injectCommand()
-	hideInheritedFlags(kubeInjectCmd, FlagNamespace)
+	kubeInjectCmd := injectCommand(ctx)
+	hideInheritedFlags(kubeInjectCmd, cli.FlagNamespace)
 	rootCmd.AddCommand(kubeInjectCmd)
 
 	experimentalCmd := &cobra.Command{
@@ -187,12 +180,12 @@ debug and diagnose their Istio mesh.
 	}
 
 	xdsBasedTroubleshooting := []*cobra.Command{
-		xdsVersionCommand(),
-		xdsStatusCommand(),
+		xdsVersionCommand(ctx),
+		xdsStatusCommand(ctx),
 	}
 	debugBasedTroubleshooting := []*cobra.Command{
-		newVersionCommand(),
-		statusCommand(),
+		newVersionCommand(ctx),
+		statusCommand(ctx),
 	}
 	var debugCmdAttachmentPoint *cobra.Command
 	if viper.GetBool("PREFER-EXPERIMENTAL") {
@@ -216,66 +209,66 @@ debug and diagnose their Istio mesh.
 	}
 
 	rootCmd.AddCommand(experimentalCmd)
-	rootCmd.AddCommand(proxyConfig())
-	rootCmd.AddCommand(adminCmd())
-	experimentalCmd.AddCommand(injectorCommand())
+	rootCmd.AddCommand(proxyConfig(ctx))
+	rootCmd.AddCommand(adminCmd(ctx))
+	experimentalCmd.AddCommand(injectorCommand(ctx))
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
 	rootCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 
-	experimentalCmd.AddCommand(AuthZ())
+	experimentalCmd.AddCommand(AuthZ(ctx))
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
-	experimentalCmd.AddCommand(metricsCmd())
-	experimentalCmd.AddCommand(describe())
-	experimentalCmd.AddCommand(waitCmd())
+	experimentalCmd.AddCommand(metricsCmd(ctx))
+	experimentalCmd.AddCommand(describe(ctx))
+	experimentalCmd.AddCommand(waitCmd(ctx))
 	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(loggingOptions)))
 	experimentalCmd.AddCommand(configCmd())
-	experimentalCmd.AddCommand(workloadCommands())
-	experimentalCmd.AddCommand(revisionCommand())
-	experimentalCmd.AddCommand(debugCommand())
-	experimentalCmd.AddCommand(preCheck())
-	experimentalCmd.AddCommand(statsConfigCmd())
-	experimentalCmd.AddCommand(checkInjectCommand())
-	experimentalCmd.AddCommand(waypointCmd())
+	experimentalCmd.AddCommand(workloadCommands(ctx))
+	experimentalCmd.AddCommand(revisionCommand(ctx))
+	experimentalCmd.AddCommand(debugCommand(ctx))
+	experimentalCmd.AddCommand(preCheck(ctx))
+	experimentalCmd.AddCommand(statsConfigCmd(ctx))
+	experimentalCmd.AddCommand(checkInjectCommand(ctx))
+	experimentalCmd.AddCommand(waypointCmd(ctx))
 
-	analyzeCmd := Analyze()
-	hideInheritedFlags(analyzeCmd, FlagIstioNamespace)
+	analyzeCmd := Analyze(ctx)
+	hideInheritedFlags(analyzeCmd, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(analyzeCmd)
 
-	dashboardCmd := dashboard()
-	hideInheritedFlags(dashboardCmd, FlagNamespace, FlagIstioNamespace)
+	dashboardCmd := dashboard(ctx)
+	hideInheritedFlags(dashboardCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
 
 	manifestCmd := mesh.ManifestCmd(loggingOptions)
-	hideInheritedFlags(manifestCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
+	hideInheritedFlags(manifestCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(manifestCmd)
 
 	operatorCmd := mesh.OperatorCmd()
-	hideInheritedFlags(operatorCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
+	hideInheritedFlags(operatorCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(operatorCmd)
 
 	installCmd := mesh.InstallCmd(loggingOptions)
-	hideInheritedFlags(installCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
+	hideInheritedFlags(installCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(installCmd)
 
 	profileCmd := mesh.ProfileCmd(loggingOptions)
-	hideInheritedFlags(profileCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
+	hideInheritedFlags(profileCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(profileCmd)
 
 	upgradeCmd := mesh.UpgradeCmd(loggingOptions)
-	hideInheritedFlags(upgradeCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
+	hideInheritedFlags(upgradeCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
 	bugReportCmd := bugreport.Cmd(loggingOptions)
-	hideInheritedFlags(bugReportCmd, FlagNamespace, FlagIstioNamespace)
+	hideInheritedFlags(bugReportCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(bugReportCmd)
 
-	tagCmd := tagCommand()
-	hideInheritedFlags(tagCommand(), FlagNamespace, FlagIstioNamespace, FlagCharts)
+	tagCmd := tagCommand(ctx)
+	hideInheritedFlags(tagCommand(ctx), cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(tagCmd)
 
 	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
-	remoteClustersCmd := clustersCommand()
+	remoteClustersCmd := clustersCommand(ctx)
 	// leave the multicluster commands in x for backwards compat
 	rootCmd.AddCommand(remoteSecretCmd)
 	rootCmd.AddCommand(remoteClustersCmd)
@@ -288,7 +281,7 @@ debug and diagnose their Istio mesh.
 		Manual:  "Istio Control",
 	}))
 
-	validateCmd := validate.NewValidateCommand(&istioNamespace, &namespace)
+	validateCmd := validate.NewValidateCommand(ctx)
 	hideInheritedFlags(validateCmd, "kubeconfig")
 	rootCmd.AddCommand(validateCmd)
 
@@ -333,40 +326,7 @@ func configureLogging(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
-	defaultNamespace = getDefaultNamespace(kubeconfig)
 	return nil
-}
-
-func getDefaultNamespace(kubeconfig string) string {
-	configAccess := clientcmd.NewDefaultPathOptions()
-
-	if kubeconfig != "" {
-		// use specified kubeconfig file for the location of the
-		// config to read
-		configAccess.GlobalFile = kubeconfig
-	}
-
-	// gets existing kubeconfig or returns new empty config
-	config, err := configAccess.GetStartingConfig()
-	if err != nil {
-		return v1.NamespaceDefault
-	}
-
-	// If a specific context was specified, use that. Otherwise, just use the current context from the kube config.
-	selectedContext := config.CurrentContext
-	if configContext != "" {
-		selectedContext = configContext
-	}
-
-	// Use the namespace associated with the selected context as default, if the context has one
-	context, ok := config.Contexts[selectedContext]
-	if !ok {
-		return v1.NamespaceDefault
-	}
-	if context.Namespace == "" {
-		return v1.NamespaceDefault
-	}
-	return context.Namespace
 }
 
 // softGraduatedCmd is used for commands that have graduated, but we still want the old invocation to work.

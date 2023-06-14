@@ -18,23 +18,25 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"istio.io/istio/istioctl/pkg/cli"
 )
 
 func TestKubeInject(t *testing.T) {
 	cases := []testCase{
 		{ // case 0
-			args:           strings.Split("kube-inject", " "),
+			args:           []string{},
 			expectedRegexp: regexp.MustCompile(`filename not specified \(see --filename or -f\)`),
 			wantException:  true,
 		},
 		{ // case 1
-			args:           strings.Split("kube-inject -f missing.yaml", " "),
+			args:           strings.Split("-f missing.yaml", " "),
 			expectedRegexp: regexp.MustCompile(`open missing.yaml: no such file or directory`),
 			wantException:  true,
 		},
 		{ // case 2
 			args: strings.Split(
-				"kube-inject --meshConfigFile testdata/mesh-config.yaml"+
+				"--meshConfigFile testdata/mesh-config.yaml"+
 					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello.yaml"+
 					" --valuesFile testdata/inject-values.yaml",
 				" "),
@@ -42,7 +44,7 @@ func TestKubeInject(t *testing.T) {
 		},
 		{ // case 3
 			args: strings.Split(
-				"kube-inject --meshConfigFile testdata/mesh-config.yaml"+
+				"--meshConfigFile testdata/mesh-config.yaml"+
 					" --injectConfigFile testdata/inject-config-inline.yaml -f testdata/deployment/hello.yaml"+
 					" --valuesFile testdata/inject-values.yaml",
 				" "),
@@ -50,21 +52,21 @@ func TestKubeInject(t *testing.T) {
 		},
 		{ // case 4 with only iop files
 			args: strings.Split(
-				"kube-inject --operatorFileName testdata/istio-operator.yaml"+
+				"--operatorFileName testdata/istio-operator.yaml"+
 					" --injectConfigFile testdata/inject-config-iop.yaml -f testdata/deployment/hello.yaml",
 				" "),
 			goldenFilename: "testdata/deployment/hello.yaml.iop.injected",
 		},
 		{ // case 5 with only iop files
 			args: strings.Split(
-				"kube-inject --operatorFileName testdata/istio-operator.yaml"+
+				"--operatorFileName testdata/istio-operator.yaml"+
 					" --injectConfigFile testdata/inject-config-inline-iop.yaml -f testdata/deployment/hello.yaml",
 				" "),
 			goldenFilename: "testdata/deployment/hello.yaml.iop.injected",
 		},
 		{ // case 6 with iops and values override
 			args: strings.Split(
-				"kube-inject --operatorFileName testdata/istio-operator.yaml"+
+				"--operatorFileName testdata/istio-operator.yaml"+
 					" --injectConfigFile testdata/inject-config-iop.yaml -f testdata/deployment/hello.yaml"+
 					" -f testdata/deployment/hello.yaml"+
 					" --valuesFile testdata/inject-values.yaml",
@@ -73,7 +75,7 @@ func TestKubeInject(t *testing.T) {
 		},
 		{ // case 7
 			args: strings.Split(
-				"kube-inject --meshConfigFile testdata/mesh-config.yaml"+
+				"--meshConfigFile testdata/mesh-config.yaml"+
 					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello-with-proxyconfig-anno.yaml"+
 					" --valuesFile testdata/inject-values.yaml",
 				" "),
@@ -81,9 +83,19 @@ func TestKubeInject(t *testing.T) {
 		},
 	}
 
+	kubeInject := injectCommand(cli.NewFakeContext(nil))
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyOutput(t, c)
+			verifyOutput(t, kubeInject, c)
+			cleanUpKubeInjectTestEnv()
 		})
 	}
+}
+
+func cleanUpKubeInjectTestEnv() {
+	meshConfigFile = ""
+	injectConfigFile = ""
+	valuesFile = ""
+	inFilename = ""
+	iopFilename = ""
 }

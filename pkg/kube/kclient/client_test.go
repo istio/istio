@@ -15,6 +15,7 @@
 package kclient_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -22,6 +23,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 
 	istioclient "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -30,6 +34,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -101,6 +106,9 @@ func TestSwappingClient(t *testing.T) {
 
 		// Now we add the CRD
 		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+		// This is not needed in real-world, but purely works around https://github.com/kubernetes/kubernetes/issues/95372
+		// which impacts only the fake client.
+		c.RunAndWait(stop)
 		wt.Create(&istioclient.WasmPlugin{
 			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
 		})
@@ -247,4 +255,16 @@ func TestClient(t *testing.T) {
 	tester.Update(obj3)
 	tracker.WaitOrdered("delete/3")
 	assert.Equal(t, tester.Get(obj3.Name, obj3.Namespace), nil)
+}
+
+func TestErrorHandler(t *testing.T) {
+	mt := monitortest.New(t)
+	c := kube.NewFakeClient()
+	// Prevent List from succeeding
+	c.Kube().(*fake.Clientset).Fake.PrependReactor("*", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("nope, out of luck")
+	})
+	deployments := kclient.New[*appsv1.Deployment](c)
+	deployments.Start(test.NewStop(t))
+	mt.Assert("controller_sync_errors_total", map[string]string{"cluster": "fake"}, monitortest.AtLeast(1))
 }

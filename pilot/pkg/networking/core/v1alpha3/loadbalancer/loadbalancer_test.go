@@ -743,10 +743,11 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	env.ConfigStore = configStore
 	env.Watcher = mesh.NewFixedWatcher(meshConfig)
 
-	env.PushContext = model.NewPushContext()
+	pushContext := model.NewPushContext()
 	env.Init()
-	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRulesForTesting([]config.Config{
+	_ = pushContext.InitContext(env, nil, nil)
+	env.SetPushContext(pushContext)
+	pushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.DestinationRule,
@@ -799,10 +800,11 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	env.ConfigStore = configStore
 	env.Watcher = mesh.NewFixedWatcher(meshConfig)
 
-	env.PushContext = model.NewPushContext()
+	pushContext := model.NewPushContext()
 	env.Init()
-	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRulesForTesting([]config.Config{
+	_ = pushContext.InitContext(env, nil, nil)
+	env.SetPushContext(pushContext)
+	pushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.DestinationRule,
@@ -850,10 +852,11 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 	env.ConfigStore = configStore
 	env.Watcher = mesh.NewFixedWatcher(meshConfig)
 
-	env.PushContext = model.NewPushContext()
+	pushContext := model.NewPushContext()
 	env.Init()
-	_ = env.PushContext.InitContext(env, nil, nil)
-	env.PushContext.SetDestinationRulesForTesting([]config.Config{
+	_ = pushContext.InitContext(env, nil, nil)
+	env.SetPushContext(pushContext)
+	pushContext.SetDestinationRulesForTesting([]config.Config{
 		{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.DestinationRule,

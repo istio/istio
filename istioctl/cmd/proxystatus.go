@@ -22,19 +22,17 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/rest"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
-func statusCommand() *cobra.Command {
+func statusCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
 	statusCmd := &cobra.Command{
@@ -67,14 +65,12 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
 			if len(args) > 0 {
-				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
-					MakeKubeFactory(kubeClient))
+				podName, ns, err := ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
 				if err != nil {
 					return err
 				}
@@ -90,7 +86,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				}
 
 				path := fmt.Sprintf("debug/config_dump?proxyID=%s.%s", podName, ns)
-				istiodDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
+				istiodDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), path)
 				if err != nil {
 					return err
 				}
@@ -100,7 +96,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				}
 				return c.Diff()
 			}
-			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "debug/syncz")
+			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), "debug/syncz")
 			if err != nil {
 				return err
 			}
@@ -137,24 +133,7 @@ func readConfigFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.CLIClient, error) {
-	rc, err := kube.DefaultRestConfig(kubeconfig, configContext, func(config *rest.Config) {
-		// We are running a one-off command locally, so we don't need to worry too much about rate limiting
-		// Bumping this up greatly decreases install time
-		config.QPS = 50
-		config.Burst = 100
-	})
-	if err != nil {
-		return nil, err
-	}
-	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
-}
-
-func newKubeClient(kubeconfig, configContext string) (kube.CLIClient, error) {
-	return newKubeClientWithRevision(kubeconfig, configContext, "")
-}
-
-func xdsStatusCommand() *cobra.Command {
+func xdsStatusCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 	var multiXdsOpts multixds.Options
@@ -191,16 +170,14 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
 			multiXdsOpts.MessageWriter = c.OutOrStdout()
 
 			if len(args) > 0 {
-				podName, ns, err := handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(namespace, defaultNamespace),
-					MakeKubeFactory(kubeClient))
+				podName, ns, err := ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
 				if err != nil {
 					return err
 				}
@@ -219,7 +196,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					ResourceNames: []string{fmt.Sprintf("%s.%s", podName, ns)},
 					TypeUrl:       pilotxds.TypeDebugConfigDump,
 				}
-				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient, multiXdsOpts)
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, ctx.IstioNamespace(), "", "", kubeClient, multiXdsOpts)
 				if err != nil {
 					return err
 				}
@@ -232,7 +209,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			xdsRequest := discovery.DiscoveryRequest{
 				TypeUrl: pilotxds.TypeDebugSyncronization,
 			}
-			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient, multiXdsOpts)
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, ctx.IstioNamespace(), "", "", kubeClient, multiXdsOpts)
 			if err != nil {
 				return err
 			}

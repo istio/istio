@@ -21,6 +21,8 @@ WD=$(cd "$WD"; pwd)
 
 set -ex
 
+touch "${WD}/index.txt"
+
 cat > "${WD}/client.conf" <<EOF
 [req]
 req_extensions = v3_req
@@ -99,6 +101,38 @@ URI = spiffe://cluster.local/ns/mounted-certs/sa/client
 DNS = client.mounted-certs.svc
 EOF
 
+cat > "${WD}/crl.conf" <<EOF
+[ ca ]
+default_ca      = CA_default            # The default ca section
+
+[ CA_default ]
+dir             = "${WD}"         # Where everything is kept
+database        = "${WD}/index.txt"    # database index file.
+certificate     = "${WD}/pilot/ca-cert.pem"    # The CA certificate
+private_key     = "${WD}/pilot/ca-key.pem"    # The private key
+
+# crlnumber must also be commented out to leave a V1 CRL.
+crl_extensions = crl_ext
+
+default_md      = sha256                # use SHA-256 by default
+default_crl_days= 30                    # how long before next CRL
+
+[ crl_ext ]
+# CRL extensions.
+# Only issuerAltName and authorityKeyIdentifier make any sense in a CRL.
+authorityKeyIdentifier=keyid:always
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth, serverAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS = cluster.local
+EOF
 
 # Create a certificate authority
 openssl genrsa -out "${WD}/pilot/ca-key.pem" 2048
@@ -134,9 +168,21 @@ openssl genrsa -out "${WD}/mountedcerts-client/key.pem" 2048
 openssl req -new -sha256 -key "${WD}/mountedcerts-client/key.pem" -out "${WD}/mountedcerts-client.csr" -subj "/CN=client.mounted-certs.svc.cluster.local" -config "${WD}/mountedcerts-client.conf"
 openssl x509 -req -in "${WD}/mountedcerts-client.csr" -CA "${WD}/pilot/root-cert.pem" -CAkey "${WD}/pilot/ca-key.pem" -CAcreateserial -out "${WD}/mountedcerts-client/cert-chain.pem" -days 100000 -extensions v3_req -extfile "${WD}/mountedcerts-client.conf"
 
+# revoke one of the server certificates for CRL testing purpose
+openssl ca -config "${WD}/crl.conf" -revoke "${WD}/dns/cert-chain.pem"
+openssl ca -gencrl -out "${WD}/ca.crl" -config "${WD}/crl.conf"
 
-rm "${WD}/server.conf" "${WD}/client.conf" "${WD}/dns-client.conf"
+# remove the database entry for the previous revoked certificate, so that we can generate a new dummy CRL entry for an unused server cert,
+# to be used for integration tests
+cat /dev/null > "${WD}/index.txt"
+
+openssl x509 -req -in "${WD}/server.csr" -CA "${WD}/pilot/root-cert.pem" -CAkey "${WD}/pilot/ca-key.pem" -CAcreateserial -out "${WD}/dns/cert-chain-unused.pem"  -days 100000 -extensions v3_req -extfile "${WD}/server.conf"
+
+openssl ca -config "${WD}/crl.conf" -revoke "${WD}/dns/cert-chain-unused.pem"
+openssl ca -gencrl -out "${WD}/dummy.crl" -config "${WD}/crl.conf"
+
+rm "${WD}/server.conf" "${WD}/client.conf" "${WD}/dns-client.conf" "${WD}/crl.conf"
 rm "${WD}/server.csr" "${WD}/client.csr" "${WD}/dns-client.csr"
-rm "${WD}/pilot/root-cert.srl"
 rm "${WD}/mountedcerts-server.conf" "${WD}/mountedcerts-server.csr"
 rm "${WD}/mountedcerts-client.conf" "${WD}/mountedcerts-client.csr"
+rm "${WD}"/index.txt*

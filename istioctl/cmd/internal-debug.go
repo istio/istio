@@ -23,6 +23,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
@@ -33,6 +34,7 @@ import (
 func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
 	centralOpts clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
+	istioNamespace string,
 ) (map[string]*discovery.DiscoveryResponse, error) {
 	var namespace, serviceAccount string
 	xdsRequest := discovery.DiscoveryRequest{
@@ -54,6 +56,7 @@ func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
 func HandlerForDebugErrors(kubeClient kube.CLIClient,
 	centralOpts *clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
+	istioNamespace string,
 	xdsResponses map[string]*discovery.DiscoveryResponse,
 ) (map[string]*discovery.DiscoveryResponse, error) {
 	for _, response := range xdsResponses {
@@ -65,7 +68,7 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 					"edsz?proxyID=istio-ingressgateway")
 
 			case strings.Contains(eString, "404 page not found"):
-				return HandlerForRetrieveDebugList(kubeClient, *centralOpts, writer)
+				return HandlerForRetrieveDebugList(kubeClient, *centralOpts, writer, istioNamespace)
 
 			case strings.Contains(eString, "querystring parameter 'resource' is required"):
 				return nil, fmt.Errorf("querystring parameter 'resource' is required, e.g. [%s]",
@@ -76,7 +79,7 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 	return nil, nil
 }
 
-func debugCommand() *cobra.Command {
+func debugCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 
@@ -112,7 +115,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
   istioctl x internal-debug syncz --xds-label istio.io/rev=default
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -132,7 +135,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				TypeUrl: v3.DebugType,
 			}
 
-			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, &xdsRequest, centralOpts, istioNamespace,
+			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, &xdsRequest, centralOpts, ctx.IstioNamespace(),
 				namespace, serviceAccount, kubeClient, multixds.DefaultOptions)
 			if err != nil {
 				return err
@@ -141,7 +144,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				Writer:                 c.OutOrStdout(),
 				InternalDebugAllIstiod: internalDebugAllIstiod,
 			}
-			newResponse, err := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
+			newResponse, err := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), ctx.IstioNamespace(), xdsResponses)
 			if err != nil {
 				return err
 			}

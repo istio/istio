@@ -22,15 +22,14 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer"
 	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
@@ -118,22 +117,9 @@ var stringToLevel = map[string]Level{
 }
 
 var (
-	loggerLevelString      = ""
-	reset                  = false
-	once                   sync.Once
-	isZtunnelPodKubeClient kube.CLIClient
+	loggerLevelString = ""
+	reset             = false
 )
-
-var isZtunnelPod = func(podName, podNamespace string) (bool, error) {
-	var err error
-	once.Do(func() {
-		isZtunnelPodKubeClient, err = kubeClient(kubeconfig, configContext)
-	})
-	if err != nil {
-		return false, err
-	}
-	return ambientutil.IsZtunnelPod(isZtunnelPodKubeClient, podName, podNamespace), nil
-}
 
 func ztunnelLogLevel(level string) string {
 	switch level {
@@ -146,11 +132,7 @@ func ztunnelLogLevel(level string) string {
 	}
 }
 
-func extractConfigDump(podName, podNamespace string, eds bool) ([]byte, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create k8s client: %v", err)
-	}
+func extractConfigDump(kubeClient kube.CLIClient, podName, podNamespace string, eds bool) ([]byte, error) {
 	path := "config_dump"
 	if eds {
 		path += "?include_eds=true"
@@ -162,11 +144,7 @@ func extractConfigDump(podName, podNamespace string, eds bool) ([]byte, error) {
 	return debug, err
 }
 
-func extractZtunnelConfigDump(podName, podNamespace string) ([]byte, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create k8s client: %v", err)
-	}
+func extractZtunnelConfigDump(kubeClient kube.CLIClient, podName, podNamespace string) ([]byte, error) {
 	path := "config_dump"
 	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, 15000)
 	if err != nil {
@@ -175,16 +153,16 @@ func extractZtunnelConfigDump(podName, podNamespace string) ([]byte, error) {
 	return debug, err
 }
 
-func setupZtunnelConfigDumpWriter(podName, podNamespace string, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
-	debug, err := extractZtunnelConfigDump(podName, podNamespace)
+func setupZtunnelConfigDumpWriter(kubeClient kube.CLIClient, podName, podNamespace string, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
+	debug, err := extractZtunnelConfigDump(kubeClient, podName, podNamespace)
 	if err != nil {
 		return nil, err
 	}
 	return setupConfigdumpZtunnelConfigWriter(debug, out)
 }
 
-func setupPodConfigdumpWriter(podName, podNamespace string, includeEds bool, out io.Writer) (*configdump.ConfigWriter, error) {
-	debug, err := extractConfigDump(podName, podNamespace, includeEds)
+func setupPodConfigdumpWriter(kubeClient kube.CLIClient, podName, podNamespace string, includeEds bool, out io.Writer) (*configdump.ConfigWriter, error) {
+	debug, err := extractConfigDump(kubeClient, podName, podNamespace, includeEds)
 	if err != nil {
 		return nil, err
 	}
@@ -242,11 +220,7 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 	return cw, nil
 }
 
-func setupEnvoyClusterStatsConfig(podName, podNamespace string, outputFormat string) (string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
-	if err != nil {
-		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
-	}
+func setupEnvoyClusterStatsConfig(kubeClient kube.CLIClient, podName, podNamespace string, outputFormat string) (string, error) {
 	path := "clusters"
 	if outputFormat == jsonOutput || outputFormat == yamlOutput {
 		// for yaml output we will convert the json to yaml when printed
@@ -259,11 +233,7 @@ func setupEnvoyClusterStatsConfig(podName, podNamespace string, outputFormat str
 	return string(result), nil
 }
 
-func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat string) (string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
-	if err != nil {
-		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
-	}
+func setupEnvoyServerStatsConfig(kubeClient kube.CLIClient, podName, podNamespace string, outputFormat string) (string, error) {
 	path := "stats"
 	port := 15000
 	if outputFormat == jsonOutput || outputFormat == yamlOutput {
@@ -292,11 +262,7 @@ func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat stri
 	return string(result), nil
 }
 
-func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
-	if err != nil {
-		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
-	}
+func setupEnvoyLogConfig(kubeClient kube.CLIClient, param, podName, podNamespace string) (string, error) {
 	path := "logging"
 	if param != "" {
 		path = path + "?" + param
@@ -308,8 +274,8 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	return string(result), nil
 }
 
-func getLogLevelFromConfigMap() (string, error) {
-	valuesConfig, err := getValuesFromConfigMap(kubeconfig, "")
+func getLogLevelFromConfigMap(ctx cli.Context) (string, error) {
+	valuesConfig, err := getValuesFromConfigMap(ctx, "")
 	if err != nil {
 		return "", err
 	}
@@ -328,11 +294,7 @@ func getLogLevelFromConfigMap() (string, error) {
 	return values.SidecarInjectorWebhook.Global.Proxy.LogLevel, nil
 }
 
-func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create k8s client: %v", err)
-	}
+func setupPodClustersWriter(kubeClient kube.CLIClient, podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
 	path := "clusters?format=json"
 	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
@@ -360,7 +322,7 @@ func setupClustersEnvoyConfigWriter(debug []byte, out io.Writer) (*clusters.Conf
 	return cw, nil
 }
 
-func clusterConfigCmd() *cobra.Command {
+func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	clusterConfigCmd := &cobra.Command{
@@ -389,13 +351,16 @@ func clusterConfigCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			var configWriter *configdump.ConfigWriter
-			var err error
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -417,7 +382,9 @@ func clusterConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	clusterConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -431,7 +398,7 @@ func clusterConfigCmd() *cobra.Command {
 	return clusterConfigCmd
 }
 
-func allConfigCmd() *cobra.Command {
+func allConfigCmd(ctx cli.Context) *cobra.Command {
 	allConfigCmd := &cobra.Command{
 		Use:   "all [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves all configuration for the Envoy in the specified pod",
@@ -458,23 +425,24 @@ func allConfigCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			switch outputFormat {
 			case jsonOutput, yamlOutput:
 				var dump []byte
 				var err error
 				if len(args) == 1 {
-					podName, podNamespace, err := getPodName(args[0])
+					podName, podNamespace, err := getPodName(ctx, args[0])
 					if err != nil {
 						return err
 					}
-					ztunnelPod, err := isZtunnelPod(podName, podNamespace)
-					if err != nil {
-						return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
-					}
+					ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
 					if ztunnelPod {
-						dump, err = extractZtunnelConfigDump(podName, podNamespace)
+						dump, err = extractZtunnelConfigDump(kubeClient, podName, podNamespace)
 					} else {
-						dump, err = extractConfigDump(podName, podNamespace, false)
+						dump, err = extractConfigDump(kubeClient, podName, podNamespace, false)
 					}
 					if err != nil {
 						return err
@@ -495,17 +463,14 @@ func allConfigCmd() *cobra.Command {
 			case summaryOutput:
 				var configWriter *configdump.ConfigWriter
 				if len(args) == 1 {
-					podName, podNamespace, err := getPodName(args[0])
+					podName, podNamespace, err := getPodName(ctx, args[0])
 					if err != nil {
 						return err
 					}
 
-					ztunnelPod, err := isZtunnelPod(podName, podNamespace)
-					if err != nil {
-						return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
-					}
+					ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
 					if ztunnelPod {
-						w, err := setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
+						w, err := setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
 						if err != nil {
 							return err
 						}
@@ -517,7 +482,7 @@ func allConfigCmd() *cobra.Command {
 						})
 					}
 
-					configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, true, c.OutOrStdout())
+					configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
 					if err != nil {
 						return err
 					}
@@ -559,7 +524,9 @@ func allConfigCmd() *cobra.Command {
 			}
 			return nil
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -585,7 +552,7 @@ func allConfigCmd() *cobra.Command {
 	return allConfigCmd
 }
 
-func workloadConfigCmd() *cobra.Command {
+func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	workloadConfigCmd := &cobra.Command{
@@ -616,20 +583,20 @@ func workloadConfigCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			var configWriter *ztunnelDump.ConfigWriter
-			var err error
 			if len(args) == 1 {
-				if podName, podNamespace, err = getComponentPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getComponentPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				ztunnelPod, kubeClientErr := isZtunnelPod(podName, podNamespace)
-				if kubeClientErr != nil {
-					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", kubeClientErr)
-				}
+				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
 				if !ztunnelPod {
 					return fmt.Errorf("workloads command is only supported by ztunnel proxies: %v", podName)
 				}
-				configWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
+				configWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -651,7 +618,9 @@ func workloadConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	workloadConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -664,7 +633,7 @@ func workloadConfigCmd() *cobra.Command {
 	return workloadConfigCmd
 }
 
-func listenerConfigCmd() *cobra.Command {
+func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	listenerConfigCmd := &cobra.Command{
@@ -693,13 +662,16 @@ func listenerConfigCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			var configWriter *configdump.ConfigWriter
-			var err error
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -725,7 +697,9 @@ func listenerConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	listenerConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -742,7 +716,7 @@ func listenerConfigCmd() *cobra.Command {
 	return listenerConfigCmd
 }
 
-func statsConfigCmd() *cobra.Command {
+func statsConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	statsConfigCmd := &cobra.Command{
@@ -771,18 +745,20 @@ func statsConfigCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var stats string
-			var err error
-
-			if podName, podNamespace, err = getPodName(args[0]); err != nil {
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
+			if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 				return err
 			}
 			if statsType == "" || statsType == "server" {
-				stats, err = setupEnvoyServerStatsConfig(podName, podNamespace, outputFormat)
+				stats, err = setupEnvoyServerStatsConfig(kubeClient, podName, podNamespace, outputFormat)
 				if err != nil {
 					return err
 				}
 			} else if statsType == "cluster" || statsType == "clusters" {
-				stats, err = setupEnvoyClusterStatsConfig(podName, podNamespace, outputFormat)
+				stats, err = setupEnvoyClusterStatsConfig(kubeClient, podName, podNamespace, outputFormat)
 				if err != nil {
 					return err
 				}
@@ -804,9 +780,11 @@ func statsConfigCmd() *cobra.Command {
 
 			return nil
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
-	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|prom")
+	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|prom|prom-merged")
 	statsConfigCmd.PersistentFlags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
 
 	return statsConfigCmd
@@ -819,7 +797,7 @@ const (
 	Ztunnel
 )
 
-func logCmd() *cobra.Command {
+func logCmd(ctx cli.Context) *cobra.Command {
 	var podNamespace string
 	var podNames []string
 
@@ -852,26 +830,26 @@ func logCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			var err error
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			loggerNames := map[string]proxyType{}
 			if labelSelector != "" {
-				if podNames, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
+				if podNames, podNamespace, err = getPodNameBySelector(ctx, kubeClient, labelSelector); err != nil {
 					return err
 				}
 			} else {
-				if podNames, podNamespace, err = getPodNames(args[0]); err != nil {
+				if podNames, podNamespace, err = getPodNames(ctx, args[0], ctx.Namespace()); err != nil {
 					return err
 				}
 			}
 			for _, pod := range podNames {
-				name, err = setupEnvoyLogConfig("", pod, podNamespace)
+				name, err = setupEnvoyLogConfig(kubeClient, "", pod, podNamespace)
 				if err != nil {
 					return err
 				}
-				ztunnelPod, err := isZtunnelPod(pod, podNamespace)
-				if err != nil {
-					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
-				}
+				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, pod, podNamespace)
 				if ztunnelPod {
 					loggerNames[name] = Ztunnel
 				} else {
@@ -882,7 +860,7 @@ func logCmd() *cobra.Command {
 			destLoggerLevels := map[string]Level{}
 			if reset {
 				// reset logging level to `defaultOutputLevel`, and ignore the `level` option
-				levelString, _ := getLogLevelFromConfigMap()
+				levelString, _ := getLogLevelFromConfigMap(ctx)
 				level, ok := stringToLevel[levelString]
 				if ok {
 					destLoggerLevels[defaultLoggerName] = level
@@ -928,16 +906,13 @@ func logCmd() *cobra.Command {
 			var resp string
 			var errs *multierror.Error
 			for _, podName := range podNames {
-				ztunnelPod, err := isZtunnelPod(podName, podNamespace)
-				if err != nil {
-					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", err)
-				}
+				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
 				if ztunnelPod {
 					q := "level=" + ztunnelLogLevel(loggerLevelString)
 					if reset {
 						q += "&reset"
 					}
-					resp, err := setupEnvoyLogConfig(q, podName, podNamespace)
+					resp, err := setupEnvoyLogConfig(kubeClient, q, podName, podNamespace)
 					if err == nil {
 						_, _ = fmt.Fprintf(c.OutOrStdout(), "%v.%v:\n%v\n", podName, podNamespace, resp)
 					} else {
@@ -946,17 +921,17 @@ func logCmd() *cobra.Command {
 					continue
 				}
 				if len(destLoggerLevels) == 0 {
-					resp, err = setupEnvoyLogConfig("", podName, podNamespace)
+					resp, err = setupEnvoyLogConfig(kubeClient, "", podName, podNamespace)
 				} else {
 					if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
 						// update levels of all loggers first
-						resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, podNamespace)
+						resp, err = setupEnvoyLogConfig(kubeClient, defaultLoggerName+"="+levelToString[ll], podName, podNamespace)
 					}
 					for lg, ll := range destLoggerLevels {
 						if lg == defaultLoggerName {
 							continue
 						}
-						resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, podNamespace)
+						resp, err = setupEnvoyLogConfig(kubeClient, lg+"="+levelToString[ll], podName, podNamespace)
 					}
 				}
 				if err != nil {
@@ -970,7 +945,9 @@ func logCmd() *cobra.Command {
 			}
 			return nil
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	levelListString := fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s]",
@@ -992,7 +969,7 @@ func logCmd() *cobra.Command {
 	return logCmd
 }
 
-func routeConfigCmd() *cobra.Command {
+func routeConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	routeConfigCmd := &cobra.Command{
@@ -1022,12 +999,15 @@ func routeConfigCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
-			var err error
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -1047,7 +1027,9 @@ func routeConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	routeConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -1059,7 +1041,7 @@ func routeConfigCmd() *cobra.Command {
 	return routeConfigCmd
 }
 
-func endpointConfigCmd() *cobra.Command {
+func endpointConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	endpointConfigCmd := &cobra.Command{
@@ -1094,12 +1076,15 @@ func endpointConfigCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *clusters.ConfigWriter
-			var err error
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodClustersWriter(podName, podNamespace, c.OutOrStdout())
+				configWriter, err = setupPodClustersWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileClustersWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -1123,7 +1108,9 @@ func endpointConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -1139,7 +1126,7 @@ func endpointConfigCmd() *cobra.Command {
 
 // edsConfigCmd is a command to dump EDS output. This differs from "endpoints" which pulls from /clusters.
 // Notably, this shows metadata and locality, while clusters shows outlier health status
-func edsConfigCmd() *cobra.Command {
+func edsConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	endpointConfigCmd := &cobra.Command{
@@ -1177,12 +1164,15 @@ func edsConfigCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
-			var err error
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, true, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -1206,7 +1196,9 @@ func edsConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -1220,7 +1212,7 @@ func edsConfigCmd() *cobra.Command {
 	return endpointConfigCmd
 }
 
-func bootstrapConfigCmd() *cobra.Command {
+func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	// Shadow outputVariable since this command uses a different default value
@@ -1250,12 +1242,15 @@ func bootstrapConfigCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
-			var err error
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -1272,7 +1267,9 @@ func bootstrapConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml|short")
@@ -1282,7 +1279,7 @@ func bootstrapConfigCmd() *cobra.Command {
 	return bootstrapConfigCmd
 }
 
-func secretConfigCmd() *cobra.Command {
+func secretConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	secretConfigCmd := &cobra.Command{
@@ -1305,19 +1302,19 @@ func secretConfigCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var newWriter writer.ConfigDumpWriter
-			var err error
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				ztunnelPod, kubeClientErr := isZtunnelPod(podName, podNamespace)
-				if kubeClientErr != nil {
-					return fmt.Errorf("failed to determine if pod is a zTunnel pod: %v", kubeClientErr)
-				}
+				ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
 				if ztunnelPod {
-					newWriter, err = setupZtunnelConfigDumpWriter(podName, podNamespace, c.OutOrStdout())
+					newWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
 				} else {
-					newWriter, err = setupPodConfigdumpWriter(podName, podNamespace, false, c.OutOrStdout())
+					newWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 				}
 			} else {
 				newWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
@@ -1343,7 +1340,9 @@ func secretConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -1353,7 +1352,7 @@ func secretConfigCmd() *cobra.Command {
 	return secretConfigCmd
 }
 
-func rootCACompareConfigCmd() *cobra.Command {
+func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName1, podName2, podNamespace1, podNamespace2 string
 
 	rootCACompareConfigCmd := &cobra.Command{
@@ -1372,20 +1371,23 @@ func rootCACompareConfigCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter1, configWriter2 *configdump.ConfigWriter
-			var err error
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			if len(args) == 2 {
-				if podName1, podNamespace1, err = getPodName(args[0]); err != nil {
+				if podName1, podNamespace1, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter1, err = setupPodConfigdumpWriter(podName1, podNamespace1, false, c.OutOrStdout())
+				configWriter1, err = setupPodConfigdumpWriter(kubeClient, podName1, podNamespace1, false, c.OutOrStdout())
 				if err != nil {
 					return err
 				}
 
-				if podName2, podNamespace2, err = getPodName(args[1]); err != nil {
+				if podName2, podNamespace2, err = getPodName(ctx, args[1]); err != nil {
 					return err
 				}
-				configWriter2, err = setupPodConfigdumpWriter(podName2, podNamespace2, false, c.OutOrStdout())
+				configWriter2, err = setupPodConfigdumpWriter(kubeClient, podName2, podNamespace2, false, c.OutOrStdout())
 				if err != nil {
 					return err
 				}
@@ -1416,14 +1418,16 @@ func rootCACompareConfigCmd() *cobra.Command {
 			}
 			return returnErr
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	rootCACompareConfigCmd.Long += "\n\n" + ExperimentalMsg
 	return rootCACompareConfigCmd
 }
 
-func proxyConfig() *cobra.Command {
+func proxyConfig(ctx cli.Context) *cobra.Command {
 	configCmd := &cobra.Command{
 		Use:   "proxy-config",
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",
@@ -1436,30 +1440,24 @@ func proxyConfig() *cobra.Command {
 	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
 
-	configCmd.AddCommand(clusterConfigCmd())
-	configCmd.AddCommand(allConfigCmd())
-	configCmd.AddCommand(listenerConfigCmd())
-	configCmd.AddCommand(logCmd())
-	configCmd.AddCommand(routeConfigCmd())
-	configCmd.AddCommand(bootstrapConfigCmd())
-	configCmd.AddCommand(endpointConfigCmd())
-	configCmd.AddCommand(edsConfigCmd())
-	configCmd.AddCommand(secretConfigCmd())
-	configCmd.AddCommand(rootCACompareConfigCmd())
-	configCmd.AddCommand(ecdsConfigCmd())
-	configCmd.AddCommand(workloadConfigCmd())
+	configCmd.AddCommand(clusterConfigCmd(ctx))
+	configCmd.AddCommand(allConfigCmd(ctx))
+	configCmd.AddCommand(listenerConfigCmd(ctx))
+	configCmd.AddCommand(logCmd(ctx))
+	configCmd.AddCommand(routeConfigCmd(ctx))
+	configCmd.AddCommand(bootstrapConfigCmd(ctx))
+	configCmd.AddCommand(endpointConfigCmd(ctx))
+	configCmd.AddCommand(edsConfigCmd(ctx))
+	configCmd.AddCommand(secretConfigCmd(ctx))
+	configCmd.AddCommand(rootCACompareConfigCmd(ctx))
+	configCmd.AddCommand(ecdsConfigCmd(ctx))
+	configCmd.AddCommand(workloadConfigCmd(ctx))
 
 	return configCmd
 }
 
-func getPodNames(podflag string) ([]string, string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
-	if err != nil {
-		return []string{}, "", fmt.Errorf("failed to create k8s client: %w", err)
-	}
-	podNames, ns, err := handlers.InferPodsFromTypedResource(podflag,
-		handlers.HandleNamespace(namespace, defaultNamespace),
-		MakeKubeFactory(kubeClient))
+func getPodNames(ctx cli.Context, podflag, ns string) ([]string, string, error) {
+	podNames, ns, err := ctx.InferPodsFromTypedResource(podflag, ns)
 	if err != nil {
 		log.Errorf("pods lookup failed")
 		return []string{}, "", err
@@ -1467,19 +1465,13 @@ func getPodNames(podflag string) ([]string, string, error) {
 	return podNames, ns, nil
 }
 
-func getPodName(podflag string) (string, string, error) {
-	return getPodNameWithNamespace(podflag, defaultNamespace)
+func getPodName(ctx cli.Context, podflag string) (string, string, error) {
+	return getPodNameWithNamespace(ctx, podflag, ctx.Namespace())
 }
 
-func getPodNameWithNamespace(podflag, ns string) (string, string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
-	}
+func getPodNameWithNamespace(ctx cli.Context, podflag, ns string) (string, string, error) {
 	var podName, podNamespace string
-	podName, podNamespace, err = handlers.InferPodInfoFromTypedResource(podflag,
-		handlers.HandleNamespace(namespace, ns),
-		MakeKubeFactory(kubeClient))
+	podName, podNamespace, err := ctx.InferPodInfoFromTypedResource(podflag, ns)
 	if err != nil {
 		return "", "", err
 	}
@@ -1487,20 +1479,16 @@ func getPodNameWithNamespace(podflag, ns string) (string, string, error) {
 }
 
 // getComponentPodName returns the pod name and namespace of the Istio component
-func getComponentPodName(podflag string) (string, string, error) {
-	return getPodNameWithNamespace(podflag, istioNamespace)
+func getComponentPodName(ctx cli.Context, podflag string) (string, string, error) {
+	return getPodNameWithNamespace(ctx, podflag, ctx.IstioNamespace())
 }
 
-func getPodNameBySelector(labelSelector string) ([]string, string, error) {
+func getPodNameBySelector(ctx cli.Context, kubeClient kube.CLIClient, labelSelector string) ([]string, string, error) {
 	var (
 		podNames []string
 		ns       string
 	)
-	client, err := kubeClient(kubeconfig, configContext)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create k8s client: %w", err)
-	}
-	pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(namespace, defaultNamespace), labelSelector)
+	pl, err := kubeClient.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.Namespace()), labelSelector)
 	if err != nil {
 		return nil, "", fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 	}
@@ -1514,7 +1502,7 @@ func getPodNameBySelector(labelSelector string) ([]string, string, error) {
 	return podNames, ns, nil
 }
 
-func ecdsConfigCmd() *cobra.Command {
+func ecdsConfigCmd(ctx cli.Context) *cobra.Command {
 	var podName, podNamespace string
 
 	ecdsConfigCmd := &cobra.Command{
@@ -1538,12 +1526,15 @@ func ecdsConfigCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			var configWriter *configdump.ConfigWriter
-			var err error
+			kubeClient, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(podName, podNamespace, true, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -1560,7 +1551,9 @@ func ecdsConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return validPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	ecdsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
