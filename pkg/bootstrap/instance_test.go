@@ -28,6 +28,8 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/version"
+
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -287,6 +289,12 @@ func TestGolden(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run("Bootstrap-"+c.base, func(t *testing.T) {
+			prevVersion := version.Info.Version
+			defer func() {
+				version.Info.Version = prevVersion
+			}()
+			version.Info.Version = "binary-1.0"
+
 			out := t.TempDir()
 			if c.setup != nil {
 				c.setup()
