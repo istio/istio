@@ -39,8 +39,8 @@ import (
 )
 
 const (
-	convertedPeerAuthenticationPrefix = "converted-peer-authentication"
-	staticStrictPolicyName            = "istio-converted-static-strict"
+	convertedPeerAuthenticationPrefix = "converted_peer_authentication" // use '-' character since those are illegal in k8s names
+	staticStrictPolicyName            = "istio_converted_static_strict" // use '-' character since those are illegal in k8s names
 )
 
 // AmbientIndex maintains an index of ambient WorkloadInfo objects by various keys.

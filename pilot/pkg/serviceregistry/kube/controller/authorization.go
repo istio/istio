@@ -17,10 +17,10 @@ package controller
 import (
 	"fmt"
 	"net/netip"
-	"reflect"
 	"strconv"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -121,13 +121,6 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[string]string) []string {
 	var meshCfg, namespaceCfg, workloadCfg *config.Config
 
-	// Whether it comes from a mesh-wide, namespace-wide, or workload-specific policy
-	// if the effective policy is STRICT, then reference our static STRICT policy
-	var isEffectiveStrictPolicy bool
-	// Only 1 per port workload policy can be effective at a time. In the case of a conflict
-	// the oldest policy wins.
-	var effectivePortLevelPolicyKey string
-
 	rootNamespace := c.meshWatcher.Mesh().GetRootNamespace()
 
 	matches := func(c config.Config) bool {
@@ -181,6 +174,13 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 		}
 	}
 
+	// Whether it comes from a mesh-wide, namespace-wide, or workload-specific policy
+	// if the effective policy is STRICT, then reference our static STRICT policy
+	var isEffectiveStrictPolicy bool
+	// Only 1 per port workload policy can be effective at a time. In the case of a conflict
+	// the oldest policy wins.
+	var effectivePortLevelPolicyKey string
+
 	// Process in mesh, namespace, workload order to resolve inheritance (UNSET)
 	if meshCfg != nil {
 		meshSpec, ok := meshCfg.Spec.(*v1beta1.PeerAuthentication)
@@ -197,13 +197,13 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 	}
 
 	if workloadCfg == nil {
-		return c.effectivePeerAuthenticationKeys(isEffectiveStrictPolicy, effectivePortLevelPolicyKey)
+		return c.effectivePeerAuthenticationKeys(isEffectiveStrictPolicy, "")
 	}
 
 	workloadSpec, ok := workloadCfg.Spec.(*v1beta1.PeerAuthentication)
 	if !ok {
 		// no workload policy to calculate; go ahead and return the calculated keys
-		return c.effectivePeerAuthenticationKeys(isEffectiveStrictPolicy, effectivePortLevelPolicyKey)
+		return c.effectivePeerAuthenticationKeys(isEffectiveStrictPolicy, "")
 	}
 
 	// Regardless of if we have port-level overrides, if the workload policy is STRICT, then we need to reference our static STRICT policy
@@ -332,6 +332,39 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 		pol := c.Spec.(*v1beta1.PeerAuthentication)
 		return pol.Selector.GetMatchLabels()
 	}
+
+	portMtlsEqual := func(m1, m2 map[uint32]*v1beta1.PeerAuthentication_MutualTLS) bool {
+		diffDetected := false
+		// Loop through all of the old PA ports
+		for port, m := range m1 {
+			newPortlevelMtls, ok := m2[port]
+			if !ok {
+				diffDetected = true // port not present in the new version of the resource; something changed
+				break
+			}
+
+			if !proto.Equal(newPortlevelMtls, m) {
+				diffDetected = true // port level mTLS settings changed
+				break
+			}
+		}
+		if !diffDetected {
+			for port, m := range m2 {
+				oldPortlevelMtls, ok := m1[port]
+				if !ok {
+					diffDetected = true // port not present in the old version of the resource; something changed
+					break
+				}
+
+				if !proto.Equal(oldPortlevelMtls, m) {
+					diffDetected = true // port level mTLS settings changed
+					break
+				}
+			}
+		}
+
+		return !diffDetected
+	}
 	// Normal flow for PeerAuthentication (initRegistryEventHandlers) will trigger XDS push, so we don't need to push those. But we do need
 	// to update any relevant workloads and push them.
 	sel := getSelector(obj)
@@ -350,7 +383,8 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 		}
 
 		mtlsUnchanged := oldPa.GetMtls().GetMode() == newPa.GetMtls().GetMode()
-		portLevelMtlsUnchanged := reflect.DeepEqual(oldPa.GetPortLevelMtls(), newPa.GetPortLevelMtls())
+
+		portLevelMtlsUnchanged := portMtlsEqual(oldPa.GetPortLevelMtls(), newPa.GetPortLevelMtls())
 		if maps.Equal(sel, oldSel) && mtlsUnchanged && portLevelMtlsUnchanged {
 			// Update event, but nothing we care about changed. No workloads to push.
 			return
@@ -509,7 +543,9 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 	}
 
 	// If we have a strict policy and all of the ports are strict, it's effectively a strict policy
-	// so we can exit early and have the WorkloadRbac xDS server push its static strict policy
+	// so we can exit early and have the WorkloadRbac xDS server push its static strict policy.
+	// Note that this doesn't actually attach the policy to any workload; it just makes it available
+	// to ztunnel in case a workload needs it.
 	foundNonStrictPortmTLS := false
 	for port, mtls := range pa.PortLevelMtls {
 		switch portMtlsMode := mtls.GetMode(); {
