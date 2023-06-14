@@ -6,5 +6,5 @@ groups:
       - 9090
       notPrincipals:
       - presence: {}
-name: converted-peer-authentication-permissive-strict-mtls
+name: converted_peer_authentication_permissive-strict-mtls
 scope: WORKLOAD_SELECTOR

@@ -38,11 +38,6 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
-const (
-	convertedPeerAuthenticationPrefix = "converted_peer_authentication" // use '-' character since those are illegal in k8s names
-	staticStrictPolicyName            = "istio_converted_static_strict" // use '-' character since those are illegal in k8s names
-)
-
 // AmbientIndex maintains an index of ambient WorkloadInfo objects by various keys.
 // These are intentionally pre-computed based on events such that lookups are efficient.
 type AmbientIndex struct {

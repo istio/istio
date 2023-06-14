@@ -36,6 +36,11 @@ import (
 	"istio.io/istio/pkg/workloadapi/security"
 )
 
+const (
+	convertedPeerAuthenticationPrefix = "converted_peer_authentication_" // use '_' character since those are illegal in k8s names
+	staticStrictPolicyName            = "istio_converted_static_strict"  // use '_' character since those are illegal in k8s names
+)
+
 func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.Authorization {
 	if !c.configCluster {
 		return nil
@@ -60,7 +65,7 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 		}
 		if k.Kind == kind.PeerAuthentication {
 			// PeerAuthentications are synthetic so prepend our special prefix
-			k.Name = fmt.Sprintf("%s-%s", convertedPeerAuthenticationPrefix, k.Name)
+			k.Name = fmt.Sprintf("%s%s", convertedPeerAuthenticationPrefix, k.Name)
 		}
 		if len(requested) > 0 && !requested.Contains(k) {
 			continue
@@ -229,7 +234,7 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 			if foundPermissive {
 				// If we found a non-strict policy, we need to reference this workload policy to see the port level exceptions
-				effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s-%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+				effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
 				isEffectiveStrictPolicy = false // don't send our static STRICT policy since the converted form of this policy will include the default STRICT mode
 			}
 		case v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE:
@@ -244,7 +249,7 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 			// There's a STRICT port mode, so we need to reference this policy in the workload
 			if foundStrict {
-				effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s-%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+				effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
 			}
 		default: // Unset
 			if isEffectiveStrictPolicy {
@@ -259,7 +264,7 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 				if foundPermissive {
 					// If we found a non-strict policy, we need to reference this workload policy to see the port level exceptions
-					effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s-%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+					effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
 				}
 			} else {
 				// Permissive mesh or namespace policy
@@ -274,7 +279,7 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 				// There's a STRICT port mode, so we need to reference this policy in the workload
 				if foundStrict {
-					effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s-%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+					effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
 				}
 			}
 		}
@@ -604,7 +609,7 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 	}
 
 	opol := &security.Authorization{
-		Name:      convertedPeerAuthenticationPrefix + "-" + cfg.Name,
+		Name:      convertedPeerAuthenticationPrefix + cfg.Name,
 		Namespace: cfg.Namespace,
 		Scope:     scope,
 		Action:    action,
