@@ -35,7 +35,7 @@ import (
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	istioctlcmd "istio.io/istio/istioctl/cmd"
+	istioctlcmd "istio.io/istio/istioctl/pkg/workload"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
