@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -111,7 +112,7 @@ func validateStringList(vf ValidatorFunc) ValidatorFunc {
 		}
 		var errs util.Errors
 		for _, s := range strings.Split(val.(string), ",") {
-			errs = util.AppendErrs(errs, vf(path, strings.TrimSpace(s)))
+			errs = util.AppendErrs(errs, vf(path, s))
 			scope.Debugf("\nerrors(%d): %v", len(errs), errs)
 			msg += fmt.Sprintf("\nerrors(%d): %v", len(errs), errs)
 		}
@@ -185,6 +186,11 @@ func validateCIDR(path util.Path, val any) util.Errors {
 	var err error
 	if !util.IsString(val) {
 		err = fmt.Errorf("validateCIDR %s got %T, want string", path, val)
+		// check the val whether to start and end with a space
+	} else if len(val.(string)) == 0 {
+		err = fmt.Errorf("validateCIDR %s got empty string, want not empty string", path)
+	} else if unicode.IsSpace(rune(val.(string)[0])) || unicode.IsSpace(rune(val.(string)[len(val.(string))-1])) {
+		err = fmt.Errorf("validateCIDR %s got space begin or end, want not begin with space or end", val)
 	} else {
 		if _, err = netip.ParsePrefix(val.(string)); err != nil {
 			err = fmt.Errorf("%s %s", path, err)

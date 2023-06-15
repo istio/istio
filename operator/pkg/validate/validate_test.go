@@ -163,6 +163,26 @@ meshConfig:
     discoveryAddress: istiod:15012
 `,
 		},
+		{
+			desc: "BadValuesIP with Space start",
+			yamlStr: `
+values:
+  global:
+    proxy:
+      includeIPRanges: "1.1.0.0/16, 2.2.0.0/16"
+`,
+			wantErrs: makeErrors([]string{`validateCIDR  2.2.0.0/16 got space begin or end, want not begin with space or end`}),
+		},
+		{
+			desc: "BadValuesIP with Space end",
+			yamlStr: `
+values:
+  global:
+    proxy:
+      includeIPRanges: "1.1.0.0/16 ,2.2.0.0/16"
+`,
+			wantErrs: makeErrors([]string{`validateCIDR 1.1.0.0/16  got space begin or end, want not begin with space or end`}),
+		},
 	}
 
 	for _, tt := range tests {
