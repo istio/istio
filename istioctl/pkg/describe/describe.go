@@ -1344,9 +1344,9 @@ func getMeshConfig(kubeClient kube.CLIClient, istioNamespace string) (*meshconfi
 		return nil, fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, istioNamespace, err)
 	}
 
-	configYaml, ok := meshConfigMap.Data[istioctlutil.DefaultMeshConfigMapName]
+	configYaml, ok := meshConfigMap.Data[istioctlutil.ConfigMapKey]
 	if !ok {
-		return nil, fmt.Errorf("missing config map key %q", istioctlutil.DefaultMeshConfigMapName)
+		return nil, fmt.Errorf("missing config map key %q", istioctlutil.ConfigMapKey)
 	}
 
 	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)

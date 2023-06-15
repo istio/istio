@@ -488,7 +488,6 @@ var (
 
 const (
 	defaultMeshConfigMapName       = "istio"
-	defaultMeshConfigMapKey        = "mesh"
 	defaultInjectConfigMapName     = "istio-sidecar-injector"
 	defaultInjectWebhookConfigName = "istio-sidecar-injector"
 	defaultWebhookName             = "sidecar-injector.istio.io"
