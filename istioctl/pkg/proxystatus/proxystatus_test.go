@@ -25,7 +25,7 @@ import (
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/rest/fake"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
-	util2 "k8s.io/kubectl/pkg/cmd/util"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/test/util"
@@ -119,7 +119,7 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 }
 
 func init() {
-	cli.MakeKubeFactory = func(k kube.CLIClient) util2.Factory {
+	cli.MakeKubeFactory = func(k kube.CLIClient) cmdutil.Factory {
 		tf := cmdtesting.NewTestFactory()
 		_, _, codec := cmdtesting.NewExternalScheme()
 		tf.UnstructuredClient = &fake.RESTClient{
