@@ -642,12 +642,12 @@ func extractEnvoyEndpoints(locEps []*LocalityEndpoints) []*endpoint.LocalityLbEn
 }
 
 func compareEndpointsOrFail(t *testing.T, cluster string, got []*endpoint.LocalityLbEndpoints, want []LocLbEpInfo) {
-	if err := compareEndpoints(t, cluster, got, want); err != nil {
+	if err := compareEndpoints(cluster, got, want); err != nil {
 		t.Error(err)
 	}
 }
 
-func compareEndpoints(t *testing.T, cluster string, got []*endpoint.LocalityLbEndpoints, want []LocLbEpInfo) error {
+func compareEndpoints(cluster string, got []*endpoint.LocalityLbEndpoints, want []LocLbEpInfo) error {
 	if len(got) != len(want) {
 		return fmt.Errorf("unexpected number of filtered endpoints for %s: got %v, want %v", cluster, len(got), len(want))
 	}

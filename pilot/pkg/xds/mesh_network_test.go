@@ -698,13 +698,13 @@ func (w *workload) testWeighted(t *testing.T, s *FakeDiscoveryServer) {
 			eps := xdstest.ExtractLocalityLbEndpoints(s.Endpoints(w.proxy))
 			for c, want := range w.weightedExpectations {
 				got := eps[c]
-				if err := compareEndpoints(t, c, got, want); err != nil {
+				if err := compareEndpoints(c, got, want); err != nil {
 					return err
 				}
 			}
 			for c, got := range eps {
 				want := w.weightedExpectations[c]
-				if err := compareEndpoints(t, c, got, want); err != nil {
+				if err := compareEndpoints(c, got, want); err != nil {
 					return err
 				}
 			}
