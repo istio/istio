@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: ztunnel
+  name: {{ .Values.appName }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- .Values.labels | toYaml | nindent 4}}
@@ -14,12 +14,12 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: ztunnel
+      app: {{ .Values.appName }}
   template:
     metadata:
       labels:
         sidecar.istio.io/inject: "false"
-        app: ztunnel
+        app: {{ .Values.appName }}
 {{ with .Values.podLabels -}}{{ toYaml . | indent 8 }}{{ end }}
       annotations:
         cni.projectcalico.org/allowedSourcePrefixes: "[\"0.0.0.0/0\"]"
@@ -27,7 +27,7 @@ spec:
         sidecar.istio.io/inject: "false"
 {{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
     spec:
-      serviceAccountName: ztunnel
+      serviceAccountName: {{ .Values.appName }}
       tolerations:
         - effect: NoSchedule
           operator: Exists
@@ -44,7 +44,7 @@ spec:
 {{- end }}
         ports:
         - containerPort: 15020
-          name: ztunnel-stats
+          name: {{ .Values.appName }}-stats
           protocol: TCP
         resources:
 {{- if .Values.resources }}
@@ -91,6 +91,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        {{- if .Values.xdsHost }}
+        - name: XDS_ADDRESS
+          value: https://{{ .Values.xdsHost }}
+        - name: CA_ADDRESS
+          value: https://{{ .Values.xdsHost }}
+        {{- end }}
         - name: SERVICE_ACCOUNT
           valueFrom:
             fieldRef:

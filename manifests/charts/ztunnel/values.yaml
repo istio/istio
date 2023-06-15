@@ -5,6 +5,9 @@ tag: latest
 # Variant to pull. Options are "debug" or "distroless". Unset will use the default for the given version.
 variant: ""
 
+# Name/prefix to use when creating named k8s resources for this chart.
+appName: "ztunnel"
+
 # Image name to pull from. Image will be `Hub/Image:Tag-Variant`
 # If Image contains a "/", it will replace the entire `image` in the pod.
 image: ztunnel
@@ -51,11 +54,11 @@ meshConfig:
   defaultConfig:
     proxyMetadata: {}
 
-# Ambient redirection mode: "iptables" or "ebpf"
-redirectMode: "iptables"
-
 # This value defines:
 # 1. how many seconds kube waits for ztunnel pod to gracefully exit before forcibly terminating it (this value)
 # 2. how many seconds ztunnel waits to drain its own connections (this value - 1 sec)
 # Default K8S value is 30 seconds
 terminationGracePeriodSeconds: 30
+
+# Which XDS endpoint ztunnel should be configured to contact
+xdsHost: "istiod.istio-system.svc:15012"

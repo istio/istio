@@ -7,7 +7,7 @@ imagePullSecrets:
   {{- end }}
   {{- end }}
 metadata:
-  name: ztunnel
+  name: {{ .Values.appName }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- .Values.labels | toYaml | nindent 4}}

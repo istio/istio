@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: []
+
+releaseNotes:
+  - |
+    **Added** Add xdsHost property to ztunnel Helm chart.
+    **Added** Add appName property to ztunnel Helm chart.
