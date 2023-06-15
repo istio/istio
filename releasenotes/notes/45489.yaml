@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 45338
+
+releaseNotes:
+- |
+   **Fixed** ExcludeIPRanges configuration not producing expected iptables rules when given ranges contains space after comma separator
