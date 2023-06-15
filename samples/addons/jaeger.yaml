@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: jaeger
-          image: "docker.io/jaegertracing/all-in-one:1.35"
+          image: "docker.io/jaegertracing/all-in-one:1.46"
           env:
             - name: BADGER_EPHEMERAL
               value: "false"
