@@ -270,6 +270,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 		},
 	}
 	proxy := fakeProxy("10.0.0.1", group, "nw1")
+	proxy.Labels[model.LocalityLabel] = "rgn2/zone2/subzone2"
 	proxy.XdsNode = fakeNode("rgn2", "zone2", "subzone2")
 
 	wantLabels := map[string]string{
