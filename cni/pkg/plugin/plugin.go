@@ -237,7 +237,7 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 			log.Errorf("istio-cni cmdAdd failed to get pod IPs: %s", err)
 			return err
 		}
-		log.Infof("istio-cni cmdAdd podName: %s podIPs: %+v", podName, podIPs)
+		log.Infof("istio-cni ambient cmdAdd podName: %s podIPs: %+v", podName, podIPs)
 		added, err = checkAmbient(client, *ambientConf, podName, podNamespace, args.IfName, args.Netns, podIPs)
 		if err != nil {
 			log.Errorf("istio-cni cmdAdd failed to check ambient: %s", err)
