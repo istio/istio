@@ -21,9 +21,16 @@ COPY requirements.txt ./
 # install the dependencies and packages in the requirements file
 RUN pip install --no-cache-dir -r requirements.txt
 
+# old image had curl and could be used as a sample client if desired
+RUN apt-get update \
+  && apt-get install curl --no-install-recommends -y \
+  && rm -rf /var/lib/apt/lists/*
+
 EXPOSE 5000
 
 ARG service_version
 ENV SERVICE_VERSION ${service_version:-v1}
 
-CMD ["python", "app.py"]
+# image will bind on TCP6 by default. In k8s pod spec (in a deployment pod template most likely) override for explicit IPv4 if needed with the command shown below:
+# ["gunicorn", "-b", "[0.0.0.0]:5000", "app:app", "-k", "gevent"]
+CMD ["gunicorn", "-b", "[::]:5000", "app:app", "-k", "gevent"]
