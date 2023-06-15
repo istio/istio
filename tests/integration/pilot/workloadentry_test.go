@@ -34,6 +34,27 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+const ExistingDeploymentGateway = `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: ingress-ew
+  namespace: istio-system
+spec:
+  selector:
+    istio: eastwestgateway
+  servers:
+  - port:
+      number: 15443
+      name: https
+      protocol: TLS
+    hosts:
+    - serviceentry.mesh.global
+    tls:
+      mode: AUTO_PASSTHROUGH
+`
+
 func TestWorkloadEntryGateway(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).

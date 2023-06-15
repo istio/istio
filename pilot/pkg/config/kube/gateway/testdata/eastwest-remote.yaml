@@ -6,7 +6,7 @@ metadata:
   labels:
     topology.istio.io/network: "network-1"
 spec:
-  gatewayClassName: istio
+  gatewayClassName: istio-remote
   listeners:
   - name: istiod-grpc
     port: 15012

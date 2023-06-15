@@ -117,8 +117,10 @@ func getClassInfos() map[string]classInfo {
 			description: "The default Istio GatewayClass",
 			templates:   "kube-gateway",
 		},
-		remoteClassName: {
-			controller:  constants.ManagedGatewayController,
+		constants.RemoteGatewayClassName: {
+			// This represents a gateway that our control plane cannot discover directly via the API server.
+			// We shouldn't generate Istio resources for it. We aren't programming this gateway.
+			controller:  constants.UnmanagedGatewayController,
 			description: "Istio GatewayClass representing a remote gateway. This will not trigger deploying resources.",
 		},
 	}
