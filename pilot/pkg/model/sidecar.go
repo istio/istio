@@ -113,7 +113,7 @@ type SidecarScope struct {
 	// Set of known configs this sidecar depends on.
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
-	configDependencies map[ConfigHash]struct{}
+	configDependencies sets.Set[ConfigHash]
 
 	// The namespace to treat as the administrative root namespace for
 	// Istio configuration.
@@ -191,7 +191,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
 		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
 		servicesByHostname:      make(map[host.Name]*Service, len(defaultEgressListener.services)),
-		configDependencies:      make(map[ConfigHash]struct{}),
+		configDependencies:      make(sets.Set[ConfigHash]),
 		RootNamespace:           ps.Mesh.RootNamespace,
 		Version:                 ps.PushVersion,
 	}
@@ -264,7 +264,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		Name:               sidecarConfig.Name,
 		Namespace:          configNamespace,
 		Sidecar:            sidecar,
-		configDependencies: make(map[ConfigHash]struct{}),
+		configDependencies: make(sets.Set[ConfigHash]),
 		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
 	}
@@ -545,8 +545,7 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 		return true
 	}
 
-	_, exists := sc.configDependencies[config.HashCode()]
-	return exists
+	return sc.configDependencies.Contains(config.HashCode())
 }
 
 func (sc *SidecarScope) GetService(hostname host.Name) *Service {
@@ -563,11 +562,9 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigHash) {
 		return
 	}
 	if sc.configDependencies == nil {
-		sc.configDependencies = make(map[ConfigHash]struct{})
-	}
-
-	for _, config := range dependencies {
-		sc.configDependencies[config] = struct{}{}
+		sc.configDependencies = sets.New(dependencies...)
+	} else {
+		sc.configDependencies.InsertAll(dependencies...)
 	}
 }
 
