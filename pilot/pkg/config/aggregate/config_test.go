@@ -43,24 +43,11 @@ func TestAggregateStoreBasicMake(t *testing.T) {
 
 	stores := []model.ConfigStore{store1, store2}
 
-	store, err := makeStore(stores, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	store := makeStore(stores, nil)
 
 	schemas := store.Schemas()
 	g.Expect(schemas.All()).To(gomega.HaveLen(2))
 	fixtures.ExpectEqual(t, schemas, collection.SchemasFor(schema1, schema2))
-}
-
-func TestAggregateStoreMakeValidationFailure(t *testing.T) {
-	g := gomega.NewWithT(t)
-
-	store1 := memory.Make(collection.SchemasFor(schemaFor("SomeConfig", "broken message name")))
-
-	stores := []model.ConfigStore{store1}
-
-	store, err := makeStore(stores, nil)
-	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("not found: broken message name")))
-	g.Expect(store).To(gomega.BeNil())
 }
 
 func TestAggregateStoreGet(t *testing.T) {
@@ -81,8 +68,7 @@ func TestAggregateStoreGet(t *testing.T) {
 
 	stores := []model.ConfigStore{store1, store2}
 
-	store, err := makeStore(stores, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	store := makeStore(stores, nil)
 
 	c := store.Get(gvk.GatewayClass, "other", "")
 	g.Expect(c.Name).To(gomega.Equal(configReturn.Name))
@@ -113,8 +99,7 @@ func TestAggregateStoreList(t *testing.T) {
 
 	stores := []model.ConfigStore{store1, store2}
 
-	store, err := makeStore(stores, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	store := makeStore(stores, nil)
 
 	l := store.List(gvk.HTTPRoute, "")
 	g.Expect(l).To(gomega.HaveLen(2))
@@ -128,8 +113,7 @@ func TestAggregateStoreWrite(t *testing.T) {
 
 	stores := []model.ConfigStore{store1, store2}
 
-	store, err := makeStore(stores, store1)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	store := makeStore(stores, store1)
 
 	if _, err := store.Create(config.Config{
 		Meta: config.Meta{
@@ -156,15 +140,12 @@ func TestAggregateStoreWrite(t *testing.T) {
 }
 
 func TestAggregateStoreWriteWithoutWriter(t *testing.T) {
-	g := gomega.NewWithT(t)
-
 	store1 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 	store2 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 
 	stores := []model.ConfigStore{store1, store2}
 
-	store, err := makeStore(stores, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	store := makeStore(stores, nil)
 
 	if _, err := store.Create(config.Config{
 		Meta: config.Meta{
@@ -177,19 +158,16 @@ func TestAggregateStoreWriteWithoutWriter(t *testing.T) {
 }
 
 func TestAggregateStoreFails(t *testing.T) {
-	g := gomega.NewWithT(t)
-
 	store1 := memory.Make(collection.SchemasFor(schemaFor("OtherConfig", "istio.networking.v1alpha3.Gateway")))
 
 	stores := []model.ConfigStore{store1}
 
-	store, err := makeStore(stores, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	store := makeStore(stores, nil)
 
 	t.Run("Fails to Delete", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		err = store.Delete(config.GroupVersionKind{Kind: "not"}, "gonna", "work", nil)
+		err := store.Delete(config.GroupVersionKind{Kind: "not"}, "gonna", "work", nil)
 		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
 	})
 

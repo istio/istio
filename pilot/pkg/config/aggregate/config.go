@@ -20,9 +20,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -30,14 +32,15 @@ var errorUnsupported = errors.New("unsupported operation: the config aggregator 
 
 // makeStore creates an aggregate config store from several config stores and
 // unifies their descriptors
-func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.ConfigStore, error) {
+func makeStore(stores []model.ConfigStore, writer model.ConfigStore) model.ConfigStore {
 	union := collection.NewSchemasBuilder()
 	storeTypes := make(map[config.GroupVersionKind][]model.ConfigStore)
 	for _, store := range stores {
 		for _, s := range store.Schemas().All() {
 			if len(storeTypes[s.GroupVersionKind()]) == 0 {
-				if err := union.Add(s); err != nil {
-					return nil, err
+				err := union.Add(s)
+				if features.EnableUnsafeAssertions && err != nil {
+					log.Fatalf("failed to add schema: %v", err)
 				}
 			}
 			storeTypes[s.GroupVersionKind()] = append(storeTypes[s.GroupVersionKind()], store)
@@ -45,8 +48,11 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 	}
 
 	schemas := union.Build()
-	if err := schemas.Validate(); err != nil {
-		return nil, err
+	if features.EnableUnsafeAssertions {
+		// Schema should be only made of statically configure things, should never happen
+		if err := schemas.Validate(); err != nil {
+			log.Fatalf("schema validation failed: %v", err)
+		}
 	}
 	result := &store{
 		schemas: schemas,
@@ -54,7 +60,7 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 		writer:  writer,
 	}
 
-	return result, nil
+	return result
 }
 
 // MakeWriteableCache creates an aggregate config store cache from several config store caches. An additional
@@ -64,10 +70,7 @@ func MakeWriteableCache(caches []model.ConfigStoreController, writer model.Confi
 	for _, cache := range caches {
 		stores = append(stores, cache)
 	}
-	store, err := makeStore(stores, writer)
-	if err != nil {
-		return nil
-	}
+	store := makeStore(stores, writer)
 	return &storeCache{
 		ConfigStore: store,
 		caches:      caches,
