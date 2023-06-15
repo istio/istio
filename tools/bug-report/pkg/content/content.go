@@ -252,7 +252,7 @@ func GetAnalyze(p *Params, timeout time.Duration) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	k = kube.EnableCrdWatcher(k.(kube.Client))
+	k = kube.EnableCrdWatcher(k)
 	sa.AddRunningKubeSource(k)
 
 	cancel := make(chan struct{})
