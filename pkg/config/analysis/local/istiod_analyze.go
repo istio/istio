@@ -23,8 +23,10 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/ryanuber/go-glob"
+	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 
 	"istio.io/api/annotation"
 	"istio.io/api/mesh/v1alpha1"
@@ -45,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -273,12 +276,24 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 }
 
 func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
+	// This makes the assumption we don't care about Helm secrets or SA token secrets - two common
+	// large secrets in clusters.
+	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
+	secretFieldSelector := fields.AndSelectors(
+		fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
+		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
+
 	// TODO: are either of these string constants intended to vary?
 	// This gets us only istio/ ones
 	store, err := crdclient.NewForSchemas(c, crdclient.Option{
 		Revision:     revision,
 		DomainSuffix: "cluster.local",
 		Identifier:   "analysis-controller",
+		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
+			gvk.Secret: {
+				FieldSelector: secretFieldSelector,
+			},
+		},
 	}, sa.kubeResources)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
 	if err != nil {
