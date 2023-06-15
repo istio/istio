@@ -194,10 +194,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		c.RunAndWait(cancel)
 	}
 
-	store, err := aggregate.MakeWriteableCache(allstores, nil)
-	if err != nil {
-		return err
-	}
+	store := aggregate.MakeWriteableCache(allstores, nil)
 	go store.Run(cancel)
 	sa.initializedStore = store
 	return nil
@@ -286,7 +283,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 
 	// TODO: are either of these string constants intended to vary?
 	// This gets us only istio/ ones
-	store, err := crdclient.NewForSchemas(c, crdclient.Option{
+	store := crdclient.NewForSchemas(c, crdclient.Option{
 		Revision:     revision,
 		DomainSuffix: "cluster.local",
 		Identifier:   "analysis-controller",
@@ -297,10 +294,6 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		},
 	}, sa.kubeResources)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
-	if err != nil {
-		scope.Analysis.Errorf("error adding kube crdclient: %v", err)
-		return
-	}
 	sa.stores = append(sa.stores, store)
 
 	sa.clientsToRun = append(sa.clientsToRun, c)

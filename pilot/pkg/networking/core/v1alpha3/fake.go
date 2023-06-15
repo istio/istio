@@ -124,7 +124,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		controllers = append(controllers, opts.CreateConfigStore(cc))
 	}
 	controllers = append(controllers, opts.ConfigStoreCaches...)
-	configController, _ := configaggregate.MakeWriteableCache(controllers, cc)
+	configController := configaggregate.MakeWriteableCache(controllers, cc)
 
 	m := opts.MeshConfig
 	if m == nil {

@@ -114,10 +114,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	}
 
 	// Wrap the config controller with a cache.
-	aggregateConfigController, err := configaggregate.MakeCache(s.ConfigStores)
-	if err != nil {
-		return err
-	}
+	aggregateConfigController := configaggregate.MakeCache(s.ConfigStores)
 	s.configController = aggregateConfigController
 
 	// Create the config store.
@@ -136,10 +133,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	if s.kubeClient == nil {
 		return nil
 	}
-	configController, err := s.makeKubeConfigController(args)
-	if err != nil {
-		return err
-	}
+	configController := s.makeKubeConfigController(args)
 	s.ConfigStores = append(s.ConfigStores, configController)
 	if features.EnableGatewayAPI {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
@@ -198,10 +192,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
-	s.RWConfigStore, err = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
-	if err != nil {
-		return err
-	}
+	s.RWConfigStore = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
 	s.XDSServer.WorkloadEntryController = autoregistration.NewController(configController, args.PodName, args.KeepaliveOptions.MaxServerConnectionAge)
 	return nil
 }
@@ -341,7 +332,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	}
 }
 
-func (s *Server) makeKubeConfigController(args *PilotArgs) (*crdclient.Client, error) {
+func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 	opts := crdclient.Option{
 		Revision:     args.Revision,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,

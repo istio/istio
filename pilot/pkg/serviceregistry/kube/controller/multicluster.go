@@ -16,7 +16,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 
@@ -126,7 +125,7 @@ func (m *Multicluster) Run(stopCh <-chan struct{}) error {
 	return m.close()
 }
 
-func (m *Multicluster) close() (err error) {
+func (m *Multicluster) close() error {
 	m.m.Lock()
 	m.closing = true
 
@@ -142,61 +141,60 @@ func (m *Multicluster) close() (err error) {
 	for _, clusterID := range clusterIDs {
 		clusterID := clusterID
 		g.Go(func() error {
-			return m.ClusterDeleted(clusterID)
+			m.ClusterDeleted(clusterID)
+			return nil
 		})
 	}
-	err = g.Wait()
-	return
+	return g.Wait()
 }
 
 // ClusterAdded is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh <-chan struct{}) error {
+func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh <-chan struct{}) {
 	m.m.Lock()
-	kubeController, kubeRegistry, options, configCluster, err := m.addCluster(cluster)
-	if err != nil {
+	kubeController, kubeRegistry, options, configCluster := m.addCluster(cluster)
+	if kubeController == nil {
 		m.m.Unlock()
-		return err
+		return
 	}
 	m.m.Unlock()
 	// clusterStopCh is a channel that will be closed when this cluster removed.
-	return m.initializeCluster(cluster, kubeController, kubeRegistry, *options, configCluster, clusterStopCh)
+	m.initializeCluster(cluster, kubeController, kubeRegistry, *options, configCluster, clusterStopCh)
 }
 
 // ClusterUpdated is passed to the secret controller as a callback to be called
 // when a remote cluster is updated.
-func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
+func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) {
 	m.m.Lock()
 	m.deleteCluster(cluster.ID)
-	kubeController, kubeRegistry, options, configCluster, err := m.addCluster(cluster)
-	if err != nil {
+	kubeController, kubeRegistry, options, configCluster := m.addCluster(cluster)
+	if kubeController == nil {
 		m.m.Unlock()
-		return err
+		return
 	}
 	m.m.Unlock()
 	// clusterStopCh is a channel that will be closed when this cluster removed.
-	return m.initializeCluster(cluster, kubeController, kubeRegistry, *options, configCluster, stop)
+	m.initializeCluster(cluster, kubeController, kubeRegistry, *options, configCluster, stop)
 }
 
 // ClusterDeleted is passed to the secret controller as a callback to be called
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
-func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
+func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) {
 	m.m.Lock()
 	m.deleteCluster(clusterID)
 	m.m.Unlock()
 	if m.XDSUpdater != nil {
 		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ClusterUpdate}})
 	}
-	return nil
 }
 
 // addCluster adds cluster related resources and updates internal structures.
 // This is not thread safe.
-func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*kubeController, *Controller, *Options, bool, error) {
+func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*kubeController, *Controller, *Options, bool) {
 	if m.closing {
-		return nil, nil, nil, false, fmt.Errorf("failed adding member cluster %s: server shutting down", cluster.ID)
+		return nil, nil, nil, false
 	}
 
 	client := cluster.Client
@@ -221,13 +219,13 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*kubeControlle
 		Controller: kubeRegistry,
 	}
 	m.remoteKubeControllers[cluster.ID] = kubeController
-	return kubeController, kubeRegistry, &options, configCluster, nil
+	return kubeController, kubeRegistry, &options, configCluster
 }
 
 // initializeCluster initializes the cluster by setting various handlers.
 func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeController *kubeController, kubeRegistry *Controller,
 	options Options, configCluster bool, clusterStopCh <-chan struct{},
-) error {
+) {
 	client := cluster.Client
 
 	if m.serviceEntryController != nil && features.EnableServiceEntrySelectPods {
@@ -250,23 +248,21 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			m.serviceEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 		} else if features.WorkloadEntryCrossCluster {
 			// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
-			if configStore, err := createWleConfigStore(client, m.revision, options); err == nil {
-				kubeController.workloadEntryController = serviceentry.NewWorkloadEntryController(
-					configStore, options.XDSUpdater,
-					serviceentry.WithClusterID(cluster.ID),
-					serviceentry.WithNetworkIDCb(kubeRegistry.Network))
-				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
-				kubeController.workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-				// ServiceEntry selects WorkloadEntry from remote cluster
-				kubeController.workloadEntryController.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
-				if features.EnableEnhancedResourceScoping {
-					kubeRegistry.AppendNamespaceDiscoveryHandlers(kubeController.workloadEntryController.NamespaceDiscoveryHandler)
-				}
-				m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
-				go configStore.Run(clusterStopCh)
-			} else {
-				return fmt.Errorf("failed creating config configStore for cluster %s: %v", cluster.ID, err)
+			configStore := createWleConfigStore(client, m.revision, options)
+			kubeController.workloadEntryController = serviceentry.NewWorkloadEntryController(
+				configStore, options.XDSUpdater,
+				serviceentry.WithClusterID(cluster.ID),
+				serviceentry.WithNetworkIDCb(kubeRegistry.Network))
+			// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
+			kubeController.workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+			// ServiceEntry selects WorkloadEntry from remote cluster
+			kubeController.workloadEntryController.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
+			if features.EnableEnhancedResourceScoping {
+				kubeRegistry.AppendNamespaceDiscoveryHandlers(kubeController.workloadEntryController.NamespaceDiscoveryHandler)
 			}
+			m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
+			go configStore.Run(clusterStopCh)
+
 		}
 	}
 
@@ -353,8 +349,6 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			return nil
 		})
 	}
-
-	return nil
 }
 
 // checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
@@ -415,7 +409,7 @@ func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
 	delete(m.remoteKubeControllers, clusterID)
 }
 
-func createWleConfigStore(client kubelib.Client, revision string, opts Options) (model.ConfigStoreController, error) {
+func createWleConfigStore(client kubelib.Client, revision string, opts Options) model.ConfigStoreController {
 	log.Infof("Creating WorkloadEntry only config store for %s", opts.ClusterID)
 	workloadEntriesSchemas := collection.NewSchemasBuilder().
 		MustAdd(collections.WorkloadEntry).

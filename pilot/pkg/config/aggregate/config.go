@@ -59,24 +59,24 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 
 // MakeWriteableCache creates an aggregate config store cache from several config store caches. An additional
 // `writer` config store is passed, which may or may not be part of `caches`.
-func MakeWriteableCache(caches []model.ConfigStoreController, writer model.ConfigStore) (model.ConfigStoreController, error) {
+func MakeWriteableCache(caches []model.ConfigStoreController, writer model.ConfigStore) model.ConfigStoreController {
 	stores := make([]model.ConfigStore, 0, len(caches))
 	for _, cache := range caches {
 		stores = append(stores, cache)
 	}
 	store, err := makeStore(stores, writer)
 	if err != nil {
-		return nil, err
+		return nil
 	}
 	return &storeCache{
 		ConfigStore: store,
 		caches:      caches,
-	}, nil
+	}
 }
 
 // MakeCache creates an aggregate config store cache from several config store
 // caches.
-func MakeCache(caches []model.ConfigStoreController) (model.ConfigStoreController, error) {
+func MakeCache(caches []model.ConfigStoreController) model.ConfigStoreController {
 	return MakeWriteableCache(caches, nil)
 }
 

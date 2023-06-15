@@ -54,16 +54,13 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 	ia.AddSource(rwConfigStore)
 
 	// Filter out configs watched by rwConfigStore so we don't watch multiple times
-	store, err := crdclient.NewForSchemas(kubeClient,
+	store := crdclient.NewForSchemas(kubeClient,
 		crdclient.Option{Revision: revision, DomainSuffix: domainSuffix, Identifier: "analysis-controller"},
 		all.Remove(rwConfigStore.Schemas().All()...))
-	if err != nil {
-		return nil, fmt.Errorf("unable to load common types for analysis, releasing lease: %v", err)
-	}
 
 	ia.AddSource(store)
 	kubeClient.RunAndWait(stop)
-	err = ia.Init(stop)
+	err := ia.Init(stop)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize analysis controller, releasing lease: %s", err)
 	}
