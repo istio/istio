@@ -64,7 +64,7 @@ func ConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.Set[ConfigK
 
 	for conf := range configs {
 		if conf.Kind == kind {
-			ret[conf] = struct{}{}
+			ret.Insert(conf)
 		}
 	}
 
