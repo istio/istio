@@ -432,6 +432,8 @@ spec:
 				// these will me merged giving the remote gateway a weight of 2
 				{sa: "foo", network: "network-2", address: "", version: "v1"},
 				{sa: "foo", network: "network-2", address: "", version: "v1"},
+				// this should not be included in the weight since it doesn't have an address OR a gateway
+				{sa: "foo", network: "no-gateway-address", address: "", version: "v1"},
 			},
 			expectations: map[string][]LocLbEpInfo{
 				"": {LocLbEpInfo{
