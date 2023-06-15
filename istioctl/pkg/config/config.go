@@ -75,15 +75,10 @@ func runList(writer io.Writer) error {
 		i++
 	}
 	sort.Strings(keys)
-	ccc := settableFlags
-	fmt.Println(ccc)
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
 	fmt.Fprintf(w, "FLAG\tVALUE\tFROM\n")
 	for _, flag := range keys {
 		v := settableFlags[flag]
-		if flag == "istioNamespace" {
-			fmt.Println(123)
-		}
 		fmt.Fprintf(w, "%s\t%s\t%v\n", flag, viper.GetString(flag), configSource(flag, v))
 	}
 	return w.Flush()

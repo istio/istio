@@ -17,7 +17,7 @@ package cmd
 import (
 	"testing"
 
-	util2 "istio.io/istio/istioctl/pkg/util"
+	istioctlutil "istio.io/istio/istioctl/pkg/util"
 )
 
 func TestBadParse(t *testing.T) {
@@ -26,7 +26,7 @@ func TestBadParse(t *testing.T) {
 	fErr := rootCmd.Execute()
 
 	switch fErr.(type) {
-	case util2.CommandParseError:
+	case istioctlutil.CommandParseError:
 		// do nothing
 	default:
 		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
@@ -37,7 +37,7 @@ func TestBadParse(t *testing.T) {
 	fErr = rootCmd.Execute()
 
 	switch fErr.(type) {
-	case util2.CommandParseError:
+	case istioctlutil.CommandParseError:
 		// do nothing
 	default:
 		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
@@ -48,7 +48,7 @@ func TestBadParse(t *testing.T) {
 	fErr = rootCmd.Execute()
 
 	switch fErr.(type) {
-	case util2.CommandParseError:
+	case istioctlutil.CommandParseError:
 		// do nothing
 	default:
 		t.Errorf("Expected a CommandParseError, but got %q.", fErr)

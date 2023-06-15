@@ -38,7 +38,7 @@ import (
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	util2 "istio.io/istio/istioctl/pkg/util"
+	istioctlutil "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
@@ -460,7 +460,7 @@ func createMeshConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGrou
 			ProxyMetadata: map[string]string{},
 		},
 	}
-	if err := protomarshal.ApplyYAML(istio.Data[util2.ConfigMapKey], meshConfig); err != nil {
+	if err := protomarshal.ApplyYAML(istio.Data[istioctlutil.ConfigMapKey], meshConfig); err != nil {
 		return nil, err
 	}
 	if isRevisioned(revision) && meshConfig.DefaultConfig.DiscoveryAddress == "" {
@@ -633,7 +633,7 @@ func extractClusterIDFromInjectionConfig(kubeClient kube.CLIClient, istioNamespa
 	}
 
 	var injectedCMValues map[string]any
-	if err := json.Unmarshal([]byte(istioInjectionCM.Data[util2.ValuesConfigMapKey]), &injectedCMValues); err != nil {
+	if err := json.Unmarshal([]byte(istioInjectionCM.Data[istioctlutil.ValuesConfigMapKey]), &injectedCMValues); err != nil {
 		return "", err
 	}
 	v, f, err := tpath.GetFromStructPath(injectedCMValues, "global.multiCluster.clusterName")

@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/root"
 	"istio.io/istio/istioctl/pkg/tag"
-	util2 "istio.io/istio/istioctl/pkg/util"
+	istioctlutil "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/cmd/mesh"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -66,8 +66,8 @@ const (
 
 var (
 	validFormats = map[string]bool{
-		util2.JSONFormat:  true,
-		util2.TableFormat: true,
+		istioctlutil.JSONFormat:  true,
+		istioctlutil.TableFormat: true,
 	}
 
 	defaultSections = []string{
@@ -107,7 +107,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	}
 	revisionCmd.PersistentFlags().StringVarP(&revArgs.manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
 	revisionCmd.PersistentFlags().BoolVarP(&revArgs.verbose, "verbose", "v", false, "Enable verbose output")
-	revisionCmd.PersistentFlags().StringVarP(&revArgs.output, "output", "o", util2.TableFormat, "Output format for revision description "+
+	revisionCmd.PersistentFlags().StringVarP(&revArgs.output, "output", "o", istioctlutil.TableFormat, "Output format for revision description "+
 		"(available formats: table,json)")
 
 	revisionCmd.AddCommand(revisionListCommand(ctx))
@@ -239,9 +239,9 @@ func revisionList(ctx cli.Context, kubeClient kube.CLIClient, writer io.Writer, 
 	}
 
 	switch revArgs.output {
-	case util2.JSONFormat:
+	case istioctlutil.JSONFormat:
 		return tag.PrintJSON(writer, revisions)
-	case util2.TableFormat:
+	case istioctlutil.TableFormat:
 		if len(revisions) == 0 {
 			_, err = fmt.Fprintln(writer, "No Istio installation found.\n"+
 				"No IstioOperator CR or sidecar injectors found")
@@ -530,9 +530,9 @@ func printRevisionDescription(ctx cli.Context, w io.Writer, args *revisionArgs, 
 		}
 	}
 	switch revArgs.output {
-	case util2.JSONFormat:
+	case istioctlutil.JSONFormat:
 		return tag.PrintJSON(w, revDescription)
-	case util2.TableFormat:
+	case istioctlutil.TableFormat:
 		sections := defaultSections
 		if args.verbose {
 			sections = verboseSections

@@ -47,7 +47,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/completion"
-	ikutil "istio.io/istio/istioctl/pkg/util"
+	istioctlutil "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
@@ -171,7 +171,7 @@ the configuration objects that affect that pod.`,
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
-	cmd.Long += "\n\n" + ikutil.ExperimentalMsg
+	cmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return cmd
 }
 
@@ -1138,7 +1138,7 @@ the configuration objects that affect that service.`,
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
-	cmd.Long += "\n\n" + ikutil.ExperimentalMsg
+	cmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return cmd
 }
 
@@ -1332,11 +1332,11 @@ func printPeerAuthentication(writer io.Writer, pa authnv1beta1.MergedPeerAuthent
 
 func getMeshConfig(kubeClient kube.CLIClient, istioNamespace string) (*meshconfig.MeshConfig, error) {
 	rev := kubeClient.Revision()
-	meshConfigMapName := ikutil.DefaultMeshConfigMapName
+	meshConfigMapName := istioctlutil.DefaultMeshConfigMapName
 
 	// if the revision is not "default", render mesh config map name with revision
 	if rev != "default" && rev != "" {
-		meshConfigMapName = fmt.Sprintf("%s-%s", ikutil.DefaultMeshConfigMapName, rev)
+		meshConfigMapName = fmt.Sprintf("%s-%s", istioctlutil.DefaultMeshConfigMapName, rev)
 	}
 
 	meshConfigMap, err := kubeClient.Kube().CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
@@ -1344,9 +1344,9 @@ func getMeshConfig(kubeClient kube.CLIClient, istioNamespace string) (*meshconfi
 		return nil, fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, istioNamespace, err)
 	}
 
-	configYaml, ok := meshConfigMap.Data[ikutil.DefaultMeshConfigMapName]
+	configYaml, ok := meshConfigMap.Data[istioctlutil.DefaultMeshConfigMapName]
 	if !ok {
-		return nil, fmt.Errorf("missing config map key %q", ikutil.DefaultMeshConfigMapName)
+		return nil, fmt.Errorf("missing config map key %q", istioctlutil.DefaultMeshConfigMapName)
 	}
 
 	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)

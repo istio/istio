@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/istioctl/pkg/kubeinject"
-	util2 "istio.io/istio/istioctl/pkg/util"
+	istioctlutil "istio.io/istio/istioctl/pkg/util"
 	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/writer"
 	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
@@ -1356,7 +1356,7 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
-	secretConfigCmd.Long += "\n\n" + util2.ExperimentalMsg
+	secretConfigCmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return secretConfigCmd
 }
 
@@ -1431,7 +1431,7 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 		},
 	}
 
-	rootCACompareConfigCmd.Long += "\n\n" + util2.ExperimentalMsg
+	rootCACompareConfigCmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return rootCACompareConfigCmd
 }
 
