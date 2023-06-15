@@ -81,6 +81,7 @@ type Client struct {
 
 	// namespacesFilter is only used to initiate filtered informer.
 	namespacesFilter func(obj interface{}) bool
+	filtersByGVK     map[config.GroupVersionKind]kubetypes.Filter
 }
 
 type Option struct {
@@ -88,6 +89,7 @@ type Option struct {
 	DomainSuffix     string
 	Identifier       string
 	NamespacesFilter func(obj interface{}) bool
+	FiltersByGVK     map[config.GroupVersionKind]kubetypes.Filter
 }
 
 var _ model.ConfigStoreController = &Client{}
@@ -118,6 +120,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		client:           client,
 		logger:           scope.WithLabels("controller", opts.Identifier),
 		namespacesFilter: opts.NamespacesFilter,
+		filtersByGVK:     opts.FiltersByGVK,
 	}
 
 	for _, s := range out.schemas.All() {
@@ -333,13 +336,16 @@ func (cl *Client) addCRD(name string) {
 		cl.logger.Debugf("added resource that already exists: %v", resourceGVK)
 		return
 	}
-	filter := kubetypes.Filter{
-		ObjectFilter: func(t any) bool {
-			if cl.namespacesFilter != nil && !cl.namespacesFilter(t) {
-				return false
-			}
-			return config.LabelsInRevision(t.(controllers.Object).GetLabels(), cl.revision)
-		},
+	filter := cl.filtersByGVK[resourceGVK]
+	objectFilter := filter.ObjectFilter
+	filter.ObjectFilter = func(t any) bool {
+		if objectFilter != nil && !objectFilter(t) {
+			return false
+		}
+		if cl.namespacesFilter != nil && !cl.namespacesFilter(t) {
+			return false
+		}
+		return config.LabelsInRevision(t.(controllers.Object).GetLabels(), cl.revision)
 	}
 	var kc kclient.Untyped
 	if s.IsBuiltin() {
