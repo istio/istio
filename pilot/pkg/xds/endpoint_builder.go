@@ -274,6 +274,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if b.service.Attributes.NodeLocal && ep.NodeName != b.proxy.GetNodeName() {
 				continue
 			}
+			// TODO(nmittler): Consider merging discoverability policy with cluster-local
 			if !ep.IsDiscoverableFromProxy(b.proxy) {
 				continue
 			}
@@ -284,7 +285,10 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if !subsetLabels.SubsetOf(ep.Labels) {
 				continue
 			}
-
+			// If we don't know the address we must eventually use a gateway address
+			if ep.Address == "" && ep.Network == b.network {
+				continue
+			}
 			// Draining endpoints are only sent to 'persistent session' clusters.
 			draining := ep.HealthStatus == model.Draining ||
 				features.DrainingLabel != "" && ep.Labels[features.DrainingLabel] != ""

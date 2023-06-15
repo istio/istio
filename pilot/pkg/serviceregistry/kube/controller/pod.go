@@ -188,7 +188,7 @@ func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
 		return
 	}
 	// fire instance handles for workload
-	ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.DefaultDiscoverabilityPolicy, model.Healthy)
+	ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable, model.Healthy)
 	workloadInstance := &model.WorkloadInstance{
 		Name:      pod.Name,
 		Namespace: pod.Namespace,

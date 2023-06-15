@@ -184,11 +184,11 @@ func ExternalNameServiceInstances(k8sSvc *corev1.Service, svc *model.Service) []
 	}
 	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
 
-	discoverabilityPolicy := model.DefaultDiscoverabilityPolicy
+	discoverabilityPolicy := model.AlwaysDiscoverable
 	if features.EnableMCSServiceDiscovery {
 		// MCS spec does not allow export of external name services.
 		// See https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#exporting-services.
-		discoverabilityPolicy = model.ClusterLocalDiscoverabilityPolicy
+		discoverabilityPolicy = model.DiscoverableFromSameCluster
 	}
 	for _, portEntry := range svc.Ports {
 		out = append(out, &model.ServiceInstance{
