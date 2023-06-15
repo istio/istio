@@ -429,7 +429,7 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 				} else {
 					istiodLabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, opts.Revision)
 				}
-				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.Namespace()), istiodLabelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.IstioNamespace()), istiodLabelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", istiodLabelSelector, err)
 				}
