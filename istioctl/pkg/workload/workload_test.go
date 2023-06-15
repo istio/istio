@@ -192,6 +192,14 @@ func TestWorkloadEntryConfigureInvalidArgs(t *testing.T) {
 	}
 }
 
+var generated = map[string]bool{
+	"hosts":         true,
+	"istio-token":   true,
+	"mesh.yaml":     true,
+	"root-cert.pem": true,
+	"cluster.env":   true,
+}
+
 const goldenSuffix = ".golden"
 
 // TestWorkloadEntryConfigure enumerates test cases based on subdirectories of testdata/vmconfig.
@@ -217,8 +225,13 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 		if !dir.IsDir() {
 			continue
 		}
+		testdir := path.Join("testdata/vmconfig", dir.Name())
+		t.Cleanup(func() {
+			for k := range generated {
+				os.Remove(path.Join(testdir, k))
+			}
+		})
 		t.Run(dir.Name(), func(t *testing.T) {
-			testdir := path.Join("testdata/vmconfig", dir.Name())
 			createClientFunc := func(client kube.CLIClient) {
 				client.Kube().CoreV1().ServiceAccounts("bar").Create(context.Background(), &v1.ServiceAccount{
 					ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
@@ -269,10 +282,11 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 			}
 
 			checkFiles := map[string]bool{
-				// outputs to check
-				"mesh.yaml": true, "istio-token": true, "hosts": true, "root-cert.pem": true, "cluster.env": true,
 				// inputs that we allow to exist, if other files seep in unexpectedly we fail the test
 				".gitignore": false, "meshconfig.yaml": false, "workloadgroup.yaml": false,
+			}
+			for k, v := range generated {
+				checkFiles[k] = v
 			}
 
 			checkOutputFiles(t, testdir, checkFiles)
@@ -310,6 +324,12 @@ func TestWorkloadEntryToPodPortsMeta(t *testing.T) {
 func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	testdir := "testdata/vmconfig-nil-proxy-metadata"
 	noClusterID := "failed to automatically determine the --clusterID"
+
+	t.Cleanup(func() {
+		for k := range generated {
+			os.Remove(path.Join(testdir, k))
+		}
+	})
 
 	createClientFunc := func(client kube.CLIClient) {
 		client.Kube().CoreV1().ServiceAccounts("bar").Create(context.Background(), &v1.ServiceAccount{
@@ -359,10 +379,11 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	}
 
 	checkFiles := map[string]bool{
-		// outputs to check
-		"mesh.yaml": true, "istio-token": true, "hosts": true, "root-cert.pem": true, "cluster.env": true,
 		// inputs that we allow to exist, if other files seep in unexpectedly we fail the test
 		".gitignore": false, "workloadgroup.yaml": false,
+	}
+	for k, v := range generated {
+		checkFiles[k] = v
 	}
 
 	checkOutputFiles(t, testdir, checkFiles)
