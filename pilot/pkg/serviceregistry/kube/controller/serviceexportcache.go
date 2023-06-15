@@ -43,7 +43,7 @@ type exportedService struct {
 // cluster and generates discoverability policies for the endpoints.
 type serviceExportCache interface {
 	// EndpointDiscoverabilityPolicy returns the policy for Service endpoints residing within the current cluster.
-	EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy
+	EndpointDiscoverabilityPolicy(svc *model.Service) *model.EndpointDiscoverabilityPolicy
 
 	// ExportedServices returns the list of services that are exported in this cluster. Used for debugging.
 	ExportedServices() []exportedService
@@ -67,23 +67,23 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 		registerHandlers(ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)
 
 		// Set the discoverability policy for the clusterset.local host.
-		ec.clusterSetLocalPolicySelector = func(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
+		ec.clusterSetLocalPolicySelector = func(svc *model.Service) (policy *model.EndpointDiscoverabilityPolicy) {
 			// If the service is exported in this cluster, allow the endpoints in this cluster to be discoverable
 			// anywhere in the mesh.
 			if ec.isExported(namespacedNameForService(svc)) {
-				return model.AlwaysDiscoverable
+				return model.DefaultDiscoverabilityPolicy
 			}
 
 			// Otherwise, endpoints are only discoverable from within the same cluster.
-			return model.DiscoverableFromSameCluster
+			return model.ClusterLocalDiscoverabilityPolicy
 		}
 
 		// Set the discoverability policy for the cluster.local host.
 		if features.EnableMCSClusterLocal {
 			// MCS cluster.local mode is enabled. Allow endpoints for the cluster.local host to be
 			// discoverable only from within the same cluster.
-			ec.clusterLocalPolicySelector = func(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
-				return model.DiscoverableFromSameCluster
+			ec.clusterLocalPolicySelector = func(svc *model.Service) (policy *model.EndpointDiscoverabilityPolicy) {
+				return model.ClusterLocalDiscoverabilityPolicy
 			}
 		} else {
 			// MCS cluster.local mode is not enabled, so requests to the cluster.local host are not confined
@@ -98,7 +98,7 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 	return disabledServiceExportCache{}
 }
 
-type discoverabilityPolicySelector func(*model.Service) model.EndpointDiscoverabilityPolicy
+type discoverabilityPolicySelector func(*model.Service) *model.EndpointDiscoverabilityPolicy
 
 // serviceExportCache reads ServiceExport resources for a single cluster.
 type serviceExportCacheImpl struct {
@@ -138,10 +138,10 @@ func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
 	}
 }
 
-func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy {
+func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Service) *model.EndpointDiscoverabilityPolicy {
 	if svc == nil {
 		// Default policy when the service doesn't exist.
-		return model.DiscoverableFromSameCluster
+		return model.ClusterLocalDiscoverabilityPolicy
 	}
 
 	if strings.HasSuffix(svc.Hostname.String(), "."+constants.DefaultClusterSetLocalDomain) {
@@ -197,8 +197,8 @@ type disabledServiceExportCache struct{}
 
 var _ serviceExportCache = disabledServiceExportCache{}
 
-func (c disabledServiceExportCache) EndpointDiscoverabilityPolicy(*model.Service) model.EndpointDiscoverabilityPolicy {
-	return model.AlwaysDiscoverable
+func (c disabledServiceExportCache) EndpointDiscoverabilityPolicy(*model.Service) *model.EndpointDiscoverabilityPolicy {
+	return model.DefaultDiscoverabilityPolicy
 }
 
 func (c disabledServiceExportCache) Run(stop <-chan struct{}) {}

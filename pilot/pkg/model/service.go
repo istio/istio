@@ -485,7 +485,7 @@ type IstioEndpoint struct {
 	SubDomain string
 
 	// Determines the discoverability of this endpoint throughout the mesh.
-	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
+	DiscoverabilityPolicy *EndpointDiscoverabilityPolicy `json:"-"`
 
 	// Indicates the endpoint health status.
 	HealthStatus HealthStatus
@@ -508,11 +508,6 @@ func (ep *IstioEndpoint) GetLoadBalancingWeight() uint32 {
 
 // IsDiscoverableFromProxy indicates whether this endpoint is discoverable from the given Proxy.
 func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
-	if ep == nil || ep.DiscoverabilityPolicy == nil {
-		// If no policy was assigned, default to discoverable mesh-wide.
-		// TODO(nmittler): Will need to re-think this default when cluster.local is actually cluster-local.
-		return true
-	}
 	return ep.DiscoverabilityPolicy.IsDiscoverableFromProxy(ep, p)
 }
 
@@ -563,39 +558,40 @@ type EndpointMetadata struct {
 }
 
 // EndpointDiscoverabilityPolicy determines the discoverability of an endpoint throughout the mesh.
-type EndpointDiscoverabilityPolicy interface {
-	// IsDiscoverableFromProxy indicates whether an endpoint is discoverable from the given Proxy.
-	IsDiscoverableFromProxy(*IstioEndpoint, *Proxy) bool
-
-	// String returns name of this policy.
-	String() string
-}
-
-type endpointDiscoverabilityPolicyImpl struct {
+type EndpointDiscoverabilityPolicy struct {
 	name string
 	f    func(*IstioEndpoint, *Proxy) bool
 }
 
-func (p *endpointDiscoverabilityPolicyImpl) IsDiscoverableFromProxy(ep *IstioEndpoint, proxy *Proxy) bool {
-	return p.f(ep, proxy)
+func (p *EndpointDiscoverabilityPolicy) IsDiscoverableFromProxy(ep *IstioEndpoint, proxy *Proxy) bool {
+	if ep == nil {
+		return true
+	}
+	// an endpoint in the same network as the proxy must have an address
+	if proxy.InNetwork(ep.Network) && ep.Address == "" {
+		return false
+	}
+
+	// TODO(nmittler): Will need to re-think this default when cluster.local is actually cluster-local.
+	return p == nil || p.f(ep, proxy)
 }
 
-func (p *endpointDiscoverabilityPolicyImpl) String() string {
+func (p *EndpointDiscoverabilityPolicy) String() string {
 	return p.name
 }
 
-// AlwaysDiscoverable is an EndpointDiscoverabilityPolicy that allows an endpoint to be discoverable throughout the mesh.
-var AlwaysDiscoverable EndpointDiscoverabilityPolicy = &endpointDiscoverabilityPolicyImpl{
-	name: "AlwaysDiscoverable",
+// DefaultDiscoverabilityPolicy is an EndpointDiscoverabilityPolicy that allows an endpoint to be discoverable throughout the mesh.
+var DefaultDiscoverabilityPolicy = &EndpointDiscoverabilityPolicy{
+	name: "Default",
 	f: func(*IstioEndpoint, *Proxy) bool {
 		return true
 	},
 }
 
-// DiscoverableFromSameCluster is an EndpointDiscoverabilityPolicy that only allows an endpoint to be discoverable
+// ClusterLocalDiscoverabilityPolicy is an EndpointDiscoverabilityPolicy that only allows an endpoint to be discoverable
 // from proxies within the same cluster.
-var DiscoverableFromSameCluster EndpointDiscoverabilityPolicy = &endpointDiscoverabilityPolicyImpl{
-	name: "DiscoverableFromSameCluster",
+var ClusterLocalDiscoverabilityPolicy = &EndpointDiscoverabilityPolicy{
+	name: "ClusterLocal",
 	f: func(ep *IstioEndpoint, p *Proxy) bool {
 		return p.InCluster(ep.Locality.ClusterID)
 	},
