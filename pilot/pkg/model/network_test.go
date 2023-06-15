@@ -113,7 +113,7 @@ func TestGatewayHostnames(t *testing.T) {
 			// addresses should be updated
 			retry.UntilOrFail(t, func() bool {
 				return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
-			}, retry.Timeout(2*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
+			}, retry.Timeout(2*model.MinGatewayTTL))
 			xdsUpdater.WaitOrFail(t, "xds full")
 		})
 
@@ -133,7 +133,7 @@ func TestGatewayHostnames(t *testing.T) {
 			retry.UntilOrFail(t, func() bool {
 				return len(env.NetworkManager.AllGateways()) != 0 &&
 					!reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
-			}, retry.Timeout(2*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
+			}, retry.Timeout(2*model.MinGatewayTTL))
 			xdsUpdater.WaitOrFail(t, "xds full")
 		})
 	}
