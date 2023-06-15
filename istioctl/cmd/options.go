@@ -53,14 +53,3 @@ func optionsCommand(rootCmd *cobra.Command) *cobra.Command {
 
 	return retval
 }
-
-// validateFlagIsSetManuallyOrNot can validate that a persistent flag is set manually or not by user for given command
-func validateFlagIsSetManuallyOrNot(istioCmd *cobra.Command, flagName string) bool {
-	if istioCmd != nil {
-		allPersistentFlagSet := istioCmd.PersistentFlags()
-		if flagName != "" {
-			return allPersistentFlagSet.Changed(flagName)
-		}
-	}
-	return false
-}

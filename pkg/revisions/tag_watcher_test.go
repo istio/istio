@@ -22,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
-	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
@@ -73,7 +72,7 @@ func makeTag(revision string, tg string) *admissionregistrationv1.MutatingWebhoo
 			Name: tg,
 			Labels: map[string]string{
 				label.IoIstioRev.Name: revision,
-				tag.IstioTagLabel:     tg,
+				"istio.io/tag":        tg,
 			},
 		},
 	}
