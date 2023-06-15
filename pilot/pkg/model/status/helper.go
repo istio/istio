@@ -103,10 +103,9 @@ func DeleteConfigCondition(cfg config.Config, condition string) config.Config {
 
 func deleteCondition(conditions []*v1alpha1.IstioCondition, condition string) []*v1alpha1.IstioCondition {
 	ret := append([]*v1alpha1.IstioCondition(nil), conditions...)
-	for i, cond := range ret {
-		if cond.Type == condition {
-			ret = slices.Delete(conditions, i)
-		}
-	}
+	ret = slices.Filter(ret, func(c *v1alpha1.IstioCondition) bool {
+		return c.Type != condition
+	})
+
 	return ret
 }
