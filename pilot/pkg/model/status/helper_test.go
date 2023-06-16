@@ -120,6 +120,11 @@ func Test_deleteCondition(t *testing.T) {
 						Message: "just a test, here",
 					},
 					{
+						Type:    "PassedValidation",
+						Status:  "True",
+						Message: "just a test, here2",
+					},
+					{
 						Type:    "Reconciled",
 						Status:  "False",
 						Message: "1/2 proxies up to date.",
