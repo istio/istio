@@ -38,6 +38,27 @@ pilot:
   cpu:
     targetAverageUtilization: 80
 
+  # Additional volumeMounts to the istiod container
+  volumeMounts: []
+    # - mountPath: /etc/cert-manager/tls
+    #   name: cert-manager
+    #   readOnly: true
+    # - mountPath: /etc/cert-manager/ca
+    #   name: ca-root-cert
+    #   readOnly: true
+
+  # Additional volumes to the istiod pod
+  volumes: []
+    # - name: cert-manager
+    #   secret:
+    #     defaultMode: 420
+    #     secretName: istiod-tls
+    # - configMap:
+    #     defaultMode: 420
+    #     name: istio-ca-root-cert
+    #     optional: true
+    #   name: ca-root-cert
+
   # if protocol sniffing is enabled for outbound
   enableProtocolSniffingForOutbound: true
   # if protocol sniffing is enabled for inbound
