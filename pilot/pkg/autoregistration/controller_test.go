@@ -133,13 +133,13 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	n := fakeNode("reg1", "zone1", "subzone1")
 
 	p := fakeProxy("1.2.3.4", wgA, "nw1")
-	p.XdsNode = n
+	p.Locality = n.Locality
 
 	p2 := fakeProxy("1.2.3.4", wgA, "nw2")
-	p2.XdsNode = n
+	p2.Locality = n.Locality
 
 	p3 := fakeProxy("1.2.3.5", wgA, "nw1")
-	p3.XdsNode = n
+	p3.Locality = n.Locality
 
 	// allows associating a Register call with Unregister
 	var origConnTime time.Time
@@ -227,7 +227,6 @@ func TestUpdateHealthCondition(t *testing.T) {
 	go ig.Run(stop)
 	go ig2.Run(stop)
 	p := fakeProxy("1.2.3.4", wgA, "litNw")
-	p.XdsNode = fakeNode("reg1", "zone1", "subzone1")
 	ig.RegisterWorkload(p, time.Now())
 	t.Run("auto registered healthy health", func(t *testing.T) {
 		ig.QueueWorkloadEntryHealth(p, HealthEvent{
@@ -270,7 +269,9 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 		},
 	}
 	proxy := fakeProxy("10.0.0.1", group, "nw1")
+	proxy.Labels[model.LocalityLabel] = "rgn2/zone2/subzone2"
 	proxy.XdsNode = fakeNode("rgn2", "zone2", "subzone2")
+	proxy.Locality = proxy.XdsNode.Locality
 
 	wantLabels := map[string]string{
 		"app":   "a",   // from WorkloadEntry template
