@@ -130,6 +130,7 @@ func (f *fakeEnvironment) CreateClient(_ string) (kube.CLIClient, error) {
 func TestNewEnvironment(t *testing.T) {
 	context := "" // empty, use current-Context
 	kubeconfig, wantConfig := createFakeKubeconfigFileOrDie(t)
+	defer os.Remove(kubeconfig)
 
 	wantEnv := &KubeEnvironment{
 		config:     wantConfig,
