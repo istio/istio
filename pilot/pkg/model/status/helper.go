@@ -76,15 +76,14 @@ func UpdateConfigCondition(cfg config.Config, condition *v1alpha1.IstioCondition
 }
 
 func updateCondition(conditions []*v1alpha1.IstioCondition, condition *v1alpha1.IstioCondition) []*v1alpha1.IstioCondition {
-	ret := append([]*v1alpha1.IstioCondition(nil), conditions...)
-	for i, cond := range ret {
+	for i, cond := range conditions {
 		if cond.Type == condition.Type {
-			ret[i] = condition
-			return ret
+			conditions[i] = condition
+			return conditions
 		}
 	}
 
-	return append(ret, condition)
+	return append(conditions, condition)
 }
 
 func DeleteConfigCondition(cfg config.Config, condition string) config.Config {
@@ -102,10 +101,9 @@ func DeleteConfigCondition(cfg config.Config, condition string) config.Config {
 }
 
 func deleteCondition(conditions []*v1alpha1.IstioCondition, condition string) []*v1alpha1.IstioCondition {
-	ret := append([]*v1alpha1.IstioCondition(nil), conditions...)
-	ret = slices.Filter(ret, func(c *v1alpha1.IstioCondition) bool {
+	conditions = slices.FilterInPlace(conditions, func(c *v1alpha1.IstioCondition) bool {
 		return c.Type != condition
 	})
 
-	return ret
+	return conditions
 }
