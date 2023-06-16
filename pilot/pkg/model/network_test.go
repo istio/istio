@@ -113,13 +113,14 @@ func TestGatewayHostnames(t *testing.T) {
 			// addresses should be updated
 			retry.UntilOrFail(t, func() bool {
 				return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
-			}, retry.Timeout(2*model.MinGatewayTTL))
+			}, retry.Timeout(2*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
 			xdsUpdater.WaitOrFail(t, "xds full")
 		})
 
 		workingDNSServer.setHosts(make(sets.Set[string]))
 		t.Run("no answer", func(t *testing.T) {
 			retry.UntilOrFail(t, func() bool {
+				fmt.Println(env.NetworkManager.AllGateways())
 				return len(env.NetworkManager.AllGateways()) == 0
 			}, retry.Timeout(2*time.Duration(ttl)*time.Second))
 			xdsUpdater.WaitOrFail(t, "xds full")
@@ -131,9 +132,10 @@ func TestGatewayHostnames(t *testing.T) {
 		workingDNSServer.setHosts(sets.New(gwHost))
 		t.Run("new answer", func(t *testing.T) {
 			retry.UntilOrFail(t, func() bool {
+				fmt.Println(env.NetworkManager.AllGateways())
 				return len(env.NetworkManager.AllGateways()) != 0 &&
 					!reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
-			}, retry.Timeout(2*model.MinGatewayTTL))
+			}, retry.Timeout(2*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
 			xdsUpdater.WaitOrFail(t, "xds full")
 		})
 	}
