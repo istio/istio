@@ -27,6 +27,12 @@ pilot:
   # Set to `type: RuntimeDefault` to use the default profile if available.
   seccompProfile: {}
 
+  # Additional container arguments
+  extraContainerArgs: []
+  # - --tlsCertFile=/etc/cert-manager/tls/tls.crt
+  # - --tlsKeyFile=/etc/cert-manager/tls/tls.key
+  # - --caCertFile=/etc/cert-manager/ca/root-cert.pem
+
   env: {}
 
   cpu:

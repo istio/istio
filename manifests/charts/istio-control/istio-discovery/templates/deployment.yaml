@@ -110,6 +110,11 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
+{{- if .Values.pilot.extraContainerArgs }}
+          {{- with .Values.pilot.extraContainerArgs }}
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+{{- end }}
           ports:
           - containerPort: 8080
             protocol: TCP
