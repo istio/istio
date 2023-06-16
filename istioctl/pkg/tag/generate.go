@@ -265,10 +265,14 @@ func mergeMaps(base, override map[string]string) map[string]string {
 	if override == nil {
 		return base
 	}
-	for k, v := range override {
-		base[k] = v
+	merged := make(map[string]string, len(base)+len(override))
+	for k, v := range base {
+		merged[k] = v
 	}
-	return base
+	for k, v := range override {
+		merged[k] = v
+	}
+	return merged
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
