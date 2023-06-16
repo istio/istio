@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	label2 "istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
@@ -60,7 +61,7 @@ var (
 )
 
 // Cmd returns a cobra command for bug-report.
-func Cmd(logOpts *log.Options) *cobra.Command {
+func Cmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "bug-report",
 		Short:        "Cluster information and log capture support tool.",
@@ -79,7 +80,7 @@ e.g.
 --include ns1,ns2 (only namespaces ns1 and ns2)
 --include n*//p*/l=v* (pods with name beginning with 'p' in namespaces beginning with 'n' and having label 'l' with value beginning with 'v'.)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBugReportCommand(cmd, logOpts)
+			return runBugReportCommand(ctx, cmd, logOpts)
 		},
 	}
 	rootCmd.AddCommand(version.CobraCommand())
@@ -99,7 +100,7 @@ var (
 	lock    = sync.RWMutex{}
 )
 
-func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
+func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options) error {
 	runner := kubectlcmd.NewRunner(gConfig.RequestsPerSecondLimit)
 	runner.ReportRunningTasks()
 	if err := configLogs(logOpts); err != nil {
@@ -149,7 +150,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	}
 	logRuntime(curTime, "Done collecting cluster resource")
 
-	dumpRevisionsAndVersions(resources, config.KubeConfigPath, config.Context, config.IstioNamespace, config.DryRun)
+	dumpRevisionsAndVersions(ctx, resources, config.IstioNamespace, config.DryRun)
 
 	log.Infof("Cluster resource tree:\n\n%s\n\n", resources)
 	paths, err := filter.GetMatchingPaths(config, resources)
@@ -209,14 +210,14 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	return nil
 }
 
-func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string, dryRun bool) {
+func dumpRevisionsAndVersions(ctx cli.Context, resources *cluster2.Resources, istioNamespace string, dryRun bool) {
 	defer logRuntime(time.Now(), "Done getting control plane revisions/versions")
 
 	text := ""
 	text += fmt.Sprintf("CLI version:\n%s\n\n", version.Info.LongForm())
 
 	revisions := getIstioRevisions(resources)
-	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)
+	istioVersions, proxyVersions := getIstioVersions(ctx, istioNamespace, revisions)
 	text += "The following Istio control plane revisions/versions were found in the cluster:\n"
 	for rev, ver := range istioVersions {
 		text += fmt.Sprintf("Revision %s:\n%s\n\n", rev, ver)
@@ -244,13 +245,18 @@ func getIstioRevisions(resources *cluster2.Resources) []string {
 
 // getIstioVersions returns a mapping of revision to aggregated version string for Istio components and revision to
 // slice of versions for proxies. Any errors are embedded in the revision strings.
-func getIstioVersions(kubeconfig, configContext, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
+func getIstioVersions(ctx cli.Context, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
 	istioVersions := make(map[string]string)
 	proxyVersionsMap := make(map[string]sets.String)
 	proxyVersions := make(map[string][]string)
 	for _, revision := range revisions {
-		istioVersions[revision] = getIstioVersion(kubeconfig, configContext, istioNamespace, revision)
-		proxyInfo, err := proxy.GetProxyInfo(kubeconfig, configContext, revision, istioNamespace)
+		client, err := ctx.CLIClientWithRevision(revision)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+		istioVersions[revision] = getIstioVersion(client, istioNamespace)
+		proxyInfo, err := proxy.GetProxyInfo(client, istioNamespace)
 		if err != nil {
 			log.Error(err)
 			continue
@@ -267,12 +273,7 @@ func getIstioVersions(kubeconfig, configContext, istioNamespace string, revision
 	return istioVersions, proxyVersions
 }
 
-func getIstioVersion(kubeconfig, configContext, istioNamespace, revision string) string {
-	kubeClient, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
-	if err != nil {
-		return err.Error()
-	}
-
+func getIstioVersion(kubeClient kube.CLIClient, istioNamespace string) string {
 	versions, err := kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
 	if err != nil {
 		return err.Error()

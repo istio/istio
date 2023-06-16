@@ -18,12 +18,14 @@ import (
 	"fmt"
 	"os"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/bug-report/pkg/bugreport"
 )
 
 func main() {
-	if err := bugreport.Cmd(log.DefaultOptions()).Execute(); err != nil {
+	ctx := cli.NewCLIContext(nil)
+	if err := bugreport.Cmd(ctx, log.DefaultOptions()).Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
