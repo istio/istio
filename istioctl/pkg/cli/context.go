@@ -48,6 +48,9 @@ type Context interface {
 	// TODO(hanxiaop) entirely drop KubeConfig and KubeContext, use CLIClient instead. Currently this is used not only in istioctl package.
 }
 
+// Ensure instance implements Context interface.
+var _ Context = (*instance)(nil)
+
 type instance struct {
 	// clients are cached clients for each revision
 	clients map[string]kube.CLIClient
