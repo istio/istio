@@ -415,7 +415,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 		// k8s can't use uds for service objects
 		dnsServiceEntryOnly = true
 	}
-	if !netutil.IsValidIPAddress(addr) {
+	if addr != "" && !netutil.IsValidIPAddress(addr) {
 		// k8s can't use workloads with hostnames in the address field.
 		dnsServiceEntryOnly = true
 	}

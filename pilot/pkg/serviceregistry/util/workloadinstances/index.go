@@ -85,7 +85,9 @@ func (i *index) Insert(wi *model.WorkloadInstance) *model.WorkloadInstance {
 		i.ipToKeys.Delete(previous.Endpoint.Address, key)
 	}
 	i.keyToInstance[key] = wi
-	i.ipToKeys.Insert(wi.Endpoint.Address, key)
+	if wi.Endpoint.Address != "" {
+		i.ipToKeys.Insert(wi.Endpoint.Address, key)
+	}
 	return previous
 }
 
