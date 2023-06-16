@@ -24,7 +24,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/cni/pkg/ambient"
-	"istio.io/istio/cni/pkg/ambient/ambientpod"
 	ebpf "istio.io/istio/cni/pkg/ebpf/server"
 	"istio.io/istio/pkg/log"
 )
@@ -44,7 +43,7 @@ func checkAmbient(
 		return false, err
 	}
 
-	if ambientpod.PodZtunnelEnabled(ns, pod) {
+	if ambient.PodRedirectionEnabled(ns, pod) {
 		if ambientConfig.RedirectMode == ambient.EbpfMode.String() {
 			ifIndex, mac, err := ambient.GetIndexAndPeerMac(podIfname, podNetNs)
 			if err != nil {

@@ -19,8 +19,6 @@ import (
 	"errors"
 	"os/exec"
 	"strings"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 type ExecList struct {
@@ -71,15 +69,4 @@ func execute(cmd string, args ...string) error {
 	}
 
 	return nil
-}
-
-func getEnvFromPod(pod *corev1.Pod, envName string) string {
-	for _, container := range pod.Spec.Containers {
-		for _, env := range container.Env {
-			if env.Name == envName {
-				return env.Value
-			}
-		}
-	}
-	return ""
 }

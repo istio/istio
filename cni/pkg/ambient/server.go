@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
@@ -152,14 +151,14 @@ func (s *Server) UpdateConfig() {
 
 var ztunnelLabels = labels.ValidatedSetSelector(labels.Set{"app": "ztunnel"})
 
-func (s *Server) ReconcileZtunnel() error {
+func (s *Server) UpdateActiveNodeProxy() error {
 	pods := s.pods.List(metav1.NamespaceAll, ztunnelLabels)
 	var activePod *corev1.Pod
 	for _, p := range pods {
+		log := log.WithLabels("ztunnel-pod", p.Name)
 		ready := kube.CheckPodReady(p) == nil
 		if !ready {
-
-			log.Debugf("ztunnel pod not ready")
+			log.Debug("ztunnel pod not ready, skipping")
 			continue
 		}
 		if activePod == nil {
@@ -169,8 +168,9 @@ func (s *Server) ReconcileZtunnel() error {
 		} else if p.CreationTimestamp.After(activePod.CreationTimestamp.Time) {
 			// If we have multiple pods that are ready, use the newest one.
 			// This ensures on a rolling update we start sending traffic to the new pod and drain the old one.
+			log.Debugf("newest ztunnel pod set as active - TS for pod %s is %v, prev. active pod %s was %v",
+				p.Name, p.CreationTimestamp, activePod.Name, activePod.CreationTimestamp)
 			activePod = p
-			log.Debugf("newest ztunnel pod set as active")
 		}
 	}
 
@@ -260,14 +260,6 @@ func (s *Server) ReconcileZtunnel() error {
 	s.cleanStaleIPs(stales)
 
 	return nil
-}
-
-// getUID is a nil safe UID accessor
-func getUID(o *corev1.Pod) types.UID {
-	if o == nil {
-		return ""
-	}
-	return o.GetUID()
 }
 
 func (c *AmbientConfigFile) write() error {
