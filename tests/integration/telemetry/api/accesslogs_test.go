@@ -285,17 +285,19 @@ func runAccessLogModeTests(t framework.TestContext, exceptClientLog, exceptServe
 			},
 		})
 
-		clientDeltaCount := logCount(t, from, testID) - clientCount
-		if clientDeltaCount > 0 != exceptClientLog {
-			return fmt.Errorf("expected client logs %v but got %v", exceptClientLog, clientCount)
-		}
+		return retry.UntilSuccess(func() error {
+			clientDeltaCount := logCount(t, from, testID) - clientCount
+			if clientDeltaCount > 0 != exceptClientLog {
+				return fmt.Errorf("expected client logs %v but got %v", exceptClientLog, clientDeltaCount)
+			}
 
-		serverDeltaCount := logCount(t, to, testID) - serverCount
-		if serverDeltaCount > 0 != exceptServerLog {
-			return fmt.Errorf("expected server logs %v but got %v", exceptServerLog, serverCount)
-		}
+			serverDeltaCount := logCount(t, to, testID) - serverCount
+			if serverDeltaCount > 0 != exceptServerLog {
+				return fmt.Errorf("expected server logs %v but got %v", exceptServerLog, serverDeltaCount)
+			}
 
-		return nil
+			return nil
+		}, retry.MaxAttempts(3), retry.Delay(time.Second)
 	}, retry.Timeout(framework.TelemetryRetryTimeout))
 	if err != nil {
 		t.Fatalf("expected logs but got err: %v", err)
