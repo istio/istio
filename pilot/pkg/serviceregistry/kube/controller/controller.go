@@ -594,7 +594,6 @@ func (c *Controller) informersSynced() bool {
 		c.nodes.HasSynced() &&
 		c.imports.HasSynced() &&
 		c.exports.HasSynced() &&
-		c.client.CrdWatcher().HasSynced() &&
 		c.networkManager.HasSynced()
 }
 
@@ -623,11 +622,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
 
-	if c.client.CrdWatcher().KnownOrCallback(gvr.KubernetesGateway, func(stop <-chan struct{}) {
-		c.networkManager.watchGatewayResources(c, stop)
-	}) {
-		c.networkManager.watchGatewayResources(c, stop)
-	}
+	c.networkManager.watchGatewayResources(c, stop)
 
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))

@@ -335,11 +335,9 @@ func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGa
 }
 
 func (n *networkManager) watchGatewayResources(c *Controller, stop <-chan struct{}) {
-	n.gatewayResourceClient = kclient.NewDelayedInformer(c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{
-		LabelSelector: label.TopologyNetwork.Name,
-	})
-	registerHandlers[controllers.Object](c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
-	go n.gatewayResourceClient.Start(stop)
+	n.gatewayResourceClient = kclient.NewDelayedInformer(c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
+	registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
+	n.gatewayResourceClient.Start(stop)
 }
 
 // handleGateway resource adds a NetworkGateway for each combination of address and auto-passthrough listener
@@ -351,7 +349,12 @@ func (n *networkManager) handleGatewayResource(_ controllers.Object, obj control
 		return nil
 	}
 
+	if nw := gw.GetLabels()[label.TopologyNetwork.Name]; nw == "" {
+		return nil
+	}
+
 	// we don't want to discover gateways with class "istio-remote" from outside cluster's API servers.
+	// this will only pass for the "config cluster" or "local cluster"
 	if !n.discoverRemoteGatewayResources && gw.Spec.GatewayClassName == "istio-remote" {
 		return nil
 	}
@@ -408,7 +411,7 @@ func (n *networkManager) handleGatewayResource(_ controllers.Object, obj control
 }
 
 func (n *networkManager) HasSynced() bool {
-	return n.gatewayResourceClient == nil || n.gatewayResourceClient.HasSynced()
+	return n.gatewayResourceClient.HasSynced()
 }
 
 // updateServiceNodePortAddresses updates ClusterExternalAddresses for Services of nodePort type
