@@ -177,6 +177,10 @@ func TestNamesSortOrder(t *testing.T) {
 			host.Names{"foo.com", "bar.com", "*.com", "*.foo.com", "*", "baz.bar.com"},
 			host.Names{"baz.bar.com", "bar.com", "foo.com", "*.foo.com", "*.com", "*"},
 		},
+		{
+			host.Names{"", "foo.com"},
+			host.Names{"bar.com"},
+		},
 	}
 
 	for idx, tt := range tests {
