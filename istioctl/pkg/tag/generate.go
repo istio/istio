@@ -31,6 +31,7 @@ import (
 
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/maps"
 )
 
 const (
@@ -239,10 +240,8 @@ base:
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 	}
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, config.Labels)
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, customLabels)
-	decodedWh.Annotations = mergeMaps(decodedWh.Annotations, config.Annotations)
-
+	maps.Copy(decodedWh.Labels, customLabels)
+	maps.Copy(decodedWh.Annotations, config.Annotations)
 	for i := range decodedWh.Webhooks {
 		if failurePolicy, ok := config.FailurePolicy[decodedWh.Webhooks[i].Name]; ok {
 			decodedWh.Webhooks[i].FailurePolicy = failurePolicy
@@ -255,24 +254,6 @@ base:
 	}
 
 	return whBuf.String(), nil
-}
-
-// mergeMaps merges maps into one. If both maps have the same key, the value from override will be used.
-func mergeMaps(base, override map[string]string) map[string]string {
-	if base == nil {
-		return override
-	}
-	if override == nil {
-		return base
-	}
-	merged := make(map[string]string)
-	for k, v := range base {
-		merged[k] = v
-	}
-	for k, v := range override {
-		merged[k] = v
-	}
-	return merged
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
@@ -329,10 +310,9 @@ istiodRemote:
 	if opts.WebhookName != "" {
 		decodedWh.Name = opts.WebhookName
 	}
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, config.Labels)
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, opts.CustomLabels)
-	decodedWh.Annotations = mergeMaps(decodedWh.Annotations, config.Annotations)
-
+	maps.Copy(decodedWh.Labels, config.Labels)
+	maps.Copy(decodedWh.Labels, opts.CustomLabels)
+	maps.Copy(decodedWh.Annotations, config.Annotations)
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
 		return "", err
