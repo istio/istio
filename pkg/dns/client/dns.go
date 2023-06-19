@@ -509,15 +509,14 @@ func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, pr
 // If it is not part of the registry, return nil so that caller queries upstream. If it is part
 // of registry, we will look it up in one of our tables, failing which we will return NXDOMAIN.
 func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, bool) {
-	var hostFound bool
-
 	question := host.Name(hostname)
 	wildcard := false
 	// First check if host exists in all hosts.
+	hostFound := table.allHosts.Contains(hostname)
 	// If it is not found, check if a wildcard host exists for it.
 	// For example for "*.example.com", with the question "svc.svcns.example.com",
 	// we check if we have entries for "*.svcns.example.com", "*.example.com" etc.
-	if !table.allHosts.Contains(hostname) {
+	if !hostFound {
 		labels := dns.SplitDomainName(hostname)
 		for idx := range labels {
 			qhost := "*." + strings.Join(labels[idx+1:], ".") + "."

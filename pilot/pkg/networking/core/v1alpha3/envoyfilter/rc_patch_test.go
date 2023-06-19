@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func Test_virtualHostMatch(t *testing.T) {
@@ -222,7 +223,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 					},
 				},
 				rc: &route.RouteConfiguration{Name: "http.8080"},
-				portMap: map[int]map[int]struct{}{
+				portMap: map[int]sets.Set[int]{
 					8080: {80: {}, 81: {}},
 				},
 			},
@@ -242,7 +243,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 					},
 				},
 				rc: &route.RouteConfiguration{Name: "http.9090"},
-				portMap: map[int]map[int]struct{}{
+				portMap: map[int]sets.Set[int]{
 					8080: {80: {}, 81: {}},
 				},
 			},
@@ -262,7 +263,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 					},
 				},
 				rc: &route.RouteConfiguration{Name: "http.8443"},
-				portMap: map[int]map[int]struct{}{
+				portMap: map[int]sets.Set[int]{
 					8443: {443: {}},
 				},
 			},
@@ -1022,7 +1023,7 @@ func TestPatchHTTPRoute(t *testing.T) {
 					},
 				},
 				routeIndex: 0,
-				portMap: map[int]map[int]struct{}{
+				portMap: map[int]sets.Set[int]{
 					8080: {},
 				},
 				clonedVhostRoutes: false,
@@ -1074,7 +1075,7 @@ func TestPatchHTTPRoute(t *testing.T) {
 					Routes:  sharedVHostRoutes,
 				},
 				routeIndex: 0,
-				portMap: map[int]map[int]struct{}{
+				portMap: map[int]sets.Set[int]{
 					8080: {},
 				},
 				clonedVhostRoutes: false,
