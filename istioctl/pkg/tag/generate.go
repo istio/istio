@@ -265,7 +265,7 @@ func mergeMaps(base, override map[string]string) map[string]string {
 	if override == nil {
 		return base
 	}
-	merged := make(map[string]string, len(base)+len(override))
+	merged := make(map[string]string)
 	for k, v := range base {
 		merged[k] = v
 	}
