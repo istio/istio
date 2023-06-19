@@ -361,7 +361,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	}
 
 	servers := merged.ServersByRouteName[routeName]
-	fmt.Printf("%+v\n", servers)
 
 	// When this is true, we add alt-svc header to the response to tell the client
 	// that HTTP/3 over QUIC is available on the same port for this host. This is
