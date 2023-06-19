@@ -132,9 +132,10 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 
 	sa.analyzer.Analyze(ctx)
 
-	namespaces := make(map[resource.Namespace]struct{})
+	// TODO(hzxuzhonghu): we donot need set here
+	namespaces := sets.New[resource.Namespace]()
 	if sa.namespace != "" {
-		namespaces[sa.namespace] = struct{}{}
+		namespaces.Insert(sa.namespace)
 	}
 	// TODO: analysis is run for all namespaces, even if they are requested to be filtered.
 	msgs := filterMessages(ctx.(*istiodContext).messages, namespaces, sa.suppressions)
@@ -409,7 +410,7 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 type CollectionReporterFn func(config.GroupVersionKind)
 
 // copied from processing/snapshotter/analyzingdistributor.go
-func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {
+func filterMessages(messages diag.Messages, namespaces sets.Set[resource.Namespace], suppressions []AnalysisSuppression) diag.Messages {
 	nsNames := sets.New[string]()
 	for k := range namespaces {
 		nsNames.Insert(k.String())

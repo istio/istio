@@ -1133,7 +1133,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			return nil, fmt.Errorf("sidecar: empty configuration provided")
 		}
 
-		portMap := make(map[uint32]struct{})
+		portMap := sets.Set[uint32]{}
 		for _, i := range rule.Ingress {
 			if i == nil {
 				errs = appendValidation(errs, fmt.Errorf("sidecar: ingress may not be null"))
@@ -1147,10 +1147,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			bind := i.GetBind()
 			errs = appendValidation(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
-			if _, found := portMap[i.Port.Number]; found {
+			if portMap.Contains(i.Port.Number) {
 				errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 			}
-			portMap[i.Port.Number] = struct{}{}
+			portMap.Insert(i.Port.Number)
 
 			if len(i.DefaultEndpoint) != 0 {
 				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
@@ -1195,8 +1195,8 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			}
 		}
 
-		portMap = make(map[uint32]struct{})
-		udsMap := make(map[string]struct{})
+		portMap = sets.Set[uint32]{}
+		udsMap := sets.String{}
 		catchAllEgressListenerFound := false
 		for index, egress := range rule.Egress {
 			if egress == nil {
@@ -1226,10 +1226,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 					udsMap[bind] = struct{}{}
 				} else {
-					if _, found := portMap[egress.Port.Number]; found {
+					if portMap.Contains(egress.Port.Number) {
 						errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 					}
-					portMap[egress.Port.Number] = struct{}{}
+					portMap.Insert(egress.Port.Number)
 				}
 			}
 

@@ -319,7 +319,7 @@ func lcm(x, y int) int {
 }
 
 // NetworkGatewaySet is a helper to manage a set of NetworkGateway instances.
-type NetworkGatewaySet = sets.Set[NetworkGateway]
+type NetworkGatewaySet = sets.Set[NetworkGateway]resource.Namespace
 
 var (
 	// MinGatewayTTL is exported for testing

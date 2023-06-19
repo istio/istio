@@ -450,7 +450,7 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 		pr.ConfigsUpdated = nil
 	} else {
 		for conf := range other.ConfigsUpdated {
-			pr.ConfigsUpdated[conf] = struct{}{}
+			pr.ConfigsUpdated.Insert(conf)
 		}
 	}
 
@@ -491,12 +491,8 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
 		merged.ConfigsUpdated = make(sets.Set[ConfigKey], len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
-		for conf := range pr.ConfigsUpdated {
-			merged.ConfigsUpdated[conf] = struct{}{}
-		}
-		for conf := range other.ConfigsUpdated {
-			merged.ConfigsUpdated[conf] = struct{}{}
-		}
+		merged.ConfigsUpdated.Merge(pr.ConfigsUpdated)
+		merged.ConfigsUpdated.Merge(other.ConfigsUpdated)
 	}
 
 	return merged
@@ -2036,13 +2032,10 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		gw := cfg.Spec.(*networking.Gateway)
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
 			gwsvcs := strings.Split(gwsvcstr, ",")
-			known := map[host.Name]struct{}{}
-			for _, g := range gwsvcs {
-				known[host.Name(g)] = struct{}{}
-			}
+			known := sets.New[string](gwsvcs...)
 			matchingInstances := make([]*ServiceInstance, 0, len(proxy.ServiceInstances))
 			for _, si := range proxy.ServiceInstances {
-				if _, f := known[si.Service.Hostname]; f && si.Service.Attributes.Namespace == cfg.Namespace {
+				if _, f := known[string(si.Service.Hostname)]; f && si.Service.Attributes.Namespace == cfg.Namespace {
 					matchingInstances = append(matchingInstances, si)
 				}
 			}
