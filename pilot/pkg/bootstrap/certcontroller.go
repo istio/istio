@@ -124,20 +124,22 @@ func (s *Server) initDNSCerts() error {
 			return fmt.Errorf("unable to determine signing file format %v", err)
 		}
 
-		// check if signing key file exists the cert dir
-		if _, err := os.Stat(fileBundle.SigningKeyFile); err != nil {
-			log.Infof("No plugged-in cert at %v; self-signed cert is used", fileBundle.SigningKeyFile)
-			caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
-			s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
-				go func() {
-					// regenerate istiod key cert when root cert changes.
-					s.watchRootCertAndGenKeyCert(stop)
-				}()
-				return nil
-			})
-		} else if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
-			// TODO(jaellio): Modify to read secret data from file.
-			log.Infof("Found cert at %v, but is istio-generated; self-signed cert is used", fileBundle.SigningKeyFile)
+		istioGenerated, detectedSigningCABundle := false, false
+		if _, err := os.Stat(fileBundle.SigningKeyFile); err == nil {
+			detectedSigningCABundle = true
+		}
+		if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
+			istioGenerated = true
+		}
+		// check if signing key file exists the cert dir and if the istio-generated file exists
+		if !detectedSigningCABundle || (detectedSigningCABundle && istioGenerated) {
+			if !detectedSigningCABundle {
+				log.Infof("No plugged-in cert at %v; self-signed cert is used", fileBundle.SigningKeyFile)
+			} else {
+				// TODO(jaellio): Modify to read secret data from file.
+				log.Infof("Found cert at %v, but is istio-generated; self-signed cert is used", fileBundle.SigningKeyFile)
+			}
+
 			caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
 			s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
 				go func() {
