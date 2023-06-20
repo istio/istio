@@ -228,10 +228,10 @@ func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, cl
 	t.Helper()
 
 	var wantClient, wantServer monitoring.TimeSeries
-	if err := unmarshalFromMetricsTemplateFile(serverReqCount, &wantServer, clName, trustDomain); err != nil {
+	if err := unmarshalFromTemplateFile(serverReqCount, &wantServer, clName, trustDomain); err != nil {
 		return fmt.Errorf("metrics: error generating wanted server request: %v", err)
 	}
-	if err := unmarshalFromMetricsTemplateFile(clientReqCount, &wantClient, clName, trustDomain); err != nil {
+	if err := unmarshalFromTemplateFile(clientReqCount, &wantClient, clName, trustDomain); err != nil {
 		return fmt.Errorf("metrics: error generating wanted client request: %v", err)
 	}
 
@@ -267,24 +267,7 @@ func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, cl
 	return nil
 }
 
-func unmarshalFromLogsTemplateFile(file string, out proto.Message, clName, trustDomain string) error {
-	templateFile, err := os.ReadFile(file)
-	if err != nil {
-		return err
-	}
-	resource, err := tmpl.Evaluate(string(templateFile), map[string]any{
-		"EchoNamespace": EchoNsInst.Name(),
-		"ClusterName":   clName,
-		"TrustDomain":   trustDomain,
-		"OnGCE":         metadata.OnGCE(),
-	})
-	if err != nil {
-		return err
-	}
-	return protomarshal.Unmarshal([]byte(resource), out)
-}
-
-func unmarshalFromMetricsTemplateFile(file string, out proto.Message, clName, trustDomain string) error {
+func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDomain string) error {
 	templateFile, err := os.ReadFile(file)
 	if err != nil {
 		return err
@@ -318,7 +301,7 @@ func ConditionallySetupMetadataServer(ctx resource.Context) (err error) {
 
 func ValidateLogs(t framework.TestContext, srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
 	var wantLog loggingpb.LogEntry
-	if err := unmarshalFromLogsTemplateFile(srvLogEntry, &wantLog, clName, trustDomain); err != nil {
+	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName, trustDomain); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
 	return ValidateLogEntry(t, &wantLog, filter, clusterProject(t, clName))
