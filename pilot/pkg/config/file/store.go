@@ -293,6 +293,15 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		if len(chunk) == 0 {
 			continue
 		}
+
+		var data map[string]interface{}
+		if err := yaml.Unmarshal(chunk, &data); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+		if len(data) == 0 {
+			continue
+		}
+
 		chunkResources, err := s.parseChunk(r, name, lineNum, chunk)
 		if err != nil {
 			var uerr *unknownSchemaError
