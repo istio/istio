@@ -24,6 +24,7 @@ type Hash interface {
 	Write(p []byte) (n int)
 	Sum() string
 	Sum64() uint64
+	Reset()
 }
 
 type instance struct {
@@ -52,4 +53,9 @@ func (i *instance) Sum64() uint64 {
 func (i *instance) Sum() string {
 	sum := i.hash.Sum(nil)
 	return hex.EncodeToString(sum)
+}
+
+// Reset clears the Digest's state so that it can be reused.
+func (i *instance) Reset() {
+	i.hash.Reset()
 }

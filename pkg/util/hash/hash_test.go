@@ -49,3 +49,20 @@ func TestFactory(t *testing.T) {
 		})
 	}
 }
+
+func TestReset(t *testing.T) {
+	h := New()
+	h.Write([]byte("my-test-str"))
+	gotStr1 := h.Sum()
+	gotSum1 := h.Sum64()
+	h.Reset()
+	h.Write([]byte("my-test-str"))
+	gotStr2 := h.Sum()
+	gotSum2 := h.Sum64()
+	if gotStr1 != gotStr2 {
+		t.Errorf("expected %v == %v", gotStr1, gotStr2)
+	}
+	if gotSum1 != gotSum2 {
+		t.Errorf("expected %v == %v", gotSum1, gotSum2)
+	}
+}

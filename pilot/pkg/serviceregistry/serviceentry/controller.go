@@ -16,7 +16,6 @@ package serviceentry
 
 import (
 	"fmt"
-	"hash/fnv"
 	"strconv"
 	"sync"
 	"time"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
+	hash "istio.io/istio/pkg/util/hash"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -51,8 +51,8 @@ var (
 )
 
 var (
-	prime  = 65011     // Used for secondary hash function.
-	maxIPs = 255 * 255 // Maximum possible IPs for address allocation.
+	prime  uint64 = 65011     // Used for secondary hash function.
+	maxIPs uint64 = 255 * 255 // Maximum possible IPs for address allocation.
 )
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
@@ -886,7 +886,7 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 // The current algorithm to allocate IPs is deterministic across all istiods.
 func autoAllocateIPs(services []*model.Service) []*model.Service {
 	hashedServices := make([]*model.Service, maxIPs)
-	hash := fnv.New32a()
+	h := hash.New()
 	// First iterate through the range of services and determine its position by hash
 	// so that we can deterministically allocate an IP.
 	// We use "Double Hashning" for collision detection.
@@ -904,10 +904,11 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
-			hash.Write([]byte(makeServiceKey(svc)))
+			h.Reset()
+			h.Write([]byte(makeServiceKey(svc)))
 			// First hash is calculated by
-			s := hash.Sum32()
-			firstHash := s % uint32(maxIPs)
+			s := h.Sum64()
+			firstHash := s % maxIPs
 			// Check if there is no service with this hash first. If there is no service
 			// at this location - then we can safely assign this position for this service.
 			if hashedServices[firstHash] == nil {
@@ -916,8 +917,8 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 				// This means we have a collision. Resolve collision by "DoubleHashing".
 				i := uint32(1)
 				for {
-					secondHash := uint32(prime) - (s % uint32(prime))
-					nh := (s + i*secondHash) % uint32(maxIPs)
+					secondHash := prime - s%prime
+					nh := (s + uint64(i)*secondHash) % maxIPs
 					if hashedServices[nh] == nil {
 						hashedServices[nh] = svc
 						break
@@ -925,7 +926,6 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 					i++
 				}
 			}
-			hash.Reset()
 		}
 	}
 	// i is everything from 240.240.0.(j) to 240.240.255.(j)
@@ -956,7 +956,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			if x%255 == 0 {
 				x++
 			}
-			if allocated >= maxIPs {
+			if allocated >= int(maxIPs) {
 				log.Errorf("out of IPs to allocate for service entries. x:= %d, maxips:= %d", x, maxIPs)
 				return services
 			}
