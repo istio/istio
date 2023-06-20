@@ -217,6 +217,9 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
+  # enable validating webhooks to ensure that CRDs created are valid
+  configValidation: true
+
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Dev builds from prow are on gcr.io

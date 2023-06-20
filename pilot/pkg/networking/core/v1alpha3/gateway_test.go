@@ -1862,31 +1862,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 		Spec: virtualServiceSpec,
 	}
-	virtualServiceEmptyHosts := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             "virtual-service-empty",
-			Namespace:        "default",
-		},
-		Spec: &networking.VirtualService{
-			Hosts:    []string{""},
-			Gateways: []string{"gateway"},
-			Http: []*networking.HTTPRoute{
-				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "notexample.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 	virtualServiceWildcard := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
@@ -2150,21 +2125,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			// We will setup a VHost which just redirects; no routes
 			expectedHTTPRoutes: map[string]int{"example.org:80": 0},
 			redirect:           true,
-		},
-		{
-			name:            "empty string hosts",
-			virtualServices: []config.Config{virtualServiceEmptyHosts, virtualService},
-			gateways:        []config.Config{httpGatewayWildcard},
-			routeName:       "http.80",
-			expectedVirtualHosts: map[string][]string{
-				"example.org:80": {"example.org"},
-			},
-			expectedVirtualHostsHostPortStrip: map[string][]string{
-				"example.org:80": {"example.org"},
-			},
-			// We will setup a VHost which just redirects; no routes
-			expectedHTTPRoutes: map[string]int{"example.org:80": 0},
-			redirect:           false,
 		},
 	}
 
