@@ -26,7 +26,7 @@
           "source_principal": "spiffe://{{ .TrustDomain }}/ns/{{ .EchoNamespace }}/sa/default",
           "source_workload_name": "clt-{{ .ClusterName }}-v1",
           "source_workload_namespace": "{{ .EchoNamespace }}",
-          "proxy_version": "unknown"
+          "proxy_version": "{{ .IstioRevision }}"
        }
     }{{- if .OnGCE  }},
     "resource": {
