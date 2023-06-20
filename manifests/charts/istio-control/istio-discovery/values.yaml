@@ -486,3 +486,8 @@ base:
   # it works to have multiple redundant validations, this adds complexity and operational risks.
   # Users should consider enabling this if they want full gateway-api validation but don't have other validation servers.
   validateGateway: false
+
+# keep in sync with settings used when installing the Istio CNI chart
+istio_cni:
+  enabled: false
+  chained: true
