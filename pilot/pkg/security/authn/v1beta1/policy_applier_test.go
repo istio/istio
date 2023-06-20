@@ -1237,7 +1237,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 	push := &model.PushContext{}
 	push.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+		model.JwtPubKeyRefreshIntervalOnFailure, 50*time.Millisecond)
 	defer push.JwtKeyResolver.Close()
 
 	for _, c := range cases {
