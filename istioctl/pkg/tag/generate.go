@@ -240,6 +240,7 @@ base:
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 	}
+	maps.Copy(decodedWh.Labels, config.Labels)
 	maps.Copy(decodedWh.Labels, customLabels)
 	maps.Copy(decodedWh.Annotations, config.Annotations)
 	for i := range decodedWh.Webhooks {
