@@ -117,7 +117,6 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 		MeshExternal:    len(externalName) > 0,
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
-		ResourceVersion: svc.ResourceVersion,
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
 			Name:            svc.Name,

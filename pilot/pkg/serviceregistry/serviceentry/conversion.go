@@ -130,7 +130,6 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 			Name:              "synthetic-" + svc.Attributes.Name,
 			Namespace:         svc.Attributes.Namespace,
 			CreationTimestamp: svc.CreationTime,
-			ResourceVersion:   svc.ResourceVersion,
 		},
 		Spec: se,
 	}
