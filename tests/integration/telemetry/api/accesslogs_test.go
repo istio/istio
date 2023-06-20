@@ -272,6 +272,9 @@ func runAccessLogModeTests(t framework.TestContext, exceptClientLog, exceptServe
 	// Retry a bit to get the logs. There is some delay before they are output(MeshConfig will not take effect immediately),
 	// so they may not be immediately ready. If not ready, we retry sending a call again.
 	err := retry.UntilSuccess(func() error {
+		clientCount := logCount(t, from, testID)
+		serverCount := logCount(t, to, testID)
+
 		from.CallOrFail(t, echo.CallOptions{
 			To: to,
 			Port: echo.Port{
@@ -281,17 +284,20 @@ func runAccessLogModeTests(t framework.TestContext, exceptClientLog, exceptServe
 				Path: "/" + testID,
 			},
 		})
-		clientCount := logCount(t, from, testID)
-		if clientCount > 0 != exceptClientLog {
-			return fmt.Errorf("expected client logs %v but got %v", exceptClientLog, clientCount)
-		}
 
-		serverCount := logCount(t, to, testID)
-		if serverCount > 0 != exceptServerLog {
-			return fmt.Errorf("expected server logs %v but got %v", exceptServerLog, serverCount)
-		}
+		return retry.UntilSuccess(func() error {
+			clientDeltaCount := logCount(t, from, testID) - clientCount
+			if clientDeltaCount > 0 != exceptClientLog {
+				return fmt.Errorf("expected client logs %v but got %v", exceptClientLog, clientDeltaCount)
+			}
 
-		return nil
+			serverDeltaCount := logCount(t, to, testID) - serverCount
+			if serverDeltaCount > 0 != exceptServerLog {
+				return fmt.Errorf("expected server logs %v but got %v", exceptServerLog, serverDeltaCount)
+			}
+
+			return nil
+		}, retry.MaxAttempts(3), retry.Delay(time.Second))
 	}, retry.Timeout(framework.TelemetryRetryTimeout))
 	if err != nil {
 		t.Fatalf("expected logs but got err: %v", err)

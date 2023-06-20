@@ -17,7 +17,6 @@ package model
 import (
 	"fmt"
 	"net"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -101,11 +100,7 @@ func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager
 // reloadGateways reloads NetworkGateways and triggers a push if they change.
 func (mgr *NetworkManager) reloadGateways() {
 	mgr.mu.Lock()
-	oldGateways := make(NetworkGatewaySet)
-	for _, gateway := range mgr.allGateways() {
-		oldGateways.Add(gateway)
-	}
-
+	oldGateways := sets.New(mgr.allGateways()...)
 	changed := !mgr.reload().Equals(oldGateways)
 	mgr.mu.Unlock()
 
@@ -133,22 +128,20 @@ func (mgr *NetworkManager) reload() NetworkGatewaySet {
 					// registryServiceName addresses will be populated via kube service registry
 					continue
 				}
-				gatewaySet[NetworkGateway{
+				gatewaySet.Insert(NetworkGateway{
 					Cluster: "", /* TODO(nmittler): Add Cluster to the API */
 					Network: network.ID(nw),
 					Addr:    gw.GetAddress(),
 					Port:    gw.Port,
-				}] = struct{}{}
+				})
 			}
 		}
 	}
 
 	// Second, load registry-specific gateways.
-	for _, gw := range mgr.env.NetworkGateways() {
-		// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
-		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
-		gatewaySet[gw] = struct{}{}
-	}
+	// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
+	// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
+	gatewaySet.InsertAll(mgr.env.NetworkGateways()...)
 	mgr.multiNetworkEnabled = len(gatewaySet) > 0
 
 	mgr.resolveHostnameGateways(gatewaySet)
@@ -189,7 +182,7 @@ func (mgr *NetworkManager) reload() NetworkGatewaySet {
 	return gatewaySet
 }
 
-func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet map[NetworkGateway]struct{}) {
+func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet NetworkGatewaySet) {
 	// filter the list of gateways to resolve
 	hostnameGateways := map[string][]NetworkGateway{}
 	names := sets.New[string]()
@@ -197,7 +190,7 @@ func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet map[NetworkGateway
 		if netutil.IsValidIPAddress(gw.Addr) {
 			continue
 		}
-		delete(gatewaySet, gw)
+		gatewaySet.Delete(gw)
 		if !features.ResolveHostnameGateways {
 			log.Warnf("Failed parsing gateway address %s from Service Registry. "+
 				"Set RESOLVE_HOSTNAME_GATEWAYS on istiod to enable resolving hostnames in the control plane.",
@@ -223,7 +216,7 @@ func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet map[NetworkGateway
 				// copy the base gateway to preserve the port/network, but update with the resolved IP
 				resolvedGw := gw
 				resolvedGw.Addr = resolved
-				gatewaySet[resolvedGw] = struct{}{}
+				gatewaySet.Insert(resolvedGw)
 			}
 		}
 	}
@@ -296,15 +289,14 @@ func networkAndClusterFor(nw network.ID, c cluster.ID) networkAndCluster {
 	}
 }
 
+// SortGateways sorts the array so that it's stable.
 func SortGateways(gws []NetworkGateway) []NetworkGateway {
-	// Sort the array so that it's stable.
-	sort.SliceStable(gws, func(i, j int) bool {
-		if cmp := strings.Compare(gws[i].Addr, gws[j].Addr); cmp < 0 {
+	return slices.SortFunc(gws, func(a, b NetworkGateway) bool {
+		if strings.Compare(a.Addr, b.Addr) < 0 {
 			return true
 		}
-		return gws[i].Port < gws[j].Port
+		return a.Port < b.Port
 	})
-	return gws
 }
 
 // greatest common divisor of x and y
@@ -327,39 +319,7 @@ func lcm(x, y int) int {
 }
 
 // NetworkGatewaySet is a helper to manage a set of NetworkGateway instances.
-type NetworkGatewaySet map[NetworkGateway]struct{}
-
-func (s NetworkGatewaySet) Equals(other NetworkGatewaySet) bool {
-	if len(s) != len(other) {
-		return false
-	}
-	// deepequal won't catch nil-map == empty map
-	if len(s) == 0 && len(other) == 0 {
-		return true
-	}
-	return reflect.DeepEqual(s, other)
-}
-
-func (s NetworkGatewaySet) Add(gw NetworkGateway) {
-	s[gw] = struct{}{}
-}
-
-func (s NetworkGatewaySet) AddAll(other NetworkGatewaySet) {
-	for gw := range other {
-		s.Add(gw)
-	}
-}
-
-func (s NetworkGatewaySet) ToArray() []NetworkGateway {
-	gws := make([]NetworkGateway, 0, len(s))
-	for gw := range s {
-		gws = append(gws, gw)
-	}
-
-	// Sort the array so that it's stable.
-	gws = SortGateways(gws)
-	return gws
-}
+type NetworkGatewaySet = sets.Set[NetworkGateway]
 
 var (
 	// MinGatewayTTL is exported for testing

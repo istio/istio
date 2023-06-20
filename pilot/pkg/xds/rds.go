@@ -17,6 +17,7 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type RdsGenerator struct {
@@ -26,17 +27,17 @@ type RdsGenerator struct {
 var _ model.XdsResourceGenerator = &RdsGenerator{}
 
 // Map of all configs that do not impact RDS
-var skippedRdsConfigs = map[kind.Kind]struct{}{
-	kind.WorkloadEntry:         {},
-	kind.WorkloadGroup:         {},
-	kind.AuthorizationPolicy:   {},
-	kind.RequestAuthentication: {},
-	kind.PeerAuthentication:    {},
-	kind.Secret:                {},
-	kind.WasmPlugin:            {},
-	kind.Telemetry:             {},
-	kind.ProxyConfig:           {},
-}
+var skippedRdsConfigs = sets.New[kind.Kind](
+	kind.WorkloadEntry,
+	kind.WorkloadGroup,
+	kind.AuthorizationPolicy,
+	kind.RequestAuthentication,
+	kind.PeerAuthentication,
+	kind.Secret,
+	kind.WasmPlugin,
+	kind.Telemetry,
+	kind.ProxyConfig,
+)
 
 func rdsNeedsPush(req *model.PushRequest) bool {
 	if req == nil {

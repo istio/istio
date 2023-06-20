@@ -56,6 +56,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
@@ -70,6 +71,8 @@ import (
 )
 
 func TestAgent(t *testing.T) {
+	test.SetForTest(t, &version.Info.Version, "version")
+
 	wd := t.TempDir()
 	mktemp := t.TempDir
 	// Normally we call leak checker first. Here we call it after TempDir to avoid the (extremely

@@ -206,10 +206,11 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 	// Merge all the gateways into a single set to eliminate duplicates.
 	out := make(model.NetworkGatewaySet)
 	for _, gateways := range c.networkGatewaysBySvc {
-		out.AddAll(gateways)
+		out.Merge(gateways)
 	}
 
-	return out.ToArray()
+	unsorted := out.UnsortedList()
+	return model.SortGateways(unsorted)
 }
 
 // extractGatewaysFromService checks if the service is a cross-network gateway
@@ -273,7 +274,7 @@ func (n *networkManager) extractGatewaysInner(svc *model.Service) bool {
 
 			gw.Cluster = n.clusterID
 			gw.Addr = addr
-			newGateways.Add(gw)
+			newGateways.Insert(gw)
 		}
 	}
 

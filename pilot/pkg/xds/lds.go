@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type LdsGenerator struct {
@@ -29,28 +30,28 @@ type LdsGenerator struct {
 var _ model.XdsResourceGenerator = &LdsGenerator{}
 
 // Map of all configs that do not impact LDS
-var skippedLdsConfigs = map[model.NodeType]map[kind.Kind]struct{}{
-	model.Router: {
+var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
+	model.Router: sets.New[kind.Kind](
 		// for autopassthrough gateways, we build filterchains per-dr subset
-		kind.WorkloadGroup: {},
-		kind.WorkloadEntry: {},
-		kind.Secret:        {},
-		kind.ProxyConfig:   {},
-	},
-	model.SidecarProxy: {
-		kind.Gateway:       {},
-		kind.WorkloadGroup: {},
-		kind.WorkloadEntry: {},
-		kind.Secret:        {},
-		kind.ProxyConfig:   {},
-	},
-	model.Waypoint: {
-		kind.Gateway:       {},
-		kind.WorkloadGroup: {},
-		kind.WorkloadEntry: {},
-		kind.Secret:        {},
-		kind.ProxyConfig:   {},
-	},
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+	),
+	model.SidecarProxy: sets.New[kind.Kind](
+		kind.Gateway,
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+	),
+	model.Waypoint: sets.New[kind.Kind](
+		kind.Gateway,
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+	),
 }
 
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {

@@ -368,7 +368,7 @@ func udpSupportedPort(number uint32, instances []*ServiceInstance) bool {
 // port and translating to the targetPort in addition to just directly referencing a port. In this
 // case, we just make a best effort guess by picking the first match.
 func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySelector bool) []uint32 {
-	ports := map[uint32]struct{}{}
+	ports := sets.New[uint32]()
 	for _, w := range instances {
 		if _, disablePortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]; disablePortTranslation && legacyGatewaySelector {
 			// Skip this Service, they opted out of port translation
@@ -384,13 +384,10 @@ func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySele
 				// picking the first one here preserves backwards compatibility.
 				return []uint32{w.Endpoint.EndpointPort}
 			}
-			ports[w.Endpoint.EndpointPort] = struct{}{}
+			ports.Insert(w.Endpoint.EndpointPort)
 		}
 	}
-	ret := make([]uint32, 0, len(ports))
-	for p := range ports {
-		ret = append(ret, p)
-	}
+	ret := ports.UnsortedList()
 	if len(ret) == 0 && legacyGatewaySelector {
 		// When we are using legacy gateway label selection, we should bind to the port as-is if there is
 		// no matching ServiceInstance.
@@ -526,20 +523,20 @@ func sanitizeServerHostNamespace(server *networking.Server, namespace string) {
 	}
 }
 
-type GatewayPortMap map[int]map[int]struct{}
+type GatewayPortMap map[int]sets.Set[int]
 
 func getTargetPortMap(serversByRouteName map[string][]*networking.Server) GatewayPortMap {
 	pm := GatewayPortMap{}
 	for r, s := range serversByRouteName {
 		portNumber, _, _ := ParseGatewayRDSRouteName(r)
 		if _, f := pm[portNumber]; !f {
-			pm[portNumber] = map[int]struct{}{}
+			pm[portNumber] = sets.New[int]()
 		}
 		for _, se := range s {
 			if se.Port == nil {
 				continue
 			}
-			pm[portNumber][int(se.Port.Number)] = struct{}{}
+			pm[portNumber].Insert(int(se.Port.Number))
 		}
 	}
 	return pm

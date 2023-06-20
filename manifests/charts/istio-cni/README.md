@@ -26,7 +26,7 @@ Installation in `kube-system` is recommended to ensure the [`system-node-critica
 
 ## Ambient
 
-To enable ambient, you need to to add `--set cni.ambient.enabled=true`.
+To enable ambient, you need to add `--set cni.ambient.enabled=true`.
 
 ### Calico
 

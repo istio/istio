@@ -99,6 +99,7 @@ message CNIAmbientConfig {
   // Controls whether ambient redirection is enabled
   google.protobuf.BoolValue enabled = 1;
   string redirectMode = 2;
+  string configDir = 3;
 }
 
 message CNIRepairConfig {
