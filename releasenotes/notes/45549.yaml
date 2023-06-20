@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 45546
+releaseNotes:
+- |
+  **Fixed** an issue where jwk issuer was not resolved correctly when having a trailing slash in the issuer URL.
