@@ -42,8 +42,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/version"
 )
 
 type stats struct {
@@ -284,6 +286,8 @@ func TestGolden(t *testing.T) {
 			},
 		},
 	}
+
+	test.SetForTest(t, &version.Info.Version, "binary-1.0")
 
 	for _, c := range cases {
 		t.Run("Bootstrap-"+c.base, func(t *testing.T) {

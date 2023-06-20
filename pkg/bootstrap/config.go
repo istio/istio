@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -578,6 +579,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		return nil, err
 	}
 
+	meta = SetIstioVersion(meta)
+
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
 
@@ -663,6 +666,13 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		RawMetadata: untypedMeta,
 		Locality:    l,
 	}, nil
+}
+
+func SetIstioVersion(meta *model.BootstrapNodeMetadata) *model.BootstrapNodeMetadata {
+	if meta.IstioVersion == "" {
+		meta.IstioVersion = version.Info.Version
+	}
+	return meta
 }
 
 // ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.
