@@ -1093,6 +1093,12 @@ func (s *Service) GetAddresses(node *Proxy) []string {
 // GetAddressForProxy returns a Service's address specific to the cluster where the node resides
 func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
+		// pilot/pkg/serviceregistry/kube/conversion.go was updated to remove
+		// DefaultAddress from ClusterVIPs. We need to handle that here in
+		// order to build virtualHost Domains correctly for dual stack
+		if s.DefaultAddress != "" && s.DefaultAddress != constants.UnspecifiedIP {
+			return s.DefaultAddress
+		}
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 			if len(addresses) > 0 {
@@ -1119,8 +1125,11 @@ func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
 	if features.EnableDualStack && node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
-			if len(addresses) > 1 {
-				return addresses[1:]
+			// In a k8s svc ClusterIPs contains the what we call the DefaultAddress
+			// that address is already being removed from ClusterVIPs in
+			// pilot/pkg/serviceregistry/kube/conversion.go
+			if len(addresses) > 0 {
+				return addresses
 			}
 		}
 	}

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -240,6 +241,35 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"*.headless",
 				"*.headless.default.svc",
 				"*.headless.default",
+			},
+		},
+		{
+			name: "dual stack k8s service with default domain",
+			service: &model.Service{
+				Hostname:       "echo.default.svc.cluster.local",
+				MeshExternal:   false,
+				DefaultAddress: "1.2.3.4",
+				ClusterVIPs: model.AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cluster-1": {"2406:3003:2064:35b8:864:a648:4b96:e37d"},
+						"cluster-2": {"4.3.2.1"}, // ensure other clusters aren't being populated in domains slice
+					},
+				},
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "default.svc.cluster.local",
+				Metadata: &model.NodeMetadata{
+					ClusterID: "cluster-1",
+				},
+			},
+			want: []string{
+				"echo.default.svc.cluster.local",
+				"echo",
+				"echo.default.svc",
+				"echo.default",
+				"1.2.3.4",
+				"[2406:3003:2064:35b8:864:a648:4b96:e37d]",
 			},
 		},
 	}
