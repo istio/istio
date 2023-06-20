@@ -15,8 +15,6 @@
 package controller
 
 import (
-	"istio.io/istio/pkg/config/schema/gvr"
-	"istio.io/istio/pkg/kube/controllers"
 	"net"
 	"strconv"
 	"sync"
@@ -33,6 +31,8 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/network"
@@ -353,8 +353,9 @@ func (n *networkManager) handleGatewayResource(_ controllers.Object, obj control
 		return nil
 	}
 
-	// we don't want to discover gateways with class "istio-remote" from outside cluster's API servers.
-	// this will only pass for the "config cluster" or "local cluster"
+	// Gateway with istio-remote: only discover this from the config cluster
+	// this is a way to reference a gateway that lives in a place that this control plane
+	// won't have API server access. Nothing will be deployed for these Gateway resources.
 	if !n.discoverRemoteGatewayResources && gw.Spec.GatewayClassName == "istio-remote" {
 		return nil
 	}
