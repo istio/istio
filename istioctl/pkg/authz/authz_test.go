@@ -33,8 +33,8 @@ func TestAuthz(t *testing.T) {
 		{
 			Args: []string{"-f", "testdata/configdump.yaml"},
 			ExpectedOutput: `ACTION   AuthorizationPolicy         RULES
-ALLOW    httpbin.default             1
 ALLOW    _anonymous_match_nothing_   1
+ALLOW    httpbin.default             1
 `,
 		},
 	}
