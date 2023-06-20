@@ -15,7 +15,9 @@
 package gateway
 
 import (
+	"bytes"
 	"fmt"
+	"os/exec"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -119,7 +121,26 @@ func isValidSecret(secret *resource.Instance) bool {
 	if err = xds.ValidateCertificate(certs.Cert); err != nil {
 		return false
 	}
+	if err = validateCertStrict(certs.Cert); err != nil {
+		return false
+	}
 	return true
+}
+
+func validateCertStrict(cert []byte) error {
+	cmd := exec.Command("openssl", "x509", "-noout", "-text")
+	cmd.Stdin = bytes.NewBuffer(cert)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	err := cmd.Run()
+	if err != nil {
+		// here we ignore errors like not found, since we are just checking if the cert is valid
+		if exitError, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf("openssl error with exit code %d: %s", exitError.ExitCode(), out.String())
+		}
+	}
+	return nil
 }
 
 // Gets the namespace for the gateway (in terms of the actual workload selected by the gateway, NOT the namespace of the Gateway CRD)

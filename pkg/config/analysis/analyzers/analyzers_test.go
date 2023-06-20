@@ -179,6 +179,7 @@ var testGrid = []testCase{
 			{msg.InvalidGatewayCredential, "Gateway defaultgateway-missing-keys"},
 			{msg.InvalidGatewayCredential, "Gateway defaultgateway-invalid-cert"},
 			{msg.InvalidGatewayCredential, "Gateway defaultgateway-expired"},
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-malformed"},
 		},
 	},
 	{
