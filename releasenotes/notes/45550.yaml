@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 45324
+releaseNotes:
+- |
+  **Added** malformed cert check for gateway secret in `istioctl analyze` command.
