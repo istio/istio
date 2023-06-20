@@ -13,3 +13,36 @@
 // limitations under the License.
 
 package authz
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+
+	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/util/testutil"
+)
+
+func TestAuthz(t *testing.T) {
+	cases := []testutil.TestCase{
+		{
+			Args:           []string{"-f fake.yaml"},
+			ExpectedOutput: "Error: failed to get config dump from file  fake.yaml: open  fake.yaml: no such file or directory\n",
+			WantException:  true,
+		},
+		{
+			Args: []string{"-f", "testdata/configdump.yaml"},
+			ExpectedOutput: `ACTION   AuthorizationPolicy         RULES
+ALLOW    httpbin.default             1
+ALLOW    _anonymous_match_nothing_   1
+`,
+		},
+	}
+
+	authzCmd := checkCmd(cli.NewFakeContext(&cli.NewFakeContextOption{}))
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.Args, " ")), func(t *testing.T) {
+			testutil.VerifyOutput(t, authzCmd, c)
+		})
+	}
+}
