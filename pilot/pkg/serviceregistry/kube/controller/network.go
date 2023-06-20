@@ -386,6 +386,12 @@ func (n *networkManager) handleGatewayResource(_ controllers.Object, obj control
 	}
 	newGateways := model.NetworkGatewaySet{}
 	for _, addr := range gw.Spec.Addresses {
+		if addr.Type == nil {
+			continue
+		}
+		if addrType := *addr.Type; addrType != v1beta1.IPAddressType && addrType != v1beta1.HostnameAddressType {
+			continue
+		}
 		for _, l := range slices.Filter(gw.Spec.Listeners, autoPassthrough) {
 			networkGateway := base
 			networkGateway.Addr = addr.Value
