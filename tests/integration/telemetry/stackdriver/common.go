@@ -247,6 +247,11 @@ func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, cl
 		if tt.Metric.Type != wantClient.Metric.Type && tt.Metric.Type != wantServer.Metric.Type {
 			continue
 		}
+		// Do a fuzzy match for proxy_version label
+		// Remove any extra version information
+		if proxyVersion, ok := tt.Metric.Labels["proxy_version"]; ok {
+			tt.Metric.Labels["proxy_version"] = strings.Split(proxyVersion, "-")[0]
+		}
 		if proto.Equal(tt, &wantServer) {
 			gotServer = true
 		}
@@ -275,7 +280,7 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 		"ClusterName":   clName,
 		"TrustDomain":   trustDomain,
 		"OnGCE":         metadata.OnGCE(),
-		"ProxyVersion":  os.Getenv("VERSION"),
+		"ProxyVersion":  getVersion(),
 	})
 	if err != nil {
 		return err
@@ -443,4 +448,13 @@ func normalizeTrace(l *cloudtrace.Trace) map[string]string {
 		}
 	}
 	return r
+}
+
+func getVersion() string {
+	versionFile := filepath.Join(env.IstioSrc, "VERSION")
+	version, err := os.ReadFile(versionFile)
+	if err != nil {
+		return ""
+	}
+	return string(version)
 }
