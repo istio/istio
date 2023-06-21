@@ -232,7 +232,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	assertAddresses(t, controller, "", "name1", "name2", "name3", "waypoint-ns-pod")
 	assertEvent(t, fx, "cluster0//Pod/ns1/waypoint-ns-pod")
 	// create the waypoint service
-	addService(t, sc, "waypoint-ns", "ns1",
+	addService(t, sc, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")

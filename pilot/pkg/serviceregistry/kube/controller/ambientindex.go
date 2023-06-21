@@ -24,7 +24,6 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
-	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/constants"
@@ -562,8 +561,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 		}
 	}
 
-	var workloadEntries []*apiv1alpha3.WorkloadEntry
-	workloadEntries = c.getWorkloadEntriesInService(svc)
+	workloadEntries := c.getWorkloadEntriesInService(svc)
 	for _, w := range workloadEntries {
 		wl := c.extractWorkloadEntry(w)
 		// Can be nil if the WorkloadEntry IP has not been mapped yet

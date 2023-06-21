@@ -125,7 +125,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertAddresses(t, controller, "testnetwork/10.0.0.1")
 	fx.Clear()
 
-	addService(t, sc, "svc1", "ns1",
+	addService(t, sc, "svc1",
 		map[string]string{},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
@@ -153,7 +153,7 @@ func TestAmbientIndex(t *testing.T) {
 
 	fx.Clear()
 	// Update Service to have a more restrictive label selector
-	addService(t, sc, "svc1", "ns1",
+	addService(t, sc, "svc1",
 		map[string]string{},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a", "other": "label"}, "10.0.0.1")
@@ -191,7 +191,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertAddresses(t, controller, "", "name1", "name2", "name3", "waypoint-ns-pod")
 	assertEvent(t, fx, "cluster0//Pod/ns1/waypoint-ns-pod")
 	// create the waypoint service
-	addService(t, sc, "waypoint-ns", "ns1",
+	addService(t, sc, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
@@ -251,7 +251,7 @@ func TestAmbientIndex(t *testing.T) {
 	for _, k := range controller.Waypoint(model.WaypointScope{Namespace: "ns1", ServiceAccount: "namespace-wide"}) {
 		assert.Equal(t, k.AsSlice(), netip.MustParseAddr("10.0.0.2").AsSlice())
 	}
-	addService(t, sc, "svc1", "ns1",
+	addService(t, sc, "svc1",
 		map[string]string{},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
@@ -521,10 +521,10 @@ func deleteService(t *testing.T, sc clienttest.TestClient[*corev1.Service], name
 	t.Helper()
 	sc.Delete(name, "ns1")
 }
-func addService(t *testing.T, sc clienttest.TestClient[*corev1.Service], name, namespace string, labels, annotations map[string]string,
+func addService(t *testing.T, sc clienttest.TestClient[*corev1.Service], name string, labels, annotations map[string]string,
 	ports []int32, selector map[string]string, ip string,
 ) {
 	t.Helper()
-	service := generateService(name, namespace, labels, annotations, ports, selector, ip)
+	service := generateService(name, "ns1", labels, annotations, ports, selector, ip)
 	sc.CreateOrUpdate(service)
 }
