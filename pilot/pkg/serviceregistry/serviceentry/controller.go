@@ -915,8 +915,8 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			} else {
 				// This means we have a collision. Resolve collision by "DoubleHashing".
 				i := uint32(1)
+				secondHash := uint32(prime) - (s % uint32(prime))
 				for {
-					secondHash := uint32(prime) - (s % uint32(prime))
 					nh := (s + i*secondHash) % uint32(maxIPs)
 					if hashedServices[nh] == nil {
 						hashedServices[nh] = svc
