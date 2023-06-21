@@ -189,6 +189,7 @@ func DumpCoreDumps(_ resource.Context, c cluster.Cluster, workDir string, namesp
 		if coreDumpedPods.Load() >= maxCoreDumpedPods {
 			return
 		}
+		isVM := checkIfVM(pod)
 		wroteDumpsForPod := false
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 		for _, container := range containers {
@@ -213,7 +214,11 @@ func DumpCoreDumps(_ resource.Context, c cluster.Cluster, workDir string, namesp
 				if strings.TrimSpace(cd) == "" {
 					continue
 				}
-				stdout, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat "+cd)
+				cmd := "cat " + cd
+				if isVM {
+					cmd = "sudo " + cmd
+				}
+				stdout, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, cmd)
 				if err != nil {
 					scopes.Framework.Warnf("Unable to get core dumps %v for cluster/pod: %s/%s/%s: %v",
 						cd, c.Name(), pod.Namespace, pod.Name, err)
