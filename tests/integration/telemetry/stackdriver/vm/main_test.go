@@ -261,6 +261,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
+		"ProxyVersion":  os.Getenv("VERSION"),
 	})
 	if err != nil {
 		return
@@ -277,6 +278,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
+		"ProxyVersion":  os.Getenv("VERSION"),
 	})
 	if err != nil {
 		return
