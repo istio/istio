@@ -25,7 +25,8 @@
           "source_owner": "kubernetes://apis/apps/v1/namespaces/{{ .EchoNamespace }}/deployments/client-v1",
           "source_principal": "spiffe://{{ .TrustDomain }}/ns/{{ .EchoNamespace }}/sa/default",
           "source_workload_name": "client-v1",
-          "source_workload_namespace": "{{ .EchoNamespace }}"
+          "source_workload_namespace": "{{ .EchoNamespace }}",
+          "proxy_version": "{{ .ProxyVersion }}"
        }
     }
 }
