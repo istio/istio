@@ -97,6 +97,8 @@ spec:
               fieldPath: spec.serviceAccountName
         {{- if .Values.meshConfig.defaultConfig.proxyMetadata }}
         {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata}}
+        - name: ISTIO_META_CLUSTER_ID
+          value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
