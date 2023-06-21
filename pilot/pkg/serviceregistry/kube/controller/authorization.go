@@ -382,8 +382,8 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 		}
 
 		mtlsUnchanged := oldPa.GetMtls().GetMode() == newPa.GetMtls().GetMode()
-		mtlsUnchanged = mtlsUnchanged || (oldPa.GetMtls().GetMode() == v1beta1.PeerAuthentication_MutualTLS_DISABLE && newPa.GetMtls().GetMode() == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE)
-		mtlsUnchanged = mtlsUnchanged || (oldPa.GetMtls().GetMode() == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE && newPa.GetMtls().GetMode() == v1beta1.PeerAuthentication_MutualTLS_DISABLE)
+		mtlsUnchanged = mtlsUnchanged || (isMtlsModeDisable(oldPa.GetMtls()) && isMtlsModePermissive(newPa.GetMtls()))
+		mtlsUnchanged = mtlsUnchanged || (isMtlsModePermissive(oldPa.GetMtls()) && isMtlsModeDisable(newPa.GetMtls()))
 
 		portLevelMtlsUnchanged := portMtlsEqual(oldPa.GetPortLevelMtls(), newPa.GetPortLevelMtls())
 		if maps.Equal(sel, oldSel) && mtlsUnchanged && portLevelMtlsUnchanged {
@@ -603,7 +603,8 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 			// Check top-level mode
 			if mode == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE || mode == v1beta1.PeerAuthentication_MutualTLS_DISABLE {
 				// we don't care; log and continue
-				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s", port, portMtlsMode, cfg.Namespace, cfg.Name, mode)
+				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s",
+					port, portMtlsMode, cfg.Namespace, cfg.Name, mode)
 				continue
 			}
 			foundNonStrictPortmTLS = true
@@ -624,7 +625,8 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 			// Check top-level mode
 			if mode == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE || mode == v1beta1.PeerAuthentication_MutualTLS_DISABLE {
 				// we don't care; log and continue
-				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s", port, portMtlsMode, cfg.Namespace, cfg.Name, mode)
+				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s",
+					port, portMtlsMode, cfg.Namespace, cfg.Name, mode)
 				continue
 			}
 			foundNonStrictPortmTLS = true
