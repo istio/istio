@@ -53,6 +53,8 @@ const (
 	serverLogEntry               = "testdata/server_access_log.json.tmpl"
 	traceTmplFile                = "testdata/trace.prototext.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
+	// version file
+	versionFile = "../../../../../VERSION"
 )
 
 var (
@@ -261,7 +263,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
-		"ProxyVersion":  os.Getenv("VERSION"),
+		"ProxyVersion":  getVersion(),
 	})
 	if err != nil {
 		return
@@ -278,7 +280,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
-		"ProxyVersion":  os.Getenv("VERSION"),
+		"ProxyVersion":  getVersion(),
 	})
 	if err != nil {
 		return
@@ -324,4 +326,12 @@ func goldenTrace(trustDomain string) (*cloudtrace.Trace, error) {
 	}
 
 	return &trace, nil
+}
+
+func getVersion() string {
+	version, err := os.ReadFile(versionFile)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSuffix(string(version), "\n")
 }

@@ -124,6 +124,11 @@ func gotRequestCountMetrics(t framework.TestContext, wantClient, wantServer *mon
 	for _, series := range ts {
 		// Making resource nil, as test can run on various platforms.
 		series.Resource = nil
+		// Do a fuzzy match for proxy_version label
+		// Remove any extra version information
+		if proxyVersion, ok := series.Metric.Labels["proxy_version"]; ok {
+			series.Metric.Labels["proxy_version"] = strings.Split(proxyVersion, "-")[0]
+		}
 		if proto.Equal(series, wantServer) {
 			gotServer = true
 		}
