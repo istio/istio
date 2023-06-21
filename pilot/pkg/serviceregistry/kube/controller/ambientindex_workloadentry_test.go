@@ -304,14 +304,14 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	deleteWorkloadEntry("name2")
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name2")
 
-	addPolicy(cfg, "global", "istio-system", nil, t)
-	addPolicy(cfg, "namespace", "default", nil, t)
+	addPolicy(t, cfg, "global", "istio-system", nil)
+	addPolicy(t, cfg, "namespace", "default", nil)
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("/127.0.0.1")[0].GetWorkload().GetAuthorizationPolicies(),
 		nil)
 	fx.Clear()
 
-	addPolicy(cfg, "selector", "ns1", map[string]string{"app": "a"}, t)
+	addPolicy(t, cfg, "selector", "ns1", map[string]string{"app": "a"})
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name1")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("/127.0.0.1")[0].GetWorkload().GetAuthorizationPolicies(),
@@ -331,14 +331,14 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		controller.ambientIndex.Lookup("/127.0.0.2")[0].GetWorkload().GetAuthorizationPolicies(),
 		[]string{"ns1/selector"})
 
-	addPolicy(cfg, "global-selector", "istio-system", map[string]string{"app": "a"}, t)
+	addPolicy(t, cfg, "global-selector", "istio-system", map[string]string{"app": "a"})
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name1", "cluster0/networking.istio.io/WorkloadEntry/ns1/name2")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("/127.0.0.1")[0].GetWorkload().GetAuthorizationPolicies(),
 		[]string{"istio-system/global-selector", "ns1/selector"})
 
 	// Update selector to not select
-	addPolicy(cfg, "global-selector", "istio-system", map[string]string{"app": "not-a"}, t)
+	addPolicy(t, cfg, "global-selector", "istio-system", map[string]string{"app": "not-a"})
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name1", "cluster0/networking.istio.io/WorkloadEntry/ns1/name2")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("/127.0.0.1")[0].GetWorkload().GetAuthorizationPolicies(),

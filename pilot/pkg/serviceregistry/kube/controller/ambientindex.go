@@ -577,7 +577,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 			for _, networkAddr := range networkAddressFromWorkload(wl) {
 				a.byWorkloadEntry[networkAddr] = wl
 			}
-			a.byUID[c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())] = wl
+			a.byUID[wl.Uid] = wl
 			wls[wl.Uid] = wl
 		}
 	}

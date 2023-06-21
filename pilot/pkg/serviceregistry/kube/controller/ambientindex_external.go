@@ -252,7 +252,6 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alph
 		Addresses:             [][]byte{parseIP(workloadEntry.Spec.Address)},
 		Network:               network,
 		ServiceAccount:        workloadEntry.Spec.ServiceAccount,
-		Node:                  workloadEntry.Spec.Address, // 1:1 mapping between Node and WorkloadEntry address
 		VirtualIps:            vips,
 		AuthorizationPolicies: policies,
 		Waypoint:              waypoint,
