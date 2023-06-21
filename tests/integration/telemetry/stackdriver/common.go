@@ -456,5 +456,5 @@ func getVersion() string {
 	if err != nil {
 		return ""
 	}
-	return string(version)
+	return strings.TrimSuffix(string(version), "\n")
 }
