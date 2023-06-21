@@ -313,6 +313,7 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	}
 
 	policies := c.selectorAuthorizationPolicies(p.Namespace, p.Labels)
+	policies = append(policies, c.convertedSelectorPeerAuthentications(p.Namespace, p.Labels)...)
 	wl := c.constructWorkload(p, waypoint, policies)
 	if wl == nil {
 		return nil

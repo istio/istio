@@ -236,6 +236,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 	}
 	if m.configController != nil && features.EnableAmbientControllers {
 		m.configController.RegisterEventHandler(gvk.AuthorizationPolicy, kubeRegistry.AuthorizationPolicyHandler)
+		m.configController.RegisterEventHandler(gvk.PeerAuthentication, kubeRegistry.PeerAuthenticationHandler)
 	}
 
 	if configCluster && m.serviceEntryController != nil && features.EnableEnhancedResourceScoping {
