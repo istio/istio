@@ -563,9 +563,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 	}
 
 	var workloadEntries []*apiv1alpha3.WorkloadEntry
-	if c.workloadEntryEnabled {
-		workloadEntries = c.getWorkloadEntriesInService(svc)
-	}
+	workloadEntries = c.getWorkloadEntriesInService(svc)
 	for _, w := range workloadEntries {
 		wl := c.extractWorkloadEntry(w)
 		// Can be nil if the WorkloadEntry IP has not been mapped yet

@@ -91,10 +91,8 @@ func (c *Controller) handleSelectedNamespace(ns string) {
 
 	if c.ambientIndex != nil {
 		c.ambientIndex.handlePods(pods, c)
-		if c.workloadEntryEnabled {
-			allWorkloadEntries := c.getControllerWorkloadEntries(ns)
-			c.ambientIndex.handleWorkloadEntries(allWorkloadEntries, c)
-		}
+		allWorkloadEntries := c.getControllerWorkloadEntries(ns)
+		c.ambientIndex.handleWorkloadEntries(allWorkloadEntries, c)
 
 	}
 

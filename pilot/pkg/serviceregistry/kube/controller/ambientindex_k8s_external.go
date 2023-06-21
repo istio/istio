@@ -88,16 +88,13 @@ func (c *Controller) WorkloadEntryHandler(oldCfg config.Config, newCfg config.Co
 }
 
 func (c *Controller) initWorkloadEntryHandler(idx *AmbientIndex) {
-	if !c.workloadEntryEnabled || idx == nil {
+	if idx == nil {
 		return
 	}
 	c.configController.RegisterEventHandler(gvk.WorkloadEntry, c.WorkloadEntryHandler)
 }
 
 func (c *Controller) getWorkloadEntriesInPolicy(ns string, sel map[string]string) []*apiv1alpha3.WorkloadEntry {
-	if !c.workloadEntryEnabled {
-		return nil
-	}
 	if ns == c.meshWatcher.Mesh().GetRootNamespace() {
 		ns = metav1.NamespaceAll
 	}
@@ -228,7 +225,7 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alph
 					}
 					targetPort, err := findPortForWorkloadEntry(workloadEntry, &port)
 					if err != nil {
-						log.Debugf("error looking up port for WorkloadEntry %s/%s", workloadEntry.Namespace, workloadEntry.Name)
+						log.Errorf("error looking up port for WorkloadEntry %s/%s", workloadEntry.Namespace, workloadEntry.Name)
 						continue
 					}
 					vips[vip].Ports = append(vips[vip].Ports, &workloadapi.Port{
@@ -375,9 +372,6 @@ func (c *Controller) generateWorkloadEntryUID(wkEntryNamespace, wkEntryName stri
 }
 
 func (c *Controller) getControllerWorkloadEntries(ns string) []*apiv1alpha3.WorkloadEntry {
-	if !c.workloadEntryEnabled {
-		return nil
-	}
 	var allWorkloadEntries []*apiv1alpha3.WorkloadEntry
 	allUnstructuredWorkloadEntries := c.configController.List(gvk.WorkloadEntry, ns)
 	for _, w := range allUnstructuredWorkloadEntries {
