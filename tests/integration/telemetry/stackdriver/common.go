@@ -275,12 +275,16 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 	if err != nil {
 		return err
 	}
+	proxyVersion, err := env.ReadVersion()
+	if err != nil {
+		return err
+	}
 	resource, err := tmpl.Evaluate(string(templateFile), map[string]any{
 		"EchoNamespace": EchoNsInst.Name(),
 		"ClusterName":   clName,
 		"TrustDomain":   trustDomain,
 		"OnGCE":         metadata.OnGCE(),
-		"ProxyVersion":  getVersion(),
+		"ProxyVersion":  proxyVersion,
 	})
 	if err != nil {
 		return err
@@ -448,13 +452,4 @@ func normalizeTrace(l *cloudtrace.Trace) map[string]string {
 		}
 	}
 	return r
-}
-
-func getVersion() string {
-	versionFile := filepath.Join(env.IstioSrc, "VERSION")
-	version, err := os.ReadFile(versionFile)
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSuffix(string(version), "\n")
 }
