@@ -54,7 +54,6 @@ const (
 	serverLogEntry               = "testdata/server_access_log.json.tmpl"
 	traceTmplFile                = "testdata/trace.prototext.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
-	versionFile                  = "../../../../../VERSION"
 )
 
 var (
@@ -262,7 +261,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	}
 	proxyVersion, err := env.ReadVersion()
 	if err != nil {
-		return err
+		return
 	}
 	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
