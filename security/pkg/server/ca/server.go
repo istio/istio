@@ -79,6 +79,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	s.monitoring.CSR.Increment()
 	caller, err := security.Authenticate(ctx, s.Authenticators)
 	if caller == nil || err != nil {
+		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
 	// By default, we will use the callers identity for the certificate
