@@ -277,30 +277,20 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alph
 func (a *AmbientIndex) updateWaypointForWorkload(byWorkload map[networkAddress]*model.WorkloadInfo, scope model.WaypointScope,
 	addr *workloadapi.GatewayAddress, isDelete bool, updates sets.Set[model.ConfigKey],
 ) {
-	if isDelete {
-		for _, wl := range byWorkload {
-			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-				continue
-			}
-			if wl.Namespace != scope.Namespace || (scope.ServiceAccount != "" && wl.ServiceAccount != scope.ServiceAccount) {
-				continue
-			}
-
+	for _, wl := range byWorkload {
+		if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+			continue
+		}
+		if wl.Namespace != scope.Namespace || (scope.ServiceAccount != "" && wl.ServiceAccount != scope.ServiceAccount) {
+			continue
+		}
+		if isDelete {
 			if wl.Waypoint != nil && proto.Equal(wl.Waypoint, addr) {
 				wl.Waypoint = nil
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 			}
-		}
-	} else {
-		for _, wl := range byWorkload {
-			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-				continue
-			}
-			if wl.Namespace != scope.Namespace || (scope.ServiceAccount != "" && wl.ServiceAccount != scope.ServiceAccount) {
-				continue
-			}
-
+		} else {
 			if wl.Waypoint == nil || !proto.Equal(wl.Waypoint, addr) {
 				wl.Waypoint = addr
 				// If there was a change, also update the VIPs and record for a push
