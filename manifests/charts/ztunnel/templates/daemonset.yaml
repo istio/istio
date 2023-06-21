@@ -73,8 +73,6 @@ spec:
         - proxy
         - ztunnel
         env:
-        - name: CLUSTER_ID
-          value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         - name: POD_NAME
           valueFrom:
             fieldRef:
