@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: 
+  - 45563
+releaseNotes:
+  - |
+    **Added** outlierLogPath to operator api proxyConfig.
