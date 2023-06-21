@@ -32,10 +32,8 @@ import (
 	cloudtrace "cloud.google.com/go/trace/apiv1/tracepb"
 	"google.golang.org/protobuf/proto"
 
-	"istio.io/api/label"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -277,7 +275,7 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 		"ClusterName":   clName,
 		"TrustDomain":   trustDomain,
 		"OnGCE":         metadata.OnGCE(),
-		"IstioRevision": getIstioRevision(EchoNsInst),
+		"ProxyVersion":  os.Getenv("VERSION"),
 	})
 	if err != nil {
 		return err
@@ -445,13 +443,4 @@ func normalizeTrace(l *cloudtrace.Trace) map[string]string {
 		}
 	}
 	return r
-}
-
-func getIstioRevision(n namespace.Instance) string {
-	nsLabels, err := n.Labels()
-	if err != nil {
-		log.Warnf("failed fetching labels for %s; assuming no-revision (can cause failures): %v", n.Name(), err)
-		return ""
-	}
-	return nsLabels[label.IoIstioRev.Name]
 }
