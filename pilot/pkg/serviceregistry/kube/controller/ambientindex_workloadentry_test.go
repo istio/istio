@@ -145,7 +145,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 					Namespace:         "ns1",
 					Addresses:         [][]byte{parseIP("127.0.0.3")},
 					ServiceAccount:    "sa1",
-					Node:              "127.0.0.3",
+					Node:              "",
 					CanonicalName:     "other",
 					CanonicalRevision: "latest",
 					WorkloadType:      workloadapi.WorkloadType_POD,
