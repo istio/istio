@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"context"
 	"fmt"
 
 	"golang.org/x/exp/maps"
@@ -34,14 +33,11 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
-	kubelib "istio.io/istio/pkg/kube"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
-
-const workloadEntriesCRDName = "workloadentries.networking.istio.io"
 
 func (a *AmbientIndex) handleWorkloadEntries(workloadEntries []*apiv1alpha3.WorkloadEntry, c *Controller) {
 	updates := sets.New[model.ConfigKey]()
@@ -212,6 +208,13 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alph
 		return nil
 	}
 
+	// TODO support WorkloadEntry's with empty address
+	// only add if waypoint exists?
+	if workloadEntry.Spec.Address == "" {
+		log.Warnf("workloadentry %s/%s does not have an address", workloadEntry.Namespace, workloadEntry.Name)
+		return nil
+	}
+
 	vips := map[string]*workloadapi.PortList{}
 	if services := getWorkloadEntryServices(c.services.List(workloadEntry.Namespace, klabels.Everything()), workloadEntry); len(services) > 0 {
 		for _, svc := range services {
@@ -348,11 +351,6 @@ func (c *Controller) getWorkloadEntriesInService(svc *v1.Service) []*apiv1alpha3
 		}
 	}
 	return workloadEntries
-}
-
-func workloadEntryEnabled(c kubelib.Client) bool {
-	_, err := c.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), workloadEntriesCRDName, metav1.GetOptions{})
-	return err == nil
 }
 
 // name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
