@@ -53,8 +53,7 @@ const (
 	serverLogEntry               = "testdata/server_access_log.json.tmpl"
 	traceTmplFile                = "testdata/trace.prototext.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
-	// version file
-	versionFile = "../../../../../VERSION"
+	versionFile                  = "../../../../../VERSION"
 )
 
 var (
