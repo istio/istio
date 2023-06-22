@@ -15,7 +15,6 @@ package xds_test
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/slices"
 	"reflect"
 	"testing"
 	"time"
@@ -34,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )

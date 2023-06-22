@@ -15,7 +15,6 @@
 package annotations
 
 import (
-	"istio.io/istio/pkg/util/sets"
 	"strings"
 
 	"istio.io/api/annotation"
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // K8sAnalyzer checks for misplaced and invalid Istio annotations in K8s resources

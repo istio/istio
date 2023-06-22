@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"istio.io/istio/pkg/util/sets"
 	"regexp"
 	"strconv"
 	"strings"
@@ -66,6 +65,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type myProtoValue struct {
