@@ -170,7 +170,7 @@ func lookupAnnotation(ann string) *annotation.Instance {
 }
 
 func resourceTypesAsStrings(resourceTypes []annotation.ResourceTypes) sets.String {
-	var retval sets.String
+	retval := sets.New[string]()
 	for _, resourceType := range resourceTypes {
 		if s := resourceType.String(); s != "Unknown" {
 			retval.Insert(s)
