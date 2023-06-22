@@ -24,73 +24,55 @@ import (
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 
+	"istio.io/istio/istioctl/pkg/admin"
+	"istio.io/istio/istioctl/pkg/analyze"
+	"istio.io/istio/istioctl/pkg/authz"
+	"istio.io/istio/istioctl/pkg/checkinject"
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/completion"
+	"istio.io/istio/istioctl/pkg/config"
+	"istio.io/istio/istioctl/pkg/dashboard"
+	"istio.io/istio/istioctl/pkg/describe"
+	"istio.io/istio/istioctl/pkg/injector"
 	"istio.io/istio/istioctl/pkg/install"
+	"istio.io/istio/istioctl/pkg/internaldebug"
+	"istio.io/istio/istioctl/pkg/kubeinject"
+	"istio.io/istio/istioctl/pkg/metrics"
 	"istio.io/istio/istioctl/pkg/multicluster"
+	"istio.io/istio/istioctl/pkg/precheck"
+	"istio.io/istio/istioctl/pkg/proxyconfig"
+	"istio.io/istio/istioctl/pkg/proxystatus"
+	"istio.io/istio/istioctl/pkg/revision"
+	"istio.io/istio/istioctl/pkg/root"
+	"istio.io/istio/istioctl/pkg/tag"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/validate"
+	"istio.io/istio/istioctl/pkg/version"
+	"istio.io/istio/istioctl/pkg/wait"
+	"istio.io/istio/istioctl/pkg/waypoint"
+	"istio.io/istio/istioctl/pkg/workload"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/bug-report/pkg/bugreport"
 )
 
-// CommandParseError distinguishes an error parsing istioctl CLI arguments from an error processing
-type CommandParseError struct {
-	e error
-}
-
-func (c CommandParseError) Error() string {
-	return c.e.Error()
-}
-
 const (
 	// Location to read istioctl defaults from
 	defaultIstioctlConfig = "$HOME/.istioctl/config.yaml"
-
-	// ExperimentalMsg indicate active development and not for production use warning.
-	ExperimentalMsg = `THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`
-)
-
-var (
-	// IstioConfig is the name of the istioctl config file (if any)
-	IstioConfig = env.Register("ISTIOCONFIG", defaultIstioctlConfig,
-		"Default values for istioctl flags").Get()
-
-	loggingOptions = defaultLogOptions()
-
-	// scope is for dev logging.  Warning: log levels are not set by --log_output_level until command is Run().
-	scope = log.RegisterScope("cli", "istioctl")
 )
 
 const (
 	FlagCharts = "charts"
 )
 
-func defaultLogOptions() *log.Options {
-	o := log.DefaultOptions()
-
-	// These scopes are, at the default "INFO" level, too chatty for command line use
-	o.SetOutputLevel("validation", log.ErrorLevel)
-	o.SetOutputLevel("processing", log.ErrorLevel)
-	o.SetOutputLevel("analysis", log.WarnLevel)
-	o.SetOutputLevel("installer", log.WarnLevel)
-	o.SetOutputLevel("translator", log.WarnLevel)
-	o.SetOutputLevel("adsc", log.WarnLevel)
-	o.SetOutputLevel("default", log.WarnLevel)
-	o.SetOutputLevel("klog", log.WarnLevel)
-	o.SetOutputLevel("kube", log.ErrorLevel)
-
-	return o
-}
-
 // ConfigAndEnvProcessing uses spf13/viper for overriding CLI parameters
 func ConfigAndEnvProcessing() error {
-	configPath := filepath.Dir(IstioConfig)
-	baseName := filepath.Base(IstioConfig)
-	configType := filepath.Ext(IstioConfig)
+	configPath := filepath.Dir(root.IstioConfig)
+	baseName := filepath.Base(root.IstioConfig)
+	configType := filepath.Ext(root.IstioConfig)
 	configName := baseName[0 : len(baseName)-len(configType)]
 	if configType != "" {
 		configType = configType[1:]
@@ -107,7 +89,7 @@ func ConfigAndEnvProcessing() error {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	err := viper.ReadInConfig()
 	// Ignore errors reading the configuration unless the file is explicitly customized
-	if IstioConfig != defaultIstioctlConfig {
+	if root.IstioConfig != defaultIstioctlConfig {
 		return err
 	}
 
@@ -136,7 +118,7 @@ debug and diagnose their Istio mesh.
 	flags := rootCmd.PersistentFlags()
 	rootOptions := cli.AddRootFlags(flags)
 
-	ctx := cli.NewCLIContext(*rootOptions)
+	ctx := cli.NewCLIContext(rootOptions)
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if err := configureLogging(cmd, args); err != nil {
@@ -149,16 +131,16 @@ debug and diagnose their Istio mesh.
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagIstioNamespace, func(
 		cmd *cobra.Command, args []string, toComplete string,
 	) ([]string, cobra.ShellCompDirective) {
-		return validNamespaceArgs(cmd, ctx, args, toComplete)
+		return completion.ValidNamespaceArgs(cmd, ctx, args, toComplete)
 	})
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagNamespace, func(
 		cmd *cobra.Command, args []string, toComplete string,
 	) ([]string, cobra.ShellCompDirective) {
-		return validNamespaceArgs(cmd, ctx, args, toComplete)
+		return completion.ValidNamespaceArgs(cmd, ctx, args, toComplete)
 	})
 
 	// Attach the Istio logging options to the command.
-	loggingOptions.AttachCobraFlags(rootCmd)
+	root.LoggingOptions.AttachCobraFlags(rootCmd)
 	hiddenFlags := []string{
 		"log_as_json", "log_rotate", "log_rotate_max_age", "log_rotate_max_backups",
 		"log_rotate_max_size", "log_stacktrace_level", "log_target", "log_caller", "log_output_level",
@@ -169,7 +151,7 @@ debug and diagnose their Istio mesh.
 
 	cmd.AddFlags(rootCmd)
 
-	kubeInjectCmd := injectCommand(ctx)
+	kubeInjectCmd := kubeinject.InjectCommand(ctx)
 	hideInheritedFlags(kubeInjectCmd, cli.FlagNamespace)
 	rootCmd.AddCommand(kubeInjectCmd)
 
@@ -180,12 +162,12 @@ debug and diagnose their Istio mesh.
 	}
 
 	xdsBasedTroubleshooting := []*cobra.Command{
-		xdsVersionCommand(ctx),
-		xdsStatusCommand(ctx),
+		version.XdsVersionCommand(ctx),
+		proxystatus.XdsStatusCommand(ctx),
 	}
 	debugBasedTroubleshooting := []*cobra.Command{
-		newVersionCommand(ctx),
-		statusCommand(ctx),
+		version.NewVersionCommand(ctx),
+		proxystatus.StatusCommand(ctx),
 	}
 	var debugCmdAttachmentPoint *cobra.Command
 	if viper.GetBool("PREFER-EXPERIMENTAL") {
@@ -209,37 +191,37 @@ debug and diagnose their Istio mesh.
 	}
 
 	rootCmd.AddCommand(experimentalCmd)
-	rootCmd.AddCommand(proxyConfig(ctx))
-	rootCmd.AddCommand(adminCmd(ctx))
-	experimentalCmd.AddCommand(injectorCommand(ctx))
+	rootCmd.AddCommand(proxyconfig.ProxyConfig(ctx))
+	rootCmd.AddCommand(admin.Cmd(ctx))
+	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
-	rootCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
+	rootCmd.AddCommand(mesh.UninstallCmd(root.LoggingOptions))
 
-	experimentalCmd.AddCommand(AuthZ(ctx))
+	experimentalCmd.AddCommand(authz.AuthZ(ctx))
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
-	experimentalCmd.AddCommand(metricsCmd(ctx))
-	experimentalCmd.AddCommand(describe(ctx))
-	experimentalCmd.AddCommand(waitCmd(ctx))
-	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(loggingOptions)))
-	experimentalCmd.AddCommand(configCmd())
-	experimentalCmd.AddCommand(workloadCommands(ctx))
-	experimentalCmd.AddCommand(revisionCommand(ctx))
-	experimentalCmd.AddCommand(debugCommand(ctx))
-	experimentalCmd.AddCommand(preCheck(ctx))
-	experimentalCmd.AddCommand(statsConfigCmd(ctx))
-	experimentalCmd.AddCommand(checkInjectCommand(ctx))
-	experimentalCmd.AddCommand(waypointCmd(ctx))
+	experimentalCmd.AddCommand(metrics.Cmd(ctx))
+	experimentalCmd.AddCommand(describe.Cmd(ctx))
+	experimentalCmd.AddCommand(wait.Cmd(ctx))
+	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(root.LoggingOptions)))
+	experimentalCmd.AddCommand(config.Cmd())
+	experimentalCmd.AddCommand(workload.Cmd(ctx))
+	experimentalCmd.AddCommand(revision.Cmd(ctx))
+	experimentalCmd.AddCommand(internaldebug.DebugCommand(ctx))
+	experimentalCmd.AddCommand(precheck.Cmd(ctx))
+	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
+	experimentalCmd.AddCommand(checkinject.Cmd(ctx))
+	experimentalCmd.AddCommand(waypoint.Cmd(ctx))
 
-	analyzeCmd := Analyze(ctx)
+	analyzeCmd := analyze.Analyze(ctx)
 	hideInheritedFlags(analyzeCmd, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(analyzeCmd)
 
-	dashboardCmd := dashboard(ctx)
+	dashboardCmd := dashboard.Dashboard(ctx)
 	hideInheritedFlags(dashboardCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
 
-	manifestCmd := mesh.ManifestCmd(loggingOptions)
+	manifestCmd := mesh.ManifestCmd(root.LoggingOptions)
 	hideInheritedFlags(manifestCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(manifestCmd)
 
@@ -247,28 +229,28 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(operatorCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(operatorCmd)
 
-	installCmd := mesh.InstallCmd(loggingOptions)
+	installCmd := mesh.InstallCmd(root.LoggingOptions)
 	hideInheritedFlags(installCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(installCmd)
 
-	profileCmd := mesh.ProfileCmd(loggingOptions)
+	profileCmd := mesh.ProfileCmd(root.LoggingOptions)
 	hideInheritedFlags(profileCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(profileCmd)
 
-	upgradeCmd := mesh.UpgradeCmd(loggingOptions)
+	upgradeCmd := mesh.UpgradeCmd(root.LoggingOptions)
 	hideInheritedFlags(upgradeCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
-	bugReportCmd := bugreport.Cmd(loggingOptions)
+	bugReportCmd := bugreport.Cmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(bugReportCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(bugReportCmd)
 
-	tagCmd := tagCommand(ctx)
-	hideInheritedFlags(tagCommand(ctx), cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
+	tagCmd := tag.TagCommand(ctx)
+	hideInheritedFlags(tag.TagCommand(ctx), cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(tagCmd)
 
 	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
-	remoteClustersCmd := clustersCommand(ctx)
+	remoteClustersCmd := proxyconfig.ClustersCommand(ctx)
 	// leave the multicluster commands in x for backwards compat
 	rootCmd.AddCommand(remoteSecretCmd)
 	rootCmd.AddCommand(remoteClustersCmd)
@@ -304,7 +286,7 @@ debug and diagnose their Istio mesh.
 			}
 		}
 		curCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
-			return CommandParseError{e}
+			return util.CommandParseError{Err: e}
 		})
 	}
 
@@ -323,7 +305,7 @@ func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
 }
 
 func configureLogging(_ *cobra.Command, _ []string) error {
-	if err := log.Configure(loggingOptions); err != nil {
+	if err := log.Configure(root.LoggingOptions); err != nil {
 		return err
 	}
 	return nil

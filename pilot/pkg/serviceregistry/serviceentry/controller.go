@@ -392,12 +392,12 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 
 	for _, svc := range addedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
+		configsUpdated.Insert(makeConfigKey(svc))
 	}
 
 	for _, svc := range updatedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventUpdate)
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
+		configsUpdated.Insert(makeConfigKey(svc))
 	}
 	// If service entry is deleted, call SvcUpdate to cleanup endpoint shards for services.
 	for _, svc := range deletedSvcs {
@@ -410,7 +410,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 			// If there are some endpoints remaining for the host, add svc to updatedSvcs to trigger eds cache update
 			updatedSvcs = append(updatedSvcs, svc)
 		}
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
+		configsUpdated.Insert(makeConfigKey(svc))
 	}
 
 	// If a service is updated and is not part of updatedSvcs, that means its endpoints might have changed.
@@ -420,7 +420,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	if len(unchangedSvcs) > 0 {
 		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
 			for _, svc := range unchangedSvcs {
-				configsUpdated[makeConfigKey(svc)] = struct{}{}
+				configsUpdated.Insert(makeConfigKey(svc))
 			}
 		}
 	}
@@ -446,9 +446,9 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 		}
 	}
 	// non dns service instances
-	keys := map[instancesKey]struct{}{}
+	keys := sets.NewWithLength[instancesKey](len(nonDNSServices))
 	for _, svc := range nonDNSServices {
-		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
+		keys.Insert(instancesKey{hostname: svc.Hostname, namespace: curr.Namespace})
 	}
 
 	s.queueEdsEvent(keys, s.doEdsCacheUpdate)
@@ -718,7 +718,7 @@ func (s *Controller) edsCacheUpdate(instances []*model.ServiceInstance) {
 }
 
 // queueEdsEvent processes eds events sequentially for the passed keys and invokes the passed function.
-func (s *Controller) queueEdsEvent(keys map[instancesKey]struct{}, edsFn func(keys map[instancesKey]struct{})) {
+func (s *Controller) queueEdsEvent(keys sets.Set[instancesKey], edsFn func(keys sets.Set[instancesKey])) {
 	// wait for the cache update finished
 	waitCh := make(chan struct{})
 	// trigger update eds endpoint shards
@@ -738,7 +738,7 @@ func (s *Controller) queueEdsEvent(keys map[instancesKey]struct{}, edsFn func(ke
 }
 
 // doEdsCacheUpdate invokes XdsUpdater's EDSCacheUpdate to update endpoint shards.
-func (s *Controller) doEdsCacheUpdate(keys map[instancesKey]struct{}) {
+func (s *Controller) doEdsCacheUpdate(keys sets.Set[instancesKey]) {
 	endpoints := s.buildEndpoints(keys)
 	shard := model.ShardKeyFromRegistry(s)
 	// This is delete.
@@ -754,7 +754,7 @@ func (s *Controller) doEdsCacheUpdate(keys map[instancesKey]struct{}) {
 }
 
 // doEdsUpdate invokes XdsUpdater's eds update to trigger eds push.
-func (s *Controller) doEdsUpdate(keys map[instancesKey]struct{}) {
+func (s *Controller) doEdsUpdate(keys sets.Set[instancesKey]) {
 	endpoints := s.buildEndpoints(keys)
 	shard := model.ShardKeyFromRegistry(s)
 	// This is delete.
@@ -915,8 +915,8 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			} else {
 				// This means we have a collision. Resolve collision by "DoubleHashing".
 				i := uint32(1)
+				secondHash := uint32(prime) - (s % uint32(prime))
 				for {
-					secondHash := uint32(prime) - (s % uint32(prime))
 					nh := (s + i*secondHash) % uint32(maxIPs)
 					if hashedServices[nh] == nil {
 						hashedServices[nh] = svc

@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -41,13 +42,10 @@ var (
 	getKubePodInfoCalled = false
 	nsenterFuncCalled    = false
 
-	testContainers     = []string{"mockContainer"}
-	testLabels         = map[string]string{}
-	testAnnotations    = map[string]string{}
-	testProxyEnv       = map[string]string{}
-	testInitContainers = map[string]struct{}{
-		"foo-init": {},
-	}
+	testContainers                = sets.New("mockContainer", "foo-init")
+	testLabels                    = map[string]string{}
+	testAnnotations               = map[string]string{}
+	testProxyEnv                  = map[string]string{}
 	singletonMockInterceptRuleMgr = &mockInterceptRuleMgr{}
 )
 
@@ -102,7 +100,6 @@ type mockInterceptRuleMgr struct {
 }
 
 func init() {
-	interceptRuleMgrType = "mock"
 	testAnnotations[sidecarStatusKey] = "true"
 }
 
@@ -129,7 +126,6 @@ func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace strin
 	pi.Containers = testContainers
 	pi.Labels = testLabels
 	pi.Annotations = testAnnotations
-	pi.InitContainers = testInitContainers
 	pi.ProxyEnvironments = testProxyEnv
 
 	return &pi, nil
@@ -138,15 +134,11 @@ func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace strin
 func resetGlobalTestVariables() {
 	getKubePodInfoCalled = false
 	nsenterFuncCalled = false
-	testInitContainers = map[string]struct{}{
-		"foo-init": {},
-	}
-	testContainers = []string{"mockContainer"}
+	testContainers = sets.New("mockContainer", "foo-init")
 	testLabels = map[string]string{}
 	testAnnotations = map[string]string{}
 	testProxyEnv = map[string]string{}
 
-	interceptRuleMgrType = "mock"
 	testAnnotations[sidecarStatusKey] = "true"
 	k8Args = "K8S_POD_NAMESPACE=istio-system;K8S_POD_NAME=testPodName"
 }
@@ -229,7 +221,7 @@ func TestCmdAdd(t *testing.T) {
 func TestCmdAddTwoContainersWithAnnotation(t *testing.T) {
 	defer resetGlobalTestVariables()
 
-	testContainers = []string{"mockContainer", "mockContainer2"}
+	testContainers = sets.New("mockContainer", "istio-proxy")
 	testAnnotations[injectAnnotationKey] = "false"
 
 	testCmdAdd(t)
@@ -238,7 +230,7 @@ func TestCmdAddTwoContainersWithAnnotation(t *testing.T) {
 func TestCmdAddTwoContainersWithLabel(t *testing.T) {
 	defer resetGlobalTestVariables()
 
-	testContainers = []string{"mockContainer", "mockContainer2"}
+	testContainers = sets.New("mockContainer", "istio-proxy")
 	testAnnotations[label.SidecarInject.Name] = "false"
 
 	testCmdAdd(t)
@@ -247,7 +239,7 @@ func TestCmdAddTwoContainersWithLabel(t *testing.T) {
 func TestCmdAddTwoContainers(t *testing.T) {
 	defer resetGlobalTestVariables()
 	testAnnotations[injectAnnotationKey] = "true"
-	testContainers = []string{"mockContainer", "mockContainer2"}
+	testContainers = sets.New("mockContainer", "istio-proxy")
 
 	testCmdAdd(t)
 
@@ -267,7 +259,7 @@ func TestCmdAddTwoContainers(t *testing.T) {
 func TestCmdAddTwoContainersWithStarInboundPort(t *testing.T) {
 	defer resetGlobalTestVariables()
 	testAnnotations[includeInboundPortsKey] = "*"
-	testContainers = []string{"mockContainer", "mockContainer2"}
+	testContainers = sets.New("mockContainer", "istio-proxy")
 	testCmdAdd(t)
 
 	if !nsenterFuncCalled {
@@ -286,7 +278,7 @@ func TestCmdAddTwoContainersWithStarInboundPort(t *testing.T) {
 func TestCmdAddTwoContainersWithEmptyInboundPort(t *testing.T) {
 	defer resetGlobalTestVariables()
 	delete(testAnnotations, includeInboundPortsKey)
-	testContainers = []string{"mockContainer", "mockContainer2"}
+	testContainers = sets.New("mockContainer", "istio-proxy")
 	testAnnotations[includeInboundPortsKey] = ""
 	testCmdAdd(t)
 
@@ -306,7 +298,7 @@ func TestCmdAddTwoContainersWithEmptyInboundPort(t *testing.T) {
 func TestCmdAddTwoContainersWithEmptyExcludeInboundPort(t *testing.T) {
 	defer resetGlobalTestVariables()
 	delete(testAnnotations, includeInboundPortsKey)
-	testContainers = []string{"mockContainer", "mockContainer2"}
+	testContainers = sets.New("mockContainer", "istio-proxy")
 	testAnnotations[excludeInboundPortsKey] = ""
 	testCmdAdd(t)
 
@@ -326,7 +318,7 @@ func TestCmdAddTwoContainersWithEmptyExcludeInboundPort(t *testing.T) {
 func TestCmdAddTwoContainersWithExplictExcludeInboundPort(t *testing.T) {
 	defer resetGlobalTestVariables()
 	delete(testAnnotations, includeInboundPortsKey)
-	testContainers = []string{"mockContainer", "mockContainer2"}
+	testContainers = sets.New("mockContainer", "istio-proxy")
 	testAnnotations[excludeInboundPortsKey] = "3306"
 	testCmdAdd(t)
 
@@ -347,7 +339,7 @@ func TestCmdAddTwoContainersWithoutSideCar(t *testing.T) {
 	defer resetGlobalTestVariables()
 
 	delete(testAnnotations, sidecarStatusKey)
-	testContainers = []string{"mockContainer", "mockContainer2"}
+	testContainers = sets.New("mockContainer", "istio-proxy")
 	testCmdAdd(t)
 
 	if nsenterFuncCalled {
@@ -372,11 +364,7 @@ func TestCmdAddExcludePodWithIstioInitContainer(t *testing.T) {
 	defer resetGlobalTestVariables()
 
 	k8Args = "K8S_POD_NAMESPACE=testNS;K8S_POD_NAME=testPodName"
-	testContainers = []string{"mockContainer"}
-	testInitContainers = map[string]struct{}{
-		"foo-init":   {},
-		"istio-init": {},
-	}
+	testContainers = sets.New("mockContainer", "foo-init", "istio-init")
 	testAnnotations[sidecarStatusKey] = "true"
 	getKubePodInfoCalled = true
 
@@ -391,10 +379,7 @@ func TestCmdAddExcludePodWithEnvoyDisableEnv(t *testing.T) {
 	defer resetGlobalTestVariables()
 
 	k8Args = "K8S_POD_NAMESPACE=testNS;K8S_POD_NAME=testPodName"
-	testContainers = []string{"mockContainer", "mockContainer2"}
-	testInitContainers = map[string]struct{}{
-		"foo-init": {},
-	}
+	testContainers = sets.New("mockContainer", "istio-proxy", "foo-init")
 	testAnnotations[sidecarStatusKey] = "true"
 	testProxyEnv["DISABLE_ENVOY"] = "true"
 	getKubePodInfoCalled = true
@@ -410,7 +395,7 @@ func TestCmdAddWithKubevirtInterfaces(t *testing.T) {
 	defer resetGlobalTestVariables()
 
 	testAnnotations[kubevirtInterfacesKey] = "net1,net2"
-	testContainers = []string{"mockContainer"}
+	testContainers = sets.New("mockContainer")
 
 	testCmdAdd(t)
 
@@ -428,7 +413,7 @@ func TestCmdAddWithExcludeInterfaces(t *testing.T) {
 	defer resetGlobalTestVariables()
 
 	testAnnotations[excludeInterfacesKey] = "net2"
-	testContainers = []string{"mockContainer"}
+	testContainers = sets.New("mockContainer")
 
 	testCmdAdd(t)
 

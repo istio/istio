@@ -621,7 +621,7 @@ func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []network
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
 			}
-			compareEndpoints(t, filtered, tt.want)
+			compareEndpointsOrFail(t, cn, extractEnvoyEndpoints(filtered), tt.want)
 
 			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
@@ -633,29 +633,42 @@ func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []network
 	}
 }
 
-func compareEndpoints(t *testing.T, got []*LocalityEndpoints, want []LocLbEpInfo) {
+func extractEnvoyEndpoints(locEps []*LocalityEndpoints) []*endpoint.LocalityLbEndpoints {
+	var locLbEps []*endpoint.LocalityLbEndpoints
+	for _, eps := range locEps {
+		locLbEps = append(locLbEps, &eps.llbEndpoints)
+	}
+	return locLbEps
+}
+
+func compareEndpointsOrFail(t *testing.T, cluster string, got []*endpoint.LocalityLbEndpoints, want []LocLbEpInfo) {
+	if err := compareEndpoints(cluster, got, want); err != nil {
+		t.Error(err)
+	}
+}
+
+func compareEndpoints(cluster string, got []*endpoint.LocalityLbEndpoints, want []LocLbEpInfo) error {
 	if len(got) != len(want) {
-		t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(got), len(want))
-		return
+		return fmt.Errorf("unexpected number of filtered endpoints for %s: got %v, want %v", cluster, len(got), len(want))
 	}
 
 	sort.Slice(got, func(i, j int) bool {
-		addrI := got[i].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-		addrJ := got[j].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+		addrI := got[i].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+		addrJ := got[j].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
 		return addrI < addrJ
 	})
 
 	for i, ep := range got {
-		if len(ep.llbEndpoints.LbEndpoints) != len(want[i].lbEps) {
-			t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v",
-				i, getLbEndpointAddrs(&ep.llbEndpoints), want[i].getAddrs())
+		if len(ep.LbEndpoints) != len(want[i].lbEps) {
+			return fmt.Errorf("unexpected number of LB endpoints within endpoint %d: %v, want %v",
+				i, getLbEndpointAddrs(ep), want[i].getAddrs())
 		}
 
-		if ep.llbEndpoints.LoadBalancingWeight.GetValue() != want[i].weight {
-			t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.llbEndpoints.LoadBalancingWeight.GetValue(), want[i].weight)
+		if ep.LoadBalancingWeight.GetValue() != want[i].weight {
+			return fmt.Errorf("unexpected weight for endpoint %d: got %v, want %v", i, ep.LoadBalancingWeight.GetValue(), want[i].weight)
 		}
 
-		for _, lbEp := range ep.llbEndpoints.LbEndpoints {
+		for _, lbEp := range ep.LbEndpoints {
 			addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
 			found := false
 			for _, wantLbEp := range want[i].lbEps {
@@ -664,17 +677,18 @@ func compareEndpoints(t *testing.T, got []*LocalityEndpoints, want []LocLbEpInfo
 
 					// Now compare the weight.
 					if lbEp.GetLoadBalancingWeight().Value != wantLbEp.weight {
-						t.Errorf("Unexpected weight for endpoint %s: got %v, want %v",
+						return fmt.Errorf("unexpected weight for endpoint %s: got %v, want %v",
 							addr, lbEp.GetLoadBalancingWeight().Value, wantLbEp.weight)
 					}
 					break
 				}
 			}
 			if !found {
-				t.Errorf("Unexpected address for endpoint %d: %v", i, addr)
+				return fmt.Errorf("unexpected address for endpoint %d: %v", i, addr)
 			}
 		}
 	}
+	return nil
 }
 
 func TestEndpointsWithMTLSFilter(t *testing.T) {
@@ -725,7 +739,7 @@ func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFil
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
 			}
-			compareEndpoints(t, filtered, tt.want)
+			compareEndpointsOrFail(t, cn, extractEnvoyEndpoints(filtered), tt.want)
 
 			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})

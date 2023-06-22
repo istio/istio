@@ -1900,6 +1900,21 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	}
 }
 
+func BenchmarkAutoAllocateIPs(t *testing.B) {
+	inServices := make([]*model.Service, 255*255)
+	for i := 0; i < 255*255; i++ {
+		temp := model.Service{
+			Hostname:       host.Name(fmt.Sprintf("foo%d.com", i)),
+			Resolution:     model.ClientSideLB,
+			DefaultAddress: constants.UnspecifiedIP,
+		}
+		inServices[i] = &temp
+	}
+	for i := 0; i < t.N; i++ {
+		autoAllocateIPs(inServices)
+	}
+}
+
 // Validate that ipaddress allocation is deterministic based on hash.
 func Test_autoAllocateIP_deterministic(t *testing.T) {
 	inServices := make([]*model.Service, 0)

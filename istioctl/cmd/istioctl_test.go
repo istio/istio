@@ -15,26 +15,10 @@
 package cmd
 
 import (
-	"bytes"
-	"regexp"
-	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
-
-	"istio.io/istio/pilot/test/util"
+	istioctlutil "istio.io/istio/istioctl/pkg/util"
 )
-
-type testCase struct {
-	args []string
-
-	// Typically use one of the three
-	expectedOutput string         // Expected constant output
-	expectedRegexp *regexp.Regexp // Expected regexp output
-	goldenFilename string         // Expected output stored in golden file
-
-	wantException bool
-}
 
 func TestBadParse(t *testing.T) {
 	// unknown flags should be a command parse
@@ -42,7 +26,7 @@ func TestBadParse(t *testing.T) {
 	fErr := rootCmd.Execute()
 
 	switch fErr.(type) {
-	case CommandParseError:
+	case istioctlutil.CommandParseError:
 		// do nothing
 	default:
 		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
@@ -53,7 +37,7 @@ func TestBadParse(t *testing.T) {
 	fErr = rootCmd.Execute()
 
 	switch fErr.(type) {
-	case CommandParseError:
+	case istioctlutil.CommandParseError:
 		// do nothing
 	default:
 		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
@@ -64,48 +48,9 @@ func TestBadParse(t *testing.T) {
 	fErr = rootCmd.Execute()
 
 	switch fErr.(type) {
-	case CommandParseError:
+	case istioctlutil.CommandParseError:
 		// do nothing
 	default:
 		t.Errorf("Expected a CommandParseError, but got %q.", fErr)
-	}
-}
-
-func verifyOutput(t *testing.T, cmd *cobra.Command, c testCase) {
-	t.Helper()
-
-	cmd.SetArgs(c.args)
-
-	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
-	cmd.SilenceUsage = true
-
-	fErr := cmd.Execute()
-	output := out.String()
-
-	if c.expectedOutput != "" && c.expectedOutput != output {
-		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q",
-			strings.Join(c.args, " "), output, c.expectedOutput)
-	}
-
-	if c.expectedRegexp != nil && !c.expectedRegexp.MatchString(output) {
-		t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
-			strings.Join(c.args, " "), output, c.expectedRegexp)
-	}
-
-	if c.goldenFilename != "" {
-		util.CompareContent(t, []byte(output), c.goldenFilename)
-	}
-
-	if c.wantException {
-		if fErr == nil {
-			t.Fatalf("Wanted an exception for 'istioctl %s', didn't get one, output was %q",
-				strings.Join(c.args, " "), output)
-		}
-	} else {
-		if fErr != nil {
-			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
-		}
 	}
 }

@@ -259,11 +259,11 @@ func TestAdsPushScoping(t *testing.T) {
 
 		for _, name := range names {
 			hostname := host.Name(name)
-			configsUpdated[model.ConfigKey{
+			configsUpdated.Insert(model.ConfigKey{
 				Kind:      kind.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
-			}] = struct{}{}
+			})
 
 			s.MemRegistry.AddService(&model.Service{
 				Hostname:       hostname,

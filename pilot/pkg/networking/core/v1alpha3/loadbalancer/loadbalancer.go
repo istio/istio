@@ -27,6 +27,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -106,16 +107,16 @@ func applyLocalityWeight(
 	for _, localityWeightSetting := range distribute {
 		if localityWeightSetting != nil &&
 			util.LocalityMatch(locality, localityWeightSetting.From) {
-			misMatched := map[int]struct{}{}
+			misMatched := sets.Set[int]{}
 			for i := range loadAssignment.Endpoints {
-				misMatched[i] = struct{}{}
+				misMatched.Insert(i)
 			}
 			for locality, weight := range localityWeightSetting.To {
 				// index -> original weight
 				destLocMap := map[int]uint32{}
 				totalWeight := uint32(0)
 				for i, ep := range loadAssignment.Endpoints {
-					if _, exist := misMatched[i]; exist {
+					if misMatched.Contains(i) {
 						if util.LocalityMatch(ep.Locality, locality) {
 							delete(misMatched, i)
 							if ep.LoadBalancingWeight != nil {

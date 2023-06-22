@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/cni/pkg/ambient/ambientpod"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -103,7 +102,7 @@ func (s *Server) Reconcile(input any) error {
 	log := log.WithLabels("type", event.Event)
 	pod := event.Latest().(*corev1.Pod)
 	if ztunnelPod(pod) {
-		return s.ReconcileZtunnel()
+		return s.UpdateActiveNodeProxy()
 	}
 	switch event.Event {
 	case controllers.EventAdd:
@@ -116,7 +115,7 @@ func (s *Server) Reconcile(input any) error {
 			return fmt.Errorf("failed to find namespace %v", ns)
 		}
 		wasEnabled := oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
-		nowEnabled := ambientpod.PodZtunnelEnabled(ns, newPod)
+		nowEnabled := PodRedirectionEnabled(ns, newPod)
 		if wasEnabled && !nowEnabled {
 			log.Debugf("Pod %s no longer matches, removing from mesh", newPod.Name)
 			s.DelPodFromMesh(newPod, event)
@@ -130,8 +129,4 @@ func (s *Server) Reconcile(input any) error {
 		s.DelPodFromMesh(pod, event)
 	}
 	return nil
-}
-
-func ztunnelPod(pod *corev1.Pod) bool {
-	return pod.GetLabels()["app"] == "ztunnel"
 }

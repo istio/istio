@@ -248,10 +248,10 @@ func TestProxyQueue(t *testing.T) {
 
 		// We will trigger many pushes for eds services to each proxy. In the end we will expect
 		// all of these to be dequeue, but order is not deterministic.
-		expected := map[string]struct{}{}
+		expected := sets.String{}
 		for eds := 0; eds < 100; eds++ {
 			for _, pr := range proxies {
-				expected[key(pr, fmt.Sprintf("%d", eds))] = struct{}{}
+				expected.Insert(key(pr, fmt.Sprintf("%d", eds)))
 			}
 		}
 		go func() {

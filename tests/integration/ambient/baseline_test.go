@@ -590,6 +590,75 @@ spec:
 	})
 }
 
+func TestPeerAuthentication(t *testing.T) {
+	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+		// Workaround https://github.com/istio/istio/issues/43239
+		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: single-request
+spec:
+  host: '*.svc.cluster.local'
+  trafficPolicy:
+    connectionPool:
+      http:
+        maxRequestsPerConnection: 1`).ApplyOrFail(t)
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			if opt.Scheme != scheme.TCP {
+				return
+			}
+			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
+			// due to draining.
+			opt.NewConnectionPerRequest = true
+			if src.Config().IsUncaptured() {
+				// For this case, it is broken if the src and dst are on the same node.
+				// TODO: fix this and remove this skip
+				t.Skip("https://github.com/istio/istio/issues/43238")
+			}
+
+			t.NewSubTest("permissive").Run(func(t framework.TestContext) {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: global-permissive
+spec:
+  mtls:
+    mode: PERMISSIVE
+`).ApplyOrFail(t)
+				opt = opt.DeepCopy()
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("strict").Run(func(t framework.TestContext) {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: global-strict
+spec:
+  mtls:
+    mode: STRICT
+				`).ApplyOrFail(t)
+				opt = opt.DeepCopy()
+				if inMesh.All([]echo.Instance{src, dst}) { // If both src and dst are in the mesh, the request should succeed
+					opt.Check = check.OK()
+				} else { // If not, the request should fail
+					opt.Check = CheckDeny
+				}
+				src.CallOrFail(t, opt)
+			})
+		})
+	})
+}
+
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
 		// Workaround https://github.com/istio/istio/issues/43239

@@ -95,7 +95,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// directly from the local network.
 			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
 				// The endpoint is directly reachable - just add it.
-				lbEndpoints.append(ep.istioEndpoints[i], lbEp)
+				// If there is no gateway, the address must not be empty
+				if lbEp.GetEndpoint().GetAddress().GetSocketAddress().GetAddress() != "" {
+					lbEndpoints.append(ep.istioEndpoints[i], lbEp)
+				}
+
 				continue
 			}
 

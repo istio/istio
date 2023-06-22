@@ -309,6 +309,7 @@ func CreateFakeJwks(jwksURI string) string {
 // Resolve jwks_uri through openID discovery.
 func (r *JwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) {
 	// Try to get jwks_uri through OpenID Discovery.
+	issuer = strings.TrimSuffix(issuer, "/")
 	body, err := r.getRemoteContentWithRetry(issuer+openIDDiscoveryCfgURLSuffix, networkFetchRetryCountOnMainFlow)
 	if err != nil {
 		log.Errorf("Failed to fetch jwks_uri from %q: %v", issuer+openIDDiscoveryCfgURLSuffix, err)

@@ -202,3 +202,12 @@ func makeFakeSvc(nodeSelector string) *v1.Service {
 	}
 	return svc
 }
+
+func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
+	for _, addr := range addresses {
+		if addr.IP == proxyIP {
+			return true
+		}
+	}
+	return false
+}

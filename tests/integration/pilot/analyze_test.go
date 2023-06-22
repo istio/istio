@@ -25,7 +25,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/istioctl/cmd"
+	"istio.io/istio/istioctl/pkg/analyze"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test"
@@ -45,7 +45,7 @@ const (
 	jsonOutput           = "-ojson"
 )
 
-var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
+var analyzerFoundIssuesError = analyze.AnalyzerFoundIssuesError{}
 
 func TestEmptyCluster(t *testing.T) {
 	// nolint: staticcheck
@@ -168,7 +168,7 @@ func TestInvalidFileError(t *testing.T) {
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("Error(s) adding files"))
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
 
-			g.Expect(err).To(MatchError(cmd.FileParseError{}))
+			g.Expect(err).To(MatchError(analyze.FileParseError{}))
 
 			// Parse error as the yaml file itself is not valid yaml, but ignore.
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile, "--ignore-unknown=true")

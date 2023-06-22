@@ -1223,8 +1223,11 @@ func (s *Server) ztunnelDown() {
 	}
 }
 
+// Cleans up EVERYTHING on the node.
 func (s *Server) cleanupNode() {
 	log.Infof("Node-level network rule cleanup started")
+	defer log.Infof("Node-level cleanup done")
+	log.Infof("If rules do not exist in the first place, warnings will be triggered - these can be safely ignored")
 	switch s.redirectMode {
 	case EbpfMode:
 		if err := s.cleanupPodsEbpfOnNode(); err != nil {
@@ -1320,6 +1323,11 @@ func disableRPFiltersForLink(ifaceName string) error {
 	// @TODO: This needs to be cleaned up, there are a lot of martians in AWS
 	// that seem to necessitate this work and in theory we shouldn't *need* to disable
 	// `rp_filter` with eBPF.
+	//
+	// 0 - No source validation.
+	// 1 - Strict mode as defined in RFC3704 Strict Reverse Path
+	// 2 - Loose mode as defined in RFC3704 Loose Reverse Path
+	// Ideally we should be able to set it to 1 (strictest)
 	procs := map[string]int{
 		"/proc/sys/net/ipv4/conf/default/rp_filter":           0,
 		"/proc/sys/net/ipv4/conf/all/rp_filter":               0,
@@ -1417,6 +1425,10 @@ func deleteTunnelLinks(inboundName, outboundName string, warnOnFail bool) {
 	if err != nil && warnOnFail {
 		log.Warnf("did not find existing inbound tunnel %s to delete: %v", inboundName, err)
 	} else if inboundTun != nil {
+		err = netlink.LinkSetDown(inboundTun)
+		if err != nil {
+			log.Warnf("failed to bring down inbound tunnel: %v", err)
+		}
 		err = netlink.LinkDel(inboundTun)
 		if err != nil && warnOnFail {
 			log.Warnf("error deleting inbound tunnel: %v", err)
@@ -1428,6 +1440,10 @@ func deleteTunnelLinks(inboundName, outboundName string, warnOnFail bool) {
 		// Bail, if we can't find it don't try to delete it
 		return
 	} else if outboundTun != nil {
+		err = netlink.LinkSetDown(outboundTun)
+		if err != nil {
+			log.Warnf("failed to bring down outbound tunnel: %v", err)
+		}
 		err = netlink.LinkDel(outboundTun)
 		if err != nil && warnOnFail {
 			log.Warnf("error deleting outbound tunnel: %v", err)
