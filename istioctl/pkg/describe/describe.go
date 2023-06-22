@@ -929,8 +929,8 @@ func printIngressInfo(
 
 	for row, svc := range matchingServices {
 		for _, port := range svc.Spec.Ports {
-			var matchingSubsets sets.String
-			var nonMatchingSubsets sets.String
+			matchingSubsets := sets.New[string]()
+			nonMatchingSubsets := sets.New[string]()
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			var dr *clientnetworking.DestinationRule
 			if err == nil && drName != "" && drNamespace != "" {
@@ -1156,8 +1156,8 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 		printService(writer, svc, pod)
 
 		for _, port := range svc.Spec.Ports {
-			var matchingSubsets sets.String
-			var nonMatchingSubsets sets.String
+			matchingSubsets := sets.New[string]()
+			nonMatchingSubsets := sets.New[string]()
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			if err != nil {
 				log.Errorf("fetch destination rule for %v: %v", svc.Name, err)
