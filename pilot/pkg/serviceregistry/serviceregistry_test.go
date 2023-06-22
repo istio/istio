@@ -78,6 +78,7 @@ func setupTest(t *testing.T) (
 		},
 	)
 	configController := memory.NewController(memory.Make(collections.Pilot))
+	configController.RegisterEventHandler(gvk.WorkloadEntry, kc.WorkloadEntryHandler)
 
 	stop := istiotest.NewStop(t)
 	go configController.Run(stop)
@@ -850,6 +851,41 @@ func TestWorkloadInstances(t *testing.T) {
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nil)
 	})
 
+	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
+		kc, _, store, kube, _ := setupTest(t)
+		makeService(t, kube, service)
+
+		// Start as unhealthy, should have no instances
+		makeIstioObject(t, store, setHealth(workloadEntry, false))
+		instances := []ServiceInstanceResponse{}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Mark healthy, get instances
+		makeIstioObject(t, store, setHealth(workloadEntry, true))
+		instances = []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Set back to unhealthy
+		makeIstioObject(t, store, setHealth(workloadEntry, false))
+		instances = []ServiceInstanceResponse{}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Remove health status entirely
+		makeIstioObject(t, store, workloadEntry)
+		instances = []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
 	istiotest.SetForTest(t, &features.EnableHBONE, true)
 	istiotest.SetForTest(t, &features.EnableAmbientControllers, true)
 	for _, ambient := range []bool{false, true} {
@@ -936,41 +972,6 @@ func TestWorkloadInstances(t *testing.T) {
 			})
 		})
 	}
-
-	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
-		kc, _, store, kube, _ := setupTest(t)
-		makeService(t, kube, service)
-
-		// Start as unhealthy, should have no instances
-		makeIstioObject(t, store, setHealth(workloadEntry, false))
-		instances := []ServiceInstanceResponse{}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Mark healthy, get instances
-		makeIstioObject(t, store, setHealth(workloadEntry, true))
-		instances = []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.Hostname,
-			Namestring: expectedSvc.Attributes.Namespace,
-			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
-			Port:       80,
-		}}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Set back to unhealthy
-		makeIstioObject(t, store, setHealth(workloadEntry, false))
-		instances = []ServiceInstanceResponse{}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Remove health status entirely
-		makeIstioObject(t, store, workloadEntry)
-		instances = []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.Hostname,
-			Namestring: expectedSvc.Attributes.Namespace,
-			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
-			Port:       80,
-		}}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-	})
 }
 
 func expectAmbient(strings []string, ambient bool) []string {

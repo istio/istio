@@ -26,6 +26,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/security/v1beta1"
+	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
@@ -478,6 +479,45 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 	}
 
 	updates := c.calculateUpdatedWorkloads(pods)
+
+	workloadEntries := map[networkAddress]*apiv1alpha3.WorkloadEntry{}
+	for _, w := range c.getWorkloadEntriesInPolicy(obj.Namespace, sel) {
+		network := c.Network(w.Spec.Address, w.Spec.Labels).String()
+		if w.Spec.Network != "" {
+			network = w.Spec.Network
+		}
+		workloadEntries[networkAddress{
+			ip:      w.Spec.Address,
+			network: network,
+		}] = w
+	}
+	if oldSel != nil {
+		for _, w := range c.getWorkloadEntriesInPolicy(obj.Namespace, oldSel) {
+			network := c.Network(w.Spec.Address, w.Spec.Labels).String()
+			if w.Spec.Network != "" {
+				network = w.Spec.Network
+			}
+			workloadEntries[networkAddress{
+				ip:      w.Spec.Address,
+				network: network,
+			}] = w
+		}
+	}
+
+	for _, w := range workloadEntries {
+		newWl := c.extractWorkloadEntry(w)
+		if newWl != nil {
+			// Update the WorkloadEntry, since it now has new VIP info
+			networkAddrs := networkAddressFromWorkload(newWl)
+			c.ambientIndex.mu.Lock()
+			for _, networkAddr := range networkAddrs {
+				c.ambientIndex.byWorkloadEntry[networkAddr] = newWl
+			}
+			c.ambientIndex.byUID[c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())] = newWl
+			c.ambientIndex.mu.Unlock()
+			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
+		}
+	}
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{

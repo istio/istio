@@ -58,6 +58,7 @@ const (
 
 	TableMangle = "mangle"
 	TableNat    = "nat"
+	TableFilter = "filter"
 
 	DNSCapturePort              = 15053
 	ZtunnelInboundPort          = 15008
