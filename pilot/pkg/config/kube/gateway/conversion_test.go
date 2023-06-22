@@ -745,15 +745,15 @@ func marshalYaml(t test.Failer, cl []config.Config) []byte {
 
 func TestHumanReadableJoin(t *testing.T) {
 	tests := []struct {
-		input []string
+		input sets.String
 		want  string
 	}{
-		{[]string{"a"}, "a"},
-		{[]string{"a", "b"}, "a and b"},
-		{[]string{"a", "b", "c"}, "a, b, and c"},
+		{sets.New("a"), "a"},
+		{sets.New("a", "b"), "a and b"},
+		{sets.New("a", "b", "c"), "a, b, and c"},
 	}
 	for _, tt := range tests {
-		t.Run(strings.Join(tt.input, "_"), func(t *testing.T) {
+		t.Run(strings.Join(sets.SortedList(tt.input), "_"), func(t *testing.T) {
 			if got := humanReadableJoin(tt.input); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %v, want %v", got, tt.want)
 			}

@@ -1662,16 +1662,16 @@ func reportGatewayStatus(
 			message: "Resource programmed",
 		},
 	}
-	if !internal.IsEmpty() {
-		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(sets.SortedList(internal)))
+	if internal.IsNotEmpty() {
+		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
 		gatewayConditions[string(k8sbeta.GatewayReasonProgrammed)].message = msg
 	}
 
 	if len(warnings) > 0 {
 		var msg string
-		if !internal.IsEmpty() {
+		if internal.IsNotEmpty() {
 			msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
-				humanReadableJoin(sets.SortedList(internal)), strings.Join(warnings, "; "))
+				humanReadableJoin(internal), strings.Join(warnings, "; "))
 		} else {
 			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
 		}
@@ -2028,7 +2028,8 @@ func nilOrEqual(have *string, expected string) bool {
 	return have == nil || *have == expected
 }
 
-func humanReadableJoin(ss []string) string {
+func humanReadableJoin(s sets.String) string {
+	ss := sets.SortedList(s)
 	switch len(ss) {
 	case 0:
 		return ""
