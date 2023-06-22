@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -176,7 +177,12 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 	buf.WriteString("ACTION\tAuthorizationPolicy\tRULES\n")
 	for _, action := range []rbacpb.RBAC_Action{rbacpb.RBAC_DENY, rbacpb.RBAC_ALLOW, rbacpb.RBAC_LOG} {
 		if names, ok := actionToPolicy[action]; ok {
+			sortedNames := make([]string, 0, len(names))
 			for name := range names {
+				sortedNames = append(sortedNames, name)
+			}
+			sort.Strings(sortedNames)
+			for _, name := range sortedNames {
 				buf.WriteString(fmt.Sprintf("%s\t%s\t%d\n", action, name, len(policyToRule[name])))
 			}
 		}

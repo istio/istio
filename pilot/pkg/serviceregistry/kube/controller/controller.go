@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -250,6 +251,23 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
+
+	if features.EnableAmbientControllers {
+		registerHandlers[*v1.Namespace](
+			c,
+			c.namespaces,
+			"Namespaces",
+			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+				c.handleSelectedNamespace(cur.Name)
+				return nil
+			},
+			func(old, cur *v1.Namespace) bool {
+				oldLabel := old.Labels[constants.DataplaneMode]
+				newLabel := cur.Labels[constants.DataplaneMode]
+				return oldLabel == newLabel
+			},
+		)
+	}
 	if c.opts.SystemNamespace != "" {
 		registerHandlers[*v1.Namespace](
 			c,

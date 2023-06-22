@@ -185,8 +185,8 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options
 	return s
 }
 
-// convertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
-func convertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
+// ConvertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
+func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 	wle := cfg.Spec.(*networking.WorkloadEntry)
 	if wle == nil {
 		return nil
@@ -212,9 +212,9 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	log.Debugf("Handle event %s for workload entry %s/%s", event, curr.Namespace, curr.Name)
 	var oldWle *networking.WorkloadEntry
 	if old.Spec != nil {
-		oldWle = convertWorkloadEntry(old)
+		oldWle = ConvertWorkloadEntry(old)
 	}
-	wle := convertWorkloadEntry(curr)
+	wle := ConvertWorkloadEntry(curr)
 	curr.Spec = wle
 	key := configKey{
 		kind:      workloadEntryConfigType,
@@ -915,8 +915,8 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			} else {
 				// This means we have a collision. Resolve collision by "DoubleHashing".
 				i := uint32(1)
+				secondHash := uint32(prime) - (s % uint32(prime))
 				for {
-					secondHash := uint32(prime) - (s % uint32(prime))
 					nh := (s + i*secondHash) % uint32(maxIPs)
 					if hashedServices[nh] == nil {
 						hashedServices[nh] = svc

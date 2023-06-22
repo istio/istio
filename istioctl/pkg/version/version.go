@@ -89,7 +89,11 @@ func getRemoteInfoWrapper(ctx cli.Context, pc **cobra.Command, opts *clioptions.
 
 func getProxyInfoWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
-		return proxy.GetProxyInfo(ctx.KubeConfig(), ctx.KubeContext(), opts.Revision, ctx.IstioNamespace())
+		client, err := ctx.CLIClientWithRevision(opts.Revision)
+		if err != nil {
+			return nil, err
+		}
+		return proxy.GetProxyInfo(client, ctx.IstioNamespace())
 	}
 }
 

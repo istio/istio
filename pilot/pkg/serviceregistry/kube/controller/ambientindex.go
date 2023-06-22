@@ -48,6 +48,8 @@ type AmbientIndex struct {
 	byService map[networkAddress]map[string]*model.WorkloadInfo
 	// byPod indexes by network/podIP address.
 	byPod map[networkAddress]*model.WorkloadInfo
+	// byWorkloadEntry indexes by WorkloadEntry IP address.
+	byWorkloadEntry map[networkAddress]*model.WorkloadInfo
 	// byUID indexes by workloads by their uid
 	byUID map[string]*model.WorkloadInfo
 	// serviceByAddr are indexed by the network/clusterIP
@@ -123,7 +125,10 @@ func (a *AmbientIndex) Lookup(key string) []*model.AddressInfo {
 	if p, f := a.byPod[networkAddr]; f {
 		return []*model.AddressInfo{workloadToAddressInfo(p.Workload)}
 	}
-
+	// Next, look at WorkloadEntries
+	if w, f := a.byWorkloadEntry[networkAddr]; f {
+		return []*model.AddressInfo{workloadToAddressInfo(w.Workload)}
+	}
 	// Fallback to service. Note: these IP ranges should be non-overlapping
 	// When a Service lookup is performed, but it and its workloads are returned
 	for _, wl := range a.byService[networkAddr] {
@@ -148,39 +153,12 @@ func (a *AmbientIndex) insertWorkloadToService(svcAddress networkAddress, worklo
 	a.byService[svcAddress][workload.Uid] = workload
 }
 
-func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloadapi.GatewayAddress, isDelete bool) map[model.ConfigKey]struct{} {
+func (a *AmbientIndex) updateWaypoint(sa model.WaypointScope, addr *workloadapi.GatewayAddress, isDelete bool) map[model.ConfigKey]struct{} {
 	updates := sets.New[model.ConfigKey]()
-	if isDelete {
-		for _, wl := range a.byPod {
-			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-				continue
-			}
-			if wl.Namespace != scope.Namespace || (scope.ServiceAccount != "" && wl.ServiceAccount != scope.ServiceAccount) {
-				continue
-			}
-
-			if wl.Waypoint != nil && proto.Equal(wl.Waypoint, addr) {
-				wl.Waypoint = nil
-				// If there was a change, also update the VIPs and record for a push
-				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
-			}
-		}
-	} else {
-		for _, wl := range a.byPod {
-			if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-				continue
-			}
-			if wl.Namespace != scope.Namespace || (scope.ServiceAccount != "" && wl.ServiceAccount != scope.ServiceAccount) {
-				continue
-			}
-
-			if wl.Waypoint == nil || !proto.Equal(wl.Waypoint, addr) {
-				wl.Waypoint = addr
-				// If there was a change, also update the VIPs and record for a push
-				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
-			}
-		}
-	}
+	// Update Waypoints for Pods
+	a.updateWaypointForWorkload(a.byPod, sa, addr, isDelete, updates)
+	// Update Waypoints for WorkloadEntries
+	a.updateWaypointForWorkload(a.byWorkloadEntry, sa, addr, isDelete, updates)
 	return updates
 }
 
@@ -188,13 +166,16 @@ func (a *AmbientIndex) updateWaypoint(scope model.WaypointScope, addr *workloada
 func (a *AmbientIndex) All() []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	res := make([]*model.AddressInfo, 0, len(a.byPod)+len(a.serviceByAddr))
-	// byPod will not have any duplicates, so we can just iterate over that.
+	res := make([]*model.AddressInfo, 0, len(a.byPod)+len(a.serviceByAddr)+len(a.byWorkloadEntry))
+	// byPod and byWorkloadEntry will not have any duplicates, so we can just iterate over that.
 	for _, wl := range a.byPod {
 		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
 	for _, s := range a.serviceByAddr {
 		res = append(res, serviceToAddressInfo(s.Service))
+	}
+	for _, wl := range a.byWorkloadEntry {
+		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
 	return res
 }
@@ -206,6 +187,11 @@ func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.Wo
 	var res []*model.WorkloadInfo
 	// TODO: try to precompute
 	for _, w := range a.byPod {
+		if a.matchesScope(scope, w) {
+			res = append(res, w)
+		}
+	}
+	for _, w := range a.byWorkloadEntry {
 		if a.matchesScope(scope, w) {
 			res = append(res, w)
 		}
@@ -313,6 +299,7 @@ func (c *Controller) extractWorkload(p *v1.Pod) *model.WorkloadInfo {
 	}
 
 	policies := c.selectorAuthorizationPolicies(p.Namespace, p.Labels)
+	policies = append(policies, c.convertedSelectorPeerAuthentications(p.Namespace, p.Labels)...)
 	wl := c.constructWorkload(p, waypoint, policies)
 	if wl == nil {
 		return nil
@@ -327,6 +314,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 	idx := AmbientIndex{
 		byService:         map[networkAddress]map[string]*model.WorkloadInfo{},
 		byPod:             map[networkAddress]*model.WorkloadInfo{},
+		byWorkloadEntry:   map[networkAddress]*model.WorkloadInfo{},
 		byUID:             map[string]*model.WorkloadInfo{},
 		waypoints:         map[model.WaypointScope]*workloadapi.GatewayAddress{},
 		serviceByAddr:     map[networkAddress]*model.ServiceInfo{},
@@ -362,7 +350,9 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			}
 		},
 	}
+
 	c.podsClient.AddEventHandler(podHandler)
+	c.initWorkloadEntryHandler(&idx)
 
 	serviceHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
@@ -570,7 +560,27 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 			a.byUID[wl.Uid] = wl
 			wls[wl.Uid] = wl
 		}
+	}
 
+	workloadEntries := c.getWorkloadEntriesInService(svc)
+	for _, w := range workloadEntries {
+		wl := c.extractWorkloadEntry(w)
+		// Can be nil if the WorkloadEntry IP has not been mapped yet
+		//
+		// Note: this is a defensive check that mimics the logic for
+		// pods above. WorkloadEntries are mapped by their IP address
+		// in the following cases:
+		// 1. WorkloadEntry add/update
+		// 2. AuthorizationPolicy add/update
+		// 3. Namespace Ambient label add/update
+		if wl != nil {
+			// Update the WorkloadEntry, since it now has new VIP info
+			for _, networkAddr := range networkAddressFromWorkload(wl) {
+				a.byWorkloadEntry[networkAddr] = wl
+			}
+			a.byUID[wl.Uid] = wl
+			wls[wl.Uid] = wl
+		}
 	}
 
 	// We send an update for each *workload* IP address previously in the service; they may have changed

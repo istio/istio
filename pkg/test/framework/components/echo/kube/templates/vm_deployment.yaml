@@ -56,12 +56,24 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+            - SYS_RESOURCE # Required for core dumps
           runAsUser: 1338
           runAsGroup: 1338
         command:
         - bash
         - -c
         - |-
+          # Sudo and ulimits is problematic. There must be a better way to do this, but for now we can hack it
+          # See https://superuser.com/questions/1733614/how-to-configure-core-dumps-ulimit-c-from-within-sudo-within-docker
+          function override_core_limits() {
+            while ! pgrep -u istio-proxy envoy; do
+              echo "Envoy isn't running yet, trying again..."
+              pgrep -u istio-proxy envoy
+              sleep .1
+            done
+            pid="$(pgrep -u istio-proxy envoy)"
+            sudo prlimit -p "${pid}" --core=unlimited
+          }
           # To support image builders which cannot do RUN, do the run commands at startup.
           # This exploits the fact the images remove the installer once its installed.
           # This is a horrible idea for production images, but these are just for tests.
@@ -76,6 +88,9 @@ spec:
           sudo rm /var/run/secrets/istio/cert-chain.pem
           sudo rm /var/run/secrets/istio/key.pem
           sudo chown -R istio-proxy /var/run/secrets
+
+          # Change coredump directory to the correct user. Note this is a volume so we persist between crashes
+          sudo chown -R istio-proxy:istio-proxy /var/lib/istio/data
 
           # place mounted bootstrap files (token is mounted directly to the correct location)
           sudo cp /var/run/secrets/istio/bootstrap/root-cert.pem /var/run/secrets/istio/root-cert.pem
@@ -107,11 +122,23 @@ spec:
           # TODO(https://superuser.com/questions/1645513/why-does-executing-a-command-in-su-change-limits) can we do better?
           currentLimit=$(ulimit -n)
 
+          # This looks weird but Kubernetes escapes $$ to $; we want double dollar sign for current PID
+          pid="$$$$"
+
           # Run the pilot agent and Envoy
           # TODO: run with systemctl?
+          # Setup a script to start istio but exit the container if it exits. This more closely mirrors Pods.
+          # This is not strictly needed, but it makes our CI properly report crashes (including core dumps)
+          cat <<'EOF'>/tmp/start.sh
+          #!/bin/bash
+          /usr/local/bin/istio-start.sh
+          kill "$1"
+          EOF
+          chmod +x /tmp/start.sh
+          
           export ISTIO_AGENT_FLAGS="--concurrency 2 --proxyLogLevel warning,misc:error,rbac:debug,jwt:debug"
-          sudo -E -s /bin/bash -c "ulimit -n ${currentLimit}; exec /usr/local/bin/istio-start.sh&"
-
+          sudo -E -s /bin/bash -c "ulimit -n ${currentLimit}; exec /tmp/start.sh $pid &"
+          override_core_limits&
           /usr/local/bin/server --cluster "{{ $cluster }}" --version "{{ $subset.Version }}" \
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
@@ -142,7 +169,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: ISTIO_ENVOY_ENABLE_CORE_DUMP
+          value: "true"
         volumeMounts:
+        - mountPath: /var/lib/istio/data
+          name: istio-data
         - mountPath: /var/run/secrets/tokens
           name: {{ $.Service }}-istio-token
         - mountPath: /var/run/secrets/istio/bootstrap
@@ -162,6 +193,8 @@ spec:
         - containerPort: 9000
 {{- end }}
       volumes:
+      - emptyDir: {}
+        name: istio-data
       - secret:
           secretName: {{ $.Service }}-istio-token
         name: {{ $.Service }}-istio-token

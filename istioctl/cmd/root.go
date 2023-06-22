@@ -118,7 +118,7 @@ debug and diagnose their Istio mesh.
 	flags := rootCmd.PersistentFlags()
 	rootOptions := cli.AddRootFlags(flags)
 
-	ctx := cli.NewCLIContext(*rootOptions)
+	ctx := cli.NewCLIContext(rootOptions)
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if err := configureLogging(cmd, args); err != nil {
@@ -241,7 +241,7 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(upgradeCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
-	bugReportCmd := bugreport.Cmd(root.LoggingOptions)
+	bugReportCmd := bugreport.Cmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(bugReportCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(bugReportCmd)
 
