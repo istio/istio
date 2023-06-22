@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/atomic"
@@ -31,13 +32,15 @@ type ReconcilerFn func(key types.NamespacedName) error
 // Queue defines an abstraction around Kubernetes' workqueue.
 // Items enqueued are deduplicated; this generally means relying on ordering of events in the queue is not feasible.
 type Queue struct {
-	queue       workqueue.RateLimitingInterface
-	initialSync *atomic.Bool
-	name        string
-	maxAttempts int
-	workFn      func(key any) error
-	closed      chan struct{}
-	log         *istiolog.Scope
+	queue        workqueue.RateLimitingInterface
+	initialSync  *atomic.Bool
+	name         string
+	maxAttempts  int
+	workFn       func(key any) error
+	closed       chan struct{}
+	log          *istiolog.Scope
+	startupBoost bool
+	waitGroup    *sync.WaitGroup
 }
 
 // WithName sets a name for the queue. This is used for logging
@@ -79,12 +82,19 @@ func WithGenericReconciler(f func(key any) error) func(q *Queue) {
 	}
 }
 
+func WithStartupBoost() func(q *Queue) {
+	return func(q *Queue) {
+		q.startupBoost = true
+	}
+}
+
 // NewQueue creates a new queue
 func NewQueue(name string, options ...func(*Queue)) Queue {
 	q := Queue{
 		name:        name,
 		closed:      make(chan struct{}),
 		initialSync: atomic.NewBool(false),
+		waitGroup:   new(sync.WaitGroup),
 	}
 	for _, o := range options {
 		o(&q)
@@ -110,6 +120,7 @@ func (q Queue) AddObject(obj Object) {
 func (q Queue) Run(stop <-chan struct{}) {
 	defer q.queue.ShutDown()
 	q.log.Infof("starting")
+
 	q.queue.Add(defaultSyncSignal)
 	go func() {
 		// Process updates until we return false, which indicates the queue is terminated
@@ -154,6 +165,11 @@ func (q Queue) processNextItem() bool {
 
 	// We got the sync signal. This is not a real event, so we exit early after signaling we are synced
 	if key == defaultSyncSignal {
+		if q.startupBoost {
+			// If the startupBoost option is given, wait for the work parallely executed before.
+			q.waitGroup.Wait()
+		}
+
 		q.log.Debugf("synced")
 		q.initialSync.Store(true)
 		return true
@@ -161,22 +177,36 @@ func (q Queue) processNextItem() bool {
 
 	q.log.Debugf("handling update: %v", formatKey(key))
 
-	// 'Done marks item as done processing' - should be called at the end of all processing
-	defer q.queue.Done(key)
+	do := func() {
+		// 'Done marks item as done processing' - should be called at the end of all processing
+		defer q.queue.Done(key)
 
-	err := q.workFn(key)
-	if err != nil {
-		retryCount := q.queue.NumRequeues(key) + 1
-		if retryCount < q.maxAttempts {
-			q.log.Errorf("error handling %v, retrying (retry count: %d): %v", formatKey(key), retryCount, err)
-			q.queue.AddRateLimited(key)
-			// Return early, so we do not call Forget(), allowing the rate limiting to backoff
-			return true
+		err := q.workFn(key)
+		if err != nil {
+			retryCount := q.queue.NumRequeues(key) + 1
+			if retryCount < q.maxAttempts {
+				q.log.Errorf("error handling %v, retrying (retry count: %d): %v", formatKey(key), retryCount, err)
+				q.queue.AddRateLimited(key)
+				// Return early, so we do not call Forget(), allowing the rate limiting to backoff
+				return
+			}
+			q.log.Errorf("error handling %v, and retry budget exceeded: %v", formatKey(key), err)
 		}
-		q.log.Errorf("error handling %v, and retry budget exceeded: %v", formatKey(key), err)
+		// 'Forget indicates that an item is finished being retried.' - should be called whenever we do not want to backoff on this key.
+		q.queue.Forget(key)
 	}
-	// 'Forget indicates that an item is finished being retried.' - should be called whenever we do not want to backoff on this key.
-	q.queue.Forget(key)
+
+	if q.startupBoost && !q.initialSync.Load() {
+		// If startBoot option is enabled and initialSync is still false,
+		// execute the given work in parallel to boost startup.
+		q.waitGroup.Add(1)
+		go func() {
+			do()
+			q.waitGroup.Done()
+		}()
+	} else {
+		do()
+	}
 	return true
 }
 

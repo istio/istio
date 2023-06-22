@@ -15,6 +15,9 @@
 package controllers
 
 import (
+	"fmt"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -41,4 +44,30 @@ func TestQueue(t *testing.T) {
 	assert.NoError(t, q.WaitForClose(time.Second))
 	// event 2 is guaranteed to happen from WaitForClose
 	assert.Equal(t, handles.Load(), 2)
+}
+
+func TestQueueWithStartupBoost(t *testing.T) {
+	const presync = 10
+	handles := atomic.NewInt32(0)
+	var wg sync.WaitGroup
+	wg.Add(presync)
+	q := NewQueue("custom", WithStartupBoost(), WithReconciler(func(key types.NamespacedName) error {
+		handles.Inc()
+		if strings.HasPrefix(key.Name, "presync-") {
+			wg.Done()
+			wg.Wait()
+		}
+		return nil
+	}))
+	for i := 0; i < presync; i++ {
+		q.Add(types.NamespacedName{Name: fmt.Sprintf("%d", i)})
+	}
+	stop := make(chan struct{})
+	go q.Run(stop)
+	retry.UntilOrFail(t, q.HasSynced, retry.Delay(time.Microsecond))
+	assert.Equal(t, handles.Load(), presync)
+	q.Add(types.NamespacedName{Name: "aftersync-0"})
+	close(stop)
+	assert.NoError(t, q.WaitForClose(time.Second))
+	assert.Equal(t, handles.Load(), presync+1)
 }
