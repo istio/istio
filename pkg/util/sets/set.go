@@ -243,11 +243,6 @@ func (s Set[T]) IsEmpty() bool {
 	return len(s) == 0
 }
 
-// IsNotEmpty indicates whether the set is the not empty set.
-func (s Set[T]) IsNotEmpty() bool {
-	return !s.IsEmpty()
-}
-
 // InsertOrNew inserts t into the set if the set exists, or returns a new set with t if not.
 // Works well with DeleteCleanupLast.
 // Example:

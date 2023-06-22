@@ -250,13 +250,13 @@ func printDestinationRule(writer io.Writer, dr *clientnetworking.DestinationRule
 
 	matchingSubsets, nonMatchingSubsets := getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
 
-	if matchingSubsets.IsNotEmpty() || nonMatchingSubsets.IsNotEmpty() {
-		if matchingSubsets.IsEmpty() {
+	if !matchingSubsets.IsEmpty() || !nonMatchingSubsets.IsEmpty() {
+		if len(matchingSubsets) == 0 {
 			fmt.Fprintf(writer, "  WARNING POD DOES NOT MATCH ANY SUBSETS.  (Non matching subsets %s)\n",
 				strings.Join(nonMatchingSubsets.UnsortedList(), ","))
 		}
 		fmt.Fprintf(writer, "   Matching subsets: %s\n", strings.Join(matchingSubsets.UnsortedList(), ","))
-		if nonMatchingSubsets.IsNotEmpty() {
+		if !nonMatchingSubsets.IsEmpty() {
 			fmt.Fprintf(writer, "      (Non-matching subsets %s)\n", strings.Join(nonMatchingSubsets.UnsortedList(), ","))
 		}
 	}
