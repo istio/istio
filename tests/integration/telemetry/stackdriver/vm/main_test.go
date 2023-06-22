@@ -88,7 +88,8 @@ tracing:
   sampling: 100.0`
 )
 
-const enforceMTLS = `
+const (
+	enforceMTLS = `
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -107,6 +108,22 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 `
+	disableMTLSForHealthCheck = `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+spec:
+  selector:
+    matchLabels:
+      app: vm-server-v1
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    8080:
+      mode: DISABLE
+`
+)
 
 // Testing telemetry with VM mesh expansion on a simulated GCE instance.
 // Rather than deal with the infra to get a real VM, we will use a pod

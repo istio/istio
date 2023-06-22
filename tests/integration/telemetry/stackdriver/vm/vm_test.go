@@ -45,6 +45,7 @@ func TestVMTelemetry(t *testing.T) {
 			// Set up strict mTLS. This gives a bit more assurance the calls are actually going through envoy,
 			// and certs are set up correctly.
 			t.ConfigIstio().YAML(ns.Name(), enforceMTLS).ApplyOrFail(t)
+			t.ConfigIstio().YAML(ns.Name(), disableMTLSForHealthCheck).ApplyOrFail(t)
 
 			clientBuilder.BuildOrFail(t)
 			serverBuilder.BuildOrFail(t)
