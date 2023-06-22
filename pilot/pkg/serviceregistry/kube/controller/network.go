@@ -226,7 +226,7 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 		out.Merge(gateways)
 	}
 	for _, gateways := range c.gatewaysFromResource {
-		out.AddAll(gateways)
+		out.Merge(gateways)
 	}
 
 	unsorted := out.UnsortedList()
@@ -397,7 +397,7 @@ func (n *networkManager) handleGatewayResource(_ controllers.Object, obj control
 			networkGateway := base
 			networkGateway.Addr = addr.Value
 			networkGateway.Port = uint32(l.Port)
-			newGateways.Add(networkGateway)
+			newGateways.Insert(networkGateway)
 		}
 	}
 	n.gatewaysFromResource[gw.UID] = newGateways
