@@ -611,7 +611,7 @@ func TestAmbientIndex(t *testing.T) {
 		[]string{"ns1/selector"})
 
 	// Change the workload policy to DISABLE
-	addPolicy("selector-strict", "ns1", map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
+	addPolicy(t, cfg, "selector-strict", "ns1", map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
 		pol := c.Spec.(*auth.PeerAuthentication)
 		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_DISABLE,
