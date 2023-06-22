@@ -208,6 +208,16 @@ func (s Set[T]) ContainsAll(s2 Set[T]) bool {
 	return s.SupersetOf(s2)
 }
 
+// ContainsAny returns true if s contains at least one of s2
+func (s Set[T]) ContainsAny(s2 Set[T]) bool {
+	for k := range s2 {
+		if s.Contains(k) {
+			return true
+		}
+	}
+	return false
+}
+
 // Equals checks whether the given set is equal to the current set.
 func (s Set[T]) Equals(other Set[T]) bool {
 	if s.Len() != other.Len() {

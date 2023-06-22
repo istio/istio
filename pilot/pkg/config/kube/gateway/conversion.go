@@ -1662,16 +1662,16 @@ func reportGatewayStatus(
 			message: "Resource programmed",
 		},
 	}
-	if len(internal) > 0 {
-		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
+	if !internal.IsEmpty() {
+		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(sets.SortedList(internal)))
 		gatewayConditions[string(k8sbeta.GatewayReasonProgrammed)].message = msg
 	}
 
 	if len(warnings) > 0 {
 		var msg string
-		if len(internal) != 0 {
+		if !internal.IsEmpty() {
 			msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
-				humanReadableJoin(internal), strings.Join(warnings, "; "))
+				humanReadableJoin(sets.SortedList(internal)), strings.Join(warnings, "; "))
 		} else {
 			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
 		}
@@ -1687,19 +1687,19 @@ func reportGatewayStatus(
 		gs := s.(*k8s.GatewayStatus)
 		addressesToReport := external
 		addrType := k8s.IPAddressType
-		if len(addressesToReport) == 0 {
+		if addressesToReport.IsEmpty() {
 			// There are no external addresses, so report the internal ones
 			// TODO: should we always report both?
 			addrType = k8s.HostnameAddressType
-			for _, hostport := range internal {
+			for hostport := range internal {
 				svchost, _, _ := net.SplitHostPort(hostport)
-				if !contains(pending, svchost) && !contains(addressesToReport, svchost) {
-					addressesToReport = append(addressesToReport, svchost)
+				if !pending.Contains(svchost) && !addressesToReport.Contains(svchost) {
+					addressesToReport.Insert(svchost)
 				}
 			}
 		}
-		gs.Addresses = make([]k8s.GatewayAddress, 0, len(addressesToReport))
-		for _, addr := range addressesToReport {
+		gs.Addresses = make([]k8s.GatewayAddress, 0, addressesToReport.Len())
+		for addr := range addressesToReport {
 			gs.Addresses = append(gs.Addresses, k8s.GatewayAddress{
 				Type:  &addrType,
 				Value: addr,
@@ -2039,15 +2039,6 @@ func humanReadableJoin(ss []string) string {
 	default:
 		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
 	}
-}
-
-func contains(ss []string, s string) bool {
-	for _, str := range ss {
-		if str == s {
-			return true
-		}
-	}
-	return false
 }
 
 // NamespaceNameLabel represents that label added automatically to namespaces is newer Kubernetes clusters

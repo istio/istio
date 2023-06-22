@@ -15,6 +15,7 @@
 package annotations
 
 import (
+	"istio.io/istio/pkg/util/sets"
 	"strings"
 
 	"istio.io/api/annotation"
@@ -118,8 +119,8 @@ outer:
 		}
 
 		attachesTo := resourceTypesAsStrings(annotationDef.Resources)
-		if !contains(attachesTo, kind) {
-			m := msg.NewMisplacedAnnotation(r, ann, strings.Join(attachesTo, ", "))
+		if !attachesTo.Contains(kind) {
+			m := msg.NewMisplacedAnnotation(r, ann, strings.Join(attachesTo.UnsortedList(), ", "))
 			util.AddLineNumber(r, ann, m)
 
 			ctx.Report(collectionType, m)
@@ -158,16 +159,6 @@ func istioAnnotation(ann string) bool {
 	return true
 }
 
-func contains(candidates []string, s string) bool {
-	for _, candidate := range candidates {
-		if s == candidate {
-			return true
-		}
-	}
-
-	return false
-}
-
 func lookupAnnotation(ann string) *annotation.Instance {
 	for _, candidate := range istioAnnotations {
 		if candidate.Name == ann {
@@ -178,11 +169,11 @@ func lookupAnnotation(ann string) *annotation.Instance {
 	return nil
 }
 
-func resourceTypesAsStrings(resourceTypes []annotation.ResourceTypes) []string {
-	retval := []string{}
+func resourceTypesAsStrings(resourceTypes []annotation.ResourceTypes) sets.String {
+	var retval sets.String
 	for _, resourceType := range resourceTypes {
 		if s := resourceType.String(); s != "Unknown" {
-			retval = append(retval, s)
+			retval.Insert(s)
 		}
 	}
 	return retval

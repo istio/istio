@@ -61,7 +61,7 @@ func (sr SecretResource) Key() any {
 
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {
 	configs := []model.ConfigHash{}
-	for _, config := range relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}) {
+	for config := range relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}) {
 		configs = append(configs, config.HashCode())
 	}
 	return configs
@@ -143,7 +143,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	cached, regenerated := 0, 0
 	for _, sr := range resources {
 		if updatedSecrets != nil {
-			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
+			if !updatedSecrets.ContainsAny(relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
 				// This is an incremental update, filter out secrets that are not updated.
 				continue
 			}
@@ -439,30 +439,21 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 	}
 }
 
-func containsAny(mp sets.Set[model.ConfigKey], keys []model.ConfigKey) bool {
-	for _, k := range keys {
-		if _, f := mp[k]; f {
-			return true
-		}
-	}
-	return false
-}
-
 // relatedConfigs maps a single resource to a list of relevant resources. This is used for cache invalidation
 // and push skipping. This is because an secret potentially has a dependency on the same secret with or without
 // the -cacert suffix. By including this dependency we ensure we do not miss any updates.
 // This is important for cases where we have a compound secret. In this case, the `foo` secret may update,
 // but we need to push both the `foo` and `foo-cacert` resource name, or they will fall out of sync.
-func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
-	related := []model.ConfigKey{k}
+func relatedConfigs(k model.ConfigKey) sets.Set[model.ConfigKey] {
+	related := sets.New[model.ConfigKey](k)
 	// For secret without -cacert suffix, add the suffix
 	if !strings.HasSuffix(k.Name, securitymodel.SdsCaSuffix) {
 		k.Name += securitymodel.SdsCaSuffix
-		related = append(related, k)
+		related.Insert(k)
 	} else {
 		// For secret with -cacert suffix, remove the suffix
 		k.Name = strings.TrimSuffix(k.Name, securitymodel.SdsCaSuffix)
-		related = append(related, k)
+		related.Insert(k)
 	}
 	return related
 }

@@ -51,7 +51,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 	namespace string,
 	gwsvcs []string,
 	servers []*networking.Server,
-) (internal, external, pending, warns []string) {
+) (internal, external, pending sets.String, warns []string) {
 	ports := map[int]struct{}{}
 	for _, s := range servers {
 		ports[int(s.Port.Number)] = struct{}{}
@@ -117,7 +117,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 		}
 	}
 	sort.Strings(warnings)
-	return sets.SortedList(foundInternal), sets.SortedList(foundExternal), sets.SortedList(foundPending), warnings
+	return foundInternal, foundExternal, foundPending, warnings
 }
 
 func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {

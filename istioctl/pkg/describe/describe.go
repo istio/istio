@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"istio.io/istio/pkg/util/sets"
 	"regexp"
 	"strconv"
 	"strings"
@@ -220,19 +221,19 @@ func extendFQDN(host string) string {
 }
 
 // getDestRuleSubsets gets names of subsets that match any pod labels (also, ones that don't match).
-func getDestRuleSubsets(subsets []*v1alpha3.Subset, podsLabels []klabels.Set) ([]string, []string) {
-	matchingSubsets := make([]string, 0, len(subsets))
-	nonmatchingSubsets := make([]string, 0, len(subsets))
+func getDestRuleSubsets(subsets []*v1alpha3.Subset, podsLabels []klabels.Set) (sets.String, sets.String) {
+	matchingSubsets := sets.NewWithLength[string](len(subsets))
+	nonMatchingSubsets := sets.NewWithLength[string](len(subsets))
 	for _, subset := range subsets {
 		subsetSelector := klabels.SelectorFromSet(subset.Labels)
 		if matchesAnyPod(subsetSelector, podsLabels) {
-			matchingSubsets = append(matchingSubsets, subset.Name)
+			matchingSubsets.Insert(subset.Name)
 		} else {
-			nonmatchingSubsets = append(nonmatchingSubsets, subset.Name)
+			nonMatchingSubsets.Insert(subset.Name)
 		}
 	}
 
-	return matchingSubsets, nonmatchingSubsets
+	return matchingSubsets, nonMatchingSubsets
 }
 
 func matchesAnyPod(subsetSelector klabels.Selector, podsLabels []klabels.Set) bool {
@@ -247,16 +248,16 @@ func matchesAnyPod(subsetSelector klabels.Selector, podsLabels []klabels.Set) bo
 func printDestinationRule(writer io.Writer, dr *clientnetworking.DestinationRule, podsLabels []klabels.Set) {
 	fmt.Fprintf(writer, "DestinationRule: %s for %q\n", kname(dr.ObjectMeta), dr.Spec.Host)
 
-	matchingSubsets, nonmatchingSubsets := getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
+	matchingSubsets, nonMatchingSubsets := getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
 
-	if len(matchingSubsets) != 0 || len(nonmatchingSubsets) != 0 {
+	if !matchingSubsets.IsEmpty() || !nonMatchingSubsets.IsEmpty() {
 		if len(matchingSubsets) == 0 {
 			fmt.Fprintf(writer, "  WARNING POD DOES NOT MATCH ANY SUBSETS.  (Non matching subsets %s)\n",
-				strings.Join(nonmatchingSubsets, ","))
+				strings.Join(nonMatchingSubsets.UnsortedList(), ","))
 		}
-		fmt.Fprintf(writer, "   Matching subsets: %s\n", strings.Join(matchingSubsets, ","))
-		if len(nonmatchingSubsets) > 0 {
-			fmt.Fprintf(writer, "      (Non-matching subsets %s)\n", strings.Join(nonmatchingSubsets, ","))
+		fmt.Fprintf(writer, "   Matching subsets: %s\n", strings.Join(matchingSubsets.UnsortedList(), ","))
+		if !nonMatchingSubsets.IsEmpty() {
+			fmt.Fprintf(writer, "      (Non-matching subsets %s)\n", strings.Join(nonMatchingSubsets.UnsortedList(), ","))
 		}
 	}
 
@@ -288,7 +289,7 @@ func printDestinationRule(writer io.Writer, dr *clientnetworking.DestinationRule
 }
 
 // httpRouteMatchSvc returns true if it matches and a slice of facts about the match
-func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTPRoute, svc corev1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) (bool, []string) { // nolint: lll
+func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTPRoute, svc corev1.Service, matchingSubsets sets.String, nonMatchingSubsets sets.String, dr *clientnetworking.DestinationRule) (bool, []string) { // nolint: lll
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	facts := []string{}
 	mismatchNotes := []string{}
@@ -297,13 +298,13 @@ func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTP
 		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			if dest.Destination.Subset != "" {
-				if Contains(nonmatchingSubsets, dest.Destination.Subset) {
+				if nonMatchingSubsets.Contains(dest.Destination.Subset) {
 					mismatchNotes = append(mismatchNotes, fmt.Sprintf("Route to non-matching subset %s for (%s)",
 						dest.Destination.Subset,
 						renderMatches(route.Match)))
 					continue
 				}
-				if !Contains(matchingSubsets, dest.Destination.Subset) {
+				if !matchingSubsets.Contains(dest.Destination.Subset) {
 					if dr == nil {
 						// Don't bother giving the match conditions, the problem is that there are unknowns in the VirtualService
 						mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to subset %s but NO DESTINATION RULE defining subsets!", dest.Destination.Subset))
@@ -534,16 +535,6 @@ func findProtocolForPort(port *corev1.ServicePort) string {
 		protocol = string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
 	}
 	return protocol
-}
-
-func Contains(slice []string, s string) bool {
-	for _, candidate := range slice {
-		if candidate == s {
-			return true
-		}
-	}
-
-	return false
 }
 
 func isMeshed(pod *corev1.Pod) bool {
@@ -814,7 +805,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc corev1.Servic
 
 // TODO simplify this by showing for each matching Destination the negation of the previous HttpMatchRequest
 // and showing the non-matching Destinations.  (The current code is ad-hoc, and usually shows most of that information.)
-func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, svc corev1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { // nolint: lll
+func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, svc corev1.Service, matchingSubsets sets.String, nonMatchingSubsets sets.String, dr *clientnetworking.DestinationRule) { // nolint: lll
 	fmt.Fprintf(writer, "VirtualService: %s\n", kname(vs.ObjectMeta))
 
 	// There is no point in checking that 'port' uses HTTP (for HTTP route matches)
@@ -825,7 +816,7 @@ func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, 
 	facts := 0
 	mismatchNotes := []string{}
 	for _, httpRoute := range vs.Spec.Http {
-		routeMatch, newfacts := httpRouteMatchSvc(vs, httpRoute, svc, matchingSubsets, nonmatchingSubsets, dr)
+		routeMatch, newfacts := httpRouteMatchSvc(vs, httpRoute, svc, matchingSubsets, nonMatchingSubsets, dr)
 		if routeMatch {
 			matches++
 			for _, newfact := range newfacts {
@@ -938,14 +929,14 @@ func printIngressInfo(
 
 	for row, svc := range matchingServices {
 		for _, port := range svc.Spec.Ports {
-			matchingSubsets := []string{}
-			nonmatchingSubsets := []string{}
+			var matchingSubsets sets.String
+			var nonMatchingSubsets sets.String
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			var dr *clientnetworking.DestinationRule
 			if err == nil && drName != "" && drNamespace != "" {
 				dr, _ = configClient.NetworkingV1alpha3().DestinationRules(drNamespace).Get(context.Background(), drName, metav1.GetOptions{})
 				if dr != nil {
-					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
+					matchingSubsets, nonMatchingSubsets = getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
 				} else {
 					fmt.Fprintf(writer,
 						"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
@@ -964,7 +955,7 @@ func printIngressInfo(
 					}
 
 					printIngressService(writer, &ingressSvcs.Items[0], &pod, ipIngress)
-					printVirtualService(writer, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+					printVirtualService(writer, vs, svc, matchingSubsets, nonMatchingSubsets, dr)
 				} else {
 					fmt.Fprintf(writer,
 						"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",
@@ -1165,8 +1156,8 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 		printService(writer, svc, pod)
 
 		for _, port := range svc.Spec.Ports {
-			matchingSubsets := []string{}
-			nonmatchingSubsets := []string{}
+			var matchingSubsets sets.String
+			var nonMatchingSubsets sets.String
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			if err != nil {
 				log.Errorf("fetch destination rule for %v: %v", svc.Name, err)
@@ -1180,7 +1171,7 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 						fmt.Fprintf(writer, "%d ", port.Port)
 					}
 					printDestinationRule(writer, dr, podsLabels)
-					matchingSubsets, nonmatchingSubsets = getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
+					matchingSubsets, nonMatchingSubsets = getDestRuleSubsets(dr.Spec.Subsets, podsLabels)
 				} else {
 					fmt.Fprintf(writer,
 						"WARNING: Proxy is stale; it references to non-existent destination rule %s.%s\n",
@@ -1196,7 +1187,7 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 						// If there is more than one port, prefix each DR by the port it applies to
 						fmt.Fprintf(writer, "%d ", port.Port)
 					}
-					printVirtualService(writer, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
+					printVirtualService(writer, vs, svc, matchingSubsets, nonMatchingSubsets, dr)
 				} else {
 					fmt.Fprintf(writer,
 						"WARNING: Proxy is stale; it references to non-existent virtual service %s.%s\n",

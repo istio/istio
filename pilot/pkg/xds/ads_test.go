@@ -15,6 +15,7 @@ package xds_test
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/slices"
 	"reflect"
 	"testing"
 	"time"
@@ -783,12 +784,12 @@ func TestAdsPushScoping(t *testing.T) {
 			timeout := time.Millisecond * 200
 			upd, _ := adscConn.Wait(timeout, wantUpdates...)
 			for _, expect := range c.expectedUpdates {
-				if !contains(upd, expect) {
+				if !slices.Contains(upd, expect) {
 					t.Fatalf("expected update %s not in updates %v", expect, upd)
 				}
 			}
 			for _, unexpect := range c.unexpectedUpdates {
-				if contains(upd, unexpect) {
+				if slices.Contains(upd, unexpect) {
 					t.Fatalf("expected to not get update %s, but it is in updates %v", unexpect, upd)
 				}
 			}

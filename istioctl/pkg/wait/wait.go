@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"istio.io/istio/pkg/util/sets"
 	"strconv"
 	"strings"
 	"time"
@@ -29,7 +30,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/describe"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
@@ -89,7 +89,7 @@ func Cmd(cliCtx cli.Context) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
 			}
-			generations := []string{firstVersion}
+			generations := sets.New[string](firstVersion)
 			targetResource := config.Key(
 				targetSchema.Group(), targetSchema.Version(), targetSchema.Kind(),
 				nameflag, namespace)
@@ -108,7 +108,7 @@ func Cmd(cliCtx cli.Context) *cobra.Command {
 				select {
 				case newVersion := <-w.resultsChan:
 					printVerbosef(cmd, "received new target version: %s", newVersion)
-					generations = append(generations, newVersion)
+					generations.Insert(newVersion)
 				case <-t.C:
 					printVerbosef(cmd, "tick")
 					continue
@@ -181,7 +181,7 @@ const distributionTrackingDisabledErrorString = "pilot version tracking is disab
 
 func poll(ctx cli.Context,
 	cmd *cobra.Command,
-	acceptedVersions []string,
+	acceptedVersions sets.String,
 	targetResource string,
 	opts clioptions.ControlPlaneOptions,
 ) (present, notpresent, sdcnum int, err error) {
@@ -217,7 +217,7 @@ func poll(ctx cli.Context,
 	}
 
 	for version, count := range versionCount {
-		if describe.Contains(acceptedVersions, version) {
+		if acceptedVersions.Contains(version) {
 			present += count
 		} else {
 			notpresent += count
