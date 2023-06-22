@@ -115,6 +115,13 @@ function maybe_build_ztunnel() {
 
 # ztunnel binary vars (TODO handle debug builds, centos, arm, darwin etc.)
 ISTIO_ZTUNNEL_BASE_URL="${ISTIO_ZTUNNEL_BASE_URL:-https://storage.googleapis.com/istio-build/ztunnel}"
+
+# If we are not using the default, assume its private and we need to authenticate
+if [[ "${ISTIO_ZTUNNEL_BASE_URL}" != "https://storage.googleapis.com/istio-build/ztunnel" ]]; then
+  AUTH_HEADER="Authorization: Bearer $(shell gcloud auth print-access-token)"
+  export AUTH_HEADER
+fi
+
 ZTUNNEL_REPO_SHA="${ZTUNNEL_REPO_SHA:-$(grep ZTUNNEL_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')}"
 ISTIO_ZTUNNEL_VERSION="${ISTIO_ZTUNNEL_VERSION:-${ZTUNNEL_REPO_SHA}}"
 ISTIO_ZTUNNEL_RELEASE_URL="${ISTIO_ZTUNNEL_RELEASE_URL:-${ISTIO_ZTUNNEL_BASE_URL}/ztunnel-${ISTIO_ZTUNNEL_VERSION}-${TARGET_ARCH}}"

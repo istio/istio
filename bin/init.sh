@@ -39,6 +39,12 @@ PROXY_REPO_SHA="${PROXY_REPO_SHA:-$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep 
 # Envoy binary variables
 ISTIO_ENVOY_BASE_URL="${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/istio-build/proxy}"
 
+# If we are not using the default, assume its private and we need to authenticate
+if [[ "${ISTIO_ENVOY_BASE_URL}" != "https://storage.googleapis.com/istio-build/proxy" ]]; then
+  AUTH_HEADER="Authorization: Bearer $(shell gcloud auth print-access-token)"
+  export AUTH_HEADER
+fi
+
 SIDECAR="${SIDECAR:-envoy}"
 
 # OS-neutral vars. These currently only work for linux.
