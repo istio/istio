@@ -610,6 +610,21 @@ func TestAmbientIndex(t *testing.T) {
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.1")[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{"ns1/selector"})
 
+	// Change the workload policy to DISABLE
+	addPolicy(t, cfg, "selector-strict", "ns1", map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
+		pol := c.Spec.(*auth.PeerAuthentication)
+		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+			Mode: auth.PeerAuthentication_MutualTLS_DISABLE,
+		}
+	})
+
+	// No event because there's effectively no change
+
+	// Static STRICT policy should disappear
+	assert.Equal(t,
+		controller.ambientIndex.Lookup("testnetwork/127.0.0.1")[0].Address.GetWorkload().AuthorizationPolicies,
+		[]string{"ns1/selector"})
+
 	// Now make the workload policy STRICT but have a PERMISSIVE port-level override
 	addPolicy(t, cfg, "selector-strict", "ns1", map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
 		pol := c.Spec.(*auth.PeerAuthentication)
