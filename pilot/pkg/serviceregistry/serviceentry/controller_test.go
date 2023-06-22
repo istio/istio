@@ -1910,6 +1910,7 @@ func BenchmarkAutoAllocateIPs(t *testing.B) {
 		}
 		inServices[i] = &temp
 	}
+	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
 		autoAllocateIPs(inServices)
 	}
