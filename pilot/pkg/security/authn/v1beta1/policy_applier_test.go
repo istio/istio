@@ -918,7 +918,7 @@ func TestJwtFilter(t *testing.T) {
 	push := model.NewPushContext()
 	push.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond)
 	defer push.JwtKeyResolver.Close()
 
 	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
@@ -1237,7 +1237,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 	push := &model.PushContext{}
 	push.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond)
 	defer push.JwtKeyResolver.Close()
 
 	for _, c := range cases {
