@@ -671,28 +671,6 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 	pc := clienttest.Wrap(t, controller.podsClient)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
-	assertWorkloads := func(lookup string, state workloadapi.WorkloadStatus, names ...string) {
-		t.Helper()
-		want := sets.New(names...)
-		assert.EventuallyEqual(t, func() sets.String {
-			var workloads []*model.AddressInfo
-			if lookup == "" {
-				workloads = controller.ambientIndex.All()
-			} else {
-				workloads = controller.ambientIndex.Lookup(lookup)
-			}
-			have := sets.New[string]()
-			for _, wl := range workloads {
-				switch addr := wl.Address.Type.(type) {
-				case *workloadapi.Address_Workload:
-					if addr.Workload.Status == state {
-						have.Insert(addr.Workload.Name)
-					}
-				}
-			}
-			return have
-		}, want, retry.Timeout(time.Second*3))
-	}
 	addPods := func(ip string, name, sa string, labels map[string]string, markReady bool, phase corev1.PodPhase) {
 		t.Helper()
 		pod := generatePod(ip, name, "ns1", sa, "node1", labels, nil)
@@ -720,15 +698,15 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 
 	addPods("127.0.0.1", "name1", "sa1", map[string]string{"app": "a"}, true, corev1.PodRunning)
 	assertEvent(t, fx, "//Pod/ns1/name1")
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1")
 
 	addPods("127.0.0.2", "name2", "sa1", map[string]string{"app": "a", "other": "label"}, false, corev1.PodRunning)
 	addPods("127.0.0.3", "name3", "sa1", map[string]string{"app": "other"}, false, corev1.PodPending)
 	assertEvent(t, fx, "//Pod/ns1/name2")
 	// Still healthy
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1")
 	// Unhealthy
-	assertWorkloads("", workloadapi.WorkloadStatus_UNHEALTHY, "name2")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_UNHEALTHY, "name2")
 	// name3 isn't running at all
 }
 
