@@ -21,27 +21,22 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
-var (
-	endpoint1 = IstioEndpoint{
-		Address:      "192.168.1.1",
-		EndpointPort: 10001,
-	}
-
-	service1 = &Service{
-		Hostname:       "one.service.com",
-		DefaultAddress: "192.168.3.1", // VIP
-		Ports: PortList{
-			&Port{Name: "http", Port: 81, Protocol: protocol.HTTP},
-			&Port{Name: "http-alt", Port: 8081, Protocol: protocol.HTTP},
-		},
-	}
-)
+var service1 = &Service{
+	Hostname:       "one.service.com",
+	DefaultAddress: "192.168.3.1", // VIP
+	Ports: PortList{
+		&Port{Name: "http", Port: 81, Protocol: protocol.HTTP},
+		&Port{Name: "http-alt", Port: 8081, Protocol: protocol.HTTP},
+	},
+}
 
 func TestServiceInstanceValidate(t *testing.T) {
 	endpointWithLabels := func(lbls labels.Instance) *IstioEndpoint {
-		cpy := endpoint1
-		cpy.Labels = lbls
-		return &cpy
+		return &IstioEndpoint{
+			Address:      "192.168.1.1",
+			EndpointPort: 10001,
+			Labels:       lbls,
+		}
 	}
 
 	cases := []struct {
