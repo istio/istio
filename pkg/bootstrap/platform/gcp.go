@@ -70,6 +70,10 @@ var GCPStaticMetadata = func() map[string]string {
 	if quota != "" {
 		md[GCPQuotaProject] = quota
 	}
+
+	if clusterURL, err := constructGKEClusterURL(md); err == nil {
+		md[GCPClusterURL] = clusterURL
+	}
 	return md
 }()
 
