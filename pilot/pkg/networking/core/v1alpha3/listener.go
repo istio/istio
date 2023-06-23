@@ -186,6 +186,9 @@ func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ct
 	if len(tlsDefaults.EcdhCurves) > 0 {
 		tlsParamsOrNew(ctx).EcdhCurves = tlsDefaults.EcdhCurves
 	}
+	if len(tlsDefaults.CipherSuites) > 0 {
+		tlsParamsOrNew(ctx).CipherSuites = tlsDefaults.CipherSuites
+	}
 	if tlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
 		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(tlsDefaults.MinProtocolVersion)
 	}
