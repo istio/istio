@@ -745,6 +745,12 @@ message PilotConfig {
   google.protobuf.Struct seccompProfile = 38;
 
   repeated google.protobuf.Struct topologySpreadConstraints = 41;
+
+  repeated google.protobuf.Struct extraContainerArgs = 42;
+
+  repeated google.protobuf.Struct volumeMounts = 49;
+
+  repeated google.protobuf.Struct volumes = 51;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
