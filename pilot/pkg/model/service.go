@@ -1125,11 +1125,8 @@ func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
 	if features.EnableDualStack && node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
-			// In a k8s svc ClusterIPs contains the what we call the DefaultAddress
-			// that address is already being removed from ClusterVIPs in
-			// pilot/pkg/serviceregistry/kube/conversion.go
-			if len(addresses) > 0 {
-				return addresses
+			if len(addresses) > 1 {
+				return addresses[1:]
 			}
 		}
 	}

@@ -251,7 +251,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DefaultAddress: "1.2.3.4",
 				ClusterVIPs: model.AddressMap{
 					Addresses: map[cluster.ID][]string{
-						"cluster-1": {"2406:3003:2064:35b8:864:a648:4b96:e37d"},
+						"cluster-1": {"1.2.3.4", "2406:3003:2064:35b8:864:a648:4b96:e37d"},
 						"cluster-2": {"4.3.2.1"}, // ensure other clusters aren't being populated in domains slice
 					},
 				},
