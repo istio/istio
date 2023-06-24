@@ -62,7 +62,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		if features.FilterGatewayClusterConfig && proxy.Type == model.Router && pushCdsGatewayConfig.Contains(config.Kind) {
 			return true
 		}
-		if skippedCdsConfigs.Contains(config.Kind) {
+		if !skippedCdsConfigs.Contains(config.Kind) {
 			return true
 		}
 	}
