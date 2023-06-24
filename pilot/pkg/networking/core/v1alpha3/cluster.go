@@ -55,7 +55,7 @@ import (
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.New(kind.ServiceEntry.String(), kind.DestinationRule.String())
+var deltaConfigTypes = sets.New(kind.ServiceEntry.String(), kind.DestinationRule.String(), kind.VirtualService.String())
 
 const TransportSocketInternalUpstream = "envoy.transport_sockets.internal_upstream"
 
@@ -133,6 +133,8 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 				servicePortClusters, subsetClusters)
 		case kind.DestinationRule:
 			services, deletedClusters = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
+		case kind.VirtualService:
+			services, deletedClusters = configgen.deltaFromVirtualServices(key, proxy, serviceClusters, subsetClusters)
 		}
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
@@ -186,7 +188,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 		// Destinationrule was deleted. Find matching services from previous destinationrule.
 		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
 		if prevCfg == nil {
-			log.Debugf("Prev DestinationRule form PrevSidecarScope is missing for %s/%s", updatedDr.Namespace, updatedDr.Name)
+			log.Debugf("Prev DestinationRule from PrevSidecarScope is missing for %s/%s", updatedDr.Namespace, updatedDr.Name)
 			return nil, nil
 		}
 		dr := prevCfg.Spec.(*networking.DestinationRule)
@@ -213,6 +215,56 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 		}
 	}
 	return services, deletedClusters
+}
+
+// deltaFromVirtualServices computes the delta clusters from the updated virtual services.
+// This is only applicable if PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled for gateways.
+func (configgen *ConfigGeneratorImpl) deltaFromVirtualServices(updatedVs model.ConfigKey, proxy *model.Proxy,
+	serviceClusters map[string]sets.String,
+	subsetClusters map[string]sets.String,
+) ([]*model.Service, []string) {
+	var deletedClusters []string
+	var prevServices []*model.Service
+	var currServices []*model.Service
+	cfg := proxy.SidecarScope.VirtualServiceByName(updatedVs.Name, updatedVs.Namespace)
+	prevCfg := proxy.PrevSidecarScope.VirtualServiceByName(updatedVs.Name, updatedVs.Namespace)
+
+	if cfg != nil {
+		// Virtual Service was was updated. Find services based from updated virtual service.
+		vs := cfg.Spec.(*networking.VirtualService)
+		currServices = append(currServices, virtualHostMatchingServices(vs, proxy)...)
+	}
+
+	if prevCfg != nil {
+		vs := prevCfg.Spec.(*networking.VirtualService)
+		prevServices = append(prevServices, virtualHostMatchingServices(vs, proxy)...)
+	}
+
+	// Remove the clusters that are no longer destinations i.e. the service is no longer part of new virtual service.
+	for _, ps := range prevServices {
+		if !slices.Contains[*model.Service](currServices, ps) {
+			deletedClusters = append(deletedClusters, serviceClusters[string(ps.Hostname)].UnsortedList()...)
+			deletedClusters = append(deletedClusters, subsetClusters[string(ps.Hostname)].UnsortedList()...)
+		}
+	}
+
+	// Remove all matched service subsets. When we rebuild clusters, we will rebuild the subset clusters as well.
+	// We can reconcile the actual subsets that are needed when we rebuild the clusters.
+	for _, matchedSvc := range currServices {
+		if subsetClusters[matchedSvc.Hostname.String()] != nil {
+			deletedClusters = append(deletedClusters, subsetClusters[matchedSvc.Hostname.String()].UnsortedList()...)
+		}
+	}
+	return currServices, deletedClusters
+}
+
+func virtualHostMatchingServices(vs *networking.VirtualService, proxy *model.Proxy) []*model.Service {
+	var services []*model.Service
+	virtualServiceDestinations := model.VirtualServiceDestinations(vs)
+	for destination := range virtualServiceDestinations {
+		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(destination))...)
+	}
+	return services
 }
 
 // buildClusters builds clusters for the proxy with the services passed.

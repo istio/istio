@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -102,8 +103,10 @@ type SidecarScope struct {
 	// corresponds to a service in the services array above. When computing
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
-	destinationRules        map[host.Name][]*ConsolidatedDestRule
-	destinationRulesByNames map[types.NamespacedName]*config.Config
+	destinationRules       map[host.Name][]*ConsolidatedDestRule
+	destinationRulesByName map[types.NamespacedName]*config.Config
+
+	virtualServicesByName map[types.NamespacedName]*config.Config
 
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
@@ -184,16 +187,17 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
-		Name:                    defaultSidecar,
-		Namespace:               configNamespace,
-		EgressListeners:         []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:                defaultEgressListener.services,
-		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
-		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
-		servicesByHostname:      make(map[host.Name]*Service, len(defaultEgressListener.services)),
-		configDependencies:      make(sets.Set[ConfigHash]),
-		RootNamespace:           ps.Mesh.RootNamespace,
-		Version:                 ps.PushVersion,
+		Name:                   defaultSidecar,
+		Namespace:              configNamespace,
+		EgressListeners:        []*IstioEgressListenerWrapper{defaultEgressListener},
+		services:               defaultEgressListener.services,
+		destinationRules:       make(map[host.Name][]*ConsolidatedDestRule),
+		destinationRulesByName: make(map[types.NamespacedName]*config.Config),
+		virtualServicesByName:  make(map[types.NamespacedName]*config.Config),
+		servicesByHostname:     make(map[host.Name]*Service, len(defaultEgressListener.services)),
+		configDependencies:     make(sets.Set[ConfigHash]),
+		RootNamespace:          ps.Mesh.RootNamespace,
+		Version:                ps.PushVersion,
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
@@ -215,7 +219,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			out.destinationRules[s.Hostname] = dr
 			for _, cdr := range dr {
 				for _, from := range cdr.from {
-					out.destinationRulesByNames[from] = cdr.rule
+					out.destinationRulesByName[from] = cdr.rule
 					out.AddConfigDependencies(ConfigKey{
 						Kind:      kind.DestinationRule,
 						Name:      from.Name,
@@ -241,6 +245,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			for _, cfg := range VirtualServiceDependencies(vs) {
 				out.AddConfigDependencies(cfg.HashCode())
 			}
+			out.virtualServicesByName[types.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}] = &vs
 		}
 	}
 
@@ -350,9 +355,10 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			for _, cfg := range VirtualServiceDependencies(vs) {
 				out.AddConfigDependencies(cfg.HashCode())
 			}
+			out.virtualServicesByName[types.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}] = &vs
 
 			v := vs.Spec.(*networking.VirtualService)
-			for h, ports := range virtualServiceDestinations(v) {
+			for h, ports := range VirtualServiceDestinations(v) {
 				// Default to this hostname in our config namespace
 				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
@@ -407,7 +413,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// that these services need
 	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
 	out.destinationRules = make(map[host.Name][]*ConsolidatedDestRule)
-	out.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
+	out.destinationRulesByName = make(map[types.NamespacedName]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
 		drList := ps.destinationRule(configNamespace, s)
@@ -421,7 +427,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 						Namespace: key.Namespace,
 					}.HashCode())
 
-					out.destinationRulesByNames[key] = dr.rule
+					out.destinationRulesByName[key] = dr.rule
 				}
 			}
 		}
@@ -611,11 +617,21 @@ func (sc *SidecarScope) Services() []*Service {
 }
 
 // Testing Only. This allows tests to inject a config without having the mock.
-func (sc *SidecarScope) SetDestinationRulesForTesting(configs []config.Config) {
-	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
+func (sc *SidecarScope) SetConfigForTesting(configs []config.Config) {
 	for _, c := range configs {
 		c := c
-		sc.destinationRulesByNames[types.NamespacedName{Name: c.Name, Namespace: c.Namespace}] = &c
+		switch c.GroupVersionKind {
+		case gvk.VirtualService:
+			if sc.virtualServicesByName == nil {
+				sc.virtualServicesByName = make(map[types.NamespacedName]*config.Config)
+			}
+			sc.virtualServicesByName[types.NamespacedName{Name: c.Name, Namespace: c.Namespace}] = &c
+		case gvk.DestinationRule:
+			if sc.destinationRulesByName == nil {
+				sc.destinationRulesByName = make(map[types.NamespacedName]*config.Config)
+			}
+			sc.destinationRulesByName[types.NamespacedName{Name: c.Name, Namespace: c.Namespace}] = &c
+		}
 	}
 }
 
@@ -623,7 +639,17 @@ func (sc *SidecarScope) DestinationRuleByName(name, namespace string) *config.Co
 	if sc == nil {
 		return nil
 	}
-	return sc.destinationRulesByNames[types.NamespacedName{
+	return sc.destinationRulesByName[types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}]
+}
+
+func (sc *SidecarScope) VirtualServiceByName(name, namespace string) *config.Config {
+	if sc == nil {
+		return nil
+	}
+	return sc.virtualServicesByName[types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}]

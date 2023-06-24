@@ -2866,7 +2866,55 @@ func TestBuildDeltaClusters(t *testing.T) {
 		},
 	}
 
-	// TODO: Add more test cases.
+	virtualServiceOriginal := &networking.VirtualService{
+		Hosts: []string{"*.com"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.com",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+
+	virtualServiceDestinationUpdated := &networking.VirtualService{
+		Hosts: []string{"*.com"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "testnew.com",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+
+	virtualServiceSubsetDestination := &networking.VirtualService{
+		Hosts: []string{"*.com"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "test.com",
+							Subset: "subset-1",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+
 	testCases := []struct {
 		name                 string
 		services             []*model.Service
@@ -3056,12 +3104,97 @@ func TestBuildDeltaClusters(t *testing.T) {
 			},
 		},
 		{
+			name:     "virtual service is updated",
+			services: []*model.Service{testService1, testService2},
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test-virtualservice",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: virtualServiceDestinationUpdated,
+			}},
+			prevConfigs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test-virtualservice",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: virtualServiceOriginal,
+			}},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "test-virtualservice", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|7070||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|7070||test.com"},
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||testnew.com",
+			},
+		},
+		{
+			name:     "virtual service is updated with destination changed to subset",
+			services: []*model.Service{testService1, testService2},
+			configs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.VirtualService,
+						Name:             "test-virtualservice",
+						Namespace:        TestServiceNamespace,
+					},
+					Spec: virtualServiceSubsetDestination,
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "test-destinationrule",
+						Namespace:        TestServiceNamespace,
+					},
+					Spec: destRuleWithNewSubsets,
+				},
+			},
+			prevConfigs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test-virtualservice",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: virtualServiceOriginal,
+			}},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "test-virtualservice", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|7070||test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+				"outbound|8080|subset-1|test.com",
+				"outbound|8080|subset-2|test.com",
+				"outbound|8080||test.com",
+			},
+		},
+		{
+			name:     "virtual service is removed",
+			services: []*model.Service{testService1, testService2},
+			prevConfigs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test-virtualservice",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: virtualServiceOriginal,
+			}},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "test-virtualservice", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|8080||test.com"},
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+			},
+		},
+		{
 			name:                 "config update that is not delta aware",
 			services:             []*model.Service{testService1, testService2},
-			configUpdated:        sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "test.com", Namespace: TestServiceNamespace}),
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: "test.com", Namespace: TestServiceNamespace}),
 			watchedResourceNames: []string{"outbound|7070||test.com"},
 			usedDelta:            false,
-			removedClusters:      nil,
 			expectedClusters: []string{
 				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
 				"outbound|8080||test.com", "outbound|8080||testnew.com",
@@ -3078,7 +3211,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 			proxy := cg.SetupProxy(nil)
 			if tc.prevConfigs != nil {
 				proxy.PrevSidecarScope = &model.SidecarScope{}
-				proxy.PrevSidecarScope.SetDestinationRulesForTesting(tc.prevConfigs)
+				proxy.PrevSidecarScope.SetConfigForTesting(tc.prevConfigs)
 			}
 			clusters, removed, delta := cg.DeltaClusters(proxy, tc.configUpdated,
 				&model.WatchedResource{ResourceNames: tc.watchedResourceNames})

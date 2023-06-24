@@ -727,7 +727,7 @@ func (ps *PushContext) UpdateMetrics() {
 }
 
 // It is called after virtual service short host name is resolved to FQDN
-func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Set[int] {
+func VirtualServiceDestinations(v *networking.VirtualService) map[string]sets.Set[int] {
 	if v == nil {
 		return nil
 	}
@@ -1563,7 +1563,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				if gw == constants.IstioMeshGateway {
 					continue
 				}
-				for host := range virtualServiceDestinations(rule) {
+				for host := range VirtualServiceDestinations(rule) {
 					sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
 				}
 				addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
@@ -1572,7 +1572,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 
 		// For mesh virtual services, build a map of host -> referenced destinations
 		if features.EnableAmbientControllers && (len(rule.Gateways) == 0 || slices.Contains(rule.Gateways, constants.IstioMeshGateway)) {
-			for host := range virtualServiceDestinations(rule) {
+			for host := range VirtualServiceDestinations(rule) {
 				for _, rhost := range rule.Hosts {
 					if _, f := ps.virtualServiceIndex.referencedDestinations[rhost]; !f {
 						ps.virtualServiceIndex.referencedDestinations[rhost] = sets.New[string]()
