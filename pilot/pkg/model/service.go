@@ -44,7 +44,6 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -492,15 +491,15 @@ type IstioEndpoint struct {
 
 	// precomputedEnvoyEndpoint is a cached LbEndpoint, converted from the data, to
 	// avoid recomputation
-	precomputedEnvoyEndpoint atomic.Pointer[*endpoint.LbEndpoint]
+	precomputedEnvoyEndpoint atomic.Pointer[endpoint.LbEndpoint]
 }
 
 func (ep *IstioEndpoint) EnvoyEndpoint() *endpoint.LbEndpoint {
-	return ptr.OrEmpty(ep.precomputedEnvoyEndpoint.Load())
+	return ep.precomputedEnvoyEndpoint.Load()
 }
 
 func (ep *IstioEndpoint) ComputeEnvoyEndpoint(now *endpoint.LbEndpoint) {
-	ep.precomputedEnvoyEndpoint.Store(&now)
+	ep.precomputedEnvoyEndpoint.Store(now)
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
