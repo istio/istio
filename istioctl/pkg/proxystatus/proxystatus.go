@@ -22,6 +22,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/pkg/util/ambient"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -75,6 +76,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				podName, ns, err := ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
 				if err != nil {
 					return err
+				}
+				if ambient.IsZtunnelPod(kubeClient, podName, ns) {
+					_, _ = fmt.Fprintln(c.OutOrStdout(),
+						fmt.Sprintf("Sync diff is not available for ztunnel pod %s.%s", podName, ns))
+					return nil
 				}
 				var envoyDump []byte
 				if configDumpFile != "" {
@@ -182,6 +188,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				podName, ns, err := ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
 				if err != nil {
 					return err
+				}
+				if ambient.IsZtunnelPod(kubeClient, podName, ns) {
+					_, _ = fmt.Fprintln(c.OutOrStdout(),
+						fmt.Sprintf("Sync diff is not available for ztunnel pod %s.%s", podName, ns))
+					return nil
 				}
 				var envoyDump []byte
 				if configDumpFile != "" {
