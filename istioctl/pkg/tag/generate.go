@@ -240,9 +240,9 @@ base:
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 	}
-	maps.CopyRightIntoLeft(decodedWh.Labels, config.Labels)
-	maps.CopyRightIntoLeft(decodedWh.Labels, customLabels)
-	maps.CopyRightIntoLeft(decodedWh.Annotations, config.Annotations)
+	maps.Copy(decodedWh.Labels, config.Labels)
+	maps.Copy(decodedWh.Labels, customLabels)
+	maps.Copy(decodedWh.Annotations, config.Annotations)
 	for i := range decodedWh.Webhooks {
 		if failurePolicy, ok := config.FailurePolicy[decodedWh.Webhooks[i].Name]; ok {
 			decodedWh.Webhooks[i].FailurePolicy = failurePolicy
@@ -311,9 +311,9 @@ istiodRemote:
 	if opts.WebhookName != "" {
 		decodedWh.Name = opts.WebhookName
 	}
-	maps.CopyRightIntoLeft(decodedWh.Labels, config.Labels)
-	maps.CopyRightIntoLeft(decodedWh.Labels, opts.CustomLabels)
-	maps.CopyRightIntoLeft(decodedWh.Annotations, config.Annotations)
+	maps.Copy(decodedWh.Labels, config.Labels)
+	maps.Copy(decodedWh.Labels, opts.CustomLabels)
+	maps.Copy(decodedWh.Annotations, config.Annotations)
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
 		return "", err
