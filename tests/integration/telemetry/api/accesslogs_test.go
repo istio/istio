@@ -67,7 +67,6 @@ func TestAccessLogsFilter(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.logging.filter").
 		Run(func(t framework.TestContext) {
-			applyTelemetryResource(t, false)
 			runAccessLogFilterTests(t, false)
 			t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/filter.yaml").ApplyOrFail(t)
 			runAccessLogFilterTests(t, true)
@@ -98,7 +97,6 @@ func TestAccessLogsDefaultProvider(t *testing.T) {
 		Features("observability.telemetry.logging.defaultprovider").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("disabled").Run(func(t framework.TestContext) {
-				applyTelemetryResource(t, false)
 				runAccessLogsTests(t, false)
 			})
 			t.NewSubTest("enabled").Run(func(t framework.TestContext) {
