@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
 - |
-   **Fixed** Before verifying the CIDR format, the space of the string to be verified is removed. CIDR needs to verify that there are spaces at the beginning and end
+   **Fixed** an issue where the operator did not reject invalid CIDR entries that included spaces.
