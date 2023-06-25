@@ -12,3 +12,30 @@ spec:
       protocol: TCP
       port: 8080
       targetPort: 8080
+---
+# internal waypoint, should not generate warning
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    istio.io/for-service-account: reviews
+  labels:
+    gateway.istio.io/managed: istio.io-mesh-controller
+  name: reviews-istio-waypoint
+  namespace: ambient
+spec:
+  ports:
+  - appProtocol: tcp
+    name: status-port
+    port: 15021
+    protocol: TCP
+    targetPort: 15021
+  - appProtocol: hbone
+    name: mesh
+    port: 15008
+    protocol: TCP
+    targetPort: 15008
+  selector:
+    istio.io/gateway-name: reviews
+  sessionAffinity: None
+  type: ClusterIP
