@@ -31,7 +31,6 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
@@ -114,7 +113,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		}
 		// add extra addresses for the listener
 		extrAddresses := si.Service.GetExtraAddressesForProxy(node)
-		if features.EnableDualStack && len(extrAddresses) > 0 {
+		if len(extrAddresses) > 0 {
 			ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(listenPort), node)
 		}
 
@@ -325,7 +324,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				}
 				// add extra addresses for the listener
 				extrAddresses := sv.GetExtraAddressesForProxy(node)
-				if features.EnableDualStack && len(extrAddresses) > 0 {
+				if len(extrAddresses) > 0 {
 					ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(p.Port), node)
 				}
 

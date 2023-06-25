@@ -720,7 +720,7 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 	var destinationCIDR string
 	if len(listenerOpts.bind) == 0 {
 		svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
-		svcExtraListenAddress := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
+		svcExtraListenAddresses := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
 		// Override the svcListenAddress, using the proxy ipFamily, for cases where the ipFamily cannot be detected easily.
 		// For example: due to the possibility of using hostnames instead of ips in ServiceEntry,
 		// it is hard to detect ipFamily for such services.
@@ -740,7 +740,9 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 				destinationCIDR = svcListenAddress
 				listenerOpts.bind = actualWildcard
 			}
-			listenerOpts.extraBind = svcExtraListenAddress
+			if len(svcExtraListenAddresses) > 0 {
+				listenerOpts.extraBind = svcExtraListenAddresses
+			}
 		}
 	}
 
