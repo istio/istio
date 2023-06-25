@@ -1538,7 +1538,7 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 
 		var missingHTTPALPNs []string
 		for _, p := range plaintextHTTPALPNs {
-			if !contains(fc.FilterChainMatch.ApplicationProtocols, p) {
+			if !slices.Contains(fc.FilterChainMatch.ApplicationProtocols, p) {
 				missingHTTPALPNs = append(missingHTTPALPNs, p)
 			}
 		}
@@ -1547,16 +1547,6 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 		newFilterChan = append(newFilterChan, fc)
 	}
 	return append(tcpFilterChain, newFilterChan...)
-}
-
-// It's fine to use this naive implementation for searching in a very short list like ApplicationProtocols
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }
 
 func getPluginFilterChain(opts buildListenerOpts) []istionetworking.FilterChain {
