@@ -22,11 +22,11 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/util/ambient"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
+	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
@@ -78,8 +78,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					return err
 				}
 				if ambient.IsZtunnelPod(kubeClient, podName, ns) {
-					_, _ = fmt.Fprintln(c.OutOrStdout(),
-						fmt.Sprintf("Sync diff is not available for ztunnel pod %s.%s", podName, ns))
+					_, _ = fmt.Fprintf(c.OutOrStdout(),
+						"Sync diff is not available for ztunnel pod %s.%s\n", podName, ns)
 					return nil
 				}
 				var envoyDump []byte
@@ -190,8 +190,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					return err
 				}
 				if ambient.IsZtunnelPod(kubeClient, podName, ns) {
-					_, _ = fmt.Fprintln(c.OutOrStdout(),
-						fmt.Sprintf("Sync diff is not available for ztunnel pod %s.%s", podName, ns))
+					_, _ = fmt.Fprintf(c.OutOrStdout(),
+						"Sync diff is not available for ztunnel pod %s.%s\n", podName, ns)
 					return nil
 				}
 				var envoyDump []byte
