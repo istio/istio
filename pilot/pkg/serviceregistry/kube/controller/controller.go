@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -700,13 +701,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int) []*mode
 	externalNameInstances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
 	if externalNameInstances != nil {
-		inScopeInstances := make([]*model.ServiceInstance, 0)
-		for _, i := range externalNameInstances {
-			if i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort {
-				inScopeInstances = append(inScopeInstances, i)
-			}
-		}
-		return inScopeInstances
+		return slices.Filter(externalNameInstances, func(i *model.ServiceInstance) bool {
+			return i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort
+		})
 	}
 	return nil
 }
