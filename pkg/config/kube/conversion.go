@@ -60,9 +60,6 @@ func ConvertProtocol(port int32, portName string, proto corev1.Protocol, appProt
 		// "http2 over cleartext", which is also what our HTTP2 port is
 		case "kubernetes.io/h2c":
 			return protocol.HTTP2
-		// hbone is a protocol used internally
-		case "hbone":
-			return protocol.HBONE
 		}
 	}
 

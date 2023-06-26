@@ -67,6 +67,10 @@ func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Context) {
 	svc := r.Message.(*v1.ServiceSpec)
 	for i, port := range svc.Ports {
+		// Skip internal ports, which are not created by users
+		if port.AppProtocol != nil && *port.AppProtocol == "hbone" {
+			continue
+		}
 		instance := configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol)
 		if instance.IsUnsupported() || port.Name == "tcp" && svc.Type == "ExternalName" {
 
