@@ -82,7 +82,7 @@ func checkIfReady(client *http.Client, url string) error {
 }
 
 func notifyErrorExit(client *http.Client) error {
-	url := "http://localhost:15021/quitquitquit?force=true"
+	url := "http://localhost:15020/quitquitquit?force=true"
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
 		return err
