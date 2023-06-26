@@ -36,6 +36,7 @@ import (
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
+	"istio.io/istio/operator/pkg/object"
 	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -290,18 +291,10 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
-		if len(chunk) == 0 {
+		chunkStr := object.RemoveNonYAMLLines(string(chunk))
+		if len(chunkStr) == 0 {
 			continue
 		}
-
-		var data map[string]interface{}
-		if err := yaml.Unmarshal(chunk, &data); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-		if len(data) == 0 {
-			continue
-		}
-
 		chunkResources, err := s.parseChunk(r, name, lineNum, chunk)
 		if err != nil {
 			var uerr *unknownSchemaError

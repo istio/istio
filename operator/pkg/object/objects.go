@@ -284,7 +284,7 @@ func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool
 	var objects K8sObjects
 
 	for _, yaml := range yamls {
-		yaml = removeNonYAMLLines(yaml)
+		yaml = RemoveNonYAMLLines(yaml)
 		if yaml == "" {
 			continue
 		}
@@ -305,7 +305,7 @@ func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool
 	return objects, nil
 }
 
-func removeNonYAMLLines(yms string) string {
+func RemoveNonYAMLLines(yms string) string {
 	var b strings.Builder
 	for _, s := range strings.Split(yms, "\n") {
 		if strings.HasPrefix(s, "#") {
