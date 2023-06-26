@@ -38,7 +38,7 @@ func FuzzDeepCopyWorkloadInstance(f *testing.F) {
 }
 
 func FuzzDeepCopyIstioEndpoint(f *testing.F) {
-	fuzzDeepCopy[*IstioEndpoint](f, protocmp.Transform(), cmp.AllowUnexported())
+	fuzzDeepCopy[*IstioEndpoint](f, protocmp.Transform(), cmp.AllowUnexported(), cmpopts.IgnoreUnexported(IstioEndpoint{}))
 }
 
 type deepCopier[T any] interface {
