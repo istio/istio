@@ -36,7 +36,6 @@ import (
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/istio/operator/pkg/object"
 	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -291,7 +290,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
-		chunkStr := object.RemoveNonYAMLLines(string(chunk))
+		chunkStr := resource.RemoveNonYAMLLines(string(chunk))
 		if len(chunkStr) == 0 {
 			continue
 		}

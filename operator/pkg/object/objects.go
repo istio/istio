@@ -36,6 +36,7 @@ import (
 	names "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/log"
 )
 
@@ -284,7 +285,7 @@ func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool
 	var objects K8sObjects
 
 	for _, yaml := range yamls {
-		yaml = RemoveNonYAMLLines(yaml)
+		yaml = resource.RemoveNonYAMLLines(yaml)
 		if yaml == "" {
 			continue
 		}
@@ -303,20 +304,6 @@ func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool
 	}
 
 	return objects, nil
-}
-
-func RemoveNonYAMLLines(yms string) string {
-	var b strings.Builder
-	for _, s := range strings.Split(yms, "\n") {
-		if strings.HasPrefix(s, "#") {
-			continue
-		}
-		b.WriteString(s)
-		b.WriteString("\n")
-	}
-
-	// helm charts sometimes emits blank objects with just a "disabled" comment.
-	return strings.TrimSpace(b.String())
 }
 
 // YAMLManifest returns a YAML representation of K8sObjects os.
