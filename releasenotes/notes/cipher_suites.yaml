@@ -5,4 +5,4 @@ issue:
   - https://github.com/istio/istio/issues/28996
 releaseNotes:
   - |
-    **Added** cipher_suites support for mesh-internal traffic through MeshConfig API.
+    **Added** cipher_suites support for non ISTIO_MUTUAL traffic through MeshConfig API.
