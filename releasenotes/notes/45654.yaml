@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 45653
+releaseNotes:
+- |
+  **Fixed** an issue where analyze reports an error when the resource is empty.
