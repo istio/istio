@@ -1200,6 +1200,9 @@ func applyTLSDefaults(tlsContext *auth.UpstreamTlsContext, tlsDefaults *meshconf
 	if len(tlsDefaults.EcdhCurves) > 0 {
 		tlsContext.CommonTlsContext.TlsParams.EcdhCurves = tlsDefaults.EcdhCurves
 	}
+	if len(tlsDefaults.CipherSuites) > 0 {
+		tlsContext.CommonTlsContext.TlsParams.CipherSuites = tlsDefaults.CipherSuites
+	}
 }
 
 // Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.
