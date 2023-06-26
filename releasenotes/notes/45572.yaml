@@ -5,4 +5,4 @@ issue:
   - 45563
 releaseNotes:
   - |
-    **Added** outlierLogPath to operator api proxyConfig.
+    **Added** outlierLogPath to mesh proxyConfig.

@@ -28,7 +28,6 @@ type ProxyArgs struct {
 	ProxyComponentLogLevel string
 	Concurrency            int
 	TemplateFile           string
-	OutlierLogPath         string
 
 	PodName      string
 	PodNamespace string

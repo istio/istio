@@ -152,7 +152,6 @@ func newProxyCommand() *cobra.Command {
 				LogAsJSON:         loggingOptions.JSONEncoding,
 				NodeIPs:           proxy.IPAddresses,
 				Sidecar:           proxy.Type == model.SidecarProxy,
-				OutlierLogPath:    proxyArgs.OutlierLogPath,
 			}
 			agentOptions := options.NewAgentOptions(proxy, proxyConfig)
 			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
@@ -208,8 +207,6 @@ func addFlags(proxyCmd *cobra.Command) {
 		"The component log level used to start the Envoy proxy. Deprecated, use proxyLogLevel instead")
 	proxyCmd.PersistentFlags().StringVar(&proxyArgs.TemplateFile, "templateFile", "",
 		"Go template bootstrap config")
-	proxyCmd.PersistentFlags().StringVar(&proxyArgs.OutlierLogPath, "outlierLogPath", "",
-		"The log path for outlier detection")
 	proxyCmd.PersistentFlags().BoolVar(&proxyArgs.EnableProfiling, "profiling", true,
 		"Enable profiling via web interface host:port/debug/pprof/.")
 }

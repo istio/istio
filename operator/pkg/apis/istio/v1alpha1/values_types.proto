@@ -971,8 +971,6 @@ message ProxyConfig {
   string includeInboundPorts = 38;
 
   string includeOutboundPorts = 39;
-
-  string outlierLogPath = 40;
 }
 
 // Specifies which tracer to use.

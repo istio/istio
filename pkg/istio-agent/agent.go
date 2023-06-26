@@ -235,7 +235,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		ProxyConfig:                 a.proxyConfig,
 		PilotSubjectAltName:         pilotSAN,
 		CredentialSocketExists:      credentialSocketExists,
-		OutlierLogPath:              a.envoyOpts.OutlierLogPath,
+		OutlierLogPath:              a.proxyConfig.OutlierLogPath,
 		EnvoyPrometheusPort:         a.cfg.EnvoyPrometheusPort,
 		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
 		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
