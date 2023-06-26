@@ -751,6 +751,8 @@ message PilotConfig {
   repeated google.protobuf.Struct volumeMounts = 49;
 
   repeated google.protobuf.Struct volumes = 51;
+
+  google.protobuf.Struct affinity = 52;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
