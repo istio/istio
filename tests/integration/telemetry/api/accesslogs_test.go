@@ -83,7 +83,7 @@ func TestAccessLogsMode(t *testing.T) {
 			})
 			t.NewSubTest("server").Run(func(t framework.TestContext) {
 				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-server.yaml").ApplyOrFail(t)
-				runAccessLogModeTests(t, false, false)
+				runAccessLogModeTests(t, false, true)
 			})
 			t.NewSubTest("client-and-server").Run(func(t framework.TestContext) {
 				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-clientserver.yaml").ApplyOrFail(t)

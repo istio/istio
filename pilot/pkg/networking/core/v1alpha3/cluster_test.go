@@ -3104,6 +3104,29 @@ func TestBuildDeltaClusters(t *testing.T) {
 			},
 		},
 		{
+			name:     "service is added and destination rule is updated",
+			services: []*model.Service{testService1, testService2},
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "test-desinationrule",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: destRuleWithNewSubsets,
+			}},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace},
+				model.ConfigKey{Kind: kind.DestinationRule, Name: "test-desinationrule", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+				"outbound|8080|subset-1|test.com", "outbound|8080|subset-2|test.com", "outbound|8080||test.com",
+				"outbound|8080||testnew.com",
+			},
+		},
+		{
 			name:     "virtual service is updated",
 			services: []*model.Service{testService1, testService2},
 			configs: []config.Config{{

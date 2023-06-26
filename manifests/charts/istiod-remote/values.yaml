@@ -22,9 +22,15 @@ pilot:
       memory: 2048Mi
   # Set to `type: RuntimeDefault` to use the default profile if available.
   seccompProfile: {}
+  # Additional container arguments
+  extraContainerArgs: []
   env: {}
   cpu:
     targetAverageUtilization: 80
+  # Additional volumeMounts to the istiod container
+  volumeMounts: []
+  # Additional volumes to the istiod pod
+  volumes: []
   # if protocol sniffing is enabled for outbound
   enableProtocolSniffingForOutbound: true
   # if protocol sniffing is enabled for inbound

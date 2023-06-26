@@ -27,6 +27,7 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -34,6 +35,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -43,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -448,10 +451,6 @@ type IstioEndpoint struct {
 	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
 	ServicePortName string
 
-	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
-	// avoid recomputation
-	EnvoyEndpoint *endpoint.LbEndpoint `json:"-"`
-
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string
 
@@ -491,6 +490,18 @@ type IstioEndpoint struct {
 
 	// If in k8s, the node where the pod resides
 	NodeName string
+
+	// precomputedEnvoyEndpoint is a cached LbEndpoint, converted from the data, to
+	// avoid recomputation
+	precomputedEnvoyEndpoint atomic.Pointer[*endpoint.LbEndpoint]
+}
+
+func (ep *IstioEndpoint) EnvoyEndpoint() *endpoint.LbEndpoint {
+	return ptr.OrEmpty(ep.precomputedEnvoyEndpoint.Load())
+}
+
+func (ep *IstioEndpoint) ComputeEnvoyEndpoint(now *endpoint.LbEndpoint) {
+	ep.precomputedEnvoyEndpoint.Store(&now)
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
@@ -1131,7 +1142,7 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 // GetExtraAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
 // Especially for dual stack k8s service to get other IP family addresses.
 func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
-	if node.Metadata != nil {
+	if features.EnableDualStack && node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 			if len(addresses) > 1 {
@@ -1230,6 +1241,13 @@ func (s *Service) Equals(other *Service) bool {
 // DeepCopy creates a clone of IstioEndpoint.
 func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	return copyInternal(ep).(*IstioEndpoint)
+}
+
+// ShallowCopy creates a shallow clone of IstioEndpoint.
+func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
+	// nolint: govet
+	cpy := *ep
+	return &cpy
 }
 
 func copyInternal(v any) any {

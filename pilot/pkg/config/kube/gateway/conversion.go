@@ -1693,7 +1693,7 @@ func reportGatewayStatus(
 			addrType = k8s.HostnameAddressType
 			for _, hostport := range internal {
 				svchost, _, _ := net.SplitHostPort(hostport)
-				if !contains(pending, svchost) && !contains(addressesToReport, svchost) {
+				if !slices.Contains(pending, svchost) && !slices.Contains(addressesToReport, svchost) {
 					addressesToReport = append(addressesToReport, svchost)
 				}
 			}
@@ -2039,15 +2039,6 @@ func humanReadableJoin(ss []string) string {
 	default:
 		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
 	}
-}
-
-func contains(ss []string, s string) bool {
-	for _, str := range ss {
-		if str == s {
-			return true
-		}
-	}
-	return false
 }
 
 // NamespaceNameLabel represents that label added automatically to namespaces is newer Kubernetes clusters

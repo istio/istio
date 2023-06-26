@@ -127,15 +127,20 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 
 	for key := range updates.ConfigsUpdated {
+		// deleted clusters for this config.
+		var deleted []string
+		var svcs []*model.Service
 		switch key.Kind {
 		case kind.ServiceEntry:
-			services, deletedClusters = configgen.deltaFromServices(key, proxy, updates.Push, serviceClusters,
+			svcs, deleted = configgen.deltaFromServices(key, proxy, updates.Push, serviceClusters,
 				servicePortClusters, subsetClusters)
 		case kind.DestinationRule:
-			services, deletedClusters = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
+			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
 		case kind.VirtualService:
-			services, deletedClusters = configgen.deltaFromVirtualServices(key, proxy, serviceClusters, subsetClusters)
+			svcs, deleted = configgen.deltaFromVirtualServices(key, proxy, serviceClusters, subsetClusters)
 		}
+		services = append(services, svcs...)
+		deletedClusters = append(deletedClusters, deleted...)
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.

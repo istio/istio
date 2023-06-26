@@ -720,7 +720,7 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 	var destinationCIDR string
 	if len(listenerOpts.bind) == 0 {
 		svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
-		svcExtraListenAddress := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
+		svcExtraListenAddresses := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
 		// Override the svcListenAddress, using the proxy ipFamily, for cases where the ipFamily cannot be detected easily.
 		// For example: due to the possibility of using hostnames instead of ips in ServiceEntry,
 		// it is hard to detect ipFamily for such services.
@@ -740,7 +740,9 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 				destinationCIDR = svcListenAddress
 				listenerOpts.bind = actualWildcard
 			}
-			listenerOpts.extraBind = svcExtraListenAddress
+			if len(svcExtraListenAddresses) > 0 {
+				listenerOpts.extraBind = svcExtraListenAddresses
+			}
 		}
 	}
 
@@ -1536,7 +1538,7 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 
 		var missingHTTPALPNs []string
 		for _, p := range plaintextHTTPALPNs {
-			if !contains(fc.FilterChainMatch.ApplicationProtocols, p) {
+			if !slices.Contains(fc.FilterChainMatch.ApplicationProtocols, p) {
 				missingHTTPALPNs = append(missingHTTPALPNs, p)
 			}
 		}
@@ -1545,16 +1547,6 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 		newFilterChan = append(newFilterChan, fc)
 	}
 	return append(tcpFilterChain, newFilterChan...)
-}
-
-// It's fine to use this naive implementation for searching in a very short list like ApplicationProtocols
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }
 
 func getPluginFilterChain(opts buildListenerOpts) []istionetworking.FilterChain {
