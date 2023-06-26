@@ -660,6 +660,11 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
+	if r.URL.Query().Get("force") == "true" {
+		log.Infof("handling %s, notifying pilot-agent exit with error", quitPath)
+		errorExit()
+		return
+	}
 	log.Infof("handling %s, notifying pilot-agent to exit", quitPath)
 	notifyExit()
 }
@@ -868,6 +873,12 @@ func notifyExit() {
 	if err := p.Signal(syscall.SIGTERM); err != nil {
 		log.Errorf("failed to send SIGTERM to self: %v", err)
 	}
+}
+
+// errorExit exits with error code -1, before that it will notify envoy to quit as well.
+func errorExit() {
+	log.Errorf("force exit, maybe from post start hook")
+	os.Exit(-1)
 }
 
 var defaultTransport = http.DefaultTransport.(*http.Transport)

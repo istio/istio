@@ -46,6 +46,7 @@ var (
 			for {
 				select {
 				case <-timeout:
+					err = notifyErrorExit(client)
 					return fmt.Errorf("timeout waiting for Envoy proxy to become ready. Last error: %v", err)
 				case <-time.After(time.Duration(periodMillis) * time.Millisecond):
 					err = checkIfReady(client, url)
@@ -62,6 +63,27 @@ var (
 
 func checkIfReady(client *http.Client, url string) error {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP status code %v", resp.StatusCode)
+	}
+	return nil
+}
+
+func notifyErrorExit(client *http.Client) error {
+	url := "http://localhost:15021/quitquitquit?force=true"
+	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
 		return err
 	}
