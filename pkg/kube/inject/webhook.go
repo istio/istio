@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
+	template "github.com/google/safetext/yamltemplate"
 	"time"
 
 	"github.com/prometheus/prometheus/util/strutil"
