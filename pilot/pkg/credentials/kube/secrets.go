@@ -59,7 +59,7 @@ const (
 	TLSSecretCrl = "ca.crl"
 
 	// The ID/name for inline_bytes in kubernetes generic secret.
-	DataSourceInlineBytes = "inline_bytes"
+	DataSourceInlineBytes = "Istio_DataSourceInlineBytes"
 )
 
 type CredentialsController struct {
