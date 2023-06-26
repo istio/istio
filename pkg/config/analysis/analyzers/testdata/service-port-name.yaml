@@ -8,10 +8,10 @@ spec:
   selector:
     app: my-service
   ports:
-    - name: tcp-foo
-      protocol: TCP
-      port: 8080
-      targetPort: 8080
+  - name: tcp-foo
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
 ---
 # internal waypoint, should not generate warning
 apiVersion: v1
@@ -39,3 +39,31 @@ spec:
     istio.io/gateway-name: reviews
   sessionAffinity: None
   type: ClusterIP
+---
+# managed gateway, should not generate warning
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    test: test
+  labels:
+    gateway.istio.io/managed: istio.io-gateway-controller
+  name: gateway-istio
+  namespace: istio-ingress
+spec:
+  ports:
+  - appProtocol: tcp
+    name: status-port
+    nodePort: 32481
+    port: 15021
+    protocol: TCP
+    targetPort: 15021
+  - appProtocol: http
+    name: default
+    nodePort: 30686
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    istio.io/gateway-name: gateway
+  type: LoadBalancer
