@@ -199,9 +199,9 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return res
 	}
 
-	res := s.mayBeGetEnvoyTlsCertificate(secretController, sr, proxy)
+	res := s.mayBeGetEnvoyTLSCertificate(secretController, sr, proxy)
 	if res == nil {
-		res = s.mayBeGetEnvoyGenericSecret(secretController, sr, proxy)
+		res = s.mayBeGetEnvoyGenericSecret(secretController, sr)
 	}
 	if res == nil {
 		log.Debugf("no secret found for %s", sr.ResourceName)
@@ -209,7 +209,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	return res
 }
 
-func (s *SecretGen) mayBeGetEnvoyTlsCertificate(secretController credscontroller.Controller, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
+func (s *SecretGen) mayBeGetEnvoyTLSCertificate(secretController credscontroller.Controller, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
 	certInfo, err := secretController.GetCertInfo(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
@@ -225,14 +225,14 @@ func (s *SecretGen) mayBeGetEnvoyTlsCertificate(secretController credscontroller
 	return toEnvoyTLSSecret(sr.ResourceName, certInfo, proxy, s.meshConfig)
 }
 
-func (s *SecretGen) mayBeGetEnvoyGenericSecret(secretController credscontroller.Controller, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
+func (s *SecretGen) mayBeGetEnvoyGenericSecret(secretController credscontroller.Controller, sr SecretResource) *discovery.Resource {
 	key, value, err := secretController.GetDataSourceKeyAndValue(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
 		log.Warnf("mayBeGetEnvoyGenericSecret failed to fetch data source key and value for %s: %v", sr.ResourceName, err)
 		return nil
 	}
-	return toEnvoyGenericSecret(sr.ResourceName, key, value, proxy, s.meshConfig)
+	return toEnvoyGenericSecret(sr.ResourceName, key, value)
 }
 
 func ValidateCertificate(data []byte) error {
@@ -461,7 +461,7 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 	}
 }
 
-func toEnvoyGenericSecret(name string, key, value []byte, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
+func toEnvoyGenericSecret(name string, key, value []byte) *discovery.Resource {
 	var res *anypb.Any
 	switch string(key) {
 	case secrets.DataSourceInlineBytes:

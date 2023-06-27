@@ -99,6 +99,15 @@ var (
 	badDockerjson = makeSecret("bad-docker-json", map[string]string{
 		"docker-key": "docker-cred",
 	}, corev1.SecretTypeDockerConfigJson)
+	dataSourceInlineBytes = makeSecret("generic-inline-bytes", map[string]string{
+		DataSourceInlineBytes: "generic-secret-value",
+	}, corev1.SecretTypeOpaque)
+	emptyDataSourceInlineBytes = makeSecret("empty-generic-inline-bytes", map[string]string{
+		DataSourceInlineBytes: "",
+	}, corev1.SecretTypeOpaque)
+	wrongDataSource = makeSecret("wrong-data-source", map[string]string{
+		"foo": "bar",
+	}, corev1.SecretTypeOpaque)
 )
 
 func TestSecretsController(t *testing.T) {
@@ -275,6 +284,55 @@ func TestSecretsController(t *testing.T) {
 			}
 			if tt.expectedCAError != errString(err) {
 				t.Errorf("got ca err %q, wanted %q", errString(err), tt.expectedCAError)
+			}
+		})
+	}
+}
+
+func TestIstioDatasourceSecrets(t *testing.T) {
+	secrets := []runtime.Object{
+		dataSourceInlineBytes,
+		emptyDataSourceInlineBytes,
+		wrongDataSource,
+	}
+	client := kube.NewFakeClient(secrets...)
+	sc := NewCredentialsController(client)
+	client.RunAndWait(test.NewStop(t))
+	cases := []struct {
+		name          string
+		namespace     string
+		expectedKey   string
+		expectedValue string
+		expectedError string
+	}{
+		{
+			name:          "generic-inline-bytes",
+			namespace:     "default",
+			expectedKey:   DataSourceInlineBytes,
+			expectedValue: "generic-secret-value",
+		},
+		{
+			name:          "empty-generic-inline-bytes",
+			namespace:     "default",
+			expectedError: "found key \"Istio_DataSourceInlineBytes\" but it was empty",
+		},
+		{
+			name:          "wrong-data-source",
+			namespace:     "default",
+			expectedError: "found secret, but didn't have expected key (Istio_DataSourceInlineBytes); found: foo",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			key, val, err := sc.GetDataSourceKeyAndValue(tt.name, tt.namespace)
+			if tt.expectedKey != string(key) {
+				t.Errorf("got key %q, wanted %q", string(key), tt.expectedKey)
+			}
+			if tt.expectedValue != string(val) {
+				t.Errorf("got value %q, wanted %q", string(val), tt.expectedValue)
+			}
+			if tt.expectedError != errString(err) {
+				t.Errorf("got err %q, wanted %q", errString(err), tt.expectedError)
 			}
 		})
 	}

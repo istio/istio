@@ -105,7 +105,8 @@ func (m *Multicluster) AddSecretHandler(h func(name string, namespace string)) {
 }
 
 type AggregateController struct {
-	// controllers to use to look up certs and dataSources (https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/base.proto#config-core-v3-datasource).
+	// controllers to use to look up certs and envoy
+	// dataSources (https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/base.proto#config-core-v3-datasource).
 	// Generally this will consistent of the primary (config) cluster
 	// and a single remote cluster where the proxy resides
 	controllers    []*CredentialsController

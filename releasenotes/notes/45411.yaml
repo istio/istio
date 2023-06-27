@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 45409
+
+releaseNotes:
+- |
+  **Added** Support for fetching (envoy generic secrets)[https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/secret.proto#extensions-transport-sockets-tls-v3-secret] of type (`inline_bytes` datasource)[https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/base.proto#envoy-v3-api-msg-config-core-v3-datasource].

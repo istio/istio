@@ -81,6 +81,9 @@ var (
 	genericMtlsCertSplitCa = makeSecret("generic-mtls-split-cacert", map[string]string{
 		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "mountedcerts-client/root-cert.pem")),
 	})
+	genericInlineBytes = makeSecret("generic-inline-bytes", map[string]string{
+		credentials.DataSourceInlineBytes: "generic-inline-bytes-datasource",
+	})
 )
 
 func readFile(name string) string {
@@ -90,15 +93,16 @@ func readFile(name string) string {
 
 func TestGenerate(t *testing.T) {
 	type Expected struct {
-		Key    string
-		Cert   string
-		CaCert string
-		CaCrl  string
+		Key                   string
+		Cert                  string
+		CaCert                string
+		CaCrl                 string
+		DataSourceInlineBytes string
 	}
 	allResources := []string{
 		"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert",
 		"kubernetes://generic-mtls-split", "kubernetes://generic-mtls-split-cacert", "kubernetes://generic-mtls-crl",
-		"kubernetes://generic-mtls-crl-cacert",
+		"kubernetes://generic-mtls-crl-cacert", "kubernetes://generic-inline-bytes",
 	}
 	cases := []struct {
 		name                 string
@@ -170,6 +174,9 @@ func TestGenerate(t *testing.T) {
 				"kubernetes://generic-mtls-crl-cacert": {
 					CaCert: string(genericMtlsCertCrl.Data[credentials.GenericScrtCaCert]),
 					CaCrl:  string(genericMtlsCertCrl.Data[credentials.GenericScrtCRL]),
+				},
+				"kubernetes://generic-inline-bytes": {
+					DataSourceInlineBytes: string(genericInlineBytes.Data[credentials.DataSourceInlineBytes]),
 				},
 			},
 		},
@@ -314,7 +321,10 @@ func TestGenerate(t *testing.T) {
 			}
 			tt.proxy.Metadata.ClusterID = "Kubernetes"
 			s := NewFakeDiscoveryServer(t, FakeOptions{
-				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertCrl, genericMtlsCertSplit, genericMtlsCertSplitCa},
+				KubernetesObjects: []runtime.Object{
+					genericCert, genericMtlsCert, genericMtlsCertCrl, genericMtlsCertSplit,
+					genericMtlsCertSplitCa, genericInlineBytes,
+				},
 			})
 			cc := s.KubeClient().Kube().(*fake.Clientset)
 
@@ -334,10 +344,11 @@ func TestGenerate(t *testing.T) {
 			got := map[string]Expected{}
 			for _, scrt := range raw {
 				got[scrt.Name] = Expected{
-					Key:    string(scrt.GetTlsCertificate().GetPrivateKey().GetInlineBytes()),
-					Cert:   string(scrt.GetTlsCertificate().GetCertificateChain().GetInlineBytes()),
-					CaCert: string(scrt.GetValidationContext().GetTrustedCa().GetInlineBytes()),
-					CaCrl:  string(scrt.GetValidationContext().GetCrl().GetInlineBytes()),
+					Key:                   string(scrt.GetTlsCertificate().GetPrivateKey().GetInlineBytes()),
+					Cert:                  string(scrt.GetTlsCertificate().GetCertificateChain().GetInlineBytes()),
+					CaCert:                string(scrt.GetValidationContext().GetTrustedCa().GetInlineBytes()),
+					CaCrl:                 string(scrt.GetValidationContext().GetCrl().GetInlineBytes()),
+					DataSourceInlineBytes: string(scrt.GetGenericSecret().GetSecret().GetInlineBytes()),
 				}
 			}
 			if diff := cmp.Diff(got, tt.expect); diff != "" {
