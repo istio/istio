@@ -891,6 +891,16 @@ data:
 			expectErr:   false,
 			expectCount: 0,
 		},
+		{
+			name: "empty object - do not have errors",
+			manifest: `
+# comments
+  # another comments
+`,
+			failOnError: true,
+			expectErr:   false,
+			expectCount: 0,
+		},
 	}
 
 	for _, tc := range cases {

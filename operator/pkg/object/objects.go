@@ -286,13 +286,15 @@ func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool
 			log.Error(err.Error())
 			continue
 		}
+		if obj.Object == nil {
+			continue
+		}
 
 		if !isValidKubernetesObject(obj) {
 			if failOnError {
 				err := wrapErr(fmt.Errorf("failed to parse YAML to a k8s object: object is an invalid k8s object: %v", obj))
 				return nil, err
 			}
-			continue
 		}
 
 		// Convert the unstructured object back into YAML, without comments
