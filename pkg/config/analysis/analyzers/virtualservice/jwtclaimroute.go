@@ -15,13 +15,10 @@
 package virtualservice
 
 import (
-	"strings"
-
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -29,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/jwt"
 )
 
 type JWTClaimRouteAnalyzer struct{}
@@ -125,12 +123,12 @@ func routeBasedOnJWTClaimKey(vs *v1alpha3.VirtualService) string {
 	for _, httpRoute := range vs.GetHttp() {
 		for _, match := range httpRoute.GetMatch() {
 			for key := range match.GetHeaders() {
-				if strings.HasPrefix(key, constant.HeaderJWTClaim) {
+				if jwt.ToRoutingClaim(key).Match {
 					return key
 				}
 			}
 			for key := range match.GetWithoutHeaders() {
-				if strings.HasPrefix(key, constant.HeaderJWTClaim) {
+				if jwt.ToRoutingClaim(key).Match {
 					return key
 				}
 			}

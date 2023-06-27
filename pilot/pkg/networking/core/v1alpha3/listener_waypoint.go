@@ -48,8 +48,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
@@ -164,7 +164,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 	return lb.buildConnectTerminateListener(routes)
 }
 
-func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs map[host.Name]*model.Service) *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs map[host.Name]*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
 	chains := []*listener.FilterChain{}
 	pre, post := lb.buildWaypointHTTPFilters()
@@ -257,13 +257,15 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		if len(wls) > 0 {
 			// Workload IP filtering happens here.
 			ipRange := []*xds.CidrRange{}
-			for _, wlx := range wls {
-				addr, _ := netip.AddrFromSlice(wlx.WorkloadInfo.Address)
-				cidr := util.ConvertAddressToCidr(addr.String())
-				ipRange = append(ipRange, &xds.CidrRange{
-					AddressPrefix: cidr.AddressPrefix,
-					PrefixLen:     cidr.PrefixLen,
-				})
+			for _, wl := range wls {
+				for _, ip := range wl.Addresses {
+					addr, _ := netip.AddrFromSlice(ip)
+					cidr := util.ConvertAddressToCidr(addr.String())
+					ipRange = append(ipRange, &xds.CidrRange{
+						AddressPrefix: cidr.AddressPrefix,
+						PrefixLen:     cidr.PrefixLen,
+					})
+				}
 			}
 			ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
 				&matcher.IPMatcher_IPRangeMatcher{
@@ -541,7 +543,7 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 	}
 
 	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-	action.Timeout = features.DefaultRequestTimeout
+	action.Timeout = istio_route.Notimeout
 	if in.Timeout != nil {
 		action.Timeout = in.Timeout
 	}

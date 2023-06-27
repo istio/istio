@@ -26,12 +26,12 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"sigs.k8s.io/yaml"
@@ -64,6 +64,7 @@ import (
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
@@ -83,8 +84,6 @@ type FakeOptions struct {
 	KubernetesObjectStringByCluster map[cluster.ID]string
 	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes" or DefaultClusterName)
 	KubernetesObjectString string
-	// Endpoint mode for the Kubernetes service registry
-	KubernetesEndpointMode kube.EndpointMode
 	// If provided, these configs will be used directly
 	Configs []config.Config
 	// If provided, the yaml string will be parsed and used as configs
@@ -173,7 +172,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
 
-	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI))
+	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
@@ -190,7 +189,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			DomainSuffix:     "cluster.local",
 			XDSUpdater:       xdsUpdater,
 			NetworksWatcher:  opts.NetworksWatcher,
-			Mode:             opts.KubernetesEndpointMode,
 			SkipRun:          true,
 			ConfigController: k8sConfig,
 			ConfigCluster:    k8sCluster == opts.DefaultClusterName,
@@ -228,10 +226,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		MeshConfig:          m,
 		NetworksWatcher:     opts.NetworksWatcher,
 		ServiceRegistries:   registries,
-		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreController{ingr},
 		CreateConfigStore: func(c model.ConfigStoreController) model.ConfigStoreController {
-			g := gateway.NewController(defaultKubeClient, c, func(class config.GroupVersionKind, stop <-chan struct{}) bool {
+			g := gateway.NewController(defaultKubeClient, c, func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
 				return true
 			}, nil, kube.Options{
 				DomainSuffix: "cluster.local",
@@ -245,7 +242,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Gateways:  opts.Gateways,
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
-	s.updateMutex.Lock()
 	s.Env = cg.Env()
 	s.Env.GatewayAPIController = gwc
 	if err := s.Env.InitNetworksManager(s); err != nil {
@@ -256,7 +252,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.debounceOptions.debounceAfter = opts.DebounceTime
 	memRegistry := cg.MemRegistry
 	memRegistry.XdsUpdater = s
-	s.updateMutex.Unlock()
 
 	// Setup config handlers
 	// TODO code re-use from server.go
@@ -270,7 +265,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	schemas := collections.Pilot.All()
 	if features.EnableGatewayAPI {
-		schemas = collections.PilotGatewayAPI.All()
+		schemas = collections.PilotGatewayAPI().All()
 	}
 	for _, schema := range schemas {
 		// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
@@ -326,7 +321,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	cg.ServiceEntryRegistry.XdsUpdater = s
 	// Now that handlers are added, get everything started
 	cg.Run()
-	kubelib.WaitForCacheSync(stop,
+	kubelib.WaitForCacheSync("fake", stop,
 		cg.Registry.HasSynced,
 		cg.Store().HasSynced)
 	cg.ServiceEntryRegistry.ResyncEDS()
@@ -367,9 +362,7 @@ func (f *FakeDiscoveryServer) KubeClient() kubelib.Client {
 }
 
 func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
-	f.Discovery.updateMutex.RLock()
-	defer f.Discovery.updateMutex.RUnlock()
-	return f.Env().PushContext
+	return f.Env().PushContext()
 }
 
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends

@@ -14,7 +14,7 @@
 
 package scopes
 
-import "istio.io/pkg/log"
+import "istio.io/istio/pkg/log"
 
 // Framework is the general logging scope for the framework.
-var Framework = log.RegisterScope("tf", "General scope for the test framework", 0)
+var Framework = log.RegisterScope("tf", "General scope for the test framework")

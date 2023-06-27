@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         istio.io/rev: default
-        k8s.v1.cni.cncf.io/networks: istio-cni
+        k8s.v1.cni.cncf.io/networks: default/istio-cni
         kubectl.kubernetes.io/default-container: hello
         kubectl.kubernetes.io/default-logs-container: hello
         prometheus.io/path: /stats/prometheus

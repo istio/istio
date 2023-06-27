@@ -88,7 +88,9 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 		}
 		s.instancesByHostAndPort.Insert(hostPort)
 		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
-		s.ip2instance[instance.Endpoint.Address] = append(s.ip2instance[instance.Endpoint.Address], instance)
+		if instance.Endpoint.Address != "" {
+			s.ip2instance[instance.Endpoint.Address] = append(s.ip2instance[instance.Endpoint.Address], instance)
+		}
 	}
 }
 

@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -28,12 +27,13 @@ import (
 	reqwithoutquery "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
-	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -155,6 +155,7 @@ func tcpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConfi
 
 	hostname, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
 	if err != nil {
+		IncLookupClusterFailures("envoyTCPAls")
 		log.Errorf("could not find cluster for tcp grpc provider %q: %v", prov, err)
 		return nil
 	}
@@ -306,6 +307,7 @@ func httpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConf
 
 	hostname, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
 	if err != nil {
+		IncLookupClusterFailures("envoyHTTPAls")
 		log.Errorf("could not find cluster for http grpc provider %q: %v", prov, err)
 		return nil
 	}
@@ -407,6 +409,7 @@ func openTelemetryLog(pushCtx *PushContext,
 ) *accesslog.AccessLog {
 	hostname, cluster, err := clusterLookupFn(pushCtx, provider.Service, int(provider.Port))
 	if err != nil {
+		IncLookupClusterFailures("envoyOtelAls")
 		log.Errorf("could not find cluster for open telemetry provider %q: %v", provider, err)
 		return nil
 	}
@@ -474,9 +477,7 @@ func ConvertStructToAttributeKeyValues(labels map[string]*structpb.Value) []*otl
 	}
 	attrList := make([]*otlpcommon.KeyValue, 0, len(labels))
 	// Sort keys to ensure stable XDS generation
-	keys := maps.Keys(labels)
-	sort.Strings(keys)
-	for _, key := range keys {
+	for _, key := range slices.Sort(maps.Keys(labels)) {
 		value := labels[key]
 		kv := &otlpcommon.KeyValue{
 			Key:   key,
@@ -487,7 +488,6 @@ func ConvertStructToAttributeKeyValues(labels map[string]*structpb.Value) []*otl
 	return attrList
 }
 
-// FIXME: this is a copy of extensionproviders.LookupCluster to avoid import cycle
 func LookupCluster(push *PushContext, service string, port int) (hostname string, cluster string, err error) {
 	if service == "" {
 		err = fmt.Errorf("service must not be empty")

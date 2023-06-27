@@ -22,7 +22,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/pkg/filewatcher"
+	"istio.io/istio/pkg/filewatcher"
 )
 
 func TestNewNetworksWatcherWithBadInputShouldFail(t *testing.T) {

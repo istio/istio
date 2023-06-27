@@ -15,28 +15,22 @@
 package configmapwatcher
 
 import (
-	"fmt"
-	"time"
-
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/informers"
-	informersv1 "k8s.io/client-go/informers/core/v1"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 // Controller watches a ConfigMap and calls the given callback when the ConfigMap changes.
 // The ConfigMap is passed to the callback, or nil if it doesn't exist.
 type Controller struct {
-	informer informersv1.ConfigMapInformer
-	queue    controllers.Queue
+	configmaps kclient.Client[*v1.ConfigMap]
+	queue      controllers.Queue
 
 	configMapNamespace string
 	configMapName      string
@@ -53,18 +47,14 @@ func NewController(client kube.Client, namespace, name string, callback func(*v1
 		callback:           callback,
 	}
 
-	// Although using a separate informer factory isn't ideal,
-	// this does so to limit watching to only the specified ConfigMap.
-	c.informer = informers.NewSharedInformerFactoryWithOptions(client.Kube(), 12*time.Hour,
-		informers.WithNamespace(namespace),
-		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
-			listOptions.FieldSelector = fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()
-		})).
-		Core().V1().ConfigMaps()
+	c.configmaps = kclient.NewFiltered[*v1.ConfigMap](client, kclient.Filter{
+		Namespace:     namespace,
+		FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String(),
+	})
 
 	c.queue = controllers.NewQueue("configmap "+name, controllers.WithReconciler(c.processItem))
-	_, _ = c.informer.Informer().AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
-		// Filter out configmaps
+	c.configmaps.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+		// Filter out other configmaps
 		return o.GetName() == name && o.GetNamespace() == namespace
 	}))
 
@@ -72,9 +62,11 @@ func NewController(client kube.Client, namespace, name string, callback func(*v1
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	go c.informer.Informer().Run(stop)
-	if !kube.WaitForCacheSync(stop, c.informer.Informer().HasSynced) {
-		log.Error("failed to wait for cache sync")
+	// Start informer immediately instead of with the rest. This is because we use configmapwatcher for
+	// single types (so its never shared), and for use cases where we need the results immediately
+	// during startup.
+	c.configmaps.Start(stop)
+	if !kube.WaitForCacheSync("configmap "+c.configMapName, stop, c.configmaps.HasSynced) {
 		return
 	}
 	c.queue.Run(stop)
@@ -86,13 +78,7 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) processItem(name types.NamespacedName) error {
-	cm, err := c.informer.Lister().ConfigMaps(c.configMapNamespace).Get(c.configMapName)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return fmt.Errorf("error fetching object %s error: %v", c.configMapName, err)
-		}
-		cm = nil
-	}
+	cm := c.configmaps.Get(name.Name, name.Namespace)
 	c.callback(cm)
 
 	c.hasSynced.Store(true)

@@ -18,8 +18,6 @@ import (
 	"sort"
 	"strings"
 
-	"golang.org/x/exp/slices"
-
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
@@ -28,7 +26,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being

@@ -24,8 +24,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/util/network"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 )
 
 type envoy struct {
@@ -73,6 +73,10 @@ func NewProxy(cfg ProxyConfig) Proxy {
 		args = append(args, "--component-log-level", cfg.ComponentLogLevel)
 	}
 
+	// Explicitly enable core dumps. This may be desirable more often (by default), but for now we only set it in VM tests.
+	if enableEnvoyCoreDump {
+		args = append(args, "--enable-core-dump")
+	}
 	return &envoy{
 		ProxyConfig: cfg,
 		extraArgs:   args,
@@ -162,7 +166,10 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 	return startupArgs
 }
 
-var istioBootstrapOverrideVar = env.Register("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
+var (
+	istioBootstrapOverrideVar = env.Register("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
+	enableEnvoyCoreDump       = env.Register("ISTIO_ENVOY_ENABLE_CORE_DUMP", false, "").Get()
+)
 
 func (e *envoy) Run(abort <-chan error) error {
 	// spin up a new Envoy process

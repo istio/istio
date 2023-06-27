@@ -33,7 +33,7 @@ import (
 type NodeAuthorizer struct {
 	trustedNodeAccounts map[types.NamespacedName]struct{}
 	pods                kclient.Client[*v1.Pod]
-	nodeIndex           *kclient.Index[*v1.Pod, SaNode]
+	nodeIndex           *kclient.Index[SaNode, *v1.Pod]
 }
 
 func NewNodeAuthorizer(client kube.Client, filter func(t any) bool, trustedNodeAccounts map[types.NamespacedName]struct{}) (*NodeAuthorizer, error) {
@@ -42,7 +42,7 @@ func NewNodeAuthorizer(client kube.Client, filter func(t any) bool, trustedNodeA
 		ObjectTransform: kube.StripPodUnusedFields,
 	})
 	// Add an Index on the pods, storing the service account and node. This allows us to later efficiently query.
-	index := kclient.CreateIndex[*v1.Pod, SaNode](pods, func(pod *v1.Pod) []SaNode {
+	index := kclient.CreateIndex[SaNode, *v1.Pod](pods, func(pod *v1.Pod) []SaNode {
 		if len(pod.Spec.NodeName) == 0 {
 			return nil
 		}

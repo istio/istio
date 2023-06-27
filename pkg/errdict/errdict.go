@@ -17,7 +17,7 @@ package errdict
 import (
 	"strings"
 
-	"istio.io/pkg/structured"
+	"istio.io/istio/pkg/structured"
 )
 
 const (

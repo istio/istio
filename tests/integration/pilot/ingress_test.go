@@ -441,6 +441,10 @@ func TestCustomGateway(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ingress.custom").
 		Run(func(t framework.TestContext) {
+			inject := false
+			if t.Settings().Compatibility {
+				inject = true
+			}
 			injectLabel := `sidecar.istio.io/inject: "true"`
 			if t.Settings().Revisions.Default() != "" {
 				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revisions.Default())
@@ -454,7 +458,7 @@ func TestCustomGateway(t *testing.T) {
 			}
 
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal"})
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal", Inject: inject})
 				_ = t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: v1
 kind: Service
 metadata:
@@ -540,7 +544,7 @@ spec:
 			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
 			// that mess with certs, multicluster, etc
 			t.NewSubTest("helm").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm"})
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
 				if t.Settings().Revisions.Default() != "" {
@@ -611,7 +615,7 @@ spec:
 				})
 			})
 			t.NewSubTest("helm-simple").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm"})
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
 				if t.Settings().Revisions.Default() != "" {

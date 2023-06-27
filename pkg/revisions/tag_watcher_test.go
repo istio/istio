@@ -22,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
-	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
@@ -41,7 +40,7 @@ func TestTagWatcher(t *testing.T) {
 		track.Record(strings.Join(sets.SortedList(s), ","))
 	})
 	go tw.Run(stop)
-	kube.WaitForCacheSync(stop, tw.HasSynced)
+	kube.WaitForCacheSync("test", stop, tw.HasSynced)
 	track.WaitOrdered("revision")
 	assert.Equal(t, tw.GetMyTags(), sets.New("revision"))
 
@@ -73,7 +72,7 @@ func makeTag(revision string, tg string) *admissionregistrationv1.MutatingWebhoo
 			Name: tg,
 			Labels: map[string]string{
 				label.IoIstioRev.Name: revision,
-				tag.IstioTagLabel:     tg,
+				"istio.io/tag":        tg,
 			},
 		},
 	}

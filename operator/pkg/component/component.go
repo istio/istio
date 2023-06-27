@@ -32,8 +32,8 @@ import (
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -42,7 +42,7 @@ const (
 	yamlCommentStr       = "#"
 )
 
-var scope = log.RegisterScope("installer", "installer", 0)
+var scope = log.RegisterScope("installer", "installer")
 
 // Options defines options for a component.
 type Options struct {

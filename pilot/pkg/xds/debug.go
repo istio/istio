@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"net/netip"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -39,16 +40,15 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/xds"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -143,7 +143,6 @@ type SyncedVersions struct {
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(
 	mux *http.ServeMux,
-	sctl *aggregate.Controller,
 	enableProfiling bool,
 	fetchWebhook func() map[string]string,
 ) *http.ServeMux {
@@ -160,6 +159,8 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	}
 
 	if enableProfiling {
+		runtime.SetMutexProfileFraction(features.MutexProfileFraction)
+		runtime.SetBlockProfileRate(features.MutexProfileFraction)
 		s.addDebugHandler(mux, internalMux, "/debug/pprof/", "Displays pprof index", pprof.Index)
 		s.addDebugHandler(mux, internalMux, "/debug/pprof/cmdline", "The command line invocation of the current program", pprof.Cmdline)
 		s.addDebugHandler(mux, internalMux, "/debug/pprof/profile", "CPU profile", pprof.Profile)
@@ -633,7 +634,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if con.proxy.IsZTunnel() {
-		resources := s.getConfigDumpByResourceType(con, nil, []string{v3.WorkloadType})
+		resources := s.getConfigDumpByResourceType(con, nil, []string{v3.AddressType})
 		configDump := &admin.ConfigDump{}
 		for _, resource := range resources {
 			for _, rr := range resource {
@@ -1111,7 +1112,7 @@ func sortMCSServices(svcs []model.MCSServiceInfo) []model.MCSServiceInfo {
 
 func (s *DiscoveryServer) clusterz(w http.ResponseWriter, req *http.Request) {
 	if s.ListRemoteClusters == nil {
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	writeJSON(w, s.ListRemoteClusters(), req)

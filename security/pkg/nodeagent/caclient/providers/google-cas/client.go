@@ -25,12 +25,12 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
-var googleCASClientLog = log.RegisterScope("googlecas", "Google CAS client debugging", 0)
+var googleCASClientLog = log.RegisterScope("googlecas", "Google CAS client debugging")
 
 // GoogleCASClient: Agent side plugin for Google CAS
 type GoogleCASClient struct {

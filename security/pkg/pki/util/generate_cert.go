@@ -35,16 +35,24 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // SupportedECSignatureAlgorithms are the types of EC Signature Algorithms
 // to be used in key generation (e.g. ECDSA or ED2551)
 type SupportedECSignatureAlgorithms string
 
+// SupportedEllipticCurves are the types of curves
+// to be used in key generation (e.g. P256, P384)
+type SupportedEllipticCurves string
+
 const (
-	// only ECDSA using P256 is currently supported
+	// only ECDSA is currently supported
 	EcdsaSigAlg SupportedECSignatureAlgorithms = "ECDSA"
+
+	// supported curves when using ECC
+	P256Curve SupportedEllipticCurves = "P256"
+	P384Curve SupportedEllipticCurves = "P384"
 )
 
 // CertOptions contains options for generating a new certificate.
@@ -98,6 +106,11 @@ type CertOptions struct {
 	// If empty, RSA is used, otherwise ECC is used.
 	ECSigAlg SupportedECSignatureAlgorithms
 
+	// The type of Elliptical Signature algorithm to use
+	// when generating private keys. Currently only ECDSA is supported.
+	// If empty, RSA is used, otherwise ECC is used.
+	ECCCurve SupportedEllipticCurves
+
 	// Subjective Alternative Name values.
 	DNSNames string
 }
@@ -114,10 +127,19 @@ func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, 
 
 		switch options.ECSigAlg {
 		case EcdsaSigAlg:
-			ecPriv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			var curve elliptic.Curve
+			switch options.ECCCurve {
+			case P384Curve:
+				curve = elliptic.P384()
+			default:
+				curve = elliptic.P256()
+			}
+
+			ecPriv, err = ecdsa.GenerateKey(curve, rand.Reader)
 			if err != nil {
 				return nil, nil, fmt.Errorf("cert generation fails at EC key generation (%v)", err)
 			}
+
 		default:
 			return nil, nil, errors.New("cert generation fails due to unsupported EC signature algorithm")
 		}

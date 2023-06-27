@@ -20,6 +20,7 @@ package vm
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,12 +29,12 @@ import (
 	cloudtrace "cloud.google.com/go/trace/apiv1/tracepb"
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/util/retry"
 	sdtest "istio.io/istio/tests/integration/telemetry/stackdriver"
-	"istio.io/pkg/log"
 )
 
 func TestVMTelemetry(t *testing.T) {
@@ -124,6 +125,11 @@ func gotRequestCountMetrics(t framework.TestContext, wantClient, wantServer *mon
 	for _, series := range ts {
 		// Making resource nil, as test can run on various platforms.
 		series.Resource = nil
+		// Do a fuzzy match for proxy_version label
+		// Remove any extra version information
+		if proxyVersion, ok := series.Metric.Labels["proxy_version"]; ok {
+			series.Metric.Labels["proxy_version"] = strings.Split(proxyVersion, "-")[0]
+		}
 		if proto.Equal(series, wantServer) {
 			gotServer = true
 		}

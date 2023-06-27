@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: 
+  - 45400
+releaseNotes:
+  - |
+    **Added** the helm value of setting cni ambient config dir path.

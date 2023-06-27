@@ -22,6 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
@@ -64,14 +65,10 @@ var ClusterLocalModes = []ClusterLocalMode{alwaysClusterLocal, meshWide}
 func TestServiceNotExported(t *testing.T) {
 	for _, clusterLocalMode := range ClusterLocalModes {
 		t.Run(clusterLocalMode.String(), func(t *testing.T) {
-			for _, endpointMode := range EndpointModes {
-				t.Run(endpointMode.String(), func(t *testing.T) {
-					// Create and run the controller.
-					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-					// Check that the endpoint is cluster-local
-					ec.checkServiceInstancesOrFail(t, false)
-				})
-			}
+			// Create and run the controller.
+			ec := newTestServiceExportCache(t, clusterLocalMode)
+			// Check that the endpoint is cluster-local
+			ec.checkServiceInstancesOrFail(t, false)
 		})
 	}
 }
@@ -79,17 +76,13 @@ func TestServiceNotExported(t *testing.T) {
 func TestServiceExported(t *testing.T) {
 	for _, clusterLocalMode := range ClusterLocalModes {
 		t.Run(clusterLocalMode.String(), func(t *testing.T) {
-			for _, endpointMode := range EndpointModes {
-				t.Run(endpointMode.String(), func(t *testing.T) {
-					// Create and run the controller.
-					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-					// Export the service.
-					ec.export(t)
+			// Create and run the controller.
+			ec := newTestServiceExportCache(t, clusterLocalMode)
+			// Export the service.
+			ec.export(t)
 
-					// Check that the endpoint is mesh-wide
-					ec.checkServiceInstancesOrFail(t, true)
-				})
-			}
+			// Check that the endpoint is mesh-wide
+			ec.checkServiceInstancesOrFail(t, true)
 		})
 	}
 }
@@ -97,18 +90,14 @@ func TestServiceExported(t *testing.T) {
 func TestServiceUnexported(t *testing.T) {
 	for _, clusterLocalMode := range ClusterLocalModes {
 		t.Run(clusterLocalMode.String(), func(t *testing.T) {
-			for _, endpointMode := range EndpointModes {
-				t.Run(endpointMode.String(), func(t *testing.T) {
-					// Create and run the controller.
-					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-					// Export the service and then unexport it immediately.
-					ec.export(t)
-					ec.unExport(t)
+			// Create and run the controller.
+			ec := newTestServiceExportCache(t, clusterLocalMode)
+			// Export the service and then unexport it immediately.
+			ec.export(t)
+			ec.unExport(t)
 
-					// Check that the endpoint is cluster-local
-					ec.checkServiceInstancesOrFail(t, false)
-				})
-			}
+			// Check that the endpoint is cluster-local
+			ec.checkServiceInstancesOrFail(t, false)
 		})
 	}
 }
@@ -127,7 +116,7 @@ func newServiceExport() *unstructured.Unstructured {
 	return toUnstructured(se)
 }
 
-func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, endpointMode EndpointMode) (ec *serviceExportCacheImpl) {
+func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode) *serviceExportCacheImpl {
 	t.Helper()
 
 	istiotest.SetForTest(t, &features.EnableMCSServiceDiscovery, true)
@@ -135,19 +124,15 @@ func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, 
 
 	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: testCluster,
-		Mode:      endpointMode,
+		CRDs:      []schema.GroupVersionResource{mcs.ServiceExportGVR},
 	})
 
 	// Create the test service and endpoints.
-	createService(c, serviceExportName, serviceExportNamespace, map[string]string{},
+	createService(c, serviceExportName, serviceExportNamespace, map[string]string{}, map[string]string{},
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 	createEndpoints(t, c, serviceExportName, serviceExportNamespace, []string{"tcp-port"}, []string{serviceExportPodIP}, nil, nil)
 
-	ec = c.exports.(*serviceExportCacheImpl)
-	close(ec.serviceExportCh)
-	retry.UntilOrFail(t, func() bool {
-		return ec.started.Load()
-	}, serviceExportTimeout)
+	ec := c.exports.(*serviceExportCacheImpl)
 	// Wait for the resources to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
 		if svc := ec.GetService(ec.serviceHostname()); svc == nil {
@@ -156,7 +141,7 @@ func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, 
 		inst := ec.getProxyServiceInstances()
 		return len(inst) == 1 && inst[0].Service != nil && inst[0].Endpoint != nil
 	}, serviceExportTimeout)
-	return
+	return ec
 }
 
 func (ec *serviceExportCacheImpl) serviceHostname() host.Name {
@@ -176,7 +161,7 @@ func (ec *serviceExportCacheImpl) export(t *testing.T) {
 	// Wait for the export to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
 		return ec.isExported(serviceExportNamespacedName)
-	}, serviceExportTimeout)
+	}, serviceExportTimeout, retry.Message("expected to be exported"))
 
 	// Wait for the XDS event.
 	ec.waitForXDS(t, true)

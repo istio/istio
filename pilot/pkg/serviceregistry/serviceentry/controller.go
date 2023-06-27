@@ -37,16 +37,17 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
 var (
 	_   serviceregistry.Instance = &Controller{}
-	log                          = istiolog.RegisterScope("serviceentry", "ServiceEntry registry", 0)
+	log                          = istiolog.RegisterScope("serviceentry", "ServiceEntry registry")
 )
 
 var (
@@ -184,8 +185,8 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options
 	return s
 }
 
-// convertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
-func convertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
+// ConvertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
+func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 	wle := cfg.Spec.(*networking.WorkloadEntry)
 	if wle == nil {
 		return nil
@@ -211,9 +212,9 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	log.Debugf("Handle event %s for workload entry %s/%s", event, curr.Namespace, curr.Name)
 	var oldWle *networking.WorkloadEntry
 	if old.Spec != nil {
-		oldWle = convertWorkloadEntry(old)
+		oldWle = ConvertWorkloadEntry(old)
 	}
-	wle := convertWorkloadEntry(curr)
+	wle := ConvertWorkloadEntry(curr)
 	curr.Spec = wle
 	key := configKey{
 		kind:      workloadEntryConfigType,
@@ -391,12 +392,12 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 
 	for _, svc := range addedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
+		configsUpdated.Insert(makeConfigKey(svc))
 	}
 
 	for _, svc := range updatedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventUpdate)
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
+		configsUpdated.Insert(makeConfigKey(svc))
 	}
 	// If service entry is deleted, call SvcUpdate to cleanup endpoint shards for services.
 	for _, svc := range deletedSvcs {
@@ -409,7 +410,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 			// If there are some endpoints remaining for the host, add svc to updatedSvcs to trigger eds cache update
 			updatedSvcs = append(updatedSvcs, svc)
 		}
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
+		configsUpdated.Insert(makeConfigKey(svc))
 	}
 
 	// If a service is updated and is not part of updatedSvcs, that means its endpoints might have changed.
@@ -419,7 +420,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	if len(unchangedSvcs) > 0 {
 		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
 			for _, svc := range unchangedSvcs {
-				configsUpdated[makeConfigKey(svc)] = struct{}{}
+				configsUpdated.Insert(makeConfigKey(svc))
 			}
 		}
 	}
@@ -445,9 +446,9 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 		}
 	}
 	// non dns service instances
-	keys := map[instancesKey]struct{}{}
+	keys := sets.NewWithLength[instancesKey](len(nonDNSServices))
 	for _, svc := range nonDNSServices {
-		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
+		keys.Insert(instancesKey{hostname: svc.Hostname, namespace: curr.Namespace})
 	}
 
 	s.queueEdsEvent(keys, s.doEdsCacheUpdate)
@@ -464,6 +465,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event model.Event) {
 	log.Debugf("Handle event %s for workload instance (%s/%s) in namespace %s", event,
 		wi.Kind, wi.Endpoint.Address, wi.Namespace)
+	var oldWi *model.WorkloadInstance
 	key := configKey{
 		kind:      podConfigType,
 		name:      wi.Name,
@@ -473,6 +475,9 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	// and that the event can be ignored due to no relevant change in the workloadentry
 	redundantEventForPod := false
 
+	// Used to indicate if the wi labels changed and we need to recheck all instances
+	labelsChanged := false
+
 	var addressToDelete string
 	s.mutex.Lock()
 	// this is from a pod. Store it in separate map so that
@@ -481,13 +486,18 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	case model.EventDelete:
 		redundantEventForPod = s.workloadInstances.Delete(wi) == nil
 	default: // add or update
-		if old := s.workloadInstances.Insert(wi); old != nil {
-			if old.Endpoint.Address != wi.Endpoint.Address {
-				addressToDelete = old.Endpoint.Address
+		if oldWi = s.workloadInstances.Insert(wi); oldWi != nil {
+			if oldWi.Endpoint.Address != wi.Endpoint.Address {
+				addressToDelete = oldWi.Endpoint.Address
+			}
+			// Check if the old labels still match the new labels. If they don't then we need to
+			// refresh the list of instances for this wi
+			if !oldWi.Endpoint.Labels.Equals(wi.Endpoint.Labels) {
+				labelsChanged = true
 			}
 			// If multiple k8s services select the same pod or a service has multiple ports,
 			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
-			if model.WorkloadInstancesEqual(old, wi) {
+			if model.WorkloadInstancesEqual(oldWi, wi) {
 				// ignore the update as nothing has changed
 				redundantEventForPod = true
 			}
@@ -512,41 +522,60 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if se.WorkloadSelector == nil || !labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels) {
-			// Not a match, skip this one
+		if se.WorkloadSelector == nil || (!labelsChanged && !labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels)) {
+			// If the labels didn't change. And the new SE doesn't match then the old didn't match either and we can skip processing it.
 			continue
 		}
+
+		// If we are here, then there are 3 possible cases :
+		// Case 1 : The new wi is a subset of se
+		// Case 2 : The labelsChanged and the new wi is still a subset of se
+		// Case 3 : The labelsChanged and the new wi is NOT a subset of se anymore
+
 		seNamespacedName := config.NamespacedName(cfg)
 		services := s.services.getServices(seNamespacedName)
-		instance := convertWorkloadInstanceToServiceInstance(wi, services, se)
-		instances = append(instances, instance...)
-		if addressToDelete != "" {
-			for _, i := range instance {
-				di := i.DeepCopy()
-				di.Endpoint.Address = addressToDelete
-				instancesDeleted = append(instancesDeleted, di)
-			}
-			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
-		} else if event == model.EventDelete {
-			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
-		} else {
-			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
-		}
-		// If serviceentry's resolution is DNS, make a full push
-		// TODO: maybe cds?
-		if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
-			se.WorkloadSelector != nil {
+		currInstance := convertWorkloadInstanceToServiceInstance(wi, services, se)
 
-			fullPush = true
-			for _, inst := range instance {
-				configsUpdated[model.ConfigKey{
-					Kind:      kind.ServiceEntry,
-					Name:      string(inst.Service.Hostname),
-					Namespace: cfg.Namespace,
-				}] = struct{}{}
+		// We chech if the wi is still a subset of se. This would cover Case 1 and Case 2 from above.
+		if labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels) {
+			// If the workload instance still matches. We take care of the possible events.
+			instances = append(instances, currInstance...)
+			if addressToDelete != "" {
+				for _, i := range currInstance {
+					di := i.DeepCopy()
+					di.Endpoint.Address = addressToDelete
+					instancesDeleted = append(instancesDeleted, di)
+				}
+				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
+			} else if event == model.EventDelete {
+				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
+			} else {
+				s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, currInstance)
 			}
+			// If serviceentry's resolution is DNS, make a full push
+			// TODO: maybe cds?
+			if (se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) &&
+				se.WorkloadSelector != nil {
+
+				fullPush = true
+				for _, inst := range currInstance {
+					configsUpdated[model.ConfigKey{
+						Kind:      kind.ServiceEntry,
+						Name:      string(inst.Service.Hostname),
+						Namespace: cfg.Namespace,
+					}] = struct{}{}
+				}
+			}
+		} else if labels.Instance(se.WorkloadSelector.Labels).Match(oldWi.Endpoint.Labels) {
+			// If we're here, it means that the labels changed and the new labels don't match the SE anymore (Case 3 from above) and the oldWi did
+			// match the SE.
+			// Since the instance doesn't match the SE anymore. We remove it from the list.
+			oldInstance := convertWorkloadInstanceToServiceInstance(oldWi, services, se)
+			instancesDeleted = append(instancesDeleted, oldInstance...)
+			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 		}
 	}
+
 	if len(instancesDeleted) > 0 {
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
 	}
@@ -558,7 +587,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	}
 	s.mutex.Unlock()
 
-	s.edsUpdate(instances)
+	s.edsUpdate(append(instances, instancesDeleted...))
 
 	// ServiceEntry with WorkloadEntry results in STRICT_DNS cluster with hardcoded endpoints
 	// need to update CDS to refresh endpoints
@@ -689,7 +718,7 @@ func (s *Controller) edsCacheUpdate(instances []*model.ServiceInstance) {
 }
 
 // queueEdsEvent processes eds events sequentially for the passed keys and invokes the passed function.
-func (s *Controller) queueEdsEvent(keys map[instancesKey]struct{}, edsFn func(keys map[instancesKey]struct{})) {
+func (s *Controller) queueEdsEvent(keys sets.Set[instancesKey], edsFn func(keys sets.Set[instancesKey])) {
 	// wait for the cache update finished
 	waitCh := make(chan struct{})
 	// trigger update eds endpoint shards
@@ -709,7 +738,7 @@ func (s *Controller) queueEdsEvent(keys map[instancesKey]struct{}, edsFn func(ke
 }
 
 // doEdsCacheUpdate invokes XdsUpdater's EDSCacheUpdate to update endpoint shards.
-func (s *Controller) doEdsCacheUpdate(keys map[instancesKey]struct{}) {
+func (s *Controller) doEdsCacheUpdate(keys sets.Set[instancesKey]) {
 	endpoints := s.buildEndpoints(keys)
 	shard := model.ShardKeyFromRegistry(s)
 	// This is delete.
@@ -725,7 +754,7 @@ func (s *Controller) doEdsCacheUpdate(keys map[instancesKey]struct{}) {
 }
 
 // doEdsUpdate invokes XdsUpdater's eds update to trigger eds push.
-func (s *Controller) doEdsUpdate(keys map[instancesKey]struct{}) {
+func (s *Controller) doEdsUpdate(keys sets.Set[instancesKey]) {
 	endpoints := s.buildEndpoints(keys)
 	shard := model.ShardKeyFromRegistry(s)
 	// This is delete.
@@ -820,30 +849,22 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 	var added, deleted, updated, unchanged []*model.Service
 
 	oldServiceHosts := make(map[host.Name]*model.Service, len(os))
-	newServiceHosts := make(map[host.Name]*model.Service, len(ns))
 	for _, s := range os {
 		oldServiceHosts[s.Hostname] = s
 	}
-	for _, s := range ns {
-		newServiceHosts[s.Hostname] = s
-	}
 
-	for _, s := range os {
-		newSvc, f := newServiceHosts[s.Hostname]
-		if !f {
-			deleted = append(deleted, s)
-		} else if !s.Equals(newSvc) {
-			updated = append(updated, newSvc)
+	for _, s := range ns {
+		oldSvc, ok := oldServiceHosts[s.Hostname]
+		if ok && s.Equals(oldSvc) {
+			unchanged = append(unchanged, s)
+		} else if ok {
+			updated = append(updated, s)
 		} else {
-			unchanged = append(unchanged, newSvc)
-		}
-	}
-
-	for _, s := range ns {
-		if _, f := oldServiceHosts[s.Hostname]; !f {
 			added = append(added, s)
 		}
+		delete(oldServiceHosts, s.Hostname)
 	}
+	deleted = maps.Values(oldServiceHosts)
 
 	return added, deleted, updated, unchanged
 }
@@ -894,8 +915,8 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			} else {
 				// This means we have a collision. Resolve collision by "DoubleHashing".
 				i := uint32(1)
+				secondHash := uint32(prime) - (s % uint32(prime))
 				for {
-					secondHash := uint32(prime) - (s % uint32(prime))
 					nh := (s + i*secondHash) % uint32(maxIPs)
 					if hashedServices[nh] == nil {
 						hashedServices[nh] = svc

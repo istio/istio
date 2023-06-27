@@ -34,7 +34,7 @@ var (
 		Namespace:    "istio-system",
 		ResourceName: "istio-system.someAuthNFilter",
 		WasmPlugin: &extensions.WasmPlugin{
-			Priority: &wrappers.Int64Value{Value: 1},
+			Priority: &wrappers.Int32Value{Value: 1},
 		},
 	}
 	someAuthZFilter = &model.WasmPluginWrapper{
@@ -42,7 +42,7 @@ var (
 		Namespace:    "istio-system",
 		ResourceName: "istio-system.someAuthZFilter",
 		WasmPlugin: &extensions.WasmPlugin{
-			Priority: &wrappers.Int64Value{Value: 1000},
+			Priority: &wrappers.Int32Value{Value: 1000},
 		},
 	}
 )

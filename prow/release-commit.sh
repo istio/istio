@@ -25,22 +25,22 @@ source "${ROOT}/prow/lib.sh"
 
 setup_gcloud_credentials
 
-# Enable emulation required for cross compiling a few images (VMs)
-docker run --rm --privileged gcr.io/istio-testing/qemu-user-static --reset -p yes
-export ISTIO_DOCKER_QEMU=true
-
 # Old prow image does not set this, so needed explicitly here as this is not called through make
 export GO111MODULE=on
 
 DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
+# Enable emulation required for cross compiling a few images (VMs)
+docker run --rm --privileged "${DOCKER_HUB}/qemu-user-static" --reset -p yes
+export ISTIO_DOCKER_QEMU=true
+
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=1f79ded6fc6d837382ace0678ceb74bc7ba2a002
+BUILDER_SHA=b074b4c603a9da3bbbf5da90435ecc07792dc7de
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
-NEXT_VERSION=1.18
+NEXT_VERSION=$(cat "${ROOT}/VERSION")
 TAG=$(git rev-parse HEAD)
 VERSION="${NEXT_VERSION}-alpha.${TAG}"
 
@@ -66,7 +66,7 @@ ${DEPENDENCIES:-$(cat <<EOD
     auto: deps
   pkg:
     git: https://github.com/istio/pkg
-    auto: modules
+    branch: master
   client-go:
     git: https://github.com/istio/client-go
     branch: master

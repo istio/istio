@@ -32,6 +32,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -44,13 +46,13 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/env"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/env"
-	istiolog "istio.io/pkg/log"
 )
 
 // ConfigInput defines inputs passed to the test config templates
@@ -152,7 +154,7 @@ func BenchmarkInitPushContext(b *testing.B) {
 			s, proxy := setupTest(b, tt)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				s.Env().PushContext.InitDone.Store(false)
+				s.Env().PushContext().InitDone.Store(false)
 				initPushContext(s.Env(), proxy)
 			}
 		})
@@ -267,7 +269,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 	for _, tt := range tests {
 		b.Run(fmt.Sprintf("%d/%d", tt.endpoints, tt.services), func(b *testing.B) {
 			s := NewFakeDiscoveryServer(b, FakeOptions{
-				Configs: createEndpoints(tt.endpoints, tt.services, numNetworks),
+				Configs: createEndpointsConfig(tt.endpoints, tt.services, numNetworks),
 				NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 					Networks: createGateways(numNetworks),
 				}),
@@ -288,7 +290,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
 					loadAssignments = append(loadAssignments, protoconv.MessageToAny(l))
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.LedgerVersion)
+				response = endpointDiscoveryResponse(loadAssignments, push.PushVersion, push.LedgerVersion)
 			}
 			logDebug(b, model.AnyToUnnamedResources(response.GetResources()))
 		})
@@ -367,7 +369,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.18.0",
+			IstioVersion: "1.19.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
@@ -471,15 +473,16 @@ func setupAndInitializeTest(t testing.TB, config ConfigInput) (*FakeDiscoverySer
 }
 
 func initPushContext(env *model.Environment, proxy *model.Proxy) {
-	env.PushContext.InitContext(env, nil, nil)
-	proxy.SetSidecarScope(env.PushContext)
-	proxy.SetGatewaysForProxy(env.PushContext)
+	pushContext := env.PushContext()
+	pushContext.InitContext(env, nil, nil)
+	proxy.SetSidecarScope(pushContext)
+	proxy.SetGatewaysForProxy(pushContext)
 	proxy.SetServiceInstances(env.ServiceDiscovery)
 }
 
 var debugGeneration = env.Register("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
 
-var benchmarkScope = istiolog.RegisterScope("benchmark", "", 0)
+var benchmarkScope = istiolog.RegisterScope("benchmark", "")
 
 // Add additional debug info for a test
 func logDebug(b *testing.B, m model.Resources) {
@@ -505,20 +508,25 @@ func logDebug(b *testing.B, m model.Resources) {
 	b.StartTimer()
 }
 
-func createEndpoints(numEndpoints, numServices, numNetworks int) []config.Config {
+func createEndpointsConfig(numEndpoints, numServices, numNetworks int) []config.Config {
 	result := make([]config.Config, 0, numServices)
 	for s := 0; s < numServices; s++ {
 		endpoints := make([]*networking.WorkloadEntry, 0, numEndpoints)
 		for e := 0; e < numEndpoints; e++ {
 			endpoints = append(endpoints, &networking.WorkloadEntry{
-				Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256),
-				Network: fmt.Sprintf("network-%d", e%numNetworks),
+				Labels: map[string]string{
+					"type": "eds-benchmark",
+					"app":  "foo-" + strconv.Itoa(s),
+				},
+				Address:        fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256),
+				Network:        fmt.Sprintf("network-%d", e%numNetworks),
+				ServiceAccount: "something",
 			})
 		}
 		result = append(result, config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.ServiceEntry,
-				Name:              fmt.Sprintf("foo-%d", s),
+				Name:              "foo-" + strconv.Itoa(s),
 				Namespace:         "default",
 				CreationTimestamp: time.Now(),
 			},
@@ -532,6 +540,41 @@ func createEndpoints(numEndpoints, numServices, numNetworks int) []config.Config
 			},
 		})
 	}
+	// EDS looks up PA, so add a few...
+	result = append(result, config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  gvk.PeerAuthentication,
+			Name:              "global",
+			Namespace:         "istio-system",
+			CreationTimestamp: time.Now(),
+		},
+		Spec: &security.PeerAuthentication{
+			Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_PERMISSIVE},
+		},
+	},
+		config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.PeerAuthentication,
+				Name:              "namespace",
+				Namespace:         "default",
+				CreationTimestamp: time.Now(),
+			},
+			Spec: &security.PeerAuthentication{
+				Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+			},
+		},
+		config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.PeerAuthentication,
+				Name:              "selector",
+				Namespace:         "default",
+				CreationTimestamp: time.Now(),
+			},
+			Spec: &security.PeerAuthentication{
+				Selector: &v1beta1.WorkloadSelector{MatchLabels: map[string]string{"type": "eds-benchmark"}},
+				Mtls:     &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_DISABLE},
+			},
+		})
 	return result
 }
 
@@ -567,7 +610,7 @@ func BenchmarkPushRequest(b *testing.B) {
 				Reason:         []model.TriggerReason{trigger},
 			}
 			for c := 0; c < configs; c++ {
-				nreq.ConfigsUpdated[model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
+				nreq.ConfigsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"})
 			}
 			req = req.Merge(nreq)
 		}

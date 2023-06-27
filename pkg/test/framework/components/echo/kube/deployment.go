@@ -35,9 +35,10 @@ import (
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	istioctlcmd "istio.io/istio/istioctl/cmd"
+	istioctlcmd "istio.io/istio/istioctl/pkg/workload"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -52,7 +53,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
 )
 
 const (

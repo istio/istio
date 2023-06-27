@@ -34,21 +34,20 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/grpc"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // Headers with special meaning in Envoy
@@ -214,6 +213,20 @@ func buildSidecarVirtualHostsForVirtualService(
 	}
 
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
+
+	// Gateway allows only routes from the namespace of the proxy, or namespace of the destination.
+	if model.UseGatewaySemantics(virtualService) {
+		res := make([]*model.Service, 0, len(servicesInVirtualService))
+		for _, s := range servicesInVirtualService {
+			if s.Attributes.Namespace != virtualService.Namespace && node.ConfigNamespace != virtualService.Namespace {
+				continue
+			}
+			res = append(res, s)
+		}
+		if len(res) == 0 {
+			return nil
+		}
+	}
 
 	// Now group these Services by port so that we can infer the destination.port if the user
 	// doesn't specify any port for a multiport service. We need to know the destination port in
@@ -491,15 +504,15 @@ func applyHTTPRouteDestination(
 		action.ClusterSpecifier = &route.RouteAction_Cluster{
 			Cluster: in.Name,
 		}
-		uri := in.Rewrite.GetUri()
-		if fullURI, isFullPathRewrite := cutPrefix(uri, "%FULLREPLACE()%"); isFullPathRewrite && model.UseGatewaySemantics(vs) {
+
+		if regexRewrite := in.Rewrite.GetUriRegexRewrite(); regexRewrite != nil {
 			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
 				Pattern: &matcher.RegexMatcher{
-					Regex: "/.*",
+					Regex: regexRewrite.Match,
 				},
-				Substitution: fullURI,
+				Substitution: regexRewrite.Rewrite,
 			}
-		} else {
+		} else if uri := in.Rewrite.GetUri(); uri != "" {
 			action.PrefixRewrite = uri
 		}
 		if in.Rewrite.GetAuthority() != "" {
@@ -964,16 +977,21 @@ func isCatchAllStringMatch(in *networking.StringMatch) bool {
 // or the header format is invalid for generating metadata matcher.
 //
 // The currently only supported header is @request.auth.claims for JWT claims matching. Claims of type string or list of string
-// are supported and nested claims are also supported using `.` as a separator for claim names.
-// Examples:
+// are supported and nested claims are also supported using `.` or `[]` as a separator for claim names, `[]` is recommended.
+//
+// Examples using `.` as a separator:
 // - `@request.auth.claims.admin` matches the claim "admin".
 // - `@request.auth.claims.group.id` matches the nested claims "group" and "id".
+//
+// Examples using `[]` as a separator:
+// - `@request.auth.claims[admin]` matches the claim "admin".
+// - `@request.auth.claims[group][id]` matches the nested claims "group" and "id".
 func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.MetadataMatcher {
-	if !strings.HasPrefix(strings.ToLower(name), constant.HeaderJWTClaim) {
+	rc := jwt.ToRoutingClaim(name)
+	if !rc.Match {
 		return nil
 	}
-	claims := strings.Split(name[len(constant.HeaderJWTClaim):], ".")
-	return authz.MetadataMatcherForJWTClaims(claims, util.ConvertToEnvoyMatch(in))
+	return authz.MetadataMatcherForJWTClaims(rc.Claims, util.ConvertToEnvoyMatch(in))
 }
 
 // translateHeaderMatch translates to HeaderMatcher
@@ -1092,7 +1110,7 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 // setTimeout sets timeout for a route.
 func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *model.Proxy) {
 	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-	action.Timeout = features.DefaultRequestTimeout
+	action.Timeout = Notimeout
 	if vsTimeout != nil {
 		action.Timeout = vsTimeout
 	}

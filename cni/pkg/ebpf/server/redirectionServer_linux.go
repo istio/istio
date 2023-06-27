@@ -14,21 +14,8 @@
 
 package server
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -target bpf -cflags "-D__TARGET_ARCH_x86"  ambient_redirect ../app/ambient_redirect.bpf.c
-//go:generate sh -c "echo '// Copyright Istio Authors' > banner.tmp"
-//go:generate sh -c "echo '//' >> banner.tmp"
-//go:generate sh -c "echo '// Licensed under the Apache License, Version 2.0 (the \"License\");' >> banner.tmp"
-//go:generate sh -c "echo '// you may not use this file except in compliance with the License.' >> banner.tmp"
-//go:generate sh -c "echo '// You may obtain a copy of the License at' >> banner.tmp"
-//go:generate sh -c "echo '//' >> banner.tmp"
-//go:generate sh -c "echo '//     http://www.apache.org/licenses/LICENSE-2.0' >> banner.tmp"
-//go:generate sh -c "echo '//' >> banner.tmp"
-//go:generate sh -c "echo '// Unless required by applicable law or agreed to in writing, software' >> banner.tmp"
-//go:generate sh -c "echo '// distributed under the License is distributed on an \"AS IS\" BASIS,' >> banner.tmp"
-//go:generate sh -c "echo '// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.' >> banner.tmp"
-//go:generate sh -c "echo '// See the License for the specific language governing permissions and' >> banner.tmp"
-//go:generate sh -c "echo '// limitations under the License.\n' >> banner.tmp"
-//go:generate sh -c "cat banner.tmp ambient_redirect_bpf.go > tmp.go && mv tmp.go ambient_redirect_bpf.go && rm banner.tmp"
+//go:generate sh -c "echo NOTE: eBPF support is temporarily disabled pending CNCF establishing guidance around dual-licensed eBPF bytecode"
+//go:generate sh -c "echo NOTE: https://github.com/cncf/toc/pull/1000#issuecomment-1564289871"
 
 import (
 	"errors"
@@ -38,6 +25,8 @@ import (
 	"os"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/features"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
@@ -45,11 +34,12 @@ import (
 	"github.com/josharian/native"
 	"golang.org/x/sys/unix"
 
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/istiomultierror"
-	istiolog "istio.io/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
-var log = istiolog.RegisterScope("ebpf", "ambient ebpf", 0)
+var log = istiolog.RegisterScope("ebpf", "ambient ebpf")
 
 const (
 	FilesystemTypeBPFFS = unix.BPF_FS_MAGIC
@@ -72,7 +62,7 @@ var isBigEndian = native.IsBigEndian
 
 type RedirectServer struct {
 	redirectArgsChan           chan *RedirectArgs
-	obj                        ambient_redirectObjects
+	obj                        eBPFObjects
 	ztunnelHostingressFd       uint32
 	ztunnelHostingressProgName string
 	ztunnelIngressFd           uint32
@@ -87,6 +77,53 @@ var stringToLevel = map[string]uint32{
 	"debug": EBPFLogLevelDebug,
 	"info":  EBPFLogLevelInfo,
 	"none":  EBPFLogLevelNone,
+}
+
+type eBPFObjects struct {
+	AppInbound         *ebpf.Program
+	AppOutbound        *ebpf.Program
+	ZtunnelHostIngress *ebpf.Program
+	ZtunnelIngress     *ebpf.Program
+	ambient_redirectMaps
+}
+
+func (o *eBPFObjects) Close() error {
+	return _Ambient_redirectClose(
+		o.AppInbound,
+		o.AppOutbound,
+		o.ZtunnelHostIngress,
+		o.ZtunnelIngress,
+		&o.ambient_redirectMaps,
+	)
+}
+
+type eBPFObjectsImplOld struct {
+	AppInbound         *ebpf.Program `ebpf:"app_inbound"`
+	AppOutbound        *ebpf.Program `ebpf:"app_outbound"`
+	ZtunnelHostIngress *ebpf.Program `ebpf:"ztunnel_host_ingress"`
+	ZtunnelIngress     *ebpf.Program `ebpf:"ztunnel_ingress"`
+	ambient_redirectMaps
+}
+type eBPFObjectsImplNew struct {
+	AppInbound         *ebpf.Program `ebpf:"app_inbound"`
+	AppOutbound        *ebpf.Program `ebpf:"app_outbound"`
+	ZtunnelHostIngress *ebpf.Program `ebpf:"ztunnel_host_ingress"`
+	ZtunnelTproxy      *ebpf.Program `ebpf:"ztunnel_tproxy"`
+	ambient_redirectMaps
+}
+
+func EBPFTProxySupport() bool {
+	err := features.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkAssign)
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, ebpf.ErrNotSupported) {
+		log.Infof("FnSkAssign (Linux 5.7 or later) is not supported in current kernel")
+	} else {
+		log.Errorf("failed to query ebpf helper availability: %v", err)
+	}
+
+	return false
 }
 
 func (r *RedirectServer) SetLogLevel(level string) {
@@ -177,23 +214,43 @@ func (r *RedirectServer) initBpfObjects() error {
 	}
 	options.Maps.PinPath = MapsPinpath
 	// load ebpf program
-	obj := ambient_redirectObjects{}
-	if err := loadAmbient_redirectObjects(&obj, &options); err != nil {
-		return fmt.Errorf("loading objects: %v", err)
+	if EBPFTProxySupport() {
+		obj := eBPFObjectsImplNew{}
+		if err := loadAmbient_redirectObjects(&obj, &options); err != nil {
+			return fmt.Errorf("loading objects: %v", err)
+		}
+		r.obj.ambient_redirectMaps = obj.ambient_redirectMaps
+		r.obj.AppInbound = obj.AppInbound
+		r.obj.AppOutbound = obj.AppOutbound
+		r.obj.ZtunnelHostIngress = obj.ZtunnelHostIngress
+		r.obj.ZtunnelIngress = obj.ZtunnelTproxy
+	} else {
+		obj := eBPFObjectsImplOld{}
+		if err := loadAmbient_redirectObjects(&obj, &options); err != nil {
+			return fmt.Errorf("loading objects: %v", err)
+		}
+		r.obj.ambient_redirectMaps = obj.ambient_redirectMaps
+		r.obj.AppInbound = obj.AppInbound
+		r.obj.AppOutbound = obj.AppOutbound
+		r.obj.ZtunnelHostIngress = obj.ZtunnelHostIngress
+		r.obj.ZtunnelIngress = obj.ZtunnelIngress
 	}
-	r.obj = obj
+
 	r.ztunnelHostingressFd = uint32(r.obj.ZtunnelHostIngress.FD())
 	ztunnelHostingressInfo, err := r.obj.ZtunnelHostIngress.Info()
 	if err != nil {
 		return fmt.Errorf("unable to load metadata of bfp prog: %v", err)
 	}
 	r.ztunnelHostingressProgName = ztunnelHostingressInfo.Name
+
 	r.ztunnelIngressFd = uint32(r.obj.ZtunnelIngress.FD())
 	ztunnelIngressInfo, err := r.obj.ZtunnelIngress.Info()
 	if err != nil {
 		return fmt.Errorf("unable to load metadata of bfp prog: %v", err)
 	}
 	r.ztunnelIngressProgName = ztunnelIngressInfo.Name
+
+	log.Infof("ztunnelIngressProgName: %s", r.ztunnelIngressProgName)
 
 	r.inboundFd = uint32(r.obj.AppInbound.FD())
 	inboundInfo, err := r.obj.AppInbound.Info()
@@ -293,6 +350,41 @@ func (r *RedirectServer) Start(stop <-chan struct{}) {
 	}()
 }
 
+func (r *RedirectServer) parseIPs(ipAddrs []netip.Addr) ([][]byte, error) {
+	if len(ipAddrs) == 0 {
+		return nil, fmt.Errorf("nil ipAddrs inputed")
+	}
+	// TODO: support multiple IPs and IPv6
+	ipAddr := ipAddrs[0]
+	// ip slice is just in network endian
+	ip := ipAddr.AsSlice()
+	if len(ip) != 4 {
+		return nil, fmt.Errorf("invalid ip addr(%s), ipv4 is supported", ipAddr.String())
+	}
+	return [][]byte{ip}, nil
+}
+
+func (r *RedirectServer) RemovePod(ipAddrs []netip.Addr, ifIndex uint32) error {
+	multiErr := istiomultierror.New()
+
+	ips, err := r.parseIPs(ipAddrs)
+	if err != nil {
+		return err
+	}
+	ip := ips[0]
+	if ifIndex != 0 {
+		if err := r.detachTCForWorkload(ifIndex); err != nil {
+			multiErr = multierror.Append(multiErr, err)
+		}
+	} else {
+		log.Debugf("zero ifindex for app removal")
+	}
+	if err := r.obj.AppInfo.Delete(ip); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+		multiErr = multierror.Append(multiErr, err)
+	}
+	return multiErr.ErrorOrNil()
+}
+
 func (r *RedirectServer) handleRequest(args *RedirectArgs) error {
 	var mapInfo mapInfo
 	multiErr := istiomultierror.New()
@@ -348,28 +440,16 @@ func (r *RedirectServer) handleRequest(args *RedirectArgs) error {
 			}
 		}
 	} else {
-		if len(ipAddrs) == 0 {
-			return fmt.Errorf("nil ipAddrs inputed")
-		}
-		// TODO: support multiple IPs and IPv6
-		ipAddr := ipAddrs[0]
-		// ip slice is just in network endian
-		ip := ipAddr.AsSlice()
-		if len(ip) != 4 {
-			return fmt.Errorf("invalid ip addr(%s), ipv4 is supported", ipAddr.String())
-		}
 		if remove {
-			if ifindex != 0 {
-				if err := r.detachTCForWorkload(ifindex); err != nil {
-					multiErr = multierror.Append(multiErr, err)
-				}
-			} else {
-				log.Debugf("zero ifindex for app removal")
-			}
-			if err := r.obj.AppInfo.Delete(ip); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+			if err := r.RemovePod(ipAddrs, ifindex); err != nil {
 				multiErr = multierror.Append(multiErr, err)
 			}
 		} else {
+			ips, err := r.parseIPs(ipAddrs)
+			if err != nil {
+				return err
+			}
+			ip := ips[0]
 			if err := r.attachTCForWorkLoad(ifindex); err != nil {
 				multiErr = multierror.Append(multiErr, err)
 				if err := r.detachTCForWorkload(ifindex); err != nil {
@@ -498,7 +578,7 @@ func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction st
 				},
 			},
 		}
-		if err := rtnl.Filter().Add(&filterIngress); err != nil && !errors.Is(err, os.ErrExist) {
+		if err := rtnl.Filter().Replace(&filterIngress); err != nil {
 			log.Warnf("could not attach ingress eBPF: %v\n", err)
 			return err
 		}
@@ -523,7 +603,7 @@ func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction st
 			},
 		}
 
-		if err := rtnl.Filter().Add(&filterEgress); err != nil && !errors.Is(err, os.ErrExist) {
+		if err := rtnl.Filter().Replace(&filterEgress); err != nil {
 			log.Warnf("could not attach egress eBPF: %v", err)
 			return err
 		}
@@ -581,19 +661,16 @@ func (r *RedirectServer) dumpZtunnelInfo() (*mapInfo, error) {
 	return &info, nil
 }
 
-//nolint:unused
-func (r *RedirectServer) dumpAppInfo() ([]uint32, []mapInfo) {
-	var keyOut uint32
+func (r *RedirectServer) DumpAppIPs() sets.Set[string] {
+	var keyOut [4]byte
 	var valueOut mapInfo
-	var values []mapInfo
-	var keys []uint32
+	m := sets.New[string]()
 	mapIter := r.obj.AppInfo.Iterate()
 	for mapIter.Next(&keyOut, &valueOut) {
-		keys = append(keys, keyOut)
-		values = append(values, valueOut)
-
+		ipAddr := netip.AddrFrom4(keyOut)
+		m.Insert(ipAddr.String())
 	}
-	return keys, values
+	return m
 }
 
 func htons(a uint16) uint16 {

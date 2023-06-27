@@ -34,7 +34,6 @@ import (
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -49,9 +48,9 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	kubelabels "istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/strcase"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -72,9 +71,6 @@ const (
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
 	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
 	InboundPassthroughClusterIpv6 = "InboundPassthroughClusterIpv6"
-
-	// SniClusterFilter is the name of the sni_cluster envoy filter
-	SniClusterFilter = "envoy.filters.network.sni_cluster"
 
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
@@ -212,11 +208,6 @@ func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *m
 	return additionalAddresses
 }
 
-// BuildAddress returns a SocketAddress with the given ip and port or uds.
-func BuildInternalAddress(name string) *core.Address {
-	return BuildInternalAddressWithIdentifier(name, "")
-}
-
 func BuildNetworkAddress(bind string, port uint32, transport istionetworking.TransportProtocol) *core.Address {
 	if port == 0 {
 		return nil
@@ -257,12 +248,6 @@ func IsIstioVersionGE116(version *model.IstioVersion) bool {
 func IsIstioVersionGE117(version *model.IstioVersion) bool {
 	return version == nil ||
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 17, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE118 checks whether the given Istio version is greater than or equals 1.18.
-func IsIstioVersionGE118(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 18, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
@@ -517,53 +502,6 @@ func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetada
 		sb.WriteString(istioMetadata.ClusterID.String())
 		addIstioEndpointLabel(envoyMetadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
 	}
-}
-
-// MaybeApplyTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.
-func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.LbEndpoint, bool) {
-	if ep == nil || ep.Metadata == nil {
-		return nil, false
-	}
-	epTLSMode := ""
-	if ep.Metadata.FilterMetadata != nil {
-		if _, f := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey].GetFields()[model.TunnelLabelShortName]; f {
-			// Tunnel > MTLS
-			return nil, false
-		}
-		if v, ok := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey]; ok {
-			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
-		}
-	}
-	// Normalize the tls label name before comparison. This ensure we won't falsely cloning
-	// the endpoint when they are "" and model.DisabledTLSModeLabel.
-	if epTLSMode == model.DisabledTLSModeLabel {
-		epTLSMode = ""
-	}
-	if tlsMode == model.DisabledTLSModeLabel {
-		tlsMode = ""
-	}
-	if epTLSMode == tlsMode {
-		return nil, false
-	}
-	// We make a copy instead of modifying on existing endpoint pointer directly to avoid data race.
-	// See https://github.com/istio/istio/issues/34227 for details.
-	newEndpoint := proto.Clone(ep).(*endpoint.LbEndpoint)
-
-	// ep.Metadata.FilterMetadata maybe an empty map or nil, after clone, corresponding field will be a nil map.
-	if newEndpoint.Metadata.FilterMetadata == nil {
-		newEndpoint.Metadata.FilterMetadata = make(map[string]*structpb.Struct)
-	}
-
-	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
-		newEndpoint.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: tlsMode}},
-			},
-		}
-	} else {
-		delete(newEndpoint.Metadata.FilterMetadata, EnvoyTransportSocketMetadataKey)
-	}
-	return newEndpoint, true
 }
 
 func addIstioEndpointLabel(metadata *core.Metadata, key string, val *structpb.Value) {

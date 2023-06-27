@@ -252,3 +252,23 @@ func DiscoveryHost(value string) Instance {
 func MetadataDiscovery(value bool) Instance {
 	return newOption("metadata_discovery", value)
 }
+
+func LoadStatsConfigJSONStr(node *model.Node) Instance {
+	// JSON string for configuring Load Reporting Service.
+	if json, ok := node.RawMetadata["LOAD_STATS_CONFIG_JSON"].(string); ok {
+		return newOption("load_stats_config_json_str", json)
+	}
+	return skipOption("load_stats_config_json_str")
+}
+
+type HistogramMatch struct {
+	Prefix string `json:"prefix"`
+}
+type HistogramBucket struct {
+	Match   HistogramMatch `json:"match"`
+	Buckets []float64      `json:"buckets"`
+}
+
+func EnvoyHistogramBuckets(value []HistogramBucket) Instance {
+	return newOption("histogram_buckets", value)
+}

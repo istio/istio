@@ -40,11 +40,11 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/webhooks/util"
-	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
+var scope = log.RegisterScope("validationController", "validation webhook controller")
 
 type Options struct {
 	// Istio system namespace where istiod resides.
@@ -117,10 +117,12 @@ func newController(o Options, client kube.Client) *Controller {
 		controllers.WithReconciler(c.Reconcile),
 		// Webhook patching has to be retried forever. But the retries would be rate limited.
 		controllers.WithMaxAttempts(math.MaxInt),
-		// Try first few(5) retries quickly so that we can detect true conflicts by multiple Istiod instances fast.
-		// If there is a conflict beyond this, it means Istiods are seeing different ca certs and are in inconsistent
-		// state for longer duration. Slowdown the retries, so that we do not overload kube api server and etcd.
-		controllers.WithRateLimiter(workqueue.NewItemFastSlowRateLimiter(100*time.Millisecond, 1*time.Minute, 5)))
+		// Retry with backoff. Failures could be from conflicts of other instances (quick retry helps), or
+		// longer lasting concerns which will eventually be retried on 1min interval.
+		// Unlike the mutating webhook controller, we do not use NewItemFastSlowRateLimiter. This is because
+		// the validation controller waits for its own service to be ready, so typically this takes a few seconds
+		// before we are ready; using FastSlow means we tend to always take the Slow time (1min).
+		controllers.WithRateLimiter(workqueue.NewItemExponentialFailureRateLimiter(100*time.Millisecond, 1*time.Minute)))
 
 	c.webhooks = kclient.NewFiltered[*kubeApiAdmission.ValidatingWebhookConfiguration](client, kclient.Filter{
 		LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision),
@@ -166,7 +168,7 @@ func (c *Controller) Reconcile(key types.NamespacedName) error {
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	kube.WaitForCacheSync(stop, c.webhooks.HasSynced)
+	kube.WaitForCacheSync("validation", stop, c.webhooks.HasSynced)
 	go c.startCaBundleWatcher(stop)
 	c.queue.Run(stop)
 }
@@ -198,6 +200,8 @@ func (c *Controller) readyForFailClose() bool {
 		}
 		scope.Info("Endpoint successfully rejected invalid config. Switching to fail-close.")
 		c.dryRunOfInvalidConfigRejected = true
+		// Sync all webhooks; this ensures if we have multiple webhooks all of them are updated
+		c.syncAll()
 	}
 	return true
 }

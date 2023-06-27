@@ -24,7 +24,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"sigs.k8s.io/yaml"
 
-	protio "istio.io/istio/istioctl/pkg/util/proto"
+	"istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
@@ -68,7 +68,11 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintln(w, "SERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE\tDESTINATION RULE")
+	if includeConfigType {
+		_, _ = fmt.Fprintln(w, "NAME\tSERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE\tDESTINATION RULE")
+	} else {
+		_, _ = fmt.Fprintln(w, "SERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE\tDESTINATION RULE")
+	}
 	for _, c := range clusters {
 		if filter.Verify(c) {
 			if len(strings.Split(c.Name, "|")) > 3 {
@@ -76,11 +80,23 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 				if subset == "" {
 					subset = "-"
 				}
-				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", fqdn, port, subset, direction, c.GetType(),
-					describeManagement(c.GetMetadata()))
+				if includeConfigType {
+					c.Name = fmt.Sprintf("cluster/%s", c.Name)
+					_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%s\t%s\n", c.Name, fqdn, port, subset, direction, c.GetType(),
+						describeManagement(c.GetMetadata()))
+				} else {
+					_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", fqdn, port, subset, direction, c.GetType(),
+						describeManagement(c.GetMetadata()))
+				}
 			} else {
-				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", c.Name, "-", "-", "-", c.GetType(),
-					describeManagement(c.GetMetadata()))
+				if includeConfigType && len(c.Name) > 0 {
+					c.Name = fmt.Sprintf("cluster/%s", c.Name)
+					_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%s\t%s\n", c.Name, c.Name, "-", "-", "-", c.GetType(),
+						describeManagement(c.GetMetadata()))
+				} else {
+					_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", c.Name, "-", "-", "-", c.GetType(),
+						describeManagement(c.GetMetadata()))
+				}
 			}
 		}
 	}
@@ -93,7 +109,7 @@ func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter, outputFormat strin
 	if err != nil {
 		return err
 	}
-	filteredClusters := make(protio.MessageSlice, 0, len(clusters))
+	filteredClusters := make(proto.MessageSlice, 0, len(clusters))
 	for _, cluster := range clusters {
 		if filter.Verify(cluster) {
 			filteredClusters = append(filteredClusters, cluster)

@@ -36,13 +36,13 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/env"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/env"
-	istiolog "istio.io/pkg/log"
 )
 
 var (
-	log = istiolog.RegisterScope("ads", "ads debugging", 0)
+	log = istiolog.RegisterScope("ads", "ads debugging")
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
@@ -505,13 +505,9 @@ func listEqualUnordered(a []string, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	first := make(map[string]struct{}, len(a))
-	for _, c := range a {
-		first[c] = struct{}{}
-	}
+	first := sets.New(a...)
 	for _, c := range b {
-		_, f := first[c]
-		if !f {
+		if !first.Contains(c) {
 			return false
 		}
 	}
@@ -833,7 +829,7 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
 // AdsPushAll will send updates to all nodes, with a full push.
 // Mainly used in Debug interface.
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo(), &model.PushRequest{
+	s.AdsPushAll(&model.PushRequest{
 		Full:   true,
 		Push:   s.globalPushContext(),
 		Reason: []model.TriggerReason{model.DebugTrigger},
@@ -841,14 +837,14 @@ func AdsPushAll(s *DiscoveryServer) {
 }
 
 // AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
-func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
+func (s *DiscoveryServer) AdsPushAll(req *model.PushRequest) {
 	if !req.Full {
-		log.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d Version:%s",
-			version, s.adsClientCount(), req.Push.PushVersion)
+		log.Infof("XDS: Incremental Pushing ConnectedEndpoints:%d Version:%s",
+			s.adsClientCount(), req.Push.PushVersion)
 	} else {
 		totalService := len(req.Push.GetAllServices())
-		log.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d Version:%s",
-			version, totalService, s.adsClientCount(), req.Push.PushVersion)
+		log.Infof("XDS: Pushing Services:%d ConnectedEndpoints:%d Version:%s",
+			totalService, s.adsClientCount(), req.Push.PushVersion)
 		monServices.Record(float64(totalService))
 
 		// Make sure the ConfigsUpdated map exists

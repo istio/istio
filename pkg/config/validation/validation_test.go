@@ -2079,7 +2079,39 @@ func TestValidateHTTPRewrite(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:  "no uri or authority",
+			name: "uriRegexRewrite",
+			in: &networking.HTTPRewrite{
+				UriRegexRewrite: &networking.RegexRewrite{
+					Match:   "^/service/([^/]+)(/.*)$",
+					Rewrite: `\2/instance/\1`,
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "uriRegexRewrite and authority",
+			in: &networking.HTTPRewrite{
+				Authority: "foobar.org",
+				UriRegexRewrite: &networking.RegexRewrite{
+					Match:   "^/service/([^/]+)(/.*)$",
+					Rewrite: `\2/instance/\1`,
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "uriRegexRewrite and uri",
+			in: &networking.HTTPRewrite{
+				Uri: "/path/to/resource",
+				UriRegexRewrite: &networking.RegexRewrite{
+					Match:   "^/service/([^/]+)(/.*)$",
+					Rewrite: `\2/instance/\1`,
+				},
+			},
+			valid: false,
+		},
+		{
+			name:  "no uri, uriRegexRewrite, or authority",
 			in:    &networking.HTTPRewrite{},
 			valid: false,
 		},
@@ -2088,6 +2120,59 @@ func TestValidateHTTPRewrite(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := validateHTTPRewrite(tc.in); (got == nil) != tc.valid {
+				t.Errorf("got valid=%v, want valid=%v: %v",
+					got == nil, tc.valid, got)
+			}
+		})
+	}
+}
+
+func TestValidateUriRegexRewrite(t *testing.T) {
+	testCases := []struct {
+		name  string
+		in    *networking.RegexRewrite
+		valid bool
+	}{
+		{
+			name:  "uriRegexRewrite nil",
+			in:    nil,
+			valid: true,
+		},
+		{
+			name: "uriRegexRewrite happy path",
+			in: &networking.RegexRewrite{
+				Match:   "^/service/([^/]+)(/.*)$",
+				Rewrite: `\2/instance/\1`,
+			},
+			valid: true,
+		},
+		{
+			name: "uriRegexRewrite missing match",
+			in: &networking.RegexRewrite{
+				Rewrite: `\2/instance/\1`,
+			},
+			valid: false,
+		},
+		{
+			name: "uriRegexRewrite missing rewrite",
+			in: &networking.RegexRewrite{
+				Match: "^/service/([^/]+)(/.*)$",
+			},
+			valid: false,
+		},
+		{
+			name: "uriRegexRewrite invalid regex patterns",
+			in: &networking.RegexRewrite{
+				Match:   "[",
+				Rewrite: "[",
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := validateURIRegexRewrite(tc.in); (got == nil) != tc.valid {
 				t.Errorf("got valid=%v, want valid=%v: %v",
 					got == nil, tc.valid, got)
 			}
@@ -2857,6 +2942,16 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
+		{name: "empty prefix header match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"emptyprefix": {MatchType: &networking.StringMatch_Prefix{Prefix: ""}},
+				},
+			}},
+		}, valid: false},
 		{name: "nil match", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.bar"},
@@ -3301,6 +3396,12 @@ func TestValidateWorkloadEntry(t *testing.T) {
 			name:  "missing address",
 			in:    &networking.WorkloadEntry{},
 			valid: false,
+		},
+		{
+			name:    "missing address with network",
+			in:      &networking.WorkloadEntry{Network: "network-2"},
+			valid:   true,
+			warning: true,
 		},
 		{
 			name:  "valid unix endpoint",
@@ -4401,7 +4502,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "", warning: "using deprecated type_url"},
+		}, error: "referenced type unknown (hint: try using the v3 XDS API)"},
 		{name: "deprecated type", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{

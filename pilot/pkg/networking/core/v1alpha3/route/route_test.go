@@ -17,7 +17,6 @@ package route_test
 import (
 	"reflect"
 	"testing"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -26,7 +25,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -100,26 +98,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 			},
 		}))
-	})
-
-	t.Run("for virtual service with changed default timeout", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-
-		dt := features.DefaultRequestTimeout
-		features.DefaultRequestTimeout = durationpb.New(1 * time.Second)
-		defer func() { features.DefaultRequestTimeout = dt }()
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, serviceRegistry,
-			nil, 8080, gatewayNames, route.RouteOptions{})
-		xdstest.ValidateRoutes(t, routes)
-
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(1))
-		// Validate that when timeout is not specified, we send what is set in the timeout flag.
-		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(1)))
-		// nolint: staticcheck
-		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(1)))
 	})
 
 	t.Run("for virtual service with timeout", func(t *testing.T) {
@@ -1019,6 +997,27 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}))
 	})
 
+	t.Run("for path regex match with regex rewrite", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg),
+			virtualServiceWithPathRegexMatchRegexRewrite,
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		routeAction, ok := routes[0].Action.(*envoyroute.Route_Route)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(routeAction.Route.RegexRewrite).To(gomega.Equal(&matcher.RegexMatchAndSubstitute{
+			Pattern: &matcher.RegexMatcher{
+				Regex: "^/service/([^/]+)(/.*)$",
+			},
+			Substitution: "\\2/instance/\\1",
+		}))
+	})
+
 	t.Run("for redirect uri prefix '%PREFIX()%' that is without gateway semantics", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
@@ -1788,7 +1787,10 @@ var virtualServiceWithRewriteFullPath = config.Config{
 					},
 				},
 				Rewrite: &networking.HTTPRewrite{
-					Uri: "%FULLREPLACE()%/replace-full",
+					UriRegexRewrite: &networking.RegexRewrite{
+						Match:   "/.*",
+						Rewrite: "/replace-full",
+					},
 				},
 				Route: []*networking.HTTPRouteDestination{
 					{
@@ -1822,8 +1824,53 @@ var virtualServiceWithRewriteFullPathAndHost = config.Config{
 					},
 				},
 				Rewrite: &networking.HTTPRewrite{
-					Uri:       "%FULLREPLACE()%/replace-full",
+					UriRegexRewrite: &networking.RegexRewrite{
+						Match:   "/.*",
+						Rewrite: "/replace-full",
+					},
 					Authority: "bar.example.org",
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithPathRegexMatchRegexRewrite = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+		Annotations: map[string]string{
+			"internal.istio.io/route-semantics": "gateway",
+		},
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "full-path-and-host-rewrite",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{
+								Regex: "^/service/[^/]+/.*$",
+							},
+						},
+					},
+				},
+				Rewrite: &networking.HTTPRewrite{
+					UriRegexRewrite: &networking.RegexRewrite{
+						Match:   "^/service/([^/]+)(/.*)$",
+						Rewrite: "\\2/instance/\\1",
+					},
 				},
 				Route: []*networking.HTTPRouteDestination{
 					{

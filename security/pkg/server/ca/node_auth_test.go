@@ -177,7 +177,7 @@ func TestNodeAuthorizer(t *testing.T) {
 				t.Fatal(err)
 			}
 			c.RunAndWait(test.NewStop(t))
-			kube.WaitForCacheSync(test.NewStop(t), na.pods.HasSynced)
+			kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
 
 			err = na.authenticateImpersonation(tt.caller, tt.requestedIdentityString)
 			if tt.wantErr == "" && err != nil {

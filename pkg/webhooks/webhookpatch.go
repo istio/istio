@@ -32,8 +32,8 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/webhooks/util"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -89,7 +89,7 @@ func newWebhookPatcherQueue(reconciler controllers.ReconcilerFn) controllers.Que
 // Run runs the WebhookCertPatcher
 func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
 	go w.startCaBundleWatcher(stopChan)
-	kubelib.WaitForCacheSync(stopChan, w.webhooks.HasSynced)
+	kubelib.WaitForCacheSync("webhook patcher", stopChan, w.webhooks.HasSynced)
 	w.queue.Run(stopChan)
 }
 

@@ -42,21 +42,21 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/ledger"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/identifier"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/ledger"
-	"istio.io/pkg/monitoring"
 )
 
 var _ mesh.Holder = &Environment{}
 
 func NewEnvironment() *Environment {
 	return &Environment{
-		PushContext:   NewPushContext(),
+		pushContext:   NewPushContext(),
 		EndpointIndex: NewEndpointIndex(),
 	}
 }
@@ -81,13 +81,15 @@ type Environment struct {
 
 	NetworkManager *NetworkManager
 
-	// PushContext holds information during push generation. It is reset on config change, at the beginning
+	// mutex used for protecting Environment.pushContext
+	mutex sync.RWMutex
+	// pushContext holds information during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
 	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
-	PushContext *PushContext
+	pushContext *PushContext
 
 	// DomainSuffix provides a default domain for the Istio server.
 	DomainSuffix string
@@ -122,6 +124,20 @@ func (e *Environment) MeshNetworks() *meshconfig.MeshNetworks {
 	return nil
 }
 
+// SetPushContext sets the push context with lock protected
+func (e *Environment) SetPushContext(pc *PushContext) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+	e.pushContext = pc
+}
+
+// PushContext returns the push context with lock protected
+func (e *Environment) PushContext() *PushContext {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+	return e.pushContext
+}
+
 // GetDiscoveryAddress parses the DiscoveryAddress specified via MeshConfig.
 func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
 	proxyConfig := mesh.DefaultProxyConfig()
@@ -151,8 +167,8 @@ func (e *Environment) AddNetworksHandler(h func()) {
 }
 
 func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, msg string) {
-	if e != nil && e.PushContext != nil {
-		e.PushContext.AddMetric(metric, key, proxyID, msg)
+	if e != nil {
+		e.PushContext().AddMetric(metric, key, proxyID, msg)
 	}
 }
 
@@ -189,6 +205,21 @@ func (e *Environment) GetLedger() ledger.Ledger {
 
 func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
+}
+
+func (e *Environment) GetProxyConfigOrDefault(ns string, labels, annotations map[string]string, meshConfig *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
+	push := e.PushContext()
+	if push != nil && push.ProxyConfigs != nil {
+		if generatedProxyConfig := push.ProxyConfigs.EffectiveProxyConfig(
+			&NodeMetadata{
+				Namespace:   ns,
+				Labels:      labels,
+				Annotations: annotations,
+			}, meshConfig); generatedProxyConfig != nil {
+			return generatedProxyConfig
+		}
+	}
+	return mesh.DefaultProxyConfig()
 }
 
 // Resources is an alias for array of marshaled resources.
@@ -327,7 +358,8 @@ type Proxy struct {
 	// XdsNode is the xDS node identifier
 	XdsNode *core.Node
 
-	AutoregisteredWorkloadEntryName string
+	WorkloadEntryName        string
+	WorkloadEntryAutoCreated bool
 
 	// LastPushContext stores the most recent push context for this proxy. This will be monotonically
 	// increasing in version. Requests should send config based on this context; not the global latest.
@@ -630,6 +662,17 @@ type NodeMetadata struct {
 
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
+
+	// WorkloadEntry specifies the name of the WorkloadEntry this proxy corresponds to.
+	//
+	// This field is intended for use in those scenarios where a user needs to
+	// onboard a workload from a VM without relying on auto-registration.
+	//
+	// At runtime, when a proxy establishes an ADS connection to the istiod,
+	// istiod will treat a non-empty value of this field as an indicator
+	// that proxy corresponds to a VM and must be represented by a WorkloadEntry
+	// with a given name.
+	WorkloadEntry string `json:"WORKLOAD_ENTRY,omitempty"`
 
 	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
 	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`

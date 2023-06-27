@@ -27,8 +27,8 @@ import (
 	"github.com/spf13/viper"
 
 	"istio.io/istio/pkg/backoff"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/log"
 )
 
 func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reader, args ...string) error {

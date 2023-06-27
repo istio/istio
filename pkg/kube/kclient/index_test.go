@@ -40,7 +40,7 @@ func TestIndex(t *testing.T) {
 	c := kube.NewFakeClient()
 	pods := New[*corev1.Pod](c)
 	c.RunAndWait(test.NewStop(t))
-	index := CreateIndex[*corev1.Pod](pods, func(pod *corev1.Pod) []SaNode {
+	index := CreateIndex[SaNode, *corev1.Pod](pods, func(pod *corev1.Pod) []SaNode {
 		if len(pod.Spec.NodeName) == 0 {
 			return nil
 		}
@@ -155,9 +155,9 @@ func TestIndexDelegate(t *testing.T) {
 	c := kube.NewFakeClient()
 	pods := New[*corev1.Pod](c)
 	c.RunAndWait(test.NewStop(t))
-	var index *Index[*corev1.Pod, string]
+	var index *Index[string, *corev1.Pod]
 	adds := atomic.NewInt32(0)
-	index = CreateIndexWithDelegate[*corev1.Pod](pods, func(pod *corev1.Pod) []string {
+	index = CreateIndexWithDelegate[string, *corev1.Pod](pods, func(pod *corev1.Pod) []string {
 		return []string{pod.Spec.ServiceAccountName}
 	}, controllers.EventHandler[*corev1.Pod]{
 		AddFunc: func(obj *corev1.Pod) {

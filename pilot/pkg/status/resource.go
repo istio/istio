@@ -29,11 +29,11 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var scope = log.RegisterScope("status",
-	"status controller for istio", 0)
+	"status controller for istio")
 
 func ResourceFromString(s string) *Resource {
 	pieces := strings.Split(s, "/")
@@ -103,7 +103,7 @@ func GetTypedStatus(in any) (out *v1alpha1.IstioStatus, err error) {
 }
 
 func GetOGProvider(in any) (out GenerationProvider, err error) {
-	if ret, ok := in.(*v1alpha1.IstioStatus); ok {
+	if ret, ok := in.(*v1alpha1.IstioStatus); ok && ret != nil {
 		return &IstioGenerationProvider{ret}, nil
 	}
 	return nil, fmt.Errorf("cannot cast %T: %v to GenerationProvider", in, in)

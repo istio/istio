@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 	sresource "istio.io/istio/pkg/config/schema/resource"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.

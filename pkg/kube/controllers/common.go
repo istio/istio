@@ -27,10 +27,10 @@ import (
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
-var log = istiolog.RegisterScope("controllers", "common controller logic", 0)
+var log = istiolog.RegisterScope("controllers", "common controller logic")
 
 // Object is a union of runtime + meta objects. Essentially every k8s object meets this interface.
 // and certainly all that we care about.

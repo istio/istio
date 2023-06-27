@@ -118,41 +118,6 @@ func TestInferPodInfo(t *testing.T) {
 	}
 }
 
-func TestHandleNamespace(t *testing.T) {
-	ns := HandleNamespace("test", "default")
-	if ns != "test" {
-		t.Fatalf("Get the incorrect namespace: %q back", ns)
-	}
-
-	tests := []struct {
-		description      string
-		namespace        string
-		defaultNamespace string
-		wantNamespace    string
-	}{
-		{
-			description:      "return test namespace",
-			namespace:        "test",
-			defaultNamespace: "default",
-			wantNamespace:    "test",
-		},
-		{
-			description:      "return default namespace",
-			namespace:        "",
-			defaultNamespace: "default",
-			wantNamespace:    "default",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.description, func(t *testing.T) {
-			gotNs := HandleNamespace(tt.namespace, tt.defaultNamespace)
-			if gotNs != tt.wantNamespace {
-				t.Fatalf("unexpected namespace: wanted %v got %v", tt.wantNamespace, gotNs)
-			}
-		})
-	}
-}
-
 func TestInferPodInfoFromTypedResource(t *testing.T) {
 	tests := []struct {
 		name          string

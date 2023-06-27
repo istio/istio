@@ -103,10 +103,9 @@ func (c *CombinedAnalyzer) AnalyzerNames() []string {
 }
 
 func combineInputs(analyzers []Analyzer) []config.GroupVersionKind {
-	result := make([]config.GroupVersionKind, 0)
+	result := sets.New[config.GroupVersionKind]()
 	for _, a := range analyzers {
-		result = append(result, a.Metadata().Inputs...)
+		result.InsertAll(a.Metadata().Inputs...)
 	}
-
-	return result
+	return result.UnsortedList()
 }

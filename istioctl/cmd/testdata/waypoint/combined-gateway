@@ -1,5 +1,0 @@
-NAMESPACE     NAME                   SERVICE ACCOUNT     PROGRAMMED     READY
-bookinfo      bookinfo-valid         bookinfo-valid      True           True
-default       no-name-convention     sa                  True           True
-default       namespace                                  False          True
-default       bookinfo               bookinfo            False          False

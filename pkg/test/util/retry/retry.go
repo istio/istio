@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
-	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("retry", "logs for retries", 0)
+var scope = log.RegisterScope("retry", "logs for retries")
 
 const (
 	// DefaultTimeout the default timeout for the entire retry operation

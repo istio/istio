@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube/multicluster"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
@@ -116,23 +116,23 @@ type AggregateController struct {
 
 var _ credentials.Controller = &AggregateController{}
 
-func (a *AggregateController) GetKeyCertAndStaple(name, namespace string) (key []byte, cert []byte, staple []byte, err error) {
+func (a *AggregateController) GetCertInfo(name, namespace string) (certInfo *credentials.CertInfo, err error) {
 	// Search through all clusters, find first non-empty result
 	var firstError error
 	for _, c := range a.controllers {
-		k, c, s, err := c.GetKeyCertAndStaple(name, namespace)
+		certInfo, err := c.GetCertInfo(name, namespace)
 		if err != nil {
 			if firstError == nil {
 				firstError = err
 			}
 		} else {
-			return k, c, s, nil
+			return certInfo, nil
 		}
 	}
-	return nil, nil, nil, firstError
+	return nil, firstError
 }
 
-func (a *AggregateController) GetCaCert(name, namespace string) (cert []byte, err error) {
+func (a *AggregateController) GetCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
 	// Search through all clusters, find first non-empty result
 	var firstError error
 	for _, c := range a.controllers {

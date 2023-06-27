@@ -102,6 +102,8 @@ spec:
               fieldPath: spec.nodeName
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_META_NETWORK
+          value: network-1
         - name: ISTIO_META_WORKLOAD_NAME
           value: default
         - name: ISTIO_META_OWNER

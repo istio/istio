@@ -114,6 +114,10 @@ func (s *Server) initializeLists() error {
 			[]string{"-t", constants.TableMangle, "-N", constants.ChainZTunnelForward}),
 		newExec(s.IptablesCmd(),
 			[]string{"-t", constants.TableMangle, "-I", "FORWARD", "-j", constants.ChainZTunnelForward}),
+		newExec(s.IptablesCmd(),
+			[]string{"-t", constants.TableFilter, "-N", constants.ChainZTunnelForward}),
+		newExec(s.IptablesCmd(),
+			[]string{"-t", constants.TableFilter, "-I", "FORWARD", "-j", constants.ChainZTunnelForward}),
 	}
 
 	for _, l := range list {
@@ -131,6 +135,8 @@ func (s *Server) initializeLists() error {
 }
 
 // Flush the chains and lists for ztunnel
+// This method will log warnings if node already clean because chains
+// are not created yet.
 func (s *Server) flushLists() {
 	var err error
 
@@ -149,6 +155,8 @@ func (s *Server) flushLists() {
 			[]string{"-t", constants.TableMangle, "-F", constants.ChainZTunnelInput}),
 		newExec(s.IptablesCmd(),
 			[]string{"-t", constants.TableMangle, "-F", constants.ChainZTunnelForward}),
+		newExec(s.IptablesCmd(),
+			[]string{"-t", constants.TableFilter, "-F", constants.ChainZTunnelForward}),
 	}
 
 	for _, l := range list {
@@ -159,6 +167,9 @@ func (s *Server) flushLists() {
 	}
 }
 
+// Clean the chains and lists for ztunnel
+// This method will log warnings if node already clean because chains
+// are not created yet.
 func (s *Server) cleanRules() {
 	var err error
 
@@ -270,12 +281,27 @@ func (s *Server) cleanRules() {
 				"-X", constants.ChainZTunnelOutput,
 			},
 		),
+		newExec(
+			s.IptablesCmd(),
+			[]string{
+				"-t", constants.TableFilter,
+				"-D", constants.ChainForward,
+				"-j", constants.ChainZTunnelForward,
+			},
+		),
+		newExec(
+			s.IptablesCmd(),
+			[]string{
+				"-t", constants.TableFilter,
+				"-X", constants.ChainZTunnelForward,
+			},
+		),
 	}
 
 	for _, l := range list {
 		err = execute(l.Cmd, l.Args...)
 		if err != nil {
-			log.Errorf("Error running command %v: %v", l.Cmd, err)
+			log.Warnf("Error running command %v: %v", l.Cmd, err)
 		}
 	}
 }

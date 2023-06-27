@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -178,6 +179,20 @@ func TestAdsBadId(t *testing.T) {
 	ads.ExpectNoResponse(t)
 }
 
+func TestVersionNonce(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	ads := s.ConnectADS().WithType(v3.ClusterType)
+	resp1 := ads.RequestResponseAck(t, nil)
+	fullPush(s)
+	resp2 := ads.ExpectResponse(t)
+	if !(resp1.VersionInfo < resp2.VersionInfo) {
+		t.Fatalf("version should be incrementing: %v -> %v", resp1.VersionInfo, resp2.VersionInfo)
+	}
+	if resp1.Nonce == resp2.Nonce {
+		t.Fatalf("nonce should change %v -> %v", resp1.Nonce, resp2.Nonce)
+	}
+}
+
 func TestAdsClusterUpdate(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.EndpointType)
@@ -245,11 +260,11 @@ func TestAdsPushScoping(t *testing.T) {
 
 		for _, name := range names {
 			hostname := host.Name(name)
-			configsUpdated[model.ConfigKey{
+			configsUpdated.Insert(model.ConfigKey{
 				Kind:      kind.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
-			}] = struct{}{}
+			})
 
 			s.MemRegistry.AddService(&model.Service{
 				Hostname:       hostname,
@@ -769,12 +784,12 @@ func TestAdsPushScoping(t *testing.T) {
 			timeout := time.Millisecond * 200
 			upd, _ := adscConn.Wait(timeout, wantUpdates...)
 			for _, expect := range c.expectedUpdates {
-				if !contains(upd, expect) {
+				if !slices.Contains(upd, expect) {
 					t.Fatalf("expected update %s not in updates %v", expect, upd)
 				}
 			}
 			for _, unexpect := range c.unexpectedUpdates {
-				if contains(upd, unexpect) {
+				if slices.Contains(upd, unexpect) {
 					t.Fatalf("expected to not get update %s, but it is in updates %v", unexpect, upd)
 				}
 			}

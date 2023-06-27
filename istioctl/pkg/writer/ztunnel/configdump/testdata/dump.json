@@ -1,314 +1,546 @@
 {
   "workloads": {
-    "10.244.2.2": {
-      "workloadIp": "10.244.2.2",
-      "waypointAddresses": [],
+    "/10.124.2.108": {
+      "workloadIp": "10.124.2.108",
+      "waypoint": null,
+      "networkGateway": null,
       "gatewayAddress": null,
       "protocol": "TCP",
-      "name": "ztunnel-g6wcv",
+      "uid": "",
+      "name": "istio-egressgateway-789d9959fd-r2zgt",
       "namespace": "istio-system",
       "trustDomain": "cluster.local",
-      "serviceAccount": "ztunnel",
-      "workloadName": "ztunnel-g6wcv",
-      "workloadType": "pod",
-      "canonicalName": "ztunnel",
-      "canonicalRevision": "latest",
-      "node": "ambient-worker2",
-      "nativeHbone": false,
-      "authorizationPolicies": [],
-      "status": "Healthy",
-      "clusterId": "Kubernetes"
-    },
-    "10.244.0.5": {
-      "workloadIp": "10.244.0.5",
-      "waypointAddresses": [],
-      "gatewayAddress": null,
-      "protocol": "TCP",
-      "name": "ztunnel-5wdpw",
-      "namespace": "istio-system",
-      "trustDomain": "cluster.local",
-      "serviceAccount": "ztunnel",
-      "workloadName": "ztunnel-5wdpw",
-      "workloadType": "pod",
-      "canonicalName": "ztunnel",
-      "canonicalRevision": "latest",
-      "node": "ambient-control-plane",
-      "nativeHbone": false,
-      "authorizationPolicies": [],
-      "status": "Healthy",
-      "clusterId": "Kubernetes"
-    },
-    "10.244.0.2": {
-      "workloadIp": "10.244.0.2",
-      "waypointAddresses": [],
-      "gatewayAddress": null,
-      "protocol": "TCP",
-      "name": "local-path-provisioner-684f458cdd-nj6mr",
-      "namespace": "local-path-storage",
-      "trustDomain": "cluster.local",
-      "serviceAccount": "local-path-provisioner-service-account",
-      "workloadName": "local-path-provisioner",
+      "serviceAccount": "istio-egressgateway-service-account",
+      "network": "",
+      "workloadName": "istio-egressgateway",
       "workloadType": "deployment",
-      "canonicalName": "local-path-provisioner",
+      "canonicalName": "istio-egressgateway",
       "canonicalRevision": "latest",
-      "node": "ambient-control-plane",
-      "nativeHbone": false,
+      "node": "node-2",
+      "nativeTunnel": false,
       "authorizationPolicies": [],
       "status": "Healthy",
       "clusterId": "Kubernetes"
     },
-    "10.244.1.2": {
-      "workloadIp": "10.244.1.2",
-      "waypointAddresses": [],
+    "/10.124.0.42": {
+      "workloadIp": "10.124.0.42",
+      "waypoint": null,
+      "networkGateway": null,
       "gatewayAddress": null,
       "protocol": "TCP",
-      "name": "istiod-cb5bccc75-rgq7p",
+      "uid": "",
+      "name": "ztunnel-bl6n7",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "ztunnel",
+      "network": "",
+      "workloadName": "ztunnel-bl6n7",
+      "workloadType": "pod",
+      "canonicalName": "ztunnel",
+      "canonicalRevision": "latest",
+      "node": "node-1",
+      "nativeTunnel": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.124.1.171": {
+      "workloadIp": "10.124.1.171",
+      "waypoint": null,
+      "networkGateway": null,
+      "gatewayAddress": null,
+      "protocol": "TCP",
+      "uid": "",
+      "name": "istiod-777c46c494-gnq6w",
       "namespace": "istio-system",
       "trustDomain": "cluster.local",
       "serviceAccount": "istiod",
+      "network": "",
       "workloadName": "istiod",
       "workloadType": "deployment",
       "canonicalName": "istiod",
       "canonicalRevision": "latest",
-      "node": "ambient-worker",
-      "nativeHbone": false,
+      "node": "node-3",
+      "nativeTunnel": false,
       "authorizationPolicies": [],
       "status": "Healthy",
       "clusterId": "Kubernetes"
     },
-    "10.244.2.4": {
-      "workloadIp": "10.244.2.4",
-      "waypointAddresses": [],
+    "/10.124.0.47": {
+      "workloadIp": "10.124.0.47",
+      "waypoint": null,
+      "networkGateway": null,
       "gatewayAddress": null,
       "protocol": "HBONE",
-      "name": "httpbin-797587ddc5-r54l8",
+      "uid": "",
+      "name": "sleep-78ff5975c6-txwbh",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "sleep",
+      "network": "",
+      "workloadName": "sleep",
+      "workloadType": "deployment",
+      "canonicalName": "sleep",
+      "canonicalRevision": "latest",
+      "node": "node-1",
+      "nativeTunnel": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.124.2.115": {
+      "workloadIp": "10.124.2.115",
+      "waypoint": null,
+      "networkGateway": null,
+      "gatewayAddress": null,
+      "protocol": "TCP",
+      "uid": "",
+      "name": "httpbin-istio-waypoint-6d86d5bd9-9pn8v",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "httpbin-istio-waypoint",
+      "network": "",
+      "workloadName": "httpbin-istio-waypoint",
+      "workloadType": "deployment",
+      "canonicalName": "httpbin-istio-waypoint",
+      "canonicalRevision": "latest",
+      "node": "node-2",
+      "nativeTunnel": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.124.0.48": {
+      "workloadIp": "10.124.0.48",
+      "waypoint": {
+        "destination": {
+          "address": "Address",
+          "content": "/10.0.15.182"
+        },
+        "port": 15008
+      },
+      "networkGateway": null,
+      "gatewayAddress": null,
+      "protocol": "HBONE",
+      "uid": "",
+      "name": "httpbin-797587ddc5-b74np",
       "namespace": "default",
       "trustDomain": "cluster.local",
       "serviceAccount": "httpbin",
+      "network": "",
       "workloadName": "httpbin",
       "workloadType": "deployment",
       "canonicalName": "httpbin",
       "canonicalRevision": "v1",
-      "node": "ambient-worker2",
-      "nativeHbone": false,
+      "node": "node-1",
+      "nativeTunnel": false,
       "authorizationPolicies": [],
       "status": "Healthy",
       "clusterId": "Kubernetes"
     },
-    "10.244.0.4": {
-      "workloadIp": "10.244.0.4",
-      "waypointAddresses": [],
+    "/10.124.2.109": {
+      "workloadIp": "10.124.2.109",
+      "waypoint": null,
+      "networkGateway": null,
       "gatewayAddress": null,
       "protocol": "TCP",
-      "name": "coredns-565d847f94-jmf7c",
-      "namespace": "kube-system",
-      "trustDomain": "cluster.local",
-      "serviceAccount": "coredns",
-      "workloadName": "coredns",
-      "workloadType": "deployment",
-      "canonicalName": "coredns",
-      "canonicalRevision": "latest",
-      "node": "ambient-control-plane",
-      "nativeHbone": false,
-      "authorizationPolicies": [],
-      "status": "Healthy",
-      "clusterId": "Kubernetes"
-    },
-    "10.244.2.3": {
-      "workloadIp": "10.244.2.3",
-      "waypointAddresses": [],
-      "gatewayAddress": null,
-      "protocol": "TCP",
-      "name": "istio-ingressgateway-7fd97bd49-gzplk",
+      "uid": "",
+      "name": "istio-ingressgateway-67dbb75b4c-fmf9j",
       "namespace": "istio-system",
       "trustDomain": "cluster.local",
       "serviceAccount": "istio-ingressgateway-service-account",
+      "network": "",
       "workloadName": "istio-ingressgateway",
       "workloadType": "deployment",
       "canonicalName": "istio-ingressgateway",
       "canonicalRevision": "latest",
-      "node": "ambient-worker2",
-      "nativeHbone": false,
+      "node": "node-2",
+      "nativeTunnel": false,
       "authorizationPolicies": [],
       "status": "Healthy",
       "clusterId": "Kubernetes"
     },
-    "10.244.0.3": {
-      "workloadIp": "10.244.0.3",
-      "waypointAddresses": [],
+    "/10.124.1.172": {
+      "workloadIp": "10.124.1.172",
+      "waypoint": null,
+      "networkGateway": null,
       "gatewayAddress": null,
       "protocol": "TCP",
-      "name": "coredns-565d847f94-6x4ms",
-      "namespace": "kube-system",
-      "trustDomain": "cluster.local",
-      "serviceAccount": "coredns",
-      "workloadName": "coredns",
-      "workloadType": "deployment",
-      "canonicalName": "coredns",
-      "canonicalRevision": "latest",
-      "node": "ambient-control-plane",
-      "nativeHbone": false,
-      "authorizationPolicies": [],
-      "status": "Healthy",
-      "clusterId": "Kubernetes"
-    },
-    "10.244.1.3": {
-      "workloadIp": "10.244.1.3",
-      "waypointAddresses": [],
-      "gatewayAddress": null,
-      "protocol": "TCP",
-      "name": "ztunnel-57zcs",
+      "uid": "",
+      "name": "ztunnel-l4z2z",
       "namespace": "istio-system",
       "trustDomain": "cluster.local",
       "serviceAccount": "ztunnel",
-      "workloadName": "ztunnel-57zcs",
+      "network": "",
+      "workloadName": "ztunnel-l4z2z",
       "workloadType": "pod",
       "canonicalName": "ztunnel",
       "canonicalRevision": "latest",
-      "node": "ambient-worker",
-      "nativeHbone": false,
+      "node": "node-3",
+      "nativeTunnel": false,
+      "authorizationPolicies": [],
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.124.2.110": {
+      "workloadIp": "10.124.2.110",
+      "waypoint": null,
+      "networkGateway": null,
+      "gatewayAddress": null,
+      "protocol": "TCP",
+      "uid": "",
+      "name": "ztunnel-l6j4v",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "ztunnel",
+      "network": "",
+      "workloadName": "ztunnel-l6j4v",
+      "workloadType": "pod",
+      "canonicalName": "ztunnel",
+      "canonicalRevision": "latest",
+      "node": "node-2",
+      "nativeTunnel": false,
       "authorizationPolicies": [],
       "status": "Healthy",
       "clusterId": "Kubernetes"
     }
   },
-  "workload_to_vip": {
-    "10.244.2.3": [
-      [
-        "10.96.73.38:80",
-        8080
-      ],
-      [
-        "10.96.73.38:443",
-        8443
-      ],
-      [
-        "10.96.73.38:15021",
-        15021
-      ]
+  "workload_to_vips": {
+    "/10.124.2.108": [
+      "/10.0.7.112"
     ],
-    "10.244.0.4": [
-      [
-        "10.96.0.10:53",
-        53
-      ],
-      [
-        "10.96.0.10:9153",
-        9153
-      ]
+    "/10.124.1.171": [
+      "/10.0.6.92"
     ],
-    "10.244.2.4": [
-      [
-        "10.96.131.224:8000",
-        80
-      ]
+    "/10.124.0.47": [
+      "/10.0.12.146"
     ],
-    "10.244.0.3": [
-      [
-        "10.96.0.10:53",
-        53
-      ],
-      [
-        "10.96.0.10:9153",
-        9153
-      ]
+    "/10.124.2.109": [
+      "/10.0.14.229",
+      "/11.22.33.44"
     ],
-    "10.244.1.2": [
-      [
-        "10.96.227.54:15012",
-        15012
-      ],
-      [
-        "10.96.227.54:443",
-        15017
-      ],
-      [
-        "10.96.227.54:15010",
-        15010
-      ],
-      [
-        "10.96.227.54:15014",
-        15014
-      ]
+    "/10.124.2.115": [
+      "/10.0.15.182"
+    ],
+    "/10.124.0.48": [
+      "/10.0.14.4"
     ]
   },
-  "vips": {
-    "10.96.73.38:443": [
-      [
-        "10.244.2.3",
-        8443
-      ]
-    ],
-    "10.96.73.38:15021": [
-      [
-        "10.244.2.3",
-        15021
-      ]
-    ],
-    "10.96.227.54:15010": [
-      [
-        "10.244.1.2",
-        15010
-      ]
-    ],
-    "10.96.131.224:8000": [
-      [
-        "10.244.2.4",
-        80
-      ]
-    ],
-    "10.96.227.54:15014": [
-      [
-        "10.244.1.2",
-        15014
-      ]
-    ],
-    "10.96.0.10:53": [
-      [
-        "10.244.0.4",
-        53
+  "services_by_ip": {
+    "/10.0.14.4": {
+      "name": "httpbin",
+      "namespace": "default",
+      "hostname": "httpbin.default.svc.cluster.local",
+      "addresses": [
+        "/10.0.14.4"
       ],
-      [
-        "10.244.0.3",
-        53
-      ]
-    ],
-    "10.96.227.54:15012": [
-      [
-        "10.244.1.2",
-        15012
-      ]
-    ],
-    "10.96.227.54:443": [
-      [
-        "10.244.1.2",
-        15017
-      ]
-    ],
-    "10.96.73.38:80": [
-      [
-        "10.244.2.3",
-        8080
-      ]
-    ],
-    "10.96.0.10:9153": [
-      [
-        "10.244.0.3",
-        9153
+      "ports": {
+        "8000": 80
+      },
+      "endpoints": {
+        "/10.124.0.48": {
+          "address": "/10.124.0.48",
+          "port": {
+            "8000": 80
+          }
+        }
+      }
+    },
+    "/10.0.7.112": {
+      "name": "istio-egressgateway",
+      "namespace": "istio-system",
+      "hostname": "istio-egressgateway.istio-system.svc.cluster.local",
+      "addresses": [
+        "/10.0.7.112"
       ],
-      [
-        "10.244.0.4",
-        9153
-      ]
-    ]
+      "ports": {
+        "80": 8080,
+        "443": 8443
+      },
+      "endpoints": {
+        "/10.124.2.108": {
+          "address": "/10.124.2.108",
+          "port": {
+            "443": 8443,
+            "80": 8080
+          }
+        }
+      }
+    },
+    "/10.0.12.146": {
+      "name": "sleep",
+      "namespace": "default",
+      "hostname": "sleep.default.svc.cluster.local",
+      "addresses": [
+        "/10.0.12.146"
+      ],
+      "ports": {
+        "80": 80
+      },
+      "endpoints": {
+        "/10.124.0.47": {
+          "address": "/10.124.0.47",
+          "port": {
+            "80": 80
+          }
+        }
+      }
+    },
+    "/11.22.33.444": {
+      "name": "istio-ingressgateway",
+      "namespace": "istio-system",
+      "hostname": "istio-ingressgateway.istio-system.svc.cluster.local",
+      "addresses": [
+        "/10.0.14.229",
+        "/11.22.33.44"
+      ],
+      "ports": {
+        "15021": 15021,
+        "15012": 15012,
+        "80": 8080,
+        "15443": 15443,
+        "15017": 15017,
+        "31400": 31400,
+        "443": 8443
+      },
+      "endpoints": {
+        "/10.124.2.109": {
+          "address": "/10.124.2.109",
+          "port": {
+            "31400": 31400,
+            "15021": 15021,
+            "80": 8080,
+            "15443": 15443,
+            "15012": 15012,
+            "15017": 15017,
+            "443": 8443
+          }
+        }
+      }
+    },
+    "/10.0.14.229": {
+      "name": "istio-ingressgateway",
+      "namespace": "istio-system",
+      "hostname": "istio-ingressgateway.istio-system.svc.cluster.local",
+      "addresses": [
+        "/10.0.14.229",
+        "/11.22.33.44"
+      ],
+      "ports": {
+        "15021": 15021,
+        "15012": 15012,
+        "80": 8080,
+        "15443": 15443,
+        "15017": 15017,
+        "31400": 31400,
+        "443": 8443
+      },
+      "endpoints": {
+        "/10.124.2.109": {
+          "address": "/10.124.2.109",
+          "port": {
+            "31400": 31400,
+            "15021": 15021,
+            "80": 8080,
+            "15443": 15443,
+            "15012": 15012,
+            "15017": 15017,
+            "443": 8443
+          }
+        }
+      }
+    },
+    "/10.0.6.92": {
+      "name": "istiod",
+      "namespace": "istio-system",
+      "hostname": "istiod.istio-system.svc.cluster.local",
+      "addresses": [
+        "/10.0.6.92"
+      ],
+      "ports": {
+        "443": 15017,
+        "15014": 15014,
+        "15010": 15010,
+        "15012": 15012
+      },
+      "endpoints": {
+        "/10.124.1.171": {
+          "address": "/10.124.1.171",
+          "port": {
+            "15012": 15012,
+            "15010": 15010,
+            "443": 15017,
+            "15014": 15014
+          }
+        }
+      }
+    },
+    "/10.0.15.182": {
+      "name": "httpbin-istio-waypoint",
+      "namespace": "default",
+      "hostname": "httpbin-istio-waypoint.default.svc.cluster.local",
+      "addresses": [
+        "/10.0.15.182"
+      ],
+      "ports": {
+        "15008": 15008
+      },
+      "endpoints": {
+        "/10.124.2.115": {
+          "address": "/10.124.2.115",
+          "port": {
+            "15008": 15008
+          }
+        }
+      }
+    }
   },
+  "services_by_hostname": {
+    "default/httpbin.default.svc.cluster.local": {
+      "name": "httpbin",
+      "namespace": "default",
+      "hostname": "httpbin.default.svc.cluster.local",
+      "addresses": [
+        "/10.0.14.4"
+      ],
+      "ports": {
+        "8000": 80
+      },
+      "endpoints": {
+        "/10.124.0.48": {
+          "address": "/10.124.0.48",
+          "port": {
+            "8000": 80
+          }
+        }
+      }
+    },
+    "istio-system/istio-egressgateway.istio-system.svc.cluster.local": {
+      "name": "istio-egressgateway",
+      "namespace": "istio-system",
+      "hostname": "istio-egressgateway.istio-system.svc.cluster.local",
+      "addresses": [
+        "/10.0.7.112"
+      ],
+      "ports": {
+        "80": 8080,
+        "443": 8443
+      },
+      "endpoints": {
+        "/10.124.2.108": {
+          "address": "/10.124.2.108",
+          "port": {
+            "443": 8443,
+            "80": 8080
+          }
+        }
+      }
+    },
+    "default/sleep.default.svc.cluster.local": {
+      "name": "sleep",
+      "namespace": "default",
+      "hostname": "sleep.default.svc.cluster.local",
+      "addresses": [
+        "/10.0.12.146"
+      ],
+      "ports": {
+        "80": 80
+      },
+      "endpoints": {
+        "/10.124.0.47": {
+          "address": "/10.124.0.47",
+          "port": {
+            "80": 80
+          }
+        }
+      }
+    },
+    "default/httpbin-istio-waypoint.default.svc.cluster.local": {
+      "name": "httpbin-istio-waypoint",
+      "namespace": "default",
+      "hostname": "httpbin-istio-waypoint.default.svc.cluster.local",
+      "addresses": [
+        "/10.0.15.182"
+      ],
+      "ports": {
+        "15008": 15008
+      },
+      "endpoints": {
+        "/10.124.2.115": {
+          "address": "/10.124.2.115",
+          "port": {
+            "15008": 15008
+          }
+        }
+      }
+    },
+    "istio-system/istio-ingressgateway.istio-system.svc.cluster.local": {
+      "name": "istio-ingressgateway",
+      "namespace": "istio-system",
+      "hostname": "istio-ingressgateway.istio-system.svc.cluster.local",
+      "addresses": [
+        "/10.0.14.229",
+        "/11.22.33.44"
+      ],
+      "ports": {
+        "15021": 15021,
+        "15012": 15012,
+        "80": 8080,
+        "15443": 15443,
+        "15017": 15017,
+        "31400": 31400,
+        "443": 8443
+      },
+      "endpoints": {
+        "/10.124.2.109": {
+          "address": "/10.124.2.109",
+          "port": {
+            "31400": 31400,
+            "15021": 15021,
+            "80": 8080,
+            "15443": 15443,
+            "15012": 15012,
+            "15017": 15017,
+            "443": 8443
+          }
+        }
+      }
+    },
+    "istio-system/istiod.istio-system.svc.cluster.local": {
+      "name": "istiod",
+      "namespace": "istio-system",
+      "hostname": "istiod.istio-system.svc.cluster.local",
+      "addresses": [
+        "/10.0.6.92"
+      ],
+      "ports": {
+        "443": 15017,
+        "15014": 15014,
+        "15010": 15010,
+        "15012": 15012
+      },
+      "endpoints": {
+        "/10.124.1.171": {
+          "address": "/10.124.1.171",
+          "port": {
+            "15012": 15012,
+            "15010": 15010,
+            "443": 15017,
+            "15014": 15014
+          }
+        }
+      }
+    }
+  },
+  "staged_vips": {},
   "policies": {},
   "policies_by_namespace": {},
   "proxy_mode": "Shared",
-  "local_node": "ambient-worker",
+  "local_node": "node-1",
   "static_config": {
     "workloads": [],
-    "policies": []
+    "policies": [],
+    "services": []
   },
   "version": {
     "version": "dc75c58af9dfd7620e2413875d6bc423607c2c80-dirty",
@@ -348,7 +580,7 @@
       "nanos": 0
     },
     "proxy_metadata": {
-      "ISTIO_VERSION": "1.18-dev"
+      "ISTIO_VERSION": "1.19-dev"
     },
     "num_worker_threads": 2,
     "enable_original_source": null,

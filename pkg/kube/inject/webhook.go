@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/prometheus/prometheus/util/strutil"
-	"gomodules.xyz/jsonpatch/v3"
+	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -48,9 +48,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -111,8 +111,8 @@ type Webhook struct {
 }
 
 func (wh *Webhook) GetConfig() WebhookConfig {
-	wh.mu.Lock()
-	defer wh.mu.Unlock()
+	wh.mu.RLock()
+	defer wh.mu.RUnlock()
 	return WebhookConfig{
 		Templates:  wh.Config.Templates,
 		Values:     wh.valuesConfig,
@@ -983,17 +983,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		}
 	}
 
-	proxyConfig := mesh.DefaultProxyConfig()
-	if wh.env.PushContext != nil && wh.env.PushContext.ProxyConfigs != nil {
-		if generatedProxyConfig := wh.env.PushContext.ProxyConfigs.EffectiveProxyConfig(
-			&model.NodeMetadata{
-				Namespace:   pod.Namespace,
-				Labels:      pod.Labels,
-				Annotations: pod.Annotations,
-			}, wh.meshConfig); generatedProxyConfig != nil {
-			proxyConfig = generatedProxyConfig
-		}
-	}
+	proxyConfig := wh.env.GetProxyConfigOrDefault(pod.Namespace, pod.Labels, pod.Annotations, wh.meshConfig)
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
 	params := InjectionParameters{
 		pod:                 &pod,
@@ -1096,6 +1086,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Errorf("Could not encode response: %v", err)
 		http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
+		return
 	}
 	if _, err := w.Write(resp); err != nil {
 		log.Errorf("Could not write response: %v", err)

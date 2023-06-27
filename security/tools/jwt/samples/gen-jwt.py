@@ -84,7 +84,7 @@ def main(args):
                     v = v[0]
                 nested[k] = v
         nested["nested-2"] = copy.copy(nested)
-        payload["nested"] = nested
+        payload[args.nestedkey] = nested
 
     token = jwt.JWT(header={"alg": "RS256", "typ": "JWT", "kid": key.key_id},
                     claims=payload)
@@ -116,6 +116,9 @@ if __name__ == '__main__':
                         help="Path to the output file for JWKS.")
     parser.add_argument("-expire", "--expire", type=int, default=3600,
                         help="JWT expiration time in second. Default is 1 hour.")
+    parser.add_argument("-nestedkey", "--nestedkey",
+                        default="nested",
+                        help="nested claim key. Only useful when `nestedclaim` is provided. Default is `nested`")
     parser.add_argument(
         "-listclaim",
         "--listclaim",

@@ -25,8 +25,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/log"
 )
 
 // Recover the original address from redirect socket. Supposed to work for tcp over ipv4 and ipv6.

@@ -30,7 +30,7 @@ spec:
             port:
               number: {{ (.To.PortForName "http").ServicePort }}
 ---
-apiVersion: security.istio.io/v1
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: allow-{{ .To.ServiceName }}

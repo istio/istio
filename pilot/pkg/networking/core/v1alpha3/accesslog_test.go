@@ -333,9 +333,10 @@ func newTestEnviroment() *model.Environment {
 	env.ConfigStore = configStore
 	env.Watcher = mesh.NewFixedWatcher(meshConfig)
 
-	env.PushContext = model.NewPushContext()
+	pushContext := model.NewPushContext()
 	env.Init()
-	_ = env.PushContext.InitContext(env, nil, nil)
+	pushContext.InitContext(env, nil, nil)
+	env.SetPushContext(pushContext)
 
 	return env
 }
@@ -383,7 +384,7 @@ func TestSetTCPAccessLog(t *testing.T) {
 	}{
 		{
 			name: "telemetry",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test"},
@@ -402,7 +403,7 @@ func TestSetTCPAccessLog(t *testing.T) {
 		},
 		{
 			name: "log-selector-unmatched-telemetry",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
@@ -421,7 +422,7 @@ func TestSetTCPAccessLog(t *testing.T) {
 		},
 		{
 			name: "without-telemetry",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "without-telemetry"},
@@ -440,7 +441,7 @@ func TestSetTCPAccessLog(t *testing.T) {
 		},
 		{
 			name: "disable-accesslog",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-disable-accesslog"},
@@ -475,7 +476,7 @@ func TestSetHttpAccessLog(t *testing.T) {
 	}{
 		{
 			name: "telemetry",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test"},
@@ -494,7 +495,7 @@ func TestSetHttpAccessLog(t *testing.T) {
 		},
 		{
 			name: "log-selector-unmatched-telemetry",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
@@ -513,7 +514,7 @@ func TestSetHttpAccessLog(t *testing.T) {
 		},
 		{
 			name: "without-telemetry",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "without-telemetry"},
@@ -532,7 +533,7 @@ func TestSetHttpAccessLog(t *testing.T) {
 		},
 		{
 			name: "disable-accesslog",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-disable-accesslog"},
@@ -567,7 +568,7 @@ func TestSetListenerAccessLog(t *testing.T) {
 	}{
 		{
 			name: "telemetry",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test"},
@@ -591,7 +592,7 @@ func TestSetListenerAccessLog(t *testing.T) {
 		},
 		{
 			name: "log-selector-unmatched-telemetry",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
@@ -615,7 +616,7 @@ func TestSetListenerAccessLog(t *testing.T) {
 		},
 		{
 			name: "without-telemetry",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "without-telemetry"},
@@ -639,7 +640,7 @@ func TestSetListenerAccessLog(t *testing.T) {
 		},
 		{
 			name: "disable-accesslog",
-			push: env.PushContext,
+			push: env.PushContext(),
 			proxy: &model.Proxy{
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-disable-accesslog"},

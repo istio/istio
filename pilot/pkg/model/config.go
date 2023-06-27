@@ -35,19 +35,6 @@ var _ = udpa.TypedStruct{}
 
 type ConfigHash uint64
 
-// NamespacedName defines a name and namespace of a resource, with the type elided. This can be used in
-// places where the type is implied.
-// This is preferred to a ConfigKey with empty Kind, especially in performance sensitive code - hashing this struct
-// is 2x faster than ConfigKey.
-type NamespacedName struct {
-	Name      string
-	Namespace string
-}
-
-func (key NamespacedName) String() string {
-	return key.Namespace + "/" + key.Name
-}
-
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
 type ConfigKey struct {
@@ -77,7 +64,7 @@ func ConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.Set[ConfigK
 
 	for conf := range configs {
 		if conf.Kind == kind {
-			ret[conf] = struct{}{}
+			ret.Insert(conf)
 		}
 	}
 
@@ -108,15 +95,28 @@ func ConfigNamesOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.String 
 }
 
 // ConfigNamespacedNameOfKind extracts config names of the specified kind.
-func ConfigNamespacedNameOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) map[types.NamespacedName]struct{} {
-	ret := map[types.NamespacedName]struct{}{}
+func ConfigNamespacedNameOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) sets.Set[types.NamespacedName] {
+	ret := sets.New[types.NamespacedName]()
 
 	for conf := range configs {
 		if conf.Kind == kind {
-			ret[types.NamespacedName{
+			ret.Insert(types.NamespacedName{
 				Namespace: conf.Namespace,
 				Name:      conf.Name,
-			}] = struct{}{}
+			})
+		}
+	}
+
+	return ret
+}
+
+// ConfigNameOfKind extracts config names of the specified kind.
+func ConfigNameOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) sets.String {
+	ret := sets.New[string]()
+
+	for conf := range configs {
+		if conf.Kind == kind {
+			ret.Insert(conf.Name)
 		}
 	}
 

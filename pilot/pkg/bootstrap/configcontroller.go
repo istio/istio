@@ -36,9 +36,9 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/analysis/incluster"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
-	"istio.io/pkg/log"
 )
 
 // URL schemes supported by the config store
@@ -94,7 +94,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores,
 			ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
 
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+		s.addTerminatingStartFunc("ingress status", func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
@@ -124,7 +124,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	s.environment.ConfigStore = aggregateConfigController
 
 	// Defer starting the controller until after the service is created.
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("config controller", func(stop <-chan struct{}) error {
 		go s.configController.Run(stop)
 		return nil
 	})
@@ -145,11 +145,11 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)
 		}
-		gwc := gateway.NewController(s.kubeClient, configController, configController.WaitForCRD,
+		gwc := gateway.NewController(s.kubeClient, configController, s.kubeClient.CrdWatcher().WaitForCRD,
 			s.environment.CredentialsController, args.RegistryOptions.KubeOptions)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+		s.addTerminatingStartFunc("gateway status", func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
@@ -169,18 +169,26 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return nil
 		})
 		if features.EnableGatewayAPIDeploymentController {
-			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-				// We can only run this if the Gateway CRD is created
-				if configController.WaitForCRD(gvk.KubernetesGateway, stop) {
-					tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
-					controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID,
-						s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision)
-					// Start informers again. This fixes the case where informers for namespace do not start,
-					// as we create them only after the CRD is created.
-					s.kubeClient.RunAndWait(stop)
-					go tagWatcher.Run(stop)
-					controller.Run(stop)
-				}
+			s.addTerminatingStartFunc("gateway deployment controller", func(stop <-chan struct{}) error {
+				leaderelection.
+					NewPerRevisionLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, args.Revision, s.kubeClient).
+					AddRunFunction(func(leaderStop <-chan struct{}) {
+						// We can only run this if the Gateway CRD is created
+						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
+							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
+							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
+								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision)
+							// Start informers again. This fixes the case where informers for namespace do not start,
+							// as we create them only after acquiring the leader lock
+							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+							// basically lazy loading the informer, if we stop it when we lose the lock we will never
+							// recreate it again.
+							s.kubeClient.RunAndWait(stop)
+							go tagWatcher.Run(leaderStop)
+							controller.Run(leaderStop)
+						}
+					}).
+					Run(stop)
 				return nil
 			})
 		}
@@ -282,7 +290,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	if s.statusManager == nil {
 		s.initStatusManager(args)
 	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("analysis controller", func(stop <-chan struct{}) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
@@ -306,11 +314,11 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		UpdateInterval: features.StatusUpdateInterval,
 		PodName:        args.PodName,
 	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("status reporter init", func(stop <-chan struct{}) error {
 		s.statusReporter.Init(s.environment.GetLedger(), stop)
 		return nil
 	})
-	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+	s.addTerminatingStartFunc("status reporter", func(stop <-chan struct{}) error {
 		if writeStatus {
 			s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
 		}
@@ -318,7 +326,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	})
 	s.XDSServer.StatusReporter = s.statusReporter
 	if writeStatus {
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+		s.addTerminatingStartFunc("status distribution", func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
@@ -350,7 +358,7 @@ func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configCont
 	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, fileSnapshot.ReadConfigFiles, fileDir)
 
 	// Defer starting the file monitor until after the service is created.
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("file monitor", func(stop <-chan struct{}) error {
 		fileMonitor.Start(stop)
 		return nil
 	})

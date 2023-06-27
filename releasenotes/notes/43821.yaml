@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 43807
+releaseNotes:
+  - |
+    **Added** config type and endpoint configuration summaries to `istioctl proxy-config all`

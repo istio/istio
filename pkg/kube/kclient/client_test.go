@@ -15,23 +15,150 @@
 package kclient_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
-	"golang.org/x/exp/slices"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 
+	istioclient "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/monitoring/monitortest"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
+
+func TestSwappingClient(t *testing.T) {
+	t.Run("CRD partially ready", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+		tracker := assert.NewTracker[string](t)
+		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
+		go constantlyAccessForRaceDetection(stop, wasm)
+
+		// CRD and Delayed client are ready to go by the time we start informers
+		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+		c.RunAndWait(stop)
+
+		wt.Create(&istioclient.WasmPlugin{
+			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		})
+		assert.EventuallyEqual(t, func() int {
+			return len(wasm.List("", klabels.Everything()))
+		}, 1)
+		tracker.WaitOrdered("add/name")
+	})
+	t.Run("CRD fully ready", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+
+		// Only CRD is ready to go by the time we start informers
+		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+		c.RunAndWait(stop)
+
+		// Now that CRD is synced, we create the client
+		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+		tracker := assert.NewTracker[string](t)
+		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
+		go constantlyAccessForRaceDetection(stop, wasm)
+		c.RunAndWait(stop)
+		kube.WaitForCacheSync("test", test.NewStop(t), wasm.HasSynced)
+
+		wt.Create(&istioclient.WasmPlugin{
+			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		})
+		assert.EventuallyEqual(t, func() int {
+			return len(wasm.List("", klabels.Everything()))
+		}, 1)
+		tracker.WaitOrdered("add/name")
+	})
+	t.Run("CRD not ready", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+
+		// Client created before CRDs are ready
+		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+		tracker := assert.NewTracker[string](t)
+		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
+		go constantlyAccessForRaceDetection(stop, wasm)
+		c.RunAndWait(stop)
+		kube.WaitForCacheSync("test", test.NewStop(t), wasm.HasSynced)
+
+		// List should return empty
+		assert.Equal(t, len(wasm.List("", klabels.Everything())), 0)
+
+		// Now we add the CRD
+		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+		// This is not needed in real-world, but purely works around https://github.com/kubernetes/kubernetes/issues/95372
+		// which impacts only the fake client.
+		c.RunAndWait(stop)
+		wt.Create(&istioclient.WasmPlugin{
+			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		})
+		assert.EventuallyEqual(t, func() int {
+			return len(wasm.List("", klabels.Everything()))
+		}, 1)
+		tracker.WaitOrdered("add/name")
+	})
+	t.Run("watcher not run ready", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+
+		// Client created before CRDs are ready
+		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+		tracker := assert.NewTracker[string](t)
+		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
+		go constantlyAccessForRaceDetection(stop, wasm)
+
+		assert.Equal(t, wasm.HasSynced(), false)
+
+		// List should return empty
+		assert.Equal(t, len(wasm.List("", klabels.Everything())), 0)
+
+		// Now we add the CRD
+		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+
+		// Start everything up
+		c.RunAndWait(stop)
+		wt.Create(&istioclient.WasmPlugin{
+			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		})
+		assert.EventuallyEqual(t, func() int {
+			return len(wasm.List("", klabels.Everything()))
+		}, 1)
+		tracker.WaitOrdered("add/name")
+	})
+}
+
+// setup some calls to ensure we trigger the race detector, if there was a race.
+func constantlyAccessForRaceDetection(stop chan struct{}, wt kclient.Untyped) {
+	for {
+		select {
+		case <-time.After(time.Millisecond):
+		case <-stop:
+			return
+		}
+		_ = wt.List("", klabels.Everything())
+	}
+}
 
 func TestHasSynced(t *testing.T) {
 	handled := atomic.NewInt64(0)
@@ -128,4 +255,16 @@ func TestClient(t *testing.T) {
 	tester.Update(obj3)
 	tracker.WaitOrdered("delete/3")
 	assert.Equal(t, tester.Get(obj3.Name, obj3.Namespace), nil)
+}
+
+func TestErrorHandler(t *testing.T) {
+	mt := monitortest.New(t)
+	c := kube.NewFakeClient()
+	// Prevent List from succeeding
+	c.Kube().(*fake.Clientset).Fake.PrependReactor("*", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("nope, out of luck")
+	})
+	deployments := kclient.New[*appsv1.Deployment](c)
+	deployments.Start(test.NewStop(t))
+	mt.Assert("controller_sync_errors_total", map[string]string{"cluster": "fake"}, monitortest.AtLeast(1))
 }

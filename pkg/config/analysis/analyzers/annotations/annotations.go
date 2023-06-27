@@ -21,11 +21,13 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/slices"
 )
 
 // K8sAnalyzer checks for misplaced and invalid Istio annotations in K8s resources
@@ -83,6 +85,10 @@ outer:
 			continue
 		}
 
+		if maturity.AlwaysIgnoredAnnotations[ann] {
+			continue
+		}
+
 		annotationDef := lookupAnnotation(ann)
 		if annotationDef == nil {
 			m := msg.NewUnknownAnnotation(r, ann)
@@ -113,7 +119,7 @@ outer:
 		}
 
 		attachesTo := resourceTypesAsStrings(annotationDef.Resources)
-		if !contains(attachesTo, kind) {
+		if !slices.Contains(attachesTo, kind) {
 			m := msg.NewMisplacedAnnotation(r, ann, strings.Join(attachesTo, ", "))
 			util.AddLineNumber(r, ann, m)
 
@@ -151,16 +157,6 @@ func istioAnnotation(ann string) bool {
 	}
 
 	return true
-}
-
-func contains(candidates []string, s string) bool {
-	for _, candidate := range candidates {
-		if s == candidate {
-			return true
-		}
-	}
-
-	return false
 }
 
 func lookupAnnotation(ann string) *annotation.Instance {

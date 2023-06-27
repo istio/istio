@@ -78,6 +78,7 @@ func setupTest(t *testing.T) (
 		},
 	)
 	configController := memory.NewController(memory.Make(collections.Pilot))
+	configController.RegisterEventHandler(gvk.WorkloadEntry, kc.WorkloadEntryHandler)
 
 	stop := istiotest.NewStop(t)
 	go configController.Run(stop)
@@ -804,7 +805,7 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 
 		_ = kube.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
-		_ = kube.CoreV1().Endpoints(pod.Namespace).Delete(context.TODO(), "service", metav1.DeleteOptions{})
+		_ = kube.DiscoveryV1().EndpointSlices(pod.Namespace).Delete(context.TODO(), "service", metav1.DeleteOptions{})
 		_ = store.Delete(gvk.WorkloadEntry, workloadEntry.Name, workloadEntry.Namespace, nil)
 		expectServiceInstances(t, wc, expectedSvc, 80, []ServiceInstanceResponse{})
 		expectServiceInstances(t, kc, expectedSvc, 80, []ServiceInstanceResponse{})
@@ -848,6 +849,41 @@ func TestWorkloadInstances(t *testing.T) {
 			t.Fatal(err)
 		}
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nil)
+	})
+
+	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
+		kc, _, store, kube, _ := setupTest(t)
+		makeService(t, kube, service)
+
+		// Start as unhealthy, should have no instances
+		makeIstioObject(t, store, setHealth(workloadEntry, false))
+		instances := []ServiceInstanceResponse{}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Mark healthy, get instances
+		makeIstioObject(t, store, setHealth(workloadEntry, true))
+		instances = []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Set back to unhealthy
+		makeIstioObject(t, store, setHealth(workloadEntry, false))
+		instances = []ServiceInstanceResponse{}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Remove health status entirely
+		makeIstioObject(t, store, workloadEntry)
+		instances = []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
 	istiotest.SetForTest(t, &features.EnableHBONE, true)
@@ -936,41 +972,6 @@ func TestWorkloadInstances(t *testing.T) {
 			})
 		})
 	}
-
-	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
-		kc, _, store, kube, _ := setupTest(t)
-		makeService(t, kube, service)
-
-		// Start as unhealthy, should have no instances
-		makeIstioObject(t, store, setHealth(workloadEntry, false))
-		instances := []ServiceInstanceResponse{}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Mark healthy, get instances
-		makeIstioObject(t, store, setHealth(workloadEntry, true))
-		instances = []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.Hostname,
-			Namestring: expectedSvc.Attributes.Namespace,
-			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
-			Port:       80,
-		}}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Set back to unhealthy
-		makeIstioObject(t, store, setHealth(workloadEntry, false))
-		instances = []ServiceInstanceResponse{}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Remove health status entirely
-		makeIstioObject(t, store, workloadEntry)
-		instances = []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.Hostname,
-			Namestring: expectedSvc.Attributes.Namespace,
-			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
-			Port:       80,
-		}}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-	})
 }
 
 func expectAmbient(strings []string, ambient bool) []string {
@@ -1008,9 +1009,7 @@ func waitForEdsUpdate(t *testing.T, xdsUpdater *xdsfake.Updater, expected int) {
 }
 
 func TestEndpointsDeduping(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		KubernetesEndpointMode: kubecontroller.EndpointSliceOnly,
-	})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	namespace := "namespace"
 	labels := map[string]string{
 		"app": "bar",
@@ -1087,9 +1086,8 @@ func TestEndpointSlicingServiceUpdate(t *testing.T) {
 	for _, version := range []string{"latest", "20"} {
 		t.Run("kuberentes 1."+version, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-				KubernetesEndpointMode: kubecontroller.EndpointSliceOnly,
-				KubernetesVersion:      version,
-				EnableFakeXDSUpdater:   true,
+				KubernetesVersion:    version,
+				EnableFakeXDSUpdater: true,
 			})
 			namespace := "namespace"
 			labels := map[string]string{
@@ -1145,8 +1143,7 @@ func TestEndpointSlicingServiceUpdate(t *testing.T) {
 
 func TestSameIPEndpointSlicing(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		KubernetesEndpointMode: kubecontroller.EndpointSliceOnly,
-		EnableFakeXDSUpdater:   true,
+		EnableFakeXDSUpdater: true,
 	})
 	namespace := "namespace"
 	labels := map[string]string{
@@ -1284,6 +1281,11 @@ func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 	// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
 	// events - since PodIP will be "".
 	newPod.Status.PodIP = pod.Status.PodIP
+	newPod.Status.PodIPs = []v1.PodIP{
+		{
+			IP: pod.Status.PodIP,
+		},
+	}
 	newPod.Status.Phase = v1.PodRunning
 
 	// Also need to sets the pod to be ready as now we only add pod into service entry endpoint when it's ready
@@ -1326,28 +1328,7 @@ func makeIstioObject(t *testing.T, c model.ConfigStore, svc config.Config) {
 }
 
 func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace string, ports []v1.EndpointPort, ips []string) {
-	eas := make([]v1.EndpointAddress, 0)
-	for _, ip := range ips {
-		eas = append(eas, v1.EndpointAddress{IP: ip, TargetRef: &v1.ObjectReference{
-			Kind:      "Pod",
-			Name:      "pod",
-			Namespace: namespace,
-		}})
-	}
-
-	endpoint := &v1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Subsets: []v1.EndpointSubset{{
-			Addresses: eas,
-			Ports:     ports,
-		}},
-	}
-	if _, err := c.CoreV1().Endpoints(namespace).Create(context.TODO(), endpoint, metav1.CreateOptions{}); err != nil {
-		t.Fatalf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
-	}
+	createEndpointSlice(t, c, name, name, namespace, ports, ips)
 }
 
 // nolint: unparam

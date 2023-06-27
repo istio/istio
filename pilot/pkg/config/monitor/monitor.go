@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
 // Monitor will poll a config function in order to update a ConfigStore as
@@ -41,7 +41,7 @@ type Monitor struct {
 	updateCh chan struct{}
 }
 
-var log = istiolog.RegisterScope("monitor", "file configuration monitor", 0)
+var log = istiolog.RegisterScope("monitor", "file configuration monitor")
 
 // NewMonitor creates a Monitor and will delegate to a passed in controller.
 // The controller holds a reference to the actual store.

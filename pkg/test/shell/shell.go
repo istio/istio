@@ -21,10 +21,10 @@ import (
 
 	"github.com/google/shlex"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
-var scope = log.RegisterScope("shell", "Shell execution scope", 0)
+var scope = log.RegisterScope("shell", "Shell execution scope")
 
 // Execute the given command.
 func Execute(combinedOutput bool, format string, args ...any) (string, error) {

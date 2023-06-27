@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -58,12 +59,22 @@ var conditionallyIgnoredAnnotations = map[string]bool{
 	annotation.SidecarTrafficIncludeOutboundIPRanges.Name: true,
 }
 
-var alwaysIgnoredAnnotations = map[string]bool{
+var AlwaysIgnoredAnnotations = map[string]bool{
 	// this annotation is set by default in istiod, don't alert on it.
 	annotation.SidecarStatus.Name: true,
 
 	// this annotation is set by controller, don't alert on it.
 	annotation.GatewayControllerVersion.Name: true,
+
+	// this annotation is added automatically.
+	annotation.IoIstioRev.Name: true,
+
+	// TODO below are ambient related annotations that are not yet known to be stable.
+	// They are added automatically, and should not be alerted on.
+	// Delete these related annotations once they are stable.
+	// Ref: https://github.com/istio/api/pull/2695
+	constants.WaypointServiceAccount: true,
+	constants.AmbientRedirection:     true,
 }
 
 // Analyze implements analysis.Analyzer
@@ -104,7 +115,7 @@ func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Contex
 
 		if annotationDef := lookupAnnotation(ann); annotationDef != nil {
 			if annotationDef.FeatureStatus == annotation.Alpha {
-				if alwaysIgnoredAnnotations[annotationDef.Name] {
+				if AlwaysIgnoredAnnotations[annotationDef.Name] {
 					continue
 				}
 				// some annotations are set by default in istiod, don't alert on it.

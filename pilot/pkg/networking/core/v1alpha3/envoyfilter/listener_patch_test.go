@@ -46,9 +46,9 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/log"
 	istio_proto "istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
 )
 
 var testMesh = &meshconfig.MeshConfig{
@@ -70,6 +70,28 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 			},
 			Spec: &networking.EnvoyFilter{
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
+			},
+		})
+		if err != nil {
+			log.Errorf("create envoyfilter failed %v", err)
+		}
+	}
+	return store
+}
+
+func buildEnvoyFilterConfigStoreWithPriorities(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch, priorities []int32) model.ConfigStore {
+	store := memory.Make(collections.Pilot)
+
+	for i, cp := range configPatches {
+		_, err := store.Create(config.Config{
+			Meta: config.Meta{
+				Name:             fmt.Sprintf("test-envoyfilter-%d", i),
+				Namespace:        "not-default",
+				GroupVersionKind: gvk.EnvoyFilter,
+			},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
+				Priority:      priorities[i],
 			},
 		})
 		if err != nil {
@@ -101,14 +123,61 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *mes
 		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 
-	e.PushContext = model.NewPushContext()
+	pushContext := model.NewPushContext()
 	e.Init()
-	_ = e.PushContext.InitContext(e, nil, nil)
-
+	_ = pushContext.InitContext(e, nil, nil)
+	e.SetPushContext(pushContext)
 	return e
 }
 
 func TestApplyListenerPatches(t *testing.T) {
+	configPatchesPriorities := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      wellknown.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter-to-be-removed-then-add"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"http-filter-to-be-removed-then-add"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      wellknown.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter-to-be-removed-then-add"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+	}
+	priorities := []int32{
+		2, 1,
+	}
+
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 		{
 			ApplyTo: networking.EnvoyFilter_LISTENER,
@@ -306,6 +375,47 @@ func TestApplyListenerPatches(t *testing.T) {
 		{
 			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
 			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      wellknown.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter-to-be-removed-then-add"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      wellknown.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter-to-be-removed-then-add"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"http-filter-to-be-removed-then-add"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 					Listener: &networking.EnvoyFilter_ListenerMatch{
@@ -406,6 +516,48 @@ func TestApplyListenerPatches(t *testing.T) {
 				Operation: networking.EnvoyFilter_Patch_REMOVE,
 			},
 		},
+		// remove then add
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      wellknown.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter-to-be-removed-then-add"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+								Name:      wellknown.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter-to-be-removed-then-add"},
+							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"http-filter-to-be-removed-then-add"}`),
+			},
+		},
 		// Merge v3 any with v2 any
 		{
 			ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
@@ -500,7 +652,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				Value: buildPatchStruct(`
 {"name": "envoy.filters.network.http_connection_manager",
  "typed_config": {
-        "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
+        "@type": "type.googleapis.com/type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
          "xffNumTrustedHops": "4"
  }
 }`),
@@ -742,6 +894,35 @@ func TestApplyListenerPatches(t *testing.T) {
 								"tls_params":{
 									"tls_maximum_protocol_version":"TLSv1_3",
 									"tls_minimum_protocol_version":"TLSv1_2"}}}}}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 12345,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 12345,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"http-filter-to-be-removed-then-add"}`),
 			},
 		},
 		// Patch custom TLS type
@@ -1243,6 +1424,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			ListenerFilters: []*listener.ListenerFilter{
 				{
+					Name: "http-filter-to-be-removed-then-add",
+				},
+				{
 					Name: "before proxy_protocol",
 				},
 				{
@@ -1542,6 +1726,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			ListenerFilters: []*listener.ListenerFilter{
 				{
+					Name: "http-filter-to-be-removed-then-add",
+				},
+				{
 					Name: "before proxy_protocol",
 				},
 				{
@@ -1649,6 +1836,7 @@ func TestApplyListenerPatches(t *testing.T) {
 										{Name: "http-filter1"},
 										{Name: "http-filter2"},
 										{Name: "http-filter3"},
+										{Name: "http-filter-to-be-removed-then-add"},
 									},
 								}),
 							},
@@ -1674,6 +1862,66 @@ func TestApplyListenerPatches(t *testing.T) {
 						ServerNames: []string{"nomatch.com", "*.foo.com"},
 					},
 					Filters: []*listener.Filter{{Name: "network-filter"}},
+				},
+			},
+		},
+	}
+
+	gatewayPriorityIn := []*listener.Listener{
+		{
+			Name: "80",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 80,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									HttpFilters: []*hcm.HttpFilter{},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	gatewayPriorityOut := []*listener.Listener{
+		{
+			Name: "80",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 80,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									HttpFilters: []*hcm.HttpFilter{
+										{Name: "http-filter-to-be-removed-then-add"},
+									},
+								}),
+							},
+						},
+					},
 				},
 			},
 		},
@@ -1857,6 +2105,7 @@ func TestApplyListenerPatches(t *testing.T) {
 										{Name: "http-filter2"},
 										{Name: "http-filter-5"},
 										{Name: "http-filter4"},
+										{Name: "http-filter-to-be-removed-then-add"},
 									},
 								}),
 							},
@@ -1964,6 +2213,11 @@ func TestApplyListenerPatches(t *testing.T) {
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)
 
+	// Test different priorities
+	ep := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStoreWithPriorities(configPatchesPriorities, priorities))
+	pushPriorities := model.NewPushContext()
+	_ = pushPriorities.InitContext(ep, nil, nil)
+
 	type args struct {
 		patchContext networking.EnvoyFilter_PatchContext
 		proxy        *model.Proxy
@@ -1986,6 +2240,17 @@ func TestApplyListenerPatches(t *testing.T) {
 				skipAdds:     false,
 			},
 			want: gatewayOut,
+		},
+		{
+			name: "gateway lds with priority",
+			args: args{
+				patchContext: networking.EnvoyFilter_GATEWAY,
+				proxy:        gatewayProxy,
+				push:         pushPriorities,
+				listeners:    gatewayPriorityIn,
+				skipAdds:     false,
+			},
+			want: gatewayPriorityOut,
 		},
 		{
 			name: "sidecar outbound lds",

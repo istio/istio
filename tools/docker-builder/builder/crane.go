@@ -33,7 +33,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type BuildSpec struct {

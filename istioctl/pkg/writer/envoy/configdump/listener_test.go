@@ -54,6 +54,29 @@ func TestListenerFilter_Verify(t *testing.T) {
 			expect: false,
 		},
 		{
+			desc: "addtl-addrs-dont-match",
+			inFilter: &ListenerFilter{
+				Address: "0.0.0.0",
+			},
+			inListener: &listener.Listener{
+				Address: &core.Address{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{Address: "1.1.1.1"},
+					},
+				},
+				AdditionalAddresses: []*listener.AdditionalAddress{
+					{
+						Address: &core.Address{
+							Address: &core.Address_SocketAddress{
+								SocketAddress: &core.SocketAddress{Address: "1:1:1::1"},
+							},
+						},
+					},
+				},
+			},
+			expect: false,
+		},
+		{
 			desc: "ports-dont-match",
 			inFilter: &ListenerFilter{
 				Port: 10,

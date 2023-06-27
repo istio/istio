@@ -35,7 +35,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 		appName = "prod-app"
 	)
 
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{Mode: EndpointSliceOnly})
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 
 	node := generateNode("node1", map[string]string{
 		NodeZoneLabel:              "zone1",
@@ -49,7 +49,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	pods := []*corev1.Pod{pod}
 	addPods(t, controller, fx, pods...)
 
-	createServiceWait(controller, svcName, ns, nil,
+	createServiceWait(controller, svcName, ns, nil, nil,
 		[]int32{8080}, map[string]string{"app": appName}, t)
 
 	// Ensure that the service is available.

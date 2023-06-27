@@ -25,7 +25,7 @@ helm install istio-cni -n kube-system manifests/charts/istio-cni --set cni.cniBi
 3) `istio-control/istio-discovery` chart installs a revision of istiod.
 
 ```console
- helm install -n istio-system istio-17 manifests/charts/istio-control/istio-discovery --set istio_cni.enabled=true --set global.jwtPolicy=first-party-jwt --set sidecarInjectorWebhook.injectedAnnotations."k8s\.v1\.cni\.cncf\.io/networks"="istio-cni"
+ helm install -n istio-system istio-17 manifests/charts/istio-control/istio-discovery --set istio_cni.enabled=true --set istio_cni.chained=false --set global.jwtPolicy=first-party-jwt
 ```
 
 4) `gateways` charts install a load balancer with `ingress` and `egress`.

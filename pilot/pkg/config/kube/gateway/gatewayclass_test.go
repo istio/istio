@@ -71,19 +71,19 @@ func TestClassController(t *testing.T) {
 	}
 
 	// Class should be created initially
-	expectClass(DefaultClassName, constants.ManagedGatewayController)
+	expectClass(defaultClassName, constants.ManagedGatewayController)
 
 	// Once we delete it, it should be added back
-	deleteClass(DefaultClassName)
-	expectClass(DefaultClassName, constants.ManagedGatewayController)
+	deleteClass(defaultClassName)
+	expectClass(defaultClassName, constants.ManagedGatewayController)
 
 	// Overwrite the class, controller should not reconcile it back
-	createClass(DefaultClassName, "different-controller")
-	expectClass(DefaultClassName, "different-controller")
+	createClass(defaultClassName, "different-controller")
+	expectClass(defaultClassName, "different-controller")
 
 	// Once we delete it, it should be added back
-	deleteClass(DefaultClassName)
-	expectClass(DefaultClassName, constants.ManagedGatewayController)
+	deleteClass(defaultClassName)
+	expectClass(defaultClassName, constants.ManagedGatewayController)
 
 	// Create an unrelated GatewayClass, we should not do anything to it
 	createClass("something-else", "different-controller")

@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,6 +30,7 @@ import (
 
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/file"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
@@ -38,19 +38,18 @@ import (
 	"istio.io/istio/security/pkg/monitoring"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	istiolog "istio.io/pkg/log"
 )
 
 var (
-	cacheLog = istiolog.RegisterScope("cache", "cache debugging", 0)
+	cacheLog = istiolog.RegisterScope("cache", "cache debugging")
 	// The total timeout for any credential retrieval process, default value of 10s is used.
 	totalTimeout = time.Second * 10
 )
 
 const (
-	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
+	// firstRetryBackOffDuration is the initial backoff time interval when hitting
 	// non-retryable error in CSR request or while there is an error in reading file mounts.
-	firstRetryBackOffInMilliSec = 50
+	firstRetryBackOffDuration = 50 * time.Millisecond
 )
 
 // SecretManagerClient a SecretManager that signs CSRs using a provided security.Client. The primary
@@ -256,6 +255,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 		// possible by keeping the output in a directory with clever use of symlinks in the future,
 		// if needed.
 		sc.outputMutex.Lock()
+		defer sc.outputMutex.Unlock()
 		if resourceName == security.RootCertReqResourceName || resourceName == security.WorkloadKeyCertResourceName {
 			if err := nodeagentutil.OutputKeyCertToDir(sc.configOptions.OutputKeyCertToDir, secret.PrivateKey,
 				secret.CertificateChain, secret.RootCert); err != nil {
@@ -264,7 +264,6 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 				resourceLog(resourceName).Debugf("output the resource to %v", sc.configOptions.OutputKeyCertToDir)
 			}
 		}
-		sc.outputMutex.Unlock()
 	}()
 
 	// First try to generate secret from file.
@@ -416,20 +415,14 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 	o := backoff.DefaultOption()
 	o.InitialInterval = sc.configOptions.FileDebounceDuration
 	b := backoff.NewExponentialBackOff(o)
-	var permanentErr error
 	secretValid := func() error {
 		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
-		if errors.Is(err, os.ErrNotExist) {
-			permanentErr = err
-			return nil
-		}
 		return err
 	}
-	if err := b.RetryWithContext(context.TODO(), secretValid); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), totalTimeout)
+	defer cancel()
+	if err := b.RetryWithContext(ctx, secretValid); err != nil {
 		return nil, err
-	}
-	if permanentErr != nil {
-		return nil, permanentErr
 	}
 	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
 }
@@ -463,7 +456,7 @@ func (sc *SecretManagerClient) keyCertSecretItem(cert, key, resource string) (*s
 // readFileWithTimeout reads the given file with timeout. It returns error
 // if it is not able to read file after timeout.
 func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) {
-	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
+	retryBackoff := firstRetryBackOffDuration
 	timeout := time.After(totalTimeout)
 	for {
 		cert, err := os.ReadFile(path)
@@ -471,8 +464,8 @@ func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) 
 			return cert, nil
 		}
 		select {
-		case <-time.After(time.Duration(retryBackoffInMS)):
-			retryBackoffInMS *= 2
+		case <-time.After(retryBackoff):
+			retryBackoff *= 2
 		case <-timeout:
 			return nil, err
 		case <-sc.stop:
@@ -580,6 +573,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 		RSAKeySize: sc.configOptions.WorkloadRSAKeySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
+		ECCCurve:   pkiutil.SupportedEllipticCurves(sc.configOptions.ECCCurve),
 	}
 
 	// Generate the cert/key, send CSR to CA.
@@ -682,15 +676,10 @@ func (sc *SecretManagerClient) handleFileWatch() {
 				resources[k] = v
 			}
 			sc.certMutex.RUnlock()
-			// Trigger callbacks for all resources referencing this file. This is practically always
-			// a single resource.
 			cacheLog.Infof("event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
-			for k := range resources {
-				if k.Filename == event.Name {
-					sc.OnSecretUpdate(k.ResourceName)
-				}
-			}
 			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
+			// The cleanup should happen first before triggering callbacks, as the callbacks are async and
+			// we may get generate call before cleanup is done and we will end up not watching the file.
 			if isRemove(event) {
 				sc.certMutex.Lock()
 				for fc := range sc.fileCerts {
@@ -701,6 +690,13 @@ func (sc *SecretManagerClient) handleFileWatch() {
 					}
 				}
 				sc.certMutex.Unlock()
+			}
+			// Trigger callbacks for all resources referencing this file. This is practically always
+			// a single resource.
+			for k := range resources {
+				if k.Filename == event.Name {
+					sc.OnSecretUpdate(k.ResourceName)
+				}
 			}
 		case err, ok := <-sc.certWatcher.Errors:
 			// Channel is closed.

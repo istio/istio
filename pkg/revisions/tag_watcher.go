@@ -19,13 +19,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
-	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // TagWatcher keeps track of the current tags and can notify watchers
@@ -46,7 +44,7 @@ type tagWatcher struct {
 
 	queue    controllers.Queue
 	webhooks kclient.Client[*admissionregistrationv1.MutatingWebhookConfiguration]
-	index    *kclient.Index[*admissionregistrationv1.MutatingWebhookConfiguration, string]
+	index    *kclient.Index[string, *admissionregistrationv1.MutatingWebhookConfiguration]
 }
 
 func NewTagWatcher(client kube.Client, revision string) TagWatcher {
@@ -60,7 +58,7 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 	p.webhooks = kclient.NewFiltered[*admissionregistrationv1.MutatingWebhookConfiguration](client, kubetypes.Filter{
 		ObjectFilter: isTagWebhook,
 	})
-	p.index = kclient.CreateIndexWithDelegate[*admissionregistrationv1.MutatingWebhookConfiguration](p.webhooks,
+	p.index = kclient.CreateIndexWithDelegate[string, *admissionregistrationv1.MutatingWebhookConfiguration](p.webhooks,
 		func(o *admissionregistrationv1.MutatingWebhookConfiguration) []string {
 			rev := o.GetLabels()[label.IoIstioRev.Name]
 			if rev == "" {
@@ -72,8 +70,7 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 }
 
 func (p *tagWatcher) Run(stopCh <-chan struct{}) {
-	if !kube.WaitForCacheSync(stopCh, p.webhooks.HasSynced) {
-		log.Errorf("failed to sync tag watcher")
+	if !kube.WaitForCacheSync("tag watcher", stopCh, p.webhooks.HasSynced) {
 		return
 	}
 	// Notify handlers of initial state
@@ -93,7 +90,7 @@ func (p *tagWatcher) HasSynced() bool {
 func (p *tagWatcher) GetMyTags() sets.String {
 	res := sets.New(p.revision)
 	for _, wh := range p.index.Lookup(p.revision) {
-		res.Insert(wh.GetLabels()[tag.IstioTagLabel])
+		res.Insert(wh.GetLabels()[IstioTagLabel])
 	}
 	return res
 }
@@ -111,6 +108,8 @@ func isTagWebhook(uobj any) bool {
 	if !ok {
 		return false
 	}
-	_, ok = obj.GetLabels()[tag.IstioTagLabel]
+	_, ok = obj.GetLabels()[IstioTagLabel]
 	return ok
 }
+
+const IstioTagLabel = "istio.io/tag"

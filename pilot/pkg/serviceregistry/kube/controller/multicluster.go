@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -203,8 +204,6 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*kubeControlle
 
 	options := m.opts
 	options.ClusterID = cluster.ID
-	// different clusters may have different k8s version, re-apply conditional default
-	options.EndpointMode = DetectEndpointMode(client)
 	if !configCluster {
 		options.SyncTimeout = features.RemoteClusterTimeout
 	}
@@ -237,6 +236,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 	}
 	if m.configController != nil && features.EnableAmbientControllers {
 		m.configController.RegisterEventHandler(gvk.AuthorizationPolicy, kubeRegistry.AuthorizationPolicyHandler)
+		m.configController.RegisterEventHandler(gvk.PeerAuthentication, kubeRegistry.PeerAuthenticationHandler)
 	}
 
 	if configCluster && m.serviceEntryController != nil && features.EnableEnhancedResourceScoping {
@@ -271,7 +271,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 	}
 
 	// namespacecontroller requires discoverySelectors only if EnableEnhancedResourceScoping feature flag is set.
-	discoveryNamespacesFilter := namespace.DiscoveryNamespacesFilter(nil)
+	var discoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
 	if features.EnableEnhancedResourceScoping {
 		discoveryNamespacesFilter = kubeRegistry.opts.DiscoveryNamespacesFilter
 	}
@@ -279,56 +279,60 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 	// run after WorkloadHandler is added
 	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
 
-	shouldLead := m.checkShouldLead(client, options.SystemNamespace)
-	log.Infof("should join leader-election for cluster %s: %t", cluster.ID, shouldLead)
-
-	if m.startNsController && (shouldLead || configCluster) {
-		// Block server exit on graceful termination of the leader controller.
-		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
-			log.Infof("joining leader-election for %s in %s on cluster %s",
-				leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
-			election := leaderelection.
-				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
-				AddRunFunction(func(leaderStop <-chan struct{}) {
-					log.Infof("starting namespace controller for cluster %s", cluster.ID)
-					nc := NewNamespaceController(client, m.caBundleWatcher, discoveryNamespacesFilter)
-					// Start informers again. This fixes the case where informers for namespace do not start,
-					// as we create them only after acquiring the leader lock
-					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-					// basically lazy loading the informer, if we stop it when we lose the lock we will never
-					// recreate it again.
-					client.RunAndWait(clusterStopCh)
-					nc.Run(leaderStop)
-				})
-			election.Run(clusterStopCh)
-			return nil
-		})
-	}
-	// Set up injection webhook patching for remote clusters we are controlling.
-	// The config cluster has this patching set up elsewhere. We may eventually want to move it here.
-	// We can not use leader election for webhook patching because each revision needs to patch its own
-	// webhook.
-	if shouldLead && !configCluster && m.caBundleWatcher != nil {
-		// Patch injection webhook cert
-		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
-		// operator or CI/CD
-		if features.InjectionWebhookConfigName != "" {
-			log.Infof("initializing injection webhook cert patcher for cluster %s", cluster.ID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
-			if err != nil {
-				log.Errorf("could not initialize webhook cert patcher: %v", err)
-			} else {
-				go patcher.Run(clusterStopCh)
+	go func() {
+		var shouldLead bool
+		if !configCluster {
+			shouldLead = m.checkShouldLead(client, options.SystemNamespace, clusterStopCh)
+			log.Infof("should join leader-election for cluster %s: %t", cluster.ID, shouldLead)
+		}
+		if m.startNsController && (shouldLead || configCluster) {
+			// Block server exit on graceful termination of the leader controller.
+			m.s.RunComponentAsyncAndWait("namespace controller", func(_ <-chan struct{}) error {
+				log.Infof("joining leader-election for %s in %s on cluster %s",
+					leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
+				election := leaderelection.
+					NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
+					AddRunFunction(func(leaderStop <-chan struct{}) {
+						log.Infof("starting namespace controller for cluster %s", cluster.ID)
+						nc := NewNamespaceController(client, m.caBundleWatcher, discoveryNamespacesFilter)
+						// Start informers again. This fixes the case where informers for namespace do not start,
+						// as we create them only after acquiring the leader lock
+						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+						// basically lazy loading the informer, if we stop it when we lose the lock we will never
+						// recreate it again.
+						client.RunAndWait(clusterStopCh)
+						nc.Run(leaderStop)
+					})
+				election.Run(clusterStopCh)
+				return nil
+			})
+		}
+		// Set up injection webhook patching for remote clusters we are controlling.
+		// The config cluster has this patching set up elsewhere. We may eventually want to move it here.
+		// We can not use leader election for webhook patching because each revision needs to patch its own
+		// webhook.
+		if shouldLead && !configCluster && m.caBundleWatcher != nil {
+			// Patch injection webhook cert
+			// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
+			// operator or CI/CD
+			if features.InjectionWebhookConfigName != "" {
+				log.Infof("initializing injection webhook cert patcher for cluster %s", cluster.ID)
+				patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
+				if err != nil {
+					log.Errorf("could not initialize webhook cert patcher: %v", err)
+				} else {
+					go patcher.Run(clusterStopCh)
+				}
 			}
 		}
-	}
+	}()
 
 	// setting up the serviceexport controller if and only if it is turned on in the meshconfig.
 	if features.EnableMCSAutoExport {
 		log.Infof("joining leader-election for %s in %s on cluster %s",
 			leaderelection.ServiceExportController, options.SystemNamespace, options.ClusterID)
 		// Block server exit on graceful termination of the leader controller.
-		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
+		m.s.RunComponentAsyncAndWait("auto serviceexport controller", func(_ <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, !configCluster, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
@@ -354,29 +358,42 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 }
 
 // checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
-func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace string) bool {
+func (m *Multicluster) checkShouldLead(client kubelib.Client, systemNamespace string, stop <-chan struct{}) bool {
+	var res bool
 	if features.ExternalIstiod {
-		namespace, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), systemNamespace, metav1.GetOptions{})
-		if err == nil {
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			select {
+			case <-stop:
+				cancel()
+			case <-ctx.Done():
+			}
+		}()
+		defer cancel()
+		_ = b.RetryWithContext(ctx, func() error {
+			namespace, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), systemNamespace, metav1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
 			// found same system namespace on the remote cluster so check if we are a selected istiod to lead
 			istiodCluster, found := namespace.Annotations[annotation.TopologyControlPlaneClusters.Name]
 			if found {
 				localCluster := string(m.opts.ClusterID)
 				for _, cluster := range strings.Split(istiodCluster, ",") {
 					if cluster == "*" || cluster == localCluster {
-						return true
+						res = true
+						return nil
 					}
 				}
 			}
-		} else if !errors.IsNotFound(err) {
-			// TODO use a namespace informer to handle transient errors and to also allow dynamic updates
-			log.Errorf("failed to access system namespace %s: %v", systemNamespace, err)
-			// For now, fail open in case it's just a transient error. This may result in some unexpected error messages in istiod
-			// logs and/or some unnecessary attempts at leader election, but a local istiod will always win in those cases.
-			return true
-		}
+			return nil
+		})
 	}
-	return false
+	return res
 }
 
 // deleteCluster deletes cluster resources and does not trigger push.

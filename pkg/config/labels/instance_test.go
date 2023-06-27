@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestInstance(t *testing.T) {
@@ -84,6 +85,43 @@ func TestInstance(t *testing.T) {
 		if got != c.expected {
 			t.Errorf("%v.SubsetOf(%v) got %v, expected %v", c.left, c.right, got, c.expected)
 		}
+	}
+}
+
+func TestString(t *testing.T) {
+	cases := []struct {
+		input    labels.Instance
+		expected string
+	}{
+		{
+			input:    nil,
+			expected: "",
+		},
+		{
+			input:    labels.Instance{},
+			expected: "",
+		},
+		{
+			input:    labels.Instance{"app": "a"},
+			expected: "app=a",
+		},
+		{
+			input:    labels.Instance{"app": "a", "prod": "env"},
+			expected: "app=a,prod=env",
+		},
+		{
+			input:    labels.Instance{"foo": ""},
+			expected: "foo",
+		},
+		{
+			input:    labels.Instance{"app": "a", "foo": ""},
+			expected: "app=a,foo",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.expected, func(t *testing.T) {
+			assert.Equal(t, tt.input.String(), tt.expected)
+		})
 	}
 }
 
@@ -158,5 +196,30 @@ func TestInstanceValidate(t *testing.T) {
 		if got := c.tags.Validate(); (got == nil) != c.valid {
 			t.Errorf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
 		}
+	}
+}
+
+func BenchmarkLabelString(b *testing.B) {
+	big := labels.Instance{}
+	for i := 0; i < 50; i++ {
+		big["topology.kubernetes.io/region"] = "some value"
+	}
+	small := labels.Instance{
+		"app": "foo",
+		"baz": "bar",
+	}
+	cases := []struct {
+		name  string
+		label labels.Instance
+	}{
+		{"small", small},
+		{"big", big},
+	}
+	for _, tt := range cases {
+		b.Run(tt.name, func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				_ = tt.label.String()
+			}
+		})
 	}
 }

@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -40,10 +39,12 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
-	"istio.io/pkg/monitoring"
 )
 
 // Metrics is an interface for capturing metrics on a per-node basis.
@@ -449,7 +450,7 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 		pr.ConfigsUpdated = nil
 	} else {
 		for conf := range other.ConfigsUpdated {
-			pr.ConfigsUpdated[conf] = struct{}{}
+			pr.ConfigsUpdated.Insert(conf)
 		}
 	}
 
@@ -490,12 +491,8 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
 		merged.ConfigsUpdated = make(sets.Set[ConfigKey], len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
-		for conf := range pr.ConfigsUpdated {
-			merged.ConfigsUpdated[conf] = struct{}{}
-		}
-		for conf := range other.ConfigsUpdated {
-			merged.ConfigsUpdated[conf] = struct{}{}
-		}
+		merged.ConfigsUpdated.Merge(pr.ConfigsUpdated)
+		merged.ConfigsUpdated.Merge(other.ConfigsUpdated)
 	}
 
 	return merged
@@ -864,14 +861,17 @@ func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
 // namespace "" indicates all namespaces
 func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
-	out := make([]*Service, 0)
+	var out []*Service
 
 	// First add private services and explicitly exportedTo services
 	if ns == NamespaceAll {
+		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace)+len(ps.ServiceIndex.public))
 		for _, privateServices := range ps.ServiceIndex.privateByNamespace {
 			out = append(out, privateServices...)
 		}
 	} else {
+		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace[ns])+
+			len(ps.ServiceIndex.exportedToNamespace[ns])+len(ps.ServiceIndex.public))
 		out = append(out, ps.ServiceIndex.privateByNamespace[ns]...)
 		out = append(out, ps.ServiceIndex.exportedToNamespace[ns]...)
 	}
@@ -942,7 +942,18 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 		len(ps.virtualServiceIndex.publicByGateway[gateway]))
 	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name]...)
 	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name]...)
-	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
+	// Favor same-namespace Gateway routes, to give the "consumer override" preference.
+	// We do 2 iterations here to avoid extra allocations.
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
+		if UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace {
+			res = append(res, vs)
+		}
+	}
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
+		if !(UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace) {
+			res = append(res, vs)
+		}
+	}
 
 	return res
 }
@@ -1526,11 +1537,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				for _, gw := range gwNames {
 					ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
 				}
-				continue
-			} else if exportToMap[visibility.None] {
-				// not possible
-				continue
-			} else {
+			} else if !exportToMap[visibility.None] {
 				// . or other namespaces
 				for exportTo := range exportToMap {
 					if exportTo == visibility.Private || string(exportTo) == ns {
@@ -1631,32 +1638,31 @@ func (ps *PushContext) initDefaultExportMaps() {
 // with the proxy and derive listeners/routes/clusters based on the sidecar
 // scope.
 func (ps *PushContext) initSidecarScopes(env *Environment) {
-	sidecarConfigs := env.List(gvk.Sidecar, NamespaceAll)
+	rawSidecarConfigs := env.List(gvk.Sidecar, NamespaceAll)
 
-	sortConfigByCreationTime(sidecarConfigs)
+	sortConfigByCreationTime(rawSidecarConfigs)
 
-	sidecarConfigWithSelector := make([]config.Config, 0)
-	sidecarConfigWithoutSelector := make([]config.Config, 0)
-	for _, sidecarConfig := range sidecarConfigs {
+	sidecarConfigs := make([]config.Config, 0, len(rawSidecarConfigs))
+	for _, sidecarConfig := range rawSidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
+		// sidecars with selector take preference
 		if sidecar.WorkloadSelector != nil {
-			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
-		} else {
-			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
+			sidecarConfigs = append(sidecarConfigs, sidecarConfig)
 		}
 	}
-
-	sidecarNum := len(sidecarConfigs)
-	sidecarConfigs = make([]config.Config, 0, sidecarNum)
-	// sidecars with selector take preference
-	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithSelector...)
-	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithoutSelector...)
+	for _, sidecarConfig := range rawSidecarConfigs {
+		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
+		// sidecars without selector placed behind
+		if sidecar.WorkloadSelector == nil {
+			sidecarConfigs = append(sidecarConfigs, sidecarConfig)
+		}
+	}
 
 	// Hold reference root namespace's sidecar config
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
-	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
+	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, len(sidecarConfigs))
 	for i, sidecarConfig := range sidecarConfigs {
 		ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
 			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
@@ -1859,11 +1865,11 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 	// sort slices by priority
 	for i, slice := range matchedPlugins {
 		sort.SliceStable(slice, func(i, j int) bool {
-			iPriority := int64(math.MinInt64)
+			iPriority := int32(math.MinInt32)
 			if prio := slice[i].Priority; prio != nil {
 				iPriority = prio.Value
 			}
-			jPriority := int64(math.MinInt64)
+			jPriority := int32(math.MinInt32)
 			if prio := slice[j].Priority; prio != nil {
 				jPriority = prio.Value
 			}
@@ -2026,13 +2032,10 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		gw := cfg.Spec.(*networking.Gateway)
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
 			gwsvcs := strings.Split(gwsvcstr, ",")
-			known := map[host.Name]struct{}{}
-			for _, g := range gwsvcs {
-				known[host.Name(g)] = struct{}{}
-			}
+			known := sets.New[string](gwsvcs...)
 			matchingInstances := make([]*ServiceInstance, 0, len(proxy.ServiceInstances))
 			for _, si := range proxy.ServiceInstances {
-				if _, f := known[si.Service.Hostname]; f && si.Service.Attributes.Namespace == cfg.Namespace {
+				if _, f := known[string(si.Service.Hostname)]; f && si.Service.Attributes.Namespace == cfg.Namespace {
 					matchingInstances = append(matchingInstances, si)
 				}
 			}
@@ -2164,17 +2167,21 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, por
 	}]
 }
 
-func (ps *PushContext) SupportsTunnel(ip string) bool {
-	infos, _ := ps.ambientIndex.PodInformation(sets.New(types.NamespacedName{Name: ip}))
-	for _, p := range infos {
-		if p.Protocol == workloadapi.Protocol_HTTP {
+// SupportsTunnel checks if a given IP address supports tunneling.
+// This currently only accepts workload IPs as arguments; services will always return "false".
+func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
+	// There should be a 1:1 relationship between IP and Workload but the interface doesn't allow this lookup.
+	// We should get 0 or 1 workloads, so just return the first.
+	infos, _ := ps.ambientIndex.AddressInformation(sets.New(n.String() + "/" + ip))
+	for _, wl := range ExtractWorkloadsFromAddresses(infos) {
+		if wl.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
 			return true
 		}
 	}
 	return false
 }
 
-func (ps *PushContext) WaypointsFor(scope WaypointScope) sets.Set[netip.Addr] {
+func (ps *PushContext) WaypointsFor(scope WaypointScope) []netip.Addr {
 	return ps.ambientIndex.Waypoint(scope)
 }
 

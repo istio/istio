@@ -23,12 +23,12 @@ import (
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cafile"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
-	"istio.io/pkg/log"
 )
 
 func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenManagerPlugin string) (*security.Options, error) {
@@ -47,6 +47,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		WorkloadRSAKeySize:             workloadRSAKeySizeEnv,
 		Pkcs8Keys:                      pkcs8KeysEnv,
 		ECCSigAlg:                      eccSigAlgEnv,
+		ECCCurve:                       eccCurvEnv,
 		SecretTTL:                      secretTTLEnv,
 		FileDebounceDuration:           fileDebounceDuration,
 		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,

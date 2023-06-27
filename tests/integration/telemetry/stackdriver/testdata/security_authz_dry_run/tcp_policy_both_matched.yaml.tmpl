@@ -1,4 +1,4 @@
-apiVersion: security.istio.io/v1
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   namespace: "{{ .Namespace }}"
@@ -12,7 +12,7 @@ spec:
     - source:
         principals: ["*"]
 ---
-apiVersion: security.istio.io/v1
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   namespace: "{{ .Namespace }}"

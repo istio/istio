@@ -65,7 +65,7 @@ func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 }
 
 func (p *defaultWatcher) Run(stopCh <-chan struct{}) {
-	kube.WaitForCacheSync(stopCh, p.webhooks.HasSynced)
+	kube.WaitForCacheSync("default revision", stopCh, p.webhooks.HasSynced)
 	p.queue.Run(stopCh)
 }
 

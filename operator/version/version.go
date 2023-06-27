@@ -15,13 +15,17 @@
 package version
 
 import (
+	"time"
+
 	pkgversion "istio.io/istio/operator/pkg/version"
-	buildversion "istio.io/pkg/version"
+	buildversion "istio.io/istio/pkg/version"
 )
 
 const (
 	// OperatorCodeBaseVersion is the version string from the code base.
-	OperatorCodeBaseVersion = "1.18.0"
+	OperatorCodeBaseVersion = "1.19.0"
+	OperatorEOLYear         = 2024
+	OperatorEOLMonth        = time.April
 )
 
 var (
@@ -44,4 +48,9 @@ func init() {
 		panic(err)
 	}
 	OperatorBinaryVersion = *v
+}
+
+func IsEOL() bool {
+	t := time.Now()
+	return t.Year() > OperatorEOLYear || (t.Year() == OperatorEOLYear && t.Month() >= OperatorEOLMonth)
 }

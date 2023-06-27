@@ -33,11 +33,9 @@ import (
 	"syscall"
 	"time"
 
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/expfmt"
-	"go.opencensus.io/stats/view"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -45,7 +43,6 @@ import (
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	grpcStatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/strings/slices"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
@@ -53,9 +50,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/apimirror"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -151,17 +150,15 @@ type Server struct {
 
 func init() {
 	registry := prometheus.NewRegistry()
-	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", prometheus.Registerer(registry))
+	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", registry)
 	wrapped.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	wrapped.MustRegister(collectors.NewGoCollector())
 
-	promRegistry = registry
-	// go collector metrics collide with other metrics.
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry, Registerer: wrapped})
+	_, err := monitoring.RegisterPrometheusExporter(wrapped, registry)
 	if err != nil {
 		log.Fatalf("could not setup exporter: %v", err)
 	}
-	view.RegisterExporter(exporter)
+	promRegistry = registry
 }
 
 // NewServer creates a new status server.
@@ -571,9 +568,14 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func negotiateMetricsFormat(contentType string) expfmt.Format {
-	mediaType, _, err := mime.ParseMediaType(contentType)
+	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err == nil && mediaType == expfmt.OpenMetricsType {
-		return expfmt.FmtOpenMetrics
+		switch params["version"] {
+		case expfmt.OpenMetricsVersion_1_0_0:
+			return expfmt.FmtOpenMetrics_1_0_0
+		case expfmt.OpenMetricsVersion_0_0_1, "":
+			return expfmt.FmtOpenMetrics_0_0_1
+		}
 	}
 	return expfmt.FmtText
 }

@@ -91,9 +91,9 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1beta1.ProxyConfig)),
 		}, metav1.CreateOptions{})
 	case gvk.ReferenceGrant:
-		return c.GatewayAPI().GatewayV1alpha2().ReferenceGrants(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.ReferenceGrant{
+		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.ReferenceGrantSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
 		}, metav1.CreateOptions{})
 	case gvk.RequestAuthentication:
 		return c.Istio().SecurityV1beta1().RequestAuthentications(cfg.Namespace).Create(context.TODO(), &apiistioioapisecurityv1beta1.RequestAuthentication{
@@ -208,9 +208,9 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1beta1.ProxyConfig)),
 		}, metav1.UpdateOptions{})
 	case gvk.ReferenceGrant:
-		return c.GatewayAPI().GatewayV1alpha2().ReferenceGrants(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.ReferenceGrant{
+		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.ReferenceGrantSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
 		}, metav1.UpdateOptions{})
 	case gvk.RequestAuthentication:
 		return c.Istio().SecurityV1beta1().RequestAuthentications(cfg.Namespace).Update(context.TODO(), &apiistioioapisecurityv1beta1.RequestAuthentication{
@@ -540,19 +540,19 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.ReferenceGrant:
-		oldRes := &sigsk8siogatewayapiapisv1alpha2.ReferenceGrant{
+		oldRes := &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1alpha2.ReferenceGrantSpec)),
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
 		}
-		modRes := &sigsk8siogatewayapiapisv1alpha2.ReferenceGrant{
+		modRes := &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1alpha2.ReferenceGrantSpec)),
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
 			return nil, err
 		}
-		return c.GatewayAPI().GatewayV1alpha2().ReferenceGrants(orig.Namespace).
+		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.RequestAuthentication:
 		oldRes := &apiistioioapisecurityv1beta1.RequestAuthentication{
@@ -751,7 +751,7 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 	case gvk.ProxyConfig:
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.ReferenceGrant:
-		return c.GatewayAPI().GatewayV1alpha2().ReferenceGrants(namespace).Delete(context.TODO(), name, deleteOptions)
+		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.RequestAuthentication:
 		return c.Istio().SecurityV1beta1().RequestAuthentications(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.ServiceEntry:
@@ -1189,7 +1189,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 	gvk.ReferenceGrant: func(r runtime.Object) config.Config {
-		obj := r.(*sigsk8siogatewayapiapisv1alpha2.ReferenceGrant)
+		obj := r.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrant)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.ReferenceGrant,

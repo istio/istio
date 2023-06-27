@@ -27,8 +27,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/pkg/env"
-	istioversion "istio.io/pkg/version"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/lazy"
+	istioversion "istio.io/istio/pkg/version"
 )
 
 // IstioControlPlaneInstance defines the format Istio uses for when creating Envoy config.core.v3.ControlPlane.identifier
@@ -41,14 +42,8 @@ type IstioControlPlaneInstance struct {
 	Info istioversion.BuildInfo
 }
 
-var controlPlane *core.ControlPlane
-
-// ControlPlane identifies the instance and Istio version.
-func ControlPlane() *core.ControlPlane {
-	return controlPlane
-}
-
-func init() {
+// Evaluate the controlPlane lazily in order to allow "POD_NAME" env var setting after running the process.
+var controlPlane = lazy.New(func() (*core.ControlPlane, error) {
 	// The Pod Name (instance identity) is in PilotArgs, but not reachable globally nor from DiscoveryServer
 	podName := env.Register("POD_NAME", "", "").Get()
 	byVersion, err := json.Marshal(IstioControlPlaneInstance{
@@ -59,7 +54,14 @@ func init() {
 	if err != nil {
 		log.Warnf("XDS: Could not serialize control plane id: %v", err)
 	}
-	controlPlane = &core.ControlPlane{Identifier: string(byVersion)}
+	return &core.ControlPlane{Identifier: string(byVersion)}, nil
+})
+
+// ControlPlane identifies the instance and Istio version.
+func ControlPlane() *core.ControlPlane {
+	// Error will never happen because the getter of lazy does not return error.
+	cp, _ := controlPlane.Get()
+	return cp
 }
 
 func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {
@@ -108,8 +110,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 	// See https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#deleting-resources.
 	// This means if there are only removals, we will not respond.
 	var logFiltered string
-	if !req.Delta.IsEmpty() && features.PartialFullPushes &&
-		!con.proxy.IsProxylessGrpc() {
+	if !req.Delta.IsEmpty() && !con.proxy.IsProxylessGrpc() {
 		logFiltered = " filtered:" + strconv.Itoa(len(w.ResourceNames)-len(req.Delta.Subscribed))
 		w = &model.WatchedResource{
 			TypeUrl:       w.TypeUrl,
@@ -135,7 +136,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 
 		// If we are sending a request, we must respond or we can get Envoy stuck. Assert we do.
 		// One exception is if Envoy is simply unsubscribing from some resources, in which case we can skip.
-		isUnsubscribe := features.PartialFullPushes && !req.Delta.IsEmpty() && req.Delta.Subscribed.IsEmpty()
+		isUnsubscribe := !req.Delta.IsEmpty() && req.Delta.Subscribed.IsEmpty()
 		if features.EnableUnsafeAssertions && err == nil && res == nil && req.IsRequest() && !isUnsubscribe {
 			log.Fatalf("%s: SKIPPED%s for node:%s%s but expected a response for request", v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, info)
 		}

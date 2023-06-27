@@ -19,6 +19,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	v1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -29,6 +30,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -67,22 +69,23 @@ func TestSAN(t *testing.T) {
 			ClusterIP: "9.9.9.9",
 		},
 	}
-	endpoint := &v1.Endpoints{
+	endpoint := &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      service.Name,
 			Namespace: service.Namespace,
+			Labels: map[string]string{
+				discoveryv1.LabelServiceName: service.Name,
+			},
 		},
-		Subsets: []v1.EndpointSubset{{
-			Addresses: []v1.EndpointAddress{{
-				IP: pod.Status.PodIP,
-				TargetRef: &v1.ObjectReference{
-					Kind:      "Pod",
-					Namespace: pod.Namespace,
-					Name:      pod.Name,
-				},
-			}},
-			Ports: []v1.EndpointPort{{Name: "http", Port: 80}},
+		Endpoints: []discoveryv1.Endpoint{{
+			Addresses: []string{pod.Status.PodIP},
+			TargetRef: &v1.ObjectReference{
+				Kind:      "Pod",
+				Namespace: pod.Namespace,
+				Name:      pod.Name,
+			},
 		}},
+		Ports: []discoveryv1.EndpointPort{{Name: ptr.Of("http"), Port: ptr.Of(int32(80))}},
 	}
 	dr := config.Config{
 		Meta: config.Meta{
@@ -166,7 +169,7 @@ func TestSAN(t *testing.T) {
 			name:    "Kubernetes service and EDS ServiceEntry",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{dr, seEDS},
-			// The ServiceEntry rule will "win" the PushContext.ServiceAccounts.
+			// The ServiceEntry rule will "win" the pushContext.ServiceAccounts.
 			// However, the Service will be processed first into a cluster. Since its not external, we do not add the SANs automatically
 			sans: nil,
 		},

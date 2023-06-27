@@ -35,11 +35,11 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // installerScope is the scope for all commands in the mesh package.
-var installerScope = log.RegisterScope("installer", "installer", 0)
+var installerScope = log.RegisterScope("installer", "installer")
 
 type Printer interface {
 	Printf(format string, a ...any)
@@ -112,7 +112,7 @@ func Confirm(msg string, writer io.Writer) bool {
 
 func KubernetesClients(kubeConfigPath, context string, l clog.Logger) (kube.CLIClient, client.Client, error) {
 	rc, err := kube.DefaultRestConfig(kubeConfigPath, context, func(config *rest.Config) {
-		// We are running a one-off command locally, so we don't need to worry too much about rate limitting
+		// We are running a one-off command locally, so we don't need to worry too much about rate limiting
 		// Bumping this up greatly decreases install time
 		config.QPS = 50
 		config.Burst = 100

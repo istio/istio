@@ -17,6 +17,8 @@ package controller
 import (
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -24,6 +26,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test"
@@ -36,10 +39,10 @@ const (
 
 type FakeControllerOptions struct {
 	Client                    kubelib.Client
+	CRDs                      []schema.GroupVersionResource
 	NetworksWatcher           mesh.NetworksWatcher
 	MeshWatcher               mesh.Watcher
 	ServiceHandler            model.ServiceHandler
-	Mode                      EndpointMode
 	ClusterID                 cluster.ID
 	WatchedNamespaces         string
 	DomainSuffix              string
@@ -49,6 +52,7 @@ type FakeControllerOptions struct {
 	SkipRun                   bool
 	ConfigController          model.ConfigStoreController
 	ConfigCluster             bool
+	WorkloadEntryEnabled      bool
 }
 
 type FakeController struct {
@@ -80,7 +84,6 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		Metrics:                   &model.Environment{},
 		MeshNetworksWatcher:       opts.NetworksWatcher,
 		MeshWatcher:               opts.MeshWatcher,
-		EndpointMode:              opts.Mode,
 		ClusterID:                 opts.ClusterID,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 		MeshServiceController:     meshServiceController,
@@ -107,6 +110,9 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		// If we created the stop, clean it up. Otherwise, caller is responsible
 		c.stop = test.NewStop(t)
 	}
+	for _, crd := range opts.CRDs {
+		clienttest.MakeCRD(t, c.client, crd)
+	}
 	opts.Client.RunAndWait(c.stop)
 	var fx *xdsfake.Updater
 	if x, ok := xdsUpdater.(*xdsfake.Updater); ok {
@@ -115,7 +121,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 
 	if !opts.SkipRun {
 		go c.Run(c.stop)
-		kubelib.WaitForCacheSync(c.stop, c.HasSynced)
+		kubelib.WaitForCacheSync("test", c.stop, c.HasSynced)
 	}
 
 	return &FakeController{c}, fx

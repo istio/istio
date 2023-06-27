@@ -30,8 +30,8 @@ import (
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection"
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
-	"istio.io/pkg/log"
 )
 
 // Various locks used throughout the code
@@ -47,6 +47,13 @@ const (
 	GatewayStatusController = "istio-gateway-status-leader"
 	StatusController        = "istio-status-leader"
 	AnalyzeController       = "istio-analyze-leader"
+	// GatewayDeploymentController controls translating Kubernetes Gateway objects into various derived
+	// resources (Service, Deployment, etc).
+	// Unlike other types which use ConfigMaps, we use a Lease here. This is because:
+	// * Others use configmap for backwards compatibility
+	// * This type is per-revision, so it is higher cost. Leases are cheaper
+	// * Other types use "prioritized leader election", which isn't implemented for Lease
+	GatewayDeploymentController = "istio-gateway-deployment"
 )
 
 // Leader election key prefix for remote istiod managed clusters
@@ -67,8 +74,8 @@ type LeaderElection struct {
 
 	// Criteria to determine leader priority.
 	revision       string
+	perRevision    bool
 	remote         bool
-	prioritized    bool
 	defaultWatcher revisions.DefaultWatcher
 
 	// Records which "cycle" the election is on. This is incremented each time an election is won and then lost
@@ -92,7 +99,7 @@ func (l *LeaderElection) Run(stop <-chan struct{}) {
 		<-stop
 		return
 	}
-	if l.prioritized && l.defaultWatcher != nil {
+	if l.defaultWatcher != nil {
 		go l.defaultWatcher.Run(stop)
 	}
 	for {
@@ -141,7 +148,7 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 	if l.remote {
 		key = remoteIstiodPrefix + key
 	}
-	lock := k8sresourcelock.ConfigMapLock{
+	var lock k8sresourcelock.Interface = &k8sresourcelock.ConfigMapLock{
 		ConfigMapMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
 		Client:        l.client.CoreV1(),
 		LockConfig: k8sresourcelock.ResourceLockConfig{
@@ -149,9 +156,19 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 			Key:      key,
 		},
 	}
+	if l.perRevision {
+		lock = &k8sresourcelock.LeaseLock{
+			LeaseMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
+			Client:    l.client.CoordinationV1(),
+			// Note: Key is NOT used. This is not implemented in the library for Lease nor needed, since this is already per-revision.
+			LockConfig: k8sresourcelock.ResourceLockConfig{
+				Identity: l.name,
+			},
+		}
+	}
 
 	config := k8sleaderelection.LeaderElectionConfig{
-		Lock:          &lock,
+		Lock:          lock,
 		LeaseDuration: l.ttl,
 		RenewDeadline: l.ttl / 2,
 		RetryPeriod:   l.ttl / 4,
@@ -160,13 +177,10 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 		// to instances are both considered the leaders. As such, if this is intended to be use for mission-critical
 		// usages (rather than avoiding duplication of work), this may need to be re-evaluated.
 		ReleaseOnCancel: true,
-	}
-
-	if l.prioritized {
 		// Function to use to decide whether this leader should steal the existing lock.
-		config.KeyComparison = func(leaderKey string) bool {
+		KeyComparison: func(leaderKey string) bool {
 			return LocationPrioritizedComparison(leaderKey, l)
-		}
+		},
 	}
 
 	return k8sleaderelection.NewLeaderElector(config)
@@ -193,18 +207,32 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderEle
 	return l
 }
 
+// NewLeaderElection creates a leader election instance with the provided ID. This follows standard Kubernetes
+// elections, with one difference: the "default" revision will steal the lock from other revisions.
 func NewLeaderElection(namespace, name, electionID, revision string, client kube.Client) *LeaderElection {
-	return NewLeaderElectionMulticluster(namespace, name, electionID, revision, false, client)
+	return newLeaderElection(namespace, name, electionID, revision, false, false, client)
+}
+
+// NewPerRevisionLeaderElection creates a *per revision* leader election. This means there will be one leader for each revision.
+func NewPerRevisionLeaderElection(namespace, name, electionID, revision string, client kube.Client) *LeaderElection {
+	return newLeaderElection(namespace, name, electionID, revision, true, false, client)
 }
 
 func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, remote bool, client kube.Client) *LeaderElection {
+	return newLeaderElection(namespace, name, electionID, revision, false, true, client)
+}
+
+func newLeaderElection(namespace, name, electionID, revision string, perRevision bool, remote bool, client kube.Client) *LeaderElection {
 	var watcher revisions.DefaultWatcher
-	if features.EnableLeaderElection && features.PrioritizedLeaderElection {
+	if features.EnableLeaderElection {
 		watcher = revisions.NewDefaultWatcher(client, revision)
 	}
 	if name == "" {
 		hn, _ := os.Hostname()
 		name = fmt.Sprintf("unknown-%s", hn)
+	}
+	if perRevision && revision != "" {
+		electionID += "-" + revision
 	}
 	return &LeaderElection{
 		namespace:      namespace,
@@ -212,9 +240,9 @@ func NewLeaderElectionMulticluster(namespace, name, electionID, revision string,
 		client:         client.Kube(),
 		electionID:     electionID,
 		revision:       revision,
+		perRevision:    perRevision,
 		enabled:        features.EnableLeaderElection,
 		remote:         remote,
-		prioritized:    features.PrioritizedLeaderElection,
 		defaultWatcher: watcher,
 		// Default to a 30s ttl. Overridable for tests
 		ttl:   time.Second * 30,

@@ -39,6 +39,12 @@ PROXY_REPO_SHA="${PROXY_REPO_SHA:-$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep 
 # Envoy binary variables
 ISTIO_ENVOY_BASE_URL="${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/istio-build/proxy}"
 
+# If we are not using the default, assume its private and we need to authenticate
+if [[ "${ISTIO_ENVOY_BASE_URL}" != "https://storage.googleapis.com/istio-build/proxy" ]]; then
+  AUTH_HEADER="Authorization: Bearer $(shell gcloud auth print-access-token)"
+  export AUTH_HEADER
+fi
+
 SIDECAR="${SIDECAR:-envoy}"
 
 # OS-neutral vars. These currently only work for linux.
@@ -121,33 +127,6 @@ function download_envoy_if_necessary () {
     # Make a copy named just "envoy" in the same directory (overwrite if necessary).
     echo "Copying $2 to $(dirname "$2")/${3}"
     cp -f "$2" "$(dirname "$2")/${3}"
-    popd
-  fi
-}
-
-# Downloads WebAssembly based plugin if it doesn't already exist.
-# Params:
-#   $1: The URL of the WebAssembly file to be downloaded.
-#   $2: The full path of the output file.
-function download_wasm_if_necessary () {
-  download_file_dir="$(dirname "$2")"
-  download_file_name="$(basename "$1")"
-  download_file_path="${download_file_dir}/${download_file_name}"
-  if [[ ! -f "${download_file_path}" ]] ; then
-    # Enter the output directory.
-    mkdir -p "${download_file_dir}"
-    pushd "${download_file_dir}"
-
-    # Download the WebAssembly plugin files to the output directory.
-    echo "Downloading WebAssembly file: $1 to ${download_file_path}"
-    if [[ ${DOWNLOAD_COMMAND} == curl* ]]; then
-      time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" -o "${download_file_name}"
-    elif [[ ${DOWNLOAD_COMMAND} == wget* ]]; then
-      time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" -O "${download_file_name}"
-    fi
-
-    # Copy the webassembly file to the output location
-    cp "${download_file_path}" "$2"
     popd
   fi
 }

@@ -29,9 +29,9 @@ import (
 
 	"go.uber.org/atomic"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 var goroutinesToIgnore = []string{

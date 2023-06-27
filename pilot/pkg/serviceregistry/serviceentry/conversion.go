@@ -75,11 +75,13 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		//  - ClientSideLB - regular ClusterIP clusters (VIP, resolved via EDS)
 		//  - DNSLB - if ExternalName is specified. Also meshExternal is set.
 
-		WorkloadSelector: &networking.WorkloadSelector{Labels: svc.Attributes.LabelSelectors},
-
 		// This is based on alpha.istio.io/canonical-serviceaccounts and
 		//  alpha.istio.io/kubernetes-serviceaccounts.
 		SubjectAltNames: svc.ServiceAccounts,
+	}
+
+	if len(svc.Attributes.LabelSelectors) > 0 {
+		se.WorkloadSelector = &networking.WorkloadSelector{Labels: svc.Attributes.LabelSelectors}
 	}
 
 	// Based on networking.istio.io/exportTo annotation
@@ -389,12 +391,12 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 			} else {
 				targetPort = serviceEntryPort.Number
 			}
-			ep := *workloadInstance.Endpoint
+			ep := workloadInstance.Endpoint.ShallowCopy()
 			ep.ServicePortName = serviceEntryPort.Name
 			ep.EndpointPort = targetPort
-			ep.EnvoyEndpoint = nil
+			ep.ComputeEnvoyEndpoint(nil)
 			out = append(out, &model.ServiceInstance{
-				Endpoint:    &ep,
+				Endpoint:    ep,
 				Service:     service,
 				ServicePort: convertPort(serviceEntryPort),
 			})
@@ -406,14 +408,14 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 // Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this workload instance when selecting workload entries
 func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
-	we := convertWorkloadEntry(cfg)
+	we := ConvertWorkloadEntry(cfg)
 	addr := we.GetAddress()
 	dnsServiceEntryOnly := false
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		// k8s can't use uds for service objects
 		dnsServiceEntryOnly = true
 	}
-	if !netutil.IsValidIPAddress(addr) {
+	if addr != "" && !netutil.IsValidIPAddress(addr) {
 		// k8s can't use workloads with hostnames in the address field.
 		dnsServiceEntryOnly = true
 	}

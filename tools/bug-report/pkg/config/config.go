@@ -162,6 +162,10 @@ type BugReportConfig struct {
 	// If set, StartTime must be unset.
 	Since Duration `json:"since,omitempty"`
 
+	// TimeFilterApplied stores if user has provided any time filtering flags.
+	// If Since, StartTime, EndTime are all not applied by the user, set TimeFilterApplied as false; Otherwise set true
+	TimeFilterApplied bool `json:"timeFilterApplied,omitempty"`
+
 	// CriticalErrors is a list of glob pattern matches for errors that,
 	// if found in a log, set the highest priority for the log to ensure
 	// that it is Include in the capture archive.

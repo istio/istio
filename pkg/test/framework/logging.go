@@ -20,7 +20,7 @@ import (
 
 	"google.golang.org/grpc/grpclog"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var logOptionsFromCommandline = log.DefaultOptions()

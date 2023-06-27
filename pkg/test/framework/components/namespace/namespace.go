@@ -57,6 +57,8 @@ type Instance interface {
 	RemoveLabel(key string) error
 	Prefix() string
 	Labels() (map[string]string, error)
+	IsAmbient() bool
+	IsInjected() bool
 }
 
 // Claim an existing namespace in all clusters, or create a new one if doesn't exist.

@@ -98,9 +98,17 @@ func TestMain(m *testing.M) {
 		}).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
+			// can't deploy VMs without eastwest gateway
+			ctx.Settings().SkipVMs()
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = ControlPlaneValues
 		})).
+		Setup(func(t resource.Context) error {
+			gatewayConformanceInputs.Client = t.Clusters().Default()
+			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
+
+			return nil
+		}).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
@@ -310,7 +318,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Mesh = inMesh.GetMatches(echos)
 	apps.MeshExternal = match.Not(inMesh).GetMatches(echos)
 
-	apps.WaypointProxy, err = ambient.NewWaypointProxy(t, apps.Namespace, apps.Waypoint.ServiceName())
+	apps.WaypointProxy, err = ambient.WaypointForInstance(t, apps.Waypoint.Instances()[0])
 	if err != nil {
 		return err
 	}

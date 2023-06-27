@@ -27,7 +27,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (

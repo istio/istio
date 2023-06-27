@@ -31,10 +31,10 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
+	"istio.io/istio/pkg/config/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Controller manages repeatedly running analyzers in istiod, and reporting results
@@ -47,15 +47,20 @@ type Controller struct {
 func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreController,
 	kubeClient kube.Client, revision, namespace string, statusManager *status.Manager, domainSuffix string,
 ) (*Controller, error) {
-	ia := local.NewIstiodAnalyzer(analyzers.AllCombined(), "", resource.Namespace(namespace), func(name config.GroupVersionKind) {})
+	analyzer := analyzers.AllCombined()
+	all := kuberesource.ConvertInputsToSchemas(analyzer.Metadata().Inputs)
+
+	ia := local.NewIstiodAnalyzer(analyzer, "", resource.Namespace(namespace), func(name config.GroupVersionKind) {})
 	ia.AddSource(rwConfigStore)
+
 	// Filter out configs watched by rwConfigStore so we don't watch multiple times
 	store, err := crdclient.NewForSchemas(kubeClient,
 		crdclient.Option{Revision: revision, DomainSuffix: domainSuffix, Identifier: "analysis-controller"},
-		collections.All.Remove(rwConfigStore.Schemas().All()...))
+		all.Remove(rwConfigStore.Schemas().All()...))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load common types for analysis, releasing lease: %v", err)
 	}
+
 	ia.AddSource(store)
 	kubeClient.RunAndWait(stop)
 	err = ia.Init(stop)

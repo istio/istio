@@ -19,7 +19,6 @@ package v1alpha3
 
 import (
 	"bytes"
-	"sync"
 	"text/template"
 	"time"
 
@@ -79,9 +78,6 @@ type TestOptions struct {
 	// CreateConfigStore defines a function that, given a ConfigStoreController, returns another ConfigStoreController to use
 	CreateConfigStore func(c model.ConfigStoreController) model.ConfigStoreController
 
-	// Mutex used for push context access. Should generally only be used by NewFakeDiscoveryServer
-	PushContextLock *sync.RWMutex
-
 	// If set, we will not run immediately, allowing adding event handlers, etc prior to start.
 	SkipRun bool
 
@@ -105,7 +101,6 @@ func (to TestOptions) FuzzValidate() bool {
 
 type ConfigGenTest struct {
 	t                    test.Failer
-	pushContextLock      *sync.RWMutex
 	store                model.ConfigStoreController
 	env                  *model.Environment
 	ConfigGen            *ConfigGeneratorImpl
@@ -122,7 +117,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	configs := getConfigs(t, opts)
 	cc := opts.ConfigController
 	if cc == nil {
-		cc = memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI))
+		cc = memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	}
 	controllers := []model.ConfigStoreController{cc}
 	if opts.CreateConfigStore != nil {
@@ -180,14 +175,13 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		MemServiceRegistry:   memserviceRegistry,
 		Registry:             serviceDiscovery,
 		ServiceEntryRegistry: se,
-		pushContextLock:      opts.PushContextLock,
 	}
 	if !opts.SkipRun {
 		fake.Run()
 		if err := env.InitNetworksManager(&FakeXdsUpdater{}); err != nil {
 			t.Fatal(err)
 		}
-		if err := env.PushContext.InitContext(env, nil, nil); err != nil {
+		if err := env.PushContext().InitContext(env, nil, nil); err != nil {
 			t.Fatalf("Failed to initialize push context: %v", err)
 		}
 	}
@@ -223,7 +217,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.18.0"
+		p.Metadata.IstioVersion = "1.19.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)
@@ -309,11 +303,7 @@ func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
 }
 
 func (f *ConfigGenTest) PushContext() *model.PushContext {
-	if f.pushContextLock != nil {
-		f.pushContextLock.RLock()
-		defer f.pushContextLock.RUnlock()
-	}
-	return f.env.PushContext
+	return f.env.PushContext()
 }
 
 func (f *ConfigGenTest) Env() *model.Environment {

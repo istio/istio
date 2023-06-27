@@ -38,15 +38,14 @@ const (
 	ConnectUpgradeType = "CONNECT"
 )
 
-type WorkloadAndServices struct {
-	WorkloadInfo *model.WorkloadInfo
-	Services     []*model.Service
-}
-
-func findWaypointServices(node *model.Proxy, push *model.PushContext) map[host.Name]*model.Service {
+// findWaypointResources returns workloads and services associated with the waypoint proxy
+func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]*model.WorkloadInfo, map[host.Name]*model.Service) {
 	scope := node.WaypointScope()
 	workloads := push.WorkloadsForWaypoint(scope)
+	return workloads, findWorkloadServices(workloads, push)
+}
 
+func findWorkloadServices(workloads []*model.WorkloadInfo, push *model.PushContext) map[host.Name]*model.Service {
 	svcs := map[host.Name]*model.Service{}
 	for _, wl := range workloads {
 		for _, ns := range push.ServiceIndex.HostnameAndNamespace {
@@ -54,36 +53,12 @@ func findWaypointServices(node *model.Proxy, push *model.PushContext) map[host.N
 			if svc == nil {
 				continue
 			}
-			if labels.Instance(svc.Attributes.LabelSelectors).SubsetOf(wl.Labels) {
+			if labels.Instance(svc.Attributes.LabelSelectors).Match(wl.Labels) {
 				svcs[svc.Hostname] = svc
 			}
 		}
 	}
 	return svcs
-}
-
-func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]WorkloadAndServices, map[host.Name]*model.Service) {
-	wls := []WorkloadAndServices{}
-	scope := node.WaypointScope()
-	workloads := push.WorkloadsForWaypoint(scope)
-	for _, wl := range workloads {
-		wls = append(wls, WorkloadAndServices{WorkloadInfo: wl})
-	}
-	svcs := map[host.Name]*model.Service{}
-	for i, wl := range wls {
-		for _, ns := range push.ServiceIndex.HostnameAndNamespace {
-			svc := ns[wl.WorkloadInfo.Namespace]
-			if svc == nil {
-				continue
-			}
-			if labels.Instance(svc.Attributes.LabelSelectors).SubsetOf(wl.WorkloadInfo.Labels) {
-				svcs[svc.Hostname] = svc
-				wl.Services = append(wl.Services, svc)
-			}
-		}
-		wls[i] = wl
-	}
-	return wls, svcs
 }
 
 // filterWaypointOutboundServices is used to determine the set of outbound clusters we need to build for waypoints.

@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
 // Support generation of 'ApiListener' LDS responses, used for native support of gRPC.
@@ -41,7 +41,7 @@ import (
 // using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
 // this is used for the API-based LDS and generic messages.
 
-var log = istiolog.RegisterScope("grpcgen", "xDS Generator for Proxyless gRPC", 0)
+var log = istiolog.RegisterScope("grpcgen", "xDS Generator for Proxyless gRPC")
 
 type GrpcConfigGenerator struct{}
 

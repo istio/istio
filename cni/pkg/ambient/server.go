@@ -24,11 +24,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
 	ebpf "istio.io/istio/cni/pkg/ebpf/server"
+	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -43,7 +43,7 @@ type Server struct {
 	namespaces kclient.Client[*corev1.Namespace]
 	pods       kclient.Client[*corev1.Pod]
 
-	mu         sync.Mutex
+	mu         sync.RWMutex
 	ztunnelPod *corev1.Pod
 
 	iptablesCommand lazy.Lazy[string]
@@ -88,6 +88,8 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		s.ebpfServer.Start(ctx.Done())
 	}
 
+	log.Infof("Ambient enrolled IPs before reconciling: %+v", s.getEnrolledIPSets())
+
 	s.setupHandlers()
 
 	s.UpdateConfig()
@@ -96,8 +98,8 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 }
 
 func (s *Server) isZTunnelRunning() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.ztunnelPod != nil
 }
 
@@ -149,14 +151,14 @@ func (s *Server) UpdateConfig() {
 
 var ztunnelLabels = labels.ValidatedSetSelector(labels.Set{"app": "ztunnel"})
 
-func (s *Server) ReconcileZtunnel() error {
+func (s *Server) UpdateActiveNodeProxy() error {
 	pods := s.pods.List(metav1.NamespaceAll, ztunnelLabels)
 	var activePod *corev1.Pod
 	for _, p := range pods {
+		log := log.WithLabels("ztunnel-pod", p.Name)
 		ready := kube.CheckPodReady(p) == nil
 		if !ready {
-
-			log.Debugf("ztunnel pod not ready")
+			log.Debug("ztunnel pod not ready, skipping")
 			continue
 		}
 		if activePod == nil {
@@ -166,8 +168,9 @@ func (s *Server) ReconcileZtunnel() error {
 		} else if p.CreationTimestamp.After(activePod.CreationTimestamp.Time) {
 			// If we have multiple pods that are ready, use the newest one.
 			// This ensures on a rolling update we start sending traffic to the new pod and drain the old one.
+			log.Debugf("newest ztunnel pod set as active - TS for pod %s is %v, prev. active pod %s was %v",
+				p.Name, p.CreationTimestamp, activePod.Name, activePod.CreationTimestamp)
 			activePod = p
-			log.Debugf("newest ztunnel pod set as active")
 		}
 	}
 
@@ -187,7 +190,8 @@ func (s *Server) ReconcileZtunnel() error {
 	s.UpdateConfig()
 	if activePod == nil {
 		log.Infof("active ztunnel updated, no ztunnel running on the node")
-		s.cleanupNode()
+		// To avoid traffic escaping, we should keep everything rather than doing cleanupNode
+		s.ztunnelDown()
 		return nil
 	}
 	log.Infof("active ztunnel updated to %v", activePod.Name)
@@ -245,20 +249,17 @@ func (s *Server) ReconcileZtunnel() error {
 			return fmt.Errorf("failed to configure ztunnel: %v", err)
 		}
 	}
-
+	existed := s.getEnrolledIPSets()
 	// Reconcile namespaces, as it is possible for the original reconciliation to have failed, and a
 	// small pod to have started up before ztunnel is running... so we need to go back and make sure we
 	// catch the existing pods
-	s.ReconcileNamespaces()
-	return nil
-}
+	processed := s.ReconcileNamespaces()
 
-// getUID is a nil safe UID accessor
-func getUID(o *corev1.Pod) types.UID {
-	if o == nil {
-		return ""
-	}
-	return o.GetUID()
+	stales := existed.Difference(processed)
+
+	s.cleanStaleIPs(stales)
+
+	return nil
 }
 
 func (c *AmbientConfigFile) write() error {
@@ -271,15 +272,7 @@ func (c *AmbientConfigFile) write() error {
 
 	log.Infof("Writing ambient config: %s", data)
 
-	return atomicWrite(configFile, data)
-}
-
-func atomicWrite(filename string, data []byte) error {
-	tmpFile := filename + ".tmp"
-	if err := os.WriteFile(tmpFile, data, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmpFile, filename)
+	return file.AtomicWrite(configFile, data, os.FileMode(0o644))
 }
 
 func ReadAmbientConfig() (*AmbientConfigFile, error) {

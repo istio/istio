@@ -17,7 +17,7 @@ package constants
 import (
 	"time"
 
-	"istio.io/pkg/env"
+	"istio.io/istio/pkg/env"
 )
 
 // iptables tables

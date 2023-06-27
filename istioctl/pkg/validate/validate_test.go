@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -525,6 +527,23 @@ func createTestFile(t *testing.T, data string) (string, io.Closer) {
 	return validFile.Name(), validFile
 }
 
+func createTestDirectory(t *testing.T, files map[string]string) string {
+	t.Helper()
+	tempDir, err := os.MkdirTemp("", "TestValidateCommand")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, content := range files {
+		filePath := filepath.Join(tempDir, name)
+		if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	return tempDir
+}
+
 func TestValidateCommand(t *testing.T) {
 	valid := buildMultiDocYAML([]string{validVirtualService, validVirtualService1})
 	invalid := buildMultiDocYAML([]string{invalidVirtualService, validVirtualService1})
@@ -565,6 +584,20 @@ func TestValidateCommand(t *testing.T) {
 
 	invalidPortNamingSvcFile, closeInvalidPortNamingSvcFile := createTestFile(t, invalidPortNamingSvc)
 	defer closeInvalidPortNamingSvcFile.Close()
+
+	tempDir := createTestDirectory(t, map[string]string{
+		"valid.yaml":       valid,
+		"invalid.yaml":     invalid,
+		"warning.yaml":     warnings,
+		"invalidYAML.yaml": invalidYAML,
+	})
+	validTempDir := createTestDirectory(t, map[string]string{
+		"valid.yaml": valid,
+	})
+	t.Cleanup(func() {
+		os.RemoveAll(tempDir)
+		os.RemoveAll(validTempDir)
+	})
 
 	cases := []struct {
 		name           string
@@ -654,12 +687,33 @@ Error: 1 error occurred:
 	\* VirtualService//invalid-virtual-service: weight -15 < 0`),
 			wantError: true,
 		},
+		{
+			name:      "validate all yaml files in a directory",
+			args:      []string{"--filename", tempDir},
+			wantError: true, // Since the directory has invalid files
+		},
+		{
+			name:      "validate valid yaml files in a directory",
+			args:      []string{"--filename", validTempDir},
+			wantError: false,
+		},
+		{
+			name:      "validate combination of files and directories with valid files",
+			args:      []string{"--filename", validFilename, "--filename", validTempDir},
+			wantError: false,
+		},
+		{
+			name:      "validate combination of files and directories with valid files and invalid files",
+			args:      []string{"--filename", validFilename, "--filename", tempDir, "--filename", validTempDir},
+			wantError: true, // Since the directory has invalid files
+		},
 	}
-	istioNamespace := "istio-system"
-	defaultNamespace := ""
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(t *testing.T) {
-			validateCmd := NewValidateCommand(&istioNamespace, &defaultNamespace)
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+				IstioNamespace: "istio-system",
+			})
+			validateCmd := NewValidateCommand(ctx)
 			validateCmd.SilenceUsage = true
 			validateCmd.SetArgs(c.args)
 

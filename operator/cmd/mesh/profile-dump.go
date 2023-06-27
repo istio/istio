@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type profileDumpArgs struct {

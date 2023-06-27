@@ -27,11 +27,11 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -47,7 +47,7 @@ const (
 )
 
 var (
-	pluginLog              = log.RegisterScope("token", "token manager plugin debugging", 0)
+	pluginLog              = log.RegisterScope("token", "token manager plugin debugging")
 	federatedTokenEndpoint = "https://sts.googleapis.com/v1/token"
 	accessTokenEndpoint    = "https://iamcredentials.googleapis.com/v1/projects/-/" +
 		"serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
@@ -290,8 +290,8 @@ func (p *Plugin) fetchFederatedToken(parameters security.StsRequestParameters) (
 		return respData, fmt.Errorf("failed to unmarshal federated token response data: %v", err)
 	}
 	if respData.AccessToken == "" {
-		pluginLog.Error("federated token response does not have access token", string(body))
-		return respData, errors.New("federated token response does not have access token. " + string(body))
+		pluginLog.Error("federated token response does not have access token")
+		return respData, errors.New("federated token response does not have access token")
 	}
 	pluginLog.WithLabels("latency", timeElapsed.String(), "ttl", respData.ExpiresIn).Infof("fetched federated token")
 	tokenReceivedTime := time.Now()
@@ -421,8 +421,7 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 		return respData, fmt.Errorf("failed to unmarshal access token response data: %v", err)
 	}
 	if respData.AccessToken == "" {
-		pluginLog.Error("access token response does not have access token", string(body))
-		return respData, errors.New("access token response does not have access token. " + string(body))
+		return respData, errors.New("access token response does not have access token")
 	}
 	pluginLog.Debug("successfully exchanged an access token")
 	// Store access token

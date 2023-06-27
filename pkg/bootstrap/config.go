@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -36,12 +37,13 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -175,6 +177,9 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	}
 	opts = append(opts, proxyOpts...)
 
+	// Append LRS related options.
+	opts = append(opts, option.LoadStatsConfigJSONStr(cfg.Node))
+
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info
 	// is not available (in particular in some multi-cluster cases)
@@ -252,6 +257,22 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		inclusionSuffixes = requiredEnvoyStatsMatcherInclusionSuffixes
 	}
 
+	var buckets []option.HistogramBucket
+	if bucketsAnno, ok := meta.Annotations[annotation.SidecarStatsHistogramBuckets.Name]; ok {
+		js := map[string][]float64{}
+		err := json.Unmarshal([]byte(bucketsAnno), &js)
+		if err == nil {
+			for prefix, value := range js {
+				buckets = append(buckets, option.HistogramBucket{Match: option.HistogramMatch{Prefix: prefix}, Buckets: value})
+			}
+			sort.Slice(buckets, func(i, j int) bool {
+				return buckets[i].Match.Prefix < buckets[j].Match.Prefix
+			})
+		} else {
+			log.Warnf("Failed to unmarshal histogram buckets: %v", bucketsAnno, err)
+		}
+	}
+
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
@@ -259,6 +280,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 			inclusionSuffixes, proxyConfigSuffixes)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
+		option.EnvoyHistogramBuckets(buckets),
 	}
 }
 
@@ -287,7 +309,6 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": "true",
 		"re2.max_program_size.error_level":                                                                     "32768",
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
-		"envoy.reloadable_features.no_extension_lookup_by_name":                                                "false",
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted
@@ -559,6 +580,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		return nil, err
 	}
 
+	meta = SetIstioVersion(meta)
+
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
 
@@ -644,6 +667,13 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		RawMetadata: untypedMeta,
 		Locality:    l,
 	}, nil
+}
+
+func SetIstioVersion(meta *model.BootstrapNodeMetadata) *model.BootstrapNodeMetadata {
+	if meta.IstioVersion == "" {
+		meta.IstioVersion = version.Info.Version
+	}
+	return meta
 }
 
 // ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.

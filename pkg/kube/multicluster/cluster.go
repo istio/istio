@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Cluster defines cluster struct
@@ -49,7 +49,7 @@ func (r *Cluster) Run() {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
 			if !r.initialSync.Load() {
 				log.Errorf("remote cluster %s failed to sync after %v", r.ID, features.RemoteClusterTimeout)
-				timeouts.Increment()
+				timeouts.With(clusterLabel.Value(string(r.ID))).Increment()
 			}
 			r.initialSyncTimeout.Store(true)
 		})

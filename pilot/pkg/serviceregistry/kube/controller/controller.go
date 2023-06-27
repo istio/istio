@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -45,14 +46,14 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/kube/namespace"
-	"istio.io/istio/pkg/kube/watcher/crdwatcher"
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/queue"
-	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -70,7 +71,7 @@ const (
 	DefaultNetworkGatewayPort = 15443
 )
 
-var log = istiolog.RegisterScope("kube", "kubernetes service registry controller", 0)
+var log = istiolog.RegisterScope("kube", "kubernetes service registry controller")
 
 var (
 	typeTag  = monitoring.MustCreateLabel("type")
@@ -133,9 +134,6 @@ type Options struct {
 	// MeshWatcher observes changes to the mesh config
 	MeshWatcher mesh.Watcher
 
-	// EndpointMode decides what source to use to get endpoint information
-	EndpointMode EndpointMode
-
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32
 
@@ -157,48 +155,6 @@ func (o *Options) GetFilter() namespace.DiscoveryFilter {
 		return o.DiscoveryNamespacesFilter.Filter
 	}
 	return nil
-}
-
-// DetectEndpointMode determines whether to use Endpoints or EndpointSlice based on the
-// feature flag and/or Kubernetes version
-func DetectEndpointMode(kubeClient kubelib.Client) EndpointMode {
-	useEndpointslice, ok := features.EnableEndpointSliceController()
-
-	// we have a client, and flag wasn't set explicitly, auto-detect
-	if kubeClient != nil && !ok && !kubelib.IsLessThanVersion(kubeClient, 21) {
-		useEndpointslice = true
-	}
-
-	if useEndpointslice {
-		return EndpointSliceOnly
-	}
-	return EndpointsOnly
-}
-
-// EndpointMode decides what source to use to get endpoint information
-type EndpointMode int
-
-const (
-	// EndpointsOnly type will use only Kubernetes Endpoints
-	EndpointsOnly EndpointMode = iota
-
-	// EndpointSliceOnly type will use only Kubernetes EndpointSlices
-	EndpointSliceOnly
-
-	// TODO: add other modes. Likely want a mode with Endpoints+EndpointSlices that are not controlled by
-	// Kubernetes Controller (e.g. made by user and not duplicated with Endpoints), or a mode with both that
-	// does deduping. Simply doing both won't work for now, since not all Kubernetes components support EndpointSlice.
-)
-
-var EndpointModes = []EndpointMode{EndpointsOnly, EndpointSliceOnly}
-
-var EndpointModeNames = map[EndpointMode]string{
-	EndpointsOnly:     "EndpointsOnly",
-	EndpointSliceOnly: "EndpointSliceOnly",
-}
-
-func (m EndpointMode) String() string {
-	return EndpointModeNames[m]
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -231,17 +187,16 @@ type Controller struct {
 	namespaces kclient.Client[*v1.Namespace]
 	services   kclient.Client[*v1.Service]
 
-	endpoints kubeEndpointsController
+	endpoints *endpointSliceController
 
 	// Used to watch node accessible from remote cluster.
 	// In multi-cluster(shared control plane multi-networks) scenario, ingress gateway service can be of nodePort type.
 	// With this, we can populate mesh's gateway address with the node ips.
 	nodes kclient.Client[*v1.Node]
 
-	crdWatcher *crdwatcher.Controller
-	exports    serviceExportCache
-	imports    serviceImportCache
-	pods       *PodCache
+	exports serviceExportCache
+	imports serviceImportCache
+	pods    *PodCache
 
 	crdHandlers                []func(name string)
 	handlers                   model.ControllerHandlers
@@ -268,11 +223,9 @@ type Controller struct {
 
 	networkManager
 
-	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
-	beginSync *atomic.Bool
-	// initialSync is set to true after performing an initial in-order processing of all objects.
-	initialSync *atomic.Bool
-	meshWatcher mesh.Watcher
+	// initialSyncTimedout is set to true after performing an initial processing timed out.
+	initialSyncTimedout *atomic.Bool
+	meshWatcher         mesh.Watcher
 
 	podsClient kclient.Client[*v1.Pod]
 
@@ -293,21 +246,36 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		workloadInstancesIndex:     workloadinstances.NewIndex(),
-		beginSync:                  atomic.NewBool(false),
-		initialSync:                atomic.NewBool(false),
-
-		networkManager: initNetworkManager(options),
-		configCluster:  options.ConfigCluster,
+		initialSyncTimedout:        atomic.NewBool(false),
+		networkManager:             initNetworkManager(options),
+		configCluster:              options.ConfigCluster,
 	}
 
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
+
+	if features.EnableAmbientControllers {
+		registerHandlers[*v1.Namespace](
+			c,
+			c.namespaces,
+			"Namespaces",
+			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+				c.handleSelectedNamespace(cur.Name)
+				return nil
+			},
+			func(old, cur *v1.Namespace) bool {
+				oldLabel := old.Labels[constants.DataplaneMode]
+				newLabel := cur.Labels[constants.DataplaneMode]
+				return oldLabel == newLabel
+			},
+		)
+	}
 	if c.opts.SystemNamespace != "" {
 		registerHandlers[*v1.Namespace](
 			c,
 			c.namespaces,
 			"Namespaces",
 			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
-				if cur.Namespace == c.opts.SystemNamespace {
+				if cur.Name == c.opts.SystemNamespace {
 					return c.onSystemNamespaceEvent(old, cur, event)
 				}
 				return nil
@@ -316,25 +284,18 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		)
 	}
 
-	if c.opts.DiscoveryNamespacesFilter == nil {
+	// always init for each cluster, otherwise different ns labels in different cluster may not take effect,
+	// but we skip it for configCluster which has been initiated before
+	if !c.opts.ConfigCluster || c.opts.DiscoveryNamespacesFilter == nil {
 		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
-
 	c.initDiscoveryHandlers(options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
 
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
 
 	registerHandlers[*v1.Service](c, c.services, "Services", c.onServiceEvent, nil)
 
-	switch options.EndpointMode {
-	case EndpointSliceOnly:
-		c.endpoints = newEndpointSliceController(c)
-	default: // nolint: gocritic
-		log.Errorf("unknown endpoints mode: %v", options.EndpointMode)
-		fallthrough
-	case EndpointsOnly:
-		c.endpoints = newEndpointsController(c)
-	}
+	c.endpoints = newEndpointSliceController(c)
 
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodes = kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: kubelib.StripNodeUnusedFields})
@@ -345,17 +306,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		ObjectTransform: kubelib.StripPodUnusedFields,
 	})
 	c.pods = newPodCache(c, c.podsClient, func(key types.NamespacedName) {
-		if shouldEnqueue("Pods", c.beginSync) {
-			c.queue.Push(func() error {
-				return c.endpoints.sync(key.Name, key.Namespace, model.EventAdd, true)
-			})
-		}
+		c.queue.Push(func() error {
+			return c.endpoints.sync(key.Name, key.Namespace, model.EventAdd, true)
+		})
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
-	if features.EnableMCSServiceDiscovery || features.EnableMCSHost {
-		c.crdWatcher = crdwatcher.NewController(kubeClient)
-	}
 	if features.EnableAmbientControllers {
 		c.configController = options.ConfigController
 		c.ambientIndex = c.setupIndex()
@@ -384,42 +340,31 @@ func (c *Controller) Cluster() cluster.ID {
 }
 
 func (c *Controller) MCSServices() []model.MCSServiceInfo {
-	outMap := make(map[types.NamespacedName]*model.MCSServiceInfo)
+	outMap := make(map[types.NamespacedName]model.MCSServiceInfo)
 
 	// Add the ServiceExport info.
 	for _, se := range c.exports.ExportedServices() {
 		mcsService := outMap[se.namespacedName]
-		if mcsService == nil {
-			mcsService = &model.MCSServiceInfo{}
-			outMap[se.namespacedName] = mcsService
-		}
 		mcsService.Cluster = c.Cluster()
 		mcsService.Name = se.namespacedName.Name
 		mcsService.Namespace = se.namespacedName.Namespace
 		mcsService.Exported = true
 		mcsService.Discoverability = se.discoverability
+		outMap[se.namespacedName] = mcsService
 	}
 
 	// Add the ServiceImport info.
 	for _, si := range c.imports.ImportedServices() {
 		mcsService := outMap[si.namespacedName]
-		if mcsService == nil {
-			mcsService = &model.MCSServiceInfo{}
-			outMap[si.namespacedName] = mcsService
-		}
 		mcsService.Cluster = c.Cluster()
 		mcsService.Name = si.namespacedName.Name
 		mcsService.Namespace = si.namespacedName.Namespace
 		mcsService.Imported = true
 		mcsService.ClusterSetVIP = si.clusterSetVIP
+		outMap[si.namespacedName] = mcsService
 	}
 
-	out := make([]model.MCSServiceInfo, 0, len(outMap))
-	for _, v := range outMap {
-		out = append(out, *v)
-	}
-
-	return out
+	return maps.Values(outMap)
 }
 
 func (c *Controller) Network(endpointIP string, labels labels.Instance) network.ID {
@@ -493,7 +438,7 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
-	if !currConv.Attributes.ClusterExternalAddresses.IsEmpty() {
+	if currConv.Attributes.ClusterExternalAddresses.Len() > 0 {
 		needsFullPush = c.extractGatewaysFromService(currConv)
 	} else if isNodePortGatewayService(curr) {
 		// We need to know which services are using node selectors because during node events,
@@ -609,9 +554,6 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 		controllers.EventHandler[T]{
 			AddFunc: func(obj T) {
 				incrementEvent(otype, "add")
-				if !shouldEnqueue(otype, c.beginSync) {
-					return
-				}
 				c.queue.Push(func() error {
 					return wrappedHandler(ptr.Empty[T](), obj, model.EventAdd)
 				})
@@ -625,18 +567,12 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 				}
 
 				incrementEvent(otype, "update")
-				if !shouldEnqueue(otype, c.beginSync) {
-					return
-				}
 				c.queue.Push(func() error {
 					return wrappedHandler(old, cur, model.EventUpdate)
 				})
 			},
 			DeleteFunc: func(obj T) {
 				incrementEvent(otype, "delete")
-				if !shouldEnqueue(otype, c.beginSync) {
-					return
-				}
 				c.queue.Push(func() error {
 					return handler(ptr.Empty[T](), obj, model.EventDelete)
 				})
@@ -646,85 +582,20 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	return c.initialSync.Load()
+	return c.queue.HasSynced() || c.initialSyncTimedout.Load()
 }
 
 func (c *Controller) informersSynced() bool {
 	if !c.namespaces.HasSynced() ||
 		!c.services.HasSynced() ||
-		!c.endpoints.HasSynced() ||
+		!c.endpoints.slices.HasSynced() ||
 		!c.pods.pods.HasSynced() ||
 		!c.nodes.HasSynced() ||
-		(c.crdWatcher != nil && !c.crdWatcher.HasSynced()) {
+		!c.imports.HasSynced() ||
+		!c.exports.HasSynced() {
 		return false
 	}
-
-	// wait for mcs sync if the CRD exists, otherwise do not wait for them
-	// Because crdWatcher.HasSynced only indicates the cache synced, but does not guarantee the event handler called.
-	// So we wait get the CRD explicitly and if MCS installed, we wait until serviceImports and serviceExports sync.
-	if c.crdWatcher != nil {
-		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceImportGVR.Resource + "." + mcs.ServiceImportGVR.Group); exists {
-			if !c.imports.HasSynced() {
-				return false
-			}
-		}
-		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceExportGVR.Resource + "." + mcs.ServiceExportGVR.Group); exists {
-			if !c.exports.HasSynced() {
-				return false
-			}
-		}
-	}
 	return true
-}
-
-// SyncAll syncs all the objects node->service->pod->endpoint in order
-// TODO: sync same kind of objects in parallel
-// This can cause great performance cost in multi clusters scenario.
-// Maybe just sync the cache and trigger one push at last.
-// TODO: process MCS
-func (c *Controller) SyncAll() error {
-	c.beginSync.Store(true)
-	var err *multierror.Error
-	err = multierror.Append(err, c.syncDiscoveryNamespaces())
-	err = multierror.Append(err, c.syncSystemNamespace())
-	err = multierror.Append(err, c.syncNodes())
-	err = multierror.Append(err, c.syncServices())
-	err = multierror.Append(err, c.syncPods())
-	err = multierror.Append(err, c.endpoints.sync("", metav1.NamespaceAll, model.EventAdd, true))
-
-	return multierror.Flatten(err.ErrorOrNil())
-}
-
-func (c *Controller) syncSystemNamespace() error {
-	ns := c.namespaces.Get(c.opts.SystemNamespace, "")
-	if ns != nil {
-		return c.onSystemNamespaceEvent(nil, ns, model.EventAdd)
-	}
-	return nil
-}
-
-func (c *Controller) syncDiscoveryNamespaces() error {
-	return c.opts.DiscoveryNamespacesFilter.SyncNamespaces()
-}
-
-func (c *Controller) syncNodes() error {
-	var err *multierror.Error
-	nodes := c.nodes.List(metav1.NamespaceAll, klabels.Everything())
-	log.Debugf("initializing %d nodes", len(nodes))
-	for _, s := range nodes {
-		err = multierror.Append(err, c.onNodeEvent(nil, s, model.EventAdd))
-	}
-	return err.ErrorOrNil()
-}
-
-func (c *Controller) syncServices() error {
-	var err *multierror.Error
-	services := c.services.List(metav1.NamespaceAll, klabels.Everything())
-	log.Debugf("initializing %d services", len(services))
-	for _, s := range services {
-		err = multierror.Append(err, c.onServiceEvent(nil, s, model.EventAdd))
-	}
-	return err.ErrorOrNil()
 }
 
 func (c *Controller) syncPods() error {
@@ -741,9 +612,9 @@ func (c *Controller) syncPods() error {
 func (c *Controller) Run(stop <-chan struct{}) {
 	if c.opts.SyncTimeout != 0 {
 		time.AfterFunc(c.opts.SyncTimeout, func() {
-			if !c.initialSync.Load() {
+			if !c.queue.HasSynced() {
 				log.Warnf("kube controller for %s initial sync timed out", c.opts.ClusterID)
-				c.initialSync.Store(true)
+				c.initialSyncTimedout.Store(true)
 			}
 		})
 	}
@@ -752,12 +623,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
 
-	kubelib.WaitForCacheSync(stop, c.informersSynced)
-	// after informer caches sync the first time, process resources in order
-	if err := c.SyncAll(); err != nil {
-		log.Errorf("one or more errors force-syncing resources: %v", err)
-	}
-	c.initialSync.Store(true)
+	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
@@ -822,7 +688,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// First get k8s standard service instances and the workload entry instances
-	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort)
+	outInstances := c.endpoints.InstancesByPort(svc, reqSvcPort)
 	outInstances = append(outInstances, c.serviceInstancesFromWorkloadInstances(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
@@ -835,13 +701,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int) []*mode
 	externalNameInstances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
 	if externalNameInstances != nil {
-		inScopeInstances := make([]*model.ServiceInstance, 0)
-		for _, i := range externalNameInstances {
-			if i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort {
-				inScopeInstances = append(inScopeInstances, i)
-			}
-		}
-		return inScopeInstances
+		return slices.Filter(externalNameInstances, func(i *model.ServiceInstance) bool {
+			return i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort
+		})
 	}
 	return nil
 }
@@ -910,7 +772,7 @@ func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.
 	targetPort serviceTargetPort, wi *model.WorkloadInstance,
 ) *model.ServiceInstance {
 	// create an instance with endpoint whose service port name matches
-	istioEndpoint := *wi.Endpoint
+	istioEndpoint := wi.Endpoint.ShallowCopy()
 
 	// by default, use the numbered targetPort
 	istioEndpoint.EndpointPort = uint32(targetPort.num)
@@ -930,7 +792,7 @@ func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.
 	return &model.ServiceInstance{
 		Service:     svc,
 		ServicePort: servicePort,
-		Endpoint:    &istioEndpoint,
+		Endpoint:    istioEndpoint,
 	}
 }
 
@@ -984,7 +846,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 				return out
 			}
 			// 2. Headless service without selector
-			return c.endpoints.GetProxyServiceInstances(c, proxy)
+			return c.endpoints.GetProxyServiceInstances(proxy)
 		}
 
 		// 3. The pod is not present when this is called

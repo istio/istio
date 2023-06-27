@@ -221,6 +221,21 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 			}, valid: true,
 		},
 		{
+			name: "empty prefix header match (delegate)", route: &networking.HTTPRoute{
+				Delegate: &networking.Delegate{
+					Name:      "test",
+					Namespace: "test",
+				},
+				Match: []*networking.HTTPMatchRequest{{
+					Headers: map[string]*networking.StringMatch{
+						"header": {
+							MatchType: &networking.StringMatch_Prefix{Prefix: ""},
+						},
+					},
+				}},
+			}, valid: false,
+		},
+		{
 			name: "exact header match", route: &networking.HTTPRoute{
 				Delegate: &networking.Delegate{
 					Name:      "test",
@@ -369,6 +384,15 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 				Uri:       "/",
 				Authority: "foo.biz",
 			},
+		}, valid: false},
+		{name: "empty prefix header match", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Prefix{Prefix: ""},
+					},
+				},
+			}},
 		}, valid: false},
 	}
 

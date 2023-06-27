@@ -25,8 +25,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/features"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // ShouldRewriteAppHTTPProbers returns if we should rewrite apps' probers config.
@@ -63,7 +62,7 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 	}
 	if probe.HTTPGet != nil {
 		return convertAppProberHTTPGet(probe, newURL, statusPort)
-	} else if probe.TCPSocket != nil && features.RewriteTCPProbes {
+	} else if probe.TCPSocket != nil {
 		return convertAppProberTCPSocket(probe, newURL, statusPort)
 	} else if probe.GRPC != nil {
 		return convertAppProberGRPC(probe, newURL, statusPort)
@@ -234,7 +233,7 @@ func kubeProbeToInternalProber(probe *corev1.Probe) *Prober {
 		}
 	}
 
-	if probe.TCPSocket != nil && features.RewriteTCPProbes {
+	if probe.TCPSocket != nil {
 		return &Prober{
 			TCPSocket:      probe.TCPSocket,
 			TimeoutSeconds: probe.TimeoutSeconds,

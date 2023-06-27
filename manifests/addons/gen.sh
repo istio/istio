@@ -32,8 +32,8 @@ LOKI_VERSION=${LOKI_VERSION:-"4.8.0"}
 {
 helm3 template kiali-server \
   --namespace istio-system \
-  --version 1.63.1 \
-  --set deployment.image_version=v1.63 \
+  --version 1.67.0 \
+  --set deployment.image_version=v1.67 \
   --include-crds \
   --set nameOverride=kiali \
   --set fullnameOverride=kiali \

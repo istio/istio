@@ -26,14 +26,14 @@ import (
 )
 
 // Index maintains a simple index over an informer
-type Index[O controllers.ComparableObject, K comparable] struct {
+type Index[K comparable, O controllers.ComparableObject] struct {
 	mu      sync.RWMutex
 	objects map[K]sets.Set[types.NamespacedName]
 	client  Informer[O]
 }
 
 // Lookup finds all objects matching a given key
-func (i *Index[O, K]) Lookup(k K) []O {
+func (i *Index[K, O]) Lookup(k K) []O {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	res := make([]O, 0)
@@ -53,12 +53,12 @@ func (i *Index[O, K]) Lookup(k K) []O {
 // An additional ResourceEventHandler can be passed in that is guaranteed to happen *after* the index is updated.
 // This allows the delegate to depend on the contents of the index.
 // TODO(https://github.com/kubernetes/kubernetes/pull/117046) remove this.
-func CreateIndexWithDelegate[O controllers.ComparableObject, K comparable](
+func CreateIndexWithDelegate[K comparable, O controllers.ComparableObject](
 	client Informer[O],
 	extract func(o O) []K,
 	delegate cache.ResourceEventHandler,
-) *Index[O, K] {
-	idx := Index[O, K]{
+) *Index[K, O] {
+	idx := Index[K, O]{
 		objects: make(map[K]sets.Set[types.NamespacedName]),
 		client:  client,
 		mu:      sync.RWMutex{},
@@ -112,9 +112,9 @@ func CreateIndexWithDelegate[O controllers.ComparableObject, K comparable](
 
 // CreateIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
-func CreateIndex[O controllers.ComparableObject, K comparable](
+func CreateIndex[K comparable, O controllers.ComparableObject](
 	client Informer[O],
 	extract func(o O) []K,
-) *Index[O, K] {
+) *Index[K, O] {
 	return CreateIndexWithDelegate(client, extract, nil)
 }

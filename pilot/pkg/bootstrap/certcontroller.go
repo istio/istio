@@ -25,11 +25,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	certutil "istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -84,7 +84,7 @@ func (s *Server) initDNSCerts() error {
 			}
 		})
 
-		s.addStartFunc(func(stop <-chan struct{}) error {
+		s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
 			go func() {
 				// Track TTL of DNS cert and renew cert in accordance to grace period.
 				s.RotateDNSCertForK8sCA(stop, "", signerName, true, SelfSignedCACertTTL.Get())
@@ -103,7 +103,7 @@ func (s *Server) initDNSCerts() error {
 			return fmt.Errorf("failed reading %s: %v", defaultCACertPath, err)
 		}
 
-		s.addStartFunc(func(stop <-chan struct{}) error {
+		s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
 			go func() {
 				// Track TTL of DNS cert and renew cert in accordance to grace period.
 				s.RotateDNSCertForK8sCA(stop, defaultCACertPath, "", true, SelfSignedCACertTTL.Get())
@@ -126,7 +126,7 @@ func (s *Server) initDNSCerts() error {
 		if _, err := os.Stat(fileBundle.SigningKeyFile); err != nil {
 			log.Infof("No plugged-in cert at %v; self-signed cert is used", fileBundle.SigningKeyFile)
 			caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
-			s.addStartFunc(func(stop <-chan struct{}) error {
+			s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
 				go func() {
 					// regenerate istiod key cert when root cert changes.
 					s.watchRootCertAndGenKeyCert(stop)
@@ -221,7 +221,7 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 			return fmt.Errorf("could not watch %v: %v", file, err)
 		}
 	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
 		go func() {
 			var keyCertTimerC <-chan time.Time
 			for {

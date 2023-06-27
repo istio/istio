@@ -56,9 +56,10 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -241,7 +242,7 @@ func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
 	return serialItem, nil
 }
 
-var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
+var adscLog = log.RegisterScope("adsc", "adsc debugging")
 
 func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
 	adsc, err := New(discoveryAddr, opts)
@@ -374,6 +375,9 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		serverCABytes = a.cfg.RootCert
 	} else if a.cfg.XDSRootCAFile != "" {
 		serverCABytes, err = os.ReadFile(a.cfg.XDSRootCAFile)
+		if err != nil {
+			return nil, err
+		}
 	} else if a.cfg.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
 		rootCA, err := a.cfg.SecretManager.GenerateSecret(security.RootCertReqResourceName)
@@ -514,8 +518,7 @@ func (a *ADSC) handleRecv() {
 		// Group-value-kind - used for high level api generator.
 		resourceGvk, isMCP := convertTypeURLToMCPGVK(msg.TypeUrl)
 
-		adscLog.Info("Received ", a.url, " type ", msg.TypeUrl,
-			" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
+		adscLog.WithLabels("type", msg.TypeUrl, "count", len(msg.Resources), "nonce", msg.Nonce).Info("Received")
 		if a.cfg.ResponseHandler != nil {
 			a.cfg.ResponseHandler.HandleResponse(a, msg)
 		}
@@ -526,7 +529,7 @@ func (a *ADSC) handleRecv() {
 			m := &v1alpha1.MeshConfig{}
 			err = proto.Unmarshal(rsc.Value, m)
 			if err != nil {
-				adscLog.Warn("Failed to unmarshal mesh config", err)
+				adscLog.Warnf("Failed to unmarshal mesh config: %v", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
@@ -1036,10 +1039,7 @@ func (a *ADSC) WaitSingle(to time.Duration, want string, reject string) error {
 // If updates is empty, this will wait for any update
 func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	t := time.NewTimer(to)
-	want := map[string]struct{}{}
-	for _, update := range updates {
-		want[update] = struct{}{}
-	}
+	want := sets.New[string](updates...)
 	got := make([]string, 0, len(updates))
 	for {
 		select {
@@ -1047,9 +1047,9 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 			if toDelete == "" {
 				return got, fmt.Errorf("closed")
 			}
-			delete(want, toDelete)
+			want.Delete(toDelete)
 			got = append(got, toDelete)
-			if len(want) == 0 {
+			if want.Len() == 0 {
 				return got, nil
 			}
 		case <-t.C:
@@ -1181,36 +1181,36 @@ func (a *ADSC) GetHTTPListeners() map[string]*listener.Listener {
 
 // GetTCPListeners returns all the tcp listeners.
 func (a *ADSC) GetTCPListeners() map[string]*listener.Listener {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.tcpListeners
 }
 
 // GetEdsClusters returns all the eds type clusters.
 func (a *ADSC) GetEdsClusters() map[string]*cluster.Cluster {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.edsClusters
 }
 
 // GetClusters returns all the non-eds type clusters.
 func (a *ADSC) GetClusters() map[string]*cluster.Cluster {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.clusters
 }
 
 // GetRoutes returns all the routes.
 func (a *ADSC) GetRoutes() map[string]*route.RouteConfiguration {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.routes
 }
 
 // GetEndpoints returns all the routes.
 func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.eds
 }
 
@@ -1232,7 +1232,7 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 		}
 		newCfg, err := a.mcpToPilot(m)
 		if err != nil {
-			adscLog.Warn("Invalid data ", err, " ", string(rsc.Value))
+			adscLog.Warnf("Invalid data: %v (%v)", err, string(rsc.Value))
 			continue
 		}
 		if newCfg == nil {

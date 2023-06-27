@@ -37,10 +37,12 @@ import (
 
 func TestGatewayHostnames(t *testing.T) {
 	test.SetForTest(t, &model.MinGatewayTTL, 30*time.Millisecond)
+	ttl := uint32(1) // second
 
 	gwHost := "test.gw.istio.io"
-	workingDNSServer := newFakeDNSServer(":15353", 1, sets.New(gwHost))
-	failingDNSServer := newFakeDNSServer(":25353", 1, sets.NewWithLength[string](0))
+	workingDNSServer := newFakeDNSServer(":15353", ttl, sets.New(gwHost))
+	failingDNSServer := newFakeDNSServer(":25353", ttl, sets.NewWithLength[string](0))
+	failingDNSServer.setFailure(true)
 	model.NetworkGatewayTestDNSServers = []string{
 		// try resolving with the failing server first to make sure the next upstream is retried
 		failingDNSServer.Server.PacketConn.LocalAddr().String(),
@@ -81,60 +83,60 @@ func TestGatewayHostnames(t *testing.T) {
 			t.Fatalf("unexpected network: %v", gateways)
 		}
 	})
-	t.Run("re-resolve after TTL", func(t *testing.T) {
-		if testing.Short() {
-			t.Skip()
-		}
-		// after the update, we should see the next gateway. Since TTL is low we don't know the exact IP, but we know it should change from
-		// the original
-		retry.UntilOrFail(t, func() bool {
-			return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
-		})
-		xdsUpdater.WaitOrFail(t, "xds full")
-	})
 
-	workingDNSServer.setFailure(true)
-	gateways = env.NetworkManager.AllGateways()
-	t.Run("resolution failed", func(t *testing.T) {
-		xdsUpdater.AssertEmpty(t, 50*time.Millisecond)
-		// the gateways should remain
-		currentGateways := env.NetworkManager.AllGateways()
-		if len(currentGateways) == 0 || !reflect.DeepEqual(currentGateways, gateways) {
-			t.Fatalf("unexpected network: %v", currentGateways)
-		}
-		if !env.NetworkManager.IsMultiNetworkEnabled() {
-			t.Fatalf("multi network is not enabled")
-		}
-	})
-
-	workingDNSServer.setFailure(false)
-	t.Run("resolution recovered", func(t *testing.T) {
-		// addresses should be updated
-		retry.UntilOrFail(t, func() bool {
-			return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
+	if !testing.Short() {
+		t.Run("re-resolve after TTL", func(t *testing.T) {
+			// after the update, we should see the next gateway. Since TTL is low we don't know the exact IP, but we know it should change from
+			// the original
+			retry.UntilOrFail(t, func() bool {
+				return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
+			}, retry.Timeout(2*time.Duration(ttl)*time.Second))
+			xdsUpdater.WaitOrFail(t, "xds full")
 		})
-		xdsUpdater.WaitOrFail(t, "xds full")
-	})
 
-	workingDNSServer.setHosts(make(sets.Set[string]))
-	t.Run("no answer", func(t *testing.T) {
-		retry.UntilOrFail(t, func() bool {
-			return len(env.NetworkManager.AllGateways()) == 0
+		workingDNSServer.setFailure(true)
+		gateways = env.NetworkManager.AllGateways()
+		t.Run("resolution failed", func(t *testing.T) {
+			xdsUpdater.AssertEmpty(t, 2*time.Duration(ttl)*time.Second)
+			// the gateways should remain
+			currentGateways := env.NetworkManager.AllGateways()
+			if len(currentGateways) == 0 || !reflect.DeepEqual(currentGateways, gateways) {
+				t.Fatalf("unexpected network: %v", currentGateways)
+			}
+			if !env.NetworkManager.IsMultiNetworkEnabled() {
+				t.Fatalf("multi network is not enabled")
+			}
 		})
-		xdsUpdater.WaitOrFail(t, "xds full")
-		if !env.NetworkManager.IsMultiNetworkEnabled() {
-			t.Fatalf("multi network is not enabled")
-		}
-	})
 
-	workingDNSServer.setHosts(sets.New(gwHost))
-	t.Run("new answer", func(t *testing.T) {
-		retry.UntilOrFail(t, func() bool {
-			return len(env.NetworkManager.AllGateways()) != 0 &&
-				!reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
+		workingDNSServer.setFailure(false)
+		t.Run("resolution recovered", func(t *testing.T) {
+			// addresses should be updated
+			retry.UntilOrFail(t, func() bool {
+				return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
+			}, retry.Timeout(2*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
+			xdsUpdater.WaitOrFail(t, "xds full")
 		})
-		xdsUpdater.WaitOrFail(t, "xds full")
-	})
+
+		workingDNSServer.setHosts(make(sets.Set[string]))
+		t.Run("no answer", func(t *testing.T) {
+			retry.UntilOrFail(t, func() bool {
+				return len(env.NetworkManager.AllGateways()) == 0
+			}, retry.Timeout(2*time.Duration(ttl)*time.Second))
+			xdsUpdater.WaitOrFail(t, "xds full")
+			if !env.NetworkManager.IsMultiNetworkEnabled() {
+				t.Fatalf("multi network is not enabled")
+			}
+		})
+
+		workingDNSServer.setHosts(sets.New(gwHost))
+		t.Run("new answer", func(t *testing.T) {
+			retry.UntilOrFail(t, func() bool {
+				return len(env.NetworkManager.AllGateways()) != 0 &&
+					!reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
+			}, retry.Timeout(2*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
+			xdsUpdater.WaitOrFail(t, "xds full")
+		})
+	}
 
 	t.Run("forget", func(t *testing.T) {
 		meshNetworks.SetNetworks(nil)
@@ -197,8 +199,9 @@ func (s *fakeDNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 					A:   net.ParseIP(fmt.Sprintf("10.0.0.%d", c)),
 				})
 			case dns.TypeAAAA:
+				// set a long TTL for AAAA
 				msg.Answer = append(msg.Answer, &dns.AAAA{
-					Hdr:  dns.RR_Header{Name: domain, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.ttl},
+					Hdr:  dns.RR_Header{Name: domain, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: s.ttl * 10},
 					AAAA: net.ParseIP(fmt.Sprintf("fd00::%x", c)),
 				})
 			// simulate behavior of some public/cloud DNS like Cloudflare or DigitalOcean
