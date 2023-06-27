@@ -106,9 +106,6 @@ var (
 	emptyDataSourceInlineBytes = makeSecret("empty-generic-inline-bytes", map[string]string{
 		DataSourceInlineBytes: "",
 	}, corev1.SecretTypeOpaque)
-	wrongDataSource = makeSecret("wrong-data-source", map[string]string{
-		"foo": "bar",
-	}, corev1.SecretTypeOpaque)
 )
 
 func TestSecretsController(t *testing.T) {
@@ -294,7 +291,7 @@ func TestIstioDatasourceSecrets(t *testing.T) {
 	secrets := []runtime.Object{
 		dataSourceInlineBytes,
 		emptyDataSourceInlineBytes,
-		wrongDataSource,
+		wrongKeys,
 	}
 	client := kube.NewFakeClient(secrets...)
 	sc := NewCredentialsController(client)
@@ -318,15 +315,14 @@ func TestIstioDatasourceSecrets(t *testing.T) {
 			expectedError: "found key \"Istio_DataSourceInlineBytes\" but it was empty",
 		},
 		{
-			name:          "wrong-data-source",
+			name:          "wrong-keys",
 			namespace:     "default",
-			expectedError: "found secret, but didn't have expected key (Istio_DataSourceInlineBytes); found: foo",
+			expectedError: "found secret, but didn't have expected key (Istio_DataSourceInlineBytes); found: foo-bar, tls.key",
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			key, val, err := sc.GetDataSourceKeyAndValue(tt.name, tt.namespace)
-			fmt.Println(string(key), "Hey I am printing for ", tt.name)
 			if tt.expectedKey != string(key) {
 				t.Errorf("got key %q, wanted %q", string(key), tt.expectedKey)
 			}

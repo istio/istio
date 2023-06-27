@@ -39,7 +39,7 @@ const (
 	// The ID/name for the CRL in kubernetes tls secret.
 	TLSSecretCrl = "ca.crl"
 
-	// The ID/name for Istio_DataSourceInlineBytes in kubernetes generic secret.
+	// The ID/name for Istio_DataSourceInlineBytes in kubernetes opaque secret.
 	DataSourceInlineBytes = "Istio_DataSourceInlineBytes"
 )
 
@@ -57,8 +57,8 @@ type CertInfo struct {
 
 type Controller interface {
 	GetCertInfo(name, namespace string) (certInfo *CertInfo, err error)
-	GetDataSourceKeyAndValue(name, namespace string) (key []byte, cert []byte, err error)
 	GetCaCert(name, namespace string) (certInfo *CertInfo, err error)
+	GetDataSourceKeyAndValue(name, namespace string) (key []byte, cert []byte, err error)
 	GetDockerCredential(name, namespace string) (cred []byte, err error)
 	Authorize(serviceAccount, namespace string) error
 	AddEventHandler(func(name, namespace string))

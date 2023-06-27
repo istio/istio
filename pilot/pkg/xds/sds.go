@@ -228,7 +228,7 @@ func (s *SecretGen) mayBeGetEnvoyGenericSecret(secretController credscontroller.
 	key, value, err := secretController.GetDataSourceKeyAndValue(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
-		log.Warnf("mayBeGetEnvoyGenericSecret failed to fetch data source key and value for %s: %v", sr.ResourceName, err)
+		log.Warnf("failed to fetch data source key and value for %s: %v", sr.ResourceName, err)
 		return nil
 	}
 	return toEnvoyGenericSecret(sr.ResourceName, key, value)
@@ -464,7 +464,6 @@ func toEnvoyGenericSecret(name string, key, value []byte) *discovery.Resource {
 	var res *anypb.Any
 	switch string(key) {
 	case credscontroller.DataSourceInlineBytes:
-		// inline_string and inline_bytes can convert each other
 		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_GenericSecret{
@@ -478,7 +477,7 @@ func toEnvoyGenericSecret(name string, key, value []byte) *discovery.Resource {
 			},
 		})
 	default:
-		log.Warnf("Unsupported generic secret key: %s", key)
+		log.Warnf("unsupported envoy generic secret key: %s", key)
 	}
 	return &discovery.Resource{
 		Name:     name,
