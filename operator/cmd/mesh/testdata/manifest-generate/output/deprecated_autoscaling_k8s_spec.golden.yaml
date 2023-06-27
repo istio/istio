@@ -22,6 +22,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: istio-ingressgateway
+
 ---
 
 
@@ -48,4 +49,5 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: istio-pilot
+
 ---
