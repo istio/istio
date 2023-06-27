@@ -33,7 +33,6 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
-	secrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -464,7 +463,7 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 func toEnvoyGenericSecret(name string, key, value []byte) *discovery.Resource {
 	var res *anypb.Any
 	switch string(key) {
-	case secrets.DataSourceInlineBytes:
+	case credscontroller.DataSourceInlineBytes:
 		// inline_string and inline_bytes can convert each other
 		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
