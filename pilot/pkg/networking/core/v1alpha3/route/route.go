@@ -536,7 +536,7 @@ func applyHTTPRouteDestination(
 	}
 
 	if len(in.Route) == 1 {
-		processSingleDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action, false)
+		processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action)
 	} else {
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 		for _, dst := range in.Route {
@@ -544,7 +544,7 @@ func applyHTTPRouteDestination(
 				// Ignore 0 weighted clusters if there are other clusters in the route.
 				continue
 			}
-			weighted = append(weighted, processSingleDestination(dst, serviceRegistry, listenerPort, hashByDestination, out, action, true))
+			weighted = append(weighted, processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action))
 		}
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
@@ -554,52 +554,60 @@ func applyHTTPRouteDestination(
 	}
 }
 
-func processSingleDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
+func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
 	hashByDestination DestinationHashMap,
 	out *route.Route,
 	action *route.RouteAction,
-	weighted bool,
-) *route.WeightedCluster_ClusterWeight {
+) {
 	hostname := host.Name(dst.GetDestination().GetHost())
-	n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort)
-	var clusterWeight *route.WeightedCluster_ClusterWeight
-	if weighted {
-		clusterWeight = &route.WeightedCluster_ClusterWeight{
-			Name:   n,
-			Weight: &wrappers.UInt32Value{Value: uint32(dst.Weight)},
-		}
-	} else {
-		action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: n}
+	action.ClusterSpecifier = &route.RouteAction_Cluster{
+		Cluster: GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
 	}
 	if dst.Headers != nil {
 		operations := TranslateHeadersOperations(dst.Headers)
-		if weighted {
-			// If weighted destination has headers, we need to set them on the cluster weight.
-			clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
-			clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
-			clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
-			clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
-			if operations.Authority != "" {
-				clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
-					HostRewriteLiteral: operations.Authority,
-				}
+		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, operations.RequestHeadersToAdd...)
+		out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, operations.RequestHeadersToRemove...)
+		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, operations.ResponseHeadersToAdd...)
+		out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, operations.ResponseHeadersToRemove...)
+		if operations.Authority != "" && action.HostRewriteSpecifier == nil {
+			// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
+			// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
+			// However, Envoy behavior is different when we set at both cluster level and route level, and we want
+			// behavior to be consistent with a single cluster and multiple clusters.
+			// As a result, we only override if the top level rewrite is not set
+			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+				HostRewriteLiteral: operations.Authority,
 			}
-		} else {
-			// For non weighted destinations, we need to set at the route level.
-			out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, operations.RequestHeadersToAdd...)
-			out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, operations.RequestHeadersToRemove...)
-			out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, operations.ResponseHeadersToAdd...)
-			out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, operations.ResponseHeadersToRemove...)
-			if operations.Authority != "" && action.HostRewriteSpecifier == nil {
-				// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
-				// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
-				// However, Envoy behavior is different when we set at both cluster level and route level, and we want
-				// behavior to be consistent with a single cluster and multiple clusters.
-				// As a result, we only override if the top level rewrite is not set
-				action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
-					HostRewriteLiteral: operations.Authority,
-				}
+		}
+	}
+	hash := hashByDestination[dst]
+	hashPolicy := consistentHashToHashPolicy(hash)
+	if hashPolicy != nil {
+		action.HashPolicy = append(action.HashPolicy, hashPolicy)
+	}
+}
+
+func processWeightedDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
+	listenerPort int,
+	hashByDestination DestinationHashMap,
+	action *route.RouteAction,
+) *route.WeightedCluster_ClusterWeight {
+	hostname := host.Name(dst.GetDestination().GetHost())
+	clusterWeight := &route.WeightedCluster_ClusterWeight{
+		Name:   GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
+		Weight: &wrappers.UInt32Value{Value: uint32(dst.Weight)},
+	}
+	if dst.Headers != nil {
+		operations := TranslateHeadersOperations(dst.Headers)
+		// If weighted destination has headers, we need to set them on the cluster weight.
+		clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
+		clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
+		clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
+		clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
+		if operations.Authority != "" {
+			clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
+				HostRewriteLiteral: operations.Authority,
 			}
 		}
 	}
