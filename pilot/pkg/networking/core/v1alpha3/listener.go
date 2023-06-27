@@ -396,6 +396,11 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					egressListener.IstioListener.Port.Number, node.ID)
 				continue
 			}
+			if conflictWithStaticListener(node, int(egressListener.IstioListener.Port.Number)) {
+				log.Warnf("buildSidecarOutboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+					egressListener.IstioListener.Port.Number, node.ID)
+				continue
+			}
 
 			listenPort := &model.Port{
 				Port:     int(egressListener.IstioListener.Port.Number),
@@ -475,8 +480,13 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					if !node.CanBindToPort(bindToPort, uint32(servicePort.Port)) {
 						// here, we log at DEBUG level instead of WARN to avoid noise
 						// when the catch all egress listener hits ports 80 and 443
-						log.Debugf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
-							servicePort.Port, node.ID)
+						log.Debugf("buildSidecarOutboundListeners: skipping privileged service port %s:%d for node %s as it is an unprivileged proxy",
+							service.Hostname, servicePort.Port, node.ID)
+						continue
+					}
+					if conflictWithStaticListener(node, servicePort.Port) {
+						log.Debugf("buildSidecarOutboundListeners: skipping service port %s:%d for node %s as it conflicts with static listener",
+							service.Hostname, servicePort.Port, node.ID)
 						continue
 					}
 
@@ -1705,4 +1715,13 @@ func outboundTunnelListener(proxy *model.Proxy) *listener.Listener {
 		canonicalName, canonicalRevision,
 	)
 	return buildConnectOriginateListener(baggage)
+}
+
+// conflictWithStaticListener checks whether the given port conflicts with static listener port
+// default is 15021 and 15090
+func conflictWithStaticListener(proxy *model.Proxy, port int) bool {
+	if proxy.Metadata == nil {
+		return false
+	}
+	return proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port
 }
