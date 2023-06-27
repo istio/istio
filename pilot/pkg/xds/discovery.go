@@ -143,6 +143,8 @@ type DiscoveryServer struct {
 
 	// pushVersion stores the numeric push version. This should be accessed via NextVersion()
 	pushVersion atomic.Uint64
+
+	processStartTime time.Time
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -164,9 +166,10 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
-		Cache:      model.DisabledCache{},
-		instanceID: instanceID,
-		clusterID:  clusterID,
+		Cache:            model.DisabledCache{},
+		instanceID:       instanceID,
+		clusterID:        clusterID,
+		processStartTime: time.Now(),
 	}
 
 	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
@@ -216,11 +219,9 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
 }
 
-var processStartTime = time.Now()
-
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
-	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
+	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(s.processStartTime))
 	s.serverReady.Store(true)
 }
 

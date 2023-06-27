@@ -330,7 +330,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// initialized.
 	s.ConfigUpdate(&model.PushRequest{Full: true})
 
-	processStartTime = time.Now()
+	s.processStartTime = time.Now()
 
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()
