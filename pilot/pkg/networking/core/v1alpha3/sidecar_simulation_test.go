@@ -2441,8 +2441,11 @@ spec:
 	}
 	for _, variant := range []string{"httproute", "virtualservice"} {
 		t.Run(variant, func(t *testing.T) {
-			for _, tt := range cases {
+			for i, _ := range cases {
+				tt := cases[i]
+				//pr := *tt.proxy
 				t.Run(tt.name, func(t *testing.T) {
+					t.Parallel()
 					cfg := knownServices
 					for _, tc := range tt.cfg {
 						cfg = cfg + "\n---\n" + tc.Config(t, variant)
@@ -2472,9 +2475,10 @@ spec:
 						t.Fatalf("route %q not found, have %v", tt.routeName, xdstest.MapKeys(r))
 					}
 					gotHosts := xdstest.ExtractVirtualHosts(vh)
-
+					fmt.Println("exp", exp)
 					for wk, wv := range exp {
 						got := gotHosts[wk]
+						fmt.Println("had", xdstest.MapKeys(gotHosts))
 						if !reflect.DeepEqual(wv, got) {
 							t.Errorf("%q: wanted %v, got %v (had %v)", wk, wv, got, xdstest.MapKeys(gotHosts))
 						}
