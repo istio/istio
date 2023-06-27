@@ -15,12 +15,15 @@
 package object
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestHash(t *testing.T) {
@@ -711,4 +714,214 @@ func TestK8sObject_ResolveK8sConflict(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseK8sObjectsFromYAMLManifestFailOption(t *testing.T) {
+	cases := []struct {
+		name          string
+		manifest      string
+		failOnError   bool
+		expectErr     bool
+		expectCount   int
+		expectedYAMLs []string
+	}{
+		{
+			name: "well formed yaml, no errors",
+			manifest: `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+  namespace: default
+spec:
+  containers:
+  - name: mycontainer
+    image: nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myservice
+  namespace: default
+spec:
+  selector:
+    app: MyApp
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 9376
+`,
+			failOnError: false,
+			expectErr:   false,
+			expectCount: 2,
+		},
+		{
+			name: "malformed yaml, fail on error",
+			manifest: `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+  namespace: default
+spec:
+  containers:
+  - name: mycontainer
+    image: nginx
+---
+apiVersion: v1
+metadata:
+  name: myservice
+  namespace: default
+spec:
+  selector:
+    app: MyApp
+`,
+			failOnError: true,
+			expectErr:   true,
+			expectCount: 0,
+		},
+		{
+			name: "malformed yaml, continue on error",
+			manifest: `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+  namespace: default
+spec:
+  containers:
+  - name: mycontainer
+    image: nginx
+---
+apiVersion: v1
+metadata:
+  name: myservice
+  namespace: default
+spec:
+  selector:
+    app: MyApp
+`,
+			failOnError: false,
+			expectErr:   false,
+			expectCount: 1,
+		},
+		{
+			name: "empty space in the end of the manifest",
+			manifest: `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myconfigmap
+  namespace: default
+data:
+  mydata: |-
+    First line of data
+    Second line of data                
+`,
+			expectCount: 1,
+			expectedYAMLs: []string{
+				`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myconfigmap
+  namespace: default
+data:
+  mydata: |-
+    First line of data
+    Second line of data                `,
+			},
+		},
+		{
+			name: "some random comments",
+			manifest: `
+# some random comments
+ # some random comments
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myconfigmap
+  namespace: default # some random comments should be deleted
+data:
+  mydata: |-
+    First line of data # some random comments should not be deleted
+    Second line of data                
+`,
+			expectCount: 1,
+			expectedYAMLs: []string{
+				`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myconfigmap
+  namespace: default
+data:
+  mydata: |-
+    First line of data # some random comments should not be deleted
+    Second line of data                `,
+			},
+		},
+		{
+			name: "invalid k8s object - missing kind",
+			manifest: `
+apiVersion: v1
+metadata:
+  name: myconfigmap
+  namespace: default
+data:
+  mydata: |-
+    First line of data
+    Second line of data                
+`,
+			failOnError: true,
+			expectErr:   true,
+			expectCount: 0,
+		},
+		{
+			name: "invalid k8s object - missing kind - skip error",
+			manifest: `
+apiVersion: v1
+metadata:
+  name: myconfigmap
+  namespace: default
+data:
+  mydata: |-
+    First line of data
+    Second line of data                
+`,
+			failOnError: false,
+			expectErr:   false,
+			expectCount: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			objects, err := ParseK8sObjectsFromYAMLManifestFailOption(tc.manifest, tc.failOnError)
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tc.expectCount, len(objects))
+			if tc.expectedYAMLs != nil {
+				for i, obj := range objects {
+					assert.Equal(t, true, compareYAMLContent(string(obj.yaml), tc.expectedYAMLs[i]))
+				}
+			}
+		})
+	}
+}
+
+// compareYAMLContent compares two yaml resources and returns true if they are equal. If they have same content but different
+// order of fields, it will return true as well.
+func compareYAMLContent(yaml1, yaml2 string) bool {
+	var obj1, obj2 interface{}
+	err := k8syaml.Unmarshal([]byte(yaml1), &obj1)
+	if err != nil {
+		return false
+	}
+	err = k8syaml.Unmarshal([]byte(yaml2), &obj2)
+	if err != nil {
+		return false
+	}
+	return reflect.DeepEqual(obj1, obj2)
 }
