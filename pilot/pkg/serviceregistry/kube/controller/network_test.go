@@ -20,19 +20,7 @@ import (
 	"testing"
 	"time"
 
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"istio.io/istio/pkg/config/schema/gvr"
-	"istio.io/istio/pkg/kube/kclient"
-
 	"go.uber.org/atomic"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -42,6 +30,10 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test/util/retry"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func TestNetworkUpdateTriggers(t *testing.T) {
@@ -151,6 +143,8 @@ func removeLabeledServiceGateway(t *testing.T, c *FakeController) {
 // and it does so on an IP and a hostname
 func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int) {
 	passthroughMode := v1beta1.TLSModePassthrough
+	ipType := v1beta1.IPAddressType
+	hostnameType := v1beta1.HostnameAddressType
 	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).CreateOrUpdate(&v1beta1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "eastwest-gwapi",
@@ -158,9 +152,10 @@ func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int)
 			Labels:    map[string]string{label.TopologyNetwork.Name: "nw2"},
 		},
 		Spec: v1beta1.GatewaySpec{
+			GatewayClassName: "istio",
 			Addresses: []v1beta1.GatewayAddress{
-				{nil, "1.2.3.4"},
-				{nil, "some hostname"},
+				{&ipType, "1.2.3.4"},
+				{&hostnameType, "some hostname"},
 			},
 			Listeners: []v1beta1.Listener{
 				{

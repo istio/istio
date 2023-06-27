@@ -337,7 +337,7 @@ func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGa
 func (n *networkManager) watchGatewayResources(c *Controller, stop <-chan struct{}) {
 	n.gatewayResourceClient = kclient.NewDelayedInformer(c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
 	registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
-	n.gatewayResourceClient.Start(stop)
+	go n.gatewayResourceClient.Start(stop)
 }
 
 // handleGateway resource adds a NetworkGateway for each combination of address and auto-passthrough listener

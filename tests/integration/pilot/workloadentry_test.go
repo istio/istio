@@ -88,7 +88,8 @@ kind: ServiceEntry
 metadata:
   name: serviceentry.mesh.global
 spec:
-  hosts: serviceentry.mesh.global
+  hosts: 
+  - serviceentry.mesh.global
   ports:
   - number: 80
     targetPort: 18080
@@ -111,14 +112,14 @@ spec:
   selector:
     istio: eastwestgateway
   servers:
-    - port:
-        number: 15443
-        name: tls
-        protocol: TLS
-      tls:
-        mode: AUTO_PASSTHROUGH
-      hosts:
-        - "serviceentry.mesh.global"
+  - port:
+  	number: 15443
+	name: tls
+	protocol: TLS
+  tls:
+	mode: AUTO_PASSTHROUGH
+  hosts:
+  - "serviceentry.mesh.global"
       `
 
 			// expose the ServiceEntry and create the "manual discovery" gateways in all clusters
