@@ -129,3 +129,7 @@ imagePullSecrets: []
 podDisruptionBudget: {}
 
 terminationGracePeriodSeconds: 30
+
+volumeMounts: []
+
+volumes: []

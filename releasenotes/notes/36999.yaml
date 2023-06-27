@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - https://github.com/istio/istio/issues/36999
+
+releaseNotes:
+  - |
+    **Added** support for volumeMount and volumes values for istio/gateway Helm chart.
