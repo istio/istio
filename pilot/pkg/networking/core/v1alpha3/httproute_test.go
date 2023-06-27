@@ -24,6 +24,7 @@ import (
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
@@ -40,11 +41,12 @@ import (
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
 	cases := []struct {
-		name    string
-		service *model.Service
-		port    int
-		node    *model.Proxy
-		want    []string
+		name            string
+		service         *model.Service
+		port            int
+		node            *model.Proxy
+		want            []string
+		enableDualStack bool
 	}{
 		{
 			name: "same domain",
@@ -271,6 +273,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"1.2.3.4",
 				"[2406:3003:2064:35b8:864:a648:4b96:e37d]",
 			},
+			enableDualStack: true,
 		},
 	}
 
@@ -282,7 +285,13 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
+			if c.enableDualStack {
+				features.EnableDualStack = true
+			}
 			testFn(t, c.service, c.port, c.node, c.want)
+			if c.enableDualStack {
+				features.EnableDualStack = false
+			}
 		})
 	}
 }
