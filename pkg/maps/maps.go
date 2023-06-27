@@ -40,7 +40,7 @@ func Keys[M ~map[K]V, K comparable, V any](m M) []K {
 	return maps.Keys(m)
 }
 
-// MergeCopy create a new map merge all key/value pairs from base and override.
+// MergeCopy creates a new map by merging all key/value pairs from base and override.
 // When a key in override is already present in base,
 // the value in base will be overwritten by the value associated
 // with the key in override.
