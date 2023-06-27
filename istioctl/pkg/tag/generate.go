@@ -240,9 +240,9 @@ base:
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 	}
-	decodedWh.Labels = maps.Merge(decodedWh.Labels, config.Labels)
-	decodedWh.Labels = maps.Merge(decodedWh.Labels, customLabels)
-	decodedWh.Annotations = maps.Merge(decodedWh.Annotations, config.Annotations)
+	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, config.Labels)
+	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, customLabels)
+	decodedWh.Annotations = maps.MergeCopy(decodedWh.Annotations, config.Annotations)
 	for i := range decodedWh.Webhooks {
 		if failurePolicy, ok := config.FailurePolicy[decodedWh.Webhooks[i].Name]; ok {
 			decodedWh.Webhooks[i].FailurePolicy = failurePolicy
@@ -311,9 +311,9 @@ istiodRemote:
 	if opts.WebhookName != "" {
 		decodedWh.Name = opts.WebhookName
 	}
-	decodedWh.Labels = maps.Merge(decodedWh.Labels, config.Labels)
-	decodedWh.Labels = maps.Merge(decodedWh.Labels, opts.CustomLabels)
-	decodedWh.Annotations = maps.Merge(decodedWh.Annotations, config.Annotations)
+	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, config.Labels)
+	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, opts.CustomLabels)
+	decodedWh.Annotations = maps.MergeCopy(decodedWh.Annotations, config.Annotations)
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
 		return "", err
