@@ -15,6 +15,9 @@
 package object
 
 import (
+	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -718,185 +721,63 @@ func TestK8sObject_ResolveK8sConflict(t *testing.T) {
 
 func TestParseK8sObjectsFromYAMLManifestFailOption(t *testing.T) {
 	cases := []struct {
-		name          string
-		manifest      string
-		failOnError   bool
-		expectErr     bool
-		expectCount   int
-		expectedYAMLs []string
+		name        string
+		input       string
+		failOnError bool
+		expectErr   bool
+		expectCount int
+		expectOut   bool
 	}{
 		{
-			name: "well formed yaml, no errors",
-			manifest: `
-apiVersion: v1
-kind: Pod
-metadata:
-  name: mypod
-  namespace: default
-spec:
-  containers:
-  - name: mycontainer
-    image: nginx
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: myservice
-  namespace: default
-spec:
-  selector:
-    app: MyApp
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 9376
-`,
+			name:        "well formed yaml, no errors",
+			input:       "well-formed",
 			failOnError: false,
 			expectErr:   false,
 			expectCount: 2,
 		},
 		{
-			name: "malformed yaml, fail on error",
-			manifest: `
-apiVersion: v1
-kind: Pod
-metadata:
-  name: mypod
-  namespace: default
-spec:
-  containers:
-  - name: mycontainer
-    image: nginx
----
-apiVersion: v1
-metadata:
-  name: myservice
-  namespace: default
-spec:
-  selector:
-    app: MyApp
-`,
+			name:        "malformed yaml, fail on error",
+			input:       "malformed",
 			failOnError: true,
 			expectErr:   true,
 			expectCount: 0,
 		},
 		{
-			name: "malformed yaml, continue on error",
-			manifest: `
-apiVersion: v1
-kind: Pod
-metadata:
-  name: mypod
-  namespace: default
-spec:
-  containers:
-  - name: mycontainer
-    image: nginx
----
-apiVersion: v1
-metadata:
-  name: myservice
-  namespace: default
-spec:
-  selector:
-    app: MyApp
-`,
+			name:        "malformed yaml, continue on error",
+			input:       "malformed",
 			failOnError: false,
 			expectErr:   false,
 			expectCount: 1,
 		},
 		{
-			name: "empty space in the end of the manifest",
-			manifest: `
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: myconfigmap
-  namespace: default
-data:
-  mydata: |-
-    First line of data
-    Second line of data                
-`,
+			name:        "space in the end of the manifest",
+			input:       "well-formed-with-space",
 			expectCount: 1,
-			expectedYAMLs: []string{
-				`apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: myconfigmap
-  namespace: default
-data:
-  mydata: |-
-    First line of data
-    Second line of data                `,
-			},
+			expectOut:   true,
 		},
 		{
-			name: "some random comments",
-			manifest: `
-# some random comments
- # some random comments
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: myconfigmap
-  namespace: default # some random comments should be deleted
-data:
-  mydata: |-
-    First line of data # some random comments should not be deleted
-    Second line of data                
-`,
+			name:        "some random comments",
+			input:       "well-formed-with-comments",
 			expectCount: 1,
-			expectedYAMLs: []string{
-				`apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: myconfigmap
-  namespace: default
-data:
-  mydata: |-
-    First line of data # some random comments should not be deleted
-    Second line of data                `,
-			},
+			expectOut:   true,
 		},
 		{
-			name: "invalid k8s object - missing kind",
-			manifest: `
-apiVersion: v1
-metadata:
-  name: myconfigmap
-  namespace: default
-data:
-  mydata: |-
-    First line of data
-    Second line of data                
-`,
+			name:        "invalid k8s object - missing kind",
+			input:       "invalid",
 			failOnError: true,
 			expectErr:   true,
 			expectCount: 0,
 		},
 		{
-			name: "invalid k8s object - missing kind - skip error",
-			manifest: `
-apiVersion: v1
-metadata:
-  name: myconfigmap
-  namespace: default
-data:
-  mydata: |-
-    First line of data
-    Second line of data                
-`,
+			name:        "invalid k8s object - missing kind - skip error",
+			input:       "invalid",
 			failOnError: false,
 			expectErr:   false,
 			expectCount: 0,
 		},
 		{
-			name: "empty object - do not have errors",
-			manifest: `
-# comments
-  # another comments
-`,
+			name:        "empty object - do not have errors",
+			input:       "empty",
 			failOnError: true,
 			expectErr:   false,
 			expectCount: 0,
@@ -905,16 +786,40 @@ data:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			objects, err := ParseK8sObjectsFromYAMLManifestFailOption(tc.manifest, tc.failOnError)
+			inputFileName := fmt.Sprintf("testdata/%s.yaml", tc.input)
+			inputFile, err := os.Open(inputFileName)
+			if err != nil {
+				t.Errorf("error opening test data file: %v", err)
+			}
+			defer inputFile.Close()
+			manifest, err := io.ReadAll(inputFile)
+			if err != nil {
+				t.Errorf("error reading test data file: %v", err)
+			}
+			objects, err := ParseK8sObjectsFromYAMLManifestFailOption(string(manifest), tc.failOnError)
 			if tc.expectErr {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 			}
 			assert.Equal(t, tc.expectCount, len(objects))
-			if tc.expectedYAMLs != nil {
+			if tc.expectOut {
+				outputFileName := fmt.Sprintf("testdata/%s.out.yaml", tc.input)
+				outputFile, err := os.Open(outputFileName)
+				if err != nil {
+					t.Errorf("error opening test data file: %v", err)
+				}
+				defer outputFile.Close()
+				expectedYAML, err := io.ReadAll(outputFile)
+				if err != nil {
+					t.Errorf("error reading test data file: %v", err)
+				}
+				expectedYAMLs := strings.Split(string(expectedYAML), "---")
+				if len(expectedYAMLs) != len(objects) {
+					t.Errorf("expected %d objects, got %d", len(expectedYAMLs), len(objects))
+				}
 				for i, obj := range objects {
-					assert.Equal(t, true, compareYAMLContent(string(obj.yaml), tc.expectedYAMLs[i]))
+					assert.Equal(t, true, compareYAMLContent(string(obj.yaml), expectedYAMLs[i]))
 				}
 			}
 		})
