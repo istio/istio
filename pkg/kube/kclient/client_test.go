@@ -94,7 +94,6 @@ func TestSwappingClient(t *testing.T) {
 
 		// Client created before CRDs are ready
 		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
-		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
 		tracker := assert.NewTracker[string](t)
 		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
 		go constantlyAccessForRaceDetection(stop, wasm)
@@ -106,15 +105,25 @@ func TestSwappingClient(t *testing.T) {
 
 		// Now we add the CRD
 		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
-		// This is not needed in real-world, but purely works around https://github.com/kubernetes/kubernetes/issues/95372
+		// This is pretty bad, but purely works around https://github.com/kubernetes/kubernetes/issues/95372
 		// which impacts only the fake client.
-		c.RunAndWait(stop)
-		wt.Create(&istioclient.WasmPlugin{
-			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		// Basically if the Create happens between the List and Watch it is lost. But we don't know when
+		// this occurs, so we just retry
+		cl := kclient.NewWriteClient[*istioclient.WasmPlugin](c)
+		retry.UntilSuccessOrFail(t, func() error {
+			cl.Create(&istioclient.WasmPlugin{
+				ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+			})
+			for attempt := 0; attempt < 10; attempt++ {
+				l := wasm.List("", klabels.Everything())
+				if len(l) == 1 {
+					return nil
+				}
+				time.Sleep(time.Millisecond * 2)
+			}
+			cl.Delete("name", "default")
+			return fmt.Errorf("expected one item in list")
 		})
-		assert.EventuallyEqual(t, func() int {
-			return len(wasm.List("", klabels.Everything()))
-		}, 1)
 		tracker.WaitOrdered("add/name")
 	})
 	t.Run("watcher not run ready", func(t *testing.T) {
