@@ -54,7 +54,7 @@ func convertPort(port corev1.ServicePort) *model.Port {
 
 func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.ID) *model.Service {
 	addr := constants.UnspecifiedIP
-	var extrAddrs []string
+	var extrAddr string
 	resolution := model.ClientSideLB
 	externalName := ""
 	nodeLocal := false
@@ -71,13 +71,8 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 		resolution = model.Passthrough
 	} else if svc.Spec.ClusterIP != "" {
 		addr = svc.Spec.ClusterIP
-		if len(svc.Spec.ClusterIPs) > 0 {
-			for _, ip := range svc.Spec.ClusterIPs {
-				// exclude the svc.Spec.ClusterIP
-				if ip != addr {
-					extrAddrs = append(extrAddrs, ip)
-				}
-			}
+		if len(svc.Spec.ClusterIPs) > 1 {
+			extrAddr = svc.Spec.ClusterIPs[1]
 		}
 	}
 
@@ -108,7 +103,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 		Hostname: ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
 		ClusterVIPs: model.AddressMap{
 			Addresses: map[cluster.ID][]string{
-				clusterID: append([]string{addr}, extrAddrs...),
+				clusterID: append([]string{addr}, extrAddr),
 			},
 		},
 		Ports:           ports,
