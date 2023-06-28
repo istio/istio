@@ -231,10 +231,8 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 	}
 
 	for i, p := range pods.Items {
-		if p.Namespace == "kube-system" {
-			if p.Labels["k8s-app"] == "istio-cni-node" {
-				out.CniPod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
-			}
+		if p.Labels["k8s-app"] == "istio-cni-node" {
+			out.CniPod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
 		}
 
 		if analyzer_util.IsSystemNamespace(resource.Namespace(p.Namespace)) {
