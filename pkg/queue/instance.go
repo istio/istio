@@ -15,6 +15,7 @@
 package queue
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	"sync"
 	"time"
 
@@ -52,9 +53,10 @@ type queueImpl struct {
 	closed    chan struct{}
 	closeOnce *sync.Once
 	// initialSync indicates the queue has initially "synced".
-	initialSync *atomic.Bool
-	id          string
-	metrics     *queueMetrics
+	initialSync   *atomic.Bool
+	id            string
+	metrics       *queueMetrics
+	enableMetrics bool
 }
 
 // NewQueue instantiates a queue with a processing function
@@ -64,15 +66,16 @@ func NewQueue(errorDelay time.Duration) Instance {
 
 func NewQueueWithID(errorDelay time.Duration, name string) Instance {
 	return &queueImpl{
-		delay:       errorDelay,
-		tasks:       make([]*Task, 0),
-		closing:     false,
-		closed:      make(chan struct{}),
-		closeOnce:   &sync.Once{},
-		initialSync: atomic.NewBool(false),
-		cond:        sync.NewCond(&sync.Mutex{}),
-		id:          name,
-		metrics:     NewQueueMetrics(name),
+		delay:         errorDelay,
+		tasks:         make([]*Task, 0),
+		closing:       false,
+		closed:        make(chan struct{}),
+		closeOnce:     &sync.Once{},
+		initialSync:   atomic.NewBool(false),
+		cond:          sync.NewCond(&sync.Mutex{}),
+		id:            name,
+		metrics:       NewQueueMetrics(name),
+		enableMetrics: features.EnableControllerQueueMetrics.Get(),
 	}
 }
 
@@ -81,7 +84,10 @@ func (q *queueImpl) Push(item Task) {
 	defer q.cond.L.Unlock()
 	if !q.closing {
 		q.tasks = append(q.tasks, &item)
-		q.metrics.add(&item)
+		if q.enableMetrics == true {
+			q.metrics.add(&item)
+		}
+
 	}
 	q.cond.Signal()
 }
@@ -108,7 +114,10 @@ func (q *queueImpl) get() (task *Task, shutdown bool) {
 	// Slicing will not free the underlying elements of the array, so explicitly clear them out here
 	q.tasks[0] = nil
 	q.tasks = q.tasks[1:]
-	q.metrics.get(task)
+	if q.enableMetrics {
+		q.metrics.get(task)
+	}
+
 	return task, false
 }
 
@@ -128,7 +137,10 @@ func (q *queueImpl) processNextItem() bool {
 			q.Push(callback)
 		})
 	}
-	q.metrics.done(task)
+	if q.enableMetrics {
+		q.metrics.done(task)
+	}
+
 	return true
 }
 
