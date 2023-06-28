@@ -127,14 +127,13 @@ func (q *queueImpl) processNextItem() bool {
 	if shuttingdown {
 		return false
 	}
-	//time.Sleep(time.Millisecond * 500)
-	callback := *task
+
 	// Run the task.
-	if err := callback(); err != nil {
+	if err := (*task)(); err != nil {
 		delay := q.delay
 		log.Infof("Work item handle failed (%v), retry after delay %v", err, delay)
 		time.AfterFunc(delay, func() {
-			q.Push(callback)
+			q.Push(*task)
 		})
 	}
 	if q.enableMetrics {
