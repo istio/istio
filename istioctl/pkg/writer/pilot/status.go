@@ -195,7 +195,7 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 					proxyID:              clientConfig.GetNode().GetId(),
 					clusterID:            meta.ClusterID.String(),
 					istiodID:             cp.ID,
-					istiodVersion:        cp.Info.Version,
+					istiodVersion:        meta.IstioVersion,
 					clusterStatus:        cds,
 					listenerStatus:       lds,
 					routeStatus:          rds,

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** xDS `proxy-status` has inaccurate Istio version. Note: This fix is optimized for istioctl 1.19 and istiod 1.19. For full functionality, ensure that both istioctl and istiod are upgraded to version 1.19.
