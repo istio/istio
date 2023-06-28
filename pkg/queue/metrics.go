@@ -55,7 +55,6 @@ func (m *queueMetrics) add(item *Task) {
 		return
 	}
 	m.queueDepth++
-	//log.Infof("the current length is %d", m.queueDepth)
 	m.adds.With(queueIdTag.Value(m.id)).Increment()
 	m.depth.With(queueIdTag.Value(m.id)).RecordInt(m.queueDepth)
 	if _, exists := m.addTimes[item]; !exists {
