@@ -2441,7 +2441,7 @@ spec:
 	}
 	for _, variant := range []string{"httproute", "virtualservice"} {
 		t.Run(variant, func(t *testing.T) {
-			for i, _ := range cases {
+			for i := range cases {
 				tt := cases[i]
 				t.Run(tt.name, func(t *testing.T) {
 					t.Parallel()
