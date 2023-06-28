@@ -26,8 +26,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	istiogvr "istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kubeclient"
 	types "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube"
@@ -300,13 +300,8 @@ func keyFunc(name, namespace string) string {
 }
 
 func ToOpts(c kube.Client, gvr schema.GroupVersionResource, filter Filter) kubetypes.InformerOptions {
-	s, ok := collections.All.FindByGroupVersionResource(gvr)
-	if !ok {
-		// shouldn't happen
-		log.Fatalf("unrecognized type %v", gvr)
-	}
 	ns := filter.Namespace
-	if !s.IsClusterScoped() && ns == "" {
+	if !istiogvr.IsClusterScoped(gvr) && ns == "" {
 		ns = features.InformerWatchNamespace
 	}
 	return kubetypes.InformerOptions{
