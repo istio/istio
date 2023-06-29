@@ -24,8 +24,6 @@ var (
 
 	depth = monitoring.NewGauge("pilot_worker_queue_depth", "Depth of the controller queues", monitoring.WithLabels(queueIdTag))
 
-	adds = monitoring.NewSum("pilot_worker_queue_adds", "Adds to the controller queues", monitoring.WithLabels(queueIdTag))
-
 	latency = monitoring.NewDistribution(
 		"pilot_worker_queue_latency",
 		"Latency before the item is processed",
@@ -40,7 +38,6 @@ var (
 
 type queueMetrics struct {
 	depth                monitoring.Metric
-	adds                 monitoring.Metric
 	latency              monitoring.Metric
 	workDuration         monitoring.Metric
 	id                   string
@@ -55,8 +52,7 @@ func (m *queueMetrics) add(item *Task) {
 		return
 	}
 	m.queueDepth++
-	m.adds.With(queueIdTag.Value(m.id)).Increment()
-	m.depth.With(queueIdTag.Value(m.id)).RecordInt(m.queueDepth)
+	m.depth.RecordInt(m.queueDepth)
 	if _, exists := m.addTimes[item]; !exists {
 		m.addTimes[item] = m.clock.Now()
 	}
@@ -67,10 +63,10 @@ func (m *queueMetrics) get(item *Task) {
 		return
 	}
 	m.queueDepth--
-	m.depth.With(queueIdTag.Value(m.id)).RecordInt(m.queueDepth)
 	m.processingStartTimes[item] = m.clock.Now()
+	m.depth.RecordInt(m.queueDepth)
 	if startTime, exists := m.addTimes[item]; exists {
-		m.latency.With(queueIdTag.Value(m.id)).Record(m.sinceInSeconds(startTime))
+		m.latency.Record(m.sinceInSeconds(startTime))
 		delete(m.addTimes, item)
 	}
 }
@@ -81,7 +77,7 @@ func (m *queueMetrics) done(item *Task) {
 	}
 
 	if startTime, exists := m.processingStartTimes[item]; exists {
-		m.workDuration.With(queueIdTag.Value(m.id)).Record(m.sinceInSeconds(startTime))
+		m.workDuration.Record(m.sinceInSeconds(startTime))
 		delete(m.processingStartTimes, item)
 	}
 }
@@ -94,10 +90,9 @@ func (m *queueMetrics) sinceInSeconds(start time.Time) float64 {
 func NewQueueMetrics(id string) *queueMetrics {
 	return &queueMetrics{
 		id:                   id,
-		depth:                depth,
-		workDuration:         workDuration,
-		latency:              latency,
-		adds:                 adds,
+		depth:                depth.With(queueIdTag.Value(id)),
+		workDuration:         workDuration.With(queueIdTag.Value(id)),
+		latency:              latency.With(queueIdTag.Value(id)),
 		clock:                clock.RealClock{},
 		addTimes:             map[*Task]time.Time{},
 		processingStartTimes: map[*Task]time.Time{},
@@ -105,5 +100,5 @@ func NewQueueMetrics(id string) *queueMetrics {
 }
 
 func init() {
-	monitoring.MustRegister(adds, depth, latency, workDuration)
+	monitoring.MustRegister(depth, latency, workDuration)
 }
