@@ -2543,6 +2543,7 @@ spec:
 	for _, variant := range []string{"httproute", "virtualservice"} {
 		t.Run(variant, func(t *testing.T) {
 			for _, tt := range cases {
+				tt := tt
 				t.Run(tt.name, func(t *testing.T) {
 					if tt.oldestWins {
 						test.SetForTest(t, &features.PersistOldestWinsHeuristicForVirtualServiceHostMatching, true)
@@ -2578,7 +2579,6 @@ spec:
 						t.Fatalf("route %q not found, have %v", tt.routeName, xdstest.MapKeys(r))
 					}
 					gotHosts := xdstest.ExtractVirtualHosts(vh)
-
 					for wk, wv := range exp {
 						got := gotHosts[wk]
 						if !reflect.DeepEqual(wv, got) {
