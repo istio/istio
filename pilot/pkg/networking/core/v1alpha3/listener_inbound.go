@@ -235,17 +235,6 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 		chains := lb.inboundChainForOpts(cc, mtls, opts)
 
 		if cc.bindToPort {
-			// Skip ports we cannot bind to
-			if !lb.node.CanBindToPort(true, cc.port.TargetPort) {
-				log.Warnf("buildInboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
-					cc.port.TargetPort, lb.node.ID)
-				continue
-			}
-			if conflictWithStaticListener(lb.node, int(cc.port.TargetPort)) {
-				log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
-					cc.port.TargetPort, lb.node.ID)
-				continue
-			}
 			// If this config is for bindToPort, we want to actually create a real Listener.
 			listeners = append(listeners, lb.inboundCustomListener(cc, chains))
 		} else {
@@ -433,7 +422,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 			return nil
 		}
 		chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, false)
-	} else if lb.node.SidecarScope.HasIngressListener() {
+	} else {
 		// only allow to merge inbound listeners if sidecar has ingress listener pilot has env EnableSidecarServiceInboundListenerMerge set
 		if features.EnableSidecarServiceInboundListenerMerge {
 			chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, true)
