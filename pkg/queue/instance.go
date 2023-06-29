@@ -15,14 +15,13 @@
 package queue
 
 import (
-	"istio.io/istio/pilot/pkg/features"
 	"sync"
 	"time"
 
 	"go.uber.org/atomic"
-	"k8s.io/apimachinery/pkg/util/rand"
-
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/log"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 // Task to be performed.
@@ -65,17 +64,20 @@ func NewQueue(errorDelay time.Duration) Instance {
 }
 
 func NewQueueWithID(errorDelay time.Duration, name string) Instance {
+	var metrics *queueMetrics
+	if features.EnableControllerQueueMetrics {
+		metrics = newQueueMetrics(name)
+	}
 	return &queueImpl{
-		delay:         errorDelay,
-		tasks:         make([]*Task, 0),
-		closing:       false,
-		closed:        make(chan struct{}),
-		closeOnce:     &sync.Once{},
-		initialSync:   atomic.NewBool(false),
-		cond:          sync.NewCond(&sync.Mutex{}),
-		id:            name,
-		metrics:       NewQueueMetrics(name),
-		enableMetrics: features.EnableControllerQueueMetrics.Get(),
+		delay:       errorDelay,
+		tasks:       make([]*Task, 0),
+		closing:     false,
+		closed:      make(chan struct{}),
+		closeOnce:   &sync.Once{},
+		initialSync: atomic.NewBool(false),
+		cond:        sync.NewCond(&sync.Mutex{}),
+		id:          name,
+		metrics:     metrics,
 	}
 }
 
@@ -84,7 +86,7 @@ func (q *queueImpl) Push(item Task) {
 	defer q.cond.L.Unlock()
 	if !q.closing {
 		q.tasks = append(q.tasks, &item)
-		if q.enableMetrics == true {
+		if q.metrics != nil {
 			q.metrics.add(&item)
 		}
 
@@ -114,7 +116,7 @@ func (q *queueImpl) get() (task *Task, shutdown bool) {
 	// Slicing will not free the underlying elements of the array, so explicitly clear them out here
 	q.tasks[0] = nil
 	q.tasks = q.tasks[1:]
-	if q.enableMetrics {
+	if q.metrics != nil {
 		q.metrics.get(task)
 	}
 
@@ -136,7 +138,7 @@ func (q *queueImpl) processNextItem() bool {
 			q.Push(*task)
 		})
 	}
-	if q.enableMetrics {
+	if q.metrics != nil {
 		q.metrics.done(task)
 	}
 

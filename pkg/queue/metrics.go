@@ -14,9 +14,10 @@
 package queue
 
 import (
+	"time"
+
 	"istio.io/istio/pkg/monitoring"
 	"k8s.io/utils/clock"
-	"time"
 )
 
 var (
@@ -27,12 +28,12 @@ var (
 	latency = monitoring.NewDistribution(
 		"pilot_worker_queue_latency",
 		"Latency before the item is processed",
-		[]float64{.01, .1, 0.5, 1, 3, 5},
+		[]float64{.01, .1, .2, .5, 1, 3, 5},
 		monitoring.WithLabels(queueIdTag))
 
 	workDuration = monitoring.NewDistribution("pilot_worker_queue_duration",
 		"Time taken to process an item",
-		[]float64{.01, .1, 0.5, 1, 3, 5},
+		[]float64{.01, .1, .2, .5, 1, 3, 5},
 		monitoring.WithLabels(queueIdTag))
 )
 
@@ -87,7 +88,7 @@ func (m *queueMetrics) sinceInSeconds(start time.Time) float64 {
 	return m.clock.Since(start).Seconds()
 }
 
-func NewQueueMetrics(id string) *queueMetrics {
+func newQueueMetrics(id string) *queueMetrics {
 	return &queueMetrics{
 		id:                   id,
 		depth:                depth.With(queueIdTag.Value(id)),
