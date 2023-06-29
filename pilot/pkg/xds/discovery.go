@@ -143,6 +143,9 @@ type DiscoveryServer struct {
 
 	// pushVersion stores the numeric push version. This should be accessed via NextVersion()
 	pushVersion atomic.Uint64
+
+	// discoveryStartTime is the time since the binary started
+	discoveryStartTime time.Time
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -164,9 +167,10 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
-		Cache:      model.DisabledCache{},
-		instanceID: instanceID,
-		clusterID:  clusterID,
+		Cache:              model.DisabledCache{},
+		instanceID:         instanceID,
+		clusterID:          clusterID,
+		discoveryStartTime: processStartTime,
 	}
 
 	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
