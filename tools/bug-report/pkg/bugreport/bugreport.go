@@ -28,6 +28,7 @@ import (
 
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
+
 	label2 "istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/ambient"
@@ -313,7 +314,7 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 
 	common.LogAndPrintf("\nFetching CNI logs from cluster.\n\n")
 	for _, cniPod := range resources.CniPod {
-		getCniLogs(runner, config, resources, cniPod.Name, &mandatoryWg)
+		getCniLogs(runner, config, resources, cniPod.Namespace, cniPod.Name, &mandatoryWg)
 	}
 
 	// optionalWg is subject to timer.
@@ -454,7 +455,7 @@ func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, 
 // getCniLogs fetches Cni logs from istio-cni-node daemonsets inside namespace kube-system and writes the output
 // Runs if a goroutine, with errors reported through gErrors
 func getCniLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
-	pod string, wg *sync.WaitGroup,
+	namespace, pod string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
 	log.Infof("Waiting on CNI logs for %v", pod)
@@ -464,7 +465,7 @@ func getCniLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 			logRuntime(time.Now(), "Done getting CNI logs for %v", pod)
 		}()
 
-		clog, _, _, err := getLog(runner, resources, config, common.KubeSystemNamespace, pod, "")
+		clog, _, _, err := getLog(runner, resources, config, namespace, pod, "")
 		appendGlobalErr(err)
 		writeFile(filepath.Join(archive.CniPath(tempDir, pod), "cni.log"), clog, config.DryRun)
 		log.Infof("Done with CNI logs %v", pod)
