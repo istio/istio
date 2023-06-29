@@ -41,7 +41,7 @@ ISTIO_ENVOY_BASE_URL="${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/ist
 
 # If we are not using the default, assume its private and we need to authenticate
 if [[ "${ISTIO_ENVOY_BASE_URL}" != "https://storage.googleapis.com/istio-build/proxy" ]]; then
-  AUTH_HEADER="Authorization: Bearer $(shell gcloud auth print-access-token)"
+  AUTH_HEADER="Authorization: Bearer $(gcloud auth print-access-token)"
   export AUTH_HEADER
 fi
 
