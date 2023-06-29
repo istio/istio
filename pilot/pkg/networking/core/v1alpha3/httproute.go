@@ -507,7 +507,7 @@ func dedupeDomains(domains []string, vhdomains sets.String, expandedHosts []stri
 			continue
 		}
 		temp = append(temp, d)
-		vhdomains.Insert(d)
+		vhdomains.Insert(strings.ToLower(d))
 	}
 	return temp
 }
