@@ -84,7 +84,11 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 				if svcSelector.Matches(podLabels) {
 					for _, port := range service.Ports {
 						if port.Protocol == "TCP" {
-							servicePorts[uint32(port.Port)] = true
+							if tp := port.TargetPort.IntValue(); tp != 0 {
+								servicePorts[uint32(tp)] = true
+							} else {
+								servicePorts[uint32(port.Port)] = true
+							}
 						}
 					}
 				}
