@@ -202,8 +202,8 @@ func (f *informerFactory) Start(stopCh <-chan struct{}) {
 		return
 	}
 
-	for informerType, informer := range f.informers {
-		if !f.startedInformers.Contains(informerType) {
+	for informerKey, informer := range f.informers {
+		if !f.startedInformers.Contains(informerKey) {
 			f.wg.Add(1)
 			// We need a new variable in each loop iteration,
 			// otherwise the goroutine would use the loop variable
@@ -213,7 +213,7 @@ func (f *informerFactory) Start(stopCh <-chan struct{}) {
 				defer f.wg.Done()
 				informer.informer.Run(stopCh)
 			}()
-			f.startedInformers.Insert(informerType)
+			f.startedInformers.Insert(informerKey)
 		}
 	}
 }
