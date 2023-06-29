@@ -184,6 +184,10 @@ func (e *gcpEnv) Metadata() map[string]string {
 		md[GCPCluster] = envCN
 	}
 
+	if clusterURL, err := constructGKEClusterURL(md); err == nil {
+		md[GCPClusterURL] = clusterURL
+	}
+
 	if e.shouldFillMetadata() {
 		// suppliers is an array of functions that supply the metadata for missing properties
 		var suppliers []metadataSupplier
