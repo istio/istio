@@ -52,10 +52,9 @@ type queueImpl struct {
 	closed    chan struct{}
 	closeOnce *sync.Once
 	// initialSync indicates the queue has initially "synced".
-	initialSync   *atomic.Bool
-	id            string
-	metrics       *queueMetrics
-	enableMetrics bool
+	initialSync *atomic.Bool
+	id          string
+	metrics     *queueMetrics
 }
 
 // NewQueue instantiates a queue with a processing function
