@@ -134,6 +134,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", "", map[string]string{})
+	s.discoveryStartTime = time.Now()
 	s.InitGenerators(s.Env, "istio-system", nil)
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
