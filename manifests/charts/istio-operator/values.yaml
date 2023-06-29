@@ -49,3 +49,6 @@ affinity: {}
 # Additional labels and annotations to apply on the pod level for monitoring and logging configuration.
 podLabels: {}
 podAnnotations: {}
+
+# Priority class name for pod preemption
+priorityClassName: ""
