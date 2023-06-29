@@ -224,7 +224,7 @@ var processStartTime = time.Now()
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
-	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
+	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(s.discoveryStartTime))
 	s.serverReady.Store(true)
 }
 
