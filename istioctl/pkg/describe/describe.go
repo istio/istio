@@ -33,8 +33,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/structpb"
-	"istio.io/istio/pkg/kube/labels"
-	"istio.io/istio/pkg/url"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -66,8 +64,10 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/url"
 )
 
 type myProtoValue struct {

@@ -26,7 +26,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
-	labels2 "istio.io/istio/pkg/kube/labels"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+	labels2 "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 )
