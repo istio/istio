@@ -368,6 +368,28 @@ spec:
   ports:
     - appProtocol: fake
       port: 9080`
+	validK8sRecommendedLabels = `
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: helloworld-v1
+  labels:
+    app.kubernetes.io/name: helloworld
+    app.kubernetes.io/version: v1
+spec:
+  replicas: 1
+`
+	validIstioCanonical = `
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: helloworld-v1
+  labels:
+    service.istio.io/canonical-name: helloworld
+    service.istio.io/canonical-revision: v1
+spec:
+  replicas: 1
+`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -485,6 +507,16 @@ func TestValidateResource(t *testing.T) {
 			name:  "appProtocol=fake",
 			in:    inValidPortNamingSvcWithAppProtocol,
 			valid: false,
+		},
+		{
+			name:  "metric labels k8s recommended",
+			in:    validK8sRecommendedLabels,
+			valid: true,
+		},
+		{
+			name:  "metric labels istio canonical",
+			in:    validIstioCanonical,
+			valid: true,
 		},
 	}
 

@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+	labels2 "istio.io/istio/pkg/kube/labels"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,10 +60,6 @@ Example resource specifications include:
 		"status":     {},
 	}
 
-	istioDeploymentLabel = []string{
-		"app",
-		"version",
-	}
 	serviceProtocolUDP = "UDP"
 )
 
@@ -212,11 +209,9 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 		return err
 	}
 	url := fmt.Sprintf("See %s\n", url.DeploymentRequirements)
-	for _, l := range istioDeploymentLabel {
-		if _, ok := labels[l]; !ok {
-			fmt.Fprintf(writer, "deployment %q may not provide Istio metrics and telemetry without label %q. "+url,
-				fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
-		}
+	if !labels2.HasCanonicalServiceName(labels) || !labels2.HasCanonicalServiceRevision(labels) {
+		fmt.Fprintf(writer, "deployment %q may not provide Istio metrics and telemetry labels: %q. "+url,
+			fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), labels)
 	}
 	return nil
 }

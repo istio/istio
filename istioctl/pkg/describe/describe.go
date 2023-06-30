@@ -33,6 +33,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/structpb"
+	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/url"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -490,13 +492,13 @@ func printPod(writer io.Writer, pod *corev1.Pod, revision string) {
 
 	// https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
 	// says "We recommend adding an explicit app label and version label to deployments."
-	app, ok := pod.ObjectMeta.Labels["app"]
-	if !ok || app == "" {
-		fmt.Fprintf(writer, "Suggestion: add 'app' label to pod for Istio telemetry.\n")
+	if !labels.HasCanonicalServiceName(pod.Labels) {
+		fmt.Fprintf(writer, "Suggestion: add required service name label for Istio telemetry. "+
+			"See %s.\n", url.DeploymentRequirements)
 	}
-	version, ok := pod.ObjectMeta.Labels["version"]
-	if !ok || version == "" {
-		fmt.Fprintf(writer, "Suggestion: add 'version' label to pod for Istio telemetry.\n")
+	if !labels.HasCanonicalServiceRevision(pod.Labels) {
+		fmt.Fprintf(writer, "Suggestion: add required service revision label for Istio telemetry. "+
+			"See %s.\n", url.DeploymentRequirements)
 	}
 }
 
