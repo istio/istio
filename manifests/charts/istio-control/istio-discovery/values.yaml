@@ -18,6 +18,10 @@ pilot:
   image: pilot
   traceSampling: 1.0
 
+  # Use host networking
+  # WARNING: Use of host networking for pods can be unsafe and risks should be understood before enabling
+  hostNetwork: false
+
   # Resources for a small pilot install
   resources:
     requests:

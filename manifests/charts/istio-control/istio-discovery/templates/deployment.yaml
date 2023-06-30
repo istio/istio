@@ -78,6 +78,9 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+{{- if .Values.pilot.hostNetwork }}
+      hostNetwork: {{ .Values.pilot.hostNetwork }}
+{{- end }}
       securityContext:
         fsGroup: 1337
       containers:
