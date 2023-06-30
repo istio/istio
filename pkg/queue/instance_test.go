@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )

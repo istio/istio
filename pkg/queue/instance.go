@@ -19,9 +19,10 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/log"
-	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 // Task to be performed.

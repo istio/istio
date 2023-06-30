@@ -16,8 +16,9 @@ package queue
 import (
 	"time"
 
-	"istio.io/istio/pkg/monitoring"
 	"k8s.io/utils/clock"
+
+	"istio.io/istio/pkg/monitoring"
 )
 
 var (
