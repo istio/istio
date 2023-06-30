@@ -237,6 +237,10 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 	if m.configController != nil && features.EnableAmbientControllers {
 		m.configController.RegisterEventHandler(gvk.AuthorizationPolicy, kubeRegistry.AuthorizationPolicyHandler)
 		m.configController.RegisterEventHandler(gvk.PeerAuthentication, kubeRegistry.PeerAuthenticationHandler)
+		if configCluster && m.serviceEntryController != nil {
+			// configController is used by ambient service entry handler to get workload entries
+			m.serviceEntryController.AppendServiceHandler(kubeRegistry.ServiceEntryHandler)
+		}
 	}
 
 	if configCluster && m.serviceEntryController != nil && features.EnableEnhancedResourceScoping {
@@ -247,7 +251,6 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		if m.serviceEntryController != nil && configCluster {
 			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
-			m.serviceEntryController.AppendServiceHandler(kubeRegistry.ServiceEntryHandler)
 			m.serviceEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 		} else if features.WorkloadEntryCrossCluster {
 			// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
@@ -256,9 +259,6 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 					configStore, options.XDSUpdater,
 					serviceentry.WithClusterID(cluster.ID),
 					serviceentry.WithNetworkIDCb(kubeRegistry.Network))
-				if m.serviceEntryController != nil {
-					m.serviceEntryController.AppendServiceHandler(kubeRegistry.ServiceEntryHandler)
-				}
 				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 				kubeController.workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 				// ServiceEntry selects WorkloadEntry from remote cluster
