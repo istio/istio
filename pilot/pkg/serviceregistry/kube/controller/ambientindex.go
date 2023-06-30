@@ -414,13 +414,13 @@ func (c *Controller) setupIndex() *AmbientIndex {
 
 	idx.servicesMap = make(map[types.NamespacedName]*model.Service)
 	idx.handleServiceEntry = func(svc *model.Service, event model.Event) {
-		idx.mu.Lock()
-		defer idx.mu.Unlock()
-
 		if svc.Attributes.ServiceEntry == nil {
 			// event for e.g. kube svc; ignore
 			return
 		}
+
+		idx.mu.Lock()
+		defer idx.mu.Unlock()
 
 		// We will accrue updates as we update our internal state
 		updates := sets.New[model.ConfigKey]()
