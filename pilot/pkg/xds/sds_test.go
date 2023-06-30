@@ -32,7 +32,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	. "istio.io/istio/pilot/pkg/credentials"
+	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -60,29 +60,29 @@ func makeSecret(name string, data map[string]string) *corev1.Secret {
 var (
 	certDir     = filepath.Join(env.IstioSrc, "./tests/testdata/certs")
 	genericCert = makeSecret("generic", map[string]string{
-		GenericScrtCert: readFile(filepath.Join(certDir, "default/cert-chain.pem")),
-		GenericScrtKey:  readFile(filepath.Join(certDir, "default/key.pem")),
+		credentials.GenericScrtCert: readFile(filepath.Join(certDir, "default/cert-chain.pem")),
+		credentials.GenericScrtKey:  readFile(filepath.Join(certDir, "default/key.pem")),
 	})
 	genericMtlsCert = makeSecret("generic-mtls", map[string]string{
-		GenericScrtCert:   readFile(filepath.Join(certDir, "dns/cert-chain.pem")),
-		GenericScrtKey:    readFile(filepath.Join(certDir, "dns/key.pem")),
-		GenericScrtCaCert: readFile(filepath.Join(certDir, "dns/root-cert.pem")),
+		credentials.GenericScrtCert:   readFile(filepath.Join(certDir, "dns/cert-chain.pem")),
+		credentials.GenericScrtKey:    readFile(filepath.Join(certDir, "dns/key.pem")),
+		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "dns/root-cert.pem")),
 	})
 	genericMtlsCertCrl = makeSecret("generic-mtls-crl", map[string]string{
-		GenericScrtCert:   readFile(filepath.Join(certDir, "dns/cert-chain.pem")),
-		GenericScrtKey:    readFile(filepath.Join(certDir, "dns/key.pem")),
-		GenericScrtCaCert: readFile(filepath.Join(certDir, "dns/root-cert.pem")),
-		GenericScrtCRL:    readFile(filepath.Join(certDir, "dns/cert-chain.pem")),
+		credentials.GenericScrtCert:   readFile(filepath.Join(certDir, "dns/cert-chain.pem")),
+		credentials.GenericScrtKey:    readFile(filepath.Join(certDir, "dns/key.pem")),
+		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "dns/root-cert.pem")),
+		credentials.GenericScrtCRL:    readFile(filepath.Join(certDir, "dns/cert-chain.pem")),
 	})
 	genericMtlsCertSplit = makeSecret("generic-mtls-split", map[string]string{
-		GenericScrtCert: readFile(filepath.Join(certDir, "mountedcerts-client/cert-chain.pem")),
-		GenericScrtKey:  readFile(filepath.Join(certDir, "mountedcerts-client/key.pem")),
+		credentials.GenericScrtCert: readFile(filepath.Join(certDir, "mountedcerts-client/cert-chain.pem")),
+		credentials.GenericScrtKey:  readFile(filepath.Join(certDir, "mountedcerts-client/key.pem")),
 	})
 	genericMtlsCertSplitCa = makeSecret("generic-mtls-split-cacert", map[string]string{
-		GenericScrtCaCert: readFile(filepath.Join(certDir, "mountedcerts-client/root-cert.pem")),
+		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "mountedcerts-client/root-cert.pem")),
 	})
-	genericInlineBytes = makeSecret("generic-inline-bytes", map[string]string{
-		DataSourceInlineBytes: "generic-inline-bytes-datasource",
+	istioGenericSecret = makeSecret("istio-generic-secret", map[string]string{
+		credentials.IstioGenericSecret: "istio-generic-secret-value",
 	})
 )
 
@@ -93,16 +93,16 @@ func readFile(name string) string {
 
 func TestGenerate(t *testing.T) {
 	type Expected struct {
-		Key                   string
-		Cert                  string
-		CaCert                string
-		CaCrl                 string
-		DataSourceInlineBytes string
+		Key                string
+		Cert               string
+		CaCert             string
+		CaCrl              string
+		IstioGenericSecret string
 	}
 	allResources := []string{
 		"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert",
 		"kubernetes://generic-mtls-split", "kubernetes://generic-mtls-split-cacert", "kubernetes://generic-mtls-crl",
-		"kubernetes://generic-mtls-crl-cacert", "kubernetes://generic-inline-bytes",
+		"kubernetes://generic-mtls-crl-cacert", "kubernetes://istio-generic-secret",
 	}
 	cases := []struct {
 		name                 string
@@ -119,8 +119,8 @@ func TestGenerate(t *testing.T) {
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
-					Key:  string(genericCert.Data[GenericScrtKey]),
-					Cert: string(genericCert.Data[GenericScrtCert]),
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
 				},
 			},
 		},
@@ -131,8 +131,8 @@ func TestGenerate(t *testing.T) {
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
-					Key:  string(genericCert.Data[GenericScrtKey]),
-					Cert: string(genericCert.Data[GenericScrtCert]),
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
 				},
 			},
 		},
@@ -150,33 +150,33 @@ func TestGenerate(t *testing.T) {
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
-					Key:  string(genericCert.Data[GenericScrtKey]),
-					Cert: string(genericCert.Data[GenericScrtCert]),
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
 				},
 				"kubernetes://generic-mtls": {
-					Key:  string(genericMtlsCert.Data[GenericScrtKey]),
-					Cert: string(genericMtlsCert.Data[GenericScrtCert]),
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
 				},
 				"kubernetes://generic-mtls-cacert": {
-					CaCert: string(genericMtlsCert.Data[GenericScrtCaCert]),
+					CaCert: string(genericMtlsCert.Data[credentials.GenericScrtCaCert]),
 				},
 				"kubernetes://generic-mtls-split": {
-					Key:  string(genericMtlsCertSplit.Data[GenericScrtKey]),
-					Cert: string(genericMtlsCertSplit.Data[GenericScrtCert]),
+					Key:  string(genericMtlsCertSplit.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertSplit.Data[credentials.GenericScrtCert]),
 				},
 				"kubernetes://generic-mtls-split-cacert": {
-					CaCert: string(genericMtlsCertSplitCa.Data[GenericScrtCaCert]),
+					CaCert: string(genericMtlsCertSplitCa.Data[credentials.GenericScrtCaCert]),
 				},
 				"kubernetes://generic-mtls-crl": {
-					Key:  string(genericMtlsCertCrl.Data[GenericScrtKey]),
-					Cert: string(genericMtlsCertCrl.Data[GenericScrtCert]),
+					Key:  string(genericMtlsCertCrl.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertCrl.Data[credentials.GenericScrtCert]),
 				},
 				"kubernetes://generic-mtls-crl-cacert": {
-					CaCert: string(genericMtlsCertCrl.Data[GenericScrtCaCert]),
-					CaCrl:  string(genericMtlsCertCrl.Data[GenericScrtCRL]),
+					CaCert: string(genericMtlsCertCrl.Data[credentials.GenericScrtCaCert]),
+					CaCrl:  string(genericMtlsCertCrl.Data[credentials.GenericScrtCRL]),
 				},
-				"kubernetes://generic-inline-bytes": {
-					DataSourceInlineBytes: string(genericInlineBytes.Data[DataSourceInlineBytes]),
+				"kubernetes://istio-generic-secret": {
+					IstioGenericSecret: string(istioGenericSecret.Data[credentials.IstioGenericSecret]),
 				},
 			},
 		},
@@ -191,15 +191,15 @@ func TestGenerate(t *testing.T) {
 			})},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
-					Key:  string(genericCert.Data[GenericScrtKey]),
-					Cert: string(genericCert.Data[GenericScrtCert]),
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
 				},
 				"kubernetes://generic-mtls": {
-					Key:  string(genericMtlsCert.Data[GenericScrtKey]),
-					Cert: string(genericMtlsCert.Data[GenericScrtCert]),
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
 				},
 				"kubernetes://generic-mtls-cacert": {
-					CaCert: string(genericMtlsCert.Data[GenericScrtCaCert]),
+					CaCert: string(genericMtlsCert.Data[credentials.GenericScrtCaCert]),
 				},
 			},
 		},
@@ -210,8 +210,8 @@ func TestGenerate(t *testing.T) {
 			request:   &model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "generic", Namespace: "istio-system"})},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
-					Key:  string(genericCert.Data[GenericScrtKey]),
-					Cert: string(genericCert.Data[GenericScrtCert]),
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
 				},
 			},
 		},
@@ -225,11 +225,11 @@ func TestGenerate(t *testing.T) {
 			},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls": {
-					Key:  string(genericMtlsCert.Data[GenericScrtKey]),
-					Cert: string(genericMtlsCert.Data[GenericScrtCert]),
+					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
 				},
 				"kubernetes://generic-mtls-cacert": {
-					CaCert: string(genericMtlsCert.Data[GenericScrtCaCert]),
+					CaCert: string(genericMtlsCert.Data[credentials.GenericScrtCaCert]),
 				},
 			},
 		},
@@ -243,12 +243,12 @@ func TestGenerate(t *testing.T) {
 			},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-crl": {
-					Key:  string(genericMtlsCertCrl.Data[GenericScrtKey]),
-					Cert: string(genericMtlsCertCrl.Data[GenericScrtCert]),
+					Key:  string(genericMtlsCertCrl.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertCrl.Data[credentials.GenericScrtCert]),
 				},
 				"kubernetes://generic-mtls-crl-cacert": {
-					CaCert: string(genericMtlsCertCrl.Data[GenericScrtCaCert]),
-					CaCrl:  string(genericMtlsCertCrl.Data[GenericScrtCRL]),
+					CaCert: string(genericMtlsCertCrl.Data[credentials.GenericScrtCaCert]),
+					CaCrl:  string(genericMtlsCertCrl.Data[credentials.GenericScrtCRL]),
 				},
 			},
 		},
@@ -262,11 +262,11 @@ func TestGenerate(t *testing.T) {
 			},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
-					Key:  string(genericMtlsCertSplit.Data[GenericScrtKey]),
-					Cert: string(genericMtlsCertSplit.Data[GenericScrtCert]),
+					Key:  string(genericMtlsCertSplit.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertSplit.Data[credentials.GenericScrtCert]),
 				},
 				"kubernetes://generic-mtls-split-cacert": {
-					CaCert: string(genericMtlsCertSplitCa.Data[GenericScrtCaCert]),
+					CaCert: string(genericMtlsCertSplitCa.Data[credentials.GenericScrtCaCert]),
 				},
 			},
 		},
@@ -280,11 +280,11 @@ func TestGenerate(t *testing.T) {
 			},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
-					Key:  string(genericMtlsCertSplit.Data[GenericScrtKey]),
-					Cert: string(genericMtlsCertSplit.Data[GenericScrtCert]),
+					Key:  string(genericMtlsCertSplit.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertSplit.Data[credentials.GenericScrtCert]),
 				},
 				"kubernetes://generic-mtls-split-cacert": {
-					CaCert: string(genericMtlsCertSplitCa.Data[GenericScrtCaCert]),
+					CaCert: string(genericMtlsCertSplitCa.Data[credentials.GenericScrtCaCert]),
 				},
 			},
 		},
@@ -296,8 +296,8 @@ func TestGenerate(t *testing.T) {
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
-					Key:  string(genericCert.Data[GenericScrtKey]),
-					Cert: string(genericCert.Data[GenericScrtCert]),
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
 				},
 			},
 		},
@@ -323,7 +323,7 @@ func TestGenerate(t *testing.T) {
 			s := NewFakeDiscoveryServer(t, FakeOptions{
 				KubernetesObjects: []runtime.Object{
 					genericCert, genericMtlsCert, genericMtlsCertCrl, genericMtlsCertSplit,
-					genericMtlsCertSplitCa, genericInlineBytes,
+					genericMtlsCertSplitCa, istioGenericSecret,
 				},
 			})
 			cc := s.KubeClient().Kube().(*fake.Clientset)
@@ -344,11 +344,11 @@ func TestGenerate(t *testing.T) {
 			got := map[string]Expected{}
 			for _, scrt := range raw {
 				got[scrt.Name] = Expected{
-					Key:                   string(scrt.GetTlsCertificate().GetPrivateKey().GetInlineBytes()),
-					Cert:                  string(scrt.GetTlsCertificate().GetCertificateChain().GetInlineBytes()),
-					CaCert:                string(scrt.GetValidationContext().GetTrustedCa().GetInlineBytes()),
-					CaCrl:                 string(scrt.GetValidationContext().GetCrl().GetInlineBytes()),
-					DataSourceInlineBytes: string(scrt.GetGenericSecret().GetSecret().GetInlineBytes()),
+					Key:                string(scrt.GetTlsCertificate().GetPrivateKey().GetInlineBytes()),
+					Cert:               string(scrt.GetTlsCertificate().GetCertificateChain().GetInlineBytes()),
+					CaCert:             string(scrt.GetValidationContext().GetTrustedCa().GetInlineBytes()),
+					CaCrl:              string(scrt.GetValidationContext().GetCrl().GetInlineBytes()),
+					IstioGenericSecret: string(scrt.GetGenericSecret().GetSecret().GetInlineBytes()),
 				}
 			}
 			if diff := cmp.Diff(got, tt.expect); diff != "" {

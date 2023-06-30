@@ -25,7 +25,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
-	. "istio.io/istio/pilot/pkg/credentials"
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -100,11 +99,11 @@ var (
 	badDockerjson = makeSecret("bad-docker-json", map[string]string{
 		"docker-key": "docker-cred",
 	}, corev1.SecretTypeDockerConfigJson)
-	dataSourceInlineBytes = makeSecret("generic-inline-bytes", map[string]string{
-		DataSourceInlineBytes: "generic-secret-value",
+	istioGenericSecret = makeSecret("istio-generic-secret", map[string]string{
+		IstioGenericSecret: "bar",
 	}, corev1.SecretTypeOpaque)
-	emptyDataSourceInlineBytes = makeSecret("empty-generic-inline-bytes", map[string]string{
-		DataSourceInlineBytes: "",
+	emptyIstioGenericSecret = makeSecret("empty-istio-generic-secret", map[string]string{
+		IstioGenericSecret: "",
 	}, corev1.SecretTypeOpaque)
 )
 
@@ -287,10 +286,10 @@ func TestSecretsController(t *testing.T) {
 	}
 }
 
-func TestIstioDatasourceSecrets(t *testing.T) {
+func TestIstioGenericSecret(t *testing.T) {
 	secrets := []runtime.Object{
-		dataSourceInlineBytes,
-		emptyDataSourceInlineBytes,
+		istioGenericSecret,
+		emptyIstioGenericSecret,
 		wrongKeys,
 	}
 	client := kube.NewFakeClient(secrets...)
@@ -299,33 +298,28 @@ func TestIstioDatasourceSecrets(t *testing.T) {
 	cases := []struct {
 		name          string
 		namespace     string
-		expectedKey   string
 		expectedValue string
 		expectedError string
 	}{
 		{
-			name:          "generic-inline-bytes",
+			name:          "istio-generic-secret",
 			namespace:     "default",
-			expectedKey:   DataSourceInlineBytes,
-			expectedValue: "generic-secret-value",
+			expectedValue: "bar",
 		},
 		{
-			name:          "empty-generic-inline-bytes",
+			name:          "empty-istio-generic-secret",
 			namespace:     "default",
-			expectedError: "found key \"Istio_DataSourceInlineBytes\" but it was empty",
+			expectedError: `found key "istio_generic_secret" but it was empty`,
 		},
 		{
 			name:          "wrong-keys",
 			namespace:     "default",
-			expectedError: "found secret, but didn't have expected key (Istio_DataSourceInlineBytes); found: foo-bar, tls.key",
+			expectedError: "found secret, but didn't have expected key (istio_generic_secret); found: foo-bar, tls.key",
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			key, val, err := sc.GetDataSourceKeyAndValue(tt.name, tt.namespace)
-			if tt.expectedKey != string(key) {
-				t.Errorf("got key %q, wanted %q", string(key), tt.expectedKey)
-			}
+			val, err := sc.GetIstioGenericSecretValue(tt.name, tt.namespace)
 			if tt.expectedValue != string(val) {
 				t.Errorf("got value %q, wanted %q", string(val), tt.expectedValue)
 			}

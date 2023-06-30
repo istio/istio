@@ -18,31 +18,6 @@ import (
 	"istio.io/istio/pkg/cluster"
 )
 
-const (
-	// The ID/name for the certificate chain in kubernetes generic secret.
-	GenericScrtCert = "cert"
-	// The ID/name for the private key in kubernetes generic secret.
-	GenericScrtKey = "key"
-	// The ID/name for the CA certificate in kubernetes generic secret.
-	GenericScrtCaCert = "cacert"
-	// The ID/name for the CRL in kubernetes generic secret.
-	GenericScrtCRL = "crl"
-
-	// The ID/name for the certificate chain in kubernetes tls secret.
-	TLSSecretCert = "tls.crt"
-	// The ID/name for the k8sKey in kubernetes tls secret.
-	TLSSecretKey = "tls.key"
-	// The ID/name for the certificate OCSP staple in kubernetes tls secret
-	TLSSecretOcspStaple = "tls.ocsp-staple"
-	// The ID/name for the CA certificate in kubernetes tls secret
-	TLSSecretCaCert = "ca.crt"
-	// The ID/name for the CRL in kubernetes tls secret.
-	TLSSecretCrl = "ca.crl"
-
-	// The ID/name for Istio_DataSourceInlineBytes in kubernetes opaque secret.
-	DataSourceInlineBytes = "Istio_DataSourceInlineBytes"
-)
-
 // CertInfo wraps a certificate, key, and oscp staple information.
 type CertInfo struct {
 	// The certificate chain
@@ -58,7 +33,7 @@ type CertInfo struct {
 type Controller interface {
 	GetCertInfo(name, namespace string) (certInfo *CertInfo, err error)
 	GetCaCert(name, namespace string) (certInfo *CertInfo, err error)
-	GetDataSourceKeyAndValue(name, namespace string) (key []byte, cert []byte, err error)
+	GetIstioGenericSecretValue(name, namespace string) (value []byte, err error)
 	GetDockerCredential(name, namespace string) (cred []byte, err error)
 	Authorize(serviceAccount, namespace string) error
 	AddEventHandler(func(name, namespace string))

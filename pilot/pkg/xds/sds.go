@@ -225,13 +225,13 @@ func (s *SecretGen) mayBeGetEnvoyTLSCertificate(secretController credscontroller
 }
 
 func (s *SecretGen) mayBeGetEnvoyGenericSecret(secretController credscontroller.Controller, sr SecretResource) *discovery.Resource {
-	key, value, err := secretController.GetDataSourceKeyAndValue(sr.Name, sr.Namespace)
+	value, err := secretController.GetIstioGenericSecretValue(sr.Name, sr.Namespace)
 	if err != nil {
-		pilotSDSCertificateErrors.Increment()
-		log.Warnf("failed to fetch data source key and value for %s: %v", sr.ResourceName, err)
+		pilotSDSGenericSecretErrors.Increment()
+		log.Warnf("failed to fetch istio generic secret value for %s: %v", sr.ResourceName, err)
 		return nil
 	}
-	return toEnvoyGenericSecret(sr.ResourceName, key, value)
+	return toEnvoyGenericSecret(sr.ResourceName, value)
 }
 
 func ValidateCertificate(data []byte) error {
@@ -460,25 +460,19 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 	}
 }
 
-func toEnvoyGenericSecret(name string, key, value []byte) *discovery.Resource {
-	var res *anypb.Any
-	switch string(key) {
-	case credscontroller.DataSourceInlineBytes:
-		res = protoconv.MessageToAny(&envoytls.Secret{
-			Name: name,
-			Type: &envoytls.Secret_GenericSecret{
-				GenericSecret: &envoytls.GenericSecret{
-					Secret: &core.DataSource{
-						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: value,
-						},
+func toEnvoyGenericSecret(name string, value []byte) *discovery.Resource {
+	res := protoconv.MessageToAny(&envoytls.Secret{
+		Name: name,
+		Type: &envoytls.Secret_GenericSecret{
+			GenericSecret: &envoytls.GenericSecret{
+				Secret: &core.DataSource{
+					Specifier: &core.DataSource_InlineBytes{
+						InlineBytes: value,
 					},
 				},
 			},
-		})
-	default:
-		log.Warnf("unsupported envoy generic secret key: %s", key)
-	}
+		},
+	})
 	return &discovery.Resource{
 		Name:     name,
 		Resource: res,
