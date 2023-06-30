@@ -208,8 +208,9 @@ func newJwksResolverWithCABundlePaths(
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
 				TLSClientConfig: &tls.Config{
-					RootCAs:    caCertPool,
-					MinVersion: tls.VersionTLS12,
+					InsecureSkipVerify: features.JwksResolverInsecureSkipVerify,
+					RootCAs:            caCertPool,
+					MinVersion:         tls.VersionTLS12,
 				},
 			},
 		}
