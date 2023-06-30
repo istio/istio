@@ -455,7 +455,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 					c.ambientIndex.byPod[networkAddr] = newWl
 				}
 				c.ambientIndex.byUID[c.generatePodUID(pod)] = newWl
-				updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()})
 				wls[newWl.Uid] = newWl
 			}
 		}
@@ -477,7 +477,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 					idx.byWorkloadEntry[networkAddr] = wl
 				}
 				idx.byUID[c.generateServiceEntryUID(svc.Attributes.ServiceEntryNamespace, svc.Attributes.ServiceEntryName, w.Spec.GetAddress())] = wl
-				updates[model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()}] = struct{}{}
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 				wls[wl.Uid] = wl
 			}
 		}
@@ -489,7 +489,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 					idx.byWorkloadEntry[networkAddr] = wli
 				}
 				idx.byUID[c.generateServiceEntryUID(svc.Attributes.ServiceEntryNamespace, svc.Attributes.ServiceEntryName, we.GetAddress())] = wli
-				updates[model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()}] = struct{}{}
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()})
 				wls[wli.Uid] = wli
 			}
 		}

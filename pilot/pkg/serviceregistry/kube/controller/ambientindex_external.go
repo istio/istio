@@ -464,7 +464,7 @@ func (c *Controller) generateServiceEntryUID(svcEntryNamespace, svcEntryName, ad
 	return c.clusterID.String() + "/networking.istio.io/ServiceEntry/" + svcEntryNamespace + "/" + svcEntryName + "/" + addr
 }
 
-func (c *Controller) cleanupOldServiceEntryVips(svc *model.Service, updates map[model.ConfigKey]struct{}) {
+func (c *Controller) cleanupOldServiceEntryVips(svc *model.Service, updates sets.Set[model.ConfigKey]) {
 	a := c.ambientIndex
 	nsName := types.NamespacedName{
 		Name:      svc.Attributes.ServiceEntryName,
@@ -477,7 +477,7 @@ func (c *Controller) cleanupOldServiceEntryVips(svc *model.Service, updates map[
 			oldUID := c.generateServiceEntryUID(nsName.Namespace, nsName.Name, oldWe.Address)
 			we, found := a.byUID[oldUID]
 			if found {
-				updates[model.ConfigKey{Kind: kind.Address, Name: we.ResourceName()}] = struct{}{}
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: we.ResourceName()})
 				for _, networkAddr := range networkAddressFromWorkload(we) {
 					delete(a.byWorkloadEntry, networkAddr)
 				}
@@ -496,7 +496,7 @@ func (c *Controller) cleanupOldServiceEntryVips(svc *model.Service, updates map[
 				}
 				_, found := wli.VirtualIps[vip]
 				if found {
-					updates[model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()}] = struct{}{}
+					updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()})
 					for _, networkAddr := range networkAddressFromWorkload(wli) {
 						delete(a.byPod, networkAddr)
 					}

@@ -417,8 +417,8 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 	}
 }
 
-func (c *Controller) calculateUpdatedWorkloads(pods map[string]*v1.Pod) map[model.ConfigKey]struct{} {
-	updates := map[model.ConfigKey]struct{}{}
+func (c *Controller) calculateUpdatedWorkloads(pods map[string]*v1.Pod) sets.Set[model.ConfigKey] {
+	updates := sets.New[model.ConfigKey]()
 	for _, pod := range pods {
 		newWl := c.extractWorkload(pod)
 		if newWl != nil {
@@ -430,7 +430,7 @@ func (c *Controller) calculateUpdatedWorkloads(pods map[string]*v1.Pod) map[mode
 			}
 			c.ambientIndex.byUID[c.generatePodUID(pod)] = newWl
 			c.ambientIndex.mu.Unlock()
-			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()})
 		}
 	}
 
@@ -510,7 +510,7 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 			}
 			c.ambientIndex.byUID[c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())] = newWl
 			c.ambientIndex.mu.Unlock()
-			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()})
 		}
 	}
 
