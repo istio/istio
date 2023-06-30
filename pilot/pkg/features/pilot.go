@@ -674,8 +674,8 @@ var (
 	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
 		"If enabled, pilot will only rebuild config for resources that have changed").Get()
 
-	EnableControllerQueueMetrics = env.RegisterBoolVar("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
-		"If enabled, publishes metrics for queue depth, latency and processing times.")
+	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
+		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

@@ -21,20 +21,20 @@ import (
 )
 
 var (
-	queueIdTag = monitoring.MustCreateLabel("queueId")
+	queueIDTag = monitoring.MustCreateLabel("queueID")
 
-	depth = monitoring.NewGauge("pilot_worker_queue_depth", "Depth of the controller queues", monitoring.WithLabels(queueIdTag))
+	depth = monitoring.NewGauge("pilot_worker_queue_depth", "Depth of the controller queues", monitoring.WithLabels(queueIDTag))
 
 	latency = monitoring.NewDistribution(
 		"pilot_worker_queue_latency",
 		"Latency before the item is processed",
 		[]float64{.01, .1, .2, .5, 1, 3, 5},
-		monitoring.WithLabels(queueIdTag))
+		monitoring.WithLabels(queueIDTag))
 
 	workDuration = monitoring.NewDistribution("pilot_worker_queue_duration",
 		"Time taken to process an item",
 		[]float64{.01, .1, .2, .5, 1, 3, 5},
-		monitoring.WithLabels(queueIdTag))
+		monitoring.WithLabels(queueIDTag))
 )
 
 type queueMetrics struct {
@@ -91,9 +91,9 @@ func (m *queueMetrics) sinceInSeconds(start time.Time) float64 {
 func newQueueMetrics(id string) *queueMetrics {
 	return &queueMetrics{
 		id:                   id,
-		depth:                depth.With(queueIdTag.Value(id)),
-		workDuration:         workDuration.With(queueIdTag.Value(id)),
-		latency:              latency.With(queueIdTag.Value(id)),
+		depth:                depth.With(queueIDTag.Value(id)),
+		workDuration:         workDuration.With(queueIDTag.Value(id)),
+		latency:              latency.With(queueIDTag.Value(id)),
 		clock:                clock.RealClock{},
 		addTimes:             map[*Task]time.Time{},
 		processingStartTimes: map[*Task]time.Time{},
