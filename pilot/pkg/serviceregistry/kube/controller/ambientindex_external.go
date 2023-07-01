@@ -165,9 +165,9 @@ func (c *Controller) handleWorkloadEntry(idx *AmbientIndex, oldWorkloadEntry, w 
 		delete(idx.byWorkloadEntry, networkAddr)
 		delete(idx.byUID, uid)
 		if oldWl != nil {
-			// If we already knew about this workload, we need to make sure we drop all VIP references as well
-			for vip := range oldWl.VirtualIps {
-				idx.dropWorkloadFromService(networkAddress{network: oldWl.Network, ip: vip}, oldWl.ResourceName())
+			// If we already knew about this workload, we need to make sure we drop all service references as well
+			for namespacedHostname := range oldWl.Services {
+				idx.dropWorkloadFromService(namespacedHostname, oldWl.ResourceName())
 			}
 			log.Debugf("%v: workload removed, pushing", oldWl.ResourceName())
 			return map[model.ConfigKey]struct{}{
@@ -186,14 +186,14 @@ func (c *Controller) handleWorkloadEntry(idx *AmbientIndex, oldWorkloadEntry, w 
 	idx.byWorkloadEntry[networkAddr] = wl
 	idx.byUID[uid] = wl
 	if oldWl != nil {
-		// For updates, we will drop the VIPs and then add the new ones back. This could be optimized
-		for vip := range oldWl.VirtualIps {
-			idx.dropWorkloadFromService(networkAddress{network: oldWl.Network, ip: vip}, wl.ResourceName())
+		// For updates, we will drop the services and then add the new ones back. This could be optimized
+		for namespacedHostname := range oldWl.Services {
+			idx.dropWorkloadFromService(namespacedHostname, wl.ResourceName())
 		}
 	}
-	// Update the VIP indexes as well, as needed
-	for vip := range wl.VirtualIps {
-		idx.insertWorkloadToService(networkAddress{network: wl.Network, ip: vip}, wl)
+	// Update the service indexes as well, as needed
+	for namespacedHostname := range wl.Services {
+		idx.insertWorkloadToService(namespacedHostname, wl)
 	}
 
 	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
@@ -215,28 +215,25 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alph
 		return nil
 	}
 
-	vips := map[string]*workloadapi.PortList{}
+	workloadServices := map[string]*workloadapi.PortList{}
 	if services := getWorkloadEntryServices(c.services.List(workloadEntry.Namespace, klabels.Everything()), workloadEntry); len(services) > 0 {
 		for _, svc := range services {
-			for _, vip := range getVIPs(svc) {
-				if vips[vip] == nil {
-					vips[vip] = &workloadapi.PortList{}
+			ports := &workloadapi.PortList{}
+			for _, port := range svc.Spec.Ports {
+				if port.Protocol != v1.ProtocolTCP {
+					continue
 				}
-				for _, port := range svc.Spec.Ports {
-					if port.Protocol != v1.ProtocolTCP {
-						continue
-					}
-					targetPort, err := findPortForWorkloadEntry(workloadEntry, &port)
-					if err != nil {
-						log.Errorf("error looking up port for WorkloadEntry %s/%s", workloadEntry.Namespace, workloadEntry.Name)
-						continue
-					}
-					vips[vip].Ports = append(vips[vip].Ports, &workloadapi.Port{
-						ServicePort: uint32(port.Port),
-						TargetPort:  targetPort,
-					})
+				targetPort, err := findPortForWorkloadEntry(workloadEntry, &port)
+				if err != nil {
+					log.Errorf("error looking up port for WorkloadEntry %s/%s", workloadEntry.Namespace, workloadEntry.Name)
+					continue
 				}
+				ports.Ports = append(ports.Ports, &workloadapi.Port{
+					ServicePort: uint32(port.Port),
+					TargetPort:  targetPort,
+				})
 			}
+			workloadServices[c.namespacedHostname(svc)] = ports
 		}
 	}
 
@@ -252,7 +249,7 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alph
 		Addresses:             [][]byte{parseIP(workloadEntry.Spec.Address)},
 		Network:               network,
 		ServiceAccount:        workloadEntry.Spec.ServiceAccount,
-		VirtualIps:            vips,
+		Services:              workloadServices,
 		AuthorizationPolicies: policies,
 		Waypoint:              waypoint,
 	}
