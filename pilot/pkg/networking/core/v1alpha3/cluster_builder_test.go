@@ -4032,7 +4032,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 					Tls: &networking.ClientTLSSettings{
 						CaCertificates:     constants.RootCertFilename,
 						Mode:               networking.ClientTLSSettings_SIMPLE,
-						InsecureSkipVerify: &types.BoolValue{Value: false},
+						InsecureSkipVerify: &wrapperspb.BoolValue{Value: false},
 						Sni:                "foo.default.svc.cluster.local",
 						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
 					},
@@ -4061,7 +4061,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 					Tls: &networking.ClientTLSSettings{
 						CaCertificates:     constants.RootCertFilename,
 						Mode:               networking.ClientTLSSettings_SIMPLE,
-						InsecureSkipVerify: &types.BoolValue{Value: false},
+						InsecureSkipVerify: &wrappers.BoolValue{Value: false},
 						Sni:                "foo.default.svc.cluster.local",
 					},
 				},
@@ -4090,7 +4090,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 					Tls: &networking.ClientTLSSettings{
 						CaCertificates:     constants.RootCertFilename,
 						Mode:               networking.ClientTLSSettings_SIMPLE,
-						InsecureSkipVerify: &types.BoolValue{Value: true},
+						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
 						Sni:                "foo.default.svc.cluster.local",
 						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
 					},
@@ -4119,7 +4119,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 					Tls: &networking.ClientTLSSettings{
 						CaCertificates:     constants.RootCertFilename,
 						Mode:               networking.ClientTLSSettings_SIMPLE,
-						InsecureSkipVerify: &types.BoolValue{Value: true},
+						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
 						Sni:                "foo.default.svc.cluster.local",
 					},
 				},

@@ -755,3 +755,8 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 	}
 	return nil
 }
+
+// InsecureSkipVerify will return true when the field InsecureSkipVerify is explicitly set as true.
+func InsecureSkipVerify(tls *networking.ClientTLSSettings) bool {
+	return tls != nil && tls.InsecureSkipVerify != nil && tls.InsecureSkipVerify.Value
+}

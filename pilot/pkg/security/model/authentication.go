@@ -255,6 +255,11 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist),
 		}
 	}
+
+	if util.InsecureSkipVerify(tlsOpts) {
+		return
+	}
+
 	// create SDS config for gateway to fetch certificate validation context
 	// at gateway agent.
 	defaultValidationContext := &tls.CertificateValidationContext{

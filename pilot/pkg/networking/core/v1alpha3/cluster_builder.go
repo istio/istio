@@ -1105,15 +1105,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
-		if tls.InsecureSkipVerify != nil && tls.InsecureSkipVerify.Value {
-			tls.CaCertificates = ""
-			tls.SubjectAltNames = []string{}
 
-			tlsContext = &auth.UpstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{},
-				Sni:              tls.Sni,
-			}
-		} else if tls.CredentialName != "" {
+		if tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
 				Sni:              tls.Sni,
@@ -1126,8 +1119,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			res := security.SdsCertificateConfig{
 				CaCertificatePath: tls.CaCertificates,
 			}
-			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
-			if !res.IsRootCertificate() {
+			// If tls.CaCertificate or CaCertificate in Metadata isn't configured, or tls.InsecureSkipVerify is true,
+			// don't set up SdsSecretConfig
+			if !res.IsRootCertificate() || util.InsecureSkipVerify(tls) {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 			} else {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
@@ -1181,8 +1175,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
 
-			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up RootSdsSecretConfig
-			if !res.IsRootCertificate() {
+			// If tls.CaCertificate or CaCertificate in Metadata isn't configured, or tls.InsecureSkipVerify is true,
+			// don't set up SdsSecretConfig
+			if !res.IsRootCertificate() || util.InsecureSkipVerify(tls) {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 			} else {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
@@ -1229,7 +1224,7 @@ func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls
 	if len(tls.Sni) == 0 {
 		setAutoSni = true
 	}
-	if features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0 {
+	if features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0 && !util.InsecureSkipVerify(tls) {
 		setAutoSanValidation = true
 	}
 
