@@ -613,6 +613,8 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 // TestMtlsGateway_CRL tests the behavior of a single mTLS ingress gateway with SDS enabled. Creates kubernetes secret
 // with CRL enabled and verify the behavior.
 func TestMtlsGateway_CRL(t *testing.T) {
+	// temporarily skip the test, faseela will revive it later
+	t.Skip("https://github.com/istio/istio/issues/45766")
 	framework.
 		NewTest(t).
 		Features("security.ingress.mtls.gateway.crl").
