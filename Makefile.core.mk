@@ -424,7 +424,7 @@ BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest
 racetest: $(JUNIT_REPORT)
-	go test ${GOBUILDFLAGS} ${T} -race ./... 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	go test ${GOBUILDFLAGS} ${T} -debug-actiongraph=$(ARTIFACTS)/actiongraph -debug-trace=$(ARTIFACTS)/trace -race ./... 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
