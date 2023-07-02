@@ -10,6 +10,8 @@ _INTEGRATION_TEST_FLAGS ?= $(INTEGRATION_TEST_FLAGS)
 ifneq ($(CI),)
 	_INTEGRATION_TEST_FLAGS += --istio.test.ci
 	_INTEGRATION_TEST_FLAGS += --istio.test.pullpolicy=IfNotPresent
+	_INTEGRATION_TEST_FLAGS += --debug-trace=$(ARTIFACTS)/trace
+	_INTEGRATION_TEST_FLAGS += --debug-actiongraph=$(ARTIFACTS)/actiongraph
 endif
 
 ifeq ($(TEST_ENV),kind)
