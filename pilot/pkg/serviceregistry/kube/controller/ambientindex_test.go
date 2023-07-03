@@ -267,7 +267,7 @@ func TestAmbientIndex(t *testing.T) {
 	)
 	// Make sure Service sees waypoints as well
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[0].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.2").AsSlice())
+		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[1].Address.GetWorkload().Waypoint.GetAddress().Address, netip.MustParseAddr("10.0.0.2").AsSlice())
 
 	// Delete a waypoint
 	deletePod(t, pc, "waypoint2-ns-pod")
@@ -278,7 +278,7 @@ func TestAmbientIndex(t *testing.T) {
 		netip.MustParseAddr("10.0.0.2").AsSlice())
 	// As should workload via Service
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[0].Address.GetWorkload().Waypoint.GetAddress().Address,
+		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[1].Address.GetWorkload().Waypoint.GetAddress().Address,
 		netip.MustParseAddr("10.0.0.2").AsSlice())
 
 	addPods("127.0.0.201", "waypoint2-sa", "waypoint-sa",
@@ -312,7 +312,7 @@ func TestAmbientIndex(t *testing.T) {
 	)
 
 	assert.Equal(t,
-		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[0].Address.GetWorkload().Waypoint,
+		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[1].Address.GetWorkload().Waypoint,
 		nil)
 
 	// Test that PeerAuthentications are added to the ambient index
