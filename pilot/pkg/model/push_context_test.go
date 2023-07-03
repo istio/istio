@@ -1057,8 +1057,7 @@ func TestInitPushContext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Check to ensure the update is identical to the old one
-	// There is probably a better way to do this.
+	// Compararer for the xsync map of envoy filters by namespace
 	mapCmp := cmp.Comparer(func(x, y *xsync.MapOf[string, []*EnvoyFilterWrapper]) bool {
 		if x == nil && y == nil {
 			return true
@@ -1088,6 +1087,9 @@ func TestInitPushContext(t *testing.T) {
 
 		return equals
 	})
+
+	// Check to ensure the update is identical to the old one
+	// There is probably a better way to do this.
 	diff := cmp.Diff(old, newPush,
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
