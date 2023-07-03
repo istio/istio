@@ -118,7 +118,7 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-require github.com/puzpuzpuz/xsync/v2 v2.4.1 // indirect
+require github.com/puzpuzpuz/xsync/v2 v2.4.1
 
 require (
 	cloud.google.com/go v0.110.2 // indirect
