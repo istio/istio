@@ -1105,12 +1105,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
-
 		if tls.CredentialName != "" {
-			tlsContext = &auth.UpstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{},
-				Sni:              tls.Sni,
-			}
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
 			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, cb.credentialSocketExist)
@@ -1121,7 +1116,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			}
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured, or tls.InsecureSkipVerify is true,
 			// don't set up SdsSecretConfig
-			if !res.IsRootCertificate() || util.InsecureSkipVerify(tls) {
+			if !res.IsRootCertificate() || tls.GetInsecureSkipVerify().GetValue() {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 			} else {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
@@ -1154,7 +1149,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
-			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
+			// If credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
 			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, cb.credentialSocketExist)
 		} else {
@@ -1177,7 +1172,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured, or tls.InsecureSkipVerify is true,
 			// don't set up SdsSecretConfig
-			if !res.IsRootCertificate() || util.InsecureSkipVerify(tls) {
+			if !res.IsRootCertificate() || tls.GetInsecureSkipVerify().GetValue() {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 			} else {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
@@ -1224,7 +1219,7 @@ func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls
 	if len(tls.Sni) == 0 {
 		setAutoSni = true
 	}
-	if features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0 && !util.InsecureSkipVerify(tls) {
+	if features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0 && !tls.GetInsecureSkipVerify().GetValue() {
 		setAutoSanValidation = true
 	}
 

@@ -256,7 +256,7 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 		}
 	}
 
-	if util.InsecureSkipVerify(tlsOpts) {
+	if tlsOpts.GetInsecureSkipVerify().GetValue() {
 		return
 	}
 
