@@ -396,16 +396,17 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					egressListener.IstioListener.Port.Number, node.ID)
 				continue
 			}
-			if conflictWithStaticListener(node, int(egressListener.IstioListener.Port.Number)) {
-				log.Warnf("buildSidecarOutboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
-					egressListener.IstioListener.Port.Number, node.ID)
-				continue
-			}
 
 			listenPort := &model.Port{
 				Port:     int(egressListener.IstioListener.Port.Number),
 				Protocol: protocol.Parse(egressListener.IstioListener.Port.Protocol),
 				Name:     egressListener.IstioListener.Port.Name,
+			}
+
+			if conflictWithStaticListener(node, bind, listenPort.Port, listenPort.Protocol) {
+				log.Warnf("buildSidecarOutboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+					egressListener.IstioListener.Port.Number, node.ID)
+				continue
 			}
 
 			var extraBind []string
@@ -484,7 +485,8 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							service.Hostname, servicePort.Port, node.ID)
 						continue
 					}
-					if conflictWithStaticListener(node, servicePort.Port) {
+
+					if conflictWithStaticListener(node, bind, servicePort.Port, servicePort.Protocol) {
 						log.Debugf("buildSidecarOutboundListeners: skipping service port %s:%d for node %s as it conflicts with static listener",
 							service.Hostname, servicePort.Port, node.ID)
 						continue
@@ -1717,9 +1719,20 @@ func outboundTunnelListener(proxy *model.Proxy) *listener.Listener {
 	return buildConnectOriginateListener(baggage)
 }
 
-// conflictWithStaticListener checks whether the given port conflicts with static listener port
+// conflictWithStaticListener checks whether the listener address bind:port conflicts with static listener port
 // default is 15021 and 15090
-func conflictWithStaticListener(proxy *model.Proxy, port int) bool {
+func conflictWithStaticListener(proxy *model.Proxy, bind string, port int, protocol protocol.Instance) bool {
+	if bind != "" {
+		if bind != wildCards[proxy.GetIPMode()][0] {
+			return false
+		}
+	} else if !protocol.IsHTTP() {
+		// if the protocol is HTTP and bind == "", the listener address will be 0.0.0.0:port
+		return false
+	}
+
+	// bind == wildcard
+	// or bind unspecified, but protocol is HTTP
 	if proxy.Metadata == nil {
 		return false
 	}
