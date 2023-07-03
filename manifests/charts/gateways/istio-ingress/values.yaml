@@ -107,6 +107,9 @@ gateways:
 
     # The injection template to use for the gateway. If not set, no injection will be performed.
     injectionTemplate: ""
+    
+    #podDisruptionBudget configuration
+    minAvailable: 1
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""

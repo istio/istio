@@ -16,7 +16,12 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "IngressGateways"
 spec:
-  minAvailable: 1
+  {{- if .Values.minAvailable }}
+  minAvailable: {{ .Values.minAvailable }}
+  {{- end }}
+  {{- if .Values.maxUnavailable }}
+  maxUnavailable: {{ .Values.maxUnavailable }}
+  {{- end }}
   selector:
     matchLabels:
 {{ $gateway.labels | toYaml | trim | indent 6 }}
