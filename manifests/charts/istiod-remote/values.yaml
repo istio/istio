@@ -423,6 +423,6 @@ base:
   # Users should consider enabling this if they want full gateway-api validation but don't have other validation servers.
   validateGateway: false
 # keep in sync with settings used when installing the Istio CNI chart
-istio_cni:
+cni:
   enabled: false
   chained: true

@@ -497,6 +497,6 @@ base:
   validateGateway: false
 
 # keep in sync with settings used when installing the Istio CNI chart
-istio_cni:
+cni:
   enabled: false
   chained: true
