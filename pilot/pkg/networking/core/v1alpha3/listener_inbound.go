@@ -357,12 +357,6 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 				i.Endpoint.EndpointPort, lb.node.ID)
 			continue
 		}
-		if conflictWithStaticListener(lb.node, int(i.Endpoint.EndpointPort)) {
-			log.Debugf("buildInboundListeners: skipping service port %d for node %s as it conflicts with static listener",
-				i.Endpoint.EndpointPort, lb.node.ID)
-			continue
-		}
-
 		port := ServiceInstancePort{
 			Name:       i.ServicePort.Name,
 			Port:       uint32(i.ServicePort.Port),
@@ -387,6 +381,13 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 			bindToPort:        bindToPort,
 			hbone:             lb.node.IsWaypointProxy(),
 		}
+		// for inbound only generate a standalone listener when bindToPort=true
+		if bindToPort && conflictWithStaticListener(lb.node, cc.bind, int(i.Endpoint.EndpointPort), port.Protocol) {
+			log.Debugf("buildInboundListeners: skipping service port %d for node %s as it conflicts with static listener",
+				i.Endpoint.EndpointPort, lb.node.ID)
+			continue
+		}
+
 		// add extra binding addresses
 		if len(actualWildcards) > 1 {
 			cc.extraBind = actualWildcards[1:]
@@ -440,12 +441,6 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 					port.TargetPort, lb.node.ID)
 				continue
 			}
-			if conflictWithStaticListener(lb.node, int(port.TargetPort)) {
-				log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
-					port.TargetPort, lb.node.ID)
-				continue
-			}
-
 			cc := inboundChainConfig{
 				// Sidecar config doesn't have a real hostname. In order to give some telemetry info, make a synthetic hostname.
 				telemetryMetadata: telemetry.FilterChainMetadata{
@@ -465,6 +460,13 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 					cc.extraBind = actualWildcards[1:]
 				}
 			}
+			// for inbound only generate a standalone listener when bindToPort=true
+			if bindtoPort && conflictWithStaticListener(lb.node, cc.bind, int(port.Port), port.Protocol) {
+				log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+					port.TargetPort, lb.node.ID)
+				continue
+			}
+
 			// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.
 			if old, f := chainsByPort[port.TargetPort]; f {
 				reportInboundConflict(lb, old, cc)
