@@ -997,22 +997,9 @@ func (p *Port) Equals(other *Port) bool {
 }
 
 func (ports PortList) Equals(other PortList) bool {
-	if len(ports) != len(other) {
-		return false
-	}
-	for _, p1 := range ports {
-		found := false
-		for _, p2 := range other {
-			if p1.Equals(p2) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-	return true
+	return slices.EqualFunc(ports, other, func(a, b *Port) bool {
+		return a.Equals(b)
+	})
 }
 
 func (ports PortList) String() string {
