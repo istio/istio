@@ -97,7 +97,6 @@
     "variant": ""
   },
   "istio_cni": {
-    "chained": true,
     "enabled": false
   },
   "revision": "",
