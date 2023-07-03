@@ -27,6 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/gomega"
+	"github.com/puzpuzpuz/xsync/v2"
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -187,14 +188,15 @@ func TestEnvoyFilters(t *testing.T) {
 		},
 	}
 
+	envoyFiltersByNamespace := xsync.NewMapOf[[]*EnvoyFilterWrapper]()
+	envoyFiltersByNamespace.Store("istio-system", envoyFilters)
+	envoyFiltersByNamespace.Store("test-ns", envoyFilters)
+
 	push := &PushContext{
 		Mesh: &meshconfig.MeshConfig{
 			RootNamespace: "istio-system",
 		},
-		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{
-			"istio-system": envoyFilters,
-			"test-ns":      envoyFilters,
-		},
+		envoyFiltersByNamespace: envoyFiltersByNamespace,
 	}
 
 	if !push.HasEnvoyFilters("ef1", "test-ns") {
@@ -447,12 +449,16 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	pc := NewPushContext()
 	pc.initEnvoyFilters(env)
 	gotns := make([]string, 0)
-	for _, filter := range pc.envoyFiltersByNamespace["testns"] {
-		gotns = append(gotns, filter.Keys()...)
+	if envoyFilters, exists := pc.envoyFiltersByNamespace.Load("testns"); exists {
+		for _, filter := range envoyFilters {
+			gotns = append(gotns, filter.Keys()...)
+		}
 	}
 	gotns1 := make([]string, 0)
-	for _, filter := range pc.envoyFiltersByNamespace["testns-1"] {
-		gotns1 = append(gotns1, filter.Keys()...)
+	if envoyFilters, exists := pc.envoyFiltersByNamespace.Load("testns-1"); exists {
+		for _, filter := range envoyFilters {
+			gotns1 = append(gotns1, filter.Keys()...)
+		}
 	}
 	if !reflect.DeepEqual(expectedns, gotns) {
 		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedns, gotns)
@@ -1053,6 +1059,35 @@ func TestInitPushContext(t *testing.T) {
 
 	// Check to ensure the update is identical to the old one
 	// There is probably a better way to do this.
+	mapCmp := cmp.Comparer(func(x, y *xsync.MapOf[string, []*EnvoyFilterWrapper]) bool {
+		if x == nil && y == nil {
+			return true
+		}
+
+		if x == nil || y == nil {
+			return false
+		}
+
+		if x.Size() != y.Size() {
+			return false
+		}
+
+		equals := true
+		x.Range(func(k string, v []*EnvoyFilterWrapper) bool {
+			yv, ok := y.Load(k)
+			if !ok {
+				equals = false
+				return false
+			}
+			if !reflect.DeepEqual(v, yv) {
+				equals = false
+				return false
+			}
+			return true
+		})
+
+		return equals
+	})
 	diff := cmp.Diff(old, newPush,
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
@@ -1063,6 +1098,7 @@ func TestInitPushContext(t *testing.T) {
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreUnexported(IstioEndpoint{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
+		mapCmp,
 		protocmp.Transform(),
 	)
 	if diff != "" {
