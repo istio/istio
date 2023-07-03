@@ -82,7 +82,7 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
-		if _, f := skippedLdsConfigs[proxy.Type][config.Kind]; !f {
+		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
 			return true
 		}
 	}

@@ -159,7 +159,6 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 			Labels:          labels.Instance{"app": "prod-app"},
 			Address:         "an-address",
 			ServicePortName: "service-port-name",
-			EnvoyEndpoint:   nil,
 			ServiceAccount:  "service-account",
 			Network:         "Network",
 			Locality: Locality{

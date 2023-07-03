@@ -232,9 +232,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	wi := s.convertWorkloadEntryToWorkloadInstance(curr, s.Cluster())
 	if wi != nil && !wi.DNSServiceEntryOnly {
 		// fire off the k8s handlers
-		for _, h := range s.workloadHandlers {
-			h(wi, event)
-		}
+		s.NotifyWorkloadInstanceHandlers(wi, event)
 	}
 
 	// includes instances new updated or unchanged, in other word it is the current state.
@@ -332,6 +330,12 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	}
 	// trigger a full push
 	s.XdsUpdater.ConfigUpdate(pushReq)
+}
+
+func (s *Controller) NotifyWorkloadInstanceHandlers(wi *model.WorkloadInstance, event model.Event) {
+	for _, h := range s.workloadHandlers {
+		h(wi, event)
+	}
 }
 
 // getUpdatedConfigs returns related service entries when full push
@@ -715,6 +719,10 @@ func (s *Controller) ResyncEDS() {
 	allInstances := s.serviceInstances.getAll()
 	s.mutex.RUnlock()
 	s.edsUpdate(allInstances)
+	// HACK to workaround Service syncing after WorkloadEntry: https://github.com/istio/istio/issues/45114
+	s.workloadInstances.ForEach(func(wi *model.WorkloadInstance) {
+		s.NotifyWorkloadInstanceHandlers(wi, model.EventAdd)
+	})
 }
 
 // edsUpdate triggers an EDS push serially such that we can prevent all instances

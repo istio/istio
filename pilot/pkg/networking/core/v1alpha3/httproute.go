@@ -495,7 +495,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 func dedupeDomains(domains []string, vhdomains sets.String, expandedHosts []string, knownFQDNs sets.String) []string {
 	temp := domains[:0]
 	for _, d := range domains {
-		if vhdomains.Contains(d) {
+		if vhdomains.Contains(strings.ToLower(d)) {
 			continue
 		}
 		// Check if the domain is an "expanded" host, and its also a known FQDN
@@ -507,7 +507,7 @@ func dedupeDomains(domains []string, vhdomains sets.String, expandedHosts []stri
 			continue
 		}
 		temp = append(temp, d)
-		vhdomains.Insert(d)
+		vhdomains.Insert(strings.ToLower(d))
 	}
 	return temp
 }

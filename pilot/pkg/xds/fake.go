@@ -134,6 +134,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", "", map[string]string{})
+	s.discoveryStartTime = time.Now()
 	s.InitGenerators(s.Env, "istio-system", nil)
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
@@ -328,8 +329,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Send an update. This ensures that even if there are no configs provided, the push context is
 	// initialized.
 	s.ConfigUpdate(&model.PushRequest{Full: true})
-
-	processStartTime = time.Now()
 
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()

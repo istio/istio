@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/slices"
 )
 
 // Controller is an implementation of ConfigStoreController.
@@ -157,13 +158,9 @@ func (c *Controller) Delete(kind config.GroupVersionKind, key, namespace string,
 func (c *Controller) List(kind config.GroupVersionKind, namespace string) []config.Config {
 	configs := c.configStore.List(kind, namespace)
 	if c.namespacesFilter != nil {
-		var out []config.Config
-		for _, config := range configs {
-			if c.namespacesFilter(config) {
-				out = append(out, config)
-			}
-		}
-		return out
+		return slices.Filter(configs, func(config config.Config) bool {
+			return c.namespacesFilter(config)
+		})
 	}
 	return configs
 }

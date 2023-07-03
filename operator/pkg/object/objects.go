@@ -457,7 +457,7 @@ func DefaultObjectOrder() func(o *K8sObject) int {
 			return 100
 
 			// Create the pods after we've created other things they might be waiting for
-		case gk == "extensions/Deployment" || gk == "app/Deployment":
+		case gk == "extensions/Deployment" || gk == "apps/Deployment":
 			return 1000
 
 			// Autoscalers typically act on a deployment

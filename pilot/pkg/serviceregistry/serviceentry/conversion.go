@@ -395,12 +395,12 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 			} else {
 				targetPort = serviceEntryPort.Number
 			}
-			ep := *workloadInstance.Endpoint
+			ep := workloadInstance.Endpoint.ShallowCopy()
 			ep.ServicePortName = serviceEntryPort.Name
 			ep.EndpointPort = targetPort
-			ep.EnvoyEndpoint = nil
+			ep.ComputeEnvoyEndpoint(nil)
 			out = append(out, &model.ServiceInstance{
-				Endpoint:    &ep,
+				Endpoint:    ep,
 				Service:     service,
 				ServicePort: convertPort(serviceEntryPort),
 			})

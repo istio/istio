@@ -27,6 +27,7 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -35,6 +36,7 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -329,8 +331,8 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	}
 }
 
-// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need
-// i.e. excluding the ports. Returns true if equal, false otherwise.
+// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need.
+// Returns true if equal, false otherwise.
 func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint == nil || second.Endpoint == nil {
 		return first.Endpoint == second.Endpoint
@@ -365,20 +367,8 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Kind != second.Kind {
 		return false
 	}
-	if !portMapEquals(first.PortMap, second.PortMap) {
+	if !maps.Equal(first.PortMap, second.PortMap) {
 		return false
-	}
-	return true
-}
-
-func portMapEquals(a, b map[string]uint32) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, v := range a {
-		if b[k] != v {
-			return false
-		}
 	}
 	return true
 }
@@ -449,10 +439,6 @@ type IstioEndpoint struct {
 	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
 	ServicePortName string
 
-	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
-	// avoid recomputation
-	EnvoyEndpoint *endpoint.LbEndpoint `json:"-"`
-
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string
 
@@ -492,6 +478,18 @@ type IstioEndpoint struct {
 
 	// If in k8s, the node where the pod resides
 	NodeName string
+
+	// precomputedEnvoyEndpoint is a cached LbEndpoint, converted from the data, to
+	// avoid recomputation
+	precomputedEnvoyEndpoint atomic.Pointer[endpoint.LbEndpoint]
+}
+
+func (ep *IstioEndpoint) EnvoyEndpoint() *endpoint.LbEndpoint {
+	return ep.precomputedEnvoyEndpoint.Load()
+}
+
+func (ep *IstioEndpoint) ComputeEnvoyEndpoint(now *endpoint.LbEndpoint) {
+	ep.precomputedEnvoyEndpoint.Store(now)
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
@@ -1147,7 +1145,7 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 // GetExtraAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
 // Especially for dual stack k8s service to get other IP family addresses.
 func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
-	if node.Metadata != nil {
+	if features.EnableDualStack && node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 			if len(addresses) > 1 {
@@ -1246,6 +1244,13 @@ func (s *Service) Equals(other *Service) bool {
 // DeepCopy creates a clone of IstioEndpoint.
 func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	return copyInternal(ep).(*IstioEndpoint)
+}
+
+// ShallowCopy creates a shallow clone of IstioEndpoint.
+func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
+	// nolint: govet
+	cpy := *ep
+	return &cpy
 }
 
 func copyInternal(v any) any {

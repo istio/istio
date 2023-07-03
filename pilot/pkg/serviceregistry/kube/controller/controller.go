@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -700,13 +701,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int) []*mode
 	externalNameInstances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
 	if externalNameInstances != nil {
-		inScopeInstances := make([]*model.ServiceInstance, 0)
-		for _, i := range externalNameInstances {
-			if i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort {
-				inScopeInstances = append(inScopeInstances, i)
-			}
-		}
-		return inScopeInstances
+		return slices.Filter(externalNameInstances, func(i *model.ServiceInstance) bool {
+			return i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort
+		})
 	}
 	return nil
 }
@@ -775,7 +772,7 @@ func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.
 	targetPort serviceTargetPort, wi *model.WorkloadInstance,
 ) *model.ServiceInstance {
 	// create an instance with endpoint whose service port name matches
-	istioEndpoint := *wi.Endpoint
+	istioEndpoint := wi.Endpoint.ShallowCopy()
 
 	// by default, use the numbered targetPort
 	istioEndpoint.EndpointPort = uint32(targetPort.num)
@@ -795,7 +792,7 @@ func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.
 	return &model.ServiceInstance{
 		Service:     svc,
 		ServicePort: servicePort,
-		Endpoint:    &istioEndpoint,
+		Endpoint:    istioEndpoint,
 	}
 }
 

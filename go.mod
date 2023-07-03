@@ -23,13 +23,13 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/cheggaaa/pb/v3 v3.1.2
 	github.com/cilium/ebpf v0.10.0
-	github.com/cncf/xds/go v0.0.0-20230428030218-4003588d1b74
+	github.com/cncf/xds/go v0.0.0-20230607035331-e9ce68804cb4
 	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.3.0
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v24.0.2+incompatible
-	github.com/envoyproxy/go-control-plane v0.11.1-0.20230512191503-8f629004dc9a
+	github.com/envoyproxy/go-control-plane v0.11.2-0.20230627204322-7d0032219fcb
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.15.0
 	github.com/felixge/fgprof v0.9.3
@@ -79,7 +79,7 @@ require (
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/yl2chen/cidranger v1.0.2
 	go.opencensus.io v0.24.0
-	go.opentelemetry.io/proto/otlp v0.19.0
+	go.opentelemetry.io/proto/otlp v0.20.0
 	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
@@ -93,15 +93,15 @@ require (
 	google.golang.org/genproto v0.0.0-20230530153820-e85fd2cbaebc
 	google.golang.org/genproto/googleapis/api v0.0.0-20230530153820-e85fd2cbaebc
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230530153820-e85fd2cbaebc
-	google.golang.org/grpc v1.55.0
-	google.golang.org/protobuf v1.30.0
+	google.golang.org/grpc v1.56.1
+	google.golang.org/protobuf v1.31.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.12.0
-	istio.io/api v0.0.0-20230622233406-73a305276715
-	istio.io/client-go v1.18.0-alpha.0.0.20230622234102-fd501565d276
+	istio.io/api v1.19.0-alpha.1.0.20230629170101-1364cf24e4ab
+	istio.io/client-go v1.19.0-alpha.1.0.20230629170900-462a05dd0713
 	k8s.io/api v0.27.2
 	k8s.io/apiextensions-apiserver v0.27.2
 	k8s.io/apimachinery v0.27.2
@@ -145,7 +145,7 @@ require (
 	github.com/docker/docker v23.0.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
-	github.com/envoyproxy/protoc-gen-validate v0.10.1 // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.0.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect

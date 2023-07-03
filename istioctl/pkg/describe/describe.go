@@ -65,6 +65,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 type myProtoValue struct {
@@ -297,13 +298,13 @@ func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTP
 		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			if dest.Destination.Subset != "" {
-				if Contains(nonmatchingSubsets, dest.Destination.Subset) {
+				if slices.Contains(nonmatchingSubsets, dest.Destination.Subset) {
 					mismatchNotes = append(mismatchNotes, fmt.Sprintf("Route to non-matching subset %s for (%s)",
 						dest.Destination.Subset,
 						renderMatches(route.Match)))
 					continue
 				}
-				if !Contains(matchingSubsets, dest.Destination.Subset) {
+				if !slices.Contains(matchingSubsets, dest.Destination.Subset) {
 					if dr == nil {
 						// Don't bother giving the match conditions, the problem is that there are unknowns in the VirtualService
 						mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to subset %s but NO DESTINATION RULE defining subsets!", dest.Destination.Subset))
@@ -534,16 +535,6 @@ func findProtocolForPort(port *corev1.ServicePort) string {
 		protocol = string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
 	}
 	return protocol
-}
-
-func Contains(slice []string, s string) bool {
-	for _, candidate := range slice {
-		if candidate == s {
-			return true
-		}
-	}
-
-	return false
 }
 
 func isMeshed(pod *corev1.Pod) bool {
