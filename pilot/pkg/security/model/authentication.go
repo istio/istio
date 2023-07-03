@@ -256,6 +256,7 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 		}
 	}
 
+	// If the InsecureSkipVerify is true, there is no need to configure CA Cert and SAN.
 	if tlsOpts.GetInsecureSkipVerify().GetValue() {
 		return
 	}

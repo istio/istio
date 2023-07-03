@@ -4015,7 +4015,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 	}{
 		{
 			name:        "With tls mode simple, InsecureSkipVerify is not specified and ca cert is supplied",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -4071,7 +4071,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 		},
 		{
 			name:        "With tls mode simple, InsecureSkipVerify is set false and ca cert is supplied",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -4128,7 +4128,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 		},
 		{
 			name:        "With tls mode simple, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -4160,7 +4160,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 		},
 		{
 			name:        "With tls mode simple, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true and AUTO_SNI is true",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -4190,7 +4190,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 		},
 		{
 			name:        "With tls mode simple and CredentialName, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -4223,7 +4223,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 		},
 		{
 			name:        "With tls mode mutual, InsecureSkipVerify is not specified and ca cert is supplied",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -4303,7 +4303,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 		},
 		{
 			name:        "With tls mode mutual, InsecureSkipVerify is set false and ca cert is supplied",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -4384,7 +4384,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 		},
 		{
 			name:        "With tls mode mutual, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -4440,7 +4440,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 		},
 		{
 			name:        "With tls mode mutual, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true and AUTO_SNI is true",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -4494,7 +4494,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 		},
 		{
 			name:        "With tls mode mutual and CredentialName, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -4538,7 +4538,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 		},
 		{
 			name:        "With tls mode istio mutual, InsecureSkipVerify is set true",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
@@ -4661,6 +4661,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 			ec := NewMutableCluster(tc.cluster)
+			tc.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tc.service.Hostname).GetRule()
 			_ = cb.applyDestinationRule(ec, tc.clusterMode, tc.service, tc.port, tc.proxyView, destRule, tc.serviceAcct)
 
