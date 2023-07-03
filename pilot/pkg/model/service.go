@@ -330,8 +330,8 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	}
 }
 
-// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need
-// i.e. excluding the ports. Returns true if equal, false otherwise.
+// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need.
+// Returns true if equal, false otherwise.
 func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint == nil || second.Endpoint == nil {
 		return first.Endpoint == second.Endpoint
@@ -366,20 +366,8 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Kind != second.Kind {
 		return false
 	}
-	if !portMapEquals(first.PortMap, second.PortMap) {
+	if !maps.Equal(first.PortMap, second.PortMap) {
 		return false
-	}
-	return true
-}
-
-func portMapEquals(a, b map[string]uint32) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, v := range a {
-		if b[k] != v {
-			return false
-		}
 	}
 	return true
 }
