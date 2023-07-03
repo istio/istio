@@ -1241,7 +1241,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest,
 ) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
+		authnChanged, authzChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool
 
 	var changedEnvoyFilters []ConfigKey
@@ -1261,7 +1261,6 @@ func (ps *PushContext) updateContext(
 		case kind.WasmPlugin:
 			wasmPluginsChanged = true
 		case kind.EnvoyFilter:
-			envoyFiltersChanged = true
 			changedEnvoyFilters = append(changedEnvoyFilters, conf)
 		case kind.AuthorizationPolicy:
 			authzChanged = true
