@@ -37,6 +37,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -4000,143 +4001,633 @@ func TestInsecureSkipVerify(t *testing.T) {
 	}
 
 	cases := []struct {
-		name        string
-		cluster     *cluster.Cluster
-		clusterMode ClusterMode
-		service     *model.Service
-		port        *model.Port
-		networkView map[network.ID]bool
-		destRule    *networking.DestinationRule
-		// expectedDR                *networking.DestinationRule
-		serviceAcct               []string // SE SAN values
-		expectedCaCertificateName string
-		expectedSAN               []string
-		expectedSNI               string
+		name                     string
+		cluster                  *cluster.Cluster
+		clusterMode              ClusterMode
+		service                  *model.Service
+		port                     *model.Port
+		proxyView                model.ProxyView
+		destRule                 *networking.DestinationRule
+		serviceAcct              []string // SE SAN values
+		enableAutoSni            bool
+		enableVerifyCertAtClient bool
+		expectTLSContext         *tls.UpstreamTlsContext
 	}{
 		{
-			name:        "InsecureSkipVerify false",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			name:        "With tls mode simple, InsecureSkipVerify is not specified and ca cert is supplied",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							MaxRetries:        10,
-							UseClientProtocol: true,
-						},
-					},
 					Tls: &networking.ClientTLSSettings{
-						CaCertificates:     constants.RootCertFilename,
-						Mode:               networking.ClientTLSSettings_SIMPLE,
-						InsecureSkipVerify: &wrapperspb.BoolValue{Value: false},
-						Sni:                "foo.default.svc.cluster.local",
-						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
+						Mode:            networking.ClientTLSSettings_SIMPLE,
+						CaCertificates:  constants.RootCertFilename,
+						Sni:             "foo.default.svc.cluster.local",
+						SubjectAltNames: []string{"foo.default.svc.cluster.local"},
 					},
 				},
 			},
-			expectedCaCertificateName: constants.RootCertFilename,
-			expectedSAN:               []string{"foo.default.svc.cluster.local"},
-			expectedSNI:               "foo.default.svc.cluster.local",
+			enableAutoSni:            false,
+			enableVerifyCertAtClient: false,
+			expectTLSContext: &tls.UpstreamTlsContext{
+				CommonTlsContext: &tls.CommonTlsContext{
+					TlsParams: &tls.TlsParameters{
+						// if not specified, envoy use TLSv1_2 as default for client.
+						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+					},
+					ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"foo.default.svc.cluster.local"})},
+							ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+								Name: "file-root:" + constants.RootCertFilename,
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									ResourceApiVersion: core.ApiVersion_V3,
+								},
+							},
+						},
+					},
+				},
+				Sni: "foo.default.svc.cluster.local",
+			},
 		},
 		{
-			name:        "InsecureSkipVerify false with SE SAN",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			name:        "With tls mode simple, InsecureSkipVerify is set false and ca cert is supplied",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							MaxRetries:        10,
-							UseClientProtocol: true,
-						},
-					},
 					Tls: &networking.ClientTLSSettings{
-						CaCertificates:     constants.RootCertFilename,
 						Mode:               networking.ClientTLSSettings_SIMPLE,
+						CaCertificates:     constants.RootCertFilename,
+						Sni:                "foo.default.svc.cluster.local",
+						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
 						InsecureSkipVerify: &wrappers.BoolValue{Value: false},
-						Sni:                "foo.default.svc.cluster.local",
 					},
 				},
 			},
-			serviceAcct:               []string{"foo.default.svc.cluster.local"},
-			expectedCaCertificateName: constants.RootCertFilename,
-			expectedSAN:               []string{"foo.default.svc.cluster.local"},
-			expectedSNI:               "foo.default.svc.cluster.local",
+			enableAutoSni:            false,
+			enableVerifyCertAtClient: false,
+			expectTLSContext: &tls.UpstreamTlsContext{
+				CommonTlsContext: &tls.CommonTlsContext{
+					TlsParams: &tls.TlsParameters{
+						// if not specified, envoy use TLSv1_2 as default for client.
+						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+					},
+					ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"foo.default.svc.cluster.local"})},
+							ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+								Name: "file-root:" + constants.RootCertFilename,
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									ResourceApiVersion: core.ApiVersion_V3,
+								},
+							},
+						},
+					},
+				},
+				Sni: "foo.default.svc.cluster.local",
+			},
 		},
 		{
-			name:        "InsecureSkipVerify true",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			name:        "With tls mode simple, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							MaxRetries:        10,
-							UseClientProtocol: true,
-						},
-					},
 					Tls: &networking.ClientTLSSettings{
-						CaCertificates:     constants.RootCertFilename,
 						Mode:               networking.ClientTLSSettings_SIMPLE,
-						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
 						Sni:                "foo.default.svc.cluster.local",
 						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
+						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
 					},
 				},
 			},
-			expectedCaCertificateName: "",
-			expectedSAN:               []string{},
-			expectedSNI:               "foo.default.svc.cluster.local",
+			enableAutoSni:            false,
+			enableVerifyCertAtClient: true,
+			expectTLSContext: &tls.UpstreamTlsContext{
+				CommonTlsContext: &tls.CommonTlsContext{
+					TlsParams: &tls.TlsParameters{
+						// if not specified, envoy use TLSv1_2 as default for client.
+						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+					},
+					ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
+				},
+				Sni: "foo.default.svc.cluster.local",
+			},
 		},
 		{
-			name:        "InsecureSkipVerify true using SE SAN",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			name:        "With tls mode simple, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true and AUTO_SNI is true",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			proxyView:   model.ProxyViewAll,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							MaxRetries:        10,
-							UseClientProtocol: true,
-						},
-					},
 					Tls: &networking.ClientTLSSettings{
-						CaCertificates:     constants.RootCertFilename,
 						Mode:               networking.ClientTLSSettings_SIMPLE,
+						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
 						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
-						Sni:                "foo.default.svc.cluster.local",
 					},
 				},
 			},
-			serviceAcct:               []string{"foo.default.svc.cluster.local"},
-			expectedCaCertificateName: "",
-			expectedSAN:               []string{},
-			expectedSNI:               "foo.default.svc.cluster.local",
+			enableAutoSni:            true,
+			enableVerifyCertAtClient: true,
+			expectTLSContext: &tls.UpstreamTlsContext{
+				CommonTlsContext: &tls.CommonTlsContext{
+					TlsParams: &tls.TlsParameters{
+						// if not specified, envoy use TLSv1_2 as default for client.
+						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+					},
+					ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
+				},
+			},
+		},
+		{
+			name:        "With tls mode simple and CredentialName, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.ClientTLSSettings{
+						Mode:               networking.ClientTLSSettings_SIMPLE,
+						CredentialName:     "ca-cert",
+						Sni:                "foo.default.svc.cluster.local",
+						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
+						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
+					},
+				},
+				WorkloadSelector: &v1beta1.WorkloadSelector{},
+			},
+			enableAutoSni:            false,
+			enableVerifyCertAtClient: true,
+			expectTLSContext: &tls.UpstreamTlsContext{
+				CommonTlsContext: &tls.CommonTlsContext{
+					TlsParams: &tls.TlsParameters{
+						// if not specified, envoy use TLSv1_2 as default for client.
+						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+					},
+				},
+				Sni: "foo.default.svc.cluster.local",
+			},
+		},
+		{
+			name:        "With tls mode mutual, InsecureSkipVerify is not specified and ca cert is supplied",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.ClientTLSSettings{
+						Mode:              networking.ClientTLSSettings_MUTUAL,
+						ClientCertificate: "cert",
+						PrivateKey:        "key",
+						CaCertificates:    constants.RootCertFilename,
+						Sni:               "foo.default.svc.cluster.local",
+						SubjectAltNames:   []string{"foo.default.svc.cluster.local"},
+					},
+				},
+			},
+			enableAutoSni:            false,
+			enableVerifyCertAtClient: false,
+			expectTLSContext: &tls.UpstreamTlsContext{
+				CommonTlsContext: &tls.CommonTlsContext{
+					TlsParams: &tls.TlsParameters{
+						// if not specified, envoy use TLSv1_2 as default for client.
+						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+					},
+					TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+						{
+							Name: "file-cert:cert~key",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+												},
+											},
+										},
+									},
+								},
+								ResourceApiVersion: core.ApiVersion_V3,
+							},
+						},
+					},
+					ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"foo.default.svc.cluster.local"})},
+							ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+								Name: "file-root:" + constants.RootCertFilename,
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									ResourceApiVersion: core.ApiVersion_V3,
+								},
+							},
+						},
+					},
+				},
+				Sni: "foo.default.svc.cluster.local",
+			},
+		},
+		{
+			name:        "With tls mode mutual, InsecureSkipVerify is set false and ca cert is supplied",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.ClientTLSSettings{
+						Mode:               networking.ClientTLSSettings_MUTUAL,
+						ClientCertificate:  "cert",
+						PrivateKey:         "key",
+						CaCertificates:     constants.RootCertFilename,
+						Sni:                "foo.default.svc.cluster.local",
+						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
+						InsecureSkipVerify: &wrappers.BoolValue{Value: false},
+					},
+				},
+			},
+			enableAutoSni:            false,
+			enableVerifyCertAtClient: false,
+			expectTLSContext: &tls.UpstreamTlsContext{
+				CommonTlsContext: &tls.CommonTlsContext{
+					TlsParams: &tls.TlsParameters{
+						// if not specified, envoy use TLSv1_2 as default for client.
+						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+					},
+					TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+						{
+							Name: "file-cert:cert~key",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+												},
+											},
+										},
+									},
+								},
+								ResourceApiVersion: core.ApiVersion_V3,
+							},
+						},
+					},
+					ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"foo.default.svc.cluster.local"})},
+							ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+								Name: "file-root:" + constants.RootCertFilename,
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									ResourceApiVersion: core.ApiVersion_V3,
+								},
+							},
+						},
+					},
+				},
+				Sni: "foo.default.svc.cluster.local",
+			},
+		},
+		{
+			name:        "With tls mode mutual, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.ClientTLSSettings{
+						Mode:               networking.ClientTLSSettings_MUTUAL,
+						ClientCertificate:  "cert",
+						PrivateKey:         "key",
+						Sni:                "foo.default.svc.cluster.local",
+						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
+						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
+					},
+				},
+			},
+			enableAutoSni:            false,
+			enableVerifyCertAtClient: true,
+			expectTLSContext: &tls.UpstreamTlsContext{
+				CommonTlsContext: &tls.CommonTlsContext{
+					TlsParams: &tls.TlsParameters{
+						// if not specified, envoy use TLSv1_2 as default for client.
+						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+					},
+					TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+						{
+							Name: "file-cert:cert~key",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+												},
+											},
+										},
+									},
+								},
+								ResourceApiVersion: core.ApiVersion_V3,
+							},
+						},
+					},
+					ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
+				},
+				Sni: "foo.default.svc.cluster.local",
+			},
+		},
+		{
+			name:        "With tls mode mutual, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true and AUTO_SNI is true",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.ClientTLSSettings{
+						Mode:               networking.ClientTLSSettings_MUTUAL,
+						ClientCertificate:  "cert",
+						PrivateKey:         "key",
+						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
+						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
+					},
+				},
+			},
+			enableAutoSni:            true,
+			enableVerifyCertAtClient: true,
+			expectTLSContext: &tls.UpstreamTlsContext{
+				CommonTlsContext: &tls.CommonTlsContext{
+					TlsParams: &tls.TlsParameters{
+						// if not specified, envoy use TLSv1_2 as default for client.
+						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+					},
+					TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+						{
+							Name: "file-cert:cert~key",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+												},
+											},
+										},
+									},
+								},
+								ResourceApiVersion: core.ApiVersion_V3,
+							},
+						},
+					},
+					ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
+				},
+			},
+		},
+		{
+			name:        "With tls mode mutual and CredentialName, InsecureSkipVerify is set true and env VERIFY_CERTIFICATE_AT_CLIENT is true",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.ClientTLSSettings{
+						Mode:               networking.ClientTLSSettings_MUTUAL,
+						CredentialName:     "server-cert",
+						Sni:                "foo.default.svc.cluster.local",
+						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
+						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
+					},
+				},
+				WorkloadSelector: &v1beta1.WorkloadSelector{},
+			},
+			enableAutoSni:            false,
+			enableVerifyCertAtClient: true,
+			expectTLSContext: &tls.UpstreamTlsContext{
+				CommonTlsContext: &tls.CommonTlsContext{
+					TlsParams: &tls.TlsParameters{
+						// if not specified, envoy use TLSv1_2 as default for client.
+						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+					},
+					TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+						{
+							Name: "kubernetes://server-cert",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_Ads{
+									Ads: &core.AggregatedConfigSource{},
+								},
+								ResourceApiVersion: core.ApiVersion_V3,
+							},
+						},
+					},
+				},
+				Sni: "foo.default.svc.cluster.local",
+			},
+		},
+		{
+			name:        "With tls mode istio mutual, InsecureSkipVerify is set true",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}, CommonLbConfig: &cluster.Cluster_CommonLbConfig{}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.ClientTLSSettings{
+						Mode:               networking.ClientTLSSettings_ISTIO_MUTUAL,
+						Sni:                "foo.default.svc.cluster.local",
+						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
+						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
+					},
+				},
+			},
+			enableAutoSni:            false,
+			enableVerifyCertAtClient: true,
+			expectTLSContext: &tls.UpstreamTlsContext{
+				CommonTlsContext: &tls.CommonTlsContext{
+					TlsParams: &tls.TlsParameters{
+						// if not specified, envoy use TLSv1_2 as default for client.
+						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+					},
+					TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+						{
+							Name: authn_model.SDSDefaultResourceName,
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+												},
+											},
+										},
+									},
+								},
+								ResourceApiVersion:  core.ApiVersion_V3,
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
+							},
+						},
+					},
+					ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"foo.default.svc.cluster.local"})},
+							ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+								Name: authn_model.SDSRootResourceName,
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
+								},
+							},
+						},
+					},
+					AlpnProtocols: util.ALPNInMeshWithMxc,
+				},
+				Sni: "foo.default.svc.cluster.local",
+			},
 		},
 	}
 
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableAutoSni, tc.enableAutoSni)
+			test.SetForTest(t, &features.VerifyCertAtClient, tc.enableVerifyCertAtClient)
+
 			instances := []*model.ServiceInstance{
 				{
-					Service:     tt.service,
-					ServicePort: tt.port,
+					Service:     tc.service,
+					ServicePort: tc.port,
 					Endpoint: &model.IstioEndpoint{
 						Address:      "192.168.1.1",
 						EndpointPort: 10001,
@@ -4150,59 +4641,44 @@ func TestInsecureSkipVerify(t *testing.T) {
 			}
 
 			var cfg *config.Config
-			if tt.destRule != nil {
+			if tc.destRule != nil {
 				cfg = &config.Config{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
 						Namespace:        "default",
 					},
-					Spec: tt.destRule,
+					Spec: tc.destRule,
 				}
 			}
 
 			cg := NewConfigGenTest(t, TestOptions{
 				ConfigPointers: []*config.Config{cfg},
-				Services:       []*model.Service{tt.service},
+				Services:       []*model.Service{tc.service},
 			})
 
 			cg.MemRegistry.WantGetProxyServiceInstances = instances
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
-			ec := NewMutableCluster(tt.cluster)
-			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
+			ec := NewMutableCluster(tc.cluster)
+			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tc.service.Hostname).GetRule()
+			_ = cb.applyDestinationRule(ec, tc.clusterMode, tc.service, tc.port, tc.proxyView, destRule, tc.serviceAcct)
 
-			// ACT
-			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, tt.serviceAcct)
-
-			byteArray, err := config.ToJSON(destRule.Spec)
-			if err != nil {
-				t.Errorf("Could not parse destination rule: %v", err)
-			}
-			dr := &networking.DestinationRule{}
-			err = json.Unmarshal(byteArray, &dr)
-			if err != nil {
-				t.Errorf("Could not unmarshal destination rule: %v", err)
-			}
-			// ec.cluster.TransportSocket
-			ca := dr.TrafficPolicy.Tls.CaCertificates
-			if ca != tt.expectedCaCertificateName {
-				t.Errorf("%v: got unexpected caCertitifcates field. Expected (%v), received (%v)", tt.name, tt.expectedCaCertificateName, ca)
+			result := getTLSContext(t, ec.cluster)
+			if diff := cmp.Diff(result, tc.expectTLSContext, protocmp.Transform()); diff != "" {
+				t.Errorf("got diff: `%v", diff)
 			}
 
-			san := dr.TrafficPolicy.Tls.SubjectAltNames
-			if len(san) != len(tt.expectedSAN) {
-				t.Errorf("%v: got unexpected SAN field. Expected (%v), received (%v)", tt.name, tt.expectedSAN, san)
-			}
-			for i, v := range san {
-				if v != tt.expectedSAN[i] {
-					t.Errorf("%v: got unexpected SAN field. Expected (%v), received (%v)", tt.name, tt.expectedSAN, san)
+			if tc.enableAutoSni {
+				if tc.destRule.GetTrafficPolicy().GetTls().Sni == "" {
+					assert.Equal(t, ec.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
 				}
-			}
 
-			sni := dr.TrafficPolicy.Tls.Sni
-			if sni != tt.expectedSNI {
-				t.Errorf("%v: got unexpected SNI field. Expected (%v), received (%v)", tt.name, tt.expectedSNI, sni)
+				if tc.destRule.GetTrafficPolicy().GetTls().GetInsecureSkipVerify().GetValue() {
+					assert.Equal(t, ec.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, false)
+				} else if tc.enableVerifyCertAtClient && len(tc.destRule.GetTrafficPolicy().GetTls().SubjectAltNames) == 0 {
+					assert.Equal(t, ec.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, true)
+				}
 			}
 		})
 	}
