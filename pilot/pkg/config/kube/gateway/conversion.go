@@ -1207,11 +1207,9 @@ func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 	if filter.Path != nil {
 		switch filter.Path.Type {
 		case k8sbeta.PrefixMatchHTTPPathModifier:
-			url := ""
 			if filter.Path.ReplacePrefixMatch != nil {
-				url = *filter.Path.ReplacePrefixMatch
+				rewrite.Uri = *filter.Path.ReplacePrefixMatch
 			}
-			rewrite.Uri = url
 		case k8sbeta.FullPathHTTPPathModifier:
 			replaceFullPath := "/"
 			if filter.Path.ReplaceFullPath != nil {
