@@ -59,6 +59,9 @@ type AmbientIndexImpl struct {
 	// byService indexes by Service namespaced hostname. A given Service can map to
 	// many workloads associated, indexed by workload uid.
 	byService map[string]map[string]*model.WorkloadInfo
+	// byHostname indexes workloads by their pod hostname. Pod hostnames, unlike
+	// services are globally unique.
+	byHostname map[string]*model.WorkloadInfo
 	// byPod indexes by network/podIP address.
 	byPod map[networkAddress]*model.WorkloadInfo
 	// byWorkloadEntry indexes by WorkloadEntry IP address.
@@ -67,9 +70,10 @@ type AmbientIndexImpl struct {
 	byUID map[string]*model.WorkloadInfo
 	// serviceByAddr are indexed by the network/clusterIP
 	serviceByAddr map[networkAddress]*model.ServiceInfo
-	// serviceByNamespacedHostname are indexed by the namespace/hostname
-	serviceByNamespacedHostname map[string]*model.ServiceInfo
-	// TODO(nmittler): Add serviceByHostname to support on-demand for DNS.
+	// serviceByHostname indexes services by just their hostname. Service hostnames
+	// are only guaranteed to be unique within a namespace, so it is possible to
+	// have multiple services with the same hostname.
+	serviceByHostname map[string][]*model.ServiceInfo
 
 	// Map of Scope -> address
 	waypoints map[model.WaypointScope]*workloadapi.GatewayAddress
@@ -100,6 +104,27 @@ func (c *Controller) generatePodUID(p *v1.Pod) string {
 	return c.clusterID.String() + "//" + "Pod/" + p.Namespace + "/" + p.Name
 }
 
+// servicesByNamespacedHostname returns the service with the given namespace and hostname. If
+// the provided namespace is a wildcard ("*"), all services with the hostname are returned.
+func (a *AmbientIndexImpl) servicesByNamespacedHostname(namespace, hostname string) []*model.ServiceInfo {
+	out := make([]*model.ServiceInfo, 0)
+	if services := a.serviceByHostname[hostname]; services != nil {
+		if namespace == "*" {
+			// The query was for all namespaces. Return all services with the hostname.
+			out = append(out, services...)
+		} else {
+			// Return only the service with the matching hostname.
+			for _, svc := range services {
+				if svc.Namespace == namespace {
+					out = append(out, svc)
+					break
+				}
+			}
+		}
+	}
+	return out
+}
+
 // Lookup finds the list of AddressInfos for a given key.
 // network/IP -> return associated pod Workload or the Service and its corresponding Workloads
 // namespace/hostname -> return the Service and its corresponding Workloads
@@ -114,43 +139,54 @@ func (a *AmbientIndexImpl) Lookup(key string) []*model.AddressInfo {
 		return []*model.AddressInfo{workloadToAddressInfo(wl.Workload)}
 	}
 
-	network, ip, found := strings.Cut(key, "/")
+	part1, part2, found := strings.Cut(key, "/")
 	if !found {
 		log.Warnf(`key (%v) did not contain the expected "/" character`, key)
 		return nil
 	}
+
+	// First check to see if it's a network address for a workload or service.
 	res := make([]*model.AddressInfo, 0)
-	if _, err := netip.ParseAddr(ip); err != nil {
-		// this must be namespace/hostname format
-		// lookup Service and any Workloads for that Service for each of the network addresses
-		if svc, f := a.serviceByNamespacedHostname[key]; f {
+	if _, err := netip.ParseAddr(part2); err == nil {
+		networkAddr := networkAddress{network: part1, ip: part2}
+		// First look at pod...
+		if p, f := a.byPod[networkAddr]; f {
+			return []*model.AddressInfo{workloadToAddressInfo(p.Workload)}
+		}
+		// Next, look at WorkloadEntries
+		if w, f := a.byWorkloadEntry[networkAddr]; f {
+			return []*model.AddressInfo{workloadToAddressInfo(w.Workload)}
+		}
+
+		// Fallback to service VIP. Note: these IP ranges should be non-overlapping.
+		// When a Service lookup is performed, the service and its workloads are returned
+		if s, exists := a.serviceByAddr[networkAddr]; exists {
+			res = append(res, serviceToAddressInfo(s.Service))
+			for _, wl := range a.byService[s.ResourceName()] {
+				res = append(res, workloadToAddressInfo(wl.Workload))
+			}
+		}
+
+		return res
+	}
+
+	// The query must be in the namespace/hostname format.
+	namespace := part1
+	hostname := part2
+
+	// Lookup service(s) first, then workloads.
+	if services := a.servicesByNamespacedHostname(namespace, hostname); len(services) > 0 {
+		for _, svc := range services {
 			res = append(res, serviceToAddressInfo(svc.Service))
 
+			// When adding a service, add all of its workloads as well.
 			for _, wl := range a.byService[key] {
 				res = append(res, workloadToAddressInfo(wl.Workload))
 			}
 		}
-		return res
+	} else if wl, f := a.byHostname[hostname]; f {
+		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
-
-	networkAddr := networkAddress{network: network, ip: ip}
-	// First look at pod...
-	if p, f := a.byPod[networkAddr]; f {
-		return []*model.AddressInfo{workloadToAddressInfo(p.Workload)}
-	}
-	// Next, look at WorkloadEntries
-	if w, f := a.byWorkloadEntry[networkAddr]; f {
-		return []*model.AddressInfo{workloadToAddressInfo(w.Workload)}
-	}
-	// Fallback to service. Note: these IP ranges should be non-overlapping
-	// When a Service lookup is performed, but it and its workloads are returned
-	if s, exists := a.serviceByAddr[networkAddr]; exists {
-		res = append(res, serviceToAddressInfo(s.Service))
-		for _, wl := range a.byService[s.ResourceName()] {
-			res = append(res, workloadToAddressInfo(wl.Workload))
-		}
-	}
-
 	return res
 }
 
@@ -175,19 +211,21 @@ func (a *AmbientIndexImpl) updateWaypoint(sa model.WaypointScope, addr *workload
 	return updates
 }
 
-// All return all known workloads. Result is un-ordered
+// All return all known workloads and services. Result is un-ordered
 //
 // NOTE: As an interface method of AmbientIndex, this locks the index.
 func (a *AmbientIndexImpl) All() []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	res := make([]*model.AddressInfo, 0, len(a.byPod)+len(a.serviceByAddr)+len(a.byWorkloadEntry))
+	for _, services := range a.serviceByHostname {
+		for _, svc := range services {
+			res = append(res, serviceToAddressInfo(svc.Service))
+		}
+	}
 	// byPod and byWorkloadEntry will not have any duplicates, so we can just iterate over that.
 	for _, wl := range a.byPod {
 		res = append(res, workloadToAddressInfo(wl.Workload))
-	}
-	for _, s := range a.serviceByAddr {
-		res = append(res, serviceToAddressInfo(s.Service))
 	}
 	for _, wl := range a.byWorkloadEntry {
 		res = append(res, workloadToAddressInfo(wl.Workload))
@@ -350,15 +388,16 @@ func (a *AmbientIndexImpl) extractWorkload(p *v1.Pod, c *Controller) *model.Work
 	}
 }
 
-func (c *Controller) setupIndex() *AmbientIndexImpl {
+func (c *Controller) setupIndex() AmbientIndex {
 	idx := AmbientIndexImpl{
-		byService:                   map[string]map[string]*model.WorkloadInfo{},
-		byPod:                       map[networkAddress]*model.WorkloadInfo{},
-		byWorkloadEntry:             map[networkAddress]*model.WorkloadInfo{},
-		byUID:                       map[string]*model.WorkloadInfo{},
-		waypoints:                   map[model.WaypointScope]*workloadapi.GatewayAddress{},
-		serviceByAddr:               map[networkAddress]*model.ServiceInfo{},
-		serviceByNamespacedHostname: map[string]*model.ServiceInfo{},
+		byService:         map[string]map[string]*model.WorkloadInfo{},
+		byHostname:        map[string]*model.WorkloadInfo{},
+		byPod:             map[networkAddress]*model.WorkloadInfo{},
+		byWorkloadEntry:   map[networkAddress]*model.WorkloadInfo{},
+		byUID:             map[string]*model.WorkloadInfo{},
+		waypoints:         map[model.WaypointScope]*workloadapi.GatewayAddress{},
+		serviceByAddr:     map[networkAddress]*model.ServiceInfo{},
+		serviceByHostname: map[string][]*model.ServiceInfo{},
 	}
 
 	podHandler := cache.ResourceEventHandlerFuncs{
@@ -514,6 +553,8 @@ func (a *AmbientIndexImpl) handlePod(oldObj, newObj any, isDelete bool, c *Contr
 			for namespacedHostname := range oldWl.Services {
 				a.dropWorkloadFromService(namespacedHostname, oldWl.ResourceName())
 			}
+			// Delete the index by hostname.
+			delete(a.byHostname, oldWl.Hostname)
 			log.Debugf("%v: workload removed, pushing", p.Status.PodIP)
 			// TODO: namespace for network?
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: oldWl.ResourceName()})
@@ -531,6 +572,10 @@ func (a *AmbientIndexImpl) handlePod(oldObj, newObj any, isDelete bool, c *Contr
 	for _, networkAddr := range networkAddressFromWorkload(wl) {
 		a.byPod[networkAddr] = wl
 	}
+
+	// Update the index by hostname.
+	a.byHostname[wl.Hostname] = wl
+
 	a.byUID[wl.Uid] = wl
 	if oldWl != nil {
 		// For updates, we will drop the service and then add the new ones back. This could be optimized
@@ -659,15 +704,41 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 		for _, networkAddr := range networkAddrs {
 			delete(a.serviceByAddr, networkAddr)
 		}
+		// Delete the mapping to workload.
 		delete(a.byService, namespacedName)
-		delete(a.serviceByNamespacedHostname, si.ResourceName())
+
+		// Delete the index by hostname.
+		services := a.serviceByHostname[si.Hostname]
+		for index, svc := range services {
+			if svc.Namespace == si.Namespace {
+				services = append(services[:index], services[index+1:]...)
+				a.serviceByHostname[si.Hostname] = services
+				break
+			}
+		}
+
 		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: namespacedName})
 	} else {
 		for _, networkAddr := range networkAddrs {
 			a.serviceByAddr[networkAddr] = si
 		}
 		a.byService[namespacedName] = wls
-		a.serviceByNamespacedHostname[namespacedName] = si
+
+		// Update the index by hostname.
+		services := a.serviceByHostname[si.Hostname]
+		found := false
+		for index, svc := range services {
+			if svc.Namespace == si.Namespace {
+				found = true
+				services[index] = si
+				a.serviceByHostname[si.Hostname] = services
+				break
+			}
+		}
+		if !found {
+			a.serviceByHostname[si.Hostname] = append(services, si)
+		}
+
 		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: namespacedName})
 	}
 	// Fetch updates again, in case it changed from adding new workloads
