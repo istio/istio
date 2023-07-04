@@ -675,7 +675,7 @@ var (
 		"If enabled, pilot will only rebuild config for resources that have changed").Get()
 
 	JwksResolverInsecureSkipVerify = env.Register("JWKS_RESOLVER_INSECURE_SKIP_VERIFY", false,
-		"If enabled, the JWKS resolver will skip verifying the certificate of the JWKS server.").Get()
+		"If enabled, istiod will skip verifying the certificate of the JWKS server.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
