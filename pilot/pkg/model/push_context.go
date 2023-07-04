@@ -1923,7 +1923,7 @@ func (ps *PushContext) updateEnvoyFilters(env *Environment, changedEnvoyFilters 
 changes:
 	for _, changedEnvoyFilter := range changedEnvoyFilters {
 		log.Infof("Changed EnvoyFilter: %s", changedEnvoyFilter.String())
-		envoyFilterConfig := env.Get(gvk.EnvoyFilter, changedEnvoyFilter.Namespace, changedEnvoyFilter.Name)
+		envoyFilterConfig := env.Get(gvk.EnvoyFilter, changedEnvoyFilter.Name, changedEnvoyFilter.Namespace)
 
 		if envoyFilterConfig == nil {
 			log.Infof("EnvoyFilter not found: %s", changedEnvoyFilter.String())
