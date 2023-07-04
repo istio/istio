@@ -1925,7 +1925,7 @@ changes:
 		envoyFilterConfig := env.Get(gvk.EnvoyFilter, changedEnvoyFilter.Namespace, changedEnvoyFilter.Name)
 
 		if envoyFilterConfig == nil {
-			existingEnvoyFilters, exists := ps.envoyFiltersByNamespace.Load(envoyFilterConfig.Namespace)
+			existingEnvoyFilters, exists := ps.envoyFiltersByNamespace.Load(changedEnvoyFilter.Namespace)
 			if exists {
 				for i, existingEnvoyFilter := range existingEnvoyFilters {
 					if existingEnvoyFilter.Name == changedEnvoyFilter.Name {
