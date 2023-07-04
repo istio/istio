@@ -1922,9 +1922,11 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) {
 func (ps *PushContext) updateEnvoyFilters(env *Environment, changedEnvoyFilters []ConfigKey) error {
 changes:
 	for _, changedEnvoyFilter := range changedEnvoyFilters {
+		log.Infof("Changed EnvoyFilter: %s", changedEnvoyFilter.String())
 		envoyFilterConfig := env.Get(gvk.EnvoyFilter, changedEnvoyFilter.Namespace, changedEnvoyFilter.Name)
 
 		if envoyFilterConfig == nil {
+			log.Infof("EnvoyFilter not found: %s", changedEnvoyFilter.String())
 			existingEnvoyFilters, exists := ps.envoyFiltersByNamespace.Load(changedEnvoyFilter.Namespace)
 			if exists {
 				for i, existingEnvoyFilter := range existingEnvoyFilters {
@@ -1947,12 +1949,14 @@ changes:
 
 			for i, existingEnvoyFilter := range existingEnvoyFilters {
 				if existingEnvoyFilter.Name == efw.Name {
+					log.Infof("Overwriting updated envoyfilter: %s", changedEnvoyFilter.String())
 					// overwrite existing envoy filter with newer version
 					existingEnvoyFilters[i] = efw
 					continue changes
 				}
 			}
 
+			log.Infof("Adding newly created envoyfilter: %s", changedEnvoyFilter.String())
 			existingEnvoyFilters = append(existingEnvoyFilters, efw)
 			sort.Slice(existingEnvoyFilters, func(i, j int) bool {
 				ifilter := existingEnvoyFilters[i]
@@ -2002,6 +2006,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 
 	var out *EnvoyFilterWrapper
 	if len(matchedEnvoyFilters) > 0 {
+		log.Infof("selected: %d envoyfilters for proxy %s", len(matchedEnvoyFilters), proxy.ID)
 		out = &EnvoyFilterWrapper{
 			// no need populate workloadSelector, as it is not used later.
 			Patches: make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper),
@@ -2026,8 +2031,10 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
 	if envoyFilters, exists := ps.envoyFiltersByNamespace.Load(namespaces); exists {
+		log.Infof("Loaded: %d envoyfilters for namespace %s", len(envoyFilters), namespaces)
 		for _, efw := range envoyFilters {
 			if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Labels) {
+				log.Infof("selected: envoyfilter %s", efw.Name)
 				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 			}
 		}
