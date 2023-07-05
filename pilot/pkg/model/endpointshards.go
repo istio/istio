@@ -125,9 +125,6 @@ func NewEndpointIndex(cache XdsCache) *EndpointIndex {
 
 // must be called with lock
 func (e *EndpointIndex) clearCacheForService(svc, ns string) {
-	if e.cache == nil {
-		return
-	}
 	e.cache.Clear(sets.Set[ConfigKey]{{
 		Kind:      kind.ServiceEntry,
 		Name:      svc,
