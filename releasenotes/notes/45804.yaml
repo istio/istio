@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Improved** a situation where validation and analyzers will report noisy IST0130 and IST0131 messages. Now the messages are deduplicated and only reported once for similar errors.
