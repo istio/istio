@@ -262,6 +262,9 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.
 	// this can fail if the address is DNS, e.g. "external.external-1-15569.svc.cluster.local"
 	addr, err := netip.ParseAddr(workloadEntry.Address)
 	if err != nil {
+		log.Errorf("skipping ambient workload generation for workload entry %s/%s."+
+			"client DNS address resolution is not implemented in ztunnel yet: requested address %v",
+			workloadEntryNamespace, workloadEntryName, workloadEntry.Address)
 		return nil
 	}
 

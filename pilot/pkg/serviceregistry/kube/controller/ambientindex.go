@@ -506,13 +506,13 @@ func (c *Controller) setupIndex() *AmbientIndex {
 
 		vips := getVIPsFromServiceEntry(svc)
 		var addrs []*workloadapi.NetworkAddress
-		var allPorts []*workloadapi.Port
 		for _, vip := range vips {
 			addrs = append(addrs, &workloadapi.NetworkAddress{
 				Network: c.network.String(),
 				Address: parseIP(vip),
 			})
 		}
+		var allPorts []*workloadapi.Port
 		for _, port := range svc.Attributes.ServiceEntry.Ports {
 			allPorts = append(allPorts, &workloadapi.Port{
 				ServicePort: port.Number,
@@ -533,15 +533,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 			},
 		}
 
-		networkAddrs := make([]networkAddress, 0, len(si.Addresses))
-		for _, addr := range si.Addresses {
-			if vip, ok := netip.AddrFromSlice(addr.Address); ok {
-				networkAddrs = append(networkAddrs, networkAddress{
-					ip:      vip.String(),
-					network: addr.Network,
-				})
-			}
-		}
+		networkAddrs := toInternalNetworkAddresses(si.GetAddresses())
 
 		// We send an update for each *workload* IP address previously in the service; they may have changed
 		for _, wl := range idx.byService[si.ResourceName()] {
@@ -658,6 +650,19 @@ func networkAddressFromWorkload(wl *model.WorkloadInfo) []networkAddress {
 	return networkAddrs
 }
 
+func toInternalNetworkAddresses(nwAddrs []*workloadapi.NetworkAddress) []networkAddress {
+	networkAddrs := make([]networkAddress, 0, len(nwAddrs))
+	for _, addr := range nwAddrs {
+		if ip, ok := netip.AddrFromSlice(addr.Address); ok {
+			networkAddrs = append(networkAddrs, networkAddress{
+				ip:      ip.String(),
+				network: addr.Network,
+			})
+		}
+	}
+	return networkAddrs
+}
+
 func (a *AmbientIndex) handlePods(pods []*v1.Pod, c *Controller) {
 	updates := sets.New[model.ConfigKey]()
 	for _, p := range pods {
@@ -716,15 +721,7 @@ func (a *AmbientIndex) handleService(obj any, isDelete bool, c *Controller) sets
 	}
 
 	si := c.constructService(svc)
-	networkAddrs := make([]networkAddress, 0, len(si.Addresses))
-	for _, addr := range si.Addresses {
-		if vip, ok := netip.AddrFromSlice(addr.Address); ok {
-			networkAddrs = append(networkAddrs, networkAddress{
-				ip:      vip.String(),
-				network: addr.Network,
-			})
-		}
-	}
+	networkAddrs := toInternalNetworkAddresses(si.GetAddresses())
 	pods := c.getPodsInService(svc)
 	wls := make(map[string]*model.WorkloadInfo, len(pods))
 	for _, p := range pods {
