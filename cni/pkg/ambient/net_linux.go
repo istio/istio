@@ -784,9 +784,11 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	return nil
 }
 
-// determineDstPortForGeneveLink finds first available destination port for given VNI,
+// determineDstPortForGeneveLink looks for first available destination port for given VNI and remote IP
 // starting from the default value 6081 (https://man7.org/linux/man-pages/man8/ip-link.8.html).
-// dstport must be dynamically determined to avoid failure when there already exists a geneve link associated with the given VNI.
+// Destination port cannot be reused and must be dynamically determined when:
+// - an external geneve link already exists (external geneve link does not have ID and remote IP address);
+// - a geneve link with the same ID and remote IP already exist.
 func determineDstPortForGeneveLink(remoteIP net.IP, vni uint32) uint16 {
 	existingLinks, err := netlink.LinkList()
 	if err != nil {
@@ -798,7 +800,7 @@ func determineDstPortForGeneveLink(remoteIP net.IP, vni uint32) uint16 {
 	for _, l := range existingLinks {
 		if l.Type() == geneveType.Type() {
 			geneveLink := l.(*netlink.Geneve)
-			if geneveLink.Remote.Equal(remoteIP) && geneveLink.ID == vni {
+			if (geneveLink.ID == vni && geneveLink.Remote.Equal(remoteIP)) || (geneveLink.ID == 0 && geneveLink.Remote == nil) {
 				reservedPorts.Insert(geneveLink.Dport)
 			}
 		}
