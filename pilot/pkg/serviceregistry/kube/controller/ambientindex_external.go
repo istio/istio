@@ -174,9 +174,9 @@ func (c *Controller) handleWorkloadEntry(idx *AmbientIndex, oldWorkloadEntry, w 
 		delete(idx.byWorkloadEntry, networkAddr)
 		delete(idx.byUID, uid)
 		if oldWl != nil {
-			// If we already knew about this workload, we need to make sure we drop all VIP references as well
-			for vip := range oldWl.VirtualIps {
-				idx.dropWorkloadFromService(networkAddress{network: oldWl.Network, ip: vip}, oldWl.ResourceName())
+			// If we already knew about this workload, we need to make sure we drop all service references as well
+			for namespacedHostname := range oldWl.Services {
+				idx.dropWorkloadFromService(namespacedHostname, oldWl.ResourceName())
 			}
 			log.Debugf("%v: workload removed, pushing", oldWl.ResourceName())
 			return map[model.ConfigKey]struct{}{
@@ -195,14 +195,14 @@ func (c *Controller) handleWorkloadEntry(idx *AmbientIndex, oldWorkloadEntry, w 
 	idx.byWorkloadEntry[networkAddr] = wl
 	idx.byUID[uid] = wl
 	if oldWl != nil {
-		// For updates, we will drop the VIPs and then add the new ones back. This could be optimized
-		for vip := range oldWl.VirtualIps {
-			idx.dropWorkloadFromService(networkAddress{network: oldWl.Network, ip: vip}, wl.ResourceName())
+		// For updates, we will drop the services and then add the new ones back. This could be optimized
+		for namespacedHostname := range oldWl.Services {
+			idx.dropWorkloadFromService(namespacedHostname, wl.ResourceName())
 		}
 	}
-	// Update the VIP indexes as well, as needed
-	for vip := range wl.VirtualIps {
-		idx.insertWorkloadToService(networkAddress{network: wl.Network, ip: vip}, wl)
+	// Update the service indexes as well, as needed
+	for namespacedHostname := range wl.Services {
+		idx.insertWorkloadToService(namespacedHostname, wl)
 	}
 
 	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
@@ -224,28 +224,25 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.
 		return nil
 	}
 
-	vips := map[string]*workloadapi.PortList{}
+	workloadServices := map[string]*workloadapi.PortList{}
 	if services := getWorkloadEntryServices(c.services.List(workloadEntryNamespace, klabels.Everything()), workloadEntry); len(services) > 0 {
 		for _, svc := range services {
-			for _, vip := range getVIPs(svc) {
-				if vips[vip] == nil {
-					vips[vip] = &workloadapi.PortList{}
+			ports := &workloadapi.PortList{}
+			for _, port := range svc.Spec.Ports {
+				if port.Protocol != v1.ProtocolTCP {
+					continue
 				}
-				for _, port := range svc.Spec.Ports {
-					if port.Protocol != v1.ProtocolTCP {
-						continue
-					}
-					targetPort, err := findPortForWorkloadEntry(workloadEntry, &port)
-					if err != nil {
-						log.Errorf("error looking up port for WorkloadEntry %s/%s", workloadEntryNamespace, workloadEntryName)
-						continue
-					}
-					vips[vip].Ports = append(vips[vip].Ports, &workloadapi.Port{
-						ServicePort: uint32(port.Port),
-						TargetPort:  targetPort,
-					})
+				targetPort, err := findPortForWorkloadEntry(workloadEntry, &port)
+				if err != nil {
+					log.Errorf("error looking up port for WorkloadEntry %s/%s", workloadEntryNamespace, workloadEntryName)
+					continue
 				}
+				ports.Ports = append(ports.Ports, &workloadapi.Port{
+					ServicePort: uint32(port.Port),
+					TargetPort:  targetPort,
+				})
 			}
+			workloadServices[c.namespacedHostname(svc)] = ports
 		}
 	}
 
@@ -274,29 +271,15 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.
 				continue
 			}
 
-			vipsToPorts := getVIPsFromServiceEntry(svc, workloadEntry)
-			for vip, ports := range vipsToPorts {
-				vip := c.network.String() + "/" + vip // services must be on our network, don't inherit from workload
-				vips[vip] = ports
-			}
-
+			ports := getPortsForServiceEntry(svc, workloadEntry)
+			workloadServices[namespacedHostname(svc.Attributes.ServiceEntryNamespace, svc.Hostname.String())] = ports
 		}
 	}
 
 	// for constructing workloads with a single parent (inlined on a SE)
 	if parentServiceEntry != nil {
-		for vip, portList := range getVIPsFromServiceEntry(parentServiceEntry, workloadEntry) {
-			vip := c.network.String() + "/" + vip // services must be on our network, don't inherit from workload
-			if vips[vip] == nil {
-				vips[vip] = &workloadapi.PortList{}
-			}
-			for _, port := range portList.Ports {
-				vips[vip].Ports = append(vips[vip].Ports, &workloadapi.Port{
-					ServicePort: port.ServicePort,
-					TargetPort:  port.TargetPort,
-				})
-			}
-		}
+		ports := getPortsForServiceEntry(parentServiceEntry, workloadEntry)
+		workloadServices[namespacedHostname(parentServiceEntry.Attributes.ServiceEntryNamespace, parentServiceEntry.Hostname.String())] = ports
 	}
 
 	// this can fail if the address is DNS, e.g. "external.external-1-15569.svc.cluster.local"
@@ -322,7 +305,7 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.
 		Addresses:             [][]byte{addr.AsSlice()},
 		Network:               network,
 		ServiceAccount:        workloadEntry.ServiceAccount,
-		VirtualIps:            vips,
+		Services:              workloadServices,
 		AuthorizationPolicies: policies,
 		Waypoint:              waypoint,
 	}
@@ -485,134 +468,62 @@ func (c *Controller) cleanupOldServiceEntryVips(svc *model.Service, updates sets
 			}
 		}
 
-		// cleanup any old ServiceEntry VIPs on pods
-		vipsToPorts := getVIPsFromServiceEntry(oldServiceEntry, nil)
-		for vip := range vipsToPorts {
-			// we also need to remove the VIP from any pod that has it (e.g. from service entry `workloadSelector`)
-			for nwAddr := range a.byPod {
-				wli, ok := a.byPod[nwAddr]
-				if !ok {
-					continue
+		// we also need to remove the VIP from any pod that has it (e.g. from service entry `workloadSelector`)
+		for nwAddr := range a.byPod {
+			wli, ok := a.byPod[nwAddr]
+			if !ok {
+				continue
+			}
+			_, found := wli.Services[namespacedHostname(oldServiceEntry.Attributes.Namespace, oldServiceEntry.Hostname.String())]
+			if found {
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()})
+				for _, networkAddr := range networkAddressFromWorkload(wli) {
+					delete(a.byPod, networkAddr)
 				}
-				_, found := wli.VirtualIps[vip]
-				if found {
-					updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()})
-					for _, networkAddr := range networkAddressFromWorkload(wli) {
-						delete(a.byPod, networkAddr)
-					}
-					delete(a.byUID[wli.Uid].VirtualIps, vip)
-				}
+				delete(a.byUID[wli.Uid].Services, namespacedHostname(oldServiceEntry.Attributes.Namespace, oldServiceEntry.Hostname.String()))
 			}
 		}
 	}
 }
 
-func getVIPsFromServiceEntry(svc *model.Service, we *v1alpha3.WorkloadEntry) map[string]*workloadapi.PortList {
+func getVIPsFromServiceEntry(svc *model.Service) []string {
+	var vips []string
+	vips = append(vips, svc.Attributes.ServiceEntry.Addresses...)
+	if len(svc.AutoAllocatedIPv4Address) > 0 {
+		vips = append(vips, svc.AutoAllocatedIPv4Address)
+	}
+	if len(svc.AutoAllocatedIPv6Address) > 0 {
+		vips = append(vips, svc.AutoAllocatedIPv4Address)
+	}
+	// in the future we may want to include cluster VIPs from svc.ClusterVIPs
+	return vips
+}
+
+func getPortsForServiceEntry(svc *model.Service, we *v1alpha3.WorkloadEntry) *workloadapi.PortList {
 	if svc == nil {
 		return nil
 	}
-	vipsToPorts := map[string]*workloadapi.PortList{}
-	for _, vip := range svc.Attributes.ServiceEntry.Addresses {
+	var ports *workloadapi.PortList
+	for _, port := range svc.Attributes.ServiceEntry.Ports {
 
-		if vipsToPorts[vip] == nil {
-			vipsToPorts[vip] = &workloadapi.PortList{}
+		if ports == nil {
+			ports = &workloadapi.PortList{}
 		}
-		for _, port := range svc.Attributes.ServiceEntry.Ports {
-			vipsToPorts[vip] = &workloadapi.PortList{
-				Ports: []*workloadapi.Port{
-					{
-						ServicePort: port.GetNumber(),
-						TargetPort:  port.GetTargetPort(),
-					},
-				},
-			}
 
-			// take WE override port if necessary
-			if we != nil {
-				for wePortName, wePort := range we.Ports {
-					if wePortName == port.Name {
-						vipsToPorts[vip] = &workloadapi.PortList{
-							Ports: []*workloadapi.Port{
-								{
-									ServicePort: port.GetNumber(),
-									TargetPort:  wePort,
-								},
-							},
-						}
-					}
+		newPort := &workloadapi.Port{
+			ServicePort: port.GetNumber(),
+			TargetPort:  port.GetTargetPort(),
+		}
+
+		// take WE override port if necessary
+		if we != nil {
+			for wePortName, wePort := range we.Ports {
+				if wePortName == port.Name {
+					newPort.TargetPort = wePort
 				}
 			}
 		}
+		ports.Ports = append(ports.Ports, newPort)
 	}
-
-	if len(svc.AutoAllocatedIPv4Address) > 0 {
-		vip := svc.AutoAllocatedIPv4Address
-
-		if vipsToPorts[vip] == nil {
-			vipsToPorts[vip] = &workloadapi.PortList{}
-		}
-		for _, port := range svc.Attributes.ServiceEntry.Ports {
-			vipsToPorts[vip] = &workloadapi.PortList{
-				Ports: []*workloadapi.Port{
-					{
-						ServicePort: port.GetNumber(),
-						TargetPort:  port.GetTargetPort(),
-					},
-				},
-			}
-
-			// take WE override port if necessary
-			if we != nil {
-				for wePortName, wePort := range we.Ports {
-					if wePortName == port.Name {
-						vipsToPorts[vip] = &workloadapi.PortList{
-							Ports: []*workloadapi.Port{
-								{
-									ServicePort: port.GetNumber(),
-									TargetPort:  wePort,
-								},
-							},
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if len(svc.AutoAllocatedIPv6Address) > 0 {
-		vip := svc.AutoAllocatedIPv6Address
-
-		if vipsToPorts[vip] == nil {
-			vipsToPorts[vip] = &workloadapi.PortList{}
-		}
-		for _, port := range svc.Attributes.ServiceEntry.Ports {
-			vipsToPorts[vip] = &workloadapi.PortList{
-				Ports: []*workloadapi.Port{
-					{
-						ServicePort: port.GetNumber(),
-						TargetPort:  port.GetTargetPort(),
-					},
-				},
-			}
-
-			// take WE override port if necessary
-			if we != nil {
-				for wePortName, wePort := range we.Ports {
-					if wePortName == port.Name {
-						vipsToPorts[vip] = &workloadapi.PortList{
-							Ports: []*workloadapi.Port{
-								{
-									ServicePort: port.GetNumber(),
-									TargetPort:  wePort,
-								},
-							},
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// in the future we may want to include cluster VIPs from svc.ClusterVIPs
-	return vipsToPorts
+	return ports
 }

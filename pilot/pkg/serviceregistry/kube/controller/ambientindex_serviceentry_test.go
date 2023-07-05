@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -80,42 +81,44 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 		}
 	}
 
-	addServiceEntry := func(hosts, addresses []string, name, ns string, labels map[string]string) {
+	addServiceEntry := func(hostStr string, addresses []string, name, ns string, labels map[string]string) {
 		t.Helper()
 
 		controller.client.Kube().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{"istio.io/dataplane-mode": "ambient"}},
 		}, metav1.CreateOptions{})
 
-		serviceEntry := generateServiceEntry(hosts, addresses, labels)
+		serviceEntry := generateServiceEntry(hostStr, addresses, labels)
 		svc := &model.Service{
 			Attributes: model.ServiceAttributes{
 				ServiceEntryName:      name,
 				ServiceEntryNamespace: ns,
 				ServiceEntry:          serviceEntry,
 			},
+			Hostname: host.Name(hostStr),
 		}
 		controller.ambientIndex.handleServiceEntry(svc, model.EventAdd)
 	}
 
-	deleteServiceEntry := func(hosts, addresses []string, name, ns string, labels map[string]string) {
+	deleteServiceEntry := func(hostStr string, addresses []string, name, ns string, labels map[string]string) {
 		t.Helper()
-		serviceEntry := generateServiceEntry(hosts, addresses, labels)
+		serviceEntry := generateServiceEntry(hostStr, addresses, labels)
 		svc := &model.Service{
 			Attributes: model.ServiceAttributes{
 				ServiceEntryName:      name,
 				ServiceEntryNamespace: ns,
 				ServiceEntry:          serviceEntry,
 			},
+			Hostname: host.Name(hostStr),
 		}
 		controller.ambientIndex.handleServiceEntry(svc, model.EventDelete)
 	}
 
 	// test code path where service entry creates a workload entry via `ServiceEntry.endpoints`
 	// and the inlined WE has a port override
-	addServiceEntry([]string{"se.istio.io"}, []string{"240.240.23.45"}, "name1", "ns", nil)
+	addServiceEntry("se.istio.io", []string{"240.240.23.45"}, "name1", "ns", nil)
 	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1")
-	assertEvent(t, fx, "cluster0/networking.istio.io/ServiceEntry/ns/name1/127.0.0.1", "ns/")
+	assertEvent(t, fx, "cluster0/networking.istio.io/ServiceEntry/ns/name1/127.0.0.1", "ns/se.istio.io")
 	assert.Equal(t, len(controller.ambientIndex.byWorkloadEntry), 1)
 	assert.Equal(t, controller.ambientIndex.Lookup("testnetwork/127.0.0.1"), []*model.AddressInfo{{
 		Address: &workloadapi.Address{
@@ -131,8 +134,8 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 					CanonicalRevision: "latest",
 					WorkloadType:      workloadapi.WorkloadType_POD,
 					WorkloadName:      "name1",
-					VirtualIps: map[string]*workloadapi.PortList{
-						"testnetwork/240.240.23.45": {
+					Services: map[string]*workloadapi.PortList{
+						"ns/se.istio.io": {
 							Ports: []*workloadapi.Port{
 								{
 									ServicePort: 80,
@@ -146,7 +149,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 		},
 	}})
 
-	deleteServiceEntry([]string{"se.istio.io"}, []string{"240.240.23.45"}, "name1", "ns", nil)
+	deleteServiceEntry("se.istio.io", []string{"240.240.23.45"}, "name1", "ns", nil)
 	assert.Equal(t, len(controller.ambientIndex.byWorkloadEntry), 0)
 	assert.Equal(t, controller.ambientIndex.Lookup("testnetwork/127.0.0.1"), nil)
 	fx.Clear()
@@ -161,10 +164,10 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1")
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name1")
 
-	addServiceEntry([]string{"se.istio.io"}, []string{"240.240.23.45"}, "name1", "ns", map[string]string{"app": "a"})
+	addServiceEntry("se.istio.io", []string{"240.240.23.45"}, "name1", "ns", map[string]string{"app": "a"})
 	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1")
 	// we should see an update for the workloads selected by the service entry
-	assertEvent(t, fx, "cluster0//Pod/ns1/pod1", "cluster0//Pod/ns1/pod2", "cluster0/networking.istio.io/WorkloadEntry/ns1/name1", "ns/")
+	assertEvent(t, fx, "cluster0//Pod/ns1/pod1", "cluster0//Pod/ns1/pod2", "cluster0/networking.istio.io/WorkloadEntry/ns1/name1", "ns/se.istio.io")
 
 	assert.Equal(t, controller.ambientIndex.Lookup("testnetwork/140.140.0.10"), []*model.AddressInfo{{
 		Address: &workloadapi.Address{
@@ -182,8 +185,8 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 					ServiceAccount:    "sa1",
 					WorkloadType:      workloadapi.WorkloadType_POD,
 					WorkloadName:      "pod1",
-					VirtualIps: map[string]*workloadapi.PortList{
-						"240.240.23.45": {
+					Services: map[string]*workloadapi.PortList{
+						"ns/se.istio.io": {
 							Ports: []*workloadapi.Port{
 								{
 									ServicePort: 80,
@@ -213,7 +216,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 					ServiceAccount:    "sa1",
 					WorkloadType:      workloadapi.WorkloadType_POD,
 					WorkloadName:      "pod2",
-					VirtualIps:        nil, // labels don't match workloadSelector, this should be nil
+					Services:          nil, // labels don't match workloadSelector, this should be nil
 				},
 			},
 		},
@@ -234,8 +237,8 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 					ServiceAccount:    "sa1",
 					WorkloadType:      workloadapi.WorkloadType_POD,
 					WorkloadName:      "name1",
-					VirtualIps: map[string]*workloadapi.PortList{
-						"testnetwork/240.240.23.45": {
+					Services: map[string]*workloadapi.PortList{
+						"ns/se.istio.io": {
 							Ports: []*workloadapi.Port{
 								{
 									ServicePort: 80,
@@ -249,10 +252,10 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 		},
 	}})
 
-	deleteServiceEntry([]string{"se.istio.io"}, []string{"240.240.23.45"}, "name1", "ns", map[string]string{"app": "a"})
+	deleteServiceEntry("se.istio.io", []string{"240.240.23.45"}, "name1", "ns", map[string]string{"app": "a"})
 	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1")
 	// we should see an update for the workloads selected by the service entry
-	assertEvent(t, fx, "cluster0//Pod/ns1/pod1", "cluster0//Pod/ns1/pod2", "cluster0/networking.istio.io/WorkloadEntry/ns1/name1", "ns/")
+	assertEvent(t, fx, "cluster0//Pod/ns1/pod1", "cluster0//Pod/ns1/pod2", "cluster0/networking.istio.io/WorkloadEntry/ns1/name1", "ns/se.istio.io")
 	assert.Equal(t, controller.ambientIndex.Lookup("testnetwork/140.140.0.10"), []*model.AddressInfo{{
 		Address: &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
@@ -269,7 +272,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 					ServiceAccount:    "sa1",
 					WorkloadType:      workloadapi.WorkloadType_POD,
 					WorkloadName:      "pod1",
-					VirtualIps:        nil, // vips for pod1 should be gone now
+					Services:          nil, // vips for pod1 should be gone now
 				},
 			},
 		},
@@ -290,14 +293,14 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 					ServiceAccount:    "sa1",
 					WorkloadType:      workloadapi.WorkloadType_POD,
 					WorkloadName:      "name1",
-					VirtualIps:        nil, // vips for workload entry 1 should be gone now
+					Services:          nil, // vips for workload entry 1 should be gone now
 				},
 			},
 		},
 	}})
 }
 
-func generateServiceEntry(hosts, addresses []string, labels map[string]string) *v1alpha3.ServiceEntry {
+func generateServiceEntry(host string, addresses []string, labels map[string]string) *v1alpha3.ServiceEntry {
 	var endpoints []*v1alpha3.WorkloadEntry
 	var workloadSelector *v1alpha3.WorkloadSelector
 
@@ -317,7 +320,7 @@ func generateServiceEntry(hosts, addresses []string, labels map[string]string) *
 	}
 
 	return &v1alpha3.ServiceEntry{
-		Hosts:     hosts,
+		Hosts:     []string{host},
 		Addresses: addresses,
 		Ports: []*v1alpha3.ServicePort{
 			{
