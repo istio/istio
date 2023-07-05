@@ -1,0 +1,23 @@
+#!/bin/bash
+
+if [[ "${2}" == "-V=full" ]]; then
+  "$@"
+  exit 0
+fi
+case "$(basename ${1})" in
+  link)
+    # Output a dummy file
+    touch "${3}"
+    # TODO: in the future, replace this with remote exec.
+    # Link takes 2 input files - importcfg and some object file
+    # We can remotely copy these to remote server, which will link + run
+    # We can emit $3 as either a static script yielding the test result OR
+    # a script that polls the test result. I am not sure if its better to make link
+    # terminate quickly or the .test, or if there is any difference at all.
+    # With some testing, it seems functionally equivilent with simple sleep
+
+    ;;
+  # We could skip vet as well, but it can be done with -vet=off if desired
+  *)
+    "$@"
+esac
