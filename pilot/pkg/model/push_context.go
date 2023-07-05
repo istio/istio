@@ -1338,6 +1338,8 @@ func (ps *PushContext) updateContext(
 
 	if len(changedEnvoyFilters) > 0 {
 		ps.updateEnvoyFilters(env, changedEnvoyFilters, oldPushContext.envoyFiltersByNamespace)
+	} else {
+		ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
 	}
 
 	if gatewayChanged {
@@ -2017,11 +2019,9 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 // if there is a workload selector, check for matching workload labels
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
-	if envoyFilters, exists := ps.envoyFiltersByNamespace[namespaces]; exists {
-		for _, efw := range envoyFilters {
-			if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Labels) {
-				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
-			}
+	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
+		if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Labels) {
+			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 		}
 	}
 	return matchedEnvoyFilters
@@ -2029,11 +2029,9 @@ func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) [
 
 // HasEnvoyFilters checks if an EnvoyFilter exists with the given name at the given namespace.
 func (ps *PushContext) HasEnvoyFilters(name, namespace string) bool {
-	if envoyFilters, exists := ps.envoyFiltersByNamespace[namespace]; exists {
-		for _, efw := range envoyFilters {
-			if efw.Name == name {
-				return true
-			}
+	for _, efw := range ps.envoyFiltersByNamespace[namespace] {
+		if efw.Name == name {
+			return true
 		}
 	}
 	return false
