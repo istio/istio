@@ -187,16 +187,14 @@ func TestEnvoyFilters(t *testing.T) {
 		},
 	}
 
-	envoyFiltersByNamespace := map[string][]*EnvoyFilterWrapper{
-		"istio-system": envoyFilters,
-		"test-ns":      envoyFilters,
-	}
-
 	push := &PushContext{
 		Mesh: &meshconfig.MeshConfig{
 			RootNamespace: "istio-system",
 		},
-		envoyFiltersByNamespace: envoyFiltersByNamespace,
+		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{
+			"istio-system": envoyFilters,
+			"test-ns":      envoyFilters,
+		},
 	}
 
 	if !push.HasEnvoyFilters("ef1", "test-ns") {
@@ -449,16 +447,12 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	pc := NewPushContext()
 	pc.initEnvoyFilters(env)
 	gotns := make([]string, 0)
-	if envoyFilters, exists := pc.envoyFiltersByNamespace["testns"]; exists {
-		for _, filter := range envoyFilters {
-			gotns = append(gotns, filter.Keys()...)
-		}
+	for _, filter := range pc.envoyFiltersByNamespace["testns"] {
+		gotns = append(gotns, filter.Keys()...)
 	}
 	gotns1 := make([]string, 0)
-	if envoyFilters, exists := pc.envoyFiltersByNamespace["testns-1"]; exists {
-		for _, filter := range envoyFilters {
-			gotns1 = append(gotns1, filter.Keys()...)
-		}
+	for _, filter := range pc.envoyFiltersByNamespace["testns-1"] {
+		gotns1 = append(gotns1, filter.Keys()...)
 	}
 	if !reflect.DeepEqual(expectedns, gotns) {
 		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedns, gotns)
