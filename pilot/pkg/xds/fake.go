@@ -475,9 +475,10 @@ func (f *FakeDiscoveryServer) EnsureSynced(t test.Failer) {
 // out of sync fields typically are bugs.
 func (f *FakeDiscoveryServer) AssertEndpointConsistency() error {
 	f.t.Helper()
+	cache := model.DisabledCache{}
 	mock := &DiscoveryServer{
-		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex()},
-		Cache: model.DisabledCache{},
+		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex(cache)},
+		Cache: cache,
 	}
 	ag := f.Discovery.Env.ServiceDiscovery.(*aggregate.Controller)
 

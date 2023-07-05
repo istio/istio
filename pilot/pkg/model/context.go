@@ -55,9 +55,16 @@ import (
 var _ mesh.Holder = &Environment{}
 
 func NewEnvironment() *Environment {
+	var cache XdsCache
+	if features.EnableXDSCaching {
+		cache = NewXdsCache()
+	} else {
+		cache = DisabledCache{}
+	}
 	return &Environment{
 		pushContext:   NewPushContext(),
-		EndpointIndex: NewEndpointIndex(),
+		Cache:         cache,
+		EndpointIndex: NewEndpointIndex(cache),
 	}
 }
 
@@ -108,6 +115,9 @@ type Environment struct {
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates. This is keyed by service and namespace
 	EndpointIndex *EndpointIndex
+
+	// Cache for XDS resources.
+	Cache XdsCache
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
