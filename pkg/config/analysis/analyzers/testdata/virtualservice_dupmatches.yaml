@@ -204,3 +204,157 @@ spec:
     route:
     - destination:
         host: api1.facebook.com
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: many-dups-case
+  namespace: default
+spec:
+  exportTo:
+  - istio-system
+  hosts:
+  - '*'
+  gateways:
+  - istio-system/ingressgateway
+  http:
+  - match:
+    - uri:
+        prefix: /api/fake-api
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/fake-api
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/fake-api
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/fake-api
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/prefix
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host2
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/fake-api
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/prefix
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host2
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/fake-api
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/prefix
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host2
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/fake-api
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/prefix
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host2
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/fake-api
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/prefix
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host2
+        port:
+          number: 7681
+  - match:
+    - uri:
+        prefix: /api/fake-api
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: fake.host
+        port:
+          number: 7681

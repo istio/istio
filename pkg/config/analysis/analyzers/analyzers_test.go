@@ -536,6 +536,10 @@ var testGrid = []testCase{
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService overlapping-in-single-match"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService overlapping-in-two-matches"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService overlapping-mathes-with-different-methods"},
+
+			{msg.VirtualServiceUnreachableRule, "VirtualService default/many-dups-case"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService default/many-dups-case"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService default/many-dups-case"},
 		},
 	},
 	{

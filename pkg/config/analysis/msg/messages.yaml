@@ -298,26 +298,24 @@ messages:
   - name: "VirtualServiceUnreachableRule"
     code: IST0130
     level: Warning
-    description: "A VirtualService rule will never be used because a previous rule uses the same match."
-    template: "VirtualService rule %v not used (%s)."
+    description: "VirtualService rules will never be used because a previous rule uses the same match."
+    template: "VirtualService rules %v not used (%s)."
     args:
-      - name: ruleno
-        type: string
+      - name: rulenos
+        type: "[]string"
       - name: reason
         type: "string"
 
   - name: "VirtualServiceIneffectiveMatch"
     code: IST0131
     level: Info
-    description: "A VirtualService rule match duplicates a match in a previous rule."
-    template: "VirtualService rule %v match %v is not used (duplicate/overlapping match in rule %v)."
+    description: "VirtualService rule matches duplicates a match in a previous rule."
+    template: "VirtualService rule matches [%v] not used (duplicate/overlapping match in rule %v)."
     args:
-      - name: ruleno
-        type: string
-      - name: matchno
-        type: string
-      - name: dupno
-        type: string
+      - name: ruleMatches
+        type: "string"
+      - name: dupNo
+        type: "string"
 
   - name: "VirtualServiceHostNotFoundInGateway"
     code: IST0132

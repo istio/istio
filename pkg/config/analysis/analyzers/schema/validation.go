@@ -100,9 +100,9 @@ func morePreciseMessage(r *resource.Instance, err error, isError bool) diag.Mess
 	if aae, ok := err.(*validation.AnalysisAwareError); ok {
 		switch aae.Type {
 		case "VirtualServiceUnreachableRule":
-			return msg.NewVirtualServiceUnreachableRule(r, aae.Parameters[0].(string), aae.Parameters[1].(string))
+			return msg.NewVirtualServiceUnreachableRule(r, aae.Parameters[0].([]string), aae.Parameters[1].(string))
 		case "VirtualServiceIneffectiveMatch":
-			return msg.NewVirtualServiceIneffectiveMatch(r, aae.Parameters[0].(string), aae.Parameters[1].(string), aae.Parameters[2].(string))
+			return msg.NewVirtualServiceIneffectiveMatch(r, aae.Parameters[0].(string), aae.Parameters[1].(string))
 		}
 	}
 	if !isError {

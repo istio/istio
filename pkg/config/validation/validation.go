@@ -2349,19 +2349,25 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 
 		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false, false))
 
-		warnUnused := func(ruleno, reason string) {
+		warnUnused := func(ruleNos []string, reason string) {
+			rulesStr := strings.Join(ruleNos, ",")
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
 				Type:       "VirtualServiceUnreachableRule",
-				Msg:        fmt.Sprintf("virtualService rule %v not used (%s)", ruleno, reason),
-				Parameters: []any{ruleno, reason},
+				Msg:        fmt.Sprintf("virtualService rules [%v] not used (%s)", rulesStr, reason),
+				Parameters: []any{ruleNos, reason},
 			}))
 		}
-		warnIneffective := func(ruleno, matchno, dupno string) {
-			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
-				Type:       "VirtualServiceIneffectiveMatch",
-				Msg:        fmt.Sprintf("virtualService rule %v match %v is not used (duplicate/overlapping match in rule %v)", ruleno, matchno, dupno),
-				Parameters: []any{ruleno, matchno, dupno},
-			}))
+		// dupMap is a map from rule name to a list of rule match numbers that are duplicate/overlapping
+		// key is the dup rule name, value is the list of dup rule-match combinations
+		warnIneffective := func(dupMap map[string][]string) {
+			for dupNo, rms := range dupMap {
+				rmsStr := strings.Join(rms, ",")
+				errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
+					Type:       "VirtualServiceIneffectiveMatch",
+					Msg:        fmt.Sprintf("virtualService rule matches [%v] not used (duplicate/overlapping match in rule %v)", rmsStr, dupNo),
+					Parameters: []any{rmsStr, dupNo},
+				}))
+			}
 		}
 
 		analyzeUnreachableHTTPRules(virtualService.Http, warnUnused, warnIneffective)
@@ -2370,6 +2376,10 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 
 		return errs.Unwrap()
 	})
+
+func convertToRuleMatchString(rule, match string) string {
+	return fmt.Sprintf("rule %s match %s", rule, match)
+}
 
 func assignExactOrPrefix(exact, prefix string) string {
 	if exact != "" {
@@ -2536,18 +2546,21 @@ func coveredValidation(vA, vB *OverlappingMatchValidationForHTTPRoute) bool {
 }
 
 func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
-	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string),
+	reportUnreachable func(rulenos []string, reason string), reportIneffective func(dupMap map[string][]string),
 ) {
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
 	var matchHTTPRoutes []*OverlappingMatchValidationForHTTPRoute
+	noMatchRoutes := make([]string, 0)
+	usedByPiror := make([]string, 0)
+	dupMap := make(map[string][]string)
 	for rulen, route := range routes {
 		if route == nil {
 			continue
 		}
 		if len(route.Match) == 0 {
 			if emptyMatchEncountered >= 0 {
-				reportUnreachable(routeName(route, rulen), "only the last rule can have no matches")
+				noMatchRoutes = append(noMatchRoutes, routeName(route, rulen))
 			}
 			emptyMatchEncountered = rulen
 			continue
@@ -2557,7 +2570,11 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 		for matchn, match := range route.Match {
 			dupn, ok := matchesEncountered[asJSON(match)]
 			if ok {
-				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))
+				dupNo := routeName(routes[dupn], dupn)
+				if _, ok := dupMap[dupNo]; !ok {
+					dupMap[dupNo] = make([]string, 0)
+				}
+				dupMap[dupNo] = append(dupMap[dupNo], convertToRuleMatchString(routeName(route, rulen), requestName(match, matchn)))
 				duplicateMatches++
 				// no need to handle for totally duplicated match rules
 				continue
@@ -2570,12 +2587,20 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 			}
 		}
 		if duplicateMatches == len(route.Match) {
-			reportUnreachable(routeName(route, rulen), "all matches used by prior rules")
+			usedByPiror = append(usedByPiror, routeName(route, rulen))
 		}
+	}
+	reportIneffective(dupMap)
+	if len(noMatchRoutes) > 0 {
+		reportUnreachable(noMatchRoutes, "only the last rule can have no matches")
+	}
+	if len(usedByPiror) > 0 {
+		reportUnreachable(usedByPiror, "all matches used by prior rules")
 	}
 
 	// at least 2 prefix matched routes for overlapping match validation
 	if len(matchHTTPRoutes) > 1 {
+		dupsMap := make(map[string][]string)
 		// check the overlapping match from the first prefix information
 		for routeIndex, routePrefix := range matchHTTPRoutes {
 			for rIndex := routeIndex + 1; rIndex < len(matchHTTPRoutes); rIndex++ {
@@ -2587,26 +2612,33 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 				if coveredValidation(routePrefix, matchHTTPRoutes[rIndex]) {
 					prefixMatchA := matchHTTPRoutes[rIndex].MatchStr + " of prefix " + matchHTTPRoutes[rIndex].Prefix
 					prefixMatchB := routePrefix.MatchStr + " of prefix " + routePrefix.Prefix + " on " + routePrefix.RouteStr
-					reportIneffective(matchHTTPRoutes[rIndex].RouteStr, prefixMatchA, prefixMatchB)
+					if _, ok := dupsMap[prefixMatchA]; !ok {
+						dupsMap[prefixMatchA] = make([]string, 0)
+					}
+					dupsMap[prefixMatchA] = append(dupsMap[prefixMatchB], convertToRuleMatchString(matchHTTPRoutes[rIndex].RouteStr, prefixMatchA))
 				}
 			}
 		}
+		reportIneffective(dupsMap)
 	}
 }
 
 // NOTE: This method identical to analyzeUnreachableHTTPRules.
 func analyzeUnreachableTCPRules(routes []*networking.TCPRoute,
-	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string),
+	reportUnreachable func(rulenos []string, reason string), reportIneffective func(dupMap map[string][]string),
 ) {
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
+	emptyRoutes := make([]string, 0)
+	duplicateRoutes := make([]string, 0)
+	dupMap := make(map[string][]string)
 	for rulen, route := range routes {
 		if route == nil {
 			continue
 		}
 		if len(route.Match) == 0 {
 			if emptyMatchEncountered >= 0 {
-				reportUnreachable(routeName(route, rulen), "only the last rule can have no matches")
+				emptyRoutes = append(emptyRoutes, routeName(route, rulen))
 			}
 			emptyMatchEncountered = rulen
 			continue
@@ -2616,31 +2648,45 @@ func analyzeUnreachableTCPRules(routes []*networking.TCPRoute,
 		for matchn, match := range route.Match {
 			dupn, ok := matchesEncountered[asJSON(match)]
 			if ok {
-				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))
+				dupno := routeName(routes[dupn], dupn)
+				if _, ok := dupMap[dupno]; !ok {
+					dupMap[dupno] = make([]string, 0)
+				}
+				dupMap[dupno] = append(dupMap[dupno], convertToRuleMatchString(routeName(route, rulen), requestName(match, matchn)))
 				duplicateMatches++
 			} else {
 				matchesEncountered[asJSON(match)] = rulen
 			}
 		}
 		if duplicateMatches == len(route.Match) {
-			reportUnreachable(routeName(route, rulen), "all matches used by prior rules")
+			duplicateRoutes = append(duplicateRoutes, routeName(route, rulen))
 		}
+	}
+	reportIneffective(dupMap)
+	if len(emptyRoutes) > 0 {
+		reportUnreachable(emptyRoutes, "only the last rule can have no matches")
+	}
+	if len(duplicateRoutes) > 0 {
+		reportUnreachable(duplicateRoutes, "all matches used by prior rules")
 	}
 }
 
 // NOTE: This method identical to analyzeUnreachableHTTPRules.
 func analyzeUnreachableTLSRules(routes []*networking.TLSRoute,
-	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string),
+	reportUnreachable func(rulenos []string, reason string), reportIneffective func(dupMap map[string][]string),
 ) {
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
+	emptyRoutes := make([]string, 0)
+	duplicateRoutes := make([]string, 0)
+	dupMap := make(map[string][]string)
 	for rulen, route := range routes {
 		if route == nil {
 			continue
 		}
 		if len(route.Match) == 0 {
 			if emptyMatchEncountered >= 0 {
-				reportUnreachable(routeName(route, rulen), "only the last rule can have no matches")
+				emptyRoutes = append(emptyRoutes, routeName(route, rulen))
 			}
 			emptyMatchEncountered = rulen
 			continue
@@ -2650,15 +2696,26 @@ func analyzeUnreachableTLSRules(routes []*networking.TLSRoute,
 		for matchn, match := range route.Match {
 			dupn, ok := matchesEncountered[asJSON(match)]
 			if ok {
-				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))
+				dupno := routeName(routes[dupn], dupn)
+				if _, ok := dupMap[dupno]; !ok {
+					dupMap[dupno] = make([]string, 0)
+				}
+				dupMap[dupno] = append(dupMap[dupno], convertToRuleMatchString(routeName(route, rulen), requestName(match, matchn)))
 				duplicateMatches++
 			} else {
 				matchesEncountered[asJSON(match)] = rulen
 			}
 		}
 		if duplicateMatches == len(route.Match) {
-			reportUnreachable(routeName(route, rulen), "all matches used by prior rules")
+			duplicateRoutes = append(duplicateRoutes, routeName(route, rulen))
 		}
+	}
+	reportIneffective(dupMap)
+	if len(emptyRoutes) > 0 {
+		reportUnreachable(emptyRoutes, "only the last rule can have no matches")
+	}
+	if len(duplicateRoutes) > 0 {
+		reportUnreachable(duplicateRoutes, "all matches used by prior rules")
 	}
 }
 
