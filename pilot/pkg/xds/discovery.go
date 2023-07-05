@@ -167,7 +167,7 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
-		Cache:              model.DisabledCache{},
+		Cache:              env.Cache,
 		instanceID:         instanceID,
 		clusterID:          clusterID,
 		discoveryStartTime: processStartTime,
@@ -179,14 +179,7 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 	}
 
 	out.initJwksResolver()
-
-	if features.EnableXDSCaching {
-		out.Cache = model.NewXdsCache()
-		// clear the cache as endpoint shards are modified to avoid cache write race
-		out.Env.EndpointIndex.SetCache(out.Cache)
-	}
-
-	out.ConfigGenerator = core.NewConfigGenerator(out.Cache)
+	out.ConfigGenerator = core.NewConfigGenerator(env.Cache)
 
 	return out
 }
