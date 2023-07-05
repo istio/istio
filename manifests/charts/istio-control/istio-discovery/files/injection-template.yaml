@@ -67,7 +67,7 @@ spec:
   {{- $holdProxy := or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-  {{ if .Values.istio_cni.enabled -}}
+  {{ if .Values.cni.enabled -}}
   - name: istio-validation
   {{ else -}}
   - name: istio-init
@@ -119,7 +119,7 @@ spec:
     {{ if .Values.global.logAsJson -}}
     - "--log_as_json"
     {{ end -}}
-    {{ if .Values.istio_cni.enabled -}}
+    {{ if .Values.cni.enabled -}}
     - "--run-validation"
     - "--skip-rule-apply"
     {{ end -}}
@@ -137,14 +137,14 @@ spec:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       privileged: {{ .Values.global.proxy.privileged }}
       capabilities:
-    {{- if not .Values.istio_cni.enabled }}
+    {{- if not .Values.cni.enabled }}
         add:
         - NET_ADMIN
         - NET_RAW
     {{- end }}
         drop:
         - ALL
-    {{- if not .Values.istio_cni.enabled }}
+    {{- if not .Values.cni.enabled }}
       readOnlyRootFilesystem: false
       runAsGroup: 0
       runAsNonRoot: false

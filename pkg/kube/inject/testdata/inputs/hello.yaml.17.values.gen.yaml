@@ -1,4 +1,9 @@
 {
+  "cni": {
+    "chained": true,
+    "enabled": false,
+    "namespace": "istio-system"
+  },
   "global": {
     "autoscalingv2API": true,
     "caAddress": "",
@@ -95,9 +100,6 @@
     },
     "useMCP": false,
     "variant": ""
-  },
-  "istio_cni": {
-    "enabled": false
   },
   "revision": "",
   "sidecarInjectorWebhook": {

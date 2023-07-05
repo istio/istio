@@ -66,7 +66,8 @@ func TestInjection(t *testing.T) {
 			want: "hello.yaml.cni.injected",
 			setFlags: []string{
 				"components.cni.enabled=true",
-				"values.istio_cni.chained=true",
+				"values.cni.enabled=true",
+				"values.cni.chained=true",
 				"values.global.network=network1",
 			},
 		},
@@ -169,7 +170,8 @@ func TestInjection(t *testing.T) {
 			want: "hello-cncf-networks.yaml.injected",
 			setFlags: []string{
 				`components.cni.enabled=true`,
-				`values.istio_cni.chained=false`,
+				`values.cni.enabled=true`,
+				`values.cni.chained=false`,
 			},
 		},
 		{
@@ -178,7 +180,8 @@ func TestInjection(t *testing.T) {
 			want: "hello-existing-cncf-networks.yaml.injected",
 			setFlags: []string{
 				`components.cni.enabled=true`,
-				`values.istio_cni.chained=false`,
+				`values.cni.enabled=true`,
+				`values.cni.chained=false`,
 			},
 		},
 		{
@@ -187,7 +190,8 @@ func TestInjection(t *testing.T) {
 			want: "hello-existing-cncf-networks-json.yaml.injected",
 			setFlags: []string{
 				`components.cni.enabled=true`,
-				`values.istio_cni.chained=false`,
+				`values.cni.enabled=true`,
+				`values.cni.chained=false`,
 			},
 		},
 		{
