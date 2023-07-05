@@ -1922,7 +1922,7 @@ func (ps *PushContext) updateEnvoyFilters(env *Environment, changedEnvoyFilters 
 
 		// copy existing envoy filters since we're going to modify the slice
 		previousEnvoyFilters := ps.envoyFiltersByNamespace[changedEnvoyFilter.Namespace]
-		envoyFilters := make([]*EnvoyFilterWrapper, 0, len(previousEnvoyFilters))
+		envoyFilters := make([]*EnvoyFilterWrapper, len(previousEnvoyFilters))
 		copy(envoyFilters, previousEnvoyFilters)
 
 		found := false
