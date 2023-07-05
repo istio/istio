@@ -1602,11 +1602,9 @@ spec:
 							"Location":   tc.location.String(),
 						})).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
 							from.CallOrFail(t, echo.CallOptions{
 								Address: "111.111.222.222",
 								Port:    to.PortForName("http"),
-								// we want to make sure the workload selector labels are honored, so we assert the response contains either uncaptured-v1 or uncaptured-v2
 								// sample response:
 								//
 								// ServiceVersion=v1
@@ -1622,7 +1620,13 @@ spec:
 								// RequestHeader=Accept:*/*
 								// RequestHeader=User-Agent:curl/7.81.0
 								// Hostname=uncaptured-v1-868c9b59b5-rxvfq
-								Check: check.BodyContains(`Hostname=uncaptured-v`),
+								Check: check.BodyContains(`Hostname=uncaptured-v1`),
+							})
+							// ensure we load balance across both pods
+							from.CallOrFail(t, echo.CallOptions{
+								Address: "111.111.222.222",
+								Port:    to.PortForName("http"),
+								Check:   check.BodyContains(`Hostname=uncaptured-v2`),
 							})
 						})
 				})
