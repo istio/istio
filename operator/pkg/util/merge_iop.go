@@ -15,13 +15,12 @@
 package util
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/imdario/mergo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	yaml2 "sigs.k8s.io/yaml"
 
 	v1alpha13 "istio.io/api/mesh/v1alpha1"
@@ -236,30 +235,23 @@ func OverlayIOP(base, overlay string) (string, error) {
 	if strings.TrimSpace(overlay) == "" {
 		return base, nil
 	}
-	bj, err := yaml2.YAMLToJSON([]byte(base))
-	if err != nil {
-		return "", fmt.Errorf("yamlToJSON error in base: %s\n%s", err, bj)
+	var bj map[string]interface{}
+	var oj map[string]interface{}
+
+	if err := yaml2.Unmarshal([]byte(base), &bj); err != nil {
+		return "", err
 	}
-	oj, err := yaml2.YAMLToJSON([]byte(overlay))
-	if err != nil {
-		return "", fmt.Errorf("yamlToJSON error in overlay: %s\n%s", err, oj)
-	}
-	if base == "" {
-		bj = []byte("{}")
-	}
-	if overlay == "" {
-		oj = []byte("{}")
+	if err := yaml2.Unmarshal([]byte(overlay), &oj); err != nil {
+		return "", err
 	}
 
-	merged, err := strategicpatch.StrategicMergePatch(bj, oj, &iopMergeStruct)
-	if err != nil {
-		return "", fmt.Errorf("json merge error (%s) for base object: \n%s\n override object: \n%s", err, bj, oj)
+	if err := mergo.Merge(&bj, &oj, mergo.WithOverride); err != nil {
+		return "", err
 	}
 
-	my, err := yaml2.JSONToYAML(merged)
+	my, err := yaml2.Marshal(bj)
 	if err != nil {
-		return "", fmt.Errorf("jsonToYAML error (%s) for merged object: \n%s", err, merged)
+		return "", err
 	}
-
 	return string(my), nil
 }
