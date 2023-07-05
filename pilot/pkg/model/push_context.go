@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/puzpuzpuz/xsync/v2"
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -228,7 +227,7 @@ type PushContext struct {
 	sidecarIndex sidecarIndex
 
 	// envoy filters for each namespace including global config namespace
-	envoyFiltersByNamespace *xsync.MapOf[string, []*EnvoyFilterWrapper]
+	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 
 	// wasm plugins for each namespace including global config namespace
 	wasmPluginsByNamespace map[string][]*WasmPluginWrapper
@@ -674,7 +673,7 @@ func NewPushContext() *PushContext {
 		virtualServiceIndex:     newVirtualServiceIndex(),
 		destinationRuleIndex:    newDestinationRuleIndex(),
 		sidecarIndex:            newSidecarIndex(),
-		envoyFiltersByNamespace: xsync.NewMapOf[[]*EnvoyFilterWrapper](),
+		envoyFiltersByNamespace: make(map[string][]*EnvoyFilterWrapper),
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		serviceAccounts:         map[serviceAccountKey][]string{},
@@ -1337,11 +1336,8 @@ func (ps *PushContext) updateContext(
 		ps.wasmPluginsByNamespace = oldPushContext.wasmPluginsByNamespace
 	}
 
-	ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
 	if len(changedEnvoyFilters) > 0 {
-		if err := ps.updateEnvoyFilters(env, changedEnvoyFilters); err != nil {
-			return err
-		}
+		ps.updateEnvoyFilters(env, changedEnvoyFilters, oldPushContext.envoyFiltersByNamespace)
 	}
 
 	if gatewayChanged {
@@ -1907,56 +1903,52 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) {
 		return in < jn
 	})
 
-	ps.envoyFiltersByNamespace = xsync.NewMapOf[[]*EnvoyFilterWrapper]()
 	for _, envoyFilterConfig := range envoyFilterConfigs {
 		efw := convertToEnvoyFilterWrapper(&envoyFilterConfig)
-		existingEnvoyFilters, exists := ps.envoyFiltersByNamespace.Load(envoyFilterConfig.Namespace)
-		if !exists {
-			existingEnvoyFilters = make([]*EnvoyFilterWrapper, 0)
-		}
-		ps.envoyFiltersByNamespace.Store(envoyFilterConfig.Namespace, append(existingEnvoyFilters, efw))
+		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
 	}
 }
 
 // pre computes envoy filters per namespace
-func (ps *PushContext) updateEnvoyFilters(env *Environment, changedEnvoyFilters []ConfigKey) error {
-changes:
+func (ps *PushContext) updateEnvoyFilters(env *Environment, changedEnvoyFilters []ConfigKey, previousIndex map[string][]*EnvoyFilterWrapper) {
+	// copy old index
+	for k, v := range previousIndex {
+		ps.envoyFiltersByNamespace[k] = v
+	}
+
 	for _, changedEnvoyFilter := range changedEnvoyFilters {
 		envoyFilterConfig := env.Get(gvk.EnvoyFilter, changedEnvoyFilter.Name, changedEnvoyFilter.Namespace)
 
-		if envoyFilterConfig == nil {
-			existingEnvoyFilters, exists := ps.envoyFiltersByNamespace.Load(changedEnvoyFilter.Namespace)
-			if exists {
-				for i, existingEnvoyFilter := range existingEnvoyFilters {
-					if existingEnvoyFilter.Name == changedEnvoyFilter.Name {
-						if len(existingEnvoyFilters) == 1 {
-							ps.envoyFiltersByNamespace.Delete(changedEnvoyFilter.Namespace)
-						} else {
-							ps.envoyFiltersByNamespace.Store(changedEnvoyFilter.Namespace, append(existingEnvoyFilters[:i], existingEnvoyFilters[i+1:]...))
-						}
-						break
+		var envoyFilters []*EnvoyFilterWrapper
+		// copy existing envoy filters since we're going to modify the slice
+		copy(envoyFilters, ps.envoyFiltersByNamespace[changedEnvoyFilter.Namespace])
+
+		found := false
+		for i, existingEnvoyFilter := range envoyFilters {
+			if existingEnvoyFilter.Name == changedEnvoyFilter.Name {
+				found = true
+				if envoyFilterConfig != nil {
+					// overwrite existing envoy filter with newer version
+					envoyFilters[i] = convertToEnvoyFilterWrapper(envoyFilterConfig)
+				} else {
+					if len(envoyFilters) == 1 {
+						// the slice will end up empty, better to just remove the key from the map
+						delete(ps.envoyFiltersByNamespace, changedEnvoyFilter.Namespace)
+					} else {
+						// remove envoy filter from slice since it has been deleted
+						envoyFilters = append(envoyFilters[:i], envoyFilters[i+1:]...)
 					}
 				}
+				ps.envoyFiltersByNamespace[changedEnvoyFilter.Namespace] = envoyFilters
 			}
-		} else {
-			efw := convertToEnvoyFilterWrapper(envoyFilterConfig)
-			existingEnvoyFilters, exists := ps.envoyFiltersByNamespace.Load(envoyFilterConfig.Namespace)
-			if !exists {
-				existingEnvoyFilters = make([]*EnvoyFilterWrapper, 0)
-			}
+		}
 
-			for i, existingEnvoyFilter := range existingEnvoyFilters {
-				if existingEnvoyFilter.Name == efw.Name {
-					// overwrite existing envoy filter with newer version
-					existingEnvoyFilters[i] = efw
-					continue changes
-				}
-			}
-
-			existingEnvoyFilters = append(existingEnvoyFilters, efw)
-			sort.Slice(existingEnvoyFilters, func(i, j int) bool {
-				ifilter := existingEnvoyFilters[i]
-				jfilter := existingEnvoyFilters[j]
+		if !found {
+			// this is a new item, append it and sort the slice
+			envoyFilters = append(envoyFilters, convertToEnvoyFilterWrapper(envoyFilterConfig))
+			sort.Slice(envoyFilters, func(i, j int) bool {
+				ifilter := envoyFilters[i]
+				jfilter := envoyFilters[j]
 				if ifilter.Priority != jfilter.Priority {
 					return ifilter.Priority < jfilter.Priority
 				}
@@ -1965,19 +1957,17 @@ changes:
 				// If creation time is the same, then behavior is nondeterministic. In this case, we can
 				// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 				// CreationTimestamp is stored in seconds, so this is not uncommon.
-				if existingEnvoyFilters[i].CreationTimestamp != existingEnvoyFilters[j].CreationTimestamp {
-					return existingEnvoyFilters[i].CreationTimestamp.Before(existingEnvoyFilters[j].CreationTimestamp)
+				if envoyFilters[i].CreationTimestamp != envoyFilters[j].CreationTimestamp {
+					return envoyFilters[i].CreationTimestamp.Before(envoyFilters[j].CreationTimestamp)
 				}
-				in := existingEnvoyFilters[i].Name + "." + existingEnvoyFilters[i].Namespace
-				jn := existingEnvoyFilters[j].Name + "." + existingEnvoyFilters[j].Namespace
+				in := envoyFilters[i].Name + "." + envoyFilters[i].Namespace
+				jn := envoyFilters[j].Name + "." + envoyFilters[j].Namespace
 				return in < jn
 			})
-			ps.envoyFiltersByNamespace.Store(changedEnvoyFilter.Namespace, existingEnvoyFilters)
 		}
 
+		ps.envoyFiltersByNamespace[changedEnvoyFilter.Namespace] = envoyFilters
 	}
-
-	return nil
 }
 
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
@@ -2025,7 +2015,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 // if there is a workload selector, check for matching workload labels
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
-	if envoyFilters, exists := ps.envoyFiltersByNamespace.Load(namespaces); exists {
+	if envoyFilters, exists := ps.envoyFiltersByNamespace[namespaces]; exists {
 		for _, efw := range envoyFilters {
 			if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Labels) {
 				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
@@ -2037,7 +2027,7 @@ func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) [
 
 // HasEnvoyFilters checks if an EnvoyFilter exists with the given name at the given namespace.
 func (ps *PushContext) HasEnvoyFilters(name, namespace string) bool {
-	if envoyFilters, exists := ps.envoyFiltersByNamespace.Load(namespace); exists {
+	if envoyFilters, exists := ps.envoyFiltersByNamespace[namespace]; exists {
 		for _, efw := range envoyFilters {
 			if efw.Name == name {
 				return true

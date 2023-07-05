@@ -27,7 +27,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/gomega"
-	"github.com/puzpuzpuz/xsync/v2"
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -188,9 +187,10 @@ func TestEnvoyFilters(t *testing.T) {
 		},
 	}
 
-	envoyFiltersByNamespace := xsync.NewMapOf[[]*EnvoyFilterWrapper]()
-	envoyFiltersByNamespace.Store("istio-system", envoyFilters)
-	envoyFiltersByNamespace.Store("test-ns", envoyFilters)
+	envoyFiltersByNamespace := map[string][]*EnvoyFilterWrapper{
+		"istio-system": envoyFilters,
+		"test-ns":      envoyFilters,
+	}
 
 	push := &PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -449,13 +449,13 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	pc := NewPushContext()
 	pc.initEnvoyFilters(env)
 	gotns := make([]string, 0)
-	if envoyFilters, exists := pc.envoyFiltersByNamespace.Load("testns"); exists {
+	if envoyFilters, exists := pc.envoyFiltersByNamespace["testns"]; exists {
 		for _, filter := range envoyFilters {
 			gotns = append(gotns, filter.Keys()...)
 		}
 	}
 	gotns1 := make([]string, 0)
-	if envoyFilters, exists := pc.envoyFiltersByNamespace.Load("testns-1"); exists {
+	if envoyFilters, exists := pc.envoyFiltersByNamespace["testns-1"]; exists {
 		for _, filter := range envoyFilters {
 			gotns1 = append(gotns1, filter.Keys()...)
 		}
@@ -1057,37 +1057,6 @@ func TestInitPushContext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Compararer for the xsync map of envoy filters by namespace
-	mapCmp := cmp.Comparer(func(x, y *xsync.MapOf[string, []*EnvoyFilterWrapper]) bool {
-		if x == nil && y == nil {
-			return true
-		}
-
-		if x == nil || y == nil {
-			return false
-		}
-
-		if x.Size() != y.Size() {
-			return false
-		}
-
-		equals := true
-		x.Range(func(k string, v []*EnvoyFilterWrapper) bool {
-			yv, ok := y.Load(k)
-			if !ok {
-				equals = false
-				return false
-			}
-			if !reflect.DeepEqual(v, yv) {
-				equals = false
-				return false
-			}
-			return true
-		})
-
-		return equals
-	})
-
 	// Check to ensure the update is identical to the old one
 	// There is probably a better way to do this.
 	diff := cmp.Diff(old, newPush,
@@ -1100,7 +1069,6 @@ func TestInitPushContext(t *testing.T) {
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreUnexported(IstioEndpoint{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
-		mapCmp,
 		protocmp.Transform(),
 	)
 	if diff != "" {
