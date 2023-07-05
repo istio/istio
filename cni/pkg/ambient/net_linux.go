@@ -629,6 +629,7 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		},
 		ID:     1000,
 		Remote: net.ParseIP(ztunnelIP),
+		Dport:  determineDstPortForGeneveLink(1000),
 	}
 	log.Debugf("Building inbound tunnel: %+v", inbnd)
 	err = netlink.LinkAdd(inbnd)
@@ -651,6 +652,7 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		},
 		ID:     1001,
 		Remote: net.ParseIP(ztunnelIP),
+		Dport:  determineDstPortForGeneveLink(1001),
 	}
 	log.Debugf("Building outbound tunnel: %+v", outbnd)
 	err = netlink.LinkAdd(outbnd)
@@ -780,6 +782,36 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	}
 
 	return nil
+}
+
+// determineDstPortForGeneveLink finds first available destination port for given VNI,
+// starting from the default value 6081 (https://man7.org/linux/man-pages/man8/ip-link.8.html).
+// dstport must be dynamically determined to avoid failure when there already exist a geneve link for given VNI.
+func determineDstPortForGeneveLink(vni uint32) uint16 {
+	existingLinks, err := netlink.LinkList()
+	if err != nil {
+		log.Errorf("failed to list links: %v", err)
+	}
+
+	geneveType := netlink.Geneve{}
+	reservedPorts := sets.New[uint16]()
+	for _, l := range existingLinks {
+		if l.Type() == geneveType.Type() {
+			geneveLink := l.(*netlink.Geneve)
+			if geneveLink.ID == vni {
+				reservedPorts.Insert(geneveLink.Dport)
+			}
+		}
+	}
+
+	defaultGenevePort := uint16(6081)
+	for {
+		if reservedPorts.Contains(defaultGenevePort) {
+			defaultGenevePort++
+		} else {
+			return defaultGenevePort
+		}
+	}
 }
 
 // CreateEBPFRulesInNodeProxyNS initializes the routes and iptable rules that need to exist WITHIN
