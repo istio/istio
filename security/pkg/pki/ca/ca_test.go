@@ -136,8 +136,8 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 				EnableJitter:                  false,
 				CaRSAKeySize:                  tc.rsaKeySize,
 				AlgorithmType:                 util.SupportedAlgorithmTypes(tc.algorithmType),
-				EcSigAlg:                      tc.eccSigAlg,
-				EccCurve:                      tc.eccCurve,
+				EcSigAlg:                      util.SupportedECSignatureAlgorithms(tc.eccSigAlg),
+				EccCurve:                      util.SupportedEllipticCurves(tc.eccCurve),
 			}
 			caopts, err := NewSelfSignedIstioCAOptions(context.Background(), &ssOpts)
 			if err != nil {

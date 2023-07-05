@@ -135,8 +135,8 @@ type SelfSignedIstioCAOptions struct {
 	EnableJitter                  bool
 	CaRSAKeySize                  int
 	AlgorithmType                 util.SupportedAlgorithmTypes
-	EcSigAlg                      string
-	EccCurve                      string
+	EcSigAlg                      util.SupportedECSignatureAlgorithms
+	EccCurve                      util.SupportedEllipticCurves
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
@@ -161,9 +161,14 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, opts *SelfSignedIstioCAOpt
 		AlgorithmType: opts.AlgorithmType,
 	}
 
-	err = specifySelfSignedAlgorithmIstioCAOptions(caOpts, opts.CaRSAKeySize, opts.EcSigAlg, opts.EccCurve)
-	if err != nil {
-		return nil, err
+	switch opts.AlgorithmType {
+	case util.RsaAlg:
+		caOpts.CARSAKeySize = opts.CaRSAKeySize
+	case util.EcAlg:
+		caOpts.ECSigAlg = util.SupportedECSignatureAlgorithms(opts.EcSigAlg)
+		caOpts.ECCCurve = util.SupportedEllipticCurves(opts.EccCurve)
+	default:
+		return nil, fmt.Errorf("unknown algorithm type specified (%v)", opts.AlgorithmType)
 	}
 
 	b := backoff.NewExponentialBackOff(backoff.DefaultOption())
@@ -195,9 +200,14 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, opts *SelfSignedIstioCAOpt
 				IsDualUse:    opts.DualUse,
 			}
 
-			err := specifySelfSignedAlgorithmOptions(&options, opts.CaRSAKeySize, opts.AlgorithmType, opts.EcSigAlg, opts.EccCurve)
-			if err != nil {
-				return err
+			switch opts.AlgorithmType {
+			case util.RsaAlg:
+				options.RSAKeySize = opts.CaRSAKeySize
+			case util.EcAlg:
+				options.ECSigAlg = opts.EcSigAlg
+				options.ECCCurve = opts.EccCurve
+			default:
+				return fmt.Errorf("unknown algorithm type specified (%v)", opts.AlgorithmType)
 			}
 
 			pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
@@ -229,33 +239,33 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, opts *SelfSignedIstioCAOpt
 
 // NewSelfSignedDebugIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate produced by in-memory CA,
 // which runs without K8s, and no local ca key file presented.
-func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCertTTL, maxCertTTL time.Duration,
-	org string, caRSAKeySize int,
-	algorithmType, ecSigAlg, eccCurve string,
-) (caOpts *IstioCAOptions, err error) {
+func NewSelfSignedDebugIstioCAOptions(opts *SelfSignedIstioCAOptions) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         selfSignedCA,
-		DefaultCertTTL: defaultCertTTL,
-		MaxCertTTL:     maxCertTTL,
-		AlgorithmType:  util.SupportedAlgorithmTypes(algorithmType),
-	}
-
-	err = specifySelfSignedAlgorithmIstioCAOptions(caOpts, caRSAKeySize, ecSigAlg, eccCurve)
-	if err != nil {
-		return nil, err
+		DefaultCertTTL: opts.DefaultCertTTL,
+		MaxCertTTL:     opts.MaxCertTTL,
+		AlgorithmType:  opts.AlgorithmType,
 	}
 
 	options := util.CertOptions{
-		TTL:          caCertTTL,
-		Org:          org,
+		TTL:          opts.CaCertTTL,
+		Org:          opts.Org,
 		IsCA:         true,
 		IsSelfSigned: true,
 		IsDualUse:    true, // hardcoded to true for K8S as well
 	}
 
-	err = specifySelfSignedAlgorithmOptions(&options, caRSAKeySize, util.SupportedAlgorithmTypes(algorithmType), ecSigAlg, eccCurve)
-	if err != nil {
-		return nil, err
+	switch opts.AlgorithmType {
+	case util.RsaAlg:
+		caOpts.CARSAKeySize = opts.CaRSAKeySize
+		options.RSAKeySize = opts.CaRSAKeySize
+	case util.EcAlg:
+		caOpts.ECSigAlg = util.SupportedECSignatureAlgorithms(opts.EcSigAlg)
+		caOpts.ECCCurve = util.SupportedEllipticCurves(opts.EccCurve)
+		options.ECSigAlg = util.SupportedECSignatureAlgorithms(opts.EcSigAlg)
+		options.ECCCurve = util.SupportedEllipticCurves(opts.EccCurve)
+	default:
+		return nil, fmt.Errorf("unknown algorithm type specified (%v)", opts.AlgorithmType)
 	}
 
 	pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
@@ -263,7 +273,7 @@ func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCer
 		return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
 	}
 
-	rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
+	rootCerts, err := util.AppendRootCerts(pemCert, opts.RootCertFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to append root certificates (%v)", err)
 	}
@@ -284,20 +294,6 @@ func specifySelfSignedAlgorithmIstioCAOptions(opts *IstioCAOptions, caRSAKeySize
 		opts.ECCCurve = util.SupportedEllipticCurves(eccCurve)
 	default:
 		return fmt.Errorf("unknown algorithm type specified (%v)", opts.AlgorithmType)
-	}
-
-	return nil
-}
-
-func specifySelfSignedAlgorithmOptions(opts *util.CertOptions, caRSAKeySize int, algorithmType util.SupportedAlgorithmTypes, ecSigAlg, eccCurve string) error {
-	switch algorithmType {
-	case util.RsaAlg:
-		opts.RSAKeySize = caRSAKeySize
-	case util.EcAlg:
-		opts.ECSigAlg = util.SupportedECSignatureAlgorithms(ecSigAlg)
-		opts.ECCCurve = util.SupportedEllipticCurves(eccCurve)
-	default:
-		return fmt.Errorf("unknown algorithm type specified (%v)", algorithmType)
 	}
 
 	return nil

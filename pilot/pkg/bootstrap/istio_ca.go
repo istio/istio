@@ -453,8 +453,8 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 				EnableJitter:                  enableJitterForRootCertRotator.Get(),
 				CaRSAKeySize:                  caRSAKeySize.Get(),
 				AlgorithmType:                 pkiutil.SupportedAlgorithmTypes(features.SelfSignedAlgorithm),
-				EcSigAlg:                      features.EccSigAlgEnv,
-				EccCurve:                      features.EccCurvEnv,
+				EcSigAlg:                      pkiutil.SupportedECSignatureAlgorithms(features.EccSigAlgEnv),
+				EccCurve:                      pkiutil.SupportedEllipticCurves(features.EccCurvEnv),
 			}
 
 			caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, &ssOpts)
@@ -463,9 +463,18 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 				"Use local self-signed CA certificate for testing. Will use in-memory root CA, no K8S access and no ca key file %s",
 				fileBundle.SigningKeyFile)
 
-			caOpts, err = ca.NewSelfSignedDebugIstioCAOptions(fileBundle.RootCertFile, SelfSignedCACertTTL.Get(),
-				workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), opts.TrustDomain, caRSAKeySize.Get(),
-				features.SelfSignedAlgorithm, features.EccSigAlgEnv, features.EccCurvEnv)
+			ssOpts := ca.SelfSignedIstioCAOptions{
+				RootCertFile:   fileBundle.RootCertFile,
+				CaCertTTL:      SelfSignedCACertTTL.Get(),
+				DefaultCertTTL: workloadCertTTL.Get(),
+				MaxCertTTL:     maxWorkloadCertTTL.Get(),
+				Org:            opts.TrustDomain,
+				CaRSAKeySize:   caRSAKeySize.Get(),
+				AlgorithmType:  pkiutil.SupportedAlgorithmTypes(features.SelfSignedAlgorithm),
+				EcSigAlg:       pkiutil.SupportedECSignatureAlgorithms(features.EccSigAlgEnv),
+				EccCurve:       pkiutil.SupportedEllipticCurves(features.EccCurvEnv),
+			}
+			caOpts, err = ca.NewSelfSignedDebugIstioCAOptions(&ssOpts)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a self-signed istiod CA: %v", err)
