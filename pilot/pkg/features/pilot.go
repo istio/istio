@@ -666,8 +666,9 @@ var (
 
 	SelfSignedAlgorithm = env.Register("CITADEL_SELF_SIGNED_CA_CERT_ALGORITHM", "RSA",
 		"The algorithm type of the self-signed CA cert created by istiod. Only RSA or ECC is supported. RSA is the default value").Get()
-	EccSigAlgEnv = env.Register("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
-	EccCurvEnv   = env.Register("ECC_CURVE", "P256", "The elliptic curve to use when ECC_SIGNATURE_ALGORITHM is set to ECDSA").Get()
+	CitadelEccSigAlgEnv = env.Register("CITADEL_ECC_SIGNATURE_ALGORITHM", "ECDSA", "The type of ECC signature algorithm to use when generating private keys for istiod").Get()
+	EccSigAlgEnv        = env.Register("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys for workloads").Get()
+	EccCurvEnv          = env.Register("ECC_CURVE", "P256", "The elliptic curve to use when ECC certs are used").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

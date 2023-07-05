@@ -453,7 +453,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 				EnableJitter:                  enableJitterForRootCertRotator.Get(),
 				CaRSAKeySize:                  caRSAKeySize.Get(),
 				AlgorithmType:                 pkiutil.SupportedAlgorithmTypes(features.SelfSignedAlgorithm),
-				EcSigAlg:                      pkiutil.SupportedECSignatureAlgorithms(features.EccSigAlgEnv),
+				EcSigAlg:                      pkiutil.SupportedECSignatureAlgorithms(features.CitadelEccSigAlgEnv),
 				EccCurve:                      pkiutil.SupportedEllipticCurves(features.EccCurvEnv),
 			}
 
@@ -471,7 +471,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 				Org:            opts.TrustDomain,
 				CaRSAKeySize:   caRSAKeySize.Get(),
 				AlgorithmType:  pkiutil.SupportedAlgorithmTypes(features.SelfSignedAlgorithm),
-				EcSigAlg:       pkiutil.SupportedECSignatureAlgorithms(features.EccSigAlgEnv),
+				EcSigAlg:       pkiutil.SupportedECSignatureAlgorithms(features.CitadelEccSigAlgEnv),
 				EccCurve:       pkiutil.SupportedEllipticCurves(features.EccCurvEnv),
 			}
 			caOpts, err = ca.NewSelfSignedDebugIstioCAOptions(&ssOpts)
@@ -483,7 +483,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		log.Info("Use local CA certificate")
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(fileBundle, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), caRSAKeySize.Get(),
-			features.SelfSignedAlgorithm, features.EccSigAlgEnv, features.EccCurvEnv)
+			features.SelfSignedAlgorithm, features.CitadelEccSigAlgEnv, features.EccCurvEnv)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
