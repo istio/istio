@@ -310,9 +310,6 @@ func TestWasmConvert(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if c.name != "remote load fail open" {
-			continue
-		}
 		t.Run(c.name, func(t *testing.T) {
 			resources := make([]*anypb.Any, 0, len(c.input))
 			for _, i := range c.input {

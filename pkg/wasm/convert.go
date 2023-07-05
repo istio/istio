@@ -37,14 +37,6 @@ import (
 
 var allowTypedConfig = protoconv.MessageToAny(&rbac.RBAC{})
 
-func createAllowAllFilter(name string) (*anypb.Any, error) {
-	ec := &core.TypedExtensionConfig{
-		Name:        name,
-		TypedConfig: allowTypedConfig,
-	}
-	return anypb.New(ec)
-}
-
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
 // It downloads the Wasm module and stores the module locally in the file system.
 func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error {
@@ -72,7 +64,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 				return
 			}
 
-			err := tryUnmarshal(extConfig, cache)
+			err := rewritetWasmExtensions(extConfig, cache)
 			if err != nil {
 				wasmConfigConversionCount.
 					With(resultTag.Value(unmarshalFailure)).
@@ -93,10 +85,10 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 	return err
 }
 
-// tryUnmarshal returns the typed extension config and wasm config by unmarsharling `resource`,
-// if `resource` is a wasm config loading a wasm module from the remote site.
-// It returns `nil` for both the typed extension config and wasm config if it is not for the remote wasm or has an error.
-func tryUnmarshal(ec *core.TypedExtensionConfig, cache Cache) error {
+// rewritetWasmExtensions updates the extension config to use local file instead of remote fetch for all wasm filters.
+// It does an in-place update of WASM config.
+// Currently we only support a WASM filter per extension config.
+func rewritetWasmExtensions(ec *core.TypedExtensionConfig, cache Cache) error {
 	wasmHTTPFilterConfig := &wasm.Wasm{}
 
 	// Wasm filter can be configured using typed struct and Wasm filter type
@@ -147,15 +139,15 @@ func tryUnmarshal(ec *core.TypedExtensionConfig, cache Cache) error {
 	}
 	// ec.Name is resourceName.
 	// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1alpha3/extension/wasmplugin.go#L103
-	remoteWasm, err := convertWasmConfigFromRemoteToLocal(ec.Name, wasmHTTPFilterConfig, cache)
+	localWasm, err := rewriteWasmFromRemoteToLocal(ec.Name, wasmHTTPFilterConfig, cache)
 	if err != nil {
 		return err
 	}
-	ec.TypedConfig = remoteWasm
+	ec.TypedConfig = localWasm
 	return nil
 }
 
-func convertWasmConfigFromRemoteToLocal(name string, wasmHTTPFilterConfig *wasm.Wasm, cache Cache) (*anypb.Any, error) {
+func rewriteWasmFromRemoteToLocal(name string, wasmHTTPFilterConfig *wasm.Wasm, cache Cache) (*anypb.Any, error) {
 	status := conversionSuccess
 	defer func() {
 		wasmConfigConversionCount.
