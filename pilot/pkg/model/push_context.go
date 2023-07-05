@@ -1920,9 +1920,10 @@ func (ps *PushContext) updateEnvoyFilters(env *Environment, changedEnvoyFilters 
 	for _, changedEnvoyFilter := range changedEnvoyFilters {
 		envoyFilterConfig := env.Get(gvk.EnvoyFilter, changedEnvoyFilter.Name, changedEnvoyFilter.Namespace)
 
-		var envoyFilters []*EnvoyFilterWrapper
 		// copy existing envoy filters since we're going to modify the slice
-		copy(envoyFilters, ps.envoyFiltersByNamespace[changedEnvoyFilter.Namespace])
+		previousEnvoyFilters := ps.envoyFiltersByNamespace[changedEnvoyFilter.Namespace]
+		envoyFilters := make([]*EnvoyFilterWrapper, 0, len(previousEnvoyFilters))
+		copy(envoyFilters, previousEnvoyFilters)
 
 		found := false
 		for i, existingEnvoyFilter := range envoyFilters {
