@@ -187,6 +187,9 @@ func (e *EndpointIndex) DeleteShard(shardKey ShardKey) {
 			e.deleteServiceInner(shardKey, svc, ns, false)
 		}
 	}
+	if e.cache == nil {
+		return
+	}
 	e.cache.ClearAll()
 }
 
