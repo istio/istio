@@ -848,31 +848,8 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.Gatewa
 	for _, podIP := range pod.Status.PodIPs {
 		addresses = append(addresses, parseIP(podIP.IP))
 	}
-	for _, svc := range c.ambientIndex.servicesMap {
-
-		if svc.Attributes.ServiceEntry == nil {
-			// if we are here then this is dev error
-			log.Warn("dev error: service entry spec is nil; it should have been populated by the service entry handler")
-			continue
-		}
-
-		if svc.Attributes.ServiceEntry.WorkloadSelector == nil {
-			// nothing to do. we construct the ztunnel config if `endpoints` are provided in the service entry handler
-			continue
-		}
-
-		if svc.Attributes.ServiceEntry.Endpoints != nil {
-			// it is an error to provide both `endpoints` and `workloadSelector` in a service entry
-			continue
-		}
-
-		sel := svc.Attributes.ServiceEntry.WorkloadSelector.Labels
-		if !labels.Instance(sel).SubsetOf(pod.Labels) {
-			continue
-		}
-
-		ports := getPortsForServiceEntry(svc, nil)
-		workloadServices[namespacedHostname(svc.Attributes.ServiceEntryNamespace, svc.Hostname.String())] = ports
+	for nsName, ports := range c.getWorkloadServices(nil, pod.Labels) {
+		workloadServices[nsName] = ports
 	}
 
 	wl := &workloadapi.Workload{

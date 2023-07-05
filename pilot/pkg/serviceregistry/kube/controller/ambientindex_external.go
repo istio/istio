@@ -248,31 +248,8 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.
 
 	// for constructing a workload from a standalone workload entry, which can be selected by many service entries
 	if parentServiceEntry == nil {
-		for _, svc := range c.ambientIndex.servicesMap {
-
-			if svc.Attributes.ServiceEntry == nil {
-				// if we are here then this is dev error
-				log.Warn("dev error: service entry spec is nil; it should have been populated by the service entry handler")
-				continue
-			}
-
-			if svc.Attributes.ServiceEntry.WorkloadSelector == nil {
-				// nothing to do. we construct the ztunnel config if `endpoints` are provided in the service entry handler
-				continue
-			}
-
-			if svc.Attributes.ServiceEntry.Endpoints != nil {
-				// it is an error to provide both `endpoints` and `workloadSelector` in a service entry
-				continue
-			}
-
-			sel := svc.Attributes.ServiceEntry.WorkloadSelector.Labels
-			if !labels.Instance(sel).SubsetOf(workloadEntry.Labels) {
-				continue
-			}
-
-			ports := getPortsForServiceEntry(svc, workloadEntry)
-			workloadServices[namespacedHostname(svc.Attributes.ServiceEntryNamespace, svc.Hostname.String())] = ports
+		for nsName, ports := range c.getWorkloadServices(workloadEntry, workloadEntry.Labels) {
+			workloadServices[nsName] = ports
 		}
 	}
 
@@ -468,6 +445,38 @@ func (c *Controller) cleanupOldWorkloadEntriesInlinedOnServiceEntry(svc *model.S
 			}
 		}
 	}
+}
+
+func (c *Controller) getWorkloadServices(workloadEntry *v1alpha3.WorkloadEntry, workloadLabels map[string]string) map[string]*workloadapi.PortList {
+	workloadServices := map[string]*workloadapi.PortList{}
+	for _, svc := range c.ambientIndex.servicesMap {
+
+		if svc.Attributes.ServiceEntry == nil {
+			// if we are here then this is dev error
+			log.Warn("dev error: service entry spec is nil; it should have been populated by the service entry handler")
+			continue
+		}
+
+		if svc.Attributes.ServiceEntry.WorkloadSelector == nil {
+			// nothing to do. we construct the ztunnel config if `endpoints` are provided in the service entry handler
+			continue
+		}
+
+		if svc.Attributes.ServiceEntry.Endpoints != nil {
+			// it is an error to provide both `endpoints` and `workloadSelector` in a service entry
+			continue
+		}
+
+		sel := svc.Attributes.ServiceEntry.WorkloadSelector.Labels
+		if !labels.Instance(sel).SubsetOf(workloadLabels) {
+			continue
+		}
+
+		ports := getPortsForServiceEntry(svc, workloadEntry)
+		workloadServices[namespacedHostname(svc.Attributes.ServiceEntryNamespace, svc.Hostname.String())] = ports
+	}
+
+	return workloadServices
 }
 
 func getVIPsFromServiceEntry(svc *model.Service) []string {
