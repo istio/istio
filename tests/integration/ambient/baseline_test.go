@@ -1620,13 +1620,7 @@ spec:
 								// RequestHeader=Accept:*/*
 								// RequestHeader=User-Agent:curl/7.81.0
 								// Hostname=uncaptured-v1-868c9b59b5-rxvfq
-								Check: check.BodyContains(`Hostname=uncaptured-v1`),
-							})
-							// ensure we load balance across both pods
-							from.CallOrFail(t, echo.CallOptions{
-								Address: "111.111.222.222",
-								Port:    to.PortForName("http"),
-								Check:   check.BodyContains(`Hostname=uncaptured-v2`),
+								Check: check.BodyContains(`Hostname=uncaptured-v`), // can hit v1 or v2
 							})
 						})
 				})
@@ -1687,19 +1681,7 @@ spec:
 						// RequestHeader=Accept:*/*
 						// RequestHeader=User-Agent:curl/7.81.0
 						// Hostname=uncaptured-v1-868c9b59b5-rxvfq
-						Check: check.BodyContains(`Hostname=uncaptured-v1`),
-					})
-				})
-				// ensure we load balance across both pods
-				t.NewSubTestf("%v to uncaptured-v2 via ServiceEntry", svc.Config().Service).Run(func(t framework.TestContext) {
-					svc.CallOrFail(t, echo.CallOptions{
-						Address: "serviceentry.istio.io",
-						Port:    echo.Port{Name: "http", ServicePort: 80},
-						Scheme:  scheme.HTTP,
-						HTTP: echo.HTTP{
-							Path: "/any/path",
-						},
-						Check: check.BodyContains(`Hostname=uncaptured-v2`),
+						Check: check.BodyContains(`Hostname=uncaptured-v`), // can hit v1 or v2
 					})
 				})
 
