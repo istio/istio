@@ -71,7 +71,7 @@ func validateAnnotations(annotations map[string]string) (err error) {
 }
 
 func validatePortList(parameterName, ports string) error {
-	if _, err := parsePorts(ports); err != nil {
+	if err := parsePorts(ports); err != nil {
 		return fmt.Errorf("%s invalid: %v", parameterName, err)
 	}
 	return nil
@@ -127,7 +127,7 @@ func ValidateExcludeOutboundPorts(ports string) error {
 
 // validateStatusPort validates the statusPort parameter
 func validateStatusPort(port string) error {
-	if _, e := parsePort(port); e != nil {
+	if e := parsePort(port); e != nil {
 		return fmt.Errorf("excludeInboundPorts invalid: %v", e)
 	}
 	return nil
@@ -160,25 +160,44 @@ func splitPorts(portsString string) []string {
 	return strings.Split(portsString, ",")
 }
 
-func parsePort(portStr string) (int, error) {
-	port, err := strconv.ParseUint(strings.TrimSpace(portStr), 10, 16)
-	if err != nil {
-		return 0, fmt.Errorf("failed parsing port '%s': %v", portStr, err)
+func parsePort(portStr string) error {
+	trimedPortStr := strings.TrimSpace(portStr)
+	portRange := strings.Split(trimedPortStr, ":")
+	if len(portRange) == 1 {
+		_, err := strconv.ParseUint(trimedPortStr, 10, 16)
+		if err != nil {
+			return fmt.Errorf("failed parsing port '%s': %v", portStr, err)
+		}
+	} else if len(portRange) == 2 {
+		start, err := strconv.ParseUint(portRange[0], 10, 16)
+		if err != nil {
+			return fmt.Errorf("failed parsing port '%s': %v", portStr, err)
+		}
+		if portRange[1] == "" {
+			return nil
+		}
+		end, err := strconv.ParseUint(portRange[1], 10, 16)
+		if err != nil {
+			return fmt.Errorf("failed parsing port '%s': %v", portStr, err)
+		}
+		if start > end {
+			return fmt.Errorf("failed parsing port '%s': start port is greater than end port", portStr)
+		}
+	} else {
+		return fmt.Errorf("failed parsing port '%s': invalid port range format", portStr)
 	}
-	return int(port), nil
+	return nil
 }
 
-func parsePorts(portsString string) ([]int, error) {
+func parsePorts(portsString string) error {
 	portsString = strings.TrimSpace(portsString)
-	ports := make([]int, 0)
 	if len(portsString) > 0 {
 		for _, portStr := range splitPorts(portsString) {
-			port, err := parsePort(portStr)
+			err := parsePort(portStr)
 			if err != nil {
-				return nil, fmt.Errorf("failed parsing port '%s': %v", portStr, err)
+				return fmt.Errorf("failed parsing port '%s': %v", portStr, err)
 			}
-			ports = append(ports, port)
 		}
 	}
-	return ports, nil
+	return nil
 }
