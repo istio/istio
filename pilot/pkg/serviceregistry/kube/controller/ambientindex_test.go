@@ -61,7 +61,6 @@ func TestAmbientIndex(t *testing.T) {
 	pc := clienttest.Wrap(t, controller.podsClient)
 	sc := clienttest.Wrap(t, controller.services)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
-	cfg.RegisterEventHandler(gvk.WorkloadEntry, controller.WorkloadEntryHandler)
 	cfg.RegisterEventHandler(gvk.PeerAuthentication, controller.PeerAuthenticationHandler)
 	go cfg.Run(test.NewStop(t))
 
@@ -183,7 +182,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertAddresses(t, controller, "", "name1", "name2", "name3")
 	assertAddresses(t, controller, "testnetwork/10.0.0.1")
 	assertEvent(t, fx, "cluster0//Pod/ns1/name2", "ns1/svc1.ns1.svc.company.com")
-	assert.Equal(t, len(controller.ambientIndex.byService), 0)
+	assert.Equal(t, len(controller.ambientIndex.(*AmbientIndexImpl).byService), 0)
 
 	// Add a waypoint proxy pod for namespace
 	addPods("127.0.0.200", "waypoint-ns-pod", "namespace-wide",
