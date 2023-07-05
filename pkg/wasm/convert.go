@@ -64,7 +64,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 				return
 			}
 
-			err := rewritetWasmExtensions(extConfig, cache)
+			err := rewriteWasmExtensions(extConfig, cache)
 			if err != nil {
 				wasmConfigConversionCount.
 					With(resultTag.Value(unmarshalFailure)).
@@ -85,10 +85,10 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 	return err
 }
 
-// rewritetWasmExtensions updates the extension config to use local file instead of remote fetch for all wasm filters.
+// rewriteWasmExtensions updates the extension config to use local file instead of remote fetch for all wasm filters.
 // It does an in-place update of WASM config.
 // Currently we only support a WASM filter per extension config.
-func rewritetWasmExtensions(ec *core.TypedExtensionConfig, cache Cache) error {
+func rewriteWasmExtensions(ec *core.TypedExtensionConfig, cache Cache) error {
 	wasmHTTPFilterConfig := &wasm.Wasm{}
 
 	// Wasm filter can be configured using typed struct and Wasm filter type
