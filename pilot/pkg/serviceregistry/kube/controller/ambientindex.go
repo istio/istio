@@ -435,7 +435,7 @@ func (c *Controller) setupIndex() *AmbientIndex {
 		updates := sets.New[model.ConfigKey]()
 
 		if event != model.EventAdd {
-			c.cleanupOldServiceEntryVips(svc, updates)
+			c.cleanupOldWorkloadEntriesInlinedOnServiceEntry(svc, updates)
 		}
 
 		serviceEntryNamespacedName := types.NamespacedName{
@@ -445,8 +445,9 @@ func (c *Controller) setupIndex() *AmbientIndex {
 
 		// Update indexes
 		if event == model.EventDelete {
-			// servicesMap is used when cleaning up old VIPs (e.g. `ServiceEntry.endpoints`) so we must
-			// delete this after we clean up VIPs
+			// servicesMap is used when cleaning up old WEs inlined on a SE (i.e., `ServiceEntry.endpoints`)
+			// so we must delete this after we clean up the old WEs. That way we don't miss any auto-allocated
+			// VIPs during cleanup on the idx.byWorkloadEntry[networkAddr] map
 			delete(idx.servicesMap, serviceEntryNamespacedName)
 		} else {
 			// servicesMap is used when constructing workloads so it must be up to date

@@ -447,7 +447,7 @@ func (c *Controller) generateServiceEntryUID(svcEntryNamespace, svcEntryName, ad
 	return c.clusterID.String() + "/networking.istio.io/ServiceEntry/" + svcEntryNamespace + "/" + svcEntryName + "/" + addr
 }
 
-func (c *Controller) cleanupOldServiceEntryVips(svc *model.Service, updates sets.Set[model.ConfigKey]) {
+func (c *Controller) cleanupOldWorkloadEntriesInlinedOnServiceEntry(svc *model.Service, updates sets.Set[model.ConfigKey]) {
 	a := c.ambientIndex
 	nsName := types.NamespacedName{
 		Name:      svc.Attributes.ServiceEntryName,
@@ -465,22 +465,6 @@ func (c *Controller) cleanupOldServiceEntryVips(svc *model.Service, updates sets
 					delete(a.byWorkloadEntry, networkAddr)
 				}
 				delete(a.byUID, oldUID)
-			}
-		}
-
-		// we also need to remove the VIP from any pod that has it (e.g. from service entry `workloadSelector`)
-		for nwAddr := range a.byPod {
-			wli, ok := a.byPod[nwAddr]
-			if !ok {
-				continue
-			}
-			_, found := wli.Services[namespacedHostname(oldServiceEntry.Attributes.Namespace, oldServiceEntry.Hostname.String())]
-			if found {
-				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()})
-				for _, networkAddr := range networkAddressFromWorkload(wli) {
-					delete(a.byPod, networkAddr)
-				}
-				delete(a.byUID[wli.Uid].Services, namespacedHostname(oldServiceEntry.Attributes.Namespace, oldServiceEntry.Hostname.String()))
 			}
 		}
 	}
