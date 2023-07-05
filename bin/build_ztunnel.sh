@@ -113,7 +113,7 @@ function maybe_build_ztunnel() {
   popd
 }
 
-# ztunnel binary vars (TODO handle debug builds, centos, arm, darwin etc.)
+# ztunnel binary vars (TODO handle debug builds, arm, darwin etc.)
 ISTIO_ZTUNNEL_BASE_URL="${ISTIO_ZTUNNEL_BASE_URL:-https://storage.googleapis.com/istio-build/ztunnel}"
 
 # If we are not using the default, assume its private and we need to authenticate

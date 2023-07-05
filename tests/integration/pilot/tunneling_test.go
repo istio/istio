@@ -121,11 +121,14 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 
 			for _, proxyConfig := range forwardProxyConfigurations {
 				templateParams := map[string]any{
-					"externalNamespace":  externalNs,
-					"forwardProxyPort":   proxyConfig.Port,
-					"tlsEnabled":         proxyConfig.TLSEnabled,
-					"externalSvcTcpPort": ports.TCPForHTTP.ServicePort,
-					"externalSvcTlsPort": ports.HTTPS.ServicePort,
+					"externalNamespace":             externalNs,
+					"forwardProxyPort":              proxyConfig.Port,
+					"tlsEnabled":                    proxyConfig.TLSEnabled,
+					"externalSvcTcpPort":            ports.TCPForHTTP.ServicePort,
+					"externalSvcTlsPort":            ports.HTTPS.ServicePort,
+					"EgressGatewayIstioLabel":       i.Settings().EgressGatewayIstioLabel,
+					"EgressGatewayServiceName":      i.Settings().EgressGatewayServiceName,
+					"EgressGatewayServiceNamespace": i.Settings().EgressGatewayServiceNamespace,
 				}
 				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).ApplyOrFail(ctx)
 
