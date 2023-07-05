@@ -76,10 +76,18 @@ components:
   - name: istio-ingressgateway
     enabled: true
 values:
+  ztunnel:
+    meshConfig:
+      defaultConfig:
+        proxyMetadata:
+          ISTIO_META_DNS_CAPTURE: "true"
+          ISTIO_META_DNS_AUTO_ALLOCATE: "true"
+          DNS_PROXY_ADDR: "0.0.0.0:15053"
   meshConfig:
     defaultConfig:
       proxyMetadata:
-        ISTIO_META_DNS_CAPTURE: "false"
+        ISTIO_META_DNS_CAPTURE: "true"
+        ISTIO_META_DNS_AUTO_ALLOCATE: "true"
         DNS_PROXY_ADDR: "0.0.0.0:15053"
     accessLogFile: /dev/stdout`
 

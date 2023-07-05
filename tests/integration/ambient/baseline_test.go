@@ -1630,13 +1630,11 @@ spec:
 		})
 }
 
-// This was successfully smoke tested locally by looking at ztunnel config dump
-// to query the auto-assigned VIP behind the hostname.
 func TestServiceEntryDNSWithAutoAssign(t *testing.T) {
 	framework.NewTest(t).
 		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
-			t.Skip("this will work if we set DNS_AUTO_ALLOCATE=true and once we have https://github.com/istio/ztunnel/pull/536")
+			t.Skip("this will work once we resolve https://github.com/istio/ztunnel/issues/582")
 			yaml := `apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
@@ -1656,13 +1654,13 @@ spec:
       app: uncaptured` // cannot select pods captured in ambient mesh; IPs are unique per network
 			svcs := apps.All
 			for _, svc := range svcs {
-				if svc.Config().IsUncaptured() || svc.Config().HasSidecar() {
+				if svc.Config().IsUncaptured() || svc.Config().HasSidecar() || svc.Config().IsWaypoint() {
 					continue
 				}
 				if err := t.ConfigIstio().YAML(svc.NamespaceName(), yaml).Apply(apply.NoCleanup); err != nil {
 					t.Fatal(err)
 				}
-				t.NewSubTestf("%v to ServiceEntry", svc.Config().Service).Run(func(t framework.TestContext) {
+				t.NewSubTestf("%v to uncaptured-v1 via ServiceEntry", svc.Config().Service).Run(func(t framework.TestContext) {
 					svc.CallOrFail(t, echo.CallOptions{
 						Address: "serviceentry.istio.io",
 						Port:    echo.Port{Name: "http", ServicePort: 80},
@@ -1670,7 +1668,6 @@ spec:
 						HTTP: echo.HTTP{
 							Path: "/any/path",
 						},
-						// we want to make sure the workload selector labels are honored, so we assert the response contains either uncaptured-v1 or uncaptured-v2
 						// sample response:
 						//
 						// ServiceVersion=v1
@@ -1686,7 +1683,19 @@ spec:
 						// RequestHeader=Accept:*/*
 						// RequestHeader=User-Agent:curl/7.81.0
 						// Hostname=uncaptured-v1-868c9b59b5-rxvfq
-						Check: check.BodyContains(`Hostname=uncaptured-v`),
+						Check: check.BodyContains(`Hostname=uncaptured-v1`),
+					})
+				})
+				// ensure we load balance across both pods
+				t.NewSubTestf("%v to uncaptured-v2 via ServiceEntry", svc.Config().Service).Run(func(t framework.TestContext) {
+					svc.CallOrFail(t, echo.CallOptions{
+						Address: "serviceentry.istio.io",
+						Port:    echo.Port{Name: "http", ServicePort: 80},
+						Scheme:  scheme.HTTP,
+						HTTP: echo.HTTP{
+							Path: "/any/path",
+						},
+						Check: check.BodyContains(`Hostname=uncaptured-v2`),
 					})
 				})
 
@@ -1694,7 +1703,7 @@ spec:
 					t.Fatal(err)
 				}
 
-				t.NewSubTestf("%v to ServiceEntry -- cleanup", svc.Config().Service).Run(func(t framework.TestContext) {
+				t.NewSubTestf("%v to uncaptured via ServiceEntry -- cleanup", svc.Config().Service).Run(func(t framework.TestContext) {
 					svc.CallOrFail(t, echo.CallOptions{
 						Address: "serviceentry.istio.io",
 						Port:    echo.Port{Name: "http", ServicePort: 80},
