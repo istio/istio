@@ -120,8 +120,9 @@ type IstioCAOptions struct {
 	RotatorConfig *SelfSignedCARootCertRotatorConfig
 }
 
-// SelfSignedIstioCAOptions
-type SelfSignedIstioCAOptions struct {
+// CAOptions is the configuration requested by clients
+// for the CA certificate
+type CAOptions struct {
 	RootCertGracePeriodPercentile int
 	CaCertTTL                     time.Duration
 	RootCertCheckInverval         time.Duration
@@ -140,7 +141,7 @@ type SelfSignedIstioCAOptions struct {
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(ctx context.Context, opts *SelfSignedIstioCAOptions) (caOpts *IstioCAOptions, err error) {
+func NewSelfSignedIstioCAOptions(ctx context.Context, opts *CAOptions) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         selfSignedCA,
 		DefaultCertTTL: opts.DefaultCertTTL,
@@ -165,6 +166,10 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, opts *SelfSignedIstioCAOpt
 	case util.RsaAlg:
 		caOpts.CARSAKeySize = opts.CaRSAKeySize
 	case util.EcAlg:
+		if err := isEcSupportedCertOptions(opts); err != nil {
+			return nil, err
+		}
+
 		caOpts.ECSigAlg = util.SupportedECSignatureAlgorithms(opts.EcSigAlg)
 		caOpts.ECCCurve = util.SupportedEllipticCurves(opts.EccCurve)
 	default:
@@ -204,6 +209,10 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, opts *SelfSignedIstioCAOpt
 			case util.RsaAlg:
 				options.RSAKeySize = opts.CaRSAKeySize
 			case util.EcAlg:
+				if err := isEcSupportedCertOptions(opts); err != nil {
+					return err
+				}
+
 				options.ECSigAlg = opts.EcSigAlg
 				options.ECCCurve = opts.EccCurve
 			default:
@@ -239,7 +248,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, opts *SelfSignedIstioCAOpt
 
 // NewSelfSignedDebugIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate produced by in-memory CA,
 // which runs without K8s, and no local ca key file presented.
-func NewSelfSignedDebugIstioCAOptions(opts *SelfSignedIstioCAOptions) (caOpts *IstioCAOptions, err error) {
+func NewSelfSignedDebugIstioCAOptions(opts *CAOptions) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         selfSignedCA,
 		DefaultCertTTL: opts.DefaultCertTTL,
@@ -285,20 +294,6 @@ func NewSelfSignedDebugIstioCAOptions(opts *SelfSignedIstioCAOptions) (caOpts *I
 	return caOpts, nil
 }
 
-func specifySelfSignedAlgorithmIstioCAOptions(opts *IstioCAOptions, caRSAKeySize int, ecSigAlg, eccCurve string) error {
-	switch opts.AlgorithmType {
-	case util.RsaAlg:
-		opts.CARSAKeySize = caRSAKeySize
-	case util.EcAlg:
-		opts.ECSigAlg = util.SupportedECSignatureAlgorithms(ecSigAlg)
-		opts.ECCCurve = util.SupportedEllipticCurves(eccCurve)
-	default:
-		return fmt.Errorf("unknown algorithm type specified (%v)", opts.AlgorithmType)
-	}
-
-	return nil
-}
-
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int,
@@ -311,9 +306,22 @@ func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 		AlgorithmType:  util.SupportedAlgorithmTypes(algorithmType),
 	}
 
-	err = specifySelfSignedAlgorithmIstioCAOptions(caOpts, caRSAKeySize, ecSigAlg, eccCurve)
-	if err != nil {
-		return nil, err
+	switch caOpts.AlgorithmType {
+	case util.RsaAlg:
+		caOpts.CARSAKeySize = caRSAKeySize
+	case util.EcAlg:
+		opts := CAOptions{
+			EcSigAlg: util.SupportedECSignatureAlgorithms(ecSigAlg),
+			EccCurve: util.SupportedEllipticCurves(eccCurve),
+		}
+		if err := isEcSupportedCertOptions(&opts); err != nil {
+			return nil, err
+		}
+
+		caOpts.ECSigAlg = util.SupportedECSignatureAlgorithms(ecSigAlg)
+		caOpts.ECCCurve = util.SupportedEllipticCurves(eccCurve)
+	default:
+		return nil, fmt.Errorf("unknown algorithm type specified (%v)", algorithmType)
 	}
 
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
@@ -553,4 +561,16 @@ func (ca *IstioCA) signWithCertChain(csrPEM []byte, subjectIDs []string, request
 		cert = append(cert, chainPem...)
 	}
 	return cert, nil
+}
+
+func isEcSupportedCertOptions(opts *CAOptions) error {
+	if opts.EcSigAlg != util.EcdsaSigAlg {
+		return fmt.Errorf("unsupported ec signature algorithm: (%v)", opts.EcSigAlg)
+	}
+
+	if opts.EccCurve != util.P256Curve && opts.EccCurve != util.P384Curve {
+		return fmt.Errorf("unsupported ec curve: (%v)", opts.EccCurve)
+	}
+
+	return nil
 }

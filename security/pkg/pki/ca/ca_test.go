@@ -122,7 +122,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset()
-			ssOpts := SelfSignedIstioCAOptions{
+			ssOpts := CAOptions{
 				RootCertGracePeriodPercentile: 0,
 				CaCertTTL:                     caCertTTL,
 				RootCertCheckInverval:         rootCertCheckInverval,
@@ -229,7 +229,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	const rootCertFile = ""
 	rootCertCheckInverval := time.Hour
 
-	ssOpts := SelfSignedIstioCAOptions{
+	ssOpts := CAOptions{
 		RootCertGracePeriodPercentile: 0,
 		CaCertTTL:                     caCertTTL,
 		RootCertCheckInverval:         rootCertCheckInverval,
@@ -295,7 +295,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
 
-	ssOpts := SelfSignedIstioCAOptions{
+	ssOpts := CAOptions{
 		RootCertGracePeriodPercentile: 0,
 		CaCertTTL:                     caCertTTL,
 		RootCertCheckInverval:         rootCertCheckInverval,
@@ -379,7 +379,7 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 			ctx0, cancel0 := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel0()
 
-			ssOpts := SelfSignedIstioCAOptions{
+			ssOpts := CAOptions{
 				RootCertGracePeriodPercentile: 0,
 				CaCertTTL:                     caCertTTL,
 				RootCertCheckInverval:         rootCertCheckInverval,

@@ -439,7 +439,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			// rootCertFile will be added to "ca-cert.pem".
 			// readSigningCertOnly set to false - it doesn't seem to be used in Citadel, nor do we have a way
 			// to set it only for one job.
-			ssOpts := ca.SelfSignedIstioCAOptions{
+			ssOpts := ca.CAOptions{
 				RootCertGracePeriodPercentile: selfSignedRootCertGracePeriodPercentile.Get(),
 				CaCertTTL:                     SelfSignedCACertTTL.Get(),
 				RootCertCheckInverval:         selfSignedRootCertCheckInterval.Get(),
@@ -463,7 +463,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 				"Use local self-signed CA certificate for testing. Will use in-memory root CA, no K8S access and no ca key file %s",
 				fileBundle.SigningKeyFile)
 
-			ssOpts := ca.SelfSignedIstioCAOptions{
+			ssOpts := ca.CAOptions{
 				RootCertFile:   fileBundle.RootCertFile,
 				CaCertTTL:      SelfSignedCACertTTL.Get(),
 				DefaultCertTTL: workloadCertTTL.Get(),

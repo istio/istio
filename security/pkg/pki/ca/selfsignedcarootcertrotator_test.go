@@ -332,7 +332,7 @@ func getDefaultSelfSignedIstioCAOptions(fclient *fake.Clientset) *IstioCAOptions
 	rootCertCheckInverval := time.Hour
 	rsaKeySize := 2048
 
-	opts := SelfSignedIstioCAOptions{
+	opts := CAOptions{
 		RootCertGracePeriodPercentile: cmd.DefaultRootCertGracePeriodPercentile,
 		CaCertTTL:                     caCertTTL,
 		RootCertCheckInverval:         rootCertCheckInverval,
