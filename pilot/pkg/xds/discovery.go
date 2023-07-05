@@ -183,8 +183,8 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 	if features.EnableXDSCaching {
 		out.Cache = model.NewXdsCache()
 		// clear the cache as endpoint shards are modified to avoid cache write race
-		out.Env.EndpointIndex.SetCache(out.Cache)
 	}
+	out.Env.EndpointIndex.SetCache(out.Cache)
 
 	out.ConfigGenerator = core.NewConfigGenerator(out.Cache)
 
