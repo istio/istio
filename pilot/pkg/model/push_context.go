@@ -1912,6 +1912,7 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) {
 // pre computes envoy filters per namespace
 func (ps *PushContext) updateEnvoyFilters(env *Environment, changedEnvoyFilters []ConfigKey, previousIndex map[string][]*EnvoyFilterWrapper) {
 	// copy old index
+	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper, len(previousIndex))
 	for k, v := range previousIndex {
 		ps.envoyFiltersByNamespace[k] = v
 	}
@@ -1943,7 +1944,7 @@ func (ps *PushContext) updateEnvoyFilters(env *Environment, changedEnvoyFilters 
 			}
 		}
 
-		if !found {
+		if envoyFilterConfig != nil && !found {
 			// this is a new item, append it and sort the slice
 			envoyFilters = append(envoyFilters, convertToEnvoyFilterWrapper(envoyFilterConfig))
 			sort.Slice(envoyFilters, func(i, j int) bool {
