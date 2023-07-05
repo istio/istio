@@ -120,33 +120,48 @@ type IstioCAOptions struct {
 	RotatorConfig *SelfSignedCARootCertRotatorConfig
 }
 
+// SelfSignedIstioCAOptions
+type SelfSignedIstioCAOptions struct {
+	RootCertGracePeriodPercentile int
+	CaCertTTL                     time.Duration
+	RootCertCheckInverval         time.Duration
+	DefaultCertTTL                time.Duration
+	MaxCertTTL                    time.Duration
+	Org                           string
+	DualUse                       bool
+	Namespace                     string
+	Client                        corev1.CoreV1Interface
+	RootCertFile                  string
+	EnableJitter                  bool
+	CaRSAKeySize                  int
+	AlgorithmType                 util.SupportedAlgorithmTypes
+	EcSigAlg                      string
+	EccCurve                      string
+}
+
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(ctx context.Context,
-	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, defaultCertTTL,
-	maxCertTTL time.Duration, org string, dualUse bool, namespace string, client corev1.CoreV1Interface,
-	rootCertFile string, enableJitter bool, caRSAKeySize int, algorithmType, ecSigAlg, eccCurve string,
-) (caOpts *IstioCAOptions, err error) {
+func NewSelfSignedIstioCAOptions(ctx context.Context, opts *SelfSignedIstioCAOptions) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         selfSignedCA,
-		DefaultCertTTL: defaultCertTTL,
-		MaxCertTTL:     maxCertTTL,
+		DefaultCertTTL: opts.DefaultCertTTL,
+		MaxCertTTL:     opts.MaxCertTTL,
 		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
-			CheckInterval:      rootCertCheckInverval,
-			caCertTTL:          caCertTTL,
+			CheckInterval:      opts.RootCertCheckInverval,
+			caCertTTL:          opts.CaCertTTL,
 			retryInterval:      cmd.ReadSigningCertRetryInterval,
 			retryMax:           cmd.ReadSigningCertRetryMax,
-			certInspector:      certutil.NewCertUtil(rootCertGracePeriodPercentile),
-			caStorageNamespace: namespace,
-			dualUse:            dualUse,
-			org:                org,
-			rootCertFile:       rootCertFile,
-			enableJitter:       enableJitter,
-			client:             client,
+			certInspector:      certutil.NewCertUtil(opts.RootCertGracePeriodPercentile),
+			caStorageNamespace: opts.Namespace,
+			dualUse:            opts.DualUse,
+			org:                opts.Org,
+			rootCertFile:       opts.RootCertFile,
+			enableJitter:       opts.EnableJitter,
+			client:             opts.Client,
 		},
-		AlgorithmType: util.SupportedAlgorithmTypes(algorithmType),
+		AlgorithmType: opts.AlgorithmType,
 	}
 
-	err = specifySelfSignedAlgorithmIstioCAOptions(caOpts, caRSAKeySize, ecSigAlg, eccCurve)
+	err = specifySelfSignedAlgorithmIstioCAOptions(caOpts, opts.CaRSAKeySize, opts.EcSigAlg, opts.EccCurve)
 	if err != nil {
 		return nil, err
 	}
@@ -156,10 +171,10 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		// For the first time the CA is up, if readSigningCertOnly is unset,
 		// it generates a self-signed key/cert pair and write it to CASecret.
 		// For subsequent restart, CA will reads key/cert from CASecret.
-		caSecret, err := client.Secrets(namespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
+		caSecret, err := opts.Client.Secrets(opts.Namespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
 		if err == nil {
 			pkiCaLog.Infof("Load signing key and cert from existing secret %s/%s", caSecret.Namespace, caSecret.Name)
-			rootCerts, err := util.AppendRootCerts(caSecret.Data[CACertFile], rootCertFile)
+			rootCerts, err := util.AppendRootCerts(caSecret.Data[CACertFile], opts.RootCertFile)
 			if err != nil {
 				return fmt.Errorf("failed to append root certificates (%v)", err)
 			}
@@ -173,14 +188,14 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		if apierror.IsNotFound(err) {
 			pkiCaLog.Infof("CASecret %s not found, will create one", CASecret)
 			options := util.CertOptions{
-				TTL:          caCertTTL,
-				Org:          org,
+				TTL:          opts.CaCertTTL,
+				Org:          opts.Org,
 				IsCA:         true,
 				IsSelfSigned: true,
-				IsDualUse:    dualUse,
+				IsDualUse:    opts.DualUse,
 			}
 
-			err := specifySelfSignedAlgorithmOptions(&options, caRSAKeySize, util.SupportedAlgorithmTypes(algorithmType), ecSigAlg, eccCurve)
+			err := specifySelfSignedAlgorithmOptions(&options, opts.CaRSAKeySize, opts.AlgorithmType, opts.EcSigAlg, opts.EccCurve)
 			if err != nil {
 				return err
 			}
@@ -190,7 +205,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 				return fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
 			}
 
-			rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
+			rootCerts, err := util.AppendRootCerts(pemCert, opts.RootCertFile)
 			if err != nil {
 				return fmt.Errorf("failed to append root certificates (%v)", err)
 			}
@@ -198,8 +213,8 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 			}
 			// Write the key/cert back to secret, so they will be persistent when CA restarts.
-			secret := BuildSecret(CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
-			if _, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+			secret := BuildSecret(CASecret, opts.Namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
+			if _, err = opts.Client.Secrets(opts.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 				pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 				return fmt.Errorf("failed to create CA due to secret write error")
 			}

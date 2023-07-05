@@ -332,10 +332,24 @@ func getDefaultSelfSignedIstioCAOptions(fclient *fake.Clientset) *IstioCAOptions
 	rootCertCheckInverval := time.Hour
 	rsaKeySize := 2048
 
-	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(),
-		cmd.DefaultRootCertGracePeriodPercentile, caCertTTL,
-		rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
-		caNamespace, client, rootCertFile, false, rsaKeySize, "RSA", "", "")
+	opts := SelfSignedIstioCAOptions{
+		RootCertGracePeriodPercentile: cmd.DefaultRootCertGracePeriodPercentile,
+		CaCertTTL:                     caCertTTL,
+		RootCertCheckInverval:         rootCertCheckInverval,
+		DefaultCertTTL:                defaultCertTTL,
+		MaxCertTTL:                    maxCertTTL,
+		Org:                           org,
+		DualUse:                       false,
+		Namespace:                     caNamespace,
+		Client:                        client,
+		RootCertFile:                  rootCertFile,
+		EnableJitter:                  false,
+		CaRSAKeySize:                  rsaKeySize,
+		AlgorithmType:                 util.RsaAlg,
+		EcSigAlg:                      "",
+		EccCurve:                      "",
+	}
+	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(), &opts)
 	return caopts
 }
 

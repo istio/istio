@@ -122,10 +122,24 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset()
-			caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
-				0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
-				maxCertTTL, org, false, caNamespace, client.CoreV1(),
-				rootCertFile, false, tc.rsaKeySize, tc.algorithmType, tc.eccSigAlg, tc.eccCurve)
+			ssOpts := SelfSignedIstioCAOptions{
+				RootCertGracePeriodPercentile: 0,
+				CaCertTTL:                     caCertTTL,
+				RootCertCheckInverval:         rootCertCheckInverval,
+				DefaultCertTTL:                defaultCertTTL,
+				MaxCertTTL:                    maxCertTTL,
+				Org:                           org,
+				DualUse:                       false,
+				Namespace:                     caNamespace,
+				Client:                        client.CoreV1(),
+				RootCertFile:                  rootCertFile,
+				EnableJitter:                  false,
+				CaRSAKeySize:                  tc.rsaKeySize,
+				AlgorithmType:                 util.SupportedAlgorithmTypes(tc.algorithmType),
+				EcSigAlg:                      tc.eccSigAlg,
+				EccCurve:                      tc.eccCurve,
+			}
+			caopts, err := NewSelfSignedIstioCAOptions(context.Background(), &ssOpts)
 			if err != nil {
 				t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 			}
@@ -214,12 +228,25 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	caNamespace := "default"
 	const rootCertFile = ""
 	rootCertCheckInverval := time.Hour
-	rsaKeySize := 2048
 
-	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
-		0, caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
-		org, false, caNamespace, client.CoreV1(),
-		rootCertFile, false, rsaKeySize, "RSA", "", "")
+	ssOpts := SelfSignedIstioCAOptions{
+		RootCertGracePeriodPercentile: 0,
+		CaCertTTL:                     caCertTTL,
+		RootCertCheckInverval:         rootCertCheckInverval,
+		DefaultCertTTL:                defaultCertTTL,
+		MaxCertTTL:                    maxCertTTL,
+		Org:                           org,
+		DualUse:                       false,
+		Namespace:                     caNamespace,
+		Client:                        client.CoreV1(),
+		RootCertFile:                  rootCertFile,
+		EnableJitter:                  false,
+		CaRSAKeySize:                  rsaKeySize,
+		AlgorithmType:                 util.RsaAlg,
+		EcSigAlg:                      "",
+		EccCurve:                      "",
+	}
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), &ssOpts)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -267,9 +294,25 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	// succeed creating a self-signed cert
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
-	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
-		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize, "RSA", "", "")
+
+	ssOpts := SelfSignedIstioCAOptions{
+		RootCertGracePeriodPercentile: 0,
+		CaCertTTL:                     caCertTTL,
+		RootCertCheckInverval:         rootCertCheckInverval,
+		DefaultCertTTL:                defaultCertTTL,
+		MaxCertTTL:                    maxCertTTL,
+		Org:                           org,
+		DualUse:                       false,
+		Namespace:                     caNamespace,
+		Client:                        client.CoreV1(),
+		RootCertFile:                  rootCertFile,
+		EnableJitter:                  false,
+		CaRSAKeySize:                  rsaKeySize,
+		AlgorithmType:                 util.RsaAlg,
+		EcSigAlg:                      "",
+		EccCurve:                      "",
+	}
+	_, err := NewSelfSignedIstioCAOptions(ctx0, &ssOpts)
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
@@ -283,9 +326,8 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	defer cancel1()
-	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
-		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize, "RSA", "", "")
+
+	caopts, err := NewSelfSignedIstioCAOptions(ctx1, &ssOpts)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -336,9 +378,26 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 			// succeed creating a self-signed cert
 			ctx0, cancel0 := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel0()
-			caOpts, err := NewSelfSignedIstioCAOptions(ctx0, 0,
-				caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-				caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize, "RSA", "", "")
+
+			ssOpts := SelfSignedIstioCAOptions{
+				RootCertGracePeriodPercentile: 0,
+				CaCertTTL:                     caCertTTL,
+				RootCertCheckInverval:         rootCertCheckInverval,
+				DefaultCertTTL:                defaultCertTTL,
+				MaxCertTTL:                    maxCertTTL,
+				Org:                           org,
+				DualUse:                       false,
+				Namespace:                     caNamespace,
+				Client:                        client.CoreV1(),
+				RootCertFile:                  rootCertFile,
+				EnableJitter:                  false,
+				CaRSAKeySize:                  rsaKeySize,
+				AlgorithmType:                 util.RsaAlg,
+				EcSigAlg:                      "",
+				EccCurve:                      "",
+			}
+
+			caOpts, err := NewSelfSignedIstioCAOptions(ctx0, &ssOpts)
 			if err != nil {
 				t.Errorf("NewSelfSignedIstioCAOptions got unexpected error: %v", err)
 			}

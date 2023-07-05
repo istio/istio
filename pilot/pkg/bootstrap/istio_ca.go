@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/util"
@@ -438,13 +439,25 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			// rootCertFile will be added to "ca-cert.pem".
 			// readSigningCertOnly set to false - it doesn't seem to be used in Citadel, nor do we have a way
 			// to set it only for one job.
-			caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
-				selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
-				selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-				maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
-				opts.Namespace, s.kubeClient.Kube().CoreV1(), fileBundle.RootCertFile, enableJitterForRootCertRotator.Get(), caRSAKeySize.Get(),
-				features.SelfSignedAlgorithm, features.EccSigAlgEnv, features.EccCurvEnv,
-			)
+			ssOpts := ca.SelfSignedIstioCAOptions{
+				RootCertGracePeriodPercentile: selfSignedRootCertGracePeriodPercentile.Get(),
+				CaCertTTL:                     SelfSignedCACertTTL.Get(),
+				RootCertCheckInverval:         selfSignedRootCertCheckInterval.Get(),
+				DefaultCertTTL:                workloadCertTTL.Get(),
+				MaxCertTTL:                    maxWorkloadCertTTL.Get(),
+				Org:                           opts.TrustDomain,
+				DualUse:                       true,
+				Namespace:                     opts.Namespace,
+				Client:                        s.kubeClient.Kube().CoreV1(),
+				RootCertFile:                  fileBundle.RootCertFile,
+				EnableJitter:                  enableJitterForRootCertRotator.Get(),
+				CaRSAKeySize:                  caRSAKeySize.Get(),
+				AlgorithmType:                 pkiutil.SupportedAlgorithmTypes(features.SelfSignedAlgorithm),
+				EcSigAlg:                      features.EccSigAlgEnv,
+				EccCurve:                      features.EccCurvEnv,
+			}
+
+			caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, &ssOpts)
 		} else {
 			log.Warnf(
 				"Use local self-signed CA certificate for testing. Will use in-memory root CA, no K8S access and no ca key file %s",
