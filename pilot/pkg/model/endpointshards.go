@@ -116,16 +116,11 @@ type EndpointIndex struct {
 	cache XdsCache
 }
 
-func NewEndpointIndex() *EndpointIndex {
+func NewEndpointIndex(cache XdsCache) *EndpointIndex {
 	return &EndpointIndex{
 		shardsBySvc: make(map[string]map[string]*EndpointShards),
+		cache:       cache,
 	}
-}
-
-func (e *EndpointIndex) SetCache(cache XdsCache) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.cache = cache
 }
 
 // must be called with lock
