@@ -673,7 +673,7 @@ func NewPushContext() *PushContext {
 		virtualServiceIndex:     newVirtualServiceIndex(),
 		destinationRuleIndex:    newDestinationRuleIndex(),
 		sidecarIndex:            newSidecarIndex(),
-		envoyFiltersByNamespace: make(map[string][]*EnvoyFilterWrapper),
+		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		serviceAccounts:         map[serviceAccountKey][]string{},
