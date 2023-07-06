@@ -759,7 +759,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.Gatewa
 	for _, podIP := range pod.Status.PodIPs {
 		addresses = append(addresses, parseIP(podIP.IP))
 	}
-	for nsName, ports := range getWorkloadServices(serviceEntries, nil, pod.GetNamespace(), pod.Labels) {
+	for nsName, ports := range getWorkloadServicesFromServiceEntries(serviceEntries, nil, pod.GetNamespace(), pod.Labels) {
 		workloadServices[nsName] = ports
 	}
 

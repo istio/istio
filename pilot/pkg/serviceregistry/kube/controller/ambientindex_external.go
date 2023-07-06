@@ -335,7 +335,7 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.
 
 	// for constructing a workload from a standalone workload entry, which can be selected by many service entries
 	if parentServiceEntry == nil {
-		for nsName, ports := range getWorkloadServices(serviceEntries, workloadEntry, workloadEntryNamespace, workloadEntry.Labels) {
+		for nsName, ports := range getWorkloadServicesFromServiceEntries(serviceEntries, workloadEntry, workloadEntryNamespace, workloadEntry.Labels) {
 			workloadServices[nsName] = ports
 		}
 	}
@@ -531,7 +531,7 @@ func (a *AmbientIndexImpl) cleanupOldWorkloadEntriesInlinedOnServiceEntry(svc *m
 	}
 }
 
-func getWorkloadServices(serviceEntries map[types.NamespacedName]*model.Service, workloadEntry *v1alpha3.WorkloadEntry,
+func getWorkloadServicesFromServiceEntries(serviceEntries map[types.NamespacedName]*model.Service, workloadEntry *v1alpha3.WorkloadEntry,
 	workloadNamespace string, workloadLabels map[string]string,
 ) map[string]*workloadapi.PortList {
 	workloadServices := map[string]*workloadapi.PortList{}
