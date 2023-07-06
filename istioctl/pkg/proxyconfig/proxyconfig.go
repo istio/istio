@@ -1356,7 +1356,6 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
-	secretConfigCmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return secretConfigCmd
 }
 

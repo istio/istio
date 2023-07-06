@@ -407,7 +407,7 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 		}
 	}
 
-	updates := c.calculateUpdatedWorkloads(pods)
+	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, nil, c)
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
@@ -417,20 +417,40 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 	}
 }
 
-func (c *Controller) calculateUpdatedWorkloads(pods map[string]*v1.Pod) sets.Set[model.ConfigKey] {
-	updates := sets.New[model.ConfigKey]()
+// CalculateUpdatedWorkloads returns the set of updated config keys for the given
+// pods and workload entries.
+//
+// NOTE: As an interface method of AmbientIndex, this locks the index.
+func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
+	workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, c *Controller,
+) map[model.ConfigKey]struct{} {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	updates := map[model.ConfigKey]struct{}{}
 	for _, pod := range pods {
-		newWl := c.extractWorkload(pod)
+		newWl := a.extractWorkload(pod, c)
 		if newWl != nil {
 			// Update the pod, since it now has new VIP info
 			networkAddrs := networkAddressFromWorkload(newWl)
-			c.ambientIndex.mu.Lock()
 			for _, networkAddr := range networkAddrs {
-				c.ambientIndex.byPod[networkAddr] = newWl
+				a.byPod[networkAddr] = newWl
 			}
-			c.ambientIndex.byUID[c.generatePodUID(pod)] = newWl
-			c.ambientIndex.mu.Unlock()
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()})
+			a.byUID[c.generatePodUID(pod)] = newWl
+			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
+		}
+	}
+
+	for _, w := range workloadEntries {
+		newWl := a.extractWorkloadEntry(w, c)
+		if newWl != nil {
+			// Update the WorkloadEntry, since it now has new VIP info
+			networkAddrs := networkAddressFromWorkload(newWl)
+			for _, networkAddr := range networkAddrs {
+				a.byWorkloadEntry[networkAddr] = newWl
+			}
+			a.byUID[c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())] = newWl
+			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
 		}
 	}
 
@@ -473,8 +493,6 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 		}
 	}
 
-	updates := c.calculateUpdatedWorkloads(pods)
-
 	workloadEntries := map[networkAddress]*apiv1alpha3.WorkloadEntry{}
 	for _, w := range c.getWorkloadEntriesInPolicy(obj.Namespace, sel) {
 		network := c.Network(w.Spec.Address, w.Spec.Labels).String()
@@ -499,20 +517,7 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 		}
 	}
 
-	for _, w := range workloadEntries {
-		newWl := c.extractWorkloadEntry(w)
-		if newWl != nil {
-			// Update the WorkloadEntry, since it now has new VIP info
-			networkAddrs := networkAddressFromWorkload(newWl)
-			c.ambientIndex.mu.Lock()
-			for _, networkAddr := range networkAddrs {
-				c.ambientIndex.byWorkloadEntry[networkAddr] = newWl
-			}
-			c.ambientIndex.byUID[c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())] = newWl
-			c.ambientIndex.mu.Unlock()
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()})
-		}
-	}
+	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, c)
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{

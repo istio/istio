@@ -51,7 +51,6 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	controller.network = "testnetwork"
 	pc := clienttest.Wrap(t, controller.podsClient)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
-	cfg.RegisterEventHandler(gvk.WorkloadEntry, controller.WorkloadEntryHandler)
 	go cfg.Run(test.NewStop(t))
 
 	addWorkloadEntries := func(ip string, name, sa string, labels map[string]string) {
@@ -97,7 +96,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 			},
 			Hostname: host.Name(hostStr),
 		}
-		controller.ambientIndex.handleServiceEntry(svc, model.EventAdd)
+		controller.ambientIndex.(*AmbientIndexImpl).handleServiceEntry(svc, model.EventAdd)
 	}
 
 	deleteServiceEntry := func(hostStr string, addresses []string, name, ns string, labels map[string]string) {
@@ -111,7 +110,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 			},
 			Hostname: host.Name(hostStr),
 		}
-		controller.ambientIndex.handleServiceEntry(svc, model.EventDelete)
+		controller.ambientIndex.(*AmbientIndexImpl).handleServiceEntry(svc, model.EventDelete)
 	}
 
 	// test code path where service entry creates a workload entry via `ServiceEntry.endpoints`
@@ -119,7 +118,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	addServiceEntry("se.istio.io", []string{"240.240.23.45"}, "name1", "ns", nil)
 	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1")
 	assertEvent(t, fx, "cluster0/networking.istio.io/ServiceEntry/ns/name1/127.0.0.1", "ns/se.istio.io")
-	assert.Equal(t, len(controller.ambientIndex.byWorkloadEntry), 1)
+	assert.Equal(t, len(controller.ambientIndex.(*AmbientIndexImpl).byWorkloadEntry), 1)
 	assert.Equal(t, controller.ambientIndex.Lookup("testnetwork/127.0.0.1"), []*model.AddressInfo{{
 		Address: &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
@@ -150,7 +149,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	}})
 
 	deleteServiceEntry("se.istio.io", []string{"240.240.23.45"}, "name1", "ns", nil)
-	assert.Equal(t, len(controller.ambientIndex.byWorkloadEntry), 0)
+	assert.Equal(t, len(controller.ambientIndex.(*AmbientIndexImpl).byWorkloadEntry), 0)
 	assert.Equal(t, controller.ambientIndex.Lookup("testnetwork/127.0.0.1"), nil)
 	fx.Clear()
 
