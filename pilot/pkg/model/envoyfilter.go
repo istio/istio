@@ -203,13 +203,7 @@ func (efw *EnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_
 }
 
 func genFullName(namespace, name string) string {
-	b := strings.Builder{}
-	b.Grow(len(namespace) + len(name) + 1)
-
-	b.WriteString(namespace)
-	b.WriteString("/")
-	b.WriteString(name)
-	return b.String()
+	return namespace + "/" + name
 }
 
 func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {
