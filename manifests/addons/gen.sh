@@ -27,6 +27,7 @@ DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
 TMP=$(mktemp -d)
 LOKI_VERSION=${LOKI_VERSION:-"4.8.0"}
+GRAFANA_VERSION=${GRAFANA_VERSION:-"6.57.4"}
 
 # Set up kiali
 {
@@ -58,7 +59,7 @@ function compressDashboard() {
 {
   helm3 template grafana grafana \
     --namespace istio-system \
-    --version 6.31.1 \
+    --version ${GRAFANA_VERSION} \
     --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-grafana.yaml"
 
