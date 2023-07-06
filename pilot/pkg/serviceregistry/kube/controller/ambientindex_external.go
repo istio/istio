@@ -72,7 +72,7 @@ func (a *AmbientIndexImpl) HandleServiceEntry(svc *model.Service, event model.Ev
 		a.servicesMap[serviceEntryNamespacedName] = svc
 	}
 
-	sel := klabels.Set(svc.Attributes.ServiceEntry.WorkloadSelector.GetLabels()).AsSelectorPreValidated()
+	sel := klabels.ValidatedSetSelector(klabels.Set(svc.Attributes.ServiceEntry.WorkloadSelector.GetLabels()))
 	var pods []*v1.Pod
 	if !sel.Empty() {
 		pods = c.podsClient.List(svc.Attributes.ServiceEntryNamespace, sel)
