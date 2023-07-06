@@ -35,8 +35,8 @@ var annotationPatch = []byte(fmt.Sprintf(
 ))
 
 var annotationRemovePatch = []byte(fmt.Sprintf(
-	`{"metadata":{"annotations":{"%s":null}}}`,
-	constants.AmbientRedirection,
+	`{"metadata":{"annotations":{"%s":%s}}}`,
+	constants.AmbientRedirection, constants.AmbientRedirectionNone,
 ))
 
 // PodRedirectionEnabled determines if a pod should or should not be configured
@@ -82,10 +82,9 @@ func AnnotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
 }
 
 func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
-	if pod.Annotations[constants.AmbientRedirection] != constants.AmbientRedirectionEnabled {
+	if pod.Annotations[constants.AmbientRedirection] != constants.AmbientRedirectionEnabled && pod.Annotations[constants.AmbientRedirection] != constants.AmbientRedirectionNone {
 		return nil
 	}
-	// TODO: do not overwrite if already none
 	_, err := client.CoreV1().
 		Pods(pod.Namespace).
 		Patch(

@@ -175,4 +175,5 @@ const (
 	AmbientRedirectionEnabled = "enabled"
 	// AmbientRedirectionDisabled is an opt-out, configured by user.
 	AmbientRedirectionDisabled = "disabled"
+	AmbientRedirectionNone     = "null"
 )
