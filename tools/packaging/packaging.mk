@@ -68,6 +68,7 @@ rpm/fpm:
 		--depends iproute \
 		--depends iptables \
 		--depends sudo \
+		--depends hostname \
 		$(RPM_COMPRESSION) \
 		$(SIDECAR_FILES)
 
@@ -87,6 +88,7 @@ deb/fpm:
 		--depends iproute2 \
 		--depends iptables \
 		--depends sudo \
+		--depends hostname \
 		$(DEB_COMPRESSION) \
 		$(SIDECAR_FILES)
 
