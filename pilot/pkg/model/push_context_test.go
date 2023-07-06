@@ -958,7 +958,7 @@ func TestIsServiceVisible(t *testing.T) {
 }
 
 func serviceNames(svcs []*Service) []string {
-	var s []string
+	s := make([]string, 0, len(svcs))
 	for _, ss := range svcs {
 		s = append(s, string(ss.Hostname))
 	}

@@ -195,7 +195,7 @@ func (sd *ServiceDiscovery) AddInstanceNotify(service host.Name, instance *model
 	key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
 	instanceList = sd.instancesByPortName[key]
 	sd.instancesByPortName[key] = append(instanceList, instance)
-	var eps []*model.IstioEndpoint
+	eps := make([]*model.IstioEndpoint, 0, len(sd.instancesByPortName[key]))
 	for _, i := range sd.instancesByPortName[key] {
 		eps = append(eps, i.Endpoint)
 	}

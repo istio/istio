@@ -1732,7 +1732,7 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 
 	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
 
-	var got []string
+	got := make([]string, 0, len(instances))
 	for _, instance := range instances {
 		got = append(got, net.JoinHostPort(instance.Endpoint.Address, strconv.Itoa(int(instance.Endpoint.EndpointPort))))
 	}
@@ -1920,7 +1920,7 @@ func createEndpoints(t *testing.T, controller *FakeController, name, namespace s
 		esps = append(esps, discovery.EndpointPort{Name: &n, Port: &portNum})
 	}
 
-	var sliceEndpoint []discovery.Endpoint
+	sliceEndpoint := make([]discovery.Endpoint, 0, len(ips))
 	for i, ip := range ips {
 		sliceEndpoint = append(sliceEndpoint, discovery.Endpoint{
 			Addresses: []string{ip},
@@ -2472,7 +2472,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	// we should have the pod IP and the workload Entry's IP in the endpoints..
 	// the first endpoint should be that of the k8s pod and the second one should be the workload entry
 
-	var gotEndpointIPs []string
+	gotEndpointIPs := make([]string, 0, len(ev.Endpoints))
 	for _, ep := range ev.Endpoints {
 		gotEndpointIPs = append(gotEndpointIPs, ep.Address)
 	}
