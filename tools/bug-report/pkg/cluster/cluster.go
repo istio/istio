@@ -87,12 +87,12 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 	for _, ild := range config.Include {
 		if len(ild.Namespaces) > 0 {
 			if !isIncludeOrExcludeEntriesMatched(ild.Namespaces, pod.Namespace) {
-				return true
+				continue
 			}
 		}
 		if len(ild.Pods) > 0 {
 			if !isIncludeOrExcludeEntriesMatched(ild.Pods, pod.Name) {
-				return true
+				continue
 			}
 		}
 
@@ -104,7 +104,7 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 				}
 			}
 			if !isContainerMatch {
-				return true
+				continue
 			}
 		}
 
@@ -119,7 +119,7 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 				}
 			}
 			if !isLabelsMatch {
-				return true
+				continue
 			}
 		}
 
@@ -134,12 +134,14 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 				}
 			}
 			if !isAnnotationMatch {
-				return true
+				continue
 			}
 		}
+		// If we reach here, it means that all include entries are matched.
+		return false
 	}
-
-	return false
+	// If we reach here, it means that no include entries are matched.
+	return true
 }
 
 func shouldSkipDeployment(deployment string, config *config2.BugReportConfig) bool {
