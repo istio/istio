@@ -170,8 +170,8 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, opts *CAOptions) (caOpts *
 			return nil, err
 		}
 
-		caOpts.ECSigAlg = util.SupportedECSignatureAlgorithms(opts.EcSigAlg)
-		caOpts.ECCCurve = util.SupportedEllipticCurves(opts.EccCurve)
+		caOpts.ECSigAlg = opts.EcSigAlg
+		caOpts.ECCCurve = opts.EccCurve
 	default:
 		return nil, fmt.Errorf("unknown algorithm type specified (%v)", opts.AlgorithmType)
 	}
@@ -269,10 +269,10 @@ func NewSelfSignedDebugIstioCAOptions(opts *CAOptions) (caOpts *IstioCAOptions, 
 		caOpts.CARSAKeySize = opts.CaRSAKeySize
 		options.RSAKeySize = opts.CaRSAKeySize
 	case util.EcAlg:
-		caOpts.ECSigAlg = util.SupportedECSignatureAlgorithms(opts.EcSigAlg)
-		caOpts.ECCCurve = util.SupportedEllipticCurves(opts.EccCurve)
-		options.ECSigAlg = util.SupportedECSignatureAlgorithms(opts.EcSigAlg)
-		options.ECCCurve = util.SupportedEllipticCurves(opts.EccCurve)
+		caOpts.ECSigAlg = opts.EcSigAlg
+		caOpts.ECCCurve = opts.EccCurve
+		options.ECSigAlg = opts.EcSigAlg
+		options.ECCCurve = opts.EccCurve
 	default:
 		return nil, fmt.Errorf("unknown algorithm type specified (%v)", opts.AlgorithmType)
 	}
