@@ -16,6 +16,7 @@ package kubeyaml
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -135,7 +136,7 @@ func TestLineNumber(t *testing.T) {
 			var expectedLineNumbers []int
 			for {
 				_, line, err := decoder.Read()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				expectedLineNumbers = append(expectedLineNumbers, line)

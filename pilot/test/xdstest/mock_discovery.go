@@ -15,6 +15,8 @@
 package xdstest
 
 import (
+	"errors"
+
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
@@ -43,7 +45,7 @@ func NewMockServer(t test.Failer) *MockDiscovery {
 	grpcServer := grpc.NewServer()
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, s)
 	go func() {
-		if err := grpcServer.Serve(listener); err != nil && !(err == grpc.ErrServerStopped || err.Error() == "closed") {
+		if err := grpcServer.Serve(listener); err != nil && !(errors.Is(err, grpc.ErrServerStopped) || err.Error() == "closed") {
 			t.Fatal(err)
 		}
 	}()

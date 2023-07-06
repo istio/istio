@@ -16,6 +16,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"io"
 	"math"
 	"strings"
@@ -130,7 +131,7 @@ func containsExpectedMessage(msg string) bool {
 // IsExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
 // things are operating normally. This is basically capturing when the client disconnects.
 func IsExpectedGRPCError(err error) bool {
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return true
 	}
 

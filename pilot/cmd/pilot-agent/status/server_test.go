@@ -513,7 +513,7 @@ my_other_metric{} 0
 				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes())
 				for {
 					_, err := omParser.Next()
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					if err != nil {

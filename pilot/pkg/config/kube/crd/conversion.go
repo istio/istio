@@ -17,6 +17,7 @@ package crd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -170,7 +171,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]config.Config, []Istio
 	for {
 		obj := IstioKind{}
 		err := yamlDecoder.Decode(&obj)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

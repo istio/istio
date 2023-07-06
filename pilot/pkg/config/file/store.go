@@ -275,7 +275,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 	for {
 		chunkCount++
 		doc, lineNum, err := decoder.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
