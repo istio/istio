@@ -21,7 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	yaml2 "sigs.k8s.io/yaml"
+	"sigs.k8s.io/yaml"
 
 	v1alpha13 "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -238,10 +238,10 @@ func OverlayIOP(base, overlay string) (string, error) {
 	var bj map[string]interface{}
 	var oj map[string]interface{}
 
-	if err := yaml2.Unmarshal([]byte(base), &bj); err != nil {
+	if err := yaml.Unmarshal([]byte(base), &bj); err != nil {
 		return "", err
 	}
-	if err := yaml2.Unmarshal([]byte(overlay), &oj); err != nil {
+	if err := yaml.Unmarshal([]byte(overlay), &oj); err != nil {
 		return "", err
 	}
 
@@ -249,7 +249,7 @@ func OverlayIOP(base, overlay string) (string, error) {
 		return "", err
 	}
 
-	my, err := yaml2.Marshal(bj)
+	my, err := yaml.Marshal(bj)
 	if err != nil {
 		return "", err
 	}
