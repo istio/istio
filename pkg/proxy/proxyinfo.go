@@ -59,16 +59,16 @@ func GetProxyInfo(kubeClient kube.CLIClient, istioNamespace string) (*[]istioVer
 	return &pi, nil
 }
 
-// GetUserLevelIDsFromProxyInfo is a helper function to retrieve list of IDs from Proxy.
-// This list only retrieves proxies at the user level, while proxies at the system level (such as gateway and ztunnel) will be ignored.
-func GetUserLevelIDsFromProxyInfo(kubeClient kube.CLIClient, istioNamespace string) ([]string, error) {
+// GetSidecarProxyIDs is a helper function to retrieve list of IDs from Proxy.
+// This list only retrieves sidecar proxies, while proxies at the system level (such as gateway and ztunnel) will be ignored.
+func GetSidecarProxyIDs(kubeClient kube.CLIClient, istioNamespace string) ([]string, error) {
 	var IDs []string
 	pi, err := GetProxyInfo(kubeClient, istioNamespace)
 	if err != nil {
 		return IDs, fmt.Errorf("failed to get proxy infos: %v", err)
 	}
 	for _, pi := range *pi {
-		if istioVersion.NodeTypeIsZtunnel(pi.Type) || istioVersion.NodeTypeIsGateway(pi.Type) {
+		if pi.Type.IsZtunnel() || pi.Type.IsGateway() {
 			continue
 		}
 		IDs = append(IDs, pi.ID)

@@ -68,12 +68,12 @@ func ToUserFacingNodeType(t model.NodeType) NodeType {
 	return ""
 }
 
-func NodeTypeIsGateway(t NodeType) bool {
-	return t == userFacingGateway
+func (n NodeType) IsGateway() bool {
+	return n == userFacingGateway
 }
 
-func NodeTypeIsZtunnel(t NodeType) bool {
-	return t == NodeType(model.Ztunnel)
+func (n NodeType) IsZtunnel() bool {
+	return n == NodeType(model.Ztunnel)
 }
 
 // ProxyInfo contains the version for a single data plane component
