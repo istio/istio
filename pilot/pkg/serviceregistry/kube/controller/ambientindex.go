@@ -523,7 +523,11 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			idx.servicesMap[serviceEntryNamespacedName] = svc
 		}
 
-		pods := c.podsClient.List(svc.Attributes.ServiceEntryNamespace, klabels.Everything())
+		sel := klabels.Set(svc.Attributes.ServiceEntry.WorkloadSelector.GetLabels()).AsSelectorPreValidated()
+		var pods []*v1.Pod
+		if !sel.Empty() {
+			pods = c.podsClient.List(svc.Attributes.ServiceEntryNamespace, sel)
+		}
 		wls := make(map[string]*model.WorkloadInfo, len(pods))
 		for _, pod := range pods {
 			newWl := idx.extractWorkload(pod, c)
