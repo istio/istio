@@ -193,7 +193,7 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.
 
 	// for constructing a workload from a standalone workload entry, which can be selected by many service entries
 	if parentServiceEntry == nil {
-		for nsName, ports := range a.getWorkloadServices(workloadEntry, workloadEntry.Labels) {
+		for nsName, ports := range a.getWorkloadServices(workloadEntry, workloadEntryNamespace, workloadEntry.Labels) {
 			workloadServices[nsName] = ports
 		}
 	}
@@ -334,15 +334,6 @@ func (c *Controller) getWorkloadEntriesInService(svc *v1.Service) []*apiv1alpha3
 	return workloadEntries
 }
 
-func (c *Controller) getAllControllerWorkloadEntries() []*apiv1alpha3.WorkloadEntry {
-	namespaces := c.namespaces.List(metav1.NamespaceAll, klabels.Everything())
-	var allWorkloadEntries []*apiv1alpha3.WorkloadEntry
-	for _, ns := range namespaces {
-		allWorkloadEntries = append(allWorkloadEntries, c.getControllerWorkloadEntries(ns.GetObjectMeta().GetName())...)
-	}
-	return allWorkloadEntries
-}
-
 func (c *Controller) getControllerWorkloadEntries(ns string) []*apiv1alpha3.WorkloadEntry {
 	var allWorkloadEntries []*apiv1alpha3.WorkloadEntry
 	allUnstructuredWorkloadEntries := c.configController.List(gvk.WorkloadEntry, ns)
@@ -394,13 +385,20 @@ func (a *AmbientIndexImpl) cleanupOldWorkloadEntriesInlinedOnServiceEntry(svc *m
 	}
 }
 
-func (a *AmbientIndexImpl) getWorkloadServices(workloadEntry *v1alpha3.WorkloadEntry, workloadLabels map[string]string) map[string]*workloadapi.PortList {
+func (a *AmbientIndexImpl) getWorkloadServices(workloadEntry *v1alpha3.WorkloadEntry, workloadNamespace string,
+	workloadLabels map[string]string,
+) map[string]*workloadapi.PortList {
 	workloadServices := map[string]*workloadapi.PortList{}
 	for _, svc := range a.servicesMap {
 
 		if svc.Attributes.ServiceEntry == nil {
 			// if we are here then this is dev error
 			log.Warn("dev error: service entry spec is nil; it should have been populated by the service entry handler")
+			continue
+		}
+
+		if svc.Attributes.ServiceEntryNamespace != workloadNamespace {
+			// service entry can only select workloads in the same namespace
 			continue
 		}
 

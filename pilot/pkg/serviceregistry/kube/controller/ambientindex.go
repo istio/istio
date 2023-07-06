@@ -21,7 +21,6 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -524,7 +523,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			idx.servicesMap[serviceEntryNamespacedName] = svc
 		}
 
-		pods := c.podsClient.List(metav1.NamespaceAll, klabels.Everything())
+		pods := c.podsClient.List(svc.Attributes.ServiceEntryNamespace, klabels.Everything())
 		wls := make(map[string]*model.WorkloadInfo, len(pods))
 		for _, pod := range pods {
 			newWl := idx.extractWorkload(pod, c)
@@ -540,7 +539,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			}
 		}
 
-		workloadEntries := c.getAllControllerWorkloadEntries()
+		workloadEntries := c.getControllerWorkloadEntries(svc.Attributes.ServiceEntryNamespace)
 		for _, w := range workloadEntries {
 			wl := idx.extractWorkloadEntry(w, c)
 			// Can be nil if the WorkloadEntry IP has not been mapped yet
@@ -902,7 +901,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.Gatewa
 	for _, podIP := range pod.Status.PodIPs {
 		addresses = append(addresses, parseIP(podIP.IP))
 	}
-	for nsName, ports := range a.getWorkloadServices(nil, pod.Labels) {
+	for nsName, ports := range a.getWorkloadServices(nil, pod.GetNamespace(), pod.Labels) {
 		workloadServices[nsName] = ports
 	}
 
