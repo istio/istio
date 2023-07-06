@@ -15,9 +15,10 @@
 package util
 
 import (
+	"fmt"
 	"strings"
 
-	"github.com/imdario/mergo"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -235,23 +236,25 @@ func OverlayIOP(base, overlay string) (string, error) {
 	if strings.TrimSpace(overlay) == "" {
 		return base, nil
 	}
-	var bj map[string]interface{}
-	var oj map[string]interface{}
-
-	if err := yaml.Unmarshal([]byte(base), &bj); err != nil {
-		return "", err
-	}
-	if err := yaml.Unmarshal([]byte(overlay), &oj); err != nil {
-		return "", err
-	}
-
-	if err := mergo.Merge(&bj, &oj, mergo.WithOverride); err != nil {
-		return "", err
-	}
-
-	my, err := yaml.Marshal(bj)
+	bj, err := yaml.YAMLToJSON([]byte(base))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("yamlToJSON error in base: %s\n%s", err, bj)
 	}
-	return string(my), nil
+	oj, err := yaml.YAMLToJSON([]byte(overlay))
+	if err != nil {
+		return "", fmt.Errorf("yamlToJSON error in overlay: %s\n%s", err, oj)
+	}
+	if base == "" {
+		bj = []byte("{}")
+	}
+	if overlay == "" {
+		oj = []byte("{}")
+	}
+
+	// Apply the patch to the original document
+	modified, err := jsonpatch.MergePatch(bj, oj)
+	if err != nil {
+		return "", fmt.Errorf("mergePatch error: %s\n%s", err, modified)
+	}
+	return string(modified), nil
 }
