@@ -225,7 +225,7 @@ func (a *AmbientIndexImpl) extractWorkloadEntrySpec(w *v1alpha3.WorkloadEntry, n
 		}
 	}
 	policies := c.selectorAuthorizationPolicies(ns, w.Labels)
-	wl := c.constructWorkloadFromWorkloadEntry(w, ns, name, parentServiceEntry, waypoint, policies, a.servicesMap)
+	wl := a.constructWorkloadFromWorkloadEntry(w, ns, name, parentServiceEntry, waypoint, policies, c)
 	if wl == nil {
 		return nil
 	}
@@ -297,8 +297,8 @@ func (a *AmbientIndexImpl) handleWorkloadEntry(oldWorkloadEntry, w *apiv1alpha3.
 	return updates
 }
 
-func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.WorkloadEntry, workloadEntryNamespace, workloadEntryName string,
-	parentServiceEntry *model.Service, waypoint *workloadapi.GatewayAddress, policies []string, serviceEntries map[types.NamespacedName]*model.Service,
+func (a *AmbientIndexImpl) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.WorkloadEntry, workloadEntryNamespace, workloadEntryName string,
+	parentServiceEntry *model.Service, waypoint *workloadapi.GatewayAddress, policies []string, c *Controller,
 ) *workloadapi.Workload {
 	if workloadEntry == nil {
 		return nil
@@ -335,7 +335,7 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.
 
 	// for constructing a workload from a standalone workload entry, which can be selected by many service entries
 	if parentServiceEntry == nil {
-		for nsName, ports := range getWorkloadServicesFromServiceEntries(serviceEntries, workloadEntry, workloadEntryNamespace, workloadEntry.Labels) {
+		for nsName, ports := range a.getWorkloadServicesFromServiceEntries(workloadEntry, workloadEntryNamespace, workloadEntry.Labels) {
 			workloadServices[nsName] = ports
 		}
 	}
@@ -516,6 +516,7 @@ func (a *AmbientIndexImpl) cleanupOldWorkloadEntriesInlinedOnServiceEntry(svc *m
 	}
 
 	// cleanup any old WorkloadEntries generated from this ServiceEntry (`ServiceEntry.endpoints`)
+	// we have to do this now before the a.servicesMap is updated to account for vip auto allocation
 	if oldServiceEntry, f := a.servicesMap[nsName]; f && oldServiceEntry.Attributes.ServiceEntry != nil {
 		for _, oldWe := range oldServiceEntry.Attributes.ServiceEntry.Endpoints {
 			oldUID := c.generateServiceEntryUID(nsName.Namespace, nsName.Name, oldWe.Address)
@@ -531,11 +532,11 @@ func (a *AmbientIndexImpl) cleanupOldWorkloadEntriesInlinedOnServiceEntry(svc *m
 	}
 }
 
-func getWorkloadServicesFromServiceEntries(serviceEntries map[types.NamespacedName]*model.Service, workloadEntry *v1alpha3.WorkloadEntry,
+func (a *AmbientIndexImpl) getWorkloadServicesFromServiceEntries(workloadEntry *v1alpha3.WorkloadEntry,
 	workloadNamespace string, workloadLabels map[string]string,
 ) map[string]*workloadapi.PortList {
 	workloadServices := map[string]*workloadapi.PortList{}
-	for _, svc := range serviceEntries {
+	for _, svc := range a.servicesMap {
 
 		if svc.Attributes.ServiceEntry == nil {
 			// if we are here then this is dev error

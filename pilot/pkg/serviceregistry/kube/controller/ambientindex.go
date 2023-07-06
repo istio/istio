@@ -354,7 +354,7 @@ func (a *AmbientIndexImpl) extractWorkload(p *v1.Pod, c *Controller) *model.Work
 
 	policies := c.selectorAuthorizationPolicies(p.Namespace, p.Labels)
 	policies = append(policies, c.convertedSelectorPeerAuthentications(p.Namespace, p.Labels)...)
-	wl := c.constructWorkload(p, waypoint, policies, a.servicesMap)
+	wl := a.constructWorkload(p, waypoint, policies, c)
 	if wl == nil {
 		return nil
 	}
@@ -727,8 +727,8 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]*model.Address
 	return wls, removed
 }
 
-func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.GatewayAddress, policies []string,
-	serviceEntries map[types.NamespacedName]*model.Service,
+func (a *AmbientIndexImpl) constructWorkload(pod *v1.Pod, waypoint *workloadapi.GatewayAddress, policies []string,
+	c *Controller,
 ) *workloadapi.Workload {
 	workloadServices := map[string]*workloadapi.PortList{}
 	allServices := c.services.List(pod.Namespace, klabels.Everything())
@@ -759,7 +759,7 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.Gatewa
 	for _, podIP := range pod.Status.PodIPs {
 		addresses = append(addresses, parseIP(podIP.IP))
 	}
-	for nsName, ports := range getWorkloadServicesFromServiceEntries(serviceEntries, nil, pod.GetNamespace(), pod.Labels) {
+	for nsName, ports := range a.getWorkloadServicesFromServiceEntries(nil, pod.GetNamespace(), pod.Labels) {
 		workloadServices[nsName] = ports
 	}
 
