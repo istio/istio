@@ -543,7 +543,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			}
 		}
 
-		workloadEntries := c.getControllerWorkloadEntries(svc.Attributes.ServiceEntryNamespace)
+		workloadEntries := c.getSelectedWorkloadEntries(svc.Attributes.ServiceEntryNamespace, svc.Attributes.ServiceEntry.GetWorkloadSelector().GetLabels())
 		for _, w := range workloadEntries {
 			wl := idx.extractWorkloadEntry(w, c)
 			// Can be nil if the WorkloadEntry IP has not been mapped yet

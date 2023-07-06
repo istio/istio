@@ -160,8 +160,10 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	assertEvent(t, fx, "cluster0//Pod/ns1/pod2")
 	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2")
 	addWorkloadEntries("240.240.34.56", "name1", "sa1", map[string]string{"app": "a"})
-	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1")
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name1")
+	addWorkloadEntries("240.240.34.57", "name2", "sa1", map[string]string{"app": "other"})
+	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name2")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1", "name2")
 
 	// a service entry should not be able to select across namespaces
 	addServiceEntry("mismatched.istio.io", []string{"240.240.23.45"}, "name1", "mismatched-ns", map[string]string{"app": "a"})
@@ -209,7 +211,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	}})
 
 	addServiceEntry("se.istio.io", []string{"240.240.23.45"}, "name1", "ns1", map[string]string{"app": "a"})
-	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1", "name2")
 	// we should see an update for the workloads selected by the service entry
 	// do not expect event for cluster0//Pod/ns1/pod2 since it is not selected by the service entry
 	assertEvent(t, fx, "cluster0//Pod/ns1/pod1", "cluster0/networking.istio.io/WorkloadEntry/ns1/name1", "ns1/se.istio.io")
@@ -298,7 +300,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	}})
 
 	deleteServiceEntry("se.istio.io", []string{"240.240.23.45"}, "name1", "ns1", map[string]string{"app": "a"})
-	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1", "name2")
 	// we should see an update for the workloads selected by the service entry
 	assertEvent(t, fx, "cluster0//Pod/ns1/pod1", "cluster0/networking.istio.io/WorkloadEntry/ns1/name1", "ns1/se.istio.io")
 	assert.Equal(t, controller.ambientIndex.Lookup("testnetwork/140.140.0.10"), []*model.AddressInfo{{

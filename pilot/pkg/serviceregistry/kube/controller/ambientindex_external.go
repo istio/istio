@@ -45,15 +45,7 @@ func (c *Controller) getWorkloadEntriesInPolicy(ns string, sel map[string]string
 		ns = metav1.NamespaceAll
 	}
 
-	allWorkloadEntries := c.getControllerWorkloadEntries(ns)
-	var workloadEntries []*apiv1alpha3.WorkloadEntry
-	for _, w := range allWorkloadEntries {
-		if labels.Instance(sel).SubsetOf(w.Spec.Labels) {
-			workloadEntries = append(workloadEntries, w)
-		}
-	}
-
-	return workloadEntries
+	return c.getSelectedWorkloadEntries(ns, sel)
 }
 
 // NOTE: Mutex is locked prior to being called.
@@ -320,14 +312,18 @@ func findPortForWorkloadEntry(workloadEntry *v1alpha3.WorkloadEntry, svcPort *v1
 }
 
 func (c *Controller) getWorkloadEntriesInService(svc *v1.Service) []*apiv1alpha3.WorkloadEntry {
-	allWorkloadEntries := c.getControllerWorkloadEntries(svc.GetNamespace())
-	if svc.Spec.Selector == nil {
-		// services with nil selectors match nothing, not everything.
+	return c.getSelectedWorkloadEntries(svc.GetNamespace(), svc.Spec.Selector)
+}
+
+func (c *Controller) getSelectedWorkloadEntries(ns string, selector map[string]string) []*apiv1alpha3.WorkloadEntry {
+	allWorkloadEntries := c.getControllerWorkloadEntries(ns)
+	if len(selector) == 0 {
+		// k8s services and service entry workloadSelector with empty selectors match nothing, not everything.
 		return nil
 	}
 	var workloadEntries []*apiv1alpha3.WorkloadEntry
 	for _, wl := range allWorkloadEntries {
-		if labels.Instance(svc.Spec.Selector).SubsetOf(wl.Spec.Labels) {
+		if labels.Instance(selector).SubsetOf(wl.Spec.Labels) {
 			workloadEntries = append(workloadEntries, wl)
 		}
 	}
