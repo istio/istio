@@ -105,6 +105,8 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 		eccSigAlg     string
 		eccCurve      string
 		rsaKeySize    int
+		expectedCurve elliptic.Curve
+		expectError   bool
 	}{
 		{
 			name:          "Test RSA",
@@ -112,10 +114,37 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 			rsaKeySize:    2048,
 		},
 		{
-			name:          "Test ECC",
+			name:          "Test ECC/ECDSA/P256",
 			algorithmType: "ECC",
 			eccSigAlg:     "ECDSA",
 			eccCurve:      "P256",
+			expectedCurve: elliptic.P256(),
+		},
+		{
+			name:          "Test ECC/ECDSA/P384",
+			algorithmType: "ECC",
+			eccSigAlg:     "ECDSA",
+			eccCurve:      "P384",
+			expectedCurve: elliptic.P384(),
+		},
+		// Error testing
+		{
+			name:          "Test unknown signature algorithm",
+			algorithmType: "FOO",
+			expectError:   true,
+		},
+		{
+			name:          "Test ECC signature algorithm",
+			algorithmType: "ECC",
+			eccSigAlg:     "ECDH",
+			expectError:   true,
+		},
+		{
+			name:          "Test ECC curve",
+			algorithmType: "ECC",
+			eccSigAlg:     "ECDSA",
+			expectError:   true,
+			eccCurve:      "P512",
 		},
 	}
 
@@ -141,7 +170,11 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 			}
 			caopts, err := NewSelfSignedIstioCAOptions(context.Background(), &ssOpts)
 			if err != nil {
-				t.Fatalf("Failed to create a self-signed CA Options: %v", err)
+				if !tc.expectError {
+					t.Fatalf("Failed to create a self-signed CA Options: %v", err)
+				} else {
+					return
+				}
 			}
 
 			ca, err := NewIstioCA(caopts)
@@ -167,7 +200,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 				if tc.algorithmType != "ECC" {
 					t.Errorf("not using expected algorithm type (%v)", tc.algorithmType)
 				}
-				if key.Curve != elliptic.P256() {
+				if key.Curve != tc.expectedCurve {
 					t.Errorf("not using expected EC curve (%v)", key.Curve)
 				}
 			case *rsa.PrivateKey:
