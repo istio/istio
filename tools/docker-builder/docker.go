@@ -293,13 +293,13 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			i := i
 			e.Go(func() error {
 				exists, err := image.Exists(i)
+				if err != nil {
+					return fmt.Errorf("failed to check image existence: %v", err)
+				}
 				if exists {
 					return fmt.Errorf("image %q already exists", i)
 				}
-				if strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
-					return nil
-				}
-				return fmt.Errorf("failed to check image existence: %v", err)
+				return nil
 			})
 		}
 		if err := e.Wait(); err != nil {
