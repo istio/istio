@@ -8,6 +8,6 @@ deployment:
   - '**'
   ingress_enabled: false
   hpa:
-    api_version: autoscaling/v2beta2
+    api_version: autoscaling/v2
 login_token:
   signing_key: CHANGEME00000000
