@@ -55,7 +55,6 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	pc := clienttest.Wrap(t, controller.podsClient)
 	sc := clienttest.Wrap(t, controller.services)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
-	cfg.RegisterEventHandler(gvk.WorkloadEntry, controller.WorkloadEntryHandler)
 	go cfg.Run(test.NewStop(t))
 	assertWorkloads := func(lookup string, state workloadapi.WorkloadStatus, names ...string) {
 		t.Helper()
@@ -221,7 +220,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
 	assertWorkloads("/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY)
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name2", "ns1/svc1.ns1.svc.company.com")
-	assert.Equal(t, len(controller.ambientIndex.byService), 0)
+	assert.Equal(t, len(controller.ambientIndex.(*AmbientIndexImpl).byService), 0)
 
 	// Add a waypoint proxy pod for namespace
 	addPods("127.0.0.200", "waypoint-ns-pod", "namespace-wide",

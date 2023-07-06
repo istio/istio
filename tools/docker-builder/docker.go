@@ -178,7 +178,7 @@ func createBuildxBuilderIfNeeded(a Args) error {
 		if len(matches) == 0 || matches[1] != "docker-container" {
 			return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
 				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0" +
-				" --name istio-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
+				" --name container-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
 		}
 		return nil
 	}

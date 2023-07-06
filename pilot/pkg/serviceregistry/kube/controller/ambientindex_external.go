@@ -24,11 +24,9 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/api/networking/v1alpha3"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -38,57 +36,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
-
-func (a *AmbientIndex) handleWorkloadEntries(workloadEntries []*apiv1alpha3.WorkloadEntry, c *Controller) {
-	updates := sets.New[model.ConfigKey]()
-	for _, w := range workloadEntries {
-		updates = updates.Merge(c.handleWorkloadEntry(a, nil, w, false))
-	}
-	if len(updates) > 0 {
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			ConfigsUpdated: updates,
-			Reason:         []model.TriggerReason{model.AmbientUpdate},
-		})
-	}
-}
-
-func (c *Controller) WorkloadEntryHandler(oldCfg config.Config, newCfg config.Config, ev model.Event) {
-	var oldWkEntrySpec *v1alpha3.WorkloadEntry
-	if ev == model.EventUpdate {
-		oldWkEntrySpec = serviceentry.ConvertWorkloadEntry(oldCfg)
-	}
-	var oldWkEntry *apiv1alpha3.WorkloadEntry
-	if oldWkEntrySpec != nil {
-		oldWkEntry = &apiv1alpha3.WorkloadEntry{
-			ObjectMeta: oldCfg.ToObjectMeta(),
-			Spec:       *oldWkEntrySpec.DeepCopy(),
-		}
-	}
-	newWkEntrySpec := serviceentry.ConvertWorkloadEntry(newCfg)
-	var newWkEntry *apiv1alpha3.WorkloadEntry
-	if newWkEntrySpec != nil {
-		newWkEntry = &apiv1alpha3.WorkloadEntry{
-			ObjectMeta: newCfg.ToObjectMeta(),
-			Spec:       *newWkEntrySpec.DeepCopy(),
-		}
-	}
-
-	updates := c.handleWorkloadEntry(c.ambientIndex, oldWkEntry, newWkEntry, ev == model.EventDelete)
-	if len(updates) > 0 {
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:           false,
-			ConfigsUpdated: updates,
-			Reason:         []model.TriggerReason{model.AmbientUpdate},
-		})
-	}
-}
-
-func (c *Controller) initWorkloadEntryHandler(idx *AmbientIndex) {
-	if idx == nil {
-		return
-	}
-	c.configController.RegisterEventHandler(gvk.WorkloadEntry, c.WorkloadEntryHandler)
-}
 
 func (c *Controller) getWorkloadEntriesInPolicy(ns string, sel map[string]string) []*apiv1alpha3.WorkloadEntry {
 	if ns == c.meshWatcher.Mesh().GetRootNamespace() {
@@ -106,7 +53,8 @@ func (c *Controller) getWorkloadEntriesInPolicy(ns string, sel map[string]string
 	return workloadEntries
 }
 
-func (c *Controller) extractWorkloadEntry(w *apiv1alpha3.WorkloadEntry) *model.WorkloadInfo {
+// NOTE: Mutex is locked prior to being called.
+func (a *AmbientIndexImpl) extractWorkloadEntry(w *apiv1alpha3.WorkloadEntry, c *Controller) *model.WorkloadInfo {
 	if w == nil {
 		return nil
 	}
@@ -117,9 +65,9 @@ func (c *Controller) extractWorkloadEntry(w *apiv1alpha3.WorkloadEntry) *model.W
 		// First check for a waypoint for our SA explicit
 		// TODO: this is not robust against temporary waypoint downtime. We also need the users intent (Gateway).
 		found := false
-		if waypoint, found = c.ambientIndex.waypoints[model.WaypointScope{Namespace: w.Namespace, ServiceAccount: w.Spec.ServiceAccount}]; !found {
+		if waypoint, found = a.waypoints[model.WaypointScope{Namespace: w.Namespace, ServiceAccount: w.Spec.ServiceAccount}]; !found {
 			// if there are none, check namespace wide waypoints
-			waypoint = c.ambientIndex.waypoints[model.WaypointScope{Namespace: w.Namespace}]
+			waypoint = a.waypoints[model.WaypointScope{Namespace: w.Namespace}]
 		}
 	}
 	policies := c.selectorAuthorizationPolicies(w.Namespace, w.Labels)
@@ -133,12 +81,8 @@ func (c *Controller) extractWorkloadEntry(w *apiv1alpha3.WorkloadEntry) *model.W
 	}
 }
 
-// handleWorkloadEntry handles a WorkloadEntry event. Returned is XDS events to trigger, if any.
-func (c *Controller) handleWorkloadEntry(idx *AmbientIndex, oldWorkloadEntry, w *apiv1alpha3.WorkloadEntry, isDelete bool) sets.Set[model.ConfigKey] {
-	if idx == nil {
-		return nil
-	}
-
+// NOTE: Mutex is locked prior to being called.
+func (a *AmbientIndexImpl) handleWorkloadEntry(oldWorkloadEntry, w *apiv1alpha3.WorkloadEntry, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
 	if oldWorkloadEntry != nil {
 		// compare only labels and annotations, which are what we care about
 		if maps.Equal(oldWorkloadEntry.Labels, w.Labels) &&
@@ -147,27 +91,25 @@ func (c *Controller) handleWorkloadEntry(idx *AmbientIndex, oldWorkloadEntry, w 
 		}
 	}
 
-	idx.mu.Lock()
-	defer idx.mu.Unlock()
 	updates := sets.New[model.ConfigKey]()
 
 	var wl *model.WorkloadInfo
 	if !isDelete {
-		wl = c.extractWorkloadEntry(w)
+		wl = a.extractWorkloadEntry(w, c)
 	}
 
 	wlNetwork := c.Network(w.Spec.Address, w.Spec.Labels).String()
 	networkAddr := networkAddress{network: wlNetwork, ip: w.Spec.Address}
 	uid := c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())
-	oldWl := idx.byUID[uid]
+	oldWl := a.byUID[uid]
 	if wl == nil {
 		// This is an explicit delete event, or there is no longer a Workload to create (VM NotReady, etc)
-		delete(idx.byWorkloadEntry, networkAddr)
-		delete(idx.byUID, uid)
+		delete(a.byWorkloadEntry, networkAddr)
+		delete(a.byUID, uid)
 		if oldWl != nil {
 			// If we already knew about this workload, we need to make sure we drop all service references as well
 			for namespacedHostname := range oldWl.Services {
-				idx.dropWorkloadFromService(namespacedHostname, oldWl.ResourceName())
+				a.dropWorkloadFromService(namespacedHostname, oldWl.ResourceName())
 			}
 			log.Debugf("%v: workload removed, pushing", oldWl.ResourceName())
 			return map[model.ConfigKey]struct{}{
@@ -183,17 +125,17 @@ func (c *Controller) handleWorkloadEntry(idx *AmbientIndex, oldWorkloadEntry, w 
 		log.Debugf("%v: no change, skipping", wl.ResourceName())
 		return updates
 	}
-	idx.byWorkloadEntry[networkAddr] = wl
-	idx.byUID[uid] = wl
+	a.byWorkloadEntry[networkAddr] = wl
+	a.byUID[uid] = wl
 	if oldWl != nil {
 		// For updates, we will drop the services and then add the new ones back. This could be optimized
 		for namespacedHostname := range oldWl.Services {
-			idx.dropWorkloadFromService(namespacedHostname, wl.ResourceName())
+			a.dropWorkloadFromService(namespacedHostname, wl.ResourceName())
 		}
 	}
 	// Update the service indexes as well, as needed
 	for namespacedHostname := range wl.Services {
-		idx.insertWorkloadToService(namespacedHostname, wl)
+		a.insertWorkloadToService(namespacedHostname, wl)
 	}
 
 	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
@@ -273,7 +215,7 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alph
 }
 
 // updateWaypointForWorkload updates the Waypoint configuration for the given Workload(Pod/WorkloadEntry)
-func (a *AmbientIndex) updateWaypointForWorkload(byWorkload map[networkAddress]*model.WorkloadInfo, scope model.WaypointScope,
+func (a *AmbientIndexImpl) updateWaypointForWorkload(byWorkload map[networkAddress]*model.WorkloadInfo, scope model.WaypointScope,
 	addr *workloadapi.GatewayAddress, isDelete bool, updates sets.Set[model.ConfigKey],
 ) {
 	for _, wl := range byWorkload {
