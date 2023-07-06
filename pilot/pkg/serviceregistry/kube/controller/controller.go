@@ -913,7 +913,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInst
 // AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
 func (c *Controller) ServiceEntryHandler(_ *model.Service, svc *model.Service, event model.Event) {
 	if features.EnableAmbientControllers && c.ambientIndex != nil {
-		c.ambientIndex.(*AmbientIndexImpl).handleServiceEntry(svc, event) // TODO(kdorosh)
+		c.ambientIndex.HandleServiceEntry(svc, event, c)
 	}
 }
 

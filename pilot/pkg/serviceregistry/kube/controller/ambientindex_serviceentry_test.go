@@ -96,7 +96,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 			},
 			Hostname: host.Name(hostStr),
 		}
-		controller.ambientIndex.(*AmbientIndexImpl).handleServiceEntry(svc, model.EventAdd)
+		controller.ambientIndex.HandleServiceEntry(svc, model.EventAdd, controller.Controller)
 	}
 
 	deleteServiceEntry := func(hostStr string, addresses []string, name, ns string, labels map[string]string) {
@@ -110,7 +110,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 			},
 			Hostname: host.Name(hostStr),
 		}
-		controller.ambientIndex.(*AmbientIndexImpl).handleServiceEntry(svc, model.EventDelete)
+		controller.ambientIndex.HandleServiceEntry(svc, model.EventDelete, controller.Controller)
 	}
 
 	// test code path where service entry creates a workload entry via `ServiceEntry.endpoints`

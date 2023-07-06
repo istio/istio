@@ -51,6 +51,14 @@ type AmbientIndex interface {
 	Waypoint(scope model.WaypointScope) []netip.Addr
 	CalculateUpdatedWorkloads(pods map[string]*v1.Pod, workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, c *Controller) map[model.ConfigKey]struct{}
 	HandleSelectedNamespace(ns string, pods []*v1.Pod, c *Controller)
+	// HandleServiceEntry updates ambient index served xds on any service entry create/update/delete
+	// or VIP re auto-allocation event.
+	//
+	// We handle service entry events using an externally called hook instead of a k8s informer
+	// because we need to support auto allocation of VIPs; calculating these IPs is an expensive
+	// operation and already batched elsewhere in the repo. Instead we just wait for those events
+	// and events propagated from another service entry controller and act on those.
+	HandleServiceEntry(svc *model.Service, event model.Event, c *Controller)
 }
 
 // AmbientIndexImpl maintains an index of ambient WorkloadInfo objects by various keys.
@@ -74,12 +82,6 @@ type AmbientIndexImpl struct {
 
 	// Map of Scope -> address
 	waypoints map[model.WaypointScope]*workloadapi.GatewayAddress
-
-	// we handle service entry events internally instead of adding a service entry handler to the controller
-	// because we need to support DNS auto allocation of IPs; calculating these IPs is an expensive operation
-	// and already batched elsewhere in the repo. instead we just wait for those events and events propagated
-	// from another service entry controller and act on those
-	handleServiceEntry func(svc *model.Service, event model.Event)
 
 	// map of service entry name/namespace to the derived service.
 	// used on pod updates to add VIPs to pods from service entries.
@@ -491,156 +493,6 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 	}
 
 	idx.servicesMap = make(map[types.NamespacedName]*model.Service)
-	idx.handleServiceEntry = func(svc *model.Service, event model.Event) {
-		if svc.Attributes.ServiceEntry == nil {
-			// event for e.g. kube svc; ignore
-			return
-		}
-
-		idx.mu.Lock()
-		defer idx.mu.Unlock()
-
-		// We will accrue updates as we update our internal state
-		updates := sets.New[model.ConfigKey]()
-
-		if event != model.EventAdd {
-			idx.cleanupOldWorkloadEntriesInlinedOnServiceEntry(svc, updates, c)
-		}
-
-		serviceEntryNamespacedName := types.NamespacedName{
-			Name:      svc.Attributes.ServiceEntryName,
-			Namespace: svc.Attributes.ServiceEntryNamespace,
-		}
-
-		// Update indexes
-		if event == model.EventDelete {
-			// servicesMap is used when cleaning up old WEs inlined on a SE (i.e., `ServiceEntry.endpoints`)
-			// so we must delete this after we clean up the old WEs. That way we don't miss any auto-allocated
-			// VIPs during cleanup on the idx.byWorkloadEntry[networkAddr] map
-			delete(idx.servicesMap, serviceEntryNamespacedName)
-		} else {
-			// servicesMap is used when constructing workloads so it must be up to date
-			idx.servicesMap[serviceEntryNamespacedName] = svc
-		}
-
-		sel := klabels.Set(svc.Attributes.ServiceEntry.WorkloadSelector.GetLabels()).AsSelectorPreValidated()
-		var pods []*v1.Pod
-		if !sel.Empty() {
-			pods = c.podsClient.List(svc.Attributes.ServiceEntryNamespace, sel)
-		}
-		wls := make(map[string]*model.WorkloadInfo, len(pods))
-		for _, pod := range pods {
-			newWl := idx.extractWorkload(pod, c)
-			if newWl != nil {
-				// Update the pod, since it now has new VIP info
-				networkAddrs := networkAddressFromWorkload(newWl)
-				for _, networkAddr := range networkAddrs {
-					idx.byPod[networkAddr] = newWl
-				}
-				idx.byUID[c.generatePodUID(pod)] = newWl
-				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()})
-				wls[newWl.Uid] = newWl
-			}
-		}
-
-		workloadEntries := c.getSelectedWorkloadEntries(svc.Attributes.ServiceEntryNamespace, svc.Attributes.ServiceEntry.GetWorkloadSelector().GetLabels())
-		for _, w := range workloadEntries {
-			wl := idx.extractWorkloadEntry(w, c)
-			// Can be nil if the WorkloadEntry IP has not been mapped yet
-			//
-			// Note: this is a defensive check that mimics the logic for
-			// pods above. WorkloadEntries are mapped by their IP address
-			// in the following cases:
-			// 1. WorkloadEntry add/update
-			// 2. AuthorizationPolicy add/update
-			// 3. Namespace Ambient label add/update
-			if wl != nil {
-				// Update the WorkloadEntry, since it now has new VIP info
-				for _, networkAddr := range networkAddressFromWorkload(wl) {
-					idx.byWorkloadEntry[networkAddr] = wl
-				}
-				idx.byUID[c.generateServiceEntryUID(svc.Attributes.ServiceEntryNamespace, svc.Attributes.ServiceEntryName, w.Spec.GetAddress())] = wl
-				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
-				wls[wl.Uid] = wl
-			}
-		}
-
-		for _, we := range svc.Attributes.ServiceEntry.Endpoints {
-			wli := idx.extractWorkloadEntrySpec(we, svc.Attributes.ServiceEntryNamespace, svc.Attributes.ServiceEntryName, svc, c)
-			if wli != nil && event != model.EventDelete {
-				for _, networkAddr := range networkAddressFromWorkload(wli) {
-					idx.byWorkloadEntry[networkAddr] = wli
-				}
-				idx.byUID[c.generateServiceEntryUID(svc.Attributes.ServiceEntryNamespace, svc.Attributes.ServiceEntryName, we.GetAddress())] = wli
-				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()})
-				wls[wli.Uid] = wli
-			}
-		}
-
-		vips := getVIPsFromServiceEntry(svc)
-		var addrs []*workloadapi.NetworkAddress
-		for _, vip := range vips {
-			addrs = append(addrs, &workloadapi.NetworkAddress{
-				Network: c.network.String(),
-				Address: parseIP(vip),
-			})
-		}
-		var allPorts []*workloadapi.Port
-		for _, port := range svc.Attributes.ServiceEntry.Ports {
-			allPorts = append(allPorts, &workloadapi.Port{
-				ServicePort: port.Number,
-				TargetPort:  port.TargetPort,
-			})
-		}
-		var allSubjAltNames []string
-		allSubjAltNames = append(allSubjAltNames, svc.Attributes.ServiceEntry.SubjectAltNames...)
-
-		si := &model.ServiceInfo{
-			Service: &workloadapi.Service{
-				Name:            svc.Attributes.ServiceEntryName,
-				Namespace:       svc.Attributes.ServiceEntryNamespace,
-				Hostname:        string(svc.Hostname),
-				Addresses:       addrs,
-				Ports:           allPorts,
-				SubjectAltNames: allSubjAltNames,
-			},
-		}
-
-		networkAddrs := toInternalNetworkAddresses(si.GetAddresses())
-
-		// We send an update for each *workload* IP address previously in the service; they may have changed
-		for _, wl := range idx.byService[si.ResourceName()] {
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
-		}
-		// Update indexes
-		if event == model.EventDelete {
-			for _, networkAddr := range networkAddrs {
-				delete(idx.serviceByAddr, networkAddr)
-			}
-			delete(idx.byService, si.ResourceName())
-			delete(idx.serviceByNamespacedHostname, si.ResourceName())
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
-		} else {
-			for _, networkAddr := range networkAddrs {
-				idx.serviceByAddr[networkAddr] = si
-			}
-			idx.byService[si.ResourceName()] = wls
-			idx.serviceByNamespacedHostname[si.ResourceName()] = si
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
-		}
-		// Fetch updates again, in case it changed from adding new workloads
-		for _, wl := range idx.byService[si.ResourceName()] {
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
-		}
-
-		if len(updates) > 0 {
-			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				ConfigsUpdated: updates,
-				Reason:         []model.TriggerReason{model.AmbientUpdate},
-			})
-		}
-	}
-
 	c.services.AddEventHandler(serviceHandler)
 	return &idx
 }
