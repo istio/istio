@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -47,7 +46,6 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 		ClusterID:            "cluster0",
 		WorkloadEntryEnabled: true,
 	})
-	controller.opts.MeshServiceController.AppendServiceHandler(controller.ServiceEntryHandler)
 	controller.network = "testnetwork"
 	pc := clienttest.Wrap(t, controller.podsClient)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
@@ -88,29 +86,27 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 		}, metav1.CreateOptions{})
 
 		serviceEntry := generateServiceEntry(hostStr, addresses, labels)
-		svc := &model.Service{
-			Attributes: model.ServiceAttributes{
-				ServiceEntryName:      name,
-				ServiceEntryNamespace: ns,
-				ServiceEntry:          serviceEntry,
+		w := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.ServiceEntry,
+				Name:             name,
+				Namespace:        ns,
+				Labels:           labels,
 			},
-			Hostname: host.Name(hostStr),
+			Spec: serviceEntry.DeepCopy(),
 		}
-		controller.ambientIndex.HandleServiceEntry(svc, model.EventAdd, controller.Controller)
+		_, err := cfg.Create(w)
+		if err != nil && strings.Contains(err.Error(), "item already exists") {
+			_, err = cfg.Update(w)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	deleteServiceEntry := func(hostStr string, addresses []string, name, ns string, labels map[string]string) {
+	deleteServiceEntry := func(name, ns string) {
 		t.Helper()
-		serviceEntry := generateServiceEntry(hostStr, addresses, labels)
-		svc := &model.Service{
-			Attributes: model.ServiceAttributes{
-				ServiceEntryName:      name,
-				ServiceEntryNamespace: ns,
-				ServiceEntry:          serviceEntry,
-			},
-			Hostname: host.Name(hostStr),
-		}
-		controller.ambientIndex.HandleServiceEntry(svc, model.EventDelete, controller.Controller)
+		cfg.Delete(gvk.ServiceEntry, name, ns, nil)
 	}
 
 	// test code path where service entry creates a workload entry via `ServiceEntry.endpoints`
@@ -148,7 +144,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 		},
 	}})
 
-	deleteServiceEntry("se.istio.io", []string{"240.240.23.45"}, "name1", "ns1", nil)
+	deleteServiceEntry("name1", "ns1")
 	assert.Equal(t, len(controller.ambientIndex.(*AmbientIndexImpl).byWorkloadEntry), 0)
 	assert.Equal(t, controller.ambientIndex.Lookup("testnetwork/127.0.0.1"), nil)
 	fx.Clear()
@@ -299,7 +295,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 		},
 	}})
 
-	deleteServiceEntry("se.istio.io", []string{"240.240.23.45"}, "name1", "ns1", map[string]string{"app": "a"})
+	deleteServiceEntry("name1", "ns1")
 	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1", "name2")
 	// we should see an update for the workloads selected by the service entry
 	assertEvent(t, fx, "cluster0//Pod/ns1/pod1", "cluster0/networking.istio.io/WorkloadEntry/ns1/name1", "ns1/se.istio.io")

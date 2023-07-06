@@ -1628,6 +1628,8 @@ spec:
 		})
 }
 
+// Ambient ServiceEntry support for auto assigned vips is lacking for now, but planned.
+// for more, see https://github.com/istio/istio/pull/45621#discussion_r1254970579
 func TestServiceEntryDNSWithAutoAssign(t *testing.T) {
 	framework.NewTest(t).
 		Features("traffic.ambient").
@@ -1652,7 +1654,8 @@ spec:
       app: uncaptured` // cannot select pods captured in ambient mesh; IPs are unique per network
 			svcs := apps.All
 			for _, svc := range svcs {
-				if svc.Config().IsUncaptured() || svc.Config().HasSidecar() || svc.Config().IsWaypoint() {
+				if svc.Config().IsUncaptured() || svc.Config().HasSidecar() {
+					// TODO(kdorosh) skip if waypoint? waypoints should not need to resolve service entry hostnames
 					continue
 				}
 				if err := t.ConfigIstio().YAML(svc.NamespaceName(), yaml).Apply(apply.NoCleanup); err != nil {

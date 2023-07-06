@@ -344,10 +344,6 @@ func (c Config) IsVM() bool {
 	return c.DeployAsVM
 }
 
-func (c Config) IsWaypoint() bool {
-	return strings.Contains(c.Service, "waypoint")
-}
-
 func (c Config) IsDelta() bool {
 	// TODO this doesn't hold if delta is on by default
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.Contains(c.Subsets[0].Annotations.Get(SidecarProxyConfig), "ISTIO_DELTA_XDS")

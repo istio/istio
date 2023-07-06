@@ -51,14 +51,6 @@ type AmbientIndex interface {
 	Waypoint(scope model.WaypointScope) []netip.Addr
 	CalculateUpdatedWorkloads(pods map[string]*v1.Pod, workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, c *Controller) map[model.ConfigKey]struct{}
 	HandleSelectedNamespace(ns string, pods []*v1.Pod, c *Controller)
-	// HandleServiceEntry updates ambient index served xds on any service entry create/update/delete
-	// or VIP re auto-allocation event.
-	//
-	// We handle service entry events using an externally called hook instead of a k8s informer
-	// because we need to support auto allocation of VIPs; calculating these IPs is an expensive
-	// operation and already batched elsewhere in the repo. Instead we just wait for those events
-	// and events propagated from another service entry controller and act on those.
-	HandleServiceEntry(svc *model.Service, event model.Event, c *Controller)
 }
 
 // AmbientIndexImpl maintains an index of ambient WorkloadInfo objects by various keys.
@@ -83,10 +75,10 @@ type AmbientIndexImpl struct {
 	// Map of Scope -> address
 	waypoints map[model.WaypointScope]*workloadapi.GatewayAddress
 
-	// map of service entry name/namespace to the derived service.
+	// map of service entry name/namespace to the service entry.
 	// used on pod updates to add VIPs to pods from service entries.
 	// also used on service entry updates to cleanup any old VIPs from pods/workloads maps.
-	servicesMap map[types.NamespacedName]*model.Service
+	servicesMap map[types.NamespacedName]*apiv1alpha3.ServiceEntry
 }
 
 func workloadToAddressInfo(w *workloadapi.Workload) *model.AddressInfo {
@@ -447,6 +439,29 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 		}
 	})
 
+	// Handle ServiceEntries.
+	c.configController.RegisterEventHandler(gvk.ServiceEntry, func(_ config.Config, newCfg config.Config, ev model.Event) {
+		newSvcEntrySpec := serviceentry.ConvertServiceEntry(newCfg)
+		var newSvcEntry *apiv1alpha3.ServiceEntry
+		if newSvcEntrySpec != nil {
+			newSvcEntry = &apiv1alpha3.ServiceEntry{
+				ObjectMeta: newCfg.ToObjectMeta(),
+				Spec:       *newSvcEntrySpec.DeepCopy(),
+			}
+		}
+
+		idx.mu.Lock()
+		defer idx.mu.Unlock()
+		updates := idx.handleServiceEntry(newSvcEntry, ev, c)
+		if len(updates) > 0 {
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+				Full:           false,
+				ConfigsUpdated: updates,
+				Reason:         []model.TriggerReason{model.AmbientUpdate},
+			})
+		}
+	})
+
 	serviceHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			idx.mu.Lock()
@@ -492,7 +507,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 		},
 	}
 
-	idx.servicesMap = make(map[types.NamespacedName]*model.Service)
+	idx.servicesMap = make(map[types.NamespacedName]*apiv1alpha3.ServiceEntry)
 	c.services.AddEventHandler(serviceHandler)
 	return &idx
 }

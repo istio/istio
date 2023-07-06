@@ -123,10 +123,9 @@ func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Opti
 func TestServiceDiscoveryServices(t *testing.T) {
 	store, sd, fx := initServiceDiscovery(t)
 	expectedServices := []*model.Service{
-		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSRoundRobinLB,
-			httpDNSRR),
-		makeService("*.google.com", "httpDNS", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB, httpDNS),
-		makeService("tcpstatic.com", "tcpStatic", "172.217.0.1", map[string]int{"tcp-444": 444}, true, model.ClientSideLB, tcpStatic),
+		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSRoundRobinLB),
+		makeService("*.google.com", "httpDNS", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+		makeService("tcpstatic.com", "tcpStatic", "172.217.0.1", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 	}
 
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
@@ -249,9 +248,9 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// Update the SE for the same host, expect these instances to get added
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
 		instances := append(baseInstances,
-			makeInstance(httpStaticOverlayUpdated, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
-			makeInstance(httpStaticOverlayUpdated, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
-		expectServiceInstances(t, sd, httpStaticOverlayUpdated, 0, instances)
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 
 		// Make a NOP change, expect that there are no changes
@@ -265,13 +264,13 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// Add another SE with an additional endpoint with a matching address
 		createConfigs([]*config.Config{httpStaticOverlayUpdatedInstance}, store, t)
 		instances := append(baseInstances,
-			makeInstance(httpStaticOverlayUpdatedInstance, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
-			makeInstance(httpStaticOverlayUpdatedInstance, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
-			makeInstance(httpStaticOverlayUpdatedInstance, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText))
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedInstance, 0, instances)
 		proxyInstances := []*model.ServiceInstance{
-			makeInstance(httpStaticOverlayUpdatedInstance, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
-			makeInstance(httpStaticOverlayUpdatedInstance, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText),
 		}
 		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
 		// TODO 45 is wrong
@@ -280,11 +279,11 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// Remove the additional endpoint
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
 		instances = append(baseInstances,
-			makeInstance(httpStaticOverlayUpdated, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
-			makeInstance(httpStaticOverlayUpdated, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		proxyInstances = []*model.ServiceInstance{
-			makeInstance(httpStaticOverlayUpdated, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 		}
 		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
 		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
@@ -354,9 +353,9 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// Add back the ServiceEntry, expect these instances to get added
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
 		instances = append(baseInstances,
-			makeInstance(httpStaticOverlayUpdated, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
-			makeInstance(httpStaticOverlayUpdated, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
-		expectServiceInstances(t, sd, httpStaticOverlayUpdated, 0, instances)
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+		expectServiceInstances(t, sd, httpStatic, 0, instances)
 		// Service change, so we need a full push
 		expectEvents(t, events,
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
@@ -374,8 +373,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		}()
 		createConfigs([]*config.Config{httpStaticHost}, store, t)
 		instances := append(baseInstances,
-			makeInstance(httpStaticHost, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
-			makeInstance(httpStaticHost, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		// This is not applied, just to make makeInstance pick the right service.
 		otherHost := func() *config.Config {
 			c := httpStaticOverlayUpdated.DeepCopy()
@@ -387,14 +386,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(otherHost, "5.5.5.5", 4567, httpStaticHost.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(otherHost, "6.6.6.6", 4567, httpStaticHost.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 		}
-		// because of the silly hack above (making `makeInstance()` choose the right service rather than defaulting to the first one),
-		// we need to manually set the hosts in the service entry attributes to match (since we didn't actually apply the config).
-		//
-		// this change isn't really significant to functionality, but i wanted to prove nothing broke so I'm updating the test
-		instances2[0].Service.Attributes.ServiceEntry.Hosts = []string{"*.google.com", "other.com"}
-		instances2[1].Service.Attributes.ServiceEntry.Hosts = []string{"*.google.com", "other.com"}
 		expectServiceInstances(t, sd, httpStaticHost, 0, instances, instances2)
-
 		// Service change, so we need a full push
 		expectEvents(t, events,
 			Event{Type: "service", ID: "other.com", Namespace: httpStaticOverlayUpdated.Namespace},
@@ -435,17 +427,6 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		instances2 := []*model.ServiceInstance{
 			makeInstance(tcpDNS, "lon.google.com", 444, tcpDNS.Spec.(*networking.ServiceEntry).Ports[0],
 				nil, MTLS),
-		}
-
-		// because of the silly hack above (making `makeInstance()` choose the right service rather than defaulting to the first one),
-		// we need to manually set the hosts in the service entry attributes to match (since we didn't actually apply the config).
-		//
-		// this change isn't really significant to functionality, but i wanted to prove nothing broke so I'm updating the test
-		instances2[0].Service.Attributes.ServiceEntry.Endpoints = []*networking.WorkloadEntry{
-			{
-				Address: "lon.google.com",
-				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
-			},
 		}
 
 		createConfigs([]*config.Config{tcpDNS}, store, t)

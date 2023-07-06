@@ -204,12 +204,11 @@ func convertServices(cfg config.Config) []*model.Service {
 	}
 
 	return buildServices(hostAddresses, cfg.Name, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, cfg.Meta.Name, cfg.Meta.Namespace, serviceEntry, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
 }
 
 func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
-	resolution model.Resolution, exportTo map[visibility.Instance]bool, serviceEntryName, serviceEntryNamespace string,
-	serviceEntry *networking.ServiceEntry, selectors map[string]string, saccounts []string,
+	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
 	ctime time.Time, labels map[string]string,
 ) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
@@ -226,15 +225,12 @@ func buildServices(hostAddresses []*HostAddress, name, namespace string, ports m
 			Ports:          ports,
 			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry:       provider.External,
-				Name:                  ha.host,
-				Namespace:             namespace,
-				ServiceEntryName:      serviceEntryName,
-				ServiceEntryNamespace: serviceEntryNamespace,
-				Labels:                lbls,
-				ExportTo:              exportTo,
-				ServiceEntry:          serviceEntry.DeepCopy(),
-				LabelSelectors:        selectors,
+				ServiceRegistry: provider.External,
+				Name:            ha.host,
+				Namespace:       namespace,
+				Labels:          lbls,
+				ExportTo:        exportTo,
+				LabelSelectors:  selectors,
 			},
 			ServiceAccounts: saccounts,
 		})
