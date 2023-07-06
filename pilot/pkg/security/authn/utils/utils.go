@@ -65,7 +65,7 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		// protocol, e.g. HTTP/2.
 		ctx.CommonTlsContext.AlpnProtocols = util.ALPNHttp
 	}
-	if mc.MeshMTLS.CipherSuites != nil {
+	if mc != nil && mc.MeshMTLS != nil && mc.MeshMTLS.CipherSuites != nil {
 		SupportedCiphers = mc.MeshMTLS.CipherSuites
 	}
 	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
