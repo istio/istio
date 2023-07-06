@@ -225,7 +225,7 @@ func (a *AmbientIndexImpl) extractWorkloadEntrySpec(w *v1alpha3.WorkloadEntry, n
 		}
 	}
 	policies := c.selectorAuthorizationPolicies(ns, w.Labels)
-	wl := c.constructWorkloadFromWorkloadEntry(w, ns, name, parentServiceEntry, waypoint, policies, a)
+	wl := c.constructWorkloadFromWorkloadEntry(w, ns, name, parentServiceEntry, waypoint, policies, a.servicesMap)
 	if wl == nil {
 		return nil
 	}
@@ -298,7 +298,7 @@ func (a *AmbientIndexImpl) handleWorkloadEntry(oldWorkloadEntry, w *apiv1alpha3.
 }
 
 func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.WorkloadEntry, workloadEntryNamespace, workloadEntryName string,
-	parentServiceEntry *model.Service, waypoint *workloadapi.GatewayAddress, policies []string, a *AmbientIndexImpl,
+	parentServiceEntry *model.Service, waypoint *workloadapi.GatewayAddress, policies []string, serviceEntries map[types.NamespacedName]*model.Service,
 ) *workloadapi.Workload {
 	if workloadEntry == nil {
 		return nil
@@ -335,7 +335,7 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.
 
 	// for constructing a workload from a standalone workload entry, which can be selected by many service entries
 	if parentServiceEntry == nil {
-		for nsName, ports := range a.getWorkloadServices(workloadEntry, workloadEntryNamespace, workloadEntry.Labels) {
+		for nsName, ports := range getWorkloadServices(serviceEntries, workloadEntry, workloadEntryNamespace, workloadEntry.Labels) {
 			workloadServices[nsName] = ports
 		}
 	}
@@ -531,11 +531,11 @@ func (a *AmbientIndexImpl) cleanupOldWorkloadEntriesInlinedOnServiceEntry(svc *m
 	}
 }
 
-func (a *AmbientIndexImpl) getWorkloadServices(workloadEntry *v1alpha3.WorkloadEntry, workloadNamespace string,
-	workloadLabels map[string]string,
+func getWorkloadServices(serviceEntries map[types.NamespacedName]*model.Service, workloadEntry *v1alpha3.WorkloadEntry,
+	workloadNamespace string, workloadLabels map[string]string,
 ) map[string]*workloadapi.PortList {
 	workloadServices := map[string]*workloadapi.PortList{}
-	for _, svc := range a.servicesMap {
+	for _, svc := range serviceEntries {
 
 		if svc.Attributes.ServiceEntry == nil {
 			// if we are here then this is dev error
