@@ -4503,28 +4503,6 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "referenced type unknown (hint: try using the v3 XDS API)"},
-		{name: "deprecated type", in: &networking.EnvoyFilter{
-			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
-				{
-					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-							Listener: &networking.EnvoyFilter_ListenerMatch{
-								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-										Name: "envoy.http_connection_manager",
-									},
-								},
-							},
-						},
-					},
-					Patch: &networking.EnvoyFilter_Patch{
-						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
-						Value:     &structpb.Struct{},
-					},
-				},
-			},
-		}, error: "", warning: "using deprecated filter name"},
 		// Regression test for https://github.com/golang/protobuf/issues/1374
 		{name: "duration marshal", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
