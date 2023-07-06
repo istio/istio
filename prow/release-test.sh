@@ -24,3 +24,18 @@ DRY_RUN=true "${ROOT}"/prow/release-commit.sh || {
   tools/dump-docker-logs.sh
   exit 1
 }
+# Output a message, with a timestamp matching istio log format
+function log() {
+  # Disable execution tracing to avoid noise
+  { [[ $- = *x* ]] && was_execution_trace=1 || was_execution_trace=0; } 2>/dev/null
+  { set +x; } 2>/dev/null
+  echo -e "$(date -u '+%Y-%m-%dT%H:%M:%S.%NZ')\t$*"
+  if [[ $was_execution_trace == 1 ]]; then
+    { set -x; } 2>/dev/null
+  fi
+}
+
+log "starting binaries test"
+# Check binary sizes
+make build binaries-tests
+log "finished binaries test"
