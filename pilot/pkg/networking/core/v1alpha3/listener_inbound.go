@@ -133,22 +133,13 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 	return match
 }
 
+type ServicePort = *model.Port
+
 // ServiceInstancePort defines a port that has both a port and targetPort (which distinguishes it from model.Port)
 // Note: ServiceInstancePort only makes sense in the context of a specific ServiceInstance, because TargetPort depends on a specific instance.
 type ServiceInstancePort struct {
-	// Name ascribes a human readable name for the port object. When a
-	// service has multiple ports, the name field is mandatory
-	Name string `json:"name,omitempty"`
-
-	// Port number where the service can be reached. Does not necessarily
-	// map to the corresponding port numbers for the instances behind the
-	// service.
-	Port uint32 `json:"port"`
-
+	ServicePort
 	TargetPort uint32 `json:"targetPort"`
-
-	// Protocol to be used for the port.
-	Protocol protocol.Instance `json:"protocol,omitempty"`
 }
 
 func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
@@ -358,10 +349,8 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 			continue
 		}
 		port := ServiceInstancePort{
-			Name:       i.ServicePort.Name,
-			Port:       uint32(i.ServicePort.Port),
-			TargetPort: i.Endpoint.EndpointPort,
-			Protocol:   i.ServicePort.Protocol,
+			ServicePort: i.ServicePort,
+			TargetPort:  i.Endpoint.EndpointPort,
 		}
 		actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
@@ -429,10 +418,12 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 
 		for _, i := range lb.node.SidecarScope.Sidecar.Ingress {
 			port := ServiceInstancePort{
-				Name:       i.Port.Name,
-				Port:       i.Port.Number,
+				ServicePort: &model.Port{
+					Name:     i.Port.Name,
+					Port:     int(i.Port.Number),
+					Protocol: protocol.Parse(i.Port.Protocol),
+				},
 				TargetPort: i.Port.Number, // No targetPort support in the API
-				Protocol:   protocol.Parse(i.Port.Protocol),
 			}
 			bindtoPort := getBindToPort(i.CaptureMode, lb.node)
 			// Skip ports we cannot bind to
@@ -724,11 +715,13 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 		for _, mtls := range mtlsOptions {
 			cc := inboundChainConfig{
 				port: ServiceInstancePort{
-					Name: model.VirtualInboundListenerName,
-					// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
-					// but this is backwards compatible and there aren't any perfect options.
-					Port:       0,
-					Protocol:   protocol.Unsupported,
+					ServicePort: &model.Port{
+						Name: model.VirtualInboundListenerName,
+						// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
+						// but this is backwards compatible and there aren't any perfect options.
+						Port:     0,
+						Protocol: protocol.Unsupported,
+					},
 					TargetPort: mtls.Port,
 				},
 				clusterName: clusterName,
@@ -829,7 +822,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	statPrefix := fcc.clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
-		statPrefix = telemetry.BuildInboundStatPrefix(lb.push.Mesh.InboundClusterStatName, fcc.telemetryMetadata, "", fcc.port.Port, fcc.port.Name)
+		statPrefix = telemetry.BuildInboundStatPrefix(lb.push.Mesh.InboundClusterStatName, fcc.telemetryMetadata, "", uint32(fcc.port.Port), fcc.port.Name)
 	}
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,

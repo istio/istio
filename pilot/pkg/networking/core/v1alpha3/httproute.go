@@ -111,11 +111,11 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func buildSidecarInboundHTTPRouteConfig(lb *ListenerBuilder, cc inboundChainConfig) *route.RouteConfiguration {
-	traceOperation := telemetry.TraceOperation(string(cc.telemetryMetadata.InstanceHostname), int(cc.port.Port))
+	traceOperation := telemetry.TraceOperation(string(cc.telemetryMetadata.InstanceHostname), cc.port.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(cc.clusterName, traceOperation)
 
 	inboundVHost := &route.VirtualHost{
-		Name:    inboundVirtualHostPrefix + strconv.Itoa(int(cc.port.Port)), // Format: "inbound|http|%d"
+		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
 		Domains: []string{"*"},
 		Routes:  []*route.Route{defaultRoute},
 	}

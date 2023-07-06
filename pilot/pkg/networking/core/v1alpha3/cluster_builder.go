@@ -359,11 +359,8 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 // buildDefaultCluster builds the default cluster and also applies default traffic policy.
 func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
-	port *model.Port, service *model.Service, allInstances []*model.ServiceInstance,
+	port *model.Port, service *model.Service, inboundServices []ServiceEndpoint,
 ) *MutableCluster {
-	if allInstances == nil {
-		allInstances = cb.serviceInstances
-	}
 	c := &cluster.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
@@ -427,8 +424,13 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	}
 
 	cb.setUpstreamProtocol(ec, port, direction)
-	addTelemetryMetadata(opts, service, direction, allInstances)
+	addTelemetryMetadata(opts, service, direction, inboundServices)
 	return ec
+}
+
+type ServiceEndpoint struct {
+	Service *model.Service
+	Port    ServiceInstancePort
 }
 
 // buildInboundClusterForPortOrUDS constructs a single inbound cluster. The cluster will be bound to
@@ -439,27 +441,27 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 // Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
 // Sidecar.Ingress allows these to be different.
 func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind string,
-	proxy *model.Proxy, instance *model.ServiceInstance, allInstance []*model.ServiceInstance,
+	proxy *model.Proxy, instance ServiceEndpoint, inboundServices []ServiceEndpoint,
 ) *MutableCluster {
 	clusterName := model.BuildInboundSubsetKey(clusterPort)
-	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
+	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Port.TargetPort)
 	clusterType := cluster.Cluster_ORIGINAL_DST
 	if len(localityLbEndpoints) > 0 {
 		clusterType = cluster.Cluster_STATIC
 	}
 	localCluster := cb.buildDefaultCluster(clusterName, clusterType, localityLbEndpoints,
-		model.TrafficDirectionInbound, instance.ServicePort, instance.Service, allInstance)
+		model.TrafficDirectionInbound, instance.Port.ServicePort, instance.Service, inboundServices)
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", instance.ServicePort, &instance.Service.Attributes)
+			string(instance.Service.Hostname), "", instance.Port.ServicePort, &instance.Service.Attributes)
 	}
 
 	opts := buildClusterOpts{
 		mesh:             cb.req.Push.Mesh,
 		mutable:          localCluster,
 		policy:           nil,
-		port:             instance.ServicePort,
+		port:             instance.Port.ServicePort,
 		serviceAccounts:  nil,
 		serviceInstances: cb.serviceInstances,
 		istioMtlsSni:     "",
@@ -476,7 +478,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
 		if destinationRule.TrafficPolicy != nil {
-			opts.policy = MergeTrafficPolicy(opts.policy, destinationRule.TrafficPolicy, instance.ServicePort)
+			opts.policy = MergeTrafficPolicy(opts.policy, destinationRule.TrafficPolicy, instance.Port.ServicePort)
 			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg.Meta)
 		}
 	}
