@@ -8367,6 +8367,14 @@ func TestValidateWasmPlugin(t *testing.T) {
 			"", "",
 		},
 		{
+			"valid http w/ nil sha",
+			&extensions.WasmPlugin{
+				Url:    "http://test.com/test",
+				Sha256: "nil",
+			},
+			"", "",
+		},
+		{
 			"short sha",
 			&extensions.WasmPlugin{
 				Url:    "http://test.com/test",

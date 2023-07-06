@@ -3972,7 +3972,7 @@ func validateWasmPluginURL(pluginURL string) error {
 }
 
 func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
-	if plugin.Sha256 == "" {
+	if plugin.Sha256 == "" || plugin.Sha256 == "nil" {
 		return nil
 	}
 	if len(plugin.Sha256) != 64 {
