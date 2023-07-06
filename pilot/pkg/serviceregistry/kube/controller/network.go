@@ -239,7 +239,7 @@ func (c *Controller) reloadNetworkGateways() {
 	if gwsChanged {
 		c.NotifyGatewayHandlers()
 		// TODO ConfigUpdate via gateway handler
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
 	}
 }
 

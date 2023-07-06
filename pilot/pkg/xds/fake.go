@@ -145,7 +145,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
-			Reason:         []model.TriggerReason{model.ServiceUpdate},
+			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		}
 		s.ConfigUpdate(pushReq)
 	}
@@ -161,7 +161,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		opts.NetworksWatcher.AddNetworksHandler(func() {
 			s.ConfigUpdate(&model.PushRequest{
 				Full:   true,
-				Reason: []model.TriggerReason{model.NetworksTrigger},
+				Reason: model.NewReasonStats(model.NetworksTrigger),
 			})
 		})
 	}
@@ -260,7 +260,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
-			Reason:         []model.TriggerReason{model.ConfigUpdate},
+			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		}
 		s.ConfigUpdate(pushReq)
 	}

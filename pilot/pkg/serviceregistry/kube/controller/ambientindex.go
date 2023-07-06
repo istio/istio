@@ -375,7 +375,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					ConfigsUpdated: updates,
-					Reason:         []model.TriggerReason{model.AmbientUpdate},
+					Reason:         model.NewReasonStats(model.AmbientUpdate),
 				})
 			}
 		},
@@ -386,7 +386,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					ConfigsUpdated: updates,
-					Reason:         []model.TriggerReason{model.AmbientUpdate},
+					Reason:         model.NewReasonStats(model.AmbientUpdate),
 				})
 			}
 		},
@@ -397,7 +397,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					ConfigsUpdated: updates,
-					Reason:         []model.TriggerReason{model.AmbientUpdate},
+					Reason:         model.NewReasonStats(model.AmbientUpdate),
 				})
 			}
 		},
@@ -434,7 +434,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 				Full:           false,
 				ConfigsUpdated: updates,
-				Reason:         []model.TriggerReason{model.AmbientUpdate},
+				Reason:         model.NewReasonStats(model.AmbientUpdate),
 			})
 		}
 	})
@@ -457,7 +457,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 				Full:           false,
 				ConfigsUpdated: updates,
-				Reason:         []model.TriggerReason{model.AmbientUpdate},
+				Reason:         model.NewReasonStats(model.AmbientUpdate),
 			})
 		}
 	})
@@ -470,7 +470,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					ConfigsUpdated: updates,
-					Reason:         []model.TriggerReason{model.AmbientUpdate},
+					Reason:         model.NewReasonStats(model.AmbientUpdate),
 				})
 			}
 		},
@@ -490,7 +490,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					ConfigsUpdated: updates,
-					Reason:         []model.TriggerReason{model.AmbientUpdate},
+					Reason:         model.NewReasonStats(model.AmbientUpdate),
 				})
 			}
 		},
@@ -501,7 +501,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			if len(updates) > 0 {
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					ConfigsUpdated: updates,
-					Reason:         []model.TriggerReason{model.AmbientUpdate},
+					Reason:         model.NewReasonStats(model.AmbientUpdate),
 				})
 			}
 		},

@@ -1155,7 +1155,7 @@ func addUdsEndpoint(s *xds.DiscoveryServer, m *memory.ServiceDiscovery) {
 
 	pushReq := &model.PushRequest{
 		Full:   true,
-		Reason: []model.TriggerReason{model.ConfigUpdate},
+		Reason: model.NewReasonStats(model.ConfigUpdate),
 	}
 	s.ConfigUpdate(pushReq)
 }

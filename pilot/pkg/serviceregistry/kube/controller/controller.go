@@ -424,7 +424,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 		c.NotifyGatewayHandlers()
 		// TODO trigger push via handler
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
@@ -466,7 +466,7 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	// as that full push is only triggered for the specific service.
 	if needsFullPush {
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
@@ -528,7 +528,7 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 	if updatedNeeded && c.updateServiceNodePortAddresses() {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.ServiceUpdate},
+			Reason: model.NewReasonStats(model.ServiceUpdate),
 		})
 	}
 	return nil

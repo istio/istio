@@ -187,7 +187,7 @@ func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 	m.deleteCluster(clusterID)
 	m.m.Unlock()
 	if m.XDSUpdater != nil {
-		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ClusterUpdate}})
+		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.ClusterUpdate)})
 	}
 	return nil
 }

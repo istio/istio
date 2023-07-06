@@ -159,7 +159,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					// Trigger a push so we can recompute status
 					s.XDSServer.ConfigUpdate(&model.PushRequest{
 						Full:   true,
-						Reason: []model.TriggerReason{model.GlobalUpdate},
+						Reason: model.NewReasonStats(model.GlobalUpdate),
 					})
 					<-leaderStop
 					log.Infof("Stopping gateway status writer")

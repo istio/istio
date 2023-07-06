@@ -46,7 +46,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(discoveryNamespacesFilter fi
 				if features.EnableEnhancedResourceScoping {
 					c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 						Full:   true,
-						Reason: []model.TriggerReason{model.NamespaceUpdate},
+						Reason: model.NewReasonStats(model.NamespaceUpdate),
 					})
 				}
 				return nil
@@ -59,7 +59,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(discoveryNamespacesFilter fi
 				if features.EnableEnhancedResourceScoping {
 					c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 						Full:   true,
-						Reason: []model.TriggerReason{model.NamespaceUpdate},
+						Reason: model.NewReasonStats(model.NamespaceUpdate),
 					})
 				}
 				return nil
@@ -101,7 +101,7 @@ func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			ConfigsUpdated: updates,
-			Reason:         []model.TriggerReason{model.AmbientUpdate},
+			Reason:         model.NewReasonStats(model.AmbientUpdate),
 		})
 	}
 }

@@ -207,11 +207,11 @@ var triggerMetric = map[model.TriggerReason]monitoring.Metric{
 	model.ClusterUpdate:   pushTriggers.With(typeTag.Value(string(model.ClusterUpdate))),
 }
 
-func recordPushTriggers(reasons ...model.TriggerReason) {
-	for _, r := range reasons {
+func recordPushTriggers(reasons model.ReasonStats) {
+	for r, cnt := range reasons {
 		t, f := triggerMetric[r]
 		if f {
-			t.Increment()
+			t.RecordInt(int64(cnt))
 		} else {
 			pushTriggers.With(typeTag.Value(string(r))).Increment()
 		}
