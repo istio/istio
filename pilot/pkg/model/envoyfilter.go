@@ -95,7 +95,7 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		cpw := &EnvoyFilterConfigPatchWrapper{
 			Name:      local.Name,
 			Namespace: local.Namespace,
-			FullName:  genFullName(local.Namespace, local.Name),
+			FullName:  local.Namespace + "/" + local.Name,
 			ApplyTo:   cp.ApplyTo,
 			Match:     cp.Match,
 			Operation: cp.Patch.Operation,
@@ -200,10 +200,6 @@ func (efw *EnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_
 		}
 	}
 	return sets.SortedList(keys)
-}
-
-func genFullName(namespace, name string) string {
-	return namespace + "/" + name
 }
 
 func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {
