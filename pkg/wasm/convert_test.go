@@ -23,6 +23,7 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/extensions/common/matching/v3"
 	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
@@ -209,6 +210,16 @@ func TestWasmConvert(t *testing.T) {
 			name: "remote load success",
 			input: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-success"],
+			},
+			wantOutput: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-success-local-file"],
+			},
+			wantErr: false,
+		},
+		{
+			name: "remote load success with extension matcher",
+			input: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-success-extension-matcher"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-success-local-file"],
@@ -417,6 +428,23 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 				},
 			},
 		},
+	}),
+	"remote-load-success-extension-matcher": buildAnyExtensionConfig("remote-load-success", &matcher.ExtensionWithMatcher{
+		ExtensionConfig: buildAnyExtensionConfig("remote-load-success", &wasm.Wasm{
+			Config: &v3.PluginConfig{
+				Vm: &v3.PluginConfig_VmConfig{
+					VmConfig: &v3.VmConfig{
+						Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Remote{
+							Remote: &core.RemoteDataSource{
+								HttpUri: &core.HttpUri{
+									Uri: "http://test?module=test.wasm",
+								},
+							},
+						}},
+					},
+				},
+			},
+		}),
 	}),
 	"remote-load-success-local-file": buildAnyExtensionConfig("remote-load-success", &wasm.Wasm{
 		Config: &v3.PluginConfig{

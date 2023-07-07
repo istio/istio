@@ -22,6 +22,7 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/extensions/common/matching/v3"
 	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
@@ -143,6 +144,20 @@ func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *wasm.Wasm, 
 			// This is not a Wasm filter.
 			wasmLog.Debugf("typed extension config %+v does not contain wasm http filter", typedStruct)
 			return nil, nil, nil
+		}
+	case ec.GetTypedConfig().TypeUrl == xds.ExtensionWithMatcher:
+		extensionWithMatcher := &matcher.ExtensionWithMatcher{}
+		if err := ec.GetTypedConfig().UnmarshalTo(extensionWithMatcher); err != nil {
+			return nil, nil, fmt.Errorf("failed to unmarshal typed config for extension matcher: %w", err)
+		}
+		extensionConfig := extensionWithMatcher.GetExtensionConfig().GetTypedConfig()
+		if extensionConfig.TypeUrl != xds.WasmHTTPFilterType {
+			// This is not a Wasm filter.
+			wasmLog.Debugf("typed extension config %+v does not contain wasm http filter", extensionWithMatcher)
+			return nil, nil, nil
+		}
+		if err := extensionConfig.UnmarshalTo(wasmHTTPFilterConfig); err != nil {
+			return nil, nil, fmt.Errorf("failed to unmarshal extension config resource into Wasm HTTP filter: %w", err)
 		}
 	default:
 		// This is not a Wasm filter.
