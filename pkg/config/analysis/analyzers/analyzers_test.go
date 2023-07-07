@@ -125,7 +125,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-no-port.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway httpbin-gateway"},
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
 		},
 	},
 	{
@@ -149,7 +149,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway httpbin-gateway"},
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
 		},
 	},
 	{
@@ -157,7 +157,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-svcselector.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway httpbin8002-gateway"},
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin8002-gateway"},
 		},
 	},
 	{

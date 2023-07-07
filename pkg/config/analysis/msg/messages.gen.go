@@ -232,6 +232,10 @@ var (
 	// InvalidGatewayCredential defines a diag.MessageType for message "InvalidGatewayCredential".
 	// Description: The credential provided for the Gateway resource is invalid
 	InvalidGatewayCredential = diag.NewMessageType(diag.Error, "IST0161", "The credential referenced by the Gateway %s in namespace %s is invalid, which can cause the traffic not to work as expected.")
+
+	// GatewayPortNotDefinedOnService defines a diag.MessageType for message "GatewayPortNotDefinedOnService".
+	// Description: Gateway port not exposed by service
+	GatewayPortNotDefinedOnService = diag.NewMessageType(diag.Warning, "IST0162", "The gateway is listening on a target port (port %d) that is not defined in the Service associated with its workload instances (Pod selector %s). If you need to access the gateway port through the gateway Service, it will not be available.")
 )
 
 // All returns a list of all known message types.
@@ -293,6 +297,7 @@ func All() []*diag.MessageType {
 		ConflictingTelemetryWorkloadSelectors,
 		MultipleTelemetriesWithoutWorkloadSelectors,
 		InvalidGatewayCredential,
+		GatewayPortNotDefinedOnService,
 	}
 }
 
@@ -844,5 +849,15 @@ func NewInvalidGatewayCredential(r *resource.Instance, gatewayName string, gatew
 		r,
 		gatewayName,
 		gatewayNamespace,
+	)
+}
+
+// NewGatewayPortNotDefinedOnService returns a new diag.Message based on GatewayPortNotDefinedOnService.
+func NewGatewayPortNotDefinedOnService(r *resource.Instance, port int, selector string) diag.Message {
+	return diag.NewMessage(
+		GatewayPortNotDefinedOnService,
+		r,
+		port,
+		selector,
 	)
 }
