@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+  - 43656
+releaseNotes:
+  - |
+    **Added** `traffic.istio.io/lbExternalAddresses` annotation to the service to allow overriding the external address of the load balancer.
