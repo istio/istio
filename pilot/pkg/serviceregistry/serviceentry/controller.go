@@ -185,6 +185,19 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options
 	return s
 }
 
+// ConvertServiceEntry convert se from Config.Spec.
+func ConvertServiceEntry(cfg config.Config) *networking.ServiceEntry {
+	se := cfg.Spec.(*networking.ServiceEntry)
+	if se == nil {
+		return nil
+	}
+
+	// shallow copy
+	copied := &networking.ServiceEntry{}
+	protomarshal.ShallowCopy(copied, se)
+	return copied
+}
+
 // ConvertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
 func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 	wle := cfg.Spec.(*networking.WorkloadEntry)

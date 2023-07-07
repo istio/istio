@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/networking/v1alpha3"
@@ -73,6 +74,11 @@ type AmbientIndexImpl struct {
 
 	// Map of Scope -> address
 	waypoints map[model.WaypointScope]*workloadapi.GatewayAddress
+
+	// map of service entry name/namespace to the service entry.
+	// used on pod updates to add VIPs to pods from service entries.
+	// also used on service entry updates to cleanup any old VIPs from pods/workloads maps.
+	servicesMap map[types.NamespacedName]*apiv1alpha3.ServiceEntry
 }
 
 func workloadToAddressInfo(w *workloadapi.Workload) *model.AddressInfo {
@@ -340,7 +346,7 @@ func (a *AmbientIndexImpl) extractWorkload(p *v1.Pod, c *Controller) *model.Work
 
 	policies := c.selectorAuthorizationPolicies(p.Namespace, p.Labels)
 	policies = append(policies, c.convertedSelectorPeerAuthentications(p.Namespace, p.Labels)...)
-	wl := c.constructWorkload(p, waypoint, policies)
+	wl := a.constructWorkload(p, waypoint, policies, c)
 	if wl == nil {
 		return nil
 	}
@@ -433,6 +439,29 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 		}
 	})
 
+	// Handle ServiceEntries.
+	c.configController.RegisterEventHandler(gvk.ServiceEntry, func(_ config.Config, newCfg config.Config, ev model.Event) {
+		newSvcEntrySpec := serviceentry.ConvertServiceEntry(newCfg)
+		var newSvcEntry *apiv1alpha3.ServiceEntry
+		if newSvcEntrySpec != nil {
+			newSvcEntry = &apiv1alpha3.ServiceEntry{
+				ObjectMeta: newCfg.ToObjectMeta(),
+				Spec:       *newSvcEntrySpec.DeepCopy(),
+			}
+		}
+
+		idx.mu.Lock()
+		defer idx.mu.Unlock()
+		updates := idx.handleServiceEntry(newSvcEntry, ev, c)
+		if len(updates) > 0 {
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+				Full:           false,
+				ConfigsUpdated: updates,
+				Reason:         []model.TriggerReason{model.AmbientUpdate},
+			})
+		}
+	})
+
 	serviceHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			idx.mu.Lock()
@@ -477,6 +506,8 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			}
 		},
 	}
+
+	idx.servicesMap = make(map[types.NamespacedName]*apiv1alpha3.ServiceEntry)
 	c.services.AddEventHandler(serviceHandler)
 	return &idx
 }
@@ -558,6 +589,19 @@ func networkAddressFromWorkload(wl *model.WorkloadInfo) []networkAddress {
 	return networkAddrs
 }
 
+func toInternalNetworkAddresses(nwAddrs []*workloadapi.NetworkAddress) []networkAddress {
+	networkAddrs := make([]networkAddress, 0, len(nwAddrs))
+	for _, addr := range nwAddrs {
+		if ip, ok := netip.AddrFromSlice(addr.Address); ok {
+			networkAddrs = append(networkAddrs, networkAddress{
+				ip:      ip.String(),
+				network: addr.Network,
+			})
+		}
+	}
+	return networkAddrs
+}
+
 // NOTE: Mutex is locked prior to being called.
 func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
 	svc := controllers.Extract[*v1.Service](obj)
@@ -604,15 +648,7 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 	}
 
 	si := c.constructService(svc)
-	networkAddrs := make([]networkAddress, 0, len(si.Addresses))
-	for _, addr := range si.Addresses {
-		if vip, ok := netip.AddrFromSlice(addr.Address); ok {
-			networkAddrs = append(networkAddrs, networkAddress{
-				ip:      vip.String(),
-				network: addr.Network,
-			})
-		}
-	}
+	networkAddrs := toInternalNetworkAddresses(si.GetAddresses())
 	pods := c.getPodsInService(svc)
 	wls := make(map[string]*model.WorkloadInfo, len(pods))
 	for _, p := range pods {
@@ -706,7 +742,9 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]*model.Address
 	return wls, removed
 }
 
-func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.GatewayAddress, policies []string) *workloadapi.Workload {
+func (a *AmbientIndexImpl) constructWorkload(pod *v1.Pod, waypoint *workloadapi.GatewayAddress, policies []string,
+	c *Controller,
+) *workloadapi.Workload {
 	workloadServices := map[string]*workloadapi.PortList{}
 	allServices := c.services.List(pod.Namespace, klabels.Everything())
 	if services := getPodServices(allServices, pod); len(services) > 0 {
@@ -735,6 +773,9 @@ func (c *Controller) constructWorkload(pod *v1.Pod, waypoint *workloadapi.Gatewa
 	addresses := make([][]byte, 0, len(pod.Status.PodIPs))
 	for _, podIP := range pod.Status.PodIPs {
 		addresses = append(addresses, parseIP(podIP.IP))
+	}
+	for nsName, ports := range a.getWorkloadServicesFromServiceEntries(nil, pod.GetNamespace(), pod.Labels) {
+		workloadServices[nsName] = ports
 	}
 
 	wl := &workloadapi.Workload{

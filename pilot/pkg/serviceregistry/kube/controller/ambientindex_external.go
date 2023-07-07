@@ -16,14 +16,17 @@ package controller
 
 import (
 	"fmt"
+	"net/netip"
 
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/api/networking/v1alpha3"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
@@ -37,24 +40,184 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
+func (a *AmbientIndexImpl) handleServiceEntry(svcEntry *apiv1alpha3.ServiceEntry, event model.Event, c *Controller) sets.Set[model.ConfigKey] {
+	if len(svcEntry.Spec.Hosts) == 0 {
+		log.Warnf("ServiceEntry %s/%s is invalid as it has no hosts", svcEntry.GetNamespace(), svcEntry.GetName())
+		return sets.New[model.ConfigKey]()
+	}
+
+	// We will accrue updates as we update our internal state
+	updates := sets.New[model.ConfigKey]()
+
+	if event != model.EventAdd {
+		a.cleanupOldWorkloadEntriesInlinedOnServiceEntry(svcEntry, updates, c)
+	}
+
+	serviceEntryNamespacedName := types.NamespacedName{
+		Name:      svcEntry.GetName(),
+		Namespace: svcEntry.GetNamespace(),
+	}
+
+	// Update indexes
+	if event == model.EventDelete {
+		// servicesMap is used when cleaning up old WEs inlined on a SE (i.e., `ServiceEntry.endpoints`)
+		//
+		// prefer this style to better enable us for future support for auto-allocated VIPs on ServiceEntries.
+		// this is necessary because not all information is available in the ServiceEntry spec
+		delete(a.servicesMap, serviceEntryNamespacedName)
+	} else {
+		// servicesMap is used when constructing workloads so it must be up to date
+		a.servicesMap[serviceEntryNamespacedName] = svcEntry
+	}
+
+	sel := klabels.ValidatedSetSelector(klabels.Set(svcEntry.Spec.WorkloadSelector.GetLabels()))
+	var pods []*v1.Pod
+	if !sel.Empty() {
+		pods = c.podsClient.List(svcEntry.GetNamespace(), sel)
+	}
+	wls := make(map[string]*model.WorkloadInfo, len(pods))
+	for _, pod := range pods {
+		newWl := a.extractWorkload(pod, c)
+		if newWl != nil {
+			// Update the pod, since it now has new VIP info
+			networkAddrs := networkAddressFromWorkload(newWl)
+			for _, networkAddr := range networkAddrs {
+				a.byPod[networkAddr] = newWl
+			}
+			a.byUID[c.generatePodUID(pod)] = newWl
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()})
+			wls[newWl.Uid] = newWl
+		}
+	}
+
+	workloadEntries := c.getSelectedWorkloadEntries(svcEntry.GetNamespace(), svcEntry.Spec.GetWorkloadSelector().GetLabels())
+	for _, w := range workloadEntries {
+		wl := a.extractWorkloadEntry(w, c)
+		// Can be nil if the WorkloadEntry IP has not been mapped yet
+		//
+		// Note: this is a defensive check that mimics the logic for
+		// pods above. WorkloadEntries are mapped by their IP address
+		// in the following cases:
+		// 1. WorkloadEntry add/update
+		// 2. AuthorizationPolicy add/update
+		// 3. Namespace Ambient label add/update
+		if wl != nil {
+			// Update the WorkloadEntry, since it now has new VIP info
+			for _, networkAddr := range networkAddressFromWorkload(wl) {
+				a.byWorkloadEntry[networkAddr] = wl
+			}
+			a.byUID[c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), w.Spec.GetAddress())] = wl
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
+			wls[wl.Uid] = wl
+		}
+	}
+
+	for _, we := range svcEntry.Spec.Endpoints {
+		wli := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
+		if wli != nil && event != model.EventDelete {
+			for _, networkAddr := range networkAddressFromWorkload(wli) {
+				a.byWorkloadEntry[networkAddr] = wli
+			}
+			a.byUID[c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), we.GetAddress())] = wli
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()})
+			wls[wli.Uid] = wli
+		}
+	}
+
+	vips := getVIPsFromServiceEntry(svcEntry)
+	var addrs []*workloadapi.NetworkAddress
+	for _, vip := range vips {
+		addrs = append(addrs, &workloadapi.NetworkAddress{
+			Network: c.network.String(),
+			Address: parseIP(vip),
+		})
+	}
+	var allPorts []*workloadapi.Port
+	for _, port := range svcEntry.Spec.Ports {
+		allPorts = append(allPorts, &workloadapi.Port{
+			ServicePort: port.Number,
+			TargetPort:  port.TargetPort,
+		})
+	}
+	var allSubjAltNames []string
+	allSubjAltNames = append(allSubjAltNames, svcEntry.Spec.SubjectAltNames...)
+
+	// for each host make a service info
+	var serviceInfos []*model.ServiceInfo
+	for _, host := range svcEntry.Spec.Hosts {
+		serviceInfos = append(serviceInfos, &model.ServiceInfo{
+			Service: &workloadapi.Service{
+				Name:            svcEntry.GetName(),
+				Namespace:       svcEntry.GetNamespace(),
+				Hostname:        host,
+				Addresses:       addrs,
+				Ports:           allPorts,
+				SubjectAltNames: allSubjAltNames,
+			},
+		})
+	}
+
+	// we already validated that there is at least one host at the beginning of this function, so this is safe
+	sampleSi := serviceInfos[0]
+
+	networkAddrs := toInternalNetworkAddresses(sampleSi.GetAddresses())
+
+	// We send an update for each *workload* IP address previously in the service; they may have changed
+	for _, si := range serviceInfos {
+		for _, wl := range a.byService[si.ResourceName()] {
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
+		}
+	}
+	// Update indexes
+	if event == model.EventDelete {
+		for _, networkAddr := range networkAddrs {
+			delete(a.serviceByAddr, networkAddr)
+		}
+		for _, si := range serviceInfos {
+			delete(a.byService, si.ResourceName())
+			delete(a.serviceByNamespacedHostname, si.ResourceName())
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
+		}
+	} else {
+		for _, networkAddr := range networkAddrs {
+			// in ambient, we only allow a network address to map to a single host. we dedup by just mapping the first one
+			a.serviceByAddr[networkAddr] = sampleSi
+		}
+		for _, si := range serviceInfos {
+			a.byService[si.ResourceName()] = wls
+			a.serviceByNamespacedHostname[si.ResourceName()] = si
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: si.ResourceName()})
+		}
+	}
+	// Fetch updates again, in case it changed from adding new workloads
+	for _, si := range serviceInfos {
+		for _, wl := range a.byService[si.ResourceName()] {
+			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
+		}
+	}
+
+	return updates
+}
+
 func (c *Controller) getWorkloadEntriesInPolicy(ns string, sel map[string]string) []*apiv1alpha3.WorkloadEntry {
 	if ns == c.meshWatcher.Mesh().GetRootNamespace() {
 		ns = metav1.NamespaceAll
 	}
 
-	allWorkloadEntries := c.getControllerWorkloadEntries(ns)
-	var workloadEntries []*apiv1alpha3.WorkloadEntry
-	for _, w := range allWorkloadEntries {
-		if labels.Instance(sel).SubsetOf(w.Spec.Labels) {
-			workloadEntries = append(workloadEntries, w)
-		}
-	}
-
-	return workloadEntries
+	return c.getSelectedWorkloadEntries(ns, sel)
 }
 
 // NOTE: Mutex is locked prior to being called.
 func (a *AmbientIndexImpl) extractWorkloadEntry(w *apiv1alpha3.WorkloadEntry, c *Controller) *model.WorkloadInfo {
+	if w == nil {
+		return nil
+	}
+	return a.extractWorkloadEntrySpec(&w.Spec, w.Namespace, w.Name, nil, c)
+}
+
+func (a *AmbientIndexImpl) extractWorkloadEntrySpec(w *v1alpha3.WorkloadEntry, ns, name string,
+	parentServiceEntry *apiv1alpha3.ServiceEntry, c *Controller,
+) *model.WorkloadInfo {
 	if w == nil {
 		return nil
 	}
@@ -65,13 +228,13 @@ func (a *AmbientIndexImpl) extractWorkloadEntry(w *apiv1alpha3.WorkloadEntry, c 
 		// First check for a waypoint for our SA explicit
 		// TODO: this is not robust against temporary waypoint downtime. We also need the users intent (Gateway).
 		found := false
-		if waypoint, found = a.waypoints[model.WaypointScope{Namespace: w.Namespace, ServiceAccount: w.Spec.ServiceAccount}]; !found {
+		if waypoint, found = a.waypoints[model.WaypointScope{Namespace: ns, ServiceAccount: w.ServiceAccount}]; !found {
 			// if there are none, check namespace wide waypoints
-			waypoint = a.waypoints[model.WaypointScope{Namespace: w.Namespace}]
+			waypoint = a.waypoints[model.WaypointScope{Namespace: ns}]
 		}
 	}
-	policies := c.selectorAuthorizationPolicies(w.Namespace, w.Labels)
-	wl := c.constructWorkloadFromWorkloadEntry(w, waypoint, policies)
+	policies := c.selectorAuthorizationPolicies(ns, w.Labels)
+	wl := a.constructWorkloadFromWorkloadEntry(w, ns, name, parentServiceEntry, waypoint, policies, c)
 	if wl == nil {
 		return nil
 	}
@@ -143,8 +306,8 @@ func (a *AmbientIndexImpl) handleWorkloadEntry(oldWorkloadEntry, w *apiv1alpha3.
 	return updates
 }
 
-func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alpha3.WorkloadEntry,
-	waypoint *workloadapi.GatewayAddress, policies []string,
+func (a *AmbientIndexImpl) constructWorkloadFromWorkloadEntry(workloadEntry *v1alpha3.WorkloadEntry, workloadEntryNamespace, workloadEntryName string,
+	parentServiceEntry *apiv1alpha3.ServiceEntry, waypoint *workloadapi.GatewayAddress, policies []string, c *Controller,
 ) *workloadapi.Workload {
 	if workloadEntry == nil {
 		return nil
@@ -152,13 +315,13 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alph
 
 	// TODO support WorkloadEntry's with empty address
 	// only add if waypoint exists?
-	if workloadEntry.Spec.Address == "" {
-		log.Warnf("workloadentry %s/%s does not have an address", workloadEntry.Namespace, workloadEntry.Name)
+	if workloadEntry.Address == "" {
+		log.Warnf("workloadentry %s/%s does not have an address", workloadEntryNamespace, workloadEntryName)
 		return nil
 	}
 
 	workloadServices := map[string]*workloadapi.PortList{}
-	if services := getWorkloadEntryServices(c.services.List(workloadEntry.Namespace, klabels.Everything()), workloadEntry); len(services) > 0 {
+	if services := getWorkloadEntryServices(c.services.List(workloadEntryNamespace, klabels.Everything()), workloadEntry); len(services) > 0 {
 		for _, svc := range services {
 			ports := &workloadapi.PortList{}
 			for _, port := range svc.Spec.Ports {
@@ -167,7 +330,7 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alph
 				}
 				targetPort, err := findPortForWorkloadEntry(workloadEntry, &port)
 				if err != nil {
-					log.Errorf("error looking up port for WorkloadEntry %s/%s", workloadEntry.Namespace, workloadEntry.Name)
+					log.Errorf("error looking up port for WorkloadEntry %s/%s", workloadEntryNamespace, workloadEntryName)
 					continue
 				}
 				ports.Ports = append(ports.Ports, &workloadapi.Port{
@@ -179,18 +342,47 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alph
 		}
 	}
 
-	network := c.Network(workloadEntry.Spec.Address, workloadEntry.Spec.Labels).String()
-	if workloadEntry.Spec.Network != "" {
-		network = workloadEntry.Spec.Network
+	// for constructing a workload from a standalone workload entry, which can be selected by many service entries
+	if parentServiceEntry == nil {
+		for nsName, ports := range a.getWorkloadServicesFromServiceEntries(workloadEntry, workloadEntryNamespace, workloadEntry.Labels) {
+			workloadServices[nsName] = ports
+		}
+	}
+
+	// for constructing workloads with a single parent (inlined on a SE)
+	if parentServiceEntry != nil {
+		ports := getPortsForServiceEntry(parentServiceEntry, workloadEntry)
+		for _, host := range parentServiceEntry.Spec.Hosts {
+			workloadServices[namespacedHostname(parentServiceEntry.GetNamespace(), host)] = ports
+		}
+	}
+
+	// this can fail if the address is DNS, e.g. "external.external-1-15569.svc.cluster.local"
+	addr, err := netip.ParseAddr(workloadEntry.Address)
+	if err != nil {
+		log.Errorf("skipping ambient workload generation for workload entry %s/%s."+
+			"client DNS address resolution is not implemented in ztunnel yet: requested address %v",
+			workloadEntryNamespace, workloadEntryName, workloadEntry.Address)
+		return nil
+	}
+
+	uid := c.generateWorkloadEntryUID(workloadEntryNamespace, workloadEntryName)
+	if parentServiceEntry != nil {
+		uid = c.generateServiceEntryUID(parentServiceEntry.GetNamespace(), parentServiceEntry.GetName(), addr.String())
+	}
+
+	network := c.Network(workloadEntry.Address, workloadEntry.Labels).String()
+	if workloadEntry.Network != "" {
+		network = workloadEntry.Network
 	}
 
 	wl := &workloadapi.Workload{
-		Uid:                   c.generateWorkloadEntryUID(workloadEntry.Namespace, workloadEntry.Name),
-		Name:                  workloadEntry.Name,
-		Namespace:             workloadEntry.Namespace,
-		Addresses:             [][]byte{parseIP(workloadEntry.Spec.Address)},
+		Uid:                   uid,
+		Name:                  workloadEntryName,
+		Namespace:             workloadEntryNamespace,
+		Addresses:             [][]byte{addr.AsSlice()},
 		Network:               network,
-		ServiceAccount:        workloadEntry.Spec.ServiceAccount,
+		ServiceAccount:        workloadEntry.ServiceAccount,
 		Services:              workloadServices,
 		AuthorizationPolicies: policies,
 		Waypoint:              waypoint,
@@ -199,10 +391,14 @@ func (c *Controller) constructWorkloadFromWorkloadEntry(workloadEntry *apiv1alph
 		wl.TrustDomain = td
 	}
 
-	wl.WorkloadName, wl.WorkloadType = workloadEntry.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
+	wl.WorkloadName, wl.WorkloadType = workloadEntryName, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
 	wl.CanonicalName, wl.CanonicalRevision = kubelabels.CanonicalService(workloadEntry.Labels, wl.WorkloadName)
 
-	if workloadEntry.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
+	isMeshExternal := parentServiceEntry != nil && parentServiceEntry.Spec.Location == v1alpha3.ServiceEntry_MESH_EXTERNAL
+
+	// TODO(ambient): For VMs we use Labels instead of an Annotations since we don't
+	// have access to the top level WorkloadEntry object. Maybe this is fine?
+	if workloadEntry.Labels[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled && !isMeshExternal {
 		// Configured for override
 		wl.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
 	}
@@ -241,7 +437,7 @@ func (a *AmbientIndexImpl) updateWaypointForWorkload(byWorkload map[networkAddre
 	}
 }
 
-func getWorkloadEntryServices(services []*v1.Service, workloadEntry *apiv1alpha3.WorkloadEntry) []*v1.Service {
+func getWorkloadEntryServices(services []*v1.Service, workloadEntry *v1alpha3.WorkloadEntry) []*v1.Service {
 	var filteredServices []*v1.Service
 	for _, service := range services {
 		if service.Spec.Selector == nil {
@@ -255,7 +451,7 @@ func getWorkloadEntryServices(services []*v1.Service, workloadEntry *apiv1alpha3
 	return filteredServices
 }
 
-func findPortForWorkloadEntry(workloadEntry *apiv1alpha3.WorkloadEntry, svcPort *v1.ServicePort) (uint32, error) {
+func findPortForWorkloadEntry(workloadEntry *v1alpha3.WorkloadEntry, svcPort *v1.ServicePort) (uint32, error) {
 	if workloadEntry == nil {
 		return 0, fmt.Errorf("invalid input, got nil WorkloadEntry")
 	}
@@ -263,7 +459,7 @@ func findPortForWorkloadEntry(workloadEntry *apiv1alpha3.WorkloadEntry, svcPort 
 		return 0, fmt.Errorf("invalid input, got nil ServicePort")
 	}
 
-	for portName, portVal := range workloadEntry.Spec.Ports {
+	for portName, portVal := range workloadEntry.Ports {
 		if portName == svcPort.Name {
 			return portVal, nil
 		}
@@ -277,24 +473,22 @@ func findPortForWorkloadEntry(workloadEntry *apiv1alpha3.WorkloadEntry, svcPort 
 }
 
 func (c *Controller) getWorkloadEntriesInService(svc *v1.Service) []*apiv1alpha3.WorkloadEntry {
-	allWorkloadEntries := c.getControllerWorkloadEntries(svc.GetNamespace())
-	if svc.Spec.Selector == nil {
-		// services with nil selectors match nothing, not everything.
+	return c.getSelectedWorkloadEntries(svc.GetNamespace(), svc.Spec.Selector)
+}
+
+func (c *Controller) getSelectedWorkloadEntries(ns string, selector map[string]string) []*apiv1alpha3.WorkloadEntry {
+	allWorkloadEntries := c.getControllerWorkloadEntries(ns)
+	if len(selector) == 0 {
+		// k8s services and service entry workloadSelector with empty selectors match nothing, not everything.
 		return nil
 	}
 	var workloadEntries []*apiv1alpha3.WorkloadEntry
 	for _, wl := range allWorkloadEntries {
-		if labels.Instance(svc.Spec.Selector).SubsetOf(wl.Spec.Labels) {
+		if labels.Instance(selector).SubsetOf(wl.Spec.Labels) {
 			workloadEntries = append(workloadEntries, wl)
 		}
 	}
 	return workloadEntries
-}
-
-// name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
-// if the WorkloadEntry is inlined in the ServiceEntry, we may need section name. caller should use generateServiceEntryUID
-func (c *Controller) generateWorkloadEntryUID(wkEntryNamespace, wkEntryName string) string {
-	return c.clusterID.String() + "/networking.istio.io/WorkloadEntry/" + wkEntryNamespace + "/" + wkEntryName
 }
 
 func (c *Controller) getControllerWorkloadEntries(ns string) []*apiv1alpha3.WorkloadEntry {
@@ -312,4 +506,111 @@ func (c *Controller) getControllerWorkloadEntries(ns string) []*apiv1alpha3.Work
 		allWorkloadEntries = append(allWorkloadEntries, c)
 	}
 	return allWorkloadEntries
+}
+
+// name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
+// if the WorkloadEntry is inlined in the ServiceEntry, we may need section name. caller should use generateServiceEntryUID
+func (c *Controller) generateWorkloadEntryUID(wkEntryNamespace, wkEntryName string) string {
+	return c.clusterID.String() + "/networking.istio.io/WorkloadEntry/" + wkEntryNamespace + "/" + wkEntryName
+}
+
+// name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
+// section name should be the WE address, which needs to be stable across SE updates (it is assumed WE addresses are unique)
+func (c *Controller) generateServiceEntryUID(svcEntryNamespace, svcEntryName, addr string) string {
+	return c.clusterID.String() + "/networking.istio.io/ServiceEntry/" + svcEntryNamespace + "/" + svcEntryName + "/" + addr
+}
+
+// prefer this style to better enable us for future support for auto-allocated VIPs on ServiceEntries.
+// this is necessary because not all information is available in the ServiceEntry spec
+func (a *AmbientIndexImpl) cleanupOldWorkloadEntriesInlinedOnServiceEntry(svcEntry *apiv1alpha3.ServiceEntry,
+	updates sets.Set[model.ConfigKey], c *Controller,
+) {
+	nsName := types.NamespacedName{
+		Name:      svcEntry.GetName(),
+		Namespace: svcEntry.GetNamespace(),
+	}
+
+	// cleanup any old WorkloadEntries generated from this ServiceEntry (`ServiceEntry.endpoints`)
+	// we have to do this now before the a.servicesMap is updated to account for vip auto allocation
+	if oldServiceEntry, f := a.servicesMap[nsName]; f {
+		for _, oldWe := range oldServiceEntry.Spec.Endpoints {
+			oldUID := c.generateServiceEntryUID(nsName.Namespace, nsName.Name, oldWe.Address)
+			we, found := a.byUID[oldUID]
+			if found {
+				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: we.ResourceName()})
+				for _, networkAddr := range networkAddressFromWorkload(we) {
+					delete(a.byWorkloadEntry, networkAddr)
+				}
+				delete(a.byUID, oldUID)
+			}
+		}
+	}
+}
+
+func (a *AmbientIndexImpl) getWorkloadServicesFromServiceEntries(workloadEntry *v1alpha3.WorkloadEntry,
+	workloadNamespace string, workloadLabels map[string]string,
+) map[string]*workloadapi.PortList {
+	workloadServices := map[string]*workloadapi.PortList{}
+	for _, se := range a.servicesMap {
+
+		if se.GetNamespace() != workloadNamespace {
+			// service entry can only select workloads in the same namespace
+			continue
+		}
+
+		if se.Spec.WorkloadSelector == nil {
+			// nothing to do. we construct the ztunnel config if `endpoints` are provided in the service entry handler
+			continue
+		}
+
+		if se.Spec.Endpoints != nil {
+			// it is an error to provide both `endpoints` and `workloadSelector` in a service entry
+			continue
+		}
+
+		sel := se.Spec.WorkloadSelector.Labels
+		if !labels.Instance(sel).SubsetOf(workloadLabels) {
+			continue
+		}
+
+		ports := getPortsForServiceEntry(se, workloadEntry)
+		for _, host := range se.Spec.Hosts {
+			workloadServices[namespacedHostname(se.GetNamespace(), host)] = ports
+		}
+	}
+
+	return workloadServices
+}
+
+func getVIPsFromServiceEntry(svc *apiv1alpha3.ServiceEntry) []string {
+	var vips []string
+	vips = append(vips, svc.Spec.Addresses...)
+	// in the future we may want to include cluster VIPs from svc.ClusterVIPs, auto allocated VIPs
+	return vips
+}
+
+func getPortsForServiceEntry(svcEntry *apiv1alpha3.ServiceEntry, we *v1alpha3.WorkloadEntry) *workloadapi.PortList {
+	var ports *workloadapi.PortList
+	for _, port := range svcEntry.Spec.Ports {
+
+		if ports == nil {
+			ports = &workloadapi.PortList{}
+		}
+
+		newPort := &workloadapi.Port{
+			ServicePort: port.GetNumber(),
+			TargetPort:  port.GetTargetPort(),
+		}
+
+		// take WE override port if necessary
+		if we != nil {
+			for wePortName, wePort := range we.Ports {
+				if wePortName == port.Name {
+					newPort.TargetPort = wePort
+				}
+			}
+		}
+		ports.Ports = append(ports.Ports, newPort)
+	}
+	return ports
 }

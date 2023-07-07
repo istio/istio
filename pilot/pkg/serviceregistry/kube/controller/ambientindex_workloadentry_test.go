@@ -19,9 +19,7 @@ import (
 	"net/netip"
 	"strings"
 	"testing"
-	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -38,8 +36,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -56,28 +52,6 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	sc := clienttest.Wrap(t, controller.services)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
-	assertWorkloads := func(lookup string, state workloadapi.WorkloadStatus, names ...string) {
-		t.Helper()
-		want := sets.New(names...)
-		assert.EventuallyEqual(t, func() sets.String {
-			var workloads []*model.AddressInfo
-			if lookup == "" {
-				workloads = controller.ambientIndex.All()
-			} else {
-				workloads = controller.ambientIndex.Lookup(lookup)
-			}
-			have := sets.New[string]()
-			for _, wl := range workloads {
-				switch addr := wl.Address.Type.(type) {
-				case *workloadapi.Address_Workload:
-					if addr.Workload.Status == state {
-						have.Insert(addr.Workload.Name)
-					}
-				}
-			}
-			return have
-		}, want, retry.Timeout(time.Second*3))
-	}
 	deleteWorkloadEntry := func(name string) {
 		t.Helper()
 		cfg.Delete(gvk.WorkloadEntry, name, "ns1", nil)
@@ -103,38 +77,16 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	addPods := func(ip string, name, sa string, labels map[string]string, annotations map[string]string) {
-		t.Helper()
-		pod := generatePod(ip, name, "ns1", sa, "node1", labels, annotations)
-
-		p := pc.Get(name, pod.Namespace)
-		if p == nil {
-			// Apiserver doesn't allow Create to modify the pod status; in real world its a 2 part process
-			pod.Status = corev1.PodStatus{}
-			newPod := pc.Create(pod)
-			setPodReady(newPod)
-			newPod.Status.PodIP = ip
-			newPod.Status.PodIPs = []corev1.PodIP{
-				{
-					IP: ip,
-				},
-			}
-			newPod.Status.Phase = corev1.PodRunning
-			pc.UpdateStatus(newPod)
-		} else {
-			pc.Update(pod)
-		}
-	}
 
 	addWorkloadEntries("127.0.0.1", "name1", "sa1", map[string]string{"app": "a"})
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1")
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name1")
 
 	addWorkloadEntries("127.0.0.2", "name2", "sa1", map[string]string{"app": "a", "other": "label"})
 	addWorkloadEntries("127.0.0.3", "name3", "sa1", map[string]string{"app": "other"})
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
-	assertWorkloads("/127.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1")
-	assertWorkloads("/127.0.0.2", workloadapi.WorkloadStatus_HEALTHY, "name2")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
+	assertWorkloads(t, controller, "/127.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1")
+	assertWorkloads(t, controller, "/127.0.0.2", workloadapi.WorkloadStatus_HEALTHY, "name2")
 	assert.Equal(t, controller.ambientIndex.Lookup("/127.0.0.3"), []*model.AddressInfo{{
 		Address: &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
@@ -157,7 +109,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name3")
 
 	// Non-existent IP should have no response
-	assertWorkloads("/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY)
+	assertWorkloads(t, controller, "/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY)
 	fx.Clear()
 
 	createService(controller, "svc1", "ns1",
@@ -167,10 +119,10 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		map[string]string{"app": "a"}, // selector
 		t)
 	// Service shouldn't change workload list
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
-	assertWorkloads("/127.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
+	assertWorkloads(t, controller, "/127.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1")
 	// Now we should be able to look up a VIP as well
-	assertWorkloads("/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2")
+	assertWorkloads(t, controller, "/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2")
 	// We should get an event for the two WEs and the selecting service impacted
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name1",
 		"cluster0/networking.istio.io/WorkloadEntry/ns1/name2",
@@ -178,15 +130,15 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 
 	// Add a new pod to the service, we should see it
 	addWorkloadEntries("127.0.0.4", "name4", "sa1", map[string]string{"app": "a"})
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3", "name4")
-	assertWorkloads("/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name4")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3", "name4")
+	assertWorkloads(t, controller, "/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name4")
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name4")
 
 	// Delete it, should remove from the Service as well
 	deleteWorkloadEntry("name4")
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
-	assertWorkloads("/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2")
-	assertWorkloads("/127.0.0.4", workloadapi.WorkloadStatus_HEALTHY) // Should not be accessible anymore
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
+	assertWorkloads(t, controller, "/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2")
+	assertWorkloads(t, controller, "/127.0.0.4", workloadapi.WorkloadStatus_HEALTHY) // Should not be accessible anymore
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name4")
 
 	fx.Clear()
@@ -197,33 +149,33 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		[]int32{80},
 		map[string]string{"app": "a", "other": "label"}, // selector
 		t)
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
-	assertWorkloads("/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name2")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
+	assertWorkloads(t, controller, "/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name2")
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name1",
 		"cluster0/networking.istio.io/WorkloadEntry/ns1/name2", "ns1/svc1.ns1.svc.company.com")
 	// assertEvent("127.0.0.2") TODO: This should be the event, but we are not efficient here.
 
 	// Update an existing WE into the service
 	addWorkloadEntries("127.0.0.3", "name3", "sa1", map[string]string{"app": "a", "other": "label"})
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
-	assertWorkloads("/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name2", "name3")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
+	assertWorkloads(t, controller, "/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name2", "name3")
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name3")
 
 	// And remove it again from the service VIP mapping by changing its label to not match the service svc1.ns1 selector
 	addWorkloadEntries("127.0.0.3", "name3", "sa1", map[string]string{"app": "a"})
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
-	assertWorkloads("/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name2")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
+	assertWorkloads(t, controller, "/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name2")
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name3")
 
 	// Delete the service entirely
 	controller.client.Kube().CoreV1().Services("ns1").Delete(context.Background(), "svc1", metav1.DeleteOptions{})
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
-	assertWorkloads("/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY)
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
+	assertWorkloads(t, controller, "/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY)
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name2", "ns1/svc1.ns1.svc.company.com")
 	assert.Equal(t, len(controller.ambientIndex.(*AmbientIndexImpl).byService), 0)
 
 	// Add a waypoint proxy pod for namespace
-	addPods("127.0.0.200", "waypoint-ns-pod", "namespace-wide",
+	addPod(t, pc, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
 			constants.GatewayNameLabel:    "namespace-wide",
@@ -249,7 +201,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		netip.MustParseAddr("10.0.0.2").AsSlice())
 
 	// Add another one, expect the same result
-	addPods("127.0.0.201", "waypoint2-ns-pod", "namespace-wide",
+	addPod(t, pc, "127.0.0.201", "waypoint2-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
 			constants.GatewayNameLabel:    "namespace-wide",
@@ -269,7 +221,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		[]int32{80},
 		map[string]string{"app": "a"}, // selector
 		t)
-	assertWorkloads("/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
+	assertWorkloads(t, controller, "/10.0.0.1", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
 	// Send update for the workloads as well...
 	assertEvent(t, fx, "cluster0/networking.istio.io/WorkloadEntry/ns1/name1",
 		"cluster0/networking.istio.io/WorkloadEntry/ns1/name2",

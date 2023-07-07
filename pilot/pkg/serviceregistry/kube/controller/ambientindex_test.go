@@ -64,34 +64,12 @@ func TestAmbientIndex(t *testing.T) {
 	cfg.RegisterEventHandler(gvk.PeerAuthentication, controller.PeerAuthenticationHandler)
 	go cfg.Run(test.NewStop(t))
 
-	addPods := func(ip string, name, sa string, labels map[string]string, annotations map[string]string) {
-		t.Helper()
-		pod := generatePod(ip, name, "ns1", sa, "node1", labels, annotations)
-
-		p := pc.Get(name, pod.Namespace)
-		if p == nil {
-			// Apiserver doesn't allow Create to modify the pod status; in real world its a 2 part process
-			pod.Status = corev1.PodStatus{}
-			newPod := pc.Create(pod)
-			setPodReady(newPod)
-			newPod.Status.PodIP = ip
-			newPod.Status.PodIPs = []corev1.PodIP{
-				{
-					IP: ip,
-				},
-			}
-			newPod.Status.Phase = corev1.PodRunning
-			pc.UpdateStatus(newPod)
-		} else {
-			pc.Update(pod)
-		}
-	}
-	addPods("127.0.0.1", "name1", "sa1", map[string]string{"app": "a"}, nil)
+	addPod(t, pc, "127.0.0.1", "name1", "sa1", map[string]string{"app": "a"}, nil)
 	assertAddresses(t, controller, "", "name1")
 	assertEvent(t, fx, "cluster0//Pod/ns1/name1")
 
-	addPods("127.0.0.2", "name2", "sa1", map[string]string{"app": "a", "other": "label"}, nil)
-	addPods("127.0.0.3", "name3", "sa1", map[string]string{"app": "other"}, nil)
+	addPod(t, pc, "127.0.0.2", "name2", "sa1", map[string]string{"app": "a", "other": "label"}, nil)
+	addPod(t, pc, "127.0.0.3", "name3", "sa1", map[string]string{"app": "other"}, nil)
 	assertAddresses(t, controller, "", "name1", "name2", "name3")
 	assertAddresses(t, controller, "testnetwork/127.0.0.1", "name1")
 	assertAddresses(t, controller, "testnetwork/127.0.0.2", "name2")
@@ -140,7 +118,7 @@ func TestAmbientIndex(t *testing.T) {
 	assertEvent(t, fx, "cluster0//Pod/ns1/name1", "cluster0//Pod/ns1/name2", "ns1/svc1.ns1.svc.company.com")
 
 	// Add a new pod to the service, we should see it
-	addPods("127.0.0.4", "name4", "sa1", map[string]string{"app": "a"}, nil)
+	addPod(t, pc, "127.0.0.4", "name4", "sa1", map[string]string{"app": "a"}, nil)
 	assertAddresses(t, controller, "", "name1", "name2", "name3", "name4", "svc1")
 	assertAddresses(t, controller, "testnetwork/10.0.0.1", "name1", "name2", "name4", "svc1")
 	assertEvent(t, fx, "cluster0//Pod/ns1/name4")
@@ -166,13 +144,13 @@ func TestAmbientIndex(t *testing.T) {
 	// assertEvent("cluster0//v1/pod/ns1/name1") TODO: This should be the event, but we are not efficient here.
 
 	// Update an existing pod into the service
-	addPods("127.0.0.3", "name3", "sa1", map[string]string{"app": "a", "other": "label"}, nil)
+	addPod(t, pc, "127.0.0.3", "name3", "sa1", map[string]string{"app": "a", "other": "label"}, nil)
 	assertAddresses(t, controller, "", "name1", "name2", "name3", "svc1")
 	assertAddresses(t, controller, "testnetwork/10.0.0.1", "name2", "name3", "svc1")
 	assertEvent(t, fx, "cluster0//Pod/ns1/name3")
 
 	// And remove it again
-	addPods("127.0.0.3", "name3", "sa1", map[string]string{"app": "a"}, nil)
+	addPod(t, pc, "127.0.0.3", "name3", "sa1", map[string]string{"app": "a"}, nil)
 	assertAddresses(t, controller, "", "name1", "name2", "name3", "svc1")
 	assertAddresses(t, controller, "testnetwork/10.0.0.1", "name2", "svc1")
 	assertEvent(t, fx, "cluster0//Pod/ns1/name3")
@@ -185,7 +163,7 @@ func TestAmbientIndex(t *testing.T) {
 	assert.Equal(t, len(controller.ambientIndex.(*AmbientIndexImpl).byService), 0)
 
 	// Add a waypoint proxy pod for namespace
-	addPods("127.0.0.200", "waypoint-ns-pod", "namespace-wide",
+	addPod(t, pc, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
 			constants.GatewayNameLabel:    "namespace-wide",
@@ -237,7 +215,7 @@ func TestAmbientIndex(t *testing.T) {
 	}
 
 	// Add another waypoint pod, expect no updates for other pods since waypoint address refers to service IP
-	addPods("127.0.0.201", "waypoint2-ns-pod", "namespace-wide",
+	addPod(t, pc, "127.0.0.201", "waypoint2-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
 			constants.GatewayNameLabel:    "namespace-wide",
@@ -280,7 +258,7 @@ func TestAmbientIndex(t *testing.T) {
 		controller.ambientIndex.Lookup("testnetwork/10.0.0.1")[1].Address.GetWorkload().Waypoint.GetAddress().Address,
 		netip.MustParseAddr("10.0.0.2").AsSlice())
 
-	addPods("127.0.0.201", "waypoint2-sa", "waypoint-sa",
+	addPod(t, pc, "127.0.0.201", "waypoint2-sa", "waypoint-sa",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{constants.WaypointServiceAccount: "sa2"})
 	assertEvent(t, fx, "cluster0//Pod/ns1/waypoint2-sa")
@@ -290,7 +268,7 @@ func TestAmbientIndex(t *testing.T) {
 		netip.MustParseAddr("10.0.0.2").AsSlice())
 
 	// Adding a new pod should also see the waypoint
-	addPods("127.0.0.6", "name6", "sa1", map[string]string{"app": "a"}, nil)
+	addPod(t, pc, "127.0.0.6", "name6", "sa1", map[string]string{"app": "a"}, nil)
 	assertEvent(t, fx, "cluster0//Pod/ns1/name6")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.6")[0].Address.GetWorkload().Waypoint.GetAddress().Address,
@@ -376,14 +354,14 @@ func TestAmbientIndex(t *testing.T) {
 		[]string{fmt.Sprintf("ns1/%sselector", convertedPeerAuthenticationPrefix)})
 
 	// Pod not in selector policy, but namespace policy should take effect (hence static policy)
-	addPods("127.0.0.2", "name2", "sa1", map[string]string{"app": "not-a"}, nil)
+	addPod(t, pc, "127.0.0.2", "name2", "sa1", map[string]string{"app": "not-a"}, nil)
 	assertEvent(t, fx, "cluster0//Pod/ns1/name2")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.2")[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)})
 
 	// Add it to the policy by updating its selector
-	addPods("127.0.0.2", "name2", "sa1", map[string]string{"app": "a"}, nil)
+	addPod(t, pc, "127.0.0.2", "name2", "sa1", map[string]string{"app": "a"}, nil)
 	assertEvent(t, fx, "cluster0//Pod/ns1/name2")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.2")[0].Address.GetWorkload().AuthorizationPolicies,
@@ -541,14 +519,14 @@ func TestAmbientIndex(t *testing.T) {
 		[]string{"ns1/selector"})
 
 	// Pod not in policy
-	addPods("127.0.0.2", "name2", "sa1", map[string]string{"app": "not-a"}, nil)
+	addPod(t, pc, "127.0.0.2", "name2", "sa1", map[string]string{"app": "not-a"}, nil)
 	assertEvent(t, fx, "cluster0//Pod/ns1/name2")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.2")[0].Address.GetWorkload().AuthorizationPolicies,
 		nil)
 
 	// Add it to the policy by updating its selector
-	addPods("127.0.0.2", "name2", "sa1", map[string]string{"app": "a"}, nil)
+	addPod(t, pc, "127.0.0.2", "name2", "sa1", map[string]string{"app": "a"}, nil)
 	assertEvent(t, fx, "cluster0//Pod/ns1/name2")
 	assert.Equal(t,
 		controller.ambientIndex.Lookup("testnetwork/127.0.0.2")[0].Address.GetWorkload().AuthorizationPolicies,
@@ -692,28 +670,6 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 	pc := clienttest.Wrap(t, controller.podsClient)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	go cfg.Run(test.NewStop(t))
-	assertWorkloads := func(lookup string, state workloadapi.WorkloadStatus, names ...string) {
-		t.Helper()
-		want := sets.New(names...)
-		assert.EventuallyEqual(t, func() sets.String {
-			var workloads []*model.AddressInfo
-			if lookup == "" {
-				workloads = controller.ambientIndex.All()
-			} else {
-				workloads = controller.ambientIndex.Lookup(lookup)
-			}
-			have := sets.New[string]()
-			for _, wl := range workloads {
-				switch addr := wl.Address.Type.(type) {
-				case *workloadapi.Address_Workload:
-					if addr.Workload.Status == state {
-						have.Insert(addr.Workload.Name)
-					}
-				}
-			}
-			return have
-		}, want, retry.Timeout(time.Second*3))
-	}
 	addPods := func(ip string, name, sa string, labels map[string]string, markReady bool, phase corev1.PodPhase) {
 		t.Helper()
 		pod := generatePod(ip, name, "ns1", sa, "node1", labels, nil)
@@ -741,15 +697,15 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 
 	addPods("127.0.0.1", "name1", "sa1", map[string]string{"app": "a"}, true, corev1.PodRunning)
 	assertEvent(t, fx, "//Pod/ns1/name1")
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1")
 
 	addPods("127.0.0.2", "name2", "sa1", map[string]string{"app": "a", "other": "label"}, false, corev1.PodRunning)
 	addPods("127.0.0.3", "name3", "sa1", map[string]string{"app": "other"}, false, corev1.PodPending)
 	assertEvent(t, fx, "//Pod/ns1/name2")
 	// Still healthy
-	assertWorkloads("", workloadapi.WorkloadStatus_HEALTHY, "name1")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_HEALTHY, "name1")
 	// Unhealthy
-	assertWorkloads("", workloadapi.WorkloadStatus_UNHEALTHY, "name2")
+	assertWorkloads(t, controller, "", workloadapi.WorkloadStatus_UNHEALTHY, "name2")
 	// name3 isn't running at all
 }
 
@@ -871,4 +827,50 @@ func addService(t *testing.T, sc clienttest.TestClient[*corev1.Service], name st
 	t.Helper()
 	service := generateService(name, "ns1", labels, annotations, ports, selector, ip)
 	sc.CreateOrUpdate(service)
+}
+
+func assertWorkloads(t *testing.T, controller *FakeController, lookup string, state workloadapi.WorkloadStatus, names ...string) {
+	t.Helper()
+	want := sets.New(names...)
+	assert.EventuallyEqual(t, func() sets.String {
+		var workloads []*model.AddressInfo
+		if lookup == "" {
+			workloads = controller.ambientIndex.All()
+		} else {
+			workloads = controller.ambientIndex.Lookup(lookup)
+		}
+		have := sets.New[string]()
+		for _, wl := range workloads {
+			switch addr := wl.Address.Type.(type) {
+			case *workloadapi.Address_Workload:
+				if addr.Workload.Status == state {
+					have.Insert(addr.Workload.Name)
+				}
+			}
+		}
+		return have
+	}, want, retry.Timeout(time.Second*3))
+}
+
+func addPod(t *testing.T, pc clienttest.TestClient[*corev1.Pod], ip string, name, sa string, labels map[string]string, annotations map[string]string) {
+	t.Helper()
+	pod := generatePod(ip, name, "ns1", sa, "node1", labels, annotations)
+
+	p := pc.Get(name, pod.Namespace)
+	if p == nil {
+		// Apiserver doesn't allow Create to modify the pod status; in real world its a 2 part process
+		pod.Status = corev1.PodStatus{}
+		newPod := pc.Create(pod)
+		setPodReady(newPod)
+		newPod.Status.PodIP = ip
+		newPod.Status.PodIPs = []corev1.PodIP{
+			{
+				IP: ip,
+			},
+		}
+		newPod.Status.Phase = corev1.PodRunning
+		pc.UpdateStatus(newPod)
+	} else {
+		pc.Update(pod)
+	}
 }
