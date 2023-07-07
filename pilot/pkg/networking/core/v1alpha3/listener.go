@@ -150,10 +150,11 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	if proxy.Metadata != nil && proxy.Metadata.Raw[secconst.CredentialMetaDataName] == "true" {
 		credentialSocketExist = true
 	}
+	validateClient := ctx.RequireClientCertificate.Value || serverTLSSettings.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL
 
 	switch {
 	case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, validateClient)
 	// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
 	case serverTLSSettings.CredentialName != "":
 		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
@@ -167,7 +168,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 			TLSServerRootCert:  serverTLSSettings.CaCertificates,
 		}
 
-		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, validateClient)
 	}
 
 	if isSimpleOrMutual(serverTLSSettings.Mode) {
