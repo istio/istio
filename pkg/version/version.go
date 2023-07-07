@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-
-	"istio.io/istio/pilot/pkg/model"
 )
 
 // The following fields are populated at build time using -ldflags -X.
@@ -56,24 +54,21 @@ type MeshInfo []ServerInfo
 // NodeType decides the responsibility of the proxy serves in the mesh
 type NodeType string
 
-const userFacingGateway = "gateway"
-
-func ToUserFacingNodeType(t model.NodeType) NodeType {
+func ToUserFacingNodeType(t string) NodeType {
 	switch t {
-	case model.Router:
-		return userFacingGateway
-	case model.Ztunnel, model.Waypoint, model.SidecarProxy:
+	case "router":
+		return "gateway"
+	default:
 		return NodeType(t)
 	}
-	return ""
 }
 
 func (n NodeType) IsGateway() bool {
-	return n == userFacingGateway
+	return n == "gateway"
 }
 
 func (n NodeType) IsZtunnel() bool {
-	return n == NodeType(model.Ztunnel)
+	return n == "ztunnel"
 }
 
 // ProxyInfo contains the version for a single data plane component

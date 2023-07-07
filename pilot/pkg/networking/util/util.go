@@ -119,15 +119,6 @@ var ALPNHttp3OverQUIC = []string{"h3"}
 // ALPNDownstreamWithMxc advertises that Proxy is going to talk either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
 
-func ListContains(haystack []string, needle string) bool {
-	for _, n := range haystack {
-		if needle == n {
-			return true
-		}
-	}
-	return false
-}
-
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {
 	cidr, err := AddrStrToCidrRange(addr)

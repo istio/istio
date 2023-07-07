@@ -4,10 +4,10 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    helm.sh/chart: grafana-6.31.1
+    helm.sh/chart: grafana-6.57.4
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "9.0.1"
+    app.kubernetes.io/version: "9.5.5"
     app.kubernetes.io/managed-by: Helm
   name: grafana
   namespace: istio-system
@@ -19,13 +19,12 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.31.1
+    helm.sh/chart: grafana-6.57.4
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "9.0.1"
+    app.kubernetes.io/version: "9.5.5"
     app.kubernetes.io/managed-by: Helm
 data:
-  allow-snippet-annotations: "false"
   grafana.ini: |
     [analytics]
     check_for_updates = true
@@ -38,7 +37,8 @@ data:
     logs = /var/log/grafana
     plugins = /var/lib/grafana/plugins
     provisioning = /etc/grafana/provisioning
-
+    [server]
+    domain = ''
   datasources.yaml: |
     apiVersion: 1
     datasources:
@@ -85,10 +85,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.31.1
+    helm.sh/chart: grafana-6.57.4
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "9.0.1"
+    app.kubernetes.io/version: "9.5.5"
     app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
@@ -97,7 +97,6 @@ spec:
       port: 3000
       protocol: TCP
       targetPort: 3000
-
   selector:
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
@@ -109,10 +108,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.31.1
+    helm.sh/chart: grafana-6.57.4
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "9.0.1"
+    app.kubernetes.io/version: "9.5.5"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -131,9 +130,10 @@ spec:
         app: grafana
         sidecar.istio.io/inject: "false"
       annotations:
-        checksum/config: 21013edd24d239f48f0228579d13d44411baf698367879ae68290467749f6dcf
+        checksum/config: aec3d18ca2ea82d1d48f8965db1440aba0680ed2f32c5a29e6cdb5e7afc8b395
         checksum/dashboards-json-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
         checksum/sc-dashboard-provider-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+        kubectl.kubernetes.io/default-container: grafana
     spec:
       
       serviceAccountName: grafana
@@ -141,12 +141,20 @@ spec:
       securityContext:
         fsGroup: 472
         runAsGroup: 472
+        runAsNonRoot: true
         runAsUser: 472
       enableServiceLinks: true
       containers:
         - name: grafana
-          image: "grafana/grafana:9.0.1"
+          image: "docker.io/grafana/grafana:9.5.5"
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            seccompProfile:
+              type: RuntimeDefault
           volumeMounts:
             - name: config
               mountPath: "/etc/grafana/grafana.ini"
@@ -164,13 +172,20 @@ spec:
               mountPath: "/etc/grafana/provisioning/dashboards/dashboardproviders.yaml"
               subPath: "dashboardproviders.yaml"
           ports:
-            - name: service
-              containerPort: 3000
-              protocol: TCP
             - name: grafana
               containerPort: 3000
               protocol: TCP
+            - name: gossip-tcp
+              containerPort: 9094
+              protocol: TCP
+            - name: gossip-udp
+              containerPort: 9094
+              protocol: UDP
           env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
             - name: GF_PATHS_DATA
               value: /var/lib/grafana/
             - name: GF_PATHS_LOGS
@@ -186,9 +201,9 @@ spec:
             - name: "GF_AUTH_BASIC_ENABLED"
               value: "false"
             - name: "GF_SECURITY_ADMIN_PASSWORD"
-              value: "-"
+              value: "admin"
             - name: "GF_SECURITY_ADMIN_USER"
-              value: "-"
+              value: "admin"
           livenessProbe:
             failureThreshold: 10
             httpGet:
@@ -200,13 +215,10 @@ spec:
             httpGet:
               path: /api/health
               port: 3000
-          resources:
-            {}
       volumes:
         - name: config
           configMap:
             name: grafana
-          
         - name: dashboards-istio
           configMap:
             name: istio-grafana-dashboards

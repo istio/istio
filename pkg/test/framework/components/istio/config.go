@@ -171,6 +171,18 @@ type Config struct {
 	// IngressGatewayIstioLabel allows overriding the selector of the ingressgateway service (defaults to istio=ingressgateway)
 	// This field should only be set when DeployIstio is false
 	IngressGatewayIstioLabel string
+
+	// EgressGatewayServiceName is the service name to use to reference the egressgateway
+	// This field should only be set when DeployIstio is false
+	EgressGatewayServiceName string
+
+	// EgressGatewayServiceNamespace allows overriding the namespace of the egressgateway service (defaults to SystemNamespace)
+	// This field should only be set when DeployIstio is false
+	EgressGatewayServiceNamespace string
+
+	// EgressGatewayIstioLabel allows overriding the selector of the egressgateway service (defaults to istio=egressgateway)
+	// This field should only be set when DeployIstio is false
+	EgressGatewayIstioLabel string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {
@@ -342,6 +354,9 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("IngressGatewayServiceName:      %v\n", c.IngressGatewayServiceName)
 	result += fmt.Sprintf("IngressGatewayServiceNamespace: %v\n", c.IngressGatewayServiceNamespace)
 	result += fmt.Sprintf("IngressGatewayIstioLabel:     	 %v\n", c.IngressGatewayIstioLabel)
+	result += fmt.Sprintf("EgressGatewayServiceName:      %v\n", c.EgressGatewayServiceName)
+	result += fmt.Sprintf("EressGatewayServiceNamespace: %v\n", c.EgressGatewayServiceNamespace)
+	result += fmt.Sprintf("EgressGatewayIstioLabel:     	 %v\n", c.EgressGatewayIstioLabel)
 
 	return result
 }
