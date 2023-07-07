@@ -43,6 +43,10 @@ spec:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
       {{- end }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{ toYaml . | nindet 8 }}
+      {{- end }}
       containers:
         - name: istio-proxy
           # "auto" will be populated at runtime by the mutating webhook. See https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#customizing-injection
@@ -91,6 +95,10 @@ spec:
             name: http-envoy-prom
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{ toYaml . | nindent 12 }}
+          {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
