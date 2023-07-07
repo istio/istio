@@ -45,7 +45,7 @@ spec:
       {{- end }}
       {{- with .Values.volumes }}
       volumes:
-        {{ toYaml . | nindet 8 }}
+        {{ toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: istio-proxy
