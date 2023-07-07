@@ -38,6 +38,11 @@ spec:
     spec:
       imagePullSecrets:
       - name: myregistrykey
+      # required for TestServiceEntrySelectsUncapturedPod test since golang DNS client in ForwardEcho pod does not honor ndots
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
       containers:
       - name: istio-proxy
         image: auto
@@ -118,6 +123,11 @@ spec:
     spec:
       imagePullSecrets:
       - name: myregistrykey
+      # required for TestServiceEntrySelectsUncapturedPod test since golang DNS client in ForwardEcho pod does not honor ndots
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
       containers:
       - name: app
         image: testing.hub/app:latest

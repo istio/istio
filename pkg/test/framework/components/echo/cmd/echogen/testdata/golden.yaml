@@ -163,3 +163,7 @@ spec:
           periodSeconds: 1
           tcpSocket:
             port: tcp-health-port
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "1"
