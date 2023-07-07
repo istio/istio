@@ -64,8 +64,10 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/url"
 )
 
 type myProtoValue struct {
@@ -495,13 +497,13 @@ func printPod(writer io.Writer, pod *corev1.Pod, revision string) {
 
 	// https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
 	// says "We recommend adding an explicit app label and version label to deployments."
-	app, ok := pod.ObjectMeta.Labels["app"]
-	if !ok || app == "" {
-		fmt.Fprintf(writer, "Suggestion: add 'app' label to pod for Istio telemetry.\n")
+	if !labels.HasCanonicalServiceName(pod.Labels) {
+		fmt.Fprintf(writer, "Suggestion: add required service name label for Istio telemetry. "+
+			"See %s.\n", url.DeploymentRequirements)
 	}
-	version, ok := pod.ObjectMeta.Labels["version"]
-	if !ok || version == "" {
-		fmt.Fprintf(writer, "Suggestion: add 'version' label to pod for Istio telemetry.\n")
+	if !labels.HasCanonicalServiceRevision(pod.Labels) {
+		fmt.Fprintf(writer, "Suggestion: add required service revision label for Istio telemetry. "+
+			"See %s.\n", url.DeploymentRequirements)
 	}
 }
 
