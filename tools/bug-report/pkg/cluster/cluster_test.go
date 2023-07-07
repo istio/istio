@@ -404,6 +404,152 @@ func TestShouldSkip(t *testing.T) {
 			"*",
 			true,
 		},
+		{
+			"tested difference namespace skip exclude",
+			&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "in-test1",
+					Namespace: "test",
+					Labels: map[string]string{
+						"l3": "lv3",
+						"l4": "lv4",
+					},
+					Annotations: map[string]string{
+						"a3": "av3",
+					},
+				},
+			},
+			&config2.BugReportConfig{
+				Exclude: []*config2.SelectionSpec{
+					{
+						Namespaces: []string{
+							"fake",
+						},
+					},
+					{
+						Namespaces: []string{
+							"test",
+						},
+					},
+				},
+			},
+			"*",
+			true,
+		},
+		{
+			"tested include difference namespace not skip",
+			&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "in-test1",
+					Namespace: "test",
+					Labels: map[string]string{
+						"l3": "lv3",
+						"l4": "lv4",
+					},
+					Annotations: map[string]string{
+						"a3": "av3",
+					},
+				},
+			},
+			&config2.BugReportConfig{
+				Include: []*config2.SelectionSpec{
+					{
+						Namespaces: []string{
+							"fake",
+						},
+					},
+					{
+						Namespaces: []string{
+							"test",
+						},
+					},
+				},
+			},
+			"*",
+			false,
+		},
+		{
+			"tested include difference namespace not skip",
+			&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "in-test1",
+					Namespace: "test",
+					Labels: map[string]string{
+						"l3": "lv3",
+						"l4": "lv4",
+					},
+					Annotations: map[string]string{
+						"a3": "av3",
+					},
+				},
+			},
+			&config2.BugReportConfig{
+				Include: []*config2.SelectionSpec{
+					{
+						Namespaces: []string{
+							"fake",
+						},
+					},
+					{
+						Namespaces: []string{
+							"test",
+						},
+					},
+				},
+			},
+			"*",
+			false,
+		},
+		{
+			"tested include difference namespace/pod... not skip",
+			&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "in-test1",
+					Namespace: "test",
+					Labels: map[string]string{
+						"l3": "lv3",
+						"l4": "lv4",
+					},
+					Annotations: map[string]string{
+						"a3": "av3",
+					},
+				},
+			},
+			&config2.BugReportConfig{
+				Include: []*config2.SelectionSpec{
+					{
+						Namespaces: []string{
+							"fake",
+						},
+						Pods: []string{
+							"in-test1",
+						},
+						Labels: map[string]string{
+							"l3": "lv3",
+						},
+						Annotations: map[string]string{
+							"a3": "av3",
+						},
+					},
+					{
+						Namespaces: []string{
+							"test",
+						},
+						Pods: []string{
+							"in-test1",
+						},
+						Labels: map[string]string{
+							"l3": "lv3",
+						},
+						Annotations: map[string]string{
+							"a3": "av3",
+						},
+					},
+				},
+			},
+			"*",
+			false,
+		},
 	}
 
 	for _, c := range cases {
