@@ -224,7 +224,10 @@ func TestAggregateStoreCache(t *testing.T) {
 
 	stores := []model.ConfigStoreController{controller1, controller2}
 
-	cacheStore := MakeCache(stores)
+	cacheStore, err := MakeCache(stores)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("it registers an event handler", func(t *testing.T) {
 		handled := atomic.NewBool(false)

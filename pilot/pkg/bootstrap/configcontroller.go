@@ -114,7 +114,10 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	}
 
 	// Wrap the config controller with a cache.
-	aggregateConfigController := configaggregate.MakeCache(s.ConfigStores)
+	aggregateConfigController, err := configaggregate.MakeCache(s.ConfigStores)
+	if err != nil {
+		return err
+	}
 	s.configController = aggregateConfigController
 
 	// Create the config store.
@@ -192,7 +195,11 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
-	s.RWConfigStore = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
+	var err error
+	s.RWConfigStore, err = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
+	if err != nil {
+		return err
+	}
 	s.XDSServer.WorkloadEntryController = autoregistration.NewController(configController, args.PodName, args.KeepaliveOptions.MaxServerConnectionAge)
 	return nil
 }

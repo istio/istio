@@ -155,6 +155,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	m.m.Lock()
 	kubeController, kubeRegistry, options, configCluster := m.addCluster(cluster)
 	if kubeController == nil {
+		// m.closing was true, nothing to do.
 		m.m.Unlock()
 		return
 	}
@@ -170,6 +171,7 @@ func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan
 	m.deleteCluster(cluster.ID)
 	kubeController, kubeRegistry, options, configCluster := m.addCluster(cluster)
 	if kubeController == nil {
+		// m.closing was true, nothing to do.
 		m.m.Unlock()
 		return
 	}

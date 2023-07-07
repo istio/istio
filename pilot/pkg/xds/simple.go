@@ -106,9 +106,12 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	go configController.Run(stop)
 
 	// configStoreCache - with HasSync interface
-	aggregateConfigController := configaggregate.MakeWriteableCache([]model.ConfigStoreController{
+	aggregateConfigController, err := configaggregate.MakeWriteableCache([]model.ConfigStoreController{
 		configController,
 	}, configController)
+	if err != nil {
+		log.Fatalf("Creating aggregate config: %v", err)
+	}
 
 	// TODO: fix the mess of store interfaces - most are too generic for their own good.
 	s.ConfigStoreCache = aggregateConfigController

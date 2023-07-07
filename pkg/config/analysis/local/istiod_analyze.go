@@ -194,7 +194,10 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		c.RunAndWait(cancel)
 	}
 
-	store := aggregate.MakeWriteableCache(allstores, nil)
+	store, err := aggregate.MakeWriteableCache(allstores, nil)
+	if err != nil {
+		return err
+	}
 	go store.Run(cancel)
 	sa.initializedStore = store
 	return nil
