@@ -5,4 +5,4 @@ issue:
 - 45839
 releaseNotes:
 - |
-  **Fixed** an issue where specifying multiple include conditions by `--include` in bug report didn't't work as expected.
+  **Fixed** an issue where specifying multiple include conditions by `--include` in bug report didn't work as expected.
