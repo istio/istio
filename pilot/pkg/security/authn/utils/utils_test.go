@@ -26,16 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 )
 
-// SupportedCiphers for server side TLS configuration.
-var DefaultSupportedCiphers = []string{
-	"ECDHE-ECDSA-AES256-GCM-SHA384",
-	"ECDHE-RSA-AES256-GCM-SHA384",
-	"ECDHE-ECDSA-AES128-GCM-SHA256",
-	"ECDHE-RSA-AES128-GCM-SHA256",
-	"AES256-GCM-SHA384",
-	"AES128-GCM-SHA256",
-}
-
 func TestGetMinTLSVersion(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -81,7 +71,7 @@ func TestGetMTLSCipherSuites(t *testing.T) {
 	}{
 		{
 			name:                     "Default MTLS supported Ciphers",
-			expectedMTLSCipherSuites: DefaultSupportedCiphers,
+			expectedMTLSCipherSuites: SupportedCiphers,
 		},
 		{
 			name: "Configure 1 MTLS cipher suite",
@@ -94,6 +84,7 @@ func TestGetMTLSCipherSuites(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			testNode := &model.Proxy{
 				Labels: map[string]string{
