@@ -23,7 +23,7 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_NAMESPACE
           value: |
-             {{ .Values.global.istioNamespace }}
+             {{ default .Release.Namespace .Values.global.istioNamespace }}
       command:
         - sh
         - "-c"

@@ -18,7 +18,7 @@ webhooks:
       {{- else }}
       service:
         name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-        namespace: {{ .Values.global.istioNamespace }}
+        namespace: {{ default .Release.Namespace .Values.global.istioNamespace }}
         path: "/validate"
       {{- end }}
     rules:

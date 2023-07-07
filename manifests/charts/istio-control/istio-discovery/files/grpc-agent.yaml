@@ -93,7 +93,7 @@ spec:
     {{- if .Values.global.caAddress }}
       value: {{ .Values.global.caAddress }}
     {{- else }}
-      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ default .Release.Namespace .Values.global.istioNamespace }}.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:

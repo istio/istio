@@ -21,7 +21,7 @@ webhooks:
         {{- else }}
         name: istiod-{{ .Values.defaultRevision }}
         {{- end }}
-        namespace: {{ .Values.global.istioNamespace }}
+        namespace: {{ default .Release.Namespace .Values.global.istioNamespace }}
         path: "/validate"
       {{- end }}
     rules:

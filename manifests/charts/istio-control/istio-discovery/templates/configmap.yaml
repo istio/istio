@@ -7,7 +7,7 @@
     # When processing a leaf namespace Istio will search for declarations in that namespace first
     # and if none are found it will search in the root namespace. Any matching declaration found in the root namespace
     # is processed as if it were declared in the leaf namespace.
-    rootNamespace: {{ .Values.meshConfig.rootNamespace | default .Values.global.istioNamespace }}
+    rootNamespace: {{ default .Release.Namespace (default .Values.global.istioNamespace .Values.meshConfig.rootNamespace) }}
 
   {{ $prom := include "prometheus" . | eq "true" }}
   {{ $sdMetrics := include "sd-metrics" . | eq "true" }}
@@ -43,7 +43,7 @@
       {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         zipkin:
           # Address of the Zipkin collector
-          address: {{ ((.Values.global.tracer).zipkin).address | default (print "zipkin." .Values.global.istioNamespace ":9411") }}
+          address: {{ ((.Values.global.tracer).zipkin).address | default (print "zipkin." (default .Release.Namespace .Values.global.istioNamespace) ":9411") }}
       {{- else if eq .Values.global.proxy.tracer "datadog" }}
         datadog:
           # Address of the Datadog Agent

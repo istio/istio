@@ -12,4 +12,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: {{ .Values.global.istioNamespace }}
+    namespace: {{ default .Release.Namespace .Values.global.istioNamespace }}
