@@ -245,6 +245,10 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 						Value: strconv.FormatBool(false),
 					},
 				},
+				Labels: map[string]string{
+					label.SidecarInject.Name:     "false",
+					constants.AmbientRedirection: constants.AmbientRedirectionDisabled,
+				},
 			},
 		},
 	}
