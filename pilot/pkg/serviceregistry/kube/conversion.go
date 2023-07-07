@@ -42,6 +42,13 @@ const (
 	// It is used for multi-cluster scenario, and with nodePort type gateway service.
 	// TODO: move to API
 	NodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
+
+	// LBExternalAddressesAnnotation overrides the external address value with a LoadBalancer type service.
+	// This can be used when you want to resolve services using a customized address instead of
+	// the default address set by the load balancer controller, etc.
+	// Multiple external addresses are supported, separated by commas.
+	// e.g. traffic.istio.io/lbExternalAddresses: "google.com,127.68.16.1"
+	LBExternalAddressesAnnotation = "traffic.istio.io/lbExternalAddresses"
 )
 
 func convertPort(port corev1.ServicePort) *model.Port {
@@ -167,6 +174,9 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 			istioService.Attributes.ClusterExternalAddresses = &model.AddressMap{}
 		}
 		istioService.Attributes.ClusterExternalAddresses.AddAddressesFor(clusterID, svc.Spec.ExternalIPs)
+	}
+	if addrs := svc.Annotations[LBExternalAddressesAnnotation]; addrs != "" {
+		istioService.Attributes.ClusterExternalAddresses.SetAddressesFor(clusterID, strings.Split(addrs, ","))
 	}
 
 	return istioService

@@ -425,6 +425,81 @@ func TestLBServiceConversion(t *testing.T) {
 	}
 }
 
+func TestLBServiceConversionWithLBExternalAddressesAnnotation(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+	defaultAddr := "127.68.32.112"
+
+	cases := []struct {
+		name       string
+		annotation string
+		expect     []string
+	}{
+		{
+			annotation: "",
+			expect:     []string{defaultAddr},
+		},
+		{
+			annotation: "127.68.16.1",
+			expect:     []string{"127.68.16.1"},
+		},
+		{
+			annotation: "google.com",
+			expect:     []string{"google.com"},
+		},
+		{
+			annotation: "google.com,127.68.16.1",
+			expect:     []string{"google.com", "127.68.16.1"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			extSvc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: namespace,
+					Annotations: map[string]string{
+						LBExternalAddressesAnnotation: tc.annotation,
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: corev1.ProtocolTCP,
+						},
+					},
+					Type: corev1.ServiceTypeLoadBalancer,
+				},
+				Status: corev1.ServiceStatus{
+					LoadBalancer: corev1.LoadBalancerStatus{
+						Ingress: []corev1.LoadBalancerIngress{
+							{
+								Hostname: defaultAddr,
+							},
+						},
+					},
+				},
+			}
+
+			service := ConvertService(extSvc, domainSuffix, clusterID)
+			if service == nil {
+				t.Fatalf("could not convert external service")
+			}
+			gotAddresses := service.Attributes.ClusterExternalAddresses.GetAddressesFor(clusterID)
+			if len(gotAddresses) == 0 {
+				t.Fatalf("no load balancer addresses found")
+			}
+
+			if !reflect.DeepEqual(gotAddresses, tc.expect) {
+				t.Fatalf("Expected addresses %v but got %v", tc.expect, gotAddresses)
+			}
+		})
+	}
+}
+
 func TestInternalTrafficPolicyServiceConversion(t *testing.T) {
 	serviceName := "service1"
 	namespace := "default"
