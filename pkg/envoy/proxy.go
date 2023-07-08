@@ -175,6 +175,14 @@ func (e *envoy) Run(abort <-chan error) error {
 
 	/* #nosec */
 	cmd := exec.Command(e.BinaryPath, args...)
+	val, exist := os.LookupEnv("HEAPPROFILE")
+	if exist {
+		cmd.Env = append(cmd.Env, "HEAPPROFILE="+val)
+	}
+	val, exist = os.LookupEnv("CPUPROFILE")
+	if exist {
+		cmd.Env = append(cmd.Env, "CPUPROFILE="+val)
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if e.AgentIsRoot {
