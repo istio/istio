@@ -137,7 +137,11 @@ spec:
       protocol: {{.GatewayProtocol}}
 {{- if .Credential }}
     tls:
-      mode: OPTIONAL_MUTUAL
+	  {{- if .TLSMode }}
+      mode: {{.TLSMode}}
+	  {{- else }}
+	  mode: SIMPLE
+	  {{- end }}
       credentialName: {{.Credential}}
 {{- if .Ciphers }}
       cipherSuites:
@@ -1330,6 +1334,26 @@ spec:
 
 			params := templateParams(protocol.HTTPS, src, dests, append(sets.SortedList(security.ValidCipherSuites), "fake"))
 			params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
+			return params
+		},
+		setupOpts: fqdnHostHeader,
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Protocol: protocol.HTTPS,
+			},
+		},
+		viaIngress:       true,
+		workloadAgnostic: true,
+	})
+	t.RunTraffic(TrafficTestCase{
+		name: "optional mTLS",
+		config: gatewayTmpl + httpVirtualServiceTmpl +
+			ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
+		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
+			params := templateParams(protocol.HTTPS, src, dests, nil)
+			params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
+			params["TLSMode"] = "OPTIONAL_MUTUAL"
 			return params
 		},
 		setupOpts: fqdnHostHeader,
