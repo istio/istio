@@ -78,6 +78,12 @@ env: {}
 # Deployment Update strategy
 strategy: {}
 
+# Sets the Deployment minReadySeconds value
+minReadySeconds:
+
+# Sets the per-pod terminationGracePeriodSeconds setting.
+terminationGracePeriodSeconds:
+
 # Labels to apply to all resources
 labels: {}
 

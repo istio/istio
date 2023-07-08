@@ -54,6 +54,9 @@
     "minReadySeconds": {
       "type": [ "null", "integer" ]
     },
+    "terminationGracePeriodSeconds": {
+      "type": [ "null", "integer" ]
+    },
     "labels": {
       "type": "object"
     },
