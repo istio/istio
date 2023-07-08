@@ -1170,6 +1170,7 @@ func gatewayCases(t TrafficContext) {
 			"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
 			"Credential":         cred,
 			"Ciphers":            ciphers,
+			"TLSMode":            "SIMPLE",
 			"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 		}
 	}
