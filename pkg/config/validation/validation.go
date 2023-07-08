@@ -642,7 +642,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		if tls.PrivateKey == "" {
 			v = appendValidation(v, fmt.Errorf("SIMPLE TLS requires a private key"))
 		}
-	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL {
+	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL || tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
 		if tls.ServerCertificate == "" {
 			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}

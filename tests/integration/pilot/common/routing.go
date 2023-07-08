@@ -137,7 +137,7 @@ spec:
       protocol: {{.GatewayProtocol}}
 {{- if .Credential }}
     tls:
-      mode: SIMPLE
+      mode: OPTIONAL_MUTUAL
       credentialName: {{.Credential}}
 {{- if .Ciphers }}
       cipherSuites:
