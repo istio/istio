@@ -13,6 +13,10 @@ spec:
   replicas: {{ . }}
   {{- end }}
   {{- end }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "gateway.selectorLabels" . | nindent 6 }}

@@ -48,6 +48,9 @@
     "env": {
       "type": "object"
     },
+    "strategy": {
+      "type": "object"
+    },
     "labels": {
       "type": "object"
     },
