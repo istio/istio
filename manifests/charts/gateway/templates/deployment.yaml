@@ -17,6 +17,9 @@ spec:
   strategy:
     {{- toYaml . | nindent 4 }}
   {{- end }}
+  {{- with .Values.minReadySeconds }}
+  minReadySeconds: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "gateway.selectorLabels" . | nindent 6 }}
