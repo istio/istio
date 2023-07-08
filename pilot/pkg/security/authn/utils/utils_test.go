@@ -83,8 +83,8 @@ func TestGetMTLSCipherSuites(t *testing.T) {
 			expectedMTLSCipherSuites: []string{"ECDHE-RSA-AES256-GCM-SHA384"},
 		},
 	}
-	for _, tt := range tests {
-		tt := tt
+	for i := range tests {
+		tt := &tests[i]
 		t.Run(tt.name, func(t *testing.T) {
 			testNode := &model.Proxy{
 				Labels: map[string]string{
