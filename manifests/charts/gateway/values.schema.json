@@ -57,6 +57,9 @@
     "terminationGracePeriodSeconds": {
       "type": [ "null", "integer" ]
     },
+    "readinessProbe": {
+      "type": [ "null", "object" ]
+    },
     "labels": {
       "type": "object"
     },
