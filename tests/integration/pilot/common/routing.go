@@ -137,11 +137,7 @@ spec:
       protocol: {{.GatewayProtocol}}
 {{- if .Credential }}
     tls:
-	  {{- if .TLSMode }}
       mode: {{.TLSMode}}
-	  {{- else }}
-	  mode: SIMPLE
-	  {{- end }}
       credentialName: {{.Credential}}
 {{- if .Ciphers }}
       cipherSuites:
@@ -163,8 +159,9 @@ func httpGateway(host string, port int, portName, protocol string, gatewayIstioL
 		GatewayProtocol   string
 		Credential        string
 		GatewayIstioLabel string
+		TLSMode           string
 	}{
-		host, port, portName, protocol, "", gatewayIstioLabel,
+		host, port, portName, protocol, "", gatewayIstioLabel, "SIMPLE",
 	})
 }
 
