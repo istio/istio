@@ -257,11 +257,11 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
 
+	s.initMeshHandlers()
 	s.initMeshConfiguration(args, s.fileWatcher)
 	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 
 	s.initMeshNetworks(args, s.fileWatcher)
-	s.initMeshHandlers()
 	s.environment.Init()
 	if err := s.environment.InitNetworksManager(s.XDSServer); err != nil {
 		return nil, err
