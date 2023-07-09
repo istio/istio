@@ -356,6 +356,8 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		return fmt.Errorf("error creating ipset: %v", err)
 	}
 
+	geneveDstPort := determineDstPortForGeneveLink(net.ParseIP(ztunnelIP), constants.InboundTunVNI, constants.OutboundTunVNI)
+
 	appendRules := []*iptablesRule{
 		// Skip things that come from the tunnels, but don't apply the conn skip mark
 		newIptableRule(
@@ -494,7 +496,7 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			constants.ChainZTunnelPrerouting,
 			"-p", "udp",
 			"-m", "udp",
-			"--dport", "6081",
+			"--dport", fmt.Sprintf("%d", geneveDstPort),
 			"-j", "RETURN",
 		),
 
@@ -627,9 +629,9 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		LinkAttrs: netlink.LinkAttrs{
 			Name: constants.InboundTun,
 		},
-		ID:     1000,
+		ID:     constants.InboundTunVNI,
 		Remote: net.ParseIP(ztunnelIP),
-		Dport:  determineDstPortForGeneveLink(net.ParseIP(ztunnelIP), 1000),
+		Dport:  geneveDstPort,
 	}
 	log.Debugf("Building inbound tunnel: %+v", inbnd)
 	err = netlink.LinkAdd(inbnd)
@@ -650,9 +652,9 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		LinkAttrs: netlink.LinkAttrs{
 			Name: constants.OutboundTun,
 		},
-		ID:     1001,
+		ID:     constants.OutboundTunVNI,
 		Remote: net.ParseIP(ztunnelIP),
-		Dport:  determineDstPortForGeneveLink(net.ParseIP(ztunnelIP), 1001),
+		Dport:  geneveDstPort,
 	}
 	log.Debugf("Building outbound tunnel: %+v", outbnd)
 	err = netlink.LinkAdd(outbnd)
@@ -789,10 +791,21 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 // Destination port cannot be reused and must be dynamically determined when:
 // - an external geneve link already exists (external geneve link does not have ID and remote IP address);
 // - a geneve link with the same ID and remote IP already exist.
-func determineDstPortForGeneveLink(remoteIP net.IP, vni uint32) uint16 {
+func determineDstPortForGeneveLink(remoteIP net.IP, vnis ...uint32) uint16 {
+	defaultGenevePort := uint16(6081)
+	vniSet := sets.New[uint32](vnis...)
+
 	existingLinks, err := netlink.LinkList()
 	if err != nil {
-		log.Errorf("failed to list links: %v", err)
+		log.Errorf("failed to list links on the node: %v", err)
+		return defaultGenevePort
+	}
+
+	isExternal := func(genveLink *netlink.Geneve) bool {
+		return genveLink.ID == 0 && genveLink.Remote == nil
+	}
+	isConfigurationReserved := func(geneveLink *netlink.Geneve) bool {
+		return vniSet.Contains(geneveLink.ID) && geneveLink.Remote.Equal(remoteIP)
 	}
 
 	geneveType := netlink.Geneve{}
@@ -800,13 +813,12 @@ func determineDstPortForGeneveLink(remoteIP net.IP, vni uint32) uint16 {
 	for _, l := range existingLinks {
 		if l.Type() == geneveType.Type() {
 			geneveLink := l.(*netlink.Geneve)
-			if (geneveLink.ID == vni && geneveLink.Remote.Equal(remoteIP)) || (geneveLink.ID == 0 && geneveLink.Remote == nil) {
+			if isExternal(geneveLink) || isConfigurationReserved(geneveLink) {
 				reservedPorts.Insert(geneveLink.Dport)
 			}
 		}
 	}
 
-	defaultGenevePort := uint16(6081)
 	for {
 		if reservedPorts.Contains(defaultGenevePort) {
 			defaultGenevePort++
@@ -992,7 +1004,7 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 			LinkAttrs: netlink.LinkAttrs{
 				Name: inboundGeneveLinkName,
 			},
-			ID:     1000,
+			ID:     constants.InboundTunVNI,
 			Remote: net.ParseIP(hostIP),
 		}
 		log.Debugf("Building inbound tunnel: %+v", inbndTunLink)
@@ -1015,7 +1027,7 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 			LinkAttrs: netlink.LinkAttrs{
 				Name: outboundGeneveLinkName,
 			},
-			ID:     1001,
+			ID:     constants.OutboundTunVNI,
 			Remote: net.ParseIP(hostIP),
 		}
 		log.Debugf("Building outbound tunnel: %+v", outbndTunLink)
