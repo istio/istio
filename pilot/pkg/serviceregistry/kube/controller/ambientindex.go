@@ -187,11 +187,11 @@ func (a *AmbientIndexImpl) updateWaypoint(sa model.WaypointScope, addr *workload
 func (a *AmbientIndexImpl) All() []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	res := make([]*model.AddressInfo, 0, len(a.byUID)+len(a.byService))
+	res := make([]*model.AddressInfo, 0, len(a.byUID)+len(a.serviceByNamespacedHostname))
 	for _, wl := range a.byUID {
 		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
-	for _, s := range a.serviceByAddr {
+	for _, s := range a.serviceByNamespacedHostname {
 		res = append(res, serviceToAddressInfo(s.Service))
 	}
 	return res
@@ -205,12 +205,7 @@ func (a *AmbientIndexImpl) WorkloadsForWaypoint(scope model.WaypointScope) []*mo
 	defer a.mu.RUnlock()
 	var res []*model.WorkloadInfo
 	// TODO: try to precompute
-	for _, w := range a.byPod {
-		if a.matchesScope(scope, w) {
-			res = append(res, w)
-		}
-	}
-	for _, w := range a.byWorkloadEntry {
+	for _, w := range a.byUID {
 		if a.matchesScope(scope, w) {
 			res = append(res, w)
 		}
