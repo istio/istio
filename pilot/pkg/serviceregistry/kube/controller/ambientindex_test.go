@@ -372,18 +372,22 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
 			constants.GatewayNameLabel:    "namespace-wide",
 		}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
 	s.addPods(t, "127.0.0.201", "waypoint2-sa", "waypoint-sa",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{constants.WaypointServiceAccount: "sa2"}, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
 	s.addService(t, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
 	s.clearEvents()
 
 	// Test that PeerAuthentications are added to the ambient index
