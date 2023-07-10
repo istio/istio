@@ -302,8 +302,6 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 	return opts
 }
 
-var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
-
 func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
 	// Setup defaults
 	runtimeFlags := map[string]any{
