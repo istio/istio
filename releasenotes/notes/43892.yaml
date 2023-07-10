@@ -31,4 +31,4 @@ issue:
 # release notes.
 releaseNotes:
   - |-
-    **Fixed** enhancement for Dual Stack to set up the correct DNS family type. 1. `CheckIPFamilyTypeForFirstIPs` has been added to help confirm the IP family type based on the first IP address. 2. The same logic for DNS family type setting has been kept in all possible places. 3. Uniform the Dual Stack feature flags for both control plane and data plane to `ISTIO_DUAL_STACK` with the same environment variable.
+    **Fixed** enhancement for Dual Stack to set up the correct DNS family type. 1. `CheckIPFamilyTypeForFirstIPs` has been added to help confirm the IP family type based on the first IP address. 2. Uniform the Dual Stack feature flags for both control and data plane to `ISTIO_DUAL_STACK` with the same environment variable.
