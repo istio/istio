@@ -150,9 +150,13 @@ func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
 	s := newAmbientTestServer(t, testC, testNW)
 
 	// Add 2 pods with the "a" label, and one without.
+	// We should get an event for the new Service and the two *Pod* IPs impacted
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addPods(t, "127.0.0.2", "pod2", "sa1", map[string]string{"app": "a", "other": "label"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod2"))
 	s.addPods(t, "127.0.0.3", "pod3", "sa1", map[string]string{"app": "other"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod3"))
 	s.clearEvents()
 
 	// Now add a service that will select pods with label "a".
@@ -160,6 +164,7 @@ func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
 		map[string]string{},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.svcXdsName("svc1"))
 
 	// Services should appear with workloads when we get all resources.
 	s.assertAddresses(t, "", "pod1", "pod2", "pod3", "svc1")
@@ -167,8 +172,6 @@ func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
 	// Look up the resources by VIP.
 	s.assertAddresses(t, s.addrXdsName("10.0.0.1"), "pod1", "pod2", "svc1")
 
-	// We should get an event for the new Service and the two *Pod* IPs impacted
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.svcXdsName("svc1"))
 	s.clearEvents()
 
 	// Add a new pod to the service, we should see it
@@ -372,18 +375,22 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
 			constants.GatewayNameLabel:    "namespace-wide",
 		}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
 	s.addPods(t, "127.0.0.201", "waypoint2-sa", "waypoint-sa",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{constants.WaypointServiceAccount: "sa2"}, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
 	s.addService(t, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
 	s.clearEvents()
 
 	// Test that PeerAuthentications are added to the ambient index
