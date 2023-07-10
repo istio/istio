@@ -271,7 +271,7 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, req *http.Request) {
 	syncz := make([]SyncStatus, 0)
 	for _, con := range s.Clients() {
 		node := con.proxy
-		if node != nil && (namespace == "" || node.Metadata.Namespace == namespace) {
+		if node != nil && (namespace == "" || node.Metadata != nil && node.Metadata.Namespace == namespace) {
 			syncz = append(syncz, SyncStatus{
 				ProxyID:              node.ID,
 				ProxyType:            node.Type,
