@@ -181,22 +181,18 @@ func (a *AmbientIndexImpl) updateWaypoint(sa model.WaypointScope, addr *workload
 	return updates
 }
 
-// All return all known workloads. Result is un-ordered
+// All return all known addresses. Result is un-ordered
 //
 // NOTE: As an interface method of AmbientIndex, this locks the index.
 func (a *AmbientIndexImpl) All() []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	res := make([]*model.AddressInfo, 0, len(a.byPod)+len(a.serviceByAddr)+len(a.byWorkloadEntry))
-	// byPod and byWorkloadEntry will not have any duplicates, so we can just iterate over that.
-	for _, wl := range a.byPod {
+	res := make([]*model.AddressInfo, 0, len(a.byUID)+len(a.byService))
+	for _, wl := range a.byUID {
 		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
 	for _, s := range a.serviceByAddr {
 		res = append(res, serviceToAddressInfo(s.Service))
-	}
-	for _, wl := range a.byWorkloadEntry {
-		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
 	return res
 }
