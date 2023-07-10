@@ -84,17 +84,10 @@ minReadySeconds:
 # Sets the per-pod terminationGracePeriodSeconds setting.
 terminationGracePeriodSeconds:
 
-# Configures the Pod ReadinessProbe
-readinessProbe:
-  failureThreshold: 30
-  httpGet:
-    path: /healthz/ready
-    port: 15021
-    scheme: HTTP
-  initialDelaySeconds: 1
-  periodSeconds: 2
-  successThreshold: 1
-  timeoutSeconds: 1
+# Optionally configure a custom readinessProbe. By default the control plane
+# automatically injects the readinessProbe. If you wish to override that
+# behavior, you may define your own readinessProbe here.
+readinessProbe: {}
 
 # Labels to apply to all resources
 labels: {}
