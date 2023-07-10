@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -36,12 +37,12 @@ import (
 // resources inside each config cluster rather than doing cross-cluster discovery via remote secret.
 // Each case tests a different way of using local resources to reach remote destination(s).
 func TestWorkloadEntryGateway(t *testing.T) {
-  t.Skip("see if skipping this fixes MCS test")
 	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresMinClusters(2).
 		Features("traffic.reachability").
 		Run(func(t framework.TestContext) {
+      crd.DeployGatewayAPIOrSkip(t)
 			i := istio.GetOrFail(t, t)
 			type gwAddr struct {
 				ip   string
