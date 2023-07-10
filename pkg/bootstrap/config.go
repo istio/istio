@@ -72,8 +72,6 @@ const (
 	v2Suffix   = ",component,istio"
 )
 
-var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
-
 // Config for creating a bootstrap file.
 type Config struct {
 	*model.Node
@@ -301,6 +299,8 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
 	return opts
 }
+
+var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
 func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
 	// Setup defaults
