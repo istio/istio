@@ -16,6 +16,7 @@ package kclient_test
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -24,10 +25,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
 	istioclient "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -276,4 +279,51 @@ func TestErrorHandler(t *testing.T) {
 	deployments := kclient.New[*appsv1.Deployment](c)
 	deployments.Start(test.NewStop(t))
 	mt.Assert("controller_sync_errors_total", map[string]string{"cluster": "fake"}, monitortest.AtLeast(1))
+}
+
+func TestToOpts(t *testing.T) {
+	test.SetForTest(t, &features.InformerWatchNamespace, "istio-system")
+	c := kube.NewFakeClient()
+	cases := []struct {
+		name   string
+		gvr    schema.GroupVersionResource
+		filter kclient.Filter
+		want   kubetypes.InformerOptions
+	}{
+		{
+			name: "watch pods in the foo namespace",
+			gvr:  gvr.Pod,
+			filter: kclient.Filter{
+				Namespace: "foo",
+			},
+			want: kubetypes.InformerOptions{
+				Namespace: "foo",
+				Cluster:   c.ClusterID(),
+			},
+		},
+		{
+			name: "watch pods in the InformerWatchNamespace",
+			gvr:  gvr.Pod,
+			want: kubetypes.InformerOptions{
+				Namespace: features.InformerWatchNamespace,
+				Cluster:   c.ClusterID(),
+			},
+		},
+		{
+			name: "watch namespaces",
+			gvr:  gvr.Namespace,
+			want: kubetypes.InformerOptions{
+				Namespace: "",
+				Cluster:   c.ClusterID(),
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := kclient.ToOpts(c, tt.gvr, tt.filter)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ToOpts: got %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

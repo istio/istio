@@ -142,29 +142,29 @@ func TestKeysApplyingTo(t *testing.T) {
 				{
 					Name:      "http",
 					Namespace: "ns",
-					FullName:  genFullName("ns", "http"),
+					FullName:  "ns/http",
 				},
 			},
 			networking.EnvoyFilter_NETWORK_FILTER: {
 				{
 					Name:      "b",
 					Namespace: "ns",
-					FullName:  genFullName("ns", "b"),
+					FullName:  "ns/b",
 				},
 				{
 					Name:      "c",
 					Namespace: "ns",
-					FullName:  genFullName("ns", "c"),
+					FullName:  "ns/c",
 				},
 				{
 					Name:      "a",
 					Namespace: "ns",
-					FullName:  genFullName("ns", "a"),
+					FullName:  "ns/a",
 				},
 				{
 					Name:      "a",
 					Namespace: "ns",
-					FullName:  genFullName("ns", "a"),
+					FullName:  "ns/a",
 				},
 			},
 		},

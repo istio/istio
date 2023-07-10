@@ -134,6 +134,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", "", map[string]string{})
+	s.discoveryStartTime = time.Now()
 	s.InitGenerators(s.Env, "istio-system", nil)
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
@@ -330,8 +331,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// initialized.
 	s.ConfigUpdate(&model.PushRequest{Full: true})
 
-	processStartTime = time.Now()
-
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()
 	retry.UntilOrFail(t, func() bool {
@@ -476,9 +475,10 @@ func (f *FakeDiscoveryServer) EnsureSynced(t test.Failer) {
 // out of sync fields typically are bugs.
 func (f *FakeDiscoveryServer) AssertEndpointConsistency() error {
 	f.t.Helper()
+	cache := model.DisabledCache{}
 	mock := &DiscoveryServer{
-		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex()},
-		Cache: model.DisabledCache{},
+		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex(cache)},
+		Cache: cache,
 	}
 	ag := f.Discovery.Env.ServiceDiscovery.(*aggregate.Controller)
 

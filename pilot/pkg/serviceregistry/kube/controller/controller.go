@@ -229,7 +229,7 @@ type Controller struct {
 
 	podsClient kclient.Client[*v1.Pod]
 
-	ambientIndex     *AmbientIndex
+	ambientIndex     AmbientIndex
 	configController model.ConfigStoreController
 	configCluster    bool
 }

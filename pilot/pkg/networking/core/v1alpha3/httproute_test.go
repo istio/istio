@@ -273,6 +273,21 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceSpecDuplicate := &networking.VirtualService{
+		Hosts:    []string{"Test-duplicate-domains.default.svc.cluster.local"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test-duplicate-domains.default",
+						},
+					},
+				},
+			},
+		},
+	}
 	virtualServiceSpecDefault := &networking.VirtualService{
 		Hosts:    []string{"test.default"},
 		Gateways: []string{"mesh"},
@@ -367,6 +382,43 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				},
 				Spec: virtualServiceSpec,
 			}},
+			map[string][]string{
+				"allow_any": {"*"},
+				"test-duplicate-domains.default.svc.cluster.local:80": {
+					"test-duplicate-domains.default.svc.cluster.local",
+					"test-duplicate-domains",
+					"test-duplicate-domains.default.svc",
+				},
+				"test-duplicate-domains.default:80": {"test-duplicate-domains.default"},
+			},
+			map[string]string{
+				"allow_any": "PassthroughCluster",
+				// Virtual service destination takes precedence
+				"test-duplicate-domains.default.svc.cluster.local:80": "outbound|80||test-duplicate-domains.default",
+				"test-duplicate-domains.default:80":                   "outbound|80||test-duplicate-domains.default",
+			},
+		},
+		{
+			"virtual service duplicate case sensitive domains",
+			[]*model.Service{
+				buildHTTPService("test-duplicate-domains.default.svc.cluster.local", visibility.Public, "", "default", 80),
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.VirtualService,
+						Name:             "acme",
+					},
+					Spec: virtualServiceSpec,
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.VirtualService,
+						Name:             "acme-duplicate",
+					},
+					Spec: virtualServiceSpecDuplicate,
+				},
+			},
 			map[string][]string{
 				"allow_any": {"*"},
 				"test-duplicate-domains.default.svc.cluster.local:80": {

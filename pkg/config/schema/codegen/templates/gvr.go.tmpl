@@ -11,3 +11,16 @@ var (
 	{{.Resource.Identifier}} = schema.GroupVersionResource{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Resource: "{{.Resource.Plural}}"}
 {{- end }}
 )
+
+func IsClusterScoped(g schema.GroupVersionResource) bool {
+	switch g {
+{{- range .Entries }}
+	{{- if not .Resource.Synthetic }}
+	case {{.Resource.Identifier}}:
+		return {{.Resource.ClusterScoped}}
+	{{- end }}
+{{- end }}
+	}
+	// shouldn't happen
+	return false
+}

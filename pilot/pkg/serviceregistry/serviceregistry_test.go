@@ -78,7 +78,6 @@ func setupTest(t *testing.T) (
 		},
 	)
 	configController := memory.NewController(memory.Make(collections.Pilot))
-	configController.RegisterEventHandler(gvk.WorkloadEntry, kc.WorkloadEntryHandler)
 
 	stop := istiotest.NewStop(t)
 	go configController.Run(stop)
