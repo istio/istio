@@ -81,7 +81,7 @@ func runDocker(args Args) error {
 
 	makeStart := time.Now()
 	for _, arch := range args.Architectures {
-		if err := RunMake(args, arch, args.PlanFor(arch).Targets()...); err != nil {
+		if err := RunMake(nil, args, arch, args.PlanFor(arch).Targets()...); err != nil {
 			return err
 		}
 	}

@@ -1,0 +1,308 @@
+{
+    "data": [
+        {
+            "traceID": "edf292566195f6a73f57c9743abd66a1",
+            "spans": [
+                {
+                    "traceID": "edf292566195f6a73f57c9743abd66a1",
+                    "spanID": "74f54cd5d6e3121f",
+                    "operationName": "sleepy",
+                    "references": [],
+                    "startTime": 1689030178457081,
+                    "duration": 104419,
+                    "tags": [
+                        {
+                            "key": "otel.library.name",
+                            "type": "string",
+                            "value": "github.com/equinix-labs/otel-cli"
+                        },
+                        {
+                            "key": "otel.library.version",
+                            "type": "string",
+                            "value": "unknown"
+                        },
+                        {
+                            "key": "span.kind",
+                            "type": "string",
+                            "value": "client"
+                        },
+                        {
+                            "key": "internal.span.format",
+                            "type": "string",
+                            "value": "proto"
+                        }
+                    ],
+                    "logs": [],
+                    "processID": "p1",
+                    "warnings": null
+                },
+                {
+                    "traceID": "edf292566195f6a73f57c9743abd66a1",
+                    "spanID": "5747cc2c0b368c6d",
+                    "operationName": "tracing::run",
+                    "references": [],
+                    "startTime": 1689030178456071,
+                    "duration": 112634,
+                    "tags": [
+                        {
+                            "key": "otel.library.name",
+                            "type": "string",
+                            "value": "github.com/equinix-labs/otel-cli"
+                        },
+                        {
+                            "key": "otel.library.version",
+                            "type": "string",
+                            "value": "unknown"
+                        },
+                        {
+                            "key": "span.kind",
+                            "type": "string",
+                            "value": "client"
+                        },
+                        {
+                            "key": "internal.span.format",
+                            "type": "string",
+                            "value": "proto"
+                        }
+                    ],
+                    "logs": [],
+                    "processID": "p1",
+                    "warnings": null
+                },
+                {
+                    "traceID": "edf292566195f6a73f57c9743abd66a1",
+                    "spanID": "7e54b1877a7743f0",
+                    "operationName": "deep-deep",
+                    "references": [
+                        {
+                            "refType": "CHILD_OF",
+                            "traceID": "edf292566195f6a73f57c9743abd66a1",
+                            "spanID": "cb361aba1f3f1d29"
+                        }
+                    ],
+                    "startTime": 1689030178579353,
+                    "duration": 102462,
+                    "tags": [
+                        {
+                            "key": "otel.library.name",
+                            "type": "string",
+                            "value": "github.com/equinix-labs/otel-cli"
+                        },
+                        {
+                            "key": "otel.library.version",
+                            "type": "string",
+                            "value": "unknown"
+                        },
+                        {
+                            "key": "span.kind",
+                            "type": "string",
+                            "value": "client"
+                        },
+                        {
+                            "key": "internal.span.format",
+                            "type": "string",
+                            "value": "proto"
+                        }
+                    ],
+                    "logs": [],
+                    "processID": "p1",
+                    "warnings": null
+                },
+                {
+                    "traceID": "edf292566195f6a73f57c9743abd66a1",
+                    "spanID": "b1e3df39a4163e31",
+                    "operationName": "deep-deep",
+                    "references": [
+                        {
+                            "refType": "CHILD_OF",
+                            "traceID": "edf292566195f6a73f57c9743abd66a1",
+                            "spanID": "cb361aba1f3f1d29"
+                        }
+                    ],
+                    "startTime": 1689030178741150,
+                    "duration": 102347,
+                    "tags": [
+                        {
+                            "key": "otel.library.name",
+                            "type": "string",
+                            "value": "github.com/equinix-labs/otel-cli"
+                        },
+                        {
+                            "key": "otel.library.version",
+                            "type": "string",
+                            "value": "unknown"
+                        },
+                        {
+                            "key": "span.kind",
+                            "type": "string",
+                            "value": "client"
+                        },
+                        {
+                            "key": "internal.span.format",
+                            "type": "string",
+                            "value": "proto"
+                        }
+                    ],
+                    "logs": [],
+                    "processID": "p1",
+                    "warnings": null
+                },
+                {
+                    "traceID": "edf292566195f6a73f57c9743abd66a1",
+                    "spanID": "cb361aba1f3f1d29",
+                    "operationName": "deep",
+                    "references": [],
+                    "startTime": 1689030178577186,
+                    "duration": 274810,
+                    "tags": [
+                        {
+                            "key": "otel.library.name",
+                            "type": "string",
+                            "value": "github.com/equinix-labs/otel-cli"
+                        },
+                        {
+                            "key": "otel.library.version",
+                            "type": "string",
+                            "value": "unknown"
+                        },
+                        {
+                            "key": "span.kind",
+                            "type": "string",
+                            "value": "client"
+                        },
+                        {
+                            "key": "internal.span.format",
+                            "type": "string",
+                            "value": "proto"
+                        }
+                    ],
+                    "logs": [],
+                    "processID": "p1",
+                    "warnings": null
+                },
+                {
+                    "traceID": "edf292566195f6a73f57c9743abd66a1",
+                    "spanID": "9a5e83964f84bd11",
+                    "operationName": "deep-deep",
+                    "references": [
+                        {
+                            "refType": "CHILD_OF",
+                            "traceID": "edf292566195f6a73f57c9743abd66a1",
+                            "spanID": "427e1900043c1723"
+                        }
+                    ],
+                    "startTime": 1689030178964435,
+                    "duration": 102324,
+                    "tags": [
+                        {
+                            "key": "otel.library.name",
+                            "type": "string",
+                            "value": "github.com/equinix-labs/otel-cli"
+                        },
+                        {
+                            "key": "otel.library.version",
+                            "type": "string",
+                            "value": "unknown"
+                        },
+                        {
+                            "key": "span.kind",
+                            "type": "string",
+                            "value": "client"
+                        },
+                        {
+                            "key": "internal.span.format",
+                            "type": "string",
+                            "value": "proto"
+                        }
+                    ],
+                    "logs": [],
+                    "processID": "p1",
+                    "warnings": null
+                },
+                {
+                    "traceID": "edf292566195f6a73f57c9743abd66a1",
+                    "spanID": "f1cad081b4c7753d",
+                    "operationName": "deep-deep",
+                    "references": [
+                        {
+                            "refType": "CHILD_OF",
+                            "traceID": "edf292566195f6a73f57c9743abd66a1",
+                            "spanID": "427e1900043c1723"
+                        }
+                    ],
+                    "startTime": 1689030179126084,
+                    "duration": 102406,
+                    "tags": [
+                        {
+                            "key": "otel.library.name",
+                            "type": "string",
+                            "value": "github.com/equinix-labs/otel-cli"
+                        },
+                        {
+                            "key": "otel.library.version",
+                            "type": "string",
+                            "value": "unknown"
+                        },
+                        {
+                            "key": "span.kind",
+                            "type": "string",
+                            "value": "client"
+                        },
+                        {
+                            "key": "internal.span.format",
+                            "type": "string",
+                            "value": "proto"
+                        }
+                    ],
+                    "logs": [],
+                    "processID": "p1",
+                    "warnings": null
+                },
+                {
+                    "traceID": "edf292566195f6a73f57c9743abd66a1",
+                    "spanID": "427e1900043c1723",
+                    "operationName": "deep",
+                    "references": [],
+                    "startTime": 1689030178962190,
+                    "duration": 273543,
+                    "tags": [
+                        {
+                            "key": "otel.library.name",
+                            "type": "string",
+                            "value": "github.com/equinix-labs/otel-cli"
+                        },
+                        {
+                            "key": "otel.library.version",
+                            "type": "string",
+                            "value": "unknown"
+                        },
+                        {
+                            "key": "span.kind",
+                            "type": "string",
+                            "value": "client"
+                        },
+                        {
+                            "key": "internal.span.format",
+                            "type": "string",
+                            "value": "proto"
+                        }
+                    ],
+                    "logs": [],
+                    "processID": "p1",
+                    "warnings": null
+                }
+            ],
+            "processes": {
+                "p1": {
+                    "serviceName": "./test-auto.sh",
+                    "tags": []
+                }
+            },
+            "warnings": null
+        }
+    ],
+    "total": 0,
+    "limit": 0,
+    "offset": 0,
+    "errors": null
+}

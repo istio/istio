@@ -17,8 +17,10 @@ package builder
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
+	"istio.io/istio/pkg/tracing"
 	"strings"
 	"sync"
 	"time"
@@ -76,7 +78,8 @@ var (
 	basesMu sync.RWMutex
 )
 
-func WarmBase(architectures []string, baseImages ...string) {
+func WarmBase(ctx context.Context, architectures []string, baseImages ...string) {
+	defer tracing.Start1(ctx, "RunCrane")()
 	basesMu.Lock()
 	wg := sync.WaitGroup{}
 	wg.Add(len(baseImages) * len(architectures))
@@ -134,7 +137,9 @@ func ByteCount(b int64) string {
 		float64(b)/float64(div), "kMGTPE"[exp])
 }
 
-func Build(b BuildSpec) error {
+func Build(ctx context.Context, b BuildSpec) error {
+	ctx, span := tracing.Start(ctx, "Build")
+	defer span.End()
 	t0 := time.Now()
 	lt := t0
 	trace := func(format string, d ...any) {
@@ -251,6 +256,17 @@ func Build(b BuildSpec) error {
 
 	// Write Remote
 
+	err := writeImage(ctx, b, images, trace)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeImage(ctx context.Context, b BuildSpec, images []v1.Image, trace func(d ...any)) error {
+	ctx, span := tracing.Start(ctx, "Write")
+	defer span.End()
 	var artifact remote.Taggable
 	if len(images) == 1 {
 		// Single image, just push that
@@ -318,7 +334,6 @@ func Build(b BuildSpec) error {
 		}
 		trace("upload %v", s)
 	}
-
 	return nil
 }
 

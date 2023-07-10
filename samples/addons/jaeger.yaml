@@ -113,5 +113,8 @@ spec:
   - port: 9411
     targetPort: 9411
     name: http-zipkin
+  - port: 4317
+    targetPort: 4317
+    name: http-otel
   selector:
     app: jaeger
