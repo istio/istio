@@ -12,7 +12,7 @@ import (
 
 func TestTryLedgerPutAndDelete(t *testing.T) {
 	RegisterTestingT(t)
-	l := ledger.Make(time.Minute)
+	l := ledger.Make(5 * time.Second)
 	resources := []config.Config{
 		{
 			Meta: config.Meta{
@@ -52,7 +52,7 @@ func TestTryLedgerPutAndDelete(t *testing.T) {
 	Expect(result[2]).To(Equal("3"))
 
 	tryLedgerDelete(l, resources[0])
-	time.Sleep(2 * time.Minute)
+	time.Sleep(6 * time.Second)
 	result1, err := l.Get(resources[0].Key())
 	if err != nil {
 		t.Errorf("ledger get %s error %v", resources[0].Key(), err)
