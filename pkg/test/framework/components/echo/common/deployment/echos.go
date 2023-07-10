@@ -260,7 +260,6 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		Subsets: []echo.SubsetConfig{{
 			Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
 			Labels: map[string]string{
-				label.SidecarInject.Name:     "false",
 				constants.AmbientRedirection: constants.AmbientRedirectionDisabled,
 			},
 		}},
