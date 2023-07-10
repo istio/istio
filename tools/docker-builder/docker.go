@@ -178,7 +178,7 @@ func createBuildxBuilderIfNeeded(a Args) error {
 		if len(matches) == 0 || matches[1] != "docker-container" {
 			return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
 				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0" +
-				" --name istio-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
+				" --name container-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
 		}
 		return nil
 	}
@@ -293,13 +293,13 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			i := i
 			e.Go(func() error {
 				exists, err := image.Exists(i)
+				if err != nil {
+					return fmt.Errorf("failed to check image existence: %v", err)
+				}
 				if exists {
 					return fmt.Errorf("image %q already exists", i)
 				}
-				if strings.Contains(err.Error(), "MANIFEST_UNKNOWN") {
-					return nil
-				}
-				return fmt.Errorf("failed to check image existence: %v", err)
+				return nil
 			})
 		}
 		if err := e.Wait(); err != nil {

@@ -544,7 +544,7 @@ spec:
 			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
 			// that mess with certs, multicluster, etc
 			t.NewSubTest("helm").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm"})
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
 				if t.Settings().Revisions.Default() != "" {
@@ -615,7 +615,7 @@ spec:
 				})
 			})
 			t.NewSubTest("helm-simple").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm"})
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
 				if t.Settings().Revisions.Default() != "" {

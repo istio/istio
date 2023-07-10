@@ -100,9 +100,6 @@ type DiscoveryServer struct {
 	// after debouncing the pushRequest will be sent to pushQueue
 	pushChannel chan *model.PushRequest
 
-	// mutex used for protecting Environment.PushContext
-	updateMutex sync.RWMutex
-
 	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
 
@@ -146,6 +143,9 @@ type DiscoveryServer struct {
 
 	// pushVersion stores the numeric push version. This should be accessed via NextVersion()
 	pushVersion atomic.Uint64
+
+	// discoveryStartTime is the time since the binary started
+	discoveryStartTime time.Time
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -167,9 +167,10 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
-		Cache:      model.DisabledCache{},
-		instanceID: instanceID,
-		clusterID:  clusterID,
+		Cache:              env.Cache,
+		instanceID:         instanceID,
+		clusterID:          clusterID,
+		discoveryStartTime: processStartTime,
 	}
 
 	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
@@ -178,14 +179,7 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 	}
 
 	out.initJwksResolver()
-
-	if features.EnableXDSCaching {
-		out.Cache = model.NewXdsCache()
-		// clear the cache as endpoint shards are modified to avoid cache write race
-		out.Env.EndpointIndex.SetCache(out.Cache)
-	}
-
-	out.ConfigGenerator = core.NewConfigGenerator(out.Cache)
+	out.ConfigGenerator = core.NewConfigGenerator(env.Cache)
 
 	return out
 }
@@ -223,7 +217,7 @@ var processStartTime = time.Now()
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
-	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
+	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(s.discoveryStartTime))
 	s.serverReady.Store(true)
 }
 
@@ -292,7 +286,6 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// PushContext is reset after a config change. Previous status is
 	// saved.
 	t0 := time.Now()
-
 	versionLocal := s.NextVersion()
 	push, err := s.initPushContext(req, oldPushContext, versionLocal)
 	if err != nil {
@@ -314,9 +307,7 @@ func nonce(noncePrefix string) string {
 // PushContext should be used to get the current state in the context of a single proxy. This should
 // only be used for "global" lookups, such as initiating a new push to all proxies.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
-	s.updateMutex.RLock()
-	defer s.updateMutex.RUnlock()
-	return s.Env.PushContext
+	return s.Env.PushContext()
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
@@ -514,11 +505,8 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 		return nil, err
 	}
 
-	s.updateMutex.Lock()
-	s.Env.PushContext = push
-	// Ensure we drop the cache in the lock to avoid races, where we drop the cache, fill it back up, then update push context
 	s.dropCacheForRequest(req)
-	s.updateMutex.Unlock()
+	s.Env.SetPushContext(push)
 
 	return push, nil
 }

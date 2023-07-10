@@ -47,6 +47,7 @@ var (
 	SidecarIncludeOutboundIPRanges = workloadAnnotation(annotation.SidecarTrafficIncludeOutboundIPRanges.Name, "")
 	SidecarProxyConfig             = workloadAnnotation(annotation.ProxyConfig.Name, "")
 	SidecarInjectTemplates         = workloadAnnotation(annotation.InjectTemplates.Name, "")
+	SidecarStatsHistogramBuckets   = workloadAnnotation(annotation.SidecarStatsHistogramBuckets.Name, "")
 	AmbientType                    = workloadAnnotation(constants.AmbientRedirection, "")
 )
 

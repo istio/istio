@@ -16,7 +16,6 @@ package collection
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
@@ -25,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Schemas contains metadata about configuration resources.
@@ -195,18 +195,13 @@ func (s Schemas) Remove(toRemove ...resource.Schema) Schemas {
 
 // Kinds returns all known resource kinds.
 func (s Schemas) Kinds() []string {
-	kinds := make(map[string]struct{}, len(s.byAddOrder))
+	kinds := sets.NewWithLength[string](len(s.byAddOrder))
 	for _, s := range s.byAddOrder {
-		kinds[s.Kind()] = struct{}{}
+		kinds.Insert(s.Kind())
 	}
 
-	out := make([]string, 0, len(kinds))
-	for kind := range kinds {
-		out = append(out, kind)
-	}
-
-	sort.Strings(out)
-	return out
+	out := kinds.UnsortedList()
+	return slices.Sort(out)
 }
 
 // Validate the schemas. Returns error if there is a problem.

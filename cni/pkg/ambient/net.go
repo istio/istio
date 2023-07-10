@@ -23,10 +23,8 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	pconstants "istio.io/istio/pkg/config/constants"
@@ -105,50 +103,6 @@ func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
 	if err != nil {
 		log.Warnf("failed to disable procfs rp_filter for device %s: %v", dev, err)
 	}
-}
-
-var annotationPatch = []byte(fmt.Sprintf(
-	`{"metadata":{"annotations":{"%s":"%s"}}}`,
-	pconstants.AmbientRedirection,
-	pconstants.AmbientRedirectionEnabled,
-))
-
-var annotationRemovePatch = []byte(fmt.Sprintf(
-	`{"metadata":{"annotations":{"%s":null}}}`,
-	pconstants.AmbientRedirection,
-))
-
-func AnnotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
-	_, err := client.CoreV1().
-		Pods(pod.Namespace).
-		Patch(
-			context.Background(),
-			pod.Name,
-			types.MergePatchType,
-			annotationPatch,
-			metav1.PatchOptions{},
-		)
-	return err
-}
-
-func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
-	if pod.Annotations[pconstants.AmbientRedirection] != pconstants.AmbientRedirectionEnabled {
-		return nil
-	}
-	// TODO: do not overwrite if already none
-	_, err := client.CoreV1().
-		Pods(pod.Namespace).
-		Patch(
-			context.Background(),
-			pod.Name,
-			types.MergePatchType,
-			annotationRemovePatch,
-			metav1.PatchOptions{},
-		)
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	return err
 }
 
 func delPodFromMeshWithIptables(pod *corev1.Pod) {

@@ -886,9 +886,6 @@ func TestAppProbe(t *testing.T) {
 		}
 		if c := tc.config["/"+tc.probePath]; c != nil {
 			if hc := c.HTTPGet; hc != nil {
-				if hc.Host != "" {
-					req.Host = hc.Host
-				}
 				for _, h := range hc.HTTPHeaders {
 					req.Header[h.Name] = append(req.Header[h.Name], h.Value)
 				}

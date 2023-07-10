@@ -590,6 +590,75 @@ spec:
 	})
 }
 
+func TestPeerAuthentication(t *testing.T) {
+	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
+		// Workaround https://github.com/istio/istio/issues/43239
+		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: single-request
+spec:
+  host: '*.svc.cluster.local'
+  trafficPolicy:
+    connectionPool:
+      http:
+        maxRequestsPerConnection: 1`).ApplyOrFail(t)
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			if opt.Scheme != scheme.TCP {
+				return
+			}
+			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
+			// due to draining.
+			opt.NewConnectionPerRequest = true
+			if src.Config().IsUncaptured() {
+				// For this case, it is broken if the src and dst are on the same node.
+				// TODO: fix this and remove this skip
+				t.Skip("https://github.com/istio/istio/issues/43238")
+			}
+
+			t.NewSubTest("permissive").Run(func(t framework.TestContext) {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: global-permissive
+spec:
+  mtls:
+    mode: PERMISSIVE
+`).ApplyOrFail(t)
+				opt = opt.DeepCopy()
+				src.CallOrFail(t, opt)
+			})
+			t.NewSubTest("strict").Run(func(t framework.TestContext) {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: global-strict
+spec:
+  mtls:
+    mode: STRICT
+				`).ApplyOrFail(t)
+				opt = opt.DeepCopy()
+				if inMesh.All([]echo.Instance{src, dst}) { // If both src and dst are in the mesh, the request should succeed
+					opt.Check = check.OK()
+				} else { // If not, the request should fail
+					opt.Check = CheckDeny
+				}
+				src.CallOrFail(t, opt)
+			})
+		})
+	})
+}
+
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Features("traffic.ambient").Run(func(t framework.TestContext) {
 		// Workaround https://github.com/istio/istio/issues/43239
@@ -1305,11 +1374,10 @@ spec:
 		})
 }
 
-func TestServiceEntry(t *testing.T) {
+func TestServiceEntryInlinedWorkloadEntry(t *testing.T) {
 	framework.NewTest(t).
 		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
-			t.Skip("https://github.com/istio/istio/issues/43240")
 			testCases := []struct {
 				location   v1alpha3.ServiceEntry_Location
 				resolution v1alpha3.ServiceEntry_Resolution
@@ -1362,7 +1430,11 @@ spec:
 							Name:      "uncaptured",
 							Namespace: apps.Namespace,
 						}))).
-						ToMatch(match.AnyServiceName(tc.to.NamespacedNames())).
+						// captured pods cannot be selected by SEs or be WEs; IPs are unique per network
+						ToMatch(match.Not(match.ServiceName(echo.NamespacedName{
+							Name:      "captured",
+							Namespace: apps.Namespace,
+						}))).
 						Config(cfg.WithParams(param.Params{
 							"Resolution": tc.resolution.String(),
 							"Location":   tc.location.String(),
@@ -1374,6 +1446,262 @@ spec:
 								Port:    to.PortForName("http"),
 							})
 						})
+				})
+			}
+		})
+}
+
+func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
+	framework.NewTest(t).
+		Features("traffic.ambient").
+		Run(func(t framework.TestContext) {
+			testCases := []struct {
+				location   v1alpha3.ServiceEntry_Location
+				resolution v1alpha3.ServiceEntry_Resolution
+				to         echo.Instances
+			}{
+				{
+					location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
+					resolution: v1alpha3.ServiceEntry_STATIC,
+					to:         apps.Mesh,
+				},
+				{
+					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
+					resolution: v1alpha3.ServiceEntry_STATIC,
+					to:         apps.MeshExternal,
+				},
+				// TODO dns cases
+			}
+
+			cfg := config.YAML(`
+{{ $to := .To }}
+apiVersion: networking.istio.io/v1beta1
+kind: WorkloadEntry
+metadata:
+  name: test-we
+spec:
+  # we send directly to a Pod IP here. This is essentially headless
+  address: {{ (index .To.MustWorkloads 0).Address }} # TODO won't work with DNS resolution tests
+  ports:
+    http: {{ (.To.PortForName "http").WorkloadPort }}
+  labels:
+    app: selected
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: test-se
+spec:
+  hosts:
+  - serviceentry.istio.io # not used
+  addresses:
+  - 111.111.222.222
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: {{.Resolution}}
+  location: {{.Location}}
+  workloadSelector:
+    labels:
+      app: selected`).
+				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
+
+			for _, tc := range testCases {
+				tc := tc
+				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
+					echotest.
+						New(t, apps.All).
+						// TODO eventually we can do this for uncaptured -> l7
+						FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
+							Name:      "uncaptured",
+							Namespace: apps.Namespace,
+						}))).
+						// captured pods cannot be selected by SEs or be WEs; IPs are unique per network
+						ToMatch(match.Not(match.ServiceName(echo.NamespacedName{
+							Name:      "captured",
+							Namespace: apps.Namespace,
+						}))).
+						Config(cfg.WithParams(param.Params{
+							"Resolution": tc.resolution.String(),
+							"Location":   tc.location.String(),
+						})).
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+							from.CallOrFail(t, echo.CallOptions{
+								Address: "111.111.222.222",
+								Port:    to.PortForName("http"),
+							})
+						})
+				})
+			}
+		})
+}
+
+func TestServiceEntrySelectsUncapturedPod(t *testing.T) {
+	framework.NewTest(t).
+		Features("traffic.ambient").
+		Run(func(t framework.TestContext) {
+			testCases := []struct {
+				location   v1alpha3.ServiceEntry_Location
+				resolution v1alpha3.ServiceEntry_Resolution
+				to         echo.Instances
+			}{
+				{
+					location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
+					resolution: v1alpha3.ServiceEntry_STATIC,
+					to:         apps.Mesh,
+				},
+				{
+					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
+					resolution: v1alpha3.ServiceEntry_STATIC,
+					to:         apps.MeshExternal,
+				},
+				// TODO dns cases
+			}
+
+			cfg := config.YAML(`
+{{ $to := .To }}
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: test-se
+spec:
+  hosts:
+  - serviceentry.istio.io # not used
+  addresses:
+  - 111.111.222.222
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+    targetPort: 8080
+  resolution: {{.Resolution}}
+  location: {{.Location}}
+  workloadSelector:
+    labels:
+      app: uncaptured`). // cannot select pods captured in ambient mesh; IPs are unique per network
+				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
+
+			for _, tc := range testCases {
+				tc := tc
+				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
+					echotest.
+						New(t, apps.All).
+						// TODO eventually we can do this for uncaptured -> l7
+						FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
+							Name:      "uncaptured",
+							Namespace: apps.Namespace,
+						}))).
+						ToMatch(match.ServiceName(echo.NamespacedName{
+							Name:      "uncaptured",
+							Namespace: apps.Namespace,
+						})).
+						Config(cfg.WithParams(param.Params{
+							"Resolution": tc.resolution.String(),
+							"Location":   tc.location.String(),
+						})).
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							from.CallOrFail(t, echo.CallOptions{
+								Address: "111.111.222.222",
+								Port:    to.PortForName("http"),
+								// sample response:
+								//
+								// ServiceVersion=v1
+								// ServicePort=8080
+								// Host=serviceentry.istio.io
+								// URL=/any/path
+								// Cluster=cluster-0
+								// IstioVersion=
+								// Method=GET
+								// Proto=HTTP/1.1
+								// IP=10.244.2.20
+								// Alpn=
+								// RequestHeader=Accept:*/*
+								// RequestHeader=User-Agent:curl/7.81.0
+								// Hostname=uncaptured-v1-868c9b59b5-rxvfq
+								Check: check.BodyContains(`Hostname=uncaptured-v`), // can hit v1 or v2
+							})
+						})
+				})
+			}
+		})
+}
+
+// Ambient ServiceEntry support for auto assigned vips is lacking for now, but planned.
+// for more, see https://github.com/istio/istio/pull/45621#discussion_r1254970579
+func TestServiceEntryDNSWithAutoAssign(t *testing.T) {
+	framework.NewTest(t).
+		Features("traffic.ambient").
+		Run(func(t framework.TestContext) {
+			t.Skip("this will work once we resolve https://github.com/istio/ztunnel/issues/582")
+			yaml := `apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: test-service-entry
+spec:
+  hosts:
+  - serviceentry.istio.io
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+    targetPort: 8080
+  location: MESH_EXTERNAL
+  resolution: STATIC # not honored for now; everything is static
+  workloadSelector:
+    labels:
+      app: uncaptured` // cannot select pods captured in ambient mesh; IPs are unique per network
+			svcs := apps.All
+			for _, svc := range svcs {
+				if svc.Config().IsUncaptured() || svc.Config().HasSidecar() {
+					// TODO(kdorosh) skip if waypoint? waypoints should not need to resolve service entry hostnames
+					continue
+				}
+				if err := t.ConfigIstio().YAML(svc.NamespaceName(), yaml).Apply(apply.NoCleanup); err != nil {
+					t.Fatal(err)
+				}
+				t.NewSubTestf("%v to uncaptured-v1 via ServiceEntry", svc.Config().Service).Run(func(t framework.TestContext) {
+					svc.CallOrFail(t, echo.CallOptions{
+						Address: "serviceentry.istio.io",
+						Port:    echo.Port{Name: "http", ServicePort: 80},
+						Scheme:  scheme.HTTP,
+						HTTP: echo.HTTP{
+							Path: "/any/path",
+						},
+						// sample response:
+						//
+						// ServiceVersion=v1
+						// ServicePort=8080
+						// Host=serviceentry.istio.io
+						// URL=/any/path
+						// Cluster=cluster-0
+						// IstioVersion=
+						// Method=GET
+						// Proto=HTTP/1.1
+						// IP=10.244.2.20
+						// Alpn=
+						// RequestHeader=Accept:*/*
+						// RequestHeader=User-Agent:curl/7.81.0
+						// Hostname=uncaptured-v1-868c9b59b5-rxvfq
+						Check: check.BodyContains(`Hostname=uncaptured-v`), // can hit v1 or v2
+					})
+				})
+
+				if err := t.ConfigIstio().YAML(svc.NamespaceName(), yaml).Delete(); err != nil {
+					t.Fatal(err)
+				}
+
+				t.NewSubTestf("%v to uncaptured via ServiceEntry -- cleanup", svc.Config().Service).Run(func(t framework.TestContext) {
+					svc.CallOrFail(t, echo.CallOptions{
+						Address: "serviceentry.istio.io",
+						Port:    echo.Port{Name: "http", ServicePort: 80},
+						Scheme:  scheme.HTTP,
+						HTTP: echo.HTTP{
+							Path: "/any/path",
+						},
+						Check: check.NotOK(),
+					})
 				})
 			}
 		})

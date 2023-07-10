@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type CdsGenerator struct {
@@ -27,23 +28,23 @@ type CdsGenerator struct {
 var _ model.XdsDeltaResourceGenerator = &CdsGenerator{}
 
 // Map of all configs that do not impact CDS
-var skippedCdsConfigs = map[kind.Kind]struct{}{
-	kind.Gateway:               {},
-	kind.WorkloadEntry:         {},
-	kind.WorkloadGroup:         {},
-	kind.AuthorizationPolicy:   {},
-	kind.RequestAuthentication: {},
-	kind.Secret:                {},
-	kind.Telemetry:             {},
-	kind.WasmPlugin:            {},
-	kind.ProxyConfig:           {},
-}
+var skippedCdsConfigs = sets.New[kind.Kind](
+	kind.Gateway,
+	kind.WorkloadEntry,
+	kind.WorkloadGroup,
+	kind.AuthorizationPolicy,
+	kind.RequestAuthentication,
+	kind.Secret,
+	kind.Telemetry,
+	kind.WasmPlugin,
+	kind.ProxyConfig,
+)
 
 // Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
-var pushCdsGatewayConfig = map[kind.Kind]struct{}{
-	kind.VirtualService: {},
-	kind.Gateway:        {},
-}
+var pushCdsGatewayConfig = sets.New[kind.Kind](
+	kind.VirtualService,
+	kind.Gateway,
+)
 
 func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if req == nil {
@@ -58,11 +59,9 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
-		if features.FilterGatewayClusterConfig {
-			if proxy.Type == model.Router {
-				if _, f := pushCdsGatewayConfig[config.Kind]; f {
-					return true
-				}
+		if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+			if _, f := pushCdsGatewayConfig[config.Kind]; f {
+				return true
 			}
 		}
 

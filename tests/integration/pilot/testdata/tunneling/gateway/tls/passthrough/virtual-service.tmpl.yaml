@@ -12,7 +12,7 @@ spec:
     - port: {{ .externalSvcTcpPort }}
     route:
     - destination:
-        host: istio-egressgateway.istio-system.svc.cluster.local
+        host: {{ .EgressGatewayServiceName | default "istio-egressgateway" }}.{{ .EgressGatewayServiceNamespace | default "istio-system" }}.svc.cluster.local
         subset: originate-tls-for-plain-traffic
         port:
           number: 443
@@ -23,7 +23,7 @@ spec:
       - external.{{ .externalNamespace }}.svc.cluster.local
     route:
     - destination:
-        host: istio-egressgateway.istio-system.svc.cluster.local
+        host: {{ .EgressGatewayServiceName | default "istio-egressgateway" }}.{{ .EgressGatewayServiceNamespace | default "istio-system" }}.svc.cluster.local
         port:
           number: 443
 ---
@@ -35,11 +35,11 @@ spec:
   hosts:
   - external.{{ .externalNamespace }}.svc.cluster.local
   gateways:
-  - istio-egressgateway
+  - {{ .EgressGatewayServiceName | default "istio-egressgateway" }}
   tls:
   - match:
     - gateways:
-      - istio-egressgateway
+      - {{ .EgressGatewayServiceName | default "istio-egressgateway" }}
       port: 443
       sniHosts:
       - external.{{ .externalNamespace }}.svc.cluster.local

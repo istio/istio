@@ -997,6 +997,27 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}))
 	})
 
+	t.Run("for path regex match with regex rewrite", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg),
+			virtualServiceWithPathRegexMatchRegexRewrite,
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		routeAction, ok := routes[0].Action.(*envoyroute.Route_Route)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(routeAction.Route.RegexRewrite).To(gomega.Equal(&matcher.RegexMatchAndSubstitute{
+			Pattern: &matcher.RegexMatcher{
+				Regex: "^/service/([^/]+)(/.*)$",
+			},
+			Substitution: "\\2/instance/\\1",
+		}))
+	})
+
 	t.Run("for redirect uri prefix '%PREFIX()%' that is without gateway semantics", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
@@ -1766,7 +1787,10 @@ var virtualServiceWithRewriteFullPath = config.Config{
 					},
 				},
 				Rewrite: &networking.HTTPRewrite{
-					Uri: "%FULLREPLACE()%/replace-full",
+					UriRegexRewrite: &networking.RegexRewrite{
+						Match:   "/.*",
+						Rewrite: "/replace-full",
+					},
 				},
 				Route: []*networking.HTTPRouteDestination{
 					{
@@ -1800,8 +1824,53 @@ var virtualServiceWithRewriteFullPathAndHost = config.Config{
 					},
 				},
 				Rewrite: &networking.HTTPRewrite{
-					Uri:       "%FULLREPLACE()%/replace-full",
+					UriRegexRewrite: &networking.RegexRewrite{
+						Match:   "/.*",
+						Rewrite: "/replace-full",
+					},
 					Authority: "bar.example.org",
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithPathRegexMatchRegexRewrite = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+		Annotations: map[string]string{
+			"internal.istio.io/route-semantics": "gateway",
+		},
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "full-path-and-host-rewrite",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{
+								Regex: "^/service/[^/]+/.*$",
+							},
+						},
+					},
+				},
+				Rewrite: &networking.HTTPRewrite{
+					UriRegexRewrite: &networking.RegexRewrite{
+						Match:   "^/service/([^/]+)(/.*)$",
+						Rewrite: "\\2/instance/\\1",
+					},
 				},
 				Route: []*networking.HTTPRouteDestination{
 					{

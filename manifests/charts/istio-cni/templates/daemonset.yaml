@@ -159,7 +159,7 @@ spec:
               name: cni-log-dir
             {{- if .Values.cni.ambient.enabled }}
             - mountPath: /etc/ambient-config
-              name: cni-ambientconfig
+              name: cni-ambient-config-dir
             - mountPath: /var/run/netns
               mountPropagation: HostToContainer
               name: cni-netns-dir
@@ -181,9 +181,9 @@ spec:
           hostPath:
             path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
         {{- if .Values.cni.ambient.enabled }}
-        - name: cni-ambientconfig
+        - name: cni-ambient-config-dir
           hostPath:
-            path: /etc/ambient-config
+            path: {{ .Values.cni.ambient.configDir | default "/etc/ambient-config" }}
         {{- end }}
         - name: cni-net-dir
           hostPath:

@@ -154,7 +154,7 @@ func BenchmarkInitPushContext(b *testing.B) {
 			s, proxy := setupTest(b, tt)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				s.Env().PushContext.InitDone.Store(false)
+				s.Env().PushContext().InitDone.Store(false)
 				initPushContext(s.Env(), proxy)
 			}
 		})
@@ -473,9 +473,10 @@ func setupAndInitializeTest(t testing.TB, config ConfigInput) (*FakeDiscoverySer
 }
 
 func initPushContext(env *model.Environment, proxy *model.Proxy) {
-	env.PushContext.InitContext(env, nil, nil)
-	proxy.SetSidecarScope(env.PushContext)
-	proxy.SetGatewaysForProxy(env.PushContext)
+	pushContext := env.PushContext()
+	pushContext.InitContext(env, nil, nil)
+	proxy.SetSidecarScope(pushContext)
+	proxy.SetGatewaysForProxy(pushContext)
 	proxy.SetServiceInstances(env.ServiceDiscovery)
 }
 
@@ -609,7 +610,7 @@ func BenchmarkPushRequest(b *testing.B) {
 				Reason:         []model.TriggerReason{trigger},
 			}
 			for c := 0; c < configs; c++ {
-				nreq.ConfigsUpdated[model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
+				nreq.ConfigsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"})
 			}
 			req = req.Merge(nreq)
 		}

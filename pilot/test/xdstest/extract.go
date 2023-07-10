@@ -248,6 +248,17 @@ func ExtractHTTPConnectionManager(t test.Failer, fcs *listener.FilterChain) *hcm
 	return nil
 }
 
+func ExtractLocalityLbEndpoints(cla []*endpoint.ClusterLoadAssignment) map[string][]*endpoint.LocalityLbEndpoints {
+	got := map[string][]*endpoint.LocalityLbEndpoints{}
+	for _, cla := range cla {
+		if cla == nil {
+			continue
+		}
+		got[cla.ClusterName] = cla.Endpoints
+	}
+	return got
+}
+
 func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]string {
 	got := map[string][]string{}
 	for _, cla := range cla {

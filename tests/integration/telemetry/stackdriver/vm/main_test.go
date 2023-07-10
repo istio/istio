@@ -30,6 +30,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -258,9 +259,14 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	if err != nil {
 		return
 	}
+	proxyVersion, err := env.ReadVersion()
+	if err != nil {
+		return
+	}
 	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
+		"ProxyVersion":  proxyVersion,
 	})
 	if err != nil {
 		return
@@ -277,6 +283,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]any{
 		"EchoNamespace": ns.Name(),
 		"TrustDomain":   trustDomain,
+		"ProxyVersion":  proxyVersion,
 	})
 	if err != nil {
 		return

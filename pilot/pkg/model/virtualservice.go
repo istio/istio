@@ -97,6 +97,11 @@ func vsHostMatches(vsHost string, importedHost host.Name, vs config.Config) bool
 }
 
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
+	// Kubernetes Gateway API semantics support shortnames
+	if UseGatewaySemantics(config.Config{Meta: meta}) {
+		return
+	}
+
 	// resolve top level hosts
 	for i, h := range rule.Hosts {
 		rule.Hosts[i] = string(ResolveShortnameToFQDN(h, meta))

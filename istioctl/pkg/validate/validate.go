@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 )
@@ -58,10 +60,6 @@ Example resource specifications include:
 		"status":     {},
 	}
 
-	istioDeploymentLabel = []string{
-		"app",
-		"version",
-	}
 	serviceProtocolUDP = "UDP"
 )
 
@@ -206,16 +204,14 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 	if un.GetNamespace() == handleNamespace(istioNamespace) {
 		return nil
 	}
-	labels, err := GetTemplateLabels(un)
+	objLabels, err := GetTemplateLabels(un)
 	if err != nil {
 		return err
 	}
 	url := fmt.Sprintf("See %s\n", url.DeploymentRequirements)
-	for _, l := range istioDeploymentLabel {
-		if _, ok := labels[l]; !ok {
-			fmt.Fprintf(writer, "deployment %q may not provide Istio metrics and telemetry without label %q. "+url,
-				fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
-		}
+	if !labels.HasCanonicalServiceName(objLabels) || !labels.HasCanonicalServiceRevision(objLabels) {
+		fmt.Fprintf(writer, "deployment %q may not provide Istio metrics and telemetry labels: %q. "+url,
+			fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), objLabels)
 	}
 	return nil
 }
@@ -375,7 +371,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 }
 
 // NewValidateCommand creates a new command for validating Istio k8s resources.
-func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra.Command {
+func NewValidateCommand(ctx cli.Context) *cobra.Command {
 	var filenames []string
 	var referential bool
 
@@ -403,7 +399,9 @@ func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateFiles(istioNamespace, *defaultNamespace, filenames, c.OutOrStderr())
+			istioNamespace := ctx.IstioNamespace()
+			defaultNamespace := ctx.NamespaceOrDefault("")
+			return validateFiles(&istioNamespace, defaultNamespace, filenames, c.OutOrStderr())
 		},
 	}
 

@@ -99,6 +99,7 @@ message CNIAmbientConfig {
   // Controls whether ambient redirection is enabled
   google.protobuf.BoolValue enabled = 1;
   string redirectMode = 2;
+  string configDir = 3;
 }
 
 message CNIRepairConfig {
@@ -459,7 +460,12 @@ message GlobalConfig {
   string caName = 65;
 
   google.protobuf.BoolValue autoscalingv2API = 66;
-  // The next available key is 68
+
+  // Platform in which Istio is deployed. Possible values are: "openshift" and "gcp"
+  // An empty value means it is a vanilla Kubernetes distribution, therefore no special
+  // treatment will be considered.
+  string platform = 69;
+  // The next available key is 70
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -737,6 +743,14 @@ message PilotConfig {
   //
   // See: https://kubernetes.io/docs/tutorials/security/seccomp/
   google.protobuf.Struct seccompProfile = 38;
+
+  repeated google.protobuf.Struct topologySpreadConstraints = 41;
+
+  repeated google.protobuf.Struct extraContainerArgs = 42;
+
+  repeated google.protobuf.Struct volumeMounts = 49;
+
+  repeated google.protobuf.Struct volumes = 51;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.

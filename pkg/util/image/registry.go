@@ -15,27 +15,32 @@
 package image
 
 import (
-	"bytes"
 	"fmt"
-	"os/exec"
 	"strings"
+
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
 
 // Exists returns true if the image in the argument exists in a container registry.
 // The argument must be a complete image name, e.g. "gcr.io/istio-release/pilot:1.19.0".
 // If the image does not exist, it returns false and an optional error message, for debug purposes.
 func Exists(image string) (bool, error) {
-	c := exec.Command("crane", "manifest", image)
-	b := &bytes.Buffer{}
-	c.Stderr = b
-	err := c.Run()
+	ref, err := name.ParseReference(image)
+	if err != nil {
+		return false, fmt.Errorf("parsing reference %q: %w", image, err)
+	}
+	_, err = remote.Get(ref)
 	if err == nil {
+		// image exists
 		return true, nil
 	}
-
-	if strings.Contains(b.String(), "MANIFEST_UNKNOWN") {
-		return false, fmt.Errorf(b.String())
+	isUnknown := strings.Contains(err.Error(), string(transport.ManifestUnknownErrorCode))
+	if isUnknown {
+		// image does not exist
+		return false, nil
 	}
-
-	return false, fmt.Errorf("failed to check image existence: %v, %v", err, b.String())
+	// Some other error
+	return false, err
 }

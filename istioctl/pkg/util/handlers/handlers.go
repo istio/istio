@@ -65,14 +65,6 @@ func inferNsInfo(name, namespace string) (string, string) {
 	return name[0:separator], name[separator+1:]
 }
 
-// HandleNamespace returns the defaultNamespace if the namespace is empty
-func HandleNamespace(ns, defaultNamespace string) string {
-	if ns == corev1.NamespaceAll {
-		ns = defaultNamespace
-	}
-	return ns
-}
-
 func InferPodsFromTypedResource(name, defaultNS string, factory cmdutil.Factory) ([]string, string, error) {
 	resname, ns := inferNsInfo(name, defaultNS)
 	if !strings.Contains(resname, "/") {

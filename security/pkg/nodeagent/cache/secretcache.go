@@ -255,6 +255,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 		// possible by keeping the output in a directory with clever use of symlinks in the future,
 		// if needed.
 		sc.outputMutex.Lock()
+		defer sc.outputMutex.Unlock()
 		if resourceName == security.RootCertReqResourceName || resourceName == security.WorkloadKeyCertResourceName {
 			if err := nodeagentutil.OutputKeyCertToDir(sc.configOptions.OutputKeyCertToDir, secret.PrivateKey,
 				secret.CertificateChain, secret.RootCert); err != nil {
@@ -263,7 +264,6 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 				resourceLog(resourceName).Debugf("output the resource to %v", sc.configOptions.OutputKeyCertToDir)
 			}
 		}
-		sc.outputMutex.Unlock()
 	}()
 
 	// First try to generate secret from file.

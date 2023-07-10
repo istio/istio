@@ -1133,7 +1133,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			return nil, fmt.Errorf("sidecar: empty configuration provided")
 		}
 
-		portMap := make(map[uint32]struct{})
+		portMap := sets.Set[uint32]{}
 		for _, i := range rule.Ingress {
 			if i == nil {
 				errs = appendValidation(errs, fmt.Errorf("sidecar: ingress may not be null"))
@@ -1147,10 +1147,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			bind := i.GetBind()
 			errs = appendValidation(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
-			if _, found := portMap[i.Port.Number]; found {
+			if portMap.Contains(i.Port.Number) {
 				errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 			}
-			portMap[i.Port.Number] = struct{}{}
+			portMap.Insert(i.Port.Number)
 
 			if len(i.DefaultEndpoint) != 0 {
 				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
@@ -1195,8 +1195,8 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			}
 		}
 
-		portMap = make(map[uint32]struct{})
-		udsMap := make(map[string]struct{})
+		portMap = sets.Set[uint32]{}
+		udsMap := sets.String{}
 		catchAllEgressListenerFound := false
 		for index, egress := range rule.Egress {
 			if egress == nil {
@@ -1226,10 +1226,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 					udsMap[bind] = struct{}{}
 				} else {
-					if _, found := portMap[egress.Port.Number]; found {
+					if portMap.Contains(egress.Port.Number) {
 						errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 					}
-					portMap[egress.Port.Number] = struct{}{}
+					portMap.Insert(egress.Port.Number)
 				}
 			}
 
@@ -2807,7 +2807,10 @@ func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
 	if re == "" {
 		return fmt.Errorf("%q: regex string match should not be empty", where)
 	}
+	return validateStringRegexp(re, where)
+}
 
+func validateStringRegexp(re string, where string) error {
 	// Envoy enforces a re2.max_program_size.error_level re2 program size is not the same as length,
 	// but it is always *larger* than length. Because goland does not have a way to evaluate the
 	// program size, we approximate by the length. To ensure that a program that is smaller than 1024
@@ -3171,10 +3174,29 @@ func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) (
 }
 
 func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
-	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
-		return errors.New("rewrite must specify URI, authority, or both")
+	if rewrite == nil {
+		return nil
+	}
+	if rewrite.Uri != "" && rewrite.UriRegexRewrite != nil {
+		return errors.New("rewrite may only contain one of URI or UriRegexRewrite")
+	}
+	if rewrite.Uri == "" && rewrite.UriRegexRewrite == nil && rewrite.Authority == "" {
+		return errors.New("rewrite must specify at least one of URI, UriRegexRewrite, or authority. Only one of URI or UriRegexRewrite may be specified")
+	}
+	if err := validateURIRegexRewrite(rewrite.UriRegexRewrite); err != nil {
+		return errors.Join(errors.New("UriRegexRewrite has errors"), err)
 	}
 	return nil
+}
+
+func validateURIRegexRewrite(regexRewrite *networking.RegexRewrite) error {
+	if regexRewrite == nil {
+		return nil
+	}
+	if regexRewrite.Match == "" || regexRewrite.Rewrite == "" {
+		return errors.New("UriRegexRewrite requires both Rewrite and Match fields to be specified")
+	}
+	return validateStringRegexp(regexRewrite.Match, "HTTPRewrite.UriRegexRewrite.Match")
 }
 
 // ValidateWorkloadEntry validates a workload entry.
@@ -3188,21 +3210,25 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 	})
 
 func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
+	errs := Validation{}
+
 	addr := we.Address
 	if addr == "" {
-		return nil, fmt.Errorf("address must be set")
+		if we.Network == "" {
+			return nil, fmt.Errorf("address must be set")
+		}
+		errs = appendWarningf(errs, "address is unset with network %q", we.Network)
 	}
 
-	// Since we don't know if its meant to be DNS or STATIC type without association with a ServiceEntry,
+	// Since we don't know if it's meant to be DNS or STATIC type without association with a ServiceEntry,
 	// check based on content and try validations.
 	// First check if it is a Unix endpoint - this will be specified for STATIC.
-	errs := Validation{}
 	if strings.HasPrefix(addr, UnixAddressPrefix) {
 		errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
 		if len(we.Ports) != 0 {
 			errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 		}
-	} else if !netutil.IsValidIPAddress(addr) { // This could be IP (in STATIC resolution) or DNS host name (for DNS).
+	} else if addr != "" && !netutil.IsValidIPAddress(addr) { // This could be IP (in STATIC resolution) or DNS host name (for DNS).
 		if err := ValidateFQDN(addr); err != nil { // Otherwise could be an FQDN
 			errs = appendValidation(errs, fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", addr))
 		}

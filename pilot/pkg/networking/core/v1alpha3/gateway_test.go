@@ -681,7 +681,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{
-			name: "ecdh curves specified in mesh config with tls SIMPLE",
+			name: "ecdh curves and cipher suites specified in mesh config with tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Port: &networking.Port{
@@ -695,14 +695,16 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			mesh: &meshconfig.MeshConfig{
 				TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
-					EcdhCurves: []string{"P-256"},
+					EcdhCurves:   []string{"P-256"},
+					CipherSuites: []string{"ECDHE-ECDSA-AES128-SHA"},
 				},
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: util.ALPNHttp,
 					TlsParams: &auth.TlsParameters{
-						EcdhCurves: []string{"P-256"},
+						EcdhCurves:   []string{"P-256"},
+						CipherSuites: []string{"ECDHE-ECDSA-AES128-SHA"},
 					},
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
@@ -731,7 +733,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{
-			name: "ecdh curves specified in mesh config with, tls mode ISTIO_MUTUAL",
+			name: "ecdh curves and cipher suites specified in mesh config with, tls mode ISTIO_MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com"},
 				Port: &networking.Port{
@@ -743,7 +745,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			mesh: &meshconfig.MeshConfig{
 				TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
-					EcdhCurves: []string{"P-256"},
+					EcdhCurves:   []string{"P-256"},
+					CipherSuites: []string{"ECDHE-ECDSA-AES128-SHA", "ECDHE-RSA-AES256-GCM-SHA384"},
 				},
 			},
 			result: &auth.DownstreamTlsContext{
@@ -803,7 +806,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 		},
 		{
-			name: "ecdh curves specified in mesh config with tls MUTUAL",
+			name: "ecdh curves and cipher suites specified in mesh config with tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Port: &networking.Port{
@@ -819,13 +822,15 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			mesh: &meshconfig.MeshConfig{
 				TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
-					EcdhCurves: []string{"P-256", "P-384"},
+					EcdhCurves:   []string{"P-256", "P-384"},
+					CipherSuites: []string{"ECDHE-ECDSA-AES128-SHA", "ECDHE-RSA-AES256-GCM-SHA384"},
 				},
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					TlsParams: &auth.TlsParameters{
-						EcdhCurves: []string{"P-256", "P-384"},
+						EcdhCurves:   []string{"P-256", "P-384"},
+						CipherSuites: []string{"ECDHE-ECDSA-AES128-SHA", "ECDHE-RSA-AES256-GCM-SHA384"},
 					},
 					AlpnProtocols: util.ALPNHttp,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
@@ -2934,7 +2939,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 	}
 	proxy = cg.SetupProxy(proxy)
 
-	nameToServiceMap := buildNameToServiceMapForHTTPRoutes(proxy, cg.env.PushContext, virtualService)
+	nameToServiceMap := buildNameToServiceMapForHTTPRoutes(proxy, cg.env.PushContext(), virtualService)
 
 	if len(nameToServiceMap) != 3 {
 		t.Errorf("The length of nameToServiceMap is wrong.")

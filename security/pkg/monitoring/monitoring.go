@@ -34,7 +34,3 @@ func init() {
 		NumOutgoingRetries,
 	)
 }
-
-func Reset() {
-	NumOutgoingRetries.Record(0)
-}

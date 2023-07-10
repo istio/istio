@@ -18,8 +18,11 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net/http"
 	"sync"
 
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/metric"
 	"go.opencensus.io/metric/metricdata"
 	"go.opencensus.io/metric/metricproducer"
@@ -96,11 +99,15 @@ type (
 	DerivedOptions func(*derivedOptions)
 
 	// A Label provides a named dimension for a Metric.
-	Label tag.Key
+	Label struct {
+		k tag.Key
+	}
 
 	// A LabelValue represents a Label with a specific value. It is used to record
 	// values for a Metric.
-	LabelValue tag.Mutator
+	LabelValue struct {
+		kv tag.Mutator
+	}
 
 	options struct {
 		unit     Unit
@@ -115,10 +122,48 @@ type (
 
 	// RecordHook has a callback function which a measure is recorded.
 	RecordHook interface {
-		OnRecordFloat64Measure(f *stats.Float64Measure, tags []tag.Mutator, value float64)
-		OnRecordInt64Measure(i *stats.Int64Measure, tags []tag.Mutator, value int64)
+		OnRecord(name string, tags LabelSet, value float64)
 	}
 )
+
+type LabelSet struct {
+	m *tag.Map
+}
+
+func newLabelSet(tags []tag.Mutator) LabelSet {
+	originalCtx, err := tag.New(context.Background(), tags...)
+	if err != nil {
+		log.Warn("fail to initialize original tag context")
+		return LabelSet{}
+	}
+	return LabelSet{tag.FromContext(originalCtx)}
+}
+
+func (ls LabelSet) Value(k Label) (string, bool) {
+	return ls.m.Value(k.k)
+}
+
+// RegisterPrometheusExporter registers the provided prometheus Registry as an exporter.
+// The registry will be populated with metrics.
+// Generally this is called once per binary near the start of the application.
+// The returned http.Handler can be used to serve metrics
+func RegisterPrometheusExporter(reg prometheus.Registerer, gatherer prometheus.Gatherer) (http.Handler, error) {
+	if reg == nil {
+		reg = prometheus.DefaultRegisterer
+	}
+	if gatherer == nil {
+		gatherer = prometheus.DefaultGatherer
+	}
+	exporter, err := ocprom.NewExporter(ocprom.Options{
+		Registerer: reg,
+		Gatherer:   gatherer,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not set up prometheus exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+	return exporter, nil
+}
 
 // Decrement implements Metric
 func (dm *disabledMetric) Decrement() {}
@@ -214,7 +259,7 @@ func WithValueFrom(valueFn func() float64) DerivedOptions {
 
 // Value creates a new LabelValue for the Label.
 func (l Label) Value(value string) LabelValue {
-	return tag.Upsert(tag.Key(l), value)
+	return LabelValue{tag.Upsert(l.k, value)}
 }
 
 // MustCreateLabel will attempt to create a new Label. If
@@ -224,7 +269,7 @@ func MustCreateLabel(key string) Label {
 	if err != nil {
 		panic(fmt.Errorf("could not create label %q: %v", key, err))
 	}
-	return Label(k)
+	return Label{k}
 }
 
 // MustRegister is a helper function that will ensure that the provided Metrics are
@@ -369,7 +414,7 @@ func newFloat64Metric(name, description string, aggregation *view.Aggregation, o
 	measure := stats.Float64(name, description, string(opts.unit))
 	tagKeys := make([]tag.Key, 0, len(opts.labels))
 	for _, l := range opts.labels {
-		tagKeys = append(tagKeys, tag.Key(l))
+		tagKeys = append(tagKeys, l.k)
 	}
 	ctx, _ := tag.New(context.Background()) //nolint:errcheck
 	return &float64Metric{
@@ -397,7 +442,7 @@ func (f *float64Metric) Name() string {
 func (f *float64Metric) Record(value float64) {
 	recordHookMutex.RLock()
 	if rh, ok := recordHooks[f.Name()]; ok {
-		rh.OnRecordFloat64Measure(f.Float64Measure, f.tags, value)
+		rh.OnRecord(f.Name(), newLabelSet(f.tags), value)
 	}
 	recordHookMutex.RUnlock()
 	m := f.M(value)
@@ -408,7 +453,7 @@ func (f *float64Metric) recordMeasurements(m []stats.Measurement) {
 	recordHookMutex.RLock()
 	if rh, ok := recordHooks[f.Name()]; ok {
 		for _, mv := range m {
-			rh.OnRecordFloat64Measure(f.Float64Measure, f.tags, mv.Value())
+			rh.OnRecord(f.Name(), newLabelSet(f.tags), mv.Value())
 		}
 	}
 	recordHookMutex.RUnlock()
@@ -423,7 +468,7 @@ func (f *float64Metric) With(labelValues ...LabelValue) Metric {
 	t := make([]tag.Mutator, len(f.tags), len(f.tags)+len(labelValues))
 	copy(t, f.tags)
 	for _, tagValue := range labelValues {
-		t = append(t, tag.Mutator(tagValue))
+		t = append(t, tagValue.kv)
 	}
 	ctx, _ := tag.New(context.Background(), t...) //nolint:errcheck
 	return &float64Metric{
@@ -459,7 +504,7 @@ func newInt64Metric(name, description string, aggregation *view.Aggregation, opt
 	measure := stats.Int64(name, description, string(opts.unit))
 	tagKeys := make([]tag.Key, 0, len(opts.labels))
 	for _, l := range opts.labels {
-		tagKeys = append(tagKeys, tag.Key(l))
+		tagKeys = append(tagKeys, l.k)
 	}
 	ctx, _ := tag.New(context.Background()) //nolint:errcheck
 	return &int64Metric{
@@ -489,22 +534,10 @@ func (i *int64Metric) Record(value float64) {
 }
 
 func (i *int64Metric) recordMeasurements(m []stats.Measurement) {
-	recordHookMutex.RLock()
-	if rh, ok := recordHooks[i.Name()]; ok {
-		for _, mv := range m {
-			rh.OnRecordInt64Measure(i.Int64Measure, i.tags, int64(math.Floor(mv.Value())))
-		}
-	}
-	recordHookMutex.RUnlock()
 	stats.Record(i.ctx, m...) //nolint:errcheck
 }
 
 func (i *int64Metric) RecordInt(value int64) {
-	recordHookMutex.RLock()
-	if rh, ok := recordHooks[i.Name()]; ok {
-		rh.OnRecordInt64Measure(i.Int64Measure, i.tags, value)
-	}
-	recordHookMutex.RUnlock()
 	stats.Record(i.ctx, i.M(value)) //nolint:errcheck
 }
 
@@ -512,7 +545,7 @@ func (i *int64Metric) With(labelValues ...LabelValue) Metric {
 	t := make([]tag.Mutator, len(i.tags), len(i.tags)+len(labelValues))
 	copy(t, i.tags)
 	for _, tagValue := range labelValues {
-		t = append(t, tag.Mutator(tagValue))
+		t = append(t, tagValue.kv)
 	}
 	ctx, _ := tag.New(context.Background(), t...) //nolint:errcheck
 	return &int64Metric{

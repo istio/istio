@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -495,7 +496,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 func dedupeDomains(domains []string, vhdomains sets.String, expandedHosts []string, knownFQDNs sets.String) []string {
 	temp := domains[:0]
 	for _, d := range domains {
-		if vhdomains.Contains(d) {
+		if vhdomains.Contains(strings.ToLower(d)) {
 			continue
 		}
 		// Check if the domain is an "expanded" host, and its also a known FQDN
@@ -503,11 +504,11 @@ func dedupeDomains(domains []string, vhdomains sets.String, expandedHosts []stri
 		// the real "foo.com"
 		// This works by providing a list of domains that were added as expanding the DNS domain as part of expandedHosts,
 		// and a list of known unexpanded FQDNs to compare against
-		if util.ListContains(expandedHosts, d) && knownFQDNs.Contains(d) { // O(n) search, but n is at most 10
+		if slices.Contains(expandedHosts, d) && knownFQDNs.Contains(d) { // O(n) search, but n is at most 10
 			continue
 		}
 		temp = append(temp, d)
-		vhdomains.Insert(d)
+		vhdomains.Insert(strings.ToLower(d))
 	}
 	return temp
 }
@@ -704,14 +705,6 @@ func mergeAllVirtualHosts(vHostPortMap map[int][]*route.VirtualHost) []*route.Vi
 	return virtualHosts
 }
 
-// reverseArray returns its argument string array reversed
-func reverseArray(r []string) []string {
-	for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {
-		r[i], r[j] = r[j], r[i]
-	}
-	return r
-}
-
 func min(a, b int) int {
 	if a < b {
 		return a
@@ -737,8 +730,8 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 	//       ns2.svc.cluster.local -> local,cluster,svc,ns2
 	partsFQDN := strings.Split(fqdnHostname, ".")
 	partsProxyDomain := strings.Split(proxyDomain, ".")
-	partsFQDNInReverse := reverseArray(partsFQDN)
-	partsProxyDomainInReverse := reverseArray(partsProxyDomain)
+	partsFQDNInReverse := slices.Reverse(partsFQDN)
+	partsProxyDomainInReverse := slices.Reverse(partsProxyDomain)
 	var sharedSuffixesInReverse []string // pieces shared between proxy and svc. e.g., local,cluster,svc
 
 	for i := 0; i < min(len(partsFQDNInReverse), len(partsProxyDomainInReverse)); i++ {
@@ -753,8 +746,8 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 		partsUnique = partsFQDN
 	} else {
 		// get the non shared pieces (ns1, foo) and reverse Array
-		partsUnique = reverseArray(partsFQDNInReverse[len(sharedSuffixesInReverse):])
-		partsShared = reverseArray(sharedSuffixesInReverse)
+		partsUnique = slices.Reverse(partsFQDNInReverse[len(sharedSuffixesInReverse):])
+		partsShared = slices.Reverse(sharedSuffixesInReverse)
 	}
 	return
 }

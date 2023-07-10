@@ -58,9 +58,12 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 		ip: "10.10.10.30", port: 9090,
 		metaNetwork: "vm",
 	}
+	// VM always sees itself directly
+	vm.Expect(vm, "10.10.10.30:9090")
+
 	workloads := []*workload{pod, vm}
 
-	kubeObjects := []runtime.Object{}
+	var kubeObjects []runtime.Object
 	var configObjects []config.Config
 	for _, w := range workloads {
 		_, objs := w.kubeObjects()
@@ -152,31 +155,10 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 func TestMeshNetworking(t *testing.T) {
 	ingressServiceScenarios := map[corev1.ServiceType]map[cluster.ID][]runtime.Object{
 		corev1.ServiceTypeLoadBalancer: {
-			// cluster/network 1's ingress can be found up by registry service name in meshNetworks
-			"cluster-1": {&corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "istio-ingressgateway",
-					Namespace: "istio-system",
-				},
-				Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
-				Status: corev1.ServiceStatus{
-					LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "2.2.2.2"}}},
-				},
-			}},
+			// cluster/network 1's ingress can be found up by registry service name in meshNetworks (no label)
+			"cluster-1": {gatewaySvc("istio-ingressgateway", "2.2.2.2", "")},
 			// cluster/network 2's ingress can be found by it's network label
-			"cluster-2": {&corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "istio-ingressgateway",
-					Namespace: "istio-system",
-					Labels: map[string]string{
-						label.TopologyNetwork.Name: "network-2",
-					},
-				},
-				Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
-				Status: corev1.ServiceStatus{
-					LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "3.3.3.3"}}},
-				},
-			}},
+			"cluster-2": {gatewaySvc("istio-eastwestgateway", "3.3.3.3", "network-2")},
 		},
 		corev1.ServiceTypeClusterIP: {
 			// cluster/network 1's ingress can be found up by registry service name in meshNetworks
@@ -238,7 +220,7 @@ func TestMeshNetworking(t *testing.T) {
 
 	// network-2 does not need to be specified, gateways and endpoints are found by labels
 	meshNetworkConfigs := map[string]*meshconfig.MeshNetworks{
-		"gateway address": {Networks: map[string]*meshconfig.Network{
+		"gateway Address": {Networks: map[string]*meshconfig.Network{
 			"network-1": {
 				Endpoints: []*meshconfig.Network_NetworkEndpoints{{
 					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "cluster-1"},
@@ -268,11 +250,15 @@ func TestMeshNetworking(t *testing.T) {
 		allowCrossNetwork bool
 	}
 	var trafficConfigs []trafficConfig
-	for name, mode := range map[string]v1beta1.PeerAuthentication_MutualTLS_Mode{
-		"strict":     v1beta1.PeerAuthentication_MutualTLS_STRICT,
-		"permissive": v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-		"disable":    v1beta1.PeerAuthentication_MutualTLS_DISABLE,
+	for _, c := range []struct {
+		name string
+		mode v1beta1.PeerAuthentication_MutualTLS_Mode
+	}{
+		{"strict", v1beta1.PeerAuthentication_MutualTLS_STRICT},
+		{"permissive", v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE},
+		{"disable", v1beta1.PeerAuthentication_MutualTLS_DISABLE},
 	} {
+		name, mode := c.name, c.mode
 		trafficConfigs = append(trafficConfigs, trafficConfig{
 			Config: config.Config{
 				Meta: config.Meta{
@@ -316,6 +302,17 @@ func TestMeshNetworking(t *testing.T) {
 								ip: "10.10.10.30", port: 9090,
 								metaNetwork: "vm",
 							}
+
+							// a workload entry with no endpoints in the local network should be ignored
+							// in a remote network it should use gateway IP
+							emptyAddress := &workload{
+								kind: VirtualMachine,
+								name: "empty-Address-net-2", namespace: "default",
+								ip: "", port: 8080,
+								metaNetwork: "network-2",
+								labels:      map[string]string{label.TopologyNetwork.Name: "network-2"},
+							}
+
 							// gw does not have endpoints, it's just some proxy used to test REQUESTED_NETWORK_VIEW
 							gw := &workload{
 								kind: Other,
@@ -348,15 +345,18 @@ func TestMeshNetworking(t *testing.T) {
 							if cfg.allowCrossNetwork {
 								// pod in network-1 uses gateway to reach pod labeled with network-2
 								pod.Expect(labeledPod, net2gw)
+								pod.Expect(emptyAddress, net2gw)
+
 								// pod labeled as network-2 should use gateway for network-1
 								labeledPod.Expect(pod, net1gw)
 								// vm uses gateway to get to pods
 								vm.Expect(pod, net1gw)
 								vm.Expect(labeledPod, net2gw)
+								vm.Expect(emptyAddress, net2gw)
 							}
 
 							runMeshNetworkingTest(t, meshNetworkingTest{
-								workloads:         []*workload{pod, labeledPod, vm, gw},
+								workloads:         []*workload{pod, labeledPod, vm, gw, emptyAddress},
 								meshNetworkConfig: networkConfig,
 								kubeObjects:       ingressObjects,
 							}, cfg.Config)
@@ -368,10 +368,215 @@ func TestMeshNetworking(t *testing.T) {
 	}
 }
 
+func TestEmptyAddressWorkloadEntry(t *testing.T) {
+	type entry struct{ address, sa, network, version string }
+	const name, port = "remote-we-svc", 80
+	serviceCases := []struct {
+		name, k8s, cfg string
+		expectKind     workloadKind
+	}{
+		{
+			expectKind: Pod,
+			name:       "Service",
+			k8s: `
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: remote-we-svc
+  namespace: test
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+  selector:
+    app: remote-we-svc
+`,
+		},
+		{
+			name: "ServiceEntry",
+			cfg: `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: remote-we-svc
+  namespace: test
+spec:
+  hosts:
+  - remote-we-svc
+  ports:
+    - number: 80
+      name: http
+      protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  workloadSelector:
+    labels:
+      app: remote-we-svc
+`,
+		},
+	}
+	workloadCases := []struct {
+		name         string
+		entries      []entry
+		expectations map[string][]LocLbEpInfo
+	}{
+		{
+			name: "single subset",
+			entries: []entry{
+				// the only local endpoint giving a weight of 1
+				{sa: "foo", network: "network-1", address: "1.2.3.4", version: "v1"},
+				// same network, no address is ignored and doesn't affect weight
+				{sa: "foo", network: "network-1", address: "", version: "vj"},
+				// these will me merged giving the remote gateway a weight of 2
+				{sa: "foo", network: "network-2", address: "", version: "v1"},
+				{sa: "foo", network: "network-2", address: "", version: "v1"},
+				// this should not be included in the weight since it doesn't have an address OR a gateway
+				{sa: "foo", network: "no-gateway-address", address: "", version: "v1"},
+			},
+			expectations: map[string][]LocLbEpInfo{
+				"": {LocLbEpInfo{
+					lbEps: []LbEpInfo{
+						{"1.2.3.4", 1},
+						{"2.2.2.2", 2},
+					},
+					weight: 3,
+				}},
+				"v1": {LocLbEpInfo{
+					lbEps: []LbEpInfo{
+						{"1.2.3.4", 1},
+						{"2.2.2.2", 2},
+					},
+					weight: 3,
+				}},
+			},
+		},
+		{
+			name: "multiple subsets",
+			entries: []entry{
+				{sa: "foo", network: "network-1", address: "1.2.3.4", version: "v1"},
+				{sa: "foo", network: "network-1", address: "", version: "v2"}, // ignored (does not contribute to weight)
+				{sa: "foo", network: "network-2", address: "", version: "v1"},
+				{sa: "foo", network: "network-2", address: "", version: "v2"},
+			},
+			expectations: map[string][]LocLbEpInfo{
+				"": {LocLbEpInfo{
+					lbEps: []LbEpInfo{
+						{"1.2.3.4", 1},
+						{"2.2.2.2", 2},
+					},
+					weight: 3,
+				}},
+				"v1": {LocLbEpInfo{
+					lbEps: []LbEpInfo{
+						{"1.2.3.4", 1},
+						{"2.2.2.2", 1},
+					},
+					weight: 2,
+				}},
+				"v2": {LocLbEpInfo{
+					lbEps: []LbEpInfo{
+						{"2.2.2.2", 1},
+					},
+					weight: 1,
+				}},
+			},
+		},
+	}
+
+	for _, sc := range serviceCases {
+		t.Run(sc.name, func(t *testing.T) {
+			for _, tc := range workloadCases {
+				t.Run(tc.name, func(t *testing.T) {
+					client := &workload{
+						kind:        Pod,
+						name:        "client-pod",
+						namespace:   "test",
+						ip:          "10.0.0.1",
+						port:        80,
+						clusterID:   "cluster-1",
+						metaNetwork: "network-1",
+					}
+					// expect self
+					client.ExpectWithWeight(client, "", LocLbEpInfo{weight: 1, lbEps: []LbEpInfo{{"10.0.0.1", 1}}})
+					for subset, eps := range tc.expectations {
+						client.ExpectWithWeight(&workload{kind: sc.expectKind, name: name, namespace: "test", port: port}, subset, eps...)
+					}
+					configObjects := `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: subset-se
+  namespace: test
+spec:
+  host: "*"
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+  - name: v3
+    labels:
+      version: v3
+`
+					configObjects += sc.cfg
+					for i, entry := range tc.entries {
+						configObjects += fmt.Sprintf(`
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: we-%d
+  namespace: test
+spec:
+  address: %q
+  serviceAccount: %q
+  network: %q
+  labels:
+    app: remote-we-svc
+    version: %q
+`, i, entry.address, entry.sa, entry.network, entry.version)
+					}
+
+					runMeshNetworkingTest(t, meshNetworkingTest{
+						workloads:       []*workload{client},
+						configYAML:      configObjects,
+						kubeObjectsYAML: map[cluster.ID]string{"Kubernetes": sc.k8s},
+						kubeObjects: map[cluster.ID][]runtime.Object{"Kubernetes": {
+							gatewaySvc("gateway-1", "1.1.1.1", "network-1"),
+							gatewaySvc("gateway-2", "2.2.2.2", "network-2"),
+						}},
+					})
+				})
+			}
+		})
+	}
+}
+
+func gatewaySvc(name, ip, network string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "istio-system",
+			Labels:    map[string]string{label.TopologyNetwork.Name: network},
+		},
+		Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: ip}}},
+		},
+	}
+}
+
 type meshNetworkingTest struct {
 	workloads         []*workload
 	meshNetworkConfig *meshconfig.MeshNetworks
 	kubeObjects       map[cluster.ID][]runtime.Object
+	kubeObjectsYAML   map[cluster.ID]string
+	configYAML        string
 }
 
 func runMeshNetworkingTest(t *testing.T, tt meshNetworkingTest, configs ...config.Config) {
@@ -388,9 +593,11 @@ func runMeshNetworkingTest(t *testing.T, tt meshNetworkingTest, configs ...confi
 		configObjects = append(configObjects, w.configs()...)
 	}
 	s := NewFakeDiscoveryServer(t, FakeOptions{
-		KubernetesObjectsByCluster: kubeObjects,
-		Configs:                    configObjects,
-		NetworksWatcher:            mesh.NewFixedNetworksWatcher(tt.meshNetworkConfig),
+		KubernetesObjectsByCluster:      kubeObjects,
+		KubernetesObjectStringByCluster: tt.kubeObjectsYAML,
+		ConfigString:                    tt.configYAML,
+		Configs:                         configObjects,
+		NetworksWatcher:                 mesh.NewFixedNetworksWatcher(tt.meshNetworkConfig),
 	})
 	for _, w := range tt.workloads {
 		w.setupProxy(s)
@@ -425,43 +632,95 @@ type workload struct {
 
 	proxy *model.Proxy
 
-	expectations map[string][]string
+	expectations         map[string][]string
+	weightedExpectations map[string][]LocLbEpInfo
 }
 
 func (w *workload) Expect(target *workload, ips ...string) {
 	if w.expectations == nil {
 		w.expectations = map[string][]string{}
 	}
-	w.expectations[target.clusterName()] = ips
+	w.expectations[target.clusterName("")] = ips
+}
+
+func (w *workload) ExpectWithWeight(target *workload, subset string, eps ...LocLbEpInfo) {
+	if w.weightedExpectations == nil {
+		w.weightedExpectations = make(map[string][]LocLbEpInfo)
+	}
+	w.weightedExpectations[target.clusterName(subset)] = eps
 }
 
 func (w *workload) Test(t *testing.T, s *FakeDiscoveryServer) {
+	if w.expectations == nil && w.weightedExpectations == nil {
+		return
+	}
+	t.Run(fmt.Sprintf("from %s", w.proxy.ID), func(t *testing.T) {
+		w.testUnweighted(t, s)
+		w.testWeighted(t, s)
+	})
+}
+
+func (w *workload) testUnweighted(t *testing.T, s *FakeDiscoveryServer) {
 	if w.expectations == nil {
 		return
 	}
-
-	t.Run(fmt.Sprintf("from %s", w.proxy.ID), func(t *testing.T) {
+	t.Run("unweighted", func(t *testing.T) {
 		// wait for eds cache update
 		retry.UntilSuccessOrFail(t, func() error {
 			eps := xdstest.ExtractLoadAssignments(s.Endpoints(w.proxy))
-			for c, ips := range w.expectations {
-				if !listEqualUnordered(eps[c], ips) {
-					err := fmt.Errorf("cluster %s, expected ips %v ,but got %v", c, ips, eps[c])
+
+			for c, want := range w.expectations {
+				got := eps[c]
+				if !listEqualUnordered(got, want) {
+					err := fmt.Errorf("cluster %s, expected %v, but got %v", c, want, got)
+					fmt.Println(err)
+					return err
+				}
+			}
+			for c, got := range eps {
+				want := w.expectations[c]
+				if !listEqualUnordered(got, want) {
+					err := fmt.Errorf("cluster %s, expected %v, but got %v", c, want, got)
 					fmt.Println(err)
 					return err
 				}
 			}
 			return nil
-		})
+		}, retry.Timeout(3*time.Second))
 	})
 }
 
-func (w *workload) clusterName() string {
+func (w *workload) testWeighted(t *testing.T, s *FakeDiscoveryServer) {
+	if w.weightedExpectations == nil {
+		return
+	}
+	t.Run("weighted", func(t *testing.T) {
+		// wait for eds cache update
+		retry.UntilSuccessOrFail(t, func() error {
+			eps := xdstest.ExtractLocalityLbEndpoints(s.Endpoints(w.proxy))
+			for c, want := range w.weightedExpectations {
+				got := eps[c]
+				if err := compareEndpoints(c, got, want); err != nil {
+					return err
+				}
+			}
+			for c, got := range eps {
+				want := w.weightedExpectations[c]
+				if err := compareEndpoints(c, got, want); err != nil {
+					return err
+				}
+			}
+			return nil
+		}, retry.Timeout(3*time.Second))
+	})
+}
+
+func (w *workload) clusterName(subset string) string {
 	name := w.name
 	if w.kind == Pod {
 		name = fmt.Sprintf("%s.%s.svc.cluster.local", w.name, w.namespace)
 	}
-	return fmt.Sprintf("outbound|%d||%s", w.port, name)
+	return fmt.Sprintf("outbound|%d|%s|%s", w.port, subset, name)
 }
 
 func (w *workload) kubeObjects() (cluster.ID, []runtime.Object) {
@@ -486,8 +745,10 @@ func (w *workload) configs() []config.Config {
 					{Number: uint32(w.port), Name: "http", Protocol: "HTTP"},
 				},
 				Endpoints: []*networking.WorkloadEntry{{
-					Address: w.ip,
-					Labels:  w.labels,
+					Address:        w.ip,
+					Labels:         w.labels,
+					Network:        string(w.metaNetwork),
+					ServiceAccount: w.name,
 				}},
 				Resolution: networking.ServiceEntry_STATIC,
 				Location:   networking.ServiceEntry_MESH_INTERNAL,
@@ -502,10 +763,12 @@ func (w *workload) setupProxy(s *FakeDiscoveryServer) {
 		ID:     strings.Join([]string{w.name, w.namespace}, "."),
 		Labels: w.labels,
 		Metadata: &model.NodeMetadata{
+			Namespace:            w.namespace,
 			Network:              w.metaNetwork,
 			Labels:               w.labels,
 			RequestedNetworkView: w.networkView,
 		},
+		ConfigNamespace: w.namespace,
 	}
 	if w.kind == Pod {
 		p.Metadata.ClusterID = w.clusterID

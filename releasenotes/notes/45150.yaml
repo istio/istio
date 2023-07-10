@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 45150
+releaseNotes:
+  - |
+    **Added** `WorkloadEntry` resources on different networks do not require an address to be specified.

@@ -1,0 +1,1 @@
+apiVersion: release-notes/v2kind: bug-fixarea: traffic-managementissue:  - 45413releaseNotes:  - |    **Fixed** VirtualMachine Workloadentry auto register failed with invalid `istio-locality` label when user specify `istio-locality` in ./etc/istio/pod/labels.

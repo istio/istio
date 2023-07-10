@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 
 	label2 "istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
@@ -60,7 +61,7 @@ var (
 )
 
 // Cmd returns a cobra command for bug-report.
-func Cmd(logOpts *log.Options) *cobra.Command {
+func Cmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "bug-report",
 		Short:        "Cluster information and log capture support tool.",
@@ -79,7 +80,7 @@ e.g.
 --include ns1,ns2 (only namespaces ns1 and ns2)
 --include n*//p*/l=v* (pods with name beginning with 'p' in namespaces beginning with 'n' and having label 'l' with value beginning with 'v'.)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBugReportCommand(cmd, logOpts)
+			return runBugReportCommand(ctx, cmd, logOpts)
 		},
 	}
 	rootCmd.AddCommand(version.CobraCommand())
@@ -99,7 +100,7 @@ var (
 	lock    = sync.RWMutex{}
 )
 
-func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
+func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options) error {
 	runner := kubectlcmd.NewRunner(gConfig.RequestsPerSecondLimit)
 	runner.ReportRunningTasks()
 	if err := configLogs(logOpts); err != nil {
@@ -149,7 +150,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	}
 	logRuntime(curTime, "Done collecting cluster resource")
 
-	dumpRevisionsAndVersions(resources, config.KubeConfigPath, config.Context, config.IstioNamespace, config.DryRun)
+	dumpRevisionsAndVersions(ctx, resources, config.IstioNamespace, config.DryRun)
 
 	log.Infof("Cluster resource tree:\n\n%s\n\n", resources)
 	paths, err := filter.GetMatchingPaths(config, resources)
@@ -157,7 +158,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		return err
 	}
 
-	common.LogAndPrintf("\n\nFetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
+	common.LogAndPrintf("\n\nFetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	gatherInfo(runner, config, resources, paths)
 	if len(gErrors) != 0 {
@@ -209,14 +210,14 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	return nil
 }
 
-func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string, dryRun bool) {
+func dumpRevisionsAndVersions(ctx cli.Context, resources *cluster2.Resources, istioNamespace string, dryRun bool) {
 	defer logRuntime(time.Now(), "Done getting control plane revisions/versions")
 
 	text := ""
 	text += fmt.Sprintf("CLI version:\n%s\n\n", version.Info.LongForm())
 
 	revisions := getIstioRevisions(resources)
-	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)
+	istioVersions, proxyVersions := getIstioVersions(ctx, istioNamespace, revisions)
 	text += "The following Istio control plane revisions/versions were found in the cluster:\n"
 	for rev, ver := range istioVersions {
 		text += fmt.Sprintf("Revision %s:\n%s\n\n", rev, ver)
@@ -244,13 +245,18 @@ func getIstioRevisions(resources *cluster2.Resources) []string {
 
 // getIstioVersions returns a mapping of revision to aggregated version string for Istio components and revision to
 // slice of versions for proxies. Any errors are embedded in the revision strings.
-func getIstioVersions(kubeconfig, configContext, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
+func getIstioVersions(ctx cli.Context, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
 	istioVersions := make(map[string]string)
 	proxyVersionsMap := make(map[string]sets.String)
 	proxyVersions := make(map[string][]string)
 	for _, revision := range revisions {
-		istioVersions[revision] = getIstioVersion(kubeconfig, configContext, istioNamespace, revision)
-		proxyInfo, err := proxy.GetProxyInfo(kubeconfig, configContext, revision, istioNamespace)
+		client, err := ctx.CLIClientWithRevision(revision)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+		istioVersions[revision] = getIstioVersion(client, istioNamespace)
+		proxyInfo, err := proxy.GetProxyInfo(client, istioNamespace)
 		if err != nil {
 			log.Error(err)
 			continue
@@ -267,12 +273,7 @@ func getIstioVersions(kubeconfig, configContext, istioNamespace string, revision
 	return istioVersions, proxyVersions
 }
 
-func getIstioVersion(kubeconfig, configContext, istioNamespace, revision string) string {
-	kubeClient, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
-	if err != nil {
-		return err.Error()
-	}
-
+func getIstioVersion(kubeClient kube.CLIClient, istioNamespace string) string {
 	versions, err := kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
 	if err != nil {
 		return err.Error()
@@ -310,6 +311,11 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	getFromCluster(content.GetNodeInfo, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
 	getFromCluster(content.GetDescribePods, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
+
+	common.LogAndPrintf("\nFetching CNI logs from cluster.\n\n")
+	for _, cniPod := range resources.CniPod {
+		getCniLogs(runner, config, resources, cniPod.Namespace, cniPod.Name, &mandatoryWg)
+	}
 
 	// optionalWg is subject to timer.
 	var optionalWg sync.WaitGroup
@@ -389,7 +395,7 @@ func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, res
 	path, namespace, pod, container string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
-	log.Infof("Waiting on logs %s", pod)
+	log.Infof("Waiting on proxy logs %v/%v/%v", namespace, pod, container)
 	go func() {
 		defer func() {
 			wg.Done()
@@ -403,7 +409,7 @@ func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, res
 			logs[path], stats[path], importance[path] = clog, cstat, imp
 		}
 		lock.Unlock()
-		log.Infof("Done with logs %s", pod)
+		log.Infof("Done with proxy logs %v/%v/%v", namespace, pod, container)
 	}()
 }
 
@@ -413,7 +419,7 @@ func getIstiodLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, re
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
-	log.Infof("Waiting on logs %s", pod)
+	log.Infof("Waiting on Istiod logs for %v/%v", namespace, pod)
 	go func() {
 		defer func() {
 			wg.Done()
@@ -423,7 +429,7 @@ func getIstiodLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, re
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
 		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog, config.DryRun)
-		log.Infof("Done with logs %s", pod)
+		log.Infof("Done with Istiod logs for %v/%v", namespace, pod)
 	}()
 }
 
@@ -432,7 +438,7 @@ func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, 
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
-	log.Infof("Waiting on logs %s", pod)
+	log.Infof("Waiting on operator logs for %v/%v", namespace, pod)
 	go func() {
 		defer func() {
 			wg.Done()
@@ -442,7 +448,27 @@ func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, 
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.OperatorContainerName)
 		appendGlobalErr(err)
 		writeFile(filepath.Join(archive.OperatorPath(tempDir, namespace, pod), "operator.log"), clog, config.DryRun)
-		log.Infof("Done with logs %s", pod)
+		log.Infof("Done with operator logs for %v/%v", namespace, pod)
+	}()
+}
+
+// getCniLogs fetches Cni logs from istio-cni-node daemonsets inside namespace kube-system and writes the output
+// Runs if a goroutine, with errors reported through gErrors
+func getCniLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
+	namespace, pod string, wg *sync.WaitGroup,
+) {
+	wg.Add(1)
+	log.Infof("Waiting on CNI logs for %v", pod)
+	go func() {
+		defer func() {
+			wg.Done()
+			logRuntime(time.Now(), "Done getting CNI logs for %v", pod)
+		}()
+
+		clog, _, _, err := getLog(runner, resources, config, namespace, pod, "")
+		appendGlobalErr(err)
+		writeFile(filepath.Join(archive.CniPath(tempDir, pod), "cni.log"), clog, config.DryRun)
+		log.Infof("Done with CNI logs %v", pod)
 	}()
 }
 
@@ -457,7 +483,7 @@ func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *co
 	if err != nil {
 		return "", nil, 0, err
 	}
-	if resources.ContainerRestarts(namespace, pod, container) > 0 {
+	if resources.ContainerRestarts(namespace, pod, container, common.IsCniPod(pod)) > 0 {
 		pclog, err := runner.Logs(namespace, pod, container, true, config.DryRun)
 		if err != nil {
 			return "", nil, 0, err

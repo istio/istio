@@ -505,12 +505,12 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 		Port:        int32(15021),
 		AppProtocol: &tcp,
 	})
-	portNums := map[int32]struct{}{}
+	portNums := sets.New[int32]()
 	for i, l := range gw.Spec.Listeners {
-		if _, f := portNums[int32(l.Port)]; f {
+		if portNums.Contains(int32(l.Port)) {
 			continue
 		}
-		portNums[int32(l.Port)] = struct{}{}
+		portNums.Insert(int32(l.Port))
 		name := string(l.Name)
 		if name == "" {
 			// Should not happen since name is required, but in case an invalid resource gets in...

@@ -169,7 +169,7 @@ func TestSAN(t *testing.T) {
 			name:    "Kubernetes service and EDS ServiceEntry",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{dr, seEDS},
-			// The ServiceEntry rule will "win" the PushContext.ServiceAccounts.
+			// The ServiceEntry rule will "win" the pushContext.ServiceAccounts.
 			// However, the Service will be processed first into a cluster. Since its not external, we do not add the SANs automatically
 			sans: nil,
 		},

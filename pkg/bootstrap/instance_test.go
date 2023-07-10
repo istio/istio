@@ -42,8 +42,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/version"
 )
 
 type stats struct {
@@ -263,6 +265,7 @@ func TestGolden(t *testing.T) {
 				"sidecar.istio.io/statsInclusionSuffixes": "suffix1,suffix2" + "," + upstreamStatsSuffixes + "," + downstreamStatsSuffixes,
 				"sidecar.istio.io/statsInclusionRegexps":  "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
 				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
+				"sidecar.istio.io/statsHistogramBuckets":  `{"istio":[1,5,10,50,100,500,1000,5000,10000],"envoy":[1,5,10,25,50,100,250,500,1000,2500,5000,10000]}`,
 			},
 			stats: stats{
 				prefixes: "prefix1,prefix2,http.10.3.3.3_,http.10.4.4.4_,http.10.5.5.5_,http.10.6.6.6_",
@@ -283,6 +286,8 @@ func TestGolden(t *testing.T) {
 			},
 		},
 	}
+
+	test.SetForTest(t, &version.Info.Version, "binary-1.0")
 
 	for _, c := range cases {
 		t.Run("Bootstrap-"+c.base, func(t *testing.T) {

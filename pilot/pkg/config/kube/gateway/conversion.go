@@ -722,7 +722,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 	}
 	// Ensure stable order
 	slices.SortFunc(parentRefs, func(a, b routeParentReference) bool {
-		return fmt.Sprint(a.OriginalReference) < fmt.Sprint(b.OriginalReference)
+		return parentRefString(a.OriginalReference) < parentRefString(b.OriginalReference)
 	})
 	return parentRefs
 }
@@ -1209,14 +1209,17 @@ func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 		case k8sbeta.PrefixMatchHTTPPathModifier:
 			rewrite.Uri = *filter.Path.ReplacePrefixMatch
 		case k8sbeta.FullPathHTTPPathModifier:
-			rewrite.Uri = fmt.Sprintf("%%FULLREPLACE()%%%s", *filter.Path.ReplaceFullPath)
+			rewrite.UriRegexRewrite = &istio.RegexRewrite{
+				Match:   "/.*",
+				Rewrite: *filter.Path.ReplaceFullPath,
+			}
 		}
 	}
 	if filter.Hostname != nil {
 		rewrite.Authority = string(*filter.Hostname)
 	}
 	// Nothing done
-	if rewrite.Uri == "" && rewrite.Authority == "" {
+	if rewrite.Uri == "" && rewrite.UriRegexRewrite == nil && rewrite.Authority == "" {
 		return nil
 	}
 	return rewrite
@@ -1378,7 +1381,8 @@ func getGatewayClasses(r GatewayResources) map[string]k8s.GatewayController {
 	for _, obj := range r.GatewayClass {
 		gwc := obj.Spec.(*k8s.GatewayClassSpec)
 		allFound.Insert(obj.Name)
-		if gwc.ControllerName == constants.ManagedGatewayController || gwc.ControllerName == constants.ManagedGatewayMeshController {
+		if gwc.ControllerName == constants.ManagedGatewayController ||
+			features.EnableAmbientControllers && gwc.ControllerName == constants.ManagedGatewayMeshController {
 			res[obj.Name] = gwc.ControllerName
 
 			// Set status. If we created it, it may already be there. If not, set it again
@@ -1689,7 +1693,7 @@ func reportGatewayStatus(
 			addrType = k8s.HostnameAddressType
 			for _, hostport := range internal {
 				svchost, _, _ := net.SplitHostPort(hostport)
-				if !contains(pending, svchost) && !contains(addressesToReport, svchost) {
+				if !slices.Contains(pending, svchost) && !slices.Contains(addressesToReport, svchost) {
 					addressesToReport = append(addressesToReport, svchost)
 				}
 			}
@@ -2035,15 +2039,6 @@ func humanReadableJoin(ss []string) string {
 	default:
 		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
 	}
-}
-
-func contains(ss []string, s string) bool {
-	for _, str := range ss {
-		if str == s {
-			return true
-		}
-	}
-	return false
 }
 
 // NamespaceNameLabel represents that label added automatically to namespaces is newer Kubernetes clusters

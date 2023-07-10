@@ -63,10 +63,9 @@ type SimpleServer struct {
 func NewXDS(stop chan struct{}) *SimpleServer {
 	// Prepare a working XDS server, with aggregate config and registry stores and a memory store for each.
 	// TODO: refactor bootstrap code to use this server, and add more registries.
-
 	env := model.NewEnvironment()
 	env.Watcher = mesh.NewFixedWatcher(mesh.DefaultMeshConfig())
-	env.PushContext.Mesh = env.Watcher.Mesh()
+	env.PushContext().Mesh = env.Watcher.Mesh()
 	env.Init()
 
 	ds := NewDiscoveryServer(env, "istiod", "", map[string]string{})

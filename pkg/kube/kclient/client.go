@@ -26,7 +26,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schema/gvk"
+	istiogvr "istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kubeclient"
+	types "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/informerfactory"
@@ -189,7 +192,8 @@ func New[T controllers.ComparableObject](c kube.Client) Client[T] {
 // This means there must only be one filter configuration for a given type using the same kube.Client.
 // Use with caution.
 func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) Client[T] {
-	inf := kubeclient.GetInformerFiltered[T](c, toOpts(c, filter))
+	gvr := gvk.MustToGVR(types.GetGVK[T]())
+	inf := kubeclient.GetInformerFiltered[T](c, ToOpts(c, gvr, filter))
 	return &fullClient[T]{
 		writeClient: writeClient[T]{client: c},
 		Informer:    newInformerClient[T](inf, filter),
@@ -209,7 +213,7 @@ func NewDelayedInformer(c kube.Client, gvr schema.GroupVersionResource, informer
 	}
 	delay := newDelayedFilter(gvr, watcher)
 	inf := func() informerfactory.StartableInformer {
-		opts := toOpts(c, filter)
+		opts := ToOpts(c, gvr, filter)
 		opts.InformerType = informerType
 		return kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
 	}
@@ -218,13 +222,13 @@ func NewDelayedInformer(c kube.Client, gvr schema.GroupVersionResource, informer
 
 // NewUntypedInformer returns an untyped client for a given GVR. This is read-only.
 func NewUntypedInformer(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
-	inf := kubeclient.GetInformerFilteredFromGVR(c, toOpts(c, filter), gvr)
+	inf := kubeclient.GetInformerFilteredFromGVR(c, ToOpts(c, gvr, filter), gvr)
 	return newInformerClient[controllers.Object](inf, filter)
 }
 
 // NewDynamic returns a dynamic client for a given GVR. This is read-only.
 func NewDynamic(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
-	opts := toOpts(c, filter)
+	opts := ToOpts(c, gvr, filter)
 	opts.InformerType = kubetypes.DynamicInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
 	return newInformerClient[controllers.Object](inf, filter)
@@ -232,7 +236,7 @@ func NewDynamic(c kube.Client, gvr schema.GroupVersionResource, filter Filter) U
 
 // NewMetadata returns a metadata client for a given GVR. This is read-only.
 func NewMetadata(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Informer[*metav1.PartialObjectMetadata] {
-	opts := toOpts(c, filter)
+	opts := ToOpts(c, gvr, filter)
 	opts.InformerType = kubetypes.MetadataInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
 	return newInformerClient[*metav1.PartialObjectMetadata](inf, filter)
@@ -295,9 +299,9 @@ func keyFunc(name, namespace string) string {
 	return namespace + "/" + name
 }
 
-func toOpts(c kube.Client, filter Filter) kubetypes.InformerOptions {
+func ToOpts(c kube.Client, gvr schema.GroupVersionResource, filter Filter) kubetypes.InformerOptions {
 	ns := filter.Namespace
-	if ns == "" {
+	if !istiogvr.IsClusterScoped(gvr) && ns == "" {
 		ns = features.InformerWatchNamespace
 	}
 	return kubetypes.InformerOptions{

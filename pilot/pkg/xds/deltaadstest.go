@@ -160,7 +160,7 @@ func (a *DeltaAdsTest) ExpectEmptyResponse() *discovery.DeltaDiscoveryResponse {
 			a.t.Fatalf("expected response")
 		}
 		if resp != nil && (len(resp.RemovedResources) > 0 || len(resp.Resources) > 0) {
-			a.t.Fatalf("expected empty response")
+			a.t.Fatalf("expected empty response. received %v", resp)
 		}
 		return resp
 	case err := <-a.error:

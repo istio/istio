@@ -70,6 +70,10 @@ spec:
       tolerations:
 {{- toYaml . | nindent 8 }}
 {{- end }}
+{{- with .Values.pilot.topologySpreadConstraints }}
+      topologySpreadConstraints:
+{{- toYaml . | nindent 8 }}
+{{- end }}
       serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
@@ -106,6 +110,11 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
+{{- if .Values.pilot.extraContainerArgs }}
+          {{- with .Values.pilot.extraContainerArgs }}
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+{{- end }}
           ports:
           - containerPort: 8080
             protocol: TCP
@@ -168,6 +177,8 @@ spec:
             valueFrom:
               resourceFieldRef:
                 resource: limits.memory
+          - name: PLATFORM
+            value: "{{ .Values.global.platform }}"
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}
@@ -211,6 +222,9 @@ spec:
           - name: istio-csr-ca-configmap
             mountPath: /var/run/secrets/istiod/ca
             readOnly: true
+          {{- with .Values.pilot.volumeMounts }}
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -250,5 +264,8 @@ spec:
         configMap:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
+      {{- with .Values.pilot.volumes }}
+        {{- toYaml . | nindent 6}}
+      {{- end }}
 
 ---

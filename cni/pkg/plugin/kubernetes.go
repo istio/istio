@@ -19,12 +19,13 @@ import (
 	"fmt"
 	"strings"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // newKubeClient is a unit test override variable for interface create.
@@ -34,10 +35,10 @@ var newKubeClient = newK8sClient
 var getKubePodInfo = getK8sPodInfo
 
 type PodInfo struct {
-	Containers        []string
-	InitContainers    map[string]struct{}
+	Containers        sets.String
 	Labels            map[string]string
 	Annotations       map[string]string
+	ProxyType         string
 	ProxyEnvironments map[string]string
 	ProxyUID          *int64
 	ProxyGID          *int64
@@ -68,32 +69,26 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 	}
 
 	pi := &PodInfo{
-		InitContainers:    make(map[string]struct{}),
-		Containers:        make([]string, len(pod.Spec.Containers)),
+		Containers:        sets.New[string](),
 		Labels:            pod.Labels,
 		Annotations:       pod.Annotations,
 		ProxyEnvironments: make(map[string]string),
 	}
-	for _, initContainer := range pod.Spec.InitContainers {
-		pi.InitContainers[initContainer.Name] = struct{}{}
-	}
-	for containerIdx, container := range pod.Spec.Containers {
-		log.Debugf("Inspecting pod %v/%v container %v", podNamespace, podName, container.Name)
-		pi.Containers[containerIdx] = container.Name
-
-		if container.Name == "istio-proxy" {
+	for _, c := range containers(pod) {
+		pi.Containers.Insert(c.Name)
+		if c.Name == ISTIOPROXY {
 			// don't include ports from istio-proxy in the redirect ports
 			// Get proxy container env variable, and extract out ProxyConfig from it.
-			for _, e := range container.Env {
+			for _, e := range c.Env {
 				pi.ProxyEnvironments[e.Name] = e.Value
 			}
-
-			if container.SecurityContext != nil {
-				pi.ProxyUID = container.SecurityContext.RunAsUser
-				pi.ProxyGID = container.SecurityContext.RunAsGroup
+			if len(c.Args) >= 2 && c.Args[0] == "proxy" {
+				pi.ProxyType = c.Args[1]
 			}
-
-			continue
+			if c.SecurityContext != nil {
+				pi.ProxyUID = c.SecurityContext.RunAsUser
+				pi.ProxyGID = c.SecurityContext.RunAsGroup
+			}
 		}
 	}
 	log.Debugf("Pod %v/%v info: \n%+v", podNamespace, podName, pi)
@@ -101,10 +96,19 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 	return pi, nil
 }
 
+// containers fetches all containers in the pod.
+// This is used to extract init containers (istio-init and istio-validation), and the sidecar.
+// The sidecar can be a normal container or init in Kubernetes 1.28+
+func containers(pod *v1.Pod) []v1.Container {
+	res := make([]v1.Container, 0, len(pod.Spec.Containers)+len(pod.Spec.InitContainers))
+	res = append(res, pod.Spec.InitContainers...)
+	res = append(res, pod.Spec.Containers...)
+	return res
+}
+
 func (pi PodInfo) String() string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("  Init Containers: %v\n", maps.Keys(pi.InitContainers)))
-	b.WriteString(fmt.Sprintf("  Containers: %v\n", pi.Containers))
+	b.WriteString(fmt.Sprintf("  Containers: %v\n", sets.SortedList(pi.Containers)))
 	b.WriteString(fmt.Sprintf("  Labels: %+v\n", pi.Labels))
 	b.WriteString(fmt.Sprintf("  Annotations: %+v\n", pi.Annotations))
 	b.WriteString(fmt.Sprintf("  Envs: %+v\n", pi.ProxyEnvironments))

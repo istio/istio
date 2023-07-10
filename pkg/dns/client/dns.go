@@ -68,7 +68,7 @@ type LookupTable struct {
 	// host does not exist in this map, then we will return nil, causing the caller to query the upstream
 	// DNS server to resolve the host. Without this map, we would end up making unnecessary upstream DNS queries
 	// for hosts that will never resolve (e.g., AAAA for svc1.ns1.svc.cluster.local.svc.cluster.local.)
-	allHosts map[string]struct{}
+	allHosts sets.String
 
 	// The key is a FQDN matching a DNS query (like example.com.), the value is pre-created DNS RR records
 	// of A or AAAA type as appropriate.
@@ -188,7 +188,7 @@ func (h *LocalDNSServer) StartDNS() {
 
 func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 	lookupTable := &LookupTable{
-		allHosts: map[string]struct{}{},
+		allHosts: sets.String{},
 		name4:    map[string][]dns.RR{},
 		name6:    map[string][]dns.RR{},
 		cname:    map[string][]dns.RR{},
@@ -509,12 +509,10 @@ func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, pr
 // If it is not part of the registry, return nil so that caller queries upstream. If it is part
 // of registry, we will look it up in one of our tables, failing which we will return NXDOMAIN.
 func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, bool) {
-	var hostFound bool
-
 	question := host.Name(hostname)
 	wildcard := false
 	// First check if host exists in all hosts.
-	_, hostFound = table.allHosts[hostname]
+	hostFound := table.allHosts.Contains(hostname)
 	// If it is not found, check if a wildcard host exists for it.
 	// For example for "*.example.com", with the question "svc.svcns.example.com",
 	// we check if we have entries for "*.svcns.example.com", "*.example.com" etc.
@@ -522,7 +520,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		labels := dns.SplitDomainName(hostname)
 		for idx := range labels {
 			qhost := "*." + strings.Join(labels[idx+1:], ".") + "."
-			if _, hostFound = table.allHosts[qhost]; hostFound {
+			if hostFound = table.allHosts.Contains(qhost); hostFound {
 				wildcard = true
 				hostname = qhost
 				break
@@ -597,7 +595,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, searchNamespaces []string) {
 	for h := range altHosts {
 		h = strings.ToLower(h)
-		table.allHosts[h] = struct{}{}
+		table.allHosts.Insert(h)
 		if len(ipv4) > 0 {
 			table.name4[h] = a(h, ipv4)
 		}
@@ -621,7 +619,7 @@ func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []n
 			// that is likely to be already present in the altHosts
 			if _, exists := altHosts[expandedHost]; !exists {
 				table.cname[expandedHost] = cname(expandedHost, h)
-				table.allHosts[expandedHost] = struct{}{}
+				table.allHosts.Insert(expandedHost)
 			}
 		}
 	}

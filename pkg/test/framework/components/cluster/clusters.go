@@ -17,6 +17,8 @@ package cluster
 import (
 	"fmt"
 	"sort"
+
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Clusters is an ordered list of Cluster instances.
@@ -62,15 +64,11 @@ func (c Clusters) Contains(cc Cluster) bool {
 
 // Names returns the deduped list of names of the clusters.
 func (c Clusters) Names() []string {
-	dedup := map[string]struct{}{}
+	dedup := sets.String{}
 	for _, cc := range c {
-		dedup[cc.Name()] = struct{}{}
+		dedup.Insert(cc.Name())
 	}
-	var names []string
-	for n := range dedup {
-		names = append(names, n)
-	}
-	return names
+	return dedup.UnsortedList()
 }
 
 type ClustersByNetwork map[string]Clusters

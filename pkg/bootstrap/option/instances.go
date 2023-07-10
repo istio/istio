@@ -85,7 +85,7 @@ func NodeMetadata(meta *model.BootstrapNodeMetadata, rawMeta map[string]any) Ins
 	return newOptionOrSkipIfZero("meta_json_str", meta).withConvert(nodeMetadataConverter(meta, rawMeta))
 }
 
-func RuntimeFlags(flags map[string]string) Instance {
+func RuntimeFlags(flags map[string]any) Instance {
 	return newOptionOrSkipIfZero("runtime_flags", flags).withConvert(jsonConverter(flags))
 }
 
@@ -259,4 +259,16 @@ func LoadStatsConfigJSONStr(node *model.Node) Instance {
 		return newOption("load_stats_config_json_str", json)
 	}
 	return skipOption("load_stats_config_json_str")
+}
+
+type HistogramMatch struct {
+	Prefix string `json:"prefix"`
+}
+type HistogramBucket struct {
+	Match   HistogramMatch `json:"match"`
+	Buckets []float64      `json:"buckets"`
+}
+
+func EnvoyHistogramBuckets(value []HistogramBucket) Instance {
+	return newOption("histogram_buckets", value)
 }

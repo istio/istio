@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // This function merges one or more destination rules for a given host string
@@ -77,16 +78,16 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			mdr.from = append(mdr.from, config.NamespacedName(destRuleConfig))
 			mergedRule := copied.Spec.(*networking.DestinationRule)
 
-			existingSubset := map[string]struct{}{}
+			existingSubset := sets.String{}
 			for _, subset := range mergedRule.Subsets {
-				existingSubset[subset.Name] = struct{}{}
+				existingSubset.Insert(subset.Name)
 			}
 			// we have an another destination rule for same host.
 			// concatenate both of them -- essentially add subsets from one to other.
 			// Note: we only add the subsets and do not overwrite anything else like exportTo or top level
 			// traffic policies if they already exist
 			for _, subset := range rule.Subsets {
-				if _, ok := existingSubset[subset.Name]; !ok {
+				if !existingSubset.Contains(subset.Name) {
 					// if not duplicated, append
 					mergedRule.Subsets = append(mergedRule.Subsets, subset)
 				} else {
