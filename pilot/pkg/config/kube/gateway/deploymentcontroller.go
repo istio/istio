@@ -121,7 +121,7 @@ func getClassInfos() map[string]classInfo {
 			// This represents a gateway that our control plane cannot discover directly via the API server.
 			// We shouldn't generate Istio resources for it. We aren't programming this gateway.
 			controller:  constants.UnmanagedGatewayController,
-			description: "Istio GatewayClass representing a remote gateway. This will not trigger deploying resources.",
+			description: "Remote to this cluster. Does not deploy or affect configuration.",
 		},
 	}
 	if features.EnableAmbientControllers {
