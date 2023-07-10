@@ -14,6 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+WD=$(dirname "$0")
+WD=$(cd "$WD" || exit; pwd)
+ROOT=$(dirname "$WD")
+
+# shellcheck source=common/scripts/tracing.sh
+source "${ROOT}/common/scripts/tracing.sh"
+
 function date_cmd() {
   case "$(uname)" in
     "Darwin")
@@ -42,7 +49,7 @@ function trace() {
   start="$(date_cmd -u +%s.%N)"
   { set -x; } 2>/dev/null
 
-  "${@:2}"
+  tracing::run "$1" "${@:2}"
 
   { set +x; } 2>/dev/null
   elapsed=$(date_cmd +%s.%N --date="$start seconds ago" )
