@@ -121,17 +121,16 @@ func (s *Server) Reconcile(input any) error {
 		}
 	case controllers.EventUpdate:
 		// For update, we just need to handle opt outs
-		newPod := event.New.(*corev1.Pod)
 		oldPod := event.Old.(*corev1.Pod)
-		ns := s.namespaces.Get(newPod.Namespace, "")
+		ns := s.namespaces.Get(pod.Namespace, "")
 		if ns == nil {
 			return fmt.Errorf("failed to find namespace %v", ns)
 		}
 		wasEnabled := oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
-		nowEnabled := PodRedirectionEnabled(ns, newPod)
+		nowEnabled := PodRedirectionEnabled(ns, pod)
 		if wasEnabled && !nowEnabled {
 			log.Debugf("Pod no longer matches, removing from mesh")
-			s.DelPodFromMesh(newPod, event)
+			s.DelPodFromMesh(pod, event)
 		} else if !wasEnabled && nowEnabled {
 			log.Debugf("Pod now matches, adding to mesh")
 			s.AddPodToMesh(pod)
