@@ -266,10 +266,12 @@ func isRequestFromLocalhost(r *http.Request) bool {
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func (s *DiscoveryServer) Syncz(w http.ResponseWriter, req *http.Request) {
+	namespace := req.URL.Query().Get("namespace")
+
 	syncz := make([]SyncStatus, 0)
 	for _, con := range s.Clients() {
 		node := con.proxy
-		if node != nil {
+		if node != nil && (namespace == "" || node.Metadata.Namespace == namespace) {
 			syncz = append(syncz, SyncStatus{
 				ProxyID:              node.ID,
 				ProxyType:            node.Type,

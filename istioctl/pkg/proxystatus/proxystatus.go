@@ -98,7 +98,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				}
 				return c.Diff()
 			}
-			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), "debug/syncz")
+			queryStr := "debug/syncz"
+			if ctx.Namespace() != "" {
+				queryStr += "?namespace=" + ctx.Namespace()
+			}
+			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), queryStr)
 			if err != nil {
 				return err
 			}
