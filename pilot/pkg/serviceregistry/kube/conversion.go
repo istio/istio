@@ -43,7 +43,7 @@ const (
 	// TODO: move to API
 	NodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
 
-	// LBExternalAddressesAnnotation overrides the external address value with a LoadBalancer type service.
+	// This annotation *overrides* (not appends) the external address value with a LoadBalancer type service.
 	// This can be used when you want to resolve services using a customized address instead of
 	// the default address set by the load balancer controller, etc.
 	// Multiple external addresses are supported, separated by commas.
