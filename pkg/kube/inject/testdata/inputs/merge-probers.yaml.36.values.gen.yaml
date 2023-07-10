@@ -107,6 +107,7 @@
     "enableNamespacesByDefault": false,
     "injectedAnnotations": {},
     "neverInjectSelector": [],
+    "reinvocationPolicy": "Never",
     "rewriteAppHTTPProbe": true,
     "templates": {}
   }
