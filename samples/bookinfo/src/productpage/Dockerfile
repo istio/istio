@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM python:3.8.17-slim
+FROM python:3.7.17-slim
 
 WORKDIR /
 
