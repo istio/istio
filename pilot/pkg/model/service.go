@@ -1093,12 +1093,6 @@ func (s *Service) GetAddresses(node *Proxy) []string {
 // GetAddressForProxy returns a Service's address specific to the cluster where the node resides
 func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
-		// pilot/pkg/serviceregistry/kube/conversion.go was updated to remove
-		// DefaultAddress from ClusterVIPs. We need to handle that here in
-		// order to build virtualHost Domains correctly for dual stack
-		if s.DefaultAddress != "" && s.DefaultAddress != constants.UnspecifiedIP {
-			return s.DefaultAddress
-		}
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 			if len(addresses) > 0 {
