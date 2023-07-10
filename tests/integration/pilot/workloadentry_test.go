@@ -42,7 +42,7 @@ func TestWorkloadEntryGateway(t *testing.T) {
 		RequiresMinClusters(2).
 		Features("traffic.reachability").
 		Run(func(t framework.TestContext) {
-      crd.DeployGatewayAPIOrSkip(t)
+			crd.DeployGatewayAPIOrSkip(t)
 			i := istio.GetOrFail(t, t)
 			type gwAddr struct {
 				ip   string
@@ -66,11 +66,11 @@ func TestWorkloadEntryGateway(t *testing.T) {
 			gwTmpl := `
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
-  kind: Gateway
-  metadata:
-    name: remote-gateway-manual-discovery-%s
-labels:
-  topology.istio.io/network: %q-manual-discovery
+kind: Gateway
+metadata:
+  name: remote-gateway-manual-discovery-%s
+  labels:
+    topology.istio.io/network: "%s-manual-discovery"
 spec:
   gatewayClassName: istio-remote
   addresses:
@@ -115,20 +115,20 @@ spec:
     istio: eastwestgateway
   servers:
   - port:
-  	number: 15443
-	name: tls
-	protocol: TLS
-  tls:
-	mode: AUTO_PASSTHROUGH
-  hosts:
-  - "serviceentry.mesh.global"
+      number: 15443
+      name: tls
+      protocol: TLS
+    tls:
+      mode: AUTO_PASSTHROUGH
+    hosts:
+    - "serviceentry.mesh.global"
       `
 
 			// expose the ServiceEntry and create the "manual discovery" gateways in all clusters
 			cfg := t.ConfigIstio().YAML(i.Settings().SystemNamespace, exposeServices)
 			for _, network := range t.Clusters().Networks() {
 				cfg.
-					YAML(i.Settings().SystemNamespace, fmt.Sprintf(gwTmpl, network, network))
+					YAML(i.Settings().SystemNamespace, fmt.Sprintf(gwTmpl, network, network, gatewayAddresses[network].ip))
 			}
 			cfg.ApplyOrFail(t)
 
@@ -193,7 +193,8 @@ spec:
 
 					for _, src := range apps.A.Instances() {
 						src := src
-						t.NewSubTestf("from %s", src.Clusters().Default().Name()).RunParallel(func(t framework.TestContext) {
+            // TODO possibly can run parallel
+						t.NewSubTestf("from %s", src.Clusters().Default().Name()).Run(func(t framework.TestContext) {
 							src.CallOrFail(t, echo.CallOptions{
 								// check that we lb to all the networks (we won't reach non-config clusters becuase of the topology.istio.io/cluster selector)
 								// that selector helps us verify that we reached the endpoints due to the WorkloadEntry and not regular multicluster service discovery
