@@ -153,4 +153,7 @@ var (
 	exitOnZeroActiveConnectionsEnv = env.Register("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",
 		false,
 		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
+
+	exitIfSDSSocketNotFoundEnv = env.Register("EXIT_IF_SDS_SOCKET_NOT_FOUND", false,
+		"When set to true, the istio-agent will throw an error if the workload SDS socket is not found").Get()
 )

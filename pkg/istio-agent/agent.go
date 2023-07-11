@@ -189,6 +189,8 @@ type AgentOptions struct {
 
 	// Is the proxy in Dual Stack environment
 	DualStack bool
+
+	ExitIfSDSSocketNotFound bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -342,10 +344,12 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to check SDS socket: %v", err)
 	}
-
 	if socketExists {
 		log.Info("Workload SDS socket found. Istio SDS Server won't be started")
 	} else {
+		if a.cfg.ExitIfSDSSocketNotFound {
+			return nil, errors.New("workload SDS socket is required but not found")
+		}
 		log.Info("Workload SDS socket not found. Starting Istio SDS Server")
 		err = a.initSdsServer()
 		if err != nil {

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 25154
+releaseNotes:
+- |
+  **Added** prevent the istio-proxy from starting if the workload SDS socket is not found.
