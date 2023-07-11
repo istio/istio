@@ -136,10 +136,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	if s.kubeClient == nil {
 		return nil
 	}
-	configController, err := s.makeKubeConfigController(args)
-	if err != nil {
-		return err
-	}
+	configController := s.makeKubeConfigController(args)
 	s.ConfigStores = append(s.ConfigStores, configController)
 	if features.EnableGatewayAPI {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
@@ -198,6 +195,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
+	var err error
 	s.RWConfigStore, err = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
 	if err != nil {
 		return err
@@ -341,7 +339,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	}
 }
 
-func (s *Server) makeKubeConfigController(args *PilotArgs) (*crdclient.Client, error) {
+func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 	opts := crdclient.Option{
 		Revision:     args.Revision,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
