@@ -372,7 +372,7 @@ func TestConvertResources(t *testing.T) {
 		{"reference-policy-service"},
 		{"serviceentry"},
 		{"eastwest"},
-		{"eastwest-namedport"},
+		{"eastwest-tlsoption"},
 		{"eastwest-labelport"},
 		{"eastwest-remote"},
 		{"alias"},

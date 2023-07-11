@@ -164,7 +164,13 @@ const (
 
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
-	GatewayNameLabel         = "istio.io/gateway-name"
+	// TODO formalize this API
+	GatewayNameLabel = "istio.io/gateway-name"
+
+	// TODO formalize this API
+  // TODO additional values to represent passthrough and hbone or both
+	ListenerModeOption           = "gateway.istio.io/listener-protocol"
+	ListenerModeAutoPassthrough = "auto-passthrough"
 
 	// DataplaneMode namespace label for determining ambient mesh behavior
 	DataplaneMode        = "istio.io/dataplane-mode"

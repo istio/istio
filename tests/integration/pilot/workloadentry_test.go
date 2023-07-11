@@ -77,11 +77,13 @@ spec:
   addresses:
   - value: %q
   listeners:
-  - name: tls-passthrough
+  - name: cross-network
     port: 15443
     protocol: TLS
     tls:
       mode: Passthrough
+      options:
+        gateway.istio.io/listener-protocol: auto-passthrough
 `
 			// a serviceentry that only includes cluster-local endpoints (avoid automatic cross-cluster discovery)
 			seTmpl := `
@@ -191,7 +193,6 @@ spec:
 					for network, networkClusters := range t.Clusters().ByNetwork() {
 						weClusters := t.Clusters().Configs(networkClusters...)
 						for _, weCluster := range weClusters {
-							scopes.Framework.Infof("deploying we for %q to %s", tc.name, weCluster.Name())
 							t.ConfigKube(weCluster).Eval(apps.Namespace.Name(), map[string]interface{}{
 								// used so this WE doesn't get cross-cluster discovered
 								"clusterName": weCluster.Name(),

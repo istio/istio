@@ -29,7 +29,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/kclient"
@@ -160,8 +160,13 @@ func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int)
 			},
 			Listeners: []v1beta1.Listener{
 				{
-					Name: kube.AutoPassthroughPortName,
-					TLS:  &v1beta1.GatewayTLSConfig{Mode: &passthroughMode},
+					Name: "detected-by-options",
+					TLS: &v1beta1.GatewayTLSConfig{
+						Mode: &passthroughMode,
+						Options: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{
+							constants.ListenerModeOption: constants.ListenerModeAutoPassthrough,
+						},
+					},
 					Port: v1beta1.PortNumber(customPort),
 				},
 				{

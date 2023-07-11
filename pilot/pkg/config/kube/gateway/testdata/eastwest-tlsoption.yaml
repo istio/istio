@@ -18,12 +18,14 @@ spec:
     protocol: TLS
     tls:
       mode: Passthrough
-  - name: tls-passthrough
+  - name: cross-network
     hostname: "*.local"
     port: 35443
     protocol: TLS
     tls:
       mode: Passthrough
+      options:
+        gateway.istio.io/listener-protocol: auto-passthrough
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
