@@ -260,3 +260,27 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),
 		nil)
 }
+
+func TestAmbientIndex_EmptyAddrWorkloadEntries(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, testC, testNW)
+	s.addWorkloadEntries(t, "", "emptyaddr1", "sa1", map[string]string{"app": "a"})
+	s.assertEvent(t, s.wleXdsName("emptyaddr1"))
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "emptyaddr1")
+
+	s.addWorkloadEntries(t, "", "emptyaddr2", "sa1", map[string]string{"app": "a"})
+	s.assertEvent(t, s.wleXdsName("emptyaddr2"))
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "emptyaddr1", "emptyaddr2")
+
+	// ensure we stored and can fetch both; neither was blown away
+	assert.Equal(t,
+		s.lookup(s.wleXdsName("emptyaddr1"))[0].GetWorkload().GetName(),
+		"emptyaddr1") // can lookup this workload by name
+	assert.Equal(t,
+		s.lookup(s.wleXdsName("emptyaddr2"))[0].GetWorkload().GetName(),
+		"emptyaddr2") // can lookup this workload by name
+
+	assert.Equal(t,
+		len(s.lookup(s.addrXdsName(""))),
+		0) // cannot lookup these workloads by address
+}

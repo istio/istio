@@ -16,6 +16,7 @@ package controller
 
 import (
 	"net/netip"
+	"sort"
 	"strings"
 	"sync"
 
@@ -61,10 +62,14 @@ type AmbientIndexImpl struct {
 	// many workloads associated, indexed by workload uid.
 	byService map[string]map[string]*model.WorkloadInfo
 	// byPod indexes by network/podIP address.
+	// NOTE: prefer byUID to iterate over all workloads.
 	byPod map[networkAddress]*model.WorkloadInfo
 	// byWorkloadEntry indexes by WorkloadEntry IP address.
+	// NOTE: avoid using this index for anything other than Lookup().
+	// this map is incomplete and lacks workloads without an address
+	// (i.e. multi network workloads proxying remote service)
 	byWorkloadEntry map[networkAddress]*model.WorkloadInfo
-	// byUID indexes by workloads by their uid
+	// byUID indexes all workloads by their uid
 	byUID map[string]*model.WorkloadInfo
 	// serviceByAddr are indexed by the network/clusterIP
 	serviceByAddr map[networkAddress]*model.ServiceInfo
@@ -174,29 +179,28 @@ func (a *AmbientIndexImpl) insertWorkloadToService(namespacedHostname string, wo
 
 func (a *AmbientIndexImpl) updateWaypoint(sa model.WaypointScope, addr *workloadapi.GatewayAddress, isDelete bool) map[model.ConfigKey]struct{} {
 	updates := sets.New[model.ConfigKey]()
-	// Update Waypoints for Pods
-	a.updateWaypointForWorkload(a.byPod, sa, addr, isDelete, updates)
-	// Update Waypoints for WorkloadEntries
-	a.updateWaypointForWorkload(a.byWorkloadEntry, sa, addr, isDelete, updates)
+	a.updateWaypointForWorkload(a.byUID, sa, addr, isDelete, updates)
 	return updates
 }
 
-// All return all known workloads. Result is un-ordered
+// All return all known addresses. Result is un-ordered
 //
 // NOTE: As an interface method of AmbientIndex, this locks the index.
 func (a *AmbientIndexImpl) All() []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	res := make([]*model.AddressInfo, 0, len(a.byPod)+len(a.serviceByAddr)+len(a.byWorkloadEntry))
-	// byPod and byWorkloadEntry will not have any duplicates, so we can just iterate over that.
-	for _, wl := range a.byPod {
+	res := make([]*model.AddressInfo, 0, len(a.byUID)+len(a.serviceByNamespacedHostname))
+	for _, wl := range a.byUID {
 		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
-	for _, s := range a.serviceByAddr {
+	// TODO: fix https://github.com/istio/istio/issues/45942
+	// for now, maintain original behavior where all workload entries are returned last
+	// this should not be required, but currently there is a bug that must be fixed
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].GetWorkload().GetUid() < res[j].GetWorkload().GetUid()
+	})
+	for _, s := range a.serviceByNamespacedHostname {
 		res = append(res, serviceToAddressInfo(s.Service))
-	}
-	for _, wl := range a.byWorkloadEntry {
-		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
 	return res
 }
@@ -209,12 +213,7 @@ func (a *AmbientIndexImpl) WorkloadsForWaypoint(scope model.WaypointScope) []*mo
 	defer a.mu.RUnlock()
 	var res []*model.WorkloadInfo
 	// TODO: try to precompute
-	for _, w := range a.byPod {
-		if a.matchesScope(scope, w) {
-			res = append(res, w)
-		}
-	}
-	for _, w := range a.byWorkloadEntry {
+	for _, w := range a.byUID {
 		if a.matchesScope(scope, w) {
 			res = append(res, w)
 		}
