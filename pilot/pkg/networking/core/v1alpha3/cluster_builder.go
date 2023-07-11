@@ -381,7 +381,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		} else {
 			// Dual Stack
 			if features.EnableDualStack {
-				// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
 				// using Cluster_ALL to enable Happy Eyeballsfor upstream connections
 				c.DnsLookupFamily = cluster.Cluster_ALL
 			} else {
