@@ -774,6 +774,11 @@ func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Se
 		if h.Mirror != nil {
 			addDestination(h.Mirror.Host, h.Mirror.GetPort())
 		}
+		for _, m := range h.Mirrors {
+			if m.Destination != nil {
+				addDestination(m.Destination.Host, m.Destination.GetPort())
+			}
+		}
 	}
 	for _, t := range v.Tcp {
 		for _, r := range t.Route {

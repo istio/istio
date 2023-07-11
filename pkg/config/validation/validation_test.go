@@ -2784,6 +2784,59 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: false},
+		{name: "mirrors without destination", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: nil,
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "mirrors invalid mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 101},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "mirrors valid mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 1},
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 50},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: true},
+		{name: "mirrors negative mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: -1},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "conflicting mirror and mirrors", route: &networking.HTTPRoute{
+			Mirror: &networking.Destination{Host: "foo.baz"},
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
