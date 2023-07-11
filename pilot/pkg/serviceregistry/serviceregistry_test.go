@@ -977,7 +977,7 @@ func expectAmbient(strings []string, ambient bool) []string {
 	if !ambient {
 		return strings
 	}
-	var out []string
+	out := make([]string, 0, len(strings))
 	for _, s := range strings {
 		out = append(out, "connect_originate;"+s)
 	}

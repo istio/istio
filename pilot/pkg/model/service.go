@@ -1003,7 +1003,7 @@ func (ports PortList) Equals(other PortList) bool {
 }
 
 func (ports PortList) String() string {
-	var sp []string
+	sp := make([]string, 0, len(ports))
 	for _, p := range ports {
 		sp = append(sp, p.String())
 	}
