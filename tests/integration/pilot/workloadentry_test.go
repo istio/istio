@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -76,7 +77,7 @@ spec:
   addresses:
   - value: %q
   listeners:
-  - name: cross-network
+  - name: tls-passthrough
     port: 15443
     protocol: TLS
     tls:
@@ -90,6 +91,8 @@ kind: ServiceEntry
 metadata:
   name: serviceentry.mesh.global
 spec:
+  addresses:
+  - 240.240.240.240
   hosts: 
   - serviceentry.mesh.global
   ports:
@@ -142,6 +145,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadEntry
 metadata:
   name: se-cross-network-{{.testName}}
+  labels:
+    app: b
+    security.istio.io/tlsMode: istio
+    # TODO this should be implicit, but for some reason it isn't for WorkloadEntry
+    topology.istio.io/cluster: {{.clusterName}}
 spec:
   address: "{{.address}}"
   network: "{{.network}}"
@@ -180,20 +188,24 @@ spec:
 			for _, tc := range testCases {
 				tc := tc
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					// create the workload entry for each gateway clusters that are NOT on that network
 					for network, networkClusters := range t.Clusters().ByNetwork() {
-						applyToClusters := t.Clusters().Configs(networkClusters...)
-						t.ConfigKube(applyToClusters...).Eval(weTmpl, map[string]interface{}{
-							"testName":   strings.ReplaceAll(tc.name, " ", "-"),
-							"network":    tc.networkNameFunc(network),
-							"address":    tc.addressFunc(network),
-							"targetPort": tc.targetPortFunc(network),
-						}).ApplyOrFail(t)
+						weClusters := t.Clusters().Configs(networkClusters...)
+						for _, weCluster := range weClusters {
+							scopes.Framework.Infof("deploying we for %q to %s", tc.name, weCluster.Name())
+							t.ConfigKube(weCluster).Eval(apps.Namespace.Name(), map[string]interface{}{
+								// used so this WE doesn't get cross-cluster discovered
+								"clusterName": weCluster.Name(),
+								"testName":    strings.ReplaceAll(tc.name, " ", "-"),
+								"network":     tc.networkNameFunc(network),
+								"address":     tc.addressFunc(network),
+								"targetPort":  tc.targetPortFunc(network),
+							}, weTmpl).ApplyOrFail(t)
+						}
 					}
 
 					for _, src := range apps.A.Instances() {
 						src := src
-            // TODO possibly can run parallel
+						// TODO possibly can run parallel
 						t.NewSubTestf("from %s", src.Clusters().Default().Name()).Run(func(t framework.TestContext) {
 							src.CallOrFail(t, echo.CallOptions{
 								// check that we lb to all the networks (we won't reach non-config clusters becuase of the topology.istio.io/cluster selector)
@@ -204,6 +216,7 @@ spec:
 								Scheme:                  scheme.HTTP,
 								NewConnectionPerRequest: true,
 								Retry:                   echo.Retry{Options: []retry.Option{multiclusterRetryDelay, retry.Timeout(time.Minute)}},
+								Count:                   10,
 							})
 						})
 					}
