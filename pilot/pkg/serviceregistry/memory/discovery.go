@@ -141,7 +141,7 @@ func (sd *ServiceDiscovery) AddServiceNotify(svc *model.Service) {
 		Full:           true,
 		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace}),
 
-		Reason: []model.TriggerReason{model.ServiceUpdate},
+		Reason: model.NewReasonStats(model.ServiceUpdate),
 	}
 	sd.XdsUpdater.ConfigUpdate(pushReq)
 }

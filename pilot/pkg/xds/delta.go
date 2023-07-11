@@ -293,7 +293,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	request := &model.PushRequest{
 		Full:   true,
 		Push:   con.proxy.LastPushContext,
-		Reason: []model.TriggerReason{model.ProxyRequest},
+		Reason: model.NewReasonStats(model.ProxyRequest),
 
 		// The usage of LastPushTime (rather than time.Now()), is critical here for correctness; This time
 		// is used by the XDS cache to determine if a entry is stale. If we use Now() with an old push context,
