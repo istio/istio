@@ -37,7 +37,7 @@ func TestEnvoyFilterMatch(t *testing.T) {
 					{
 						Patch: &networking.EnvoyFilter_Patch{},
 						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `^1\.6.*`},
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `^1\.19.*`},
 						},
 					},
 				},
@@ -59,7 +59,7 @@ func TestEnvoyFilterMatch(t *testing.T) {
 					{
 						Patch: &networking.EnvoyFilter_Patch{},
 						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `1\.6.*`},
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `1\.19.*`},
 						},
 					},
 				},
@@ -96,23 +96,25 @@ func TestEnvoyFilterMatch(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		got := convertToEnvoyFilterWrapper(&config.Config{
-			Meta: config.Meta{},
-			Spec: tt.config,
-		})
-		if len(got.Patches[networking.EnvoyFilter_INVALID]) != 1 {
-			t.Fatalf("unexpected patches: %v", got.Patches)
-		}
-		filter := got.Patches[networking.EnvoyFilter_INVALID][0]
-		if filter.ProxyPrefixMatch != tt.expectedVersionPrefix {
-			t.Errorf("unexpected prefix: got %v wanted %v", filter.ProxyPrefixMatch, tt.expectedVersionPrefix)
-		}
-		for ver, match := range tt.matches {
-			got := proxyMatch(&Proxy{Metadata: &NodeMetadata{IstioVersion: ver}}, filter)
-			if got != match {
-				t.Errorf("expected %v to match %v, got %v", ver, match, got)
+		t.Run(tt.name, func(t *testing.T) {
+			got := convertToEnvoyFilterWrapper(&config.Config{
+				Meta: config.Meta{},
+				Spec: tt.config,
+			})
+			if len(got.Patches[networking.EnvoyFilter_INVALID]) != 1 {
+				t.Fatalf("unexpected patches: %v", got.Patches)
 			}
-		}
+			filter := got.Patches[networking.EnvoyFilter_INVALID][0]
+			if filter.ProxyPrefixMatch != tt.expectedVersionPrefix {
+				t.Errorf("unexpected prefix: got %v wanted %v", filter.ProxyPrefixMatch, tt.expectedVersionPrefix)
+			}
+			for ver, match := range tt.matches {
+				got := proxyMatch(&Proxy{Metadata: &NodeMetadata{IstioVersion: ver}}, filter)
+				if got != match {
+					t.Errorf("expected %v to match %v, got %v", ver, match, got)
+				}
+			}
+		})
 	}
 }
 
