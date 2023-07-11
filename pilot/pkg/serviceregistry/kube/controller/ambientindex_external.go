@@ -357,7 +357,7 @@ func (a *AmbientIndexImpl) constructWorkloadFromWorkloadEntry(workloadEntry *v1a
 		}
 	}
 
-	addrBytes := []byte{}
+	var addrBytes []byte
 	if workloadEntry.Address != "" {
 		// this can fail if the address is DNS, e.g. "external.external-1-15569.svc.cluster.local"
 		addr, err := netip.ParseAddr(workloadEntry.Address)
@@ -380,11 +380,16 @@ func (a *AmbientIndexImpl) constructWorkloadFromWorkloadEntry(workloadEntry *v1a
 		network = workloadEntry.Network
 	}
 
+	var addresses [][]byte
+	if addrBytes != nil {
+		addresses = [][]byte{addrBytes}
+	}
+
 	wl := &workloadapi.Workload{
 		Uid:                   uid,
 		Name:                  workloadEntryName,
 		Namespace:             workloadEntryNamespace,
-		Addresses:             [][]byte{addrBytes},
+		Addresses:             addresses,
 		Network:               network,
 		ServiceAccount:        workloadEntry.ServiceAccount,
 		Services:              workloadServices,
