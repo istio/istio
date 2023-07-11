@@ -47,7 +47,7 @@
       {{- else if eq .Values.global.proxy.tracer "datadog" }}
         datadog:
           # Address of the Datadog Agent
-          address: {{ .Values.global.tracer.datadog.address | default "$(HOST_IP):8126" }}
+          address: {{ ((.Values.global.tracer).datadog).address | default "$(HOST_IP):8126" }}
       {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
         stackdriver:
           # enables trace output to stdout.
