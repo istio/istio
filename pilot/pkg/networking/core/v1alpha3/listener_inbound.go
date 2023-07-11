@@ -452,7 +452,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				}
 			}
 			// for inbound only generate a standalone listener when bindToPort=true
-			if bindtoPort && conflictWithStaticListener(lb.node, cc.bind, int(port.Port), port.Protocol) {
+			if bindtoPort && conflictWithStaticListener(lb.node, cc.bind, port.Port, port.Protocol) {
 				log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
 					port.TargetPort, lb.node.ID)
 				continue

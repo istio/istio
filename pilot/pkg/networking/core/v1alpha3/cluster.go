@@ -522,8 +522,8 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 			// port present in sidecarIngress listener so let sidecar take precedence
 			continue
 		}
-		services := slices.Map(instances, func(e *model.ServiceInstance) ServiceEndpoint {
-			return ServiceEndpoint{
+		services := slices.Map(instances, func(e *model.ServiceInstance) ServiceTarget {
+			return ServiceTarget{
 				Service: e.Service,
 				Port: ServiceInstancePort{
 					ServicePort: e.ServicePort,
@@ -631,7 +631,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 		// for a service instance that matches this ingress port as this will allow us
 		// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
 		svc := findOrCreateService(instances, ingressListener, sidecarScope.Name, sidecarScope.Namespace)
-		endpoint := ServiceEndpoint{
+		endpoint := ServiceTarget{
 			Service: svc,
 			Port: ServiceInstancePort{
 				ServicePort: listenPort,
@@ -994,7 +994,7 @@ func applyLocalityLBSetting(locality *core.Locality, proxyLabels map[string]stri
 	}
 }
 
-func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, inboundServices []ServiceEndpoint) {
+func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, inboundServices []ServiceTarget) {
 	if !features.EnableTelemetryLabel {
 		return
 	}

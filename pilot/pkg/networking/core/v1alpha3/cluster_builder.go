@@ -359,7 +359,7 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 // buildDefaultCluster builds the default cluster and also applies default traffic policy.
 func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
-	port *model.Port, service *model.Service, inboundServices []ServiceEndpoint,
+	port *model.Port, service *model.Service, inboundServices []ServiceTarget,
 ) *MutableCluster {
 	c := &cluster.Cluster{
 		Name:                 name,
@@ -428,7 +428,11 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	return ec
 }
 
-type ServiceEndpoint struct {
+// ServiceTarget includes a Service object, along with a specific service port
+// and target port. This is basically a smaller version of model.ServiceInstance,
+// intended to avoid the need to have the full object when only port information
+// is needed.
+type ServiceTarget struct {
 	Service *model.Service
 	Port    ServiceInstancePort
 }
@@ -441,7 +445,7 @@ type ServiceEndpoint struct {
 // Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
 // Sidecar.Ingress allows these to be different.
 func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind string,
-	proxy *model.Proxy, instance ServiceEndpoint, inboundServices []ServiceEndpoint,
+	proxy *model.Proxy, instance ServiceTarget, inboundServices []ServiceTarget,
 ) *MutableCluster {
 	clusterName := model.BuildInboundSubsetKey(clusterPort)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Port.TargetPort)

@@ -2108,7 +2108,7 @@ func TestTelemetryMetadata(t *testing.T) {
 		name      string
 		direction model.TrafficDirection
 		cluster   *cluster.Cluster
-		svcInsts  []ServiceEndpoint
+		svcInsts  []ServiceTarget
 		service   *model.Service
 		want      *core.Metadata
 	}{
@@ -2116,7 +2116,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "no cluster",
 			direction: model.TrafficDirectionInbound,
 			cluster:   nil,
-			svcInsts: []ServiceEndpoint{
+			svcInsts: []ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2133,7 +2133,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound no service",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts:  []ServiceEndpoint{},
+			svcInsts:  []ServiceTarget{},
 			want:      nil,
 		},
 		{
@@ -2150,7 +2150,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []ServiceEndpoint{
+			svcInsts: []ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2225,7 +2225,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []ServiceEndpoint{
+			svcInsts: []ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2286,7 +2286,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound multiple services",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts: []ServiceEndpoint{
+			svcInsts: []ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2393,7 +2393,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []ServiceEndpoint{
+			svcInsts: []ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2504,7 +2504,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound duplicated metadata",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts: []ServiceEndpoint{
+			svcInsts: []ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
