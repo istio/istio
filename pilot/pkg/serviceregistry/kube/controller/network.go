@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -356,7 +357,7 @@ func (n *networkManager) handleGatewayResource(_ controllers.Object, obj control
 	// Gateway with istio-remote: only discover this from the config cluster
 	// this is a way to reference a gateway that lives in a place that this control plane
 	// won't have API server access. Nothing will be deployed for these Gateway resources.
-	if !n.discoverRemoteGatewayResources && gw.Spec.GatewayClassName == "istio-remote" {
+	if !n.discoverRemoteGatewayResources && gw.Spec.GatewayClassName == constants.RemoteGatewayClassName {
 		return nil
 	}
 
