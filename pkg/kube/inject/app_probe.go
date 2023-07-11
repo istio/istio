@@ -26,6 +26,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 // ShouldRewriteAppHTTPProbers returns if we should rewrite apps' probers config.
@@ -41,8 +42,16 @@ func ShouldRewriteAppHTTPProbers(annotations map[string]string, specSetting bool
 }
 
 // FindSidecar returns the pointer to the first container whose name matches the "istio-proxy".
-func FindSidecar(containers []corev1.Container) *corev1.Container {
-	return FindContainer(ProxyContainerName, containers)
+func FindSidecar(pod *corev1.Pod) *corev1.Container {
+	return FindContainerFromPod(ProxyContainerName, pod)
+}
+
+// FindContainerFromPod returns the pointer to the first container whose name matches in init containers or regular containers
+func FindContainerFromPod(name string, pod *corev1.Pod) *corev1.Container {
+	if c := FindContainer(name, pod.Spec.Containers); c != nil {
+		return c
+	}
+	return FindContainer(name, pod.Spec.InitContainers)
 }
 
 // FindContainer returns the pointer to the first container whose name matches.
@@ -124,7 +133,7 @@ type Prober struct {
 
 // DumpAppProbers returns a json encoded string as `status.KubeAppProbers`.
 // Also update the probers so that all usages of named port will be resolved to integer.
-func DumpAppProbers(podSpec *corev1.PodSpec, targetPort int32) string {
+func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 	out := KubeAppProbers{}
 	updateNamedPort := func(p *Prober, portMap map[string]int32) *Prober {
 		if p == nil {
@@ -157,7 +166,7 @@ func DumpAppProbers(podSpec *corev1.PodSpec, targetPort int32) string {
 		}
 		return p
 	}
-	for _, c := range podSpec.Containers {
+	for _, c := range allContainers(pod) {
 		if c.Name == ProxyContainerName {
 			continue
 		}
@@ -191,6 +200,10 @@ func DumpAppProbers(podSpec *corev1.PodSpec, targetPort int32) string {
 	return string(b)
 }
 
+func allContainers(pod *corev1.Pod) []corev1.Container {
+	return append(slices.Clone(pod.Spec.InitContainers), pod.Spec.Containers...)
+}
+
 // patchRewriteProbe generates the patch for webhook.
 func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPort int32) {
 	statusPort := int(defaultPort)
@@ -206,17 +219,29 @@ func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPo
 		if c.Name == ProxyContainerName {
 			continue
 		}
-		readyz, livez, startupz := status.FormatProberURL(c.Name)
-		if probePatch := convertAppProber(c.ReadinessProbe, readyz, statusPort); probePatch != nil {
-			c.ReadinessProbe = probePatch
-		}
-		if probePatch := convertAppProber(c.LivenessProbe, livez, statusPort); probePatch != nil {
-			c.LivenessProbe = probePatch
-		}
-		if probePatch := convertAppProber(c.StartupProbe, startupz, statusPort); probePatch != nil {
-			c.StartupProbe = probePatch
-		}
+		convertProbe(&c, statusPort)
 		pod.Spec.Containers[i] = c
+	}
+	for i, c := range pod.Spec.InitContainers {
+		// Skip sidecar container.
+		if c.Name == ProxyContainerName {
+			continue
+		}
+		convertProbe(&c, statusPort)
+		pod.Spec.InitContainers[i] = c
+	}
+}
+
+func convertProbe(c *corev1.Container, statusPort int) {
+	readyz, livez, startupz := status.FormatProberURL(c.Name)
+	if probePatch := convertAppProber(c.ReadinessProbe, readyz, statusPort); probePatch != nil {
+		c.ReadinessProbe = probePatch
+	}
+	if probePatch := convertAppProber(c.LivenessProbe, livez, statusPort); probePatch != nil {
+		c.LivenessProbe = probePatch
+	}
+	if probePatch := convertAppProber(c.StartupProbe, startupz, statusPort); probePatch != nil {
+		c.StartupProbe = probePatch
 	}
 }
 
