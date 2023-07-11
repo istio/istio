@@ -318,7 +318,7 @@ func TestAgent(t *testing.T) {
 
 	t.Run("Unhealthy SDS socket - required", func(t *testing.T) {
 		// starting an unresponsive listener on the socket
-		a := NewAgent(nil, &AgentOptions{ExitIfSDSSocketNotFound: true}, nil, envoy.ProxyConfig{})
+		a := NewAgent(nil, &AgentOptions{UseExternalWorkloadSDS: true}, nil, envoy.ProxyConfig{})
 		ctx, done := context.WithCancel(context.Background())
 		_, err := a.Run(ctx)
 		if err == nil {
