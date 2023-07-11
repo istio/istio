@@ -2691,16 +2691,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 			Gateways: []string{gatewayName},
 			Http: []*networking.HTTPRoute{
 				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "test",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{},
 				},
 			},
 		},
@@ -2713,11 +2704,11 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	}
 
 	env.ConfigStore = configStore
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 	ps.initTelemetry(env)
 	ps.initDefaultExportMaps()
 	ps.initVirtualServices(env)
-	got := sets.String{}
-	addHostsFromMeshConfig(ps, got)
+	got := ps.virtualServiceIndex.destinationsByGateway[gatewayName]
 	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, sets.SortedList(got))
 }
 
