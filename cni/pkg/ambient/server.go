@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"sync"
 
@@ -208,8 +209,9 @@ func (s *Server) UpdateActiveNodeProxy() error {
 		if err != nil {
 			return fmt.Errorf("failed to get veth device: %v", err)
 		}
+		geneveDstPort := determineDstPortForGeneveLink(net.ParseIP(activePod.Status.PodIP), constants.InboundTunVNI, constants.OutboundTunVNI)
 		// Create node-level networking rules for redirection
-		err = s.CreateRulesOnNode(veth.Attrs().Name, activePod.Status.PodIP, captureDNS)
+		err = s.CreateRulesOnNode(veth.Attrs().Name, activePod.Status.PodIP, captureDNS, geneveDstPort)
 		if err != nil {
 			return fmt.Errorf("failed to configure node for ztunnel: %v", err)
 		}
@@ -227,7 +229,7 @@ func (s *Server) UpdateActiveNodeProxy() error {
 			return fmt.Errorf("failed to get veth peerIndex: %v", err)
 		}
 		// Create pod-level networking rules for redirection (from within pod netns)
-		err = s.CreateRulesWithinNodeProxyNS(peerIndex, activePod.Status.PodIP, peerNs, hostIP)
+		err = s.CreateRulesWithinNodeProxyNS(peerIndex, activePod.Status.PodIP, peerNs, hostIP, geneveDstPort)
 		if err != nil {
 			return fmt.Errorf("failed to configure node for ztunnel: %v", err)
 		}

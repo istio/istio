@@ -331,7 +331,7 @@ func getPeerIndex(veth *netlink.Veth) (int, error) {
 }
 
 // CreateRulesOnNode initializes the routing, firewall and ipset rules on the node.
-func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS bool) error {
+func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS bool, geneveDstPort uint16) error {
 	var err error
 
 	log.Debugf("CreateRulesOnNode: ztunnelVeth=%s, ztunnelIP=%s", ztunnelVeth, ztunnelIP)
@@ -355,8 +355,6 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	if err != nil && !errors.Is(err, os.ErrExist) {
 		return fmt.Errorf("error creating ipset: %v", err)
 	}
-
-	geneveDstPort := determineDstPortForGeneveLink(net.ParseIP(ztunnelIP), constants.InboundTunVNI, constants.OutboundTunVNI)
 
 	appendRules := []*iptablesRule{
 		// Skip things that come from the tunnels, but don't apply the conn skip mark
@@ -981,7 +979,7 @@ func (s *Server) createTProxyRulesForLegacyEBPF(ztunnelIP, ifName string) error 
 //
 // There is no cleanup required for things we do within the netns, as when the netns is destroyed on pod delete,
 // everything within the netns goes away.
-func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztunnelNetNS, hostIP string) error {
+func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztunnelNetNS, hostIP string, geneveDstPort uint16) error {
 	ns := filepath.Base(ztunnelNetNS)
 	log.Debugf("CreateRulesWithinNodeProxyNS: proxyNsVethIdx=%d, ztunnelIP=%s, hostIP=%s, from within netns=%s", proxyNsVethIdx, ztunnelIP, hostIP, ztunnelNetNS)
 	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
@@ -1006,6 +1004,7 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 			},
 			ID:     constants.InboundTunVNI,
 			Remote: net.ParseIP(hostIP),
+			Dport:  geneveDstPort,
 		}
 		log.Debugf("Building inbound tunnel: %+v", inbndTunLink)
 		err := netlink.LinkAdd(inbndTunLink)
@@ -1029,6 +1028,7 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 			},
 			ID:     constants.OutboundTunVNI,
 			Remote: net.ParseIP(hostIP),
+			Dport:  geneveDstPort,
 		}
 		log.Debugf("Building outbound tunnel: %+v", outbndTunLink)
 		err = netlink.LinkAdd(outbndTunLink)
