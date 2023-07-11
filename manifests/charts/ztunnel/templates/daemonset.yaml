@@ -28,6 +28,7 @@ spec:
 {{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
     spec:
       serviceAccountName: ztunnel
+      priorityClassName: {{ .Values.priority }}
       tolerations:
         - effect: NoSchedule
           operator: Exists

@@ -43,9 +43,14 @@ multiCluster:
   # with Istiod configuration.
   clusterName: ""
 
+# Default value, using our own priority.
+# Can be set to system-node-critical if the infrastructure allows it. For example
+# in GKE it is allowed only if this runs in kube-system.
+priority: ztunnel-priority
+
 # meshConfig defines runtime configuration of components.
 # For ztunnel, only defaultConfig is used, but this is nested under `meshConfig` for consistency with other
-# components.
+# components. The env key does the same thing.
 # TODO: https://github.com/istio/istio/issues/43248
 meshConfig:
   defaultConfig:
