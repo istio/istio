@@ -178,10 +178,8 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 			cc := inboundChainConfig{
 				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
 				port: ServiceInstancePort{
-					Name:       port.Name,
-					Port:       uint32(port.Port),
-					TargetPort: uint32(port.Port),
-					Protocol:   port.Protocol,
+					ServicePort: port,
+					TargetPort:  uint32(port.Port),
 				},
 				bind:  "0.0.0.0",
 				hbone: true,
@@ -232,8 +230,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 		cc := inboundChainConfig{
 			clusterName: EncapClusterName,
 			port: ServiceInstancePort{
-				Name:     "unknown",
-				Protocol: protocol.TCP,
+				ServicePort: &model.Port{
+					Name:     "unknown",
+					Protocol: protocol.TCP,
+				},
 			},
 			bind:  "0.0.0.0",
 			hbone: true,
@@ -421,13 +421,13 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
 	// hostname purely to match to the Service VIP. So we only need a single VHost, with routes compute based on the VS.
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
-	routes, err := lb.waypointInboundRoute(vs, int(cc.port.Port))
+	routes, err := lb.waypointInboundRoute(vs, cc.port.Port)
 	if err != nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
 
 	inboundVHost := &route.VirtualHost{
-		Name:    inboundVirtualHostPrefix + strconv.Itoa(int(cc.port.Port)), // Format: "inbound|http|%d"
+		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
 		Domains: []string{"*"},
 		Routes:  routes,
 	}
