@@ -16,6 +16,7 @@ package controller
 
 import (
 	"net/netip"
+	"sort"
 	"strings"
 	"sync"
 
@@ -191,6 +192,12 @@ func (a *AmbientIndexImpl) All() []*model.AddressInfo {
 	for _, wl := range a.byUID {
 		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
+	// TODO: fix https://github.com/istio/istio/issues/45942
+	// for now, maintain original behavior where all workload entries are returned last
+	// this should not be required, but currently there is a bug that must be fixed
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].GetWorkload().GetUid() < res[j].GetWorkload().GetUid()
+	})
 	for _, s := range a.serviceByNamespacedHostname {
 		res = append(res, serviceToAddressInfo(s.Service))
 	}
