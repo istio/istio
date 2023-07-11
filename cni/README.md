@@ -19,6 +19,9 @@ proxy (ztunnel):
 - Sets up redirection on the node such that traffic from application pods is forwarded to ztunnel, in the host/node network namespace.
 - Configures iptables and packet routing miscellanea within the `ztunnel` network namespace.
 
+Ambient mode may also operate in the container namespace, including cases where ztunnel is run as a sidecar if the
+native CNI does not support host interception. This is treated as "sidecar interception" even if it runs ztunnel.
+
 ### Ambient redirection mode
 
 If Ambient mode is enabled, the CNI plugin currently supports two different mechanisms for Ambient traffic redirection.
@@ -82,44 +85,91 @@ The following example grabs the last 10 `kubelet` logs containing the string "cm
 $ gcloud logging read "resource.type=k8s_node AND jsonPayload.SYSLOG_IDENTIFIER=kubelet AND jsonPayload.MESSAGE:cmdAdd" --limit 10 --format json
 ```
 
+## API
+
+Istio CNI injection is currently based on the same Pod annotations used in init-container/inject mode. 
+
+TODO: list all supported annotations, which are working on ambient, plans for long-term support as CRD/broader than Istio.
+
+### Selection API
+
+- plugin config "exclude namespaces" applies first
+- ambient is enabled if: 
+  - namespace label "istio.io/dataplane-mode" == "ambient" is required (may change for 'on-by-default' mode)
+  - "sidecar.istio.io/status" annotation is not present on the pod (created by injection of sidecar)
+  - "ambient.istio.io/redirection" is not "disabled"
+- sidecar interception is enabled if:
+  - "istio-init" container is not present in the pod.
+  - istio-proxy container exists and 
+    - does not have DISABLE_ENVOY environment variable (which triggers proxyless mode)
+    - has a istio-proxy container, with first 2 args "proxy" and "sidecar" - or less then 2 args, or first arg not proxy.
+    - "sidecar.istio.io/inject" is not false
+    - "sidecar.istio.io/status" exists 
+
+### Redirect API
+
+The annotation based control is currently only supported in 'sidecar' mode. See plugin/redirect.go for details.
+
+- redirectMode allows TPROXY may to be set, required envoy has extra permissions. Default is redirect.
+- includeIPCidr, excludeIPCidr
+- includeInboudPorts, excludeInboundPorts
+- includeOutboutPorts, excludeOutboundPorts
+- excludeInterfaces
+- kubevirtInterfaces
+- ISTIO_META_DNS_CAPTURE env variable on the proxy - enables dns redirect
+- INVALID_DROP env var on proxy - changes behavior from reset to drop in iptables
+- auto excluded inbound ports: 15020, 15021, 15090
+
+The code automatically detects the proxyUID and proxyGID from RunAsUser/RunAsGroup and exclude them from interception, defaulting to 1337
+
 ## Implementation Details
 
 ### Overview
 
 - [istio-cni Helm chart](../manifests/charts/istio-cni/templates)
-    - `install-cni` daemonset
+    - `install-cni` daemonset - main function is to install and help the node CNI, but it is also a proper server and interacts with K8S, watching Pods for recovery.
     - `istio-cni-config` configmap with CNI plugin config to add to CNI plugin chained config
-    - creates service-account `istio-cni` with `ClusterRoleBinding` to allow gets on pods' info
+    - creates service-account `istio-cni` with `ClusterRoleBinding` to allow gets on pods' info and delete/modifications for recovery.
 
 - `install-cni` container
     - copies `istio-cni` and `istio-iptables` to `/opt/cni/bin`
     - creates kubeconfig for the service account the pod runs under
+    - periodically copy the K8S JWT token for istio-cni on the host to connect to K8S.
     - injects the CNI plugin config to the CNI config file
         - CNI installer will try to look for the config file under the mounted CNI net dir based on file name extensions (`.conf`, `.conflist`)
         - the file name can be explicitly set by `CNI_CONF_NAME` env var
         - the program inserts `CNI_NETWORK_CONFIG` into the `plugins` list in `/etc/cni/net.d/${CNI_CONF_NAME}`
-
+    - the actual code is in pkg/install - including a readiness probe, monitoring. 
+    - it also sets up a UDS socket for istio-cni to send logs to this container.
+    - based on config, it may run the 'repair' controller that detects pods where istio setup fails and restarts them, or created in corner cases.
+    - if ambient is enabled, also runs an ambient controller, watching Pod, Namespace
+  
 - `istio-cni`
     - CNI plugin executable copied to `/opt/cni/bin`
     - currently implemented for k8s only
     - on pod add, determines whether pod should have netns setup to redirect to Istio proxy. See [cmdAdd](#cmdadd-workflow) for detailed logic.
+        - it connects to K8S using the kubeconfig and JWT token copied from install-cni to get Pod and Namespace. Since this is a short-running command, each invocation creates a new connection.
         - If so, calls `istio-iptables` with params to setup pod netns
+        - If ambient, sets up the ambient logic.
 
 - `istio-iptables`
     - sets up iptables to redirect a list of ports to the port envoy will listen
+    - shared code with istio-init container
+    - it will generate an iptables-save config, based on annotations/labels and other settings, and apply it.
 
 ### CmdAdd Workflow
 
-`CmdAdd` is triggered when there is a new pod created.
+`CmdAdd` is triggered when there is a new pod created. This runs on the node, in a chain of CNI plugins - Istio is
+run after the main CNI sets up the pod IP and networking.
 
 1. Check k8s pod namespace against exclusion list (plugin config)
-    1. Config must exclude namespace that Istio control-plane is installed in
+    1. Config must exclude namespace that Istio control-plane is installed in (TODO: this may change, exclude at pod level is sufficient and we may want Istiod and other istio components to use ambient too)
     1. If excluded, ignore the pod and return prevResult
 1. Setup redirect rules for the pods:
-    1. Get the port list from pods definition
+    1. Get the port list from pods definition, as well as annotations.
     1. Setup iptables with required port list: `nsenter --net=<k8s pod netns> /opt/cni/bin/istio-iptables ...`. Following conditions will prevent the redirect rules to be setup in the pods:
         1. Pods have annotation `sidecar.istio.io/inject` set to `false` or has no key `sidecar.istio.io/status` in annotations
-        1. Pod has `istio-init` initContainer
+        1. Pod has `istio-init` initContainer - this indicates a pod running its own injection setup.
 1. Return prevResult
 
 ## Reference
