@@ -1613,6 +1613,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				for host := range virtualServiceDestinations(rule) {
 					sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
 				}
+				if _, exists := ps.virtualServiceIndex.destinationsByGateway[gw]; !exists {
+					ps.virtualServiceIndex.destinationsByGateway[gw] = sets.Set[string]{}
+				}
 				addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
 			}
 		}
