@@ -62,10 +62,14 @@ type AmbientIndexImpl struct {
 	// many workloads associated, indexed by workload uid.
 	byService map[string]map[string]*model.WorkloadInfo
 	// byPod indexes by network/podIP address.
+	// NOTE: prefer byUID to iterate over all workloads.
 	byPod map[networkAddress]*model.WorkloadInfo
 	// byWorkloadEntry indexes by WorkloadEntry IP address.
+	// NOTE: avoid using this index for anything other than Lookup().
+	// this map is incomplete and lacks workloads without an address
+	// (i.e. multi network workloads proxying remote service)
 	byWorkloadEntry map[networkAddress]*model.WorkloadInfo
-	// byUID indexes by workloads by their uid
+	// byUID indexes all workloads by their uid
 	byUID map[string]*model.WorkloadInfo
 	// serviceByAddr are indexed by the network/clusterIP
 	serviceByAddr map[networkAddress]*model.ServiceInfo
@@ -175,10 +179,7 @@ func (a *AmbientIndexImpl) insertWorkloadToService(namespacedHostname string, wo
 
 func (a *AmbientIndexImpl) updateWaypoint(sa model.WaypointScope, addr *workloadapi.GatewayAddress, isDelete bool) map[model.ConfigKey]struct{} {
 	updates := sets.New[model.ConfigKey]()
-	// Update Waypoints for Pods
-	a.updateWaypointForWorkload(a.byPod, sa, addr, isDelete, updates)
-	// Update Waypoints for WorkloadEntries
-	a.updateWaypointForWorkload(a.byWorkloadEntry, sa, addr, isDelete, updates)
+	a.updateWaypointForWorkload(a.byUID, sa, addr, isDelete, updates)
 	return updates
 }
 

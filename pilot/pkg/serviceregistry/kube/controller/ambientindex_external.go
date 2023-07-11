@@ -415,7 +415,7 @@ func (a *AmbientIndexImpl) constructWorkloadFromWorkloadEntry(workloadEntry *v1a
 }
 
 // updateWaypointForWorkload updates the Waypoint configuration for the given Workload(Pod/WorkloadEntry)
-func (a *AmbientIndexImpl) updateWaypointForWorkload(byWorkload map[networkAddress]*model.WorkloadInfo, scope model.WaypointScope,
+func (a *AmbientIndexImpl) updateWaypointForWorkload(byWorkload map[string]*model.WorkloadInfo, scope model.WaypointScope,
 	addr *workloadapi.GatewayAddress, isDelete bool, updates sets.Set[model.ConfigKey],
 ) {
 	for _, wl := range byWorkload {
