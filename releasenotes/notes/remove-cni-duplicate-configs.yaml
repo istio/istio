@@ -5,4 +5,4 @@ issue:
   - 43632
 releaseNotes:
 - |
-  **Fixed** Istio CNI configurations to use 'cni' consistently instead of having the separate 'istio-cni' configurations to enable Istio CNI.
+  **Fixed** Istio CNI helm configurations to use 'cni' consistently instead of having the separate 'istio_cni' configurations to enable Istio CNI when installing using helm charts.

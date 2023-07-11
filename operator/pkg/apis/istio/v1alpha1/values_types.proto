@@ -1184,8 +1184,7 @@ message Values {
 
   SidecarInjectorConfig sidecarInjectorWebhook = 13;
   
-  reserved 19;
-  reserved "istio_cni";
+  CNIConfig istio_cni = 19;
 
   string revision = 21;
 
