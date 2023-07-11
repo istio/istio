@@ -11,6 +11,7 @@ spec:
       cniConfDir: /etc/cni/multus/net.d
       chained: false
       cniConfFileName: "istio-cni.conf"
+      enabled: true
       excludeNamespaces:
        - istio-system
        - kube-system
