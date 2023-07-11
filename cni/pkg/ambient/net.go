@@ -238,10 +238,16 @@ func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
 func (s *Server) AddPodToMesh(pod *corev1.Pod) {
 	switch s.redirectMode {
 	case IptablesMode:
-		_ = AddPodToMesh(s.kubeClient.Kube(), pod, "")
+		// This is used for pods already running - we can't block, but we
+		// should not annotate.
+		err := AddPodToMesh(s.kubeClient.Kube(), pod, "")
+		if err != nil {
+			return
+		}
 	case EbpfMode:
 		if err := s.updatePodEbpfOnNode(pod); err != nil {
 			log.Errorf("failed to update POD ebpf: %v", err)
+			return
 		}
 	}
 	if err := AnnotateEnrolledPod(s.kubeClient.Kube(), pod); err != nil {
