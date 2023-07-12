@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/maps"
 )
 
 type FakeStore struct {
@@ -72,12 +73,7 @@ func (s *FakeStore) List(typ config.GroupVersionKind, namespace string) []config
 		return res
 	}
 
-	configs := nsConfigs[namespace]
-	for _, cfg := range configs {
-		res = append(res, cfg)
-	}
-
-	return res
+	return maps.Values(nsConfigs[namespace])
 }
 
 func (s *FakeStore) Create(cfg config.Config) (revision string, err error) {

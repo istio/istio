@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
@@ -1240,7 +1241,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest,
 ) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool
 
 	var changedEnvoyFilters []ConfigKey
@@ -1260,7 +1261,10 @@ func (ps *PushContext) updateContext(
 		case kind.WasmPlugin:
 			wasmPluginsChanged = true
 		case kind.EnvoyFilter:
-			changedEnvoyFilters = append(changedEnvoyFilters, conf)
+			envoyFiltersChanged = true
+			if features.OptimizedConfigRebuild {
+				changedEnvoyFilters = append(changedEnvoyFilters, conf)
+			}
 		case kind.AuthorizationPolicy:
 			authzChanged = true
 		case kind.RequestAuthentication,
@@ -1336,8 +1340,10 @@ func (ps *PushContext) updateContext(
 		ps.wasmPluginsByNamespace = oldPushContext.wasmPluginsByNamespace
 	}
 
-	if len(changedEnvoyFilters) > 0 {
+	if features.OptimizedConfigRebuild && len(changedEnvoyFilters) > 0 {
 		ps.updateEnvoyFilters(env, changedEnvoyFilters, oldPushContext.envoyFiltersByNamespace)
+	} else if envoyFiltersChanged {
+		ps.initEnvoyFilters(env)
 	} else {
 		ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
 	}
@@ -1913,42 +1919,35 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) {
 
 // pre computes envoy filters per namespace
 func (ps *PushContext) updateEnvoyFilters(env *Environment, changedEnvoyFilters []ConfigKey, previousIndex map[string][]*EnvoyFilterWrapper) {
-	// copy old index
-	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper, len(previousIndex))
-	for k, v := range previousIndex {
-		ps.envoyFiltersByNamespace[k] = v
-	}
+	ps.envoyFiltersByNamespace = maps.Clone(previousIndex)
 
 	for _, changedEnvoyFilter := range changedEnvoyFilters {
 		envoyFilterConfig := env.Get(gvk.EnvoyFilter, changedEnvoyFilter.Name, changedEnvoyFilter.Namespace)
-
 		// copy existing envoy filters since we're going to modify the slice
-		previousEnvoyFilters := ps.envoyFiltersByNamespace[changedEnvoyFilter.Namespace]
-		envoyFilters := make([]*EnvoyFilterWrapper, len(previousEnvoyFilters))
-		copy(envoyFilters, previousEnvoyFilters)
+		envoyFilters := slices.Clone(ps.envoyFiltersByNamespace[changedEnvoyFilter.Namespace])
 
-		found := false
-		for i, existingEnvoyFilter := range envoyFilters {
-			if existingEnvoyFilter.Name == changedEnvoyFilter.Name {
-				found = true
-				if envoyFilterConfig != nil {
-					// overwrite existing envoy filter with newer version
-					envoyFilters[i] = convertToEnvoyFilterWrapper(envoyFilterConfig)
-				} else {
-					if len(envoyFilters) == 1 {
-						// the slice will end up empty, better to just remove the key from the map
-						delete(ps.envoyFiltersByNamespace, changedEnvoyFilter.Namespace)
-					} else {
-						// remove envoy filter from slice since it has been deleted
-						envoyFilters = append(envoyFilters[:i], envoyFilters[i+1:]...)
-					}
-				}
+		// was deleted
+		if envoyFilterConfig == nil {
+			envoyFilters := slices.FilterInPlace(envoyFilters, func(envoyFilter *EnvoyFilterWrapper) bool {
+				return envoyFilter.Name != changedEnvoyFilter.Name
+			})
+			if len(envoyFilters) == 0 {
+				// the slice is empty, better to just remove the key from the map
+				delete(ps.envoyFiltersByNamespace, changedEnvoyFilter.Namespace)
+			} else {
 				ps.envoyFiltersByNamespace[changedEnvoyFilter.Namespace] = envoyFilters
 			}
+
+			continue
 		}
 
-		if envoyFilterConfig != nil && !found {
-			// this is a new item, append it and sort the slice
+		envoyFilter := slices.FindFunc(envoyFilters, func(envoyFilter *EnvoyFilterWrapper) bool {
+			return envoyFilter.Name == changedEnvoyFilter.Name
+		})
+
+		if envoyFilter != nil {
+			*envoyFilter = convertToEnvoyFilterWrapper(envoyFilterConfig)
+		} else {
 			envoyFilters = append(envoyFilters, convertToEnvoyFilterWrapper(envoyFilterConfig))
 			sort.Slice(envoyFilters, func(i, j int) bool {
 				ifilter := envoyFilters[i]
