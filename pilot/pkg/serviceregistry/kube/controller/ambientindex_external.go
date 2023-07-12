@@ -262,12 +262,17 @@ func (a *AmbientIndexImpl) handleWorkloadEntry(oldWorkloadEntry, w *apiv1alpha3.
 	}
 
 	wlNetwork := c.Network(w.Spec.Address, w.Spec.Labels).String()
-	networkAddr := networkAddress{network: wlNetwork, ip: w.Spec.Address}
+	var networkAddr *networkAddress
+	if addr := w.Spec.Address; addr != "" {
+		networkAddr = &networkAddress{network: wlNetwork, ip: addr}
+	}
 	uid := c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())
 	oldWl := a.byUID[uid]
 	if wl == nil {
 		// This is an explicit delete event, or there is no longer a Workload to create (VM NotReady, etc)
-		delete(a.byWorkloadEntry, networkAddr)
+		if networkAddr != nil {
+			delete(a.byWorkloadEntry, *networkAddr)
+		}
 		delete(a.byUID, uid)
 		if oldWl != nil {
 			// If we already knew about this workload, we need to make sure we drop all service references as well
@@ -288,7 +293,9 @@ func (a *AmbientIndexImpl) handleWorkloadEntry(oldWorkloadEntry, w *apiv1alpha3.
 		log.Debugf("%v: no change, skipping", wl.ResourceName())
 		return updates
 	}
-	a.byWorkloadEntry[networkAddr] = wl
+	if networkAddr != nil {
+		a.byWorkloadEntry[*networkAddr] = wl
+	}
 	a.byUID[uid] = wl
 	if oldWl != nil {
 		// For updates, we will drop the services and then add the new ones back. This could be optimized
@@ -310,13 +317,6 @@ func (a *AmbientIndexImpl) constructWorkloadFromWorkloadEntry(workloadEntry *v1a
 	parentServiceEntry *apiv1alpha3.ServiceEntry, waypoint *workloadapi.GatewayAddress, policies []string, c *Controller,
 ) *workloadapi.Workload {
 	if workloadEntry == nil {
-		return nil
-	}
-
-	// TODO support WorkloadEntry's with empty address
-	// only add if waypoint exists?
-	if workloadEntry.Address == "" {
-		log.Warnf("workloadentry %s/%s does not have an address", workloadEntryNamespace, workloadEntryName)
 		return nil
 	}
 
@@ -357,18 +357,22 @@ func (a *AmbientIndexImpl) constructWorkloadFromWorkloadEntry(workloadEntry *v1a
 		}
 	}
 
-	// this can fail if the address is DNS, e.g. "external.external-1-15569.svc.cluster.local"
-	addr, err := netip.ParseAddr(workloadEntry.Address)
-	if err != nil {
-		log.Errorf("skipping ambient workload generation for workload entry %s/%s."+
-			"client DNS address resolution is not implemented in ztunnel yet: requested address %v",
-			workloadEntryNamespace, workloadEntryName, workloadEntry.Address)
-		return nil
+	var addrBytes []byte
+	if workloadEntry.Address != "" {
+		// this can fail if the address is DNS, e.g. "external.external-1-15569.svc.cluster.local"
+		addr, err := netip.ParseAddr(workloadEntry.Address)
+		if err != nil {
+			log.Errorf("skipping ambient workload generation for workload entry %s/%s."+
+				"client DNS address resolution is not implemented in ztunnel yet: requested address: %v",
+				workloadEntryNamespace, workloadEntryName, workloadEntry.Address)
+			return nil
+		}
+		addrBytes = addr.AsSlice()
 	}
 
 	uid := c.generateWorkloadEntryUID(workloadEntryNamespace, workloadEntryName)
 	if parentServiceEntry != nil {
-		uid = c.generateServiceEntryUID(parentServiceEntry.GetNamespace(), parentServiceEntry.GetName(), addr.String())
+		uid = c.generateServiceEntryUID(parentServiceEntry.GetNamespace(), parentServiceEntry.GetName(), workloadEntry.Address)
 	}
 
 	network := c.Network(workloadEntry.Address, workloadEntry.Labels).String()
@@ -376,11 +380,16 @@ func (a *AmbientIndexImpl) constructWorkloadFromWorkloadEntry(workloadEntry *v1a
 		network = workloadEntry.Network
 	}
 
+	var addresses [][]byte
+	if addrBytes != nil {
+		addresses = [][]byte{addrBytes}
+	}
+
 	wl := &workloadapi.Workload{
 		Uid:                   uid,
 		Name:                  workloadEntryName,
 		Namespace:             workloadEntryNamespace,
-		Addresses:             [][]byte{addr.AsSlice()},
+		Addresses:             addresses,
 		Network:               network,
 		ServiceAccount:        workloadEntry.ServiceAccount,
 		Services:              workloadServices,
@@ -411,7 +420,7 @@ func (a *AmbientIndexImpl) constructWorkloadFromWorkloadEntry(workloadEntry *v1a
 }
 
 // updateWaypointForWorkload updates the Waypoint configuration for the given Workload(Pod/WorkloadEntry)
-func (a *AmbientIndexImpl) updateWaypointForWorkload(byWorkload map[networkAddress]*model.WorkloadInfo, scope model.WaypointScope,
+func (a *AmbientIndexImpl) updateWaypointForWorkload(byWorkload map[string]*model.WorkloadInfo, scope model.WaypointScope,
 	addr *workloadapi.GatewayAddress, isDelete bool, updates sets.Set[model.ConfigKey],
 ) {
 	for _, wl := range byWorkload {

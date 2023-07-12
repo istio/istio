@@ -150,10 +150,11 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	if proxy.Metadata != nil && proxy.Metadata.Raw[secconst.CredentialMetaDataName] == "true" {
 		credentialSocketExist = true
 	}
+	validateClient := ctx.RequireClientCertificate.Value || serverTLSSettings.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL
 
 	switch {
 	case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, validateClient)
 	// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
 	case serverTLSSettings.CredentialName != "":
 		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
@@ -167,7 +168,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 			TLSServerRootCert:  serverTLSSettings.CaCertificates,
 		}
 
-		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, validateClient)
 	}
 
 	if isSimpleOrMutual(serverTLSSettings.Mode) {
@@ -207,7 +208,7 @@ func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx
 }
 
 func isSimpleOrMutual(mode networking.ServerTLSSettings_TLSmode) bool {
-	return mode == networking.ServerTLSSettings_SIMPLE || mode == networking.ServerTLSSettings_MUTUAL
+	return mode == networking.ServerTLSSettings_SIMPLE || mode == networking.ServerTLSSettings_MUTUAL || mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL
 }
 
 func tlsParamsOrNew(tlsContext *auth.CommonTlsContext) *auth.TlsParameters {
@@ -385,6 +386,12 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				Name:     egressListener.IstioListener.Port.Name,
 			}
 
+			if conflictWithStaticListener(node, bind, listenPort.Port, listenPort.Protocol) {
+				log.Warnf("buildSidecarOutboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+					egressListener.IstioListener.Port.Number, node.ID)
+				continue
+			}
+
 			var extraBind []string
 			if egressListener.IstioListener.Bind == "" {
 				if bindToPort {
@@ -457,8 +464,14 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					if !node.CanBindToPort(bindToPort, uint32(servicePort.Port)) {
 						// here, we log at DEBUG level instead of WARN to avoid noise
 						// when the catch all egress listener hits ports 80 and 443
-						log.Debugf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
-							servicePort.Port, node.ID)
+						log.Debugf("buildSidecarOutboundListeners: skipping privileged service port %s:%d for node %s as it is an unprivileged proxy",
+							service.Hostname, servicePort.Port, node.ID)
+						continue
+					}
+
+					if conflictWithStaticListener(node, bind, servicePort.Port, servicePort.Protocol) {
+						log.Debugf("buildSidecarOutboundListeners: skipping service port %s:%d for node %s as it conflicts with static listener",
+							service.Hostname, servicePort.Port, node.ID)
 						continue
 					}
 
@@ -1678,4 +1691,24 @@ func outboundTunnelListener(proxy *model.Proxy) *listener.Listener {
 		canonicalName, canonicalRevision,
 	)
 	return buildConnectOriginateListener(baggage)
+}
+
+// conflictWithStaticListener checks whether the listener address bind:port conflicts with static listener port
+// default is 15021 and 15090
+func conflictWithStaticListener(proxy *model.Proxy, bind string, port int, protocol protocol.Instance) bool {
+	if bind != "" {
+		if bind != wildCards[proxy.GetIPMode()][0] {
+			return false
+		}
+	} else if !protocol.IsHTTP() {
+		// if the protocol is HTTP and bind == "", the listener address will be 0.0.0.0:port
+		return false
+	}
+
+	// bind == wildcard
+	// or bind unspecified, but protocol is HTTP
+	if proxy.Metadata == nil {
+		return false
+	}
+	return proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port
 }

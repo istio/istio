@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/netip"
 	"os"
 	"path"
 	"sort"
@@ -146,8 +145,11 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		if features.EnableDualStack {
 			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
 			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
-			netIP, _ := netip.ParseAddr(cfg.Metadata.InstanceIPs[0])
-			if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
+			ipFamily, err := network.CheckIPFamilyTypeForFirstIPs(cfg.Metadata.InstanceIPs)
+			if err != nil {
+				return nil, err
+			}
+			if ipFamily == network.IPv6 {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv6),
 					option.Wildcard(option.WildcardIPv6),

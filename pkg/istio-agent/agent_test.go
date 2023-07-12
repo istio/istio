@@ -315,6 +315,20 @@ func TestAgent(t *testing.T) {
 			_ = os.RemoveAll(dir)
 		})
 	})
+
+	t.Run("Unhealthy SDS socket - required", func(t *testing.T) {
+		// starting an unresponsive listener on the socket
+		a := NewAgent(nil, &AgentOptions{UseExternalWorkloadSDS: true}, nil, envoy.ProxyConfig{})
+		ctx, done := context.WithCancel(context.Background())
+		_, err := a.Run(ctx)
+		if err == nil {
+			t.Fatalf("expected to return an error if SDS socket not provided")
+		}
+		t.Cleanup(done)
+		t.Cleanup(func() {
+			a.Close()
+		})
+	})
 	t.Run("Workload certificates", func(t *testing.T) {
 		dir := security.WorkloadIdentityCredentialsPath
 		if err := os.MkdirAll(dir, 0o755); err != nil {

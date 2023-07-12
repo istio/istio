@@ -88,7 +88,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				ConfigsUpdated: sets.Set[ConfigKey]{
 					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
 				},
-				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate},
+				Reason: NewReasonStats(ServiceUpdate, ServiceUpdate),
 			},
 			&PushRequest{
 				Full:  false,
@@ -97,7 +97,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				ConfigsUpdated: sets.Set[ConfigKey]{
 					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
-				Reason: []TriggerReason{EndpointUpdate},
+				Reason: NewReasonStats(EndpointUpdate),
 			},
 			PushRequest{
 				Full:  true,
@@ -107,7 +107,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
 					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
-				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
+				Reason: NewReasonStats(ServiceUpdate, ServiceUpdate, EndpointUpdate),
 			},
 		},
 		{
@@ -135,17 +135,17 @@ func TestMergeUpdateRequest(t *testing.T) {
 }
 
 func TestConcurrentMerge(t *testing.T) {
-	reqA := &PushRequest{Reason: make([]TriggerReason, 0, 100)}
-	reqB := &PushRequest{Reason: []TriggerReason{ServiceUpdate, ProxyUpdate}}
+	reqA := &PushRequest{Reason: make(ReasonStats)}
+	reqB := &PushRequest{Reason: NewReasonStats(ServiceUpdate, ProxyUpdate)}
 	for i := 0; i < 50; i++ {
 		go func() {
 			reqA.CopyMerge(reqB)
 		}()
 	}
-	if len(reqA.Reason) != 0 {
+	if reqA.Reason.Count() != 0 {
 		t.Fatalf("reqA modified: %v", reqA.Reason)
 	}
-	if len(reqB.Reason) != 2 {
+	if reqB.Reason.Count() != 2 {
 		t.Fatalf("reqB modified: %v", reqB.Reason)
 	}
 }
@@ -2692,16 +2692,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 			Gateways: []string{gatewayName},
 			Http: []*networking.HTTPRoute{
 				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "test",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{},
 				},
 			},
 		},
@@ -2714,11 +2705,11 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	}
 
 	env.ConfigStore = configStore
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 	ps.initTelemetry(env)
 	ps.initDefaultExportMaps()
 	ps.initVirtualServices(env)
-	got := sets.String{}
-	addHostsFromMeshConfig(ps, got)
+	got := ps.virtualServiceIndex.destinationsByGateway[gatewayName]
 	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, sets.SortedList(got))
 }
 

@@ -466,7 +466,6 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, listenerHosts)
 	svces := ps.servicesExportedToNamespace(configNamespace)
 	out.services = out.selectServices(svces, configNamespace, listenerHosts)
-
 	return out
 }
 

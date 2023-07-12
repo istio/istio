@@ -141,7 +141,7 @@ func (sd *ServiceDiscovery) AddServiceNotify(svc *model.Service) {
 		Full:           true,
 		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace}),
 
-		Reason: []model.TriggerReason{model.ServiceUpdate},
+		Reason: model.NewReasonStats(model.ServiceUpdate),
 	}
 	sd.XdsUpdater.ConfigUpdate(pushReq)
 }
@@ -195,7 +195,7 @@ func (sd *ServiceDiscovery) AddInstanceNotify(service host.Name, instance *model
 	key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
 	instanceList = sd.instancesByPortName[key]
 	sd.instancesByPortName[key] = append(instanceList, instance)
-	var eps []*model.IstioEndpoint
+	eps := make([]*model.IstioEndpoint, 0, len(sd.instancesByPortName[key]))
 	for _, i := range sd.instancesByPortName[key] {
 		eps = append(eps, i.Endpoint)
 	}
