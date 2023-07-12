@@ -17,7 +17,6 @@ package model
 import (
 	"regexp"
 	"strings"
-	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -30,12 +29,10 @@ import (
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
-	Name              string
-	Namespace         string
-	workloadSelector  labels.Instance
-	Patches           map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
-	CreationTimestamp time.Time
-	Priority          int32
+	Name             string
+	Namespace        string
+	workloadSelector labels.Instance
+	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
 }
 
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
@@ -76,10 +73,8 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
 
 	out := &EnvoyFilterWrapper{
-		Name:              local.Name,
-		Namespace:         local.Namespace,
-		CreationTimestamp: local.CreationTimestamp,
-		Priority:          localEnvoyFilter.Priority,
+		Name:      local.Name,
+		Namespace: local.Namespace,
 	}
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
