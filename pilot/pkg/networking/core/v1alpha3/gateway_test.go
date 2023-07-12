@@ -3421,16 +3421,17 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			proxyConfig: &pilot_model.NodeMetaProxyConfig{
 				GatewayTopology: &meshconfig.Topology{ProxyProtocol: &meshconfig.Topology_ProxyProtocolConfiguration{}},
 			},
-			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
-				{
-					NetworkFilters: []string{wellknown.HTTPConnectionManager},
-					HTTPFilters: []string{
-						xdsfilters.MxFilterName,
-						xdsfilters.Alpn.GetName(),
-						xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
+			expectedListener: listenertest.ListenerTest{
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						NetworkFilters: []string{wellknown.HTTPConnectionManager},
+						HTTPFilters: []string{
+							xdsfilters.MxFilterName,
+							xdsfilters.Alpn.GetName(),
+							xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
+						},
 					},
 				},
-			},
 				Filters: []string{wellknown.ProxyProtocol},
 			},
 		},
@@ -3478,12 +3479,13 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 			},
-			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
-				{
-					NetworkFilters: []string{wellknown.TCPProxy},
-					HTTPFilters:    []string{},
+			expectedListener: listenertest.ListenerTest{
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						NetworkFilters: []string{wellknown.TCPProxy},
+						HTTPFilters:    []string{},
+					},
 				},
-			},
 				Filters: []string{wellknown.ProxyProtocol},
 			},
 		},

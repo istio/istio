@@ -1771,64 +1771,6 @@ spec:
 
 // 1. Creates a TCP Gateway and VirtualService listener
 // 2. Configures the echoserver to call itself via the TCP gateway using PROXY protocol https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
-// 3. Assumes that the proxy filter EnvoyFilter is not applied
-func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
-	var cases []TrafficTestCase
-	gatewayListenPort := 80
-	gatewayListenPortName := "tcp"
-
-	destinationSets := []echo.Instances{
-		apps.A,
-	}
-
-	for _, d := range destinationSets {
-		d := d
-		if len(d) == 0 {
-			continue
-		}
-
-		fqdn := d[0].Config().ClusterLocalFQDN()
-		cases = append(cases, TrafficTestCase{
-			name: d[0].Config().Service,
-			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
-			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP", "") + // use the default label since this test creates its own gateway
-				tcpVirtualService("gateway", fqdn, "", 80, ports.TCP.ServicePort),
-			call: apps.Naked[0].CallOrFail,
-			opts: echo.CallOptions{
-				Count:                1,
-				Port:                 echo.Port{ServicePort: 80},
-				Scheme:               scheme.TCP,
-				Address:              gateway,
-				ProxyProtocolVersion: 1,
-				// Envoy requires PROXY protocol TCP payloads have a minimum size, see:
-				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto
-				//
-				// If the PROXY protocol filter is enabled,
-				// Envoy will parse and consume the header out of the TCP payload, otherwise echo it back as-is)
-				//
-				// Note that Envoy's behavior is odd here and contradicts the PROXY protocol spec - it should _terminate the connection_ if it
-				// is configured to expect PROXY protocol headers and does not get them - instead, it ignores them for TCP traffic, as this test demonstrates.
-				Message: "This is a test TCP message",
-				Check: check.Each(
-					func(r echoClient.Response) error {
-						body := r.RawContent
-						// Tests run for both TCP4 and 6
-						ok := (strings.Contains(body, "PROXY TCP4") || strings.Contains(body, "PROXY TCP6"))
-						if !ok {
-							return fmt.Errorf("sent proxy protocol header, and it was not echoed back")
-						}
-						return nil
-					}),
-			},
-		},
-		)
-	}
-	return cases
-}
-
-// 1. Creates a TCP Gateway and VirtualService listener
-// 2. Configures the echoserver to call itself via the TCP gateway using PROXY protocol https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 // 3. Assumes that the proxy filter EnvoyFilter is applied
 func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
 	var cases []TrafficTestCase

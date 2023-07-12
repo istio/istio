@@ -109,19 +109,24 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				continue
 			}
 
+			needPROXYProtocol := transport != istionetworking.TransportProtocolQUIC &&
+				proxyConfig.GatewayTopology != nil &&
+				proxyConfig.GatewayTopology.ProxyProtocol != nil
+
 			// on a given port, we can either have plain text HTTP servers or
 			// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 			// We can also have QUIC on a given port along with HTTPS/TLS on a given port. It does not
 			// cause port-conflict as they use different transport protocols
 			opts := &buildListenerOpts{
-				push:       builder.push,
-				proxy:      builder.node,
-				bind:       bind,
-				extraBind:  extraBind,
-				port:       &model.Port{Port: int(port.Number)},
-				bindToPort: true,
-				class:      istionetworking.ListenerClassGateway,
-				transport:  transport,
+				push:              builder.push,
+				proxy:             builder.node,
+				bind:              bind,
+				extraBind:         extraBind,
+				port:              &model.Port{Port: int(port.Number)},
+				bindToPort:        true,
+				class:             istionetworking.ListenerClassGateway,
+				transport:         transport,
+				needPROXYProtocol: needPROXYProtocol,
 			}
 			lname := getListenerName(bind, int(port.Number), transport)
 			p := protocol.Parse(port.Protocol)
@@ -178,11 +183,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			continue
 		}
 		listeners = append(listeners, ml.mutable.Listener)
-	}
-	if proxyConfig.GatewayTopology != nil && proxyConfig.GatewayTopology.ProxyProtocol != nil {
-		for _, listener := range listeners {
-			listener.ListenerFilters = append(listener.ListenerFilters, xdsfilters.ProxyProtocol)
-		}
 	}
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err := errs.ErrorOrNil()
