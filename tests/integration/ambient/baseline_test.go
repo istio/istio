@@ -1133,7 +1133,6 @@ func TestMTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
 		Run(func(t framework.TestContext) {
-			t.Skip("https://github.com/istio/istio/issues/42696")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
 			mtlsOnExpect := func(from echo.Instance, opts echo.CallOptions) bool {
@@ -1174,10 +1173,6 @@ func TestMTLS(t *testing.T) {
 							}
 							if !from.Config().HasProxyCapabilities() && opts.To.Config().HasWaypointProxy() {
 								// TODO: support hairpin
-								return true
-							}
-							if !from.Config().HasProxyCapabilities() && !opts.To.Config().HasSidecar() {
-								// TODO: https://github.com/istio/istio/issues/42696
 								return true
 							}
 							return false
@@ -1228,10 +1223,6 @@ func TestMTLS(t *testing.T) {
 					Namespace:  apps.Namespace,
 					Include:    Always,
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
-						if !from.Config().HasProxyCapabilities() && !opts.To.Config().HasSidecar() {
-							// TODO: https://github.com/istio/istio/issues/42696
-							return true
-						}
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
 						// have proxy neither.
 						if !from.Config().HasProxyCapabilities() {
