@@ -118,7 +118,7 @@ ISTIO_ZTUNNEL_BASE_URL="${ISTIO_ZTUNNEL_BASE_URL:-https://storage.googleapis.com
 
 # If we are not using the default, assume its private and we need to authenticate
 if [[ "${ISTIO_ZTUNNEL_BASE_URL}" != "https://storage.googleapis.com/istio-build/ztunnel" ]]; then
-  AUTH_HEADER="Authorization: Bearer $(shell gcloud auth print-access-token)"
+  AUTH_HEADER="Authorization: Bearer $(gcloud auth print-access-token)"
   export AUTH_HEADER
 fi
 
