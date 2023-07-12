@@ -208,7 +208,7 @@ func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx
 }
 
 func isSimpleOrMutual(mode networking.ServerTLSSettings_TLSmode) bool {
-	return mode == networking.ServerTLSSettings_SIMPLE || mode == networking.ServerTLSSettings_MUTUAL
+	return mode == networking.ServerTLSSettings_SIMPLE || mode == networking.ServerTLSSettings_MUTUAL || mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL
 }
 
 func tlsParamsOrNew(tlsContext *auth.CommonTlsContext) *auth.TlsParameters {
