@@ -72,10 +72,7 @@ var wellKnownVersions = map[string]string{
 func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
 
-	out := &EnvoyFilterWrapper{
-		Name:      local.Name,
-		Namespace: local.Namespace,
-	}
+	out := &EnvoyFilterWrapper{Name: local.Name, Namespace: local.Namespace}
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
 	}
