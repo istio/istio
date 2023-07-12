@@ -1387,11 +1387,7 @@ func (ps *PushContext) updateContext(
 	}
 
 	if envoyFiltersChanged {
-		if features.OptimizedConfigRebuild {
-			ps.initEnvoyFilters(env, changedEnvoyFilters, oldPushContext.envoyFiltersByNamespace)
-		} else {
-			ps.initEnvoyFilters(env, changedEnvoyFilters, nil)
-		}
+		ps.initEnvoyFilters(env, changedEnvoyFilters, oldPushContext.envoyFiltersByNamespace)
 	} else {
 		ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
 	}
@@ -1944,9 +1940,11 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[ConfigKey], previousIndex map[string][]*EnvoyFilterWrapper) {
 	envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
 	previous := make(map[ConfigKey]*EnvoyFilterWrapper)
-	for namespace, nsEnvoyFilters := range previousIndex {
-		for _, envoyFilter := range nsEnvoyFilters {
-			previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
+	if features.OptimizedConfigRebuild {
+		for namespace, nsEnvoyFilters := range previousIndex {
+			for _, envoyFilter := range nsEnvoyFilters {
+				previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
+			}
 		}
 	}
 
