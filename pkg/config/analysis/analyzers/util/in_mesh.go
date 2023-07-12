@@ -36,7 +36,7 @@ func DeploymentInMesh(r *resource.Instance, c analysis.Context) bool {
 func PodInMesh(r *resource.Instance, c analysis.Context) bool {
 	p := r.Message.(*v1.PodSpec)
 	return inMesh(r.Metadata.Annotations, r.Metadata.Labels,
-		r.Metadata.FullName.Namespace, p.Containers, c)
+		r.Metadata.FullName.Namespace, append(p.Containers, p.InitContainers...), c)
 }
 
 // PodInAmbientMode returns true if a Pod is in the service mesh with the ambient mode

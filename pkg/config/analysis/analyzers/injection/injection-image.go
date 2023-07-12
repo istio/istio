@@ -119,7 +119,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		for _, container := range pod.Containers {
+		for _, container := range append(pod.Containers, pod.InitContainers...) {
 			if container.Name != util.IstioProxyName {
 				continue
 			}

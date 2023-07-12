@@ -153,7 +153,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		proxyImage := ""
-		for _, container := range pod.Containers {
+		for _, container := range append(pod.Containers, pod.InitContainers...) {
 			if container.Name == util.IstioProxyName {
 				proxyImage = container.Image
 				break
