@@ -164,7 +164,7 @@ spec:
         proxy.istio.io/config: |
           gatewayTopology:
             numTrustedProxies: 1
-          proxyProtocol: {}
+            proxyProtocol: {}
       labels:
         istio: ingressgateway
         {{ .injectLabel }}
