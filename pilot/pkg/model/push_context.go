@@ -1390,7 +1390,7 @@ func (ps *PushContext) updateContext(
 		if features.OptimizedConfigRebuild {
 			ps.initEnvoyFilters(env, changedEnvoyFilters, oldPushContext.envoyFiltersByNamespace)
 		} else {
-			ps.initEnvoyFilters(env, nil, nil)
+			ps.initEnvoyFilters(env, changedEnvoyFilters, nil)
 		}
 	} else {
 		ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
