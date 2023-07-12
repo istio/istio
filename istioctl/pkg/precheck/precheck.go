@@ -55,8 +55,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-var revision string
-
 func Cmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var skipControlPlane bool
@@ -71,7 +69,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
   # Check only a single namespace
   istioctl x precheck --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			cli, err := ctx.CLIClientWithRevision(revision)
+			cli, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}

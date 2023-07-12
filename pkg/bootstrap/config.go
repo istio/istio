@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/netip"
 	"os"
 	"path"
 	"sort"
@@ -146,8 +145,11 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		if features.EnableDualStack {
 			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
 			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
-			netIP, _ := netip.ParseAddr(cfg.Metadata.InstanceIPs[0])
-			if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
+			ipFamily, err := network.CheckIPFamilyTypeForFirstIPs(cfg.Metadata.InstanceIPs)
+			if err != nil {
+				return nil, err
+			}
+			if ipFamily == network.IPv6 {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv6),
 					option.Wildcard(option.WildcardIPv6),
@@ -300,13 +302,13 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
-func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
+func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
 	// Setup defaults
-	runtimeFlags := map[string]string{
-		"overload.global_downstream_max_connections":                                                           "2147483647",
-		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": "true",
-		"re2.max_program_size.error_level":                                                                     "32768",
-		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
+	runtimeFlags := map[string]any{
+		"overload.global_downstream_max_connections": "2147483647",
+		"re2.max_program_size.error_level":           "32768",
+		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted
@@ -318,7 +320,17 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 			delete(runtimeFlags, k)
 			continue
 		}
-		runtimeFlags[k] = v
+		// Envoy used to allow everything as string but stopped in https://github.com/envoyproxy/envoy/issues/27434
+		// However, our API always takes in strings.
+		// Convert strings to bools for backwards compat.
+		switch v {
+		case "false":
+			runtimeFlags[k] = false
+		case "true":
+			runtimeFlags[k] = true
+		default:
+			runtimeFlags[k] = v
+		}
 	}
 	return runtimeFlags
 }

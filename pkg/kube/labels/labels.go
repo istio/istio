@@ -18,6 +18,21 @@ package labels
 
 import "istio.io/istio/pilot/pkg/model"
 
+var (
+	// These are the labels that are checked for canonical service name and revision.
+	// Note: the order of these labels is important.
+	nameLabels = []string{
+		model.IstioCanonicalServiceLabelName,
+		"app.kubernetes.io/name",
+		"app",
+	}
+	revisionLabels = []string{
+		model.IstioCanonicalServiceRevisionLabelName,
+		"app.kubernetes.io/version",
+		"version",
+	}
+)
+
 // CanonicalService returns the values of the following labels from the supplied map:
 // - service.istio.io/canonical-name
 // - service.istio.io/canonical-revision
@@ -30,34 +45,39 @@ func CanonicalService(labels map[string]string, workloadName string) (string, st
 	return canonicalServiceName(labels, workloadName), canonicalServiceRevision(labels)
 }
 
+// lookupLabelValue returns the value of the first label in the supplied map that matches
+// one of the supplied keys.
+func lookupLabelValue(labels map[string]string, keys ...string) (string, bool) {
+	for _, key := range keys {
+		if value, ok := labels[key]; ok {
+			return value, true
+		}
+	}
+	return "", false
+}
+
+func HasCanonicalServiceName(labels map[string]string) bool {
+	_, ok := lookupLabelValue(labels, nameLabels...)
+	return ok
+}
+
+func HasCanonicalServiceRevision(labels map[string]string) bool {
+	_, ok := lookupLabelValue(labels, revisionLabels...)
+	return ok
+}
+
 func canonicalServiceRevision(labels map[string]string) string {
-	if rev, ok := labels[model.IstioCanonicalServiceRevisionLabelName]; ok {
-		return rev
+	value, ok := lookupLabelValue(labels, revisionLabels...)
+	if !ok {
+		return "latest"
 	}
-
-	if rev, ok := labels["app.kubernetes.io/version"]; ok {
-		return rev
-	}
-
-	if rev, ok := labels["version"]; ok {
-		return rev
-	}
-
-	return "latest"
+	return value
 }
 
 func canonicalServiceName(labels map[string]string, workloadName string) string {
-	if svc, ok := labels[model.IstioCanonicalServiceLabelName]; ok {
-		return svc
+	value, ok := lookupLabelValue(labels, nameLabels...)
+	if !ok {
+		return workloadName
 	}
-
-	if svc, ok := labels["app.kubernetes.io/name"]; ok {
-		return svc
-	}
-
-	if svc, ok := labels["app"]; ok {
-		return svc
-	}
-
-	return workloadName
+	return value
 }

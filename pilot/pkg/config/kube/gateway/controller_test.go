@@ -147,7 +147,7 @@ func TestNamespaceEvent(t *testing.T) {
 	c.RegisterEventHandler(gvk.Namespace, func(_, cfg config.Config, _ model.Event) {
 		s.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.NamespaceUpdate},
+			Reason: model.NewReasonStats(model.NamespaceUpdate),
 		})
 	})
 

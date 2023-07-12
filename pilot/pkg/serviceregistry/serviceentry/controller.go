@@ -185,6 +185,19 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options
 	return s
 }
 
+// ConvertServiceEntry convert se from Config.Spec.
+func ConvertServiceEntry(cfg config.Config) *networking.ServiceEntry {
+	se := cfg.Spec.(*networking.ServiceEntry)
+	if se == nil {
+		return nil
+	}
+
+	// shallow copy
+	copied := &networking.ServiceEntry{}
+	protomarshal.ShallowCopy(copied, se)
+	return copied
+}
+
 // ConvertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
 func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 	wle := cfg.Spec.(*networking.WorkloadEntry)
@@ -325,7 +338,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	pushReq := &model.PushRequest{
 		Full:           true,
 		ConfigsUpdated: configsUpdated,
-		Reason:         []model.TriggerReason{model.EndpointUpdate},
+		Reason:         model.NewReasonStats(model.EndpointUpdate),
 	}
 	// trigger a full push
 	s.XdsUpdater.ConfigUpdate(pushReq)
@@ -460,7 +473,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	pushReq := &model.PushRequest{
 		Full:           true,
 		ConfigsUpdated: configsUpdated,
-		Reason:         []model.TriggerReason{model.ServiceUpdate},
+		Reason:         model.NewReasonStats(model.ServiceUpdate),
 	}
 	s.XdsUpdater.ConfigUpdate(pushReq)
 }
@@ -602,7 +615,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: configsUpdated,
-			Reason:         []model.TriggerReason{model.EndpointUpdate},
+			Reason:         model.NewReasonStats(model.EndpointUpdate),
 		}
 		s.XdsUpdater.ConfigUpdate(pushReq)
 	}
