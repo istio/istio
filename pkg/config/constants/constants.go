@@ -168,8 +168,8 @@ const (
 	GatewayNameLabel = "istio.io/gateway-name"
 
 	// TODO formalize this API
-  // TODO additional values to represent passthrough and hbone or both
-	ListenerModeOption           = "gateway.istio.io/listener-protocol"
+	// TODO additional values to represent passthrough and hbone or both
+	ListenerModeOption          = "gateway.istio.io/listener-protocol"
 	ListenerModeAutoPassthrough = "auto-passthrough"
 
 	// DataplaneMode namespace label for determining ambient mesh behavior
