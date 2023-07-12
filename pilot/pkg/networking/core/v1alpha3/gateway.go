@@ -179,6 +179,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		}
 		listeners = append(listeners, ml.mutable.Listener)
 	}
+	if proxyConfig.GatewayTopology != nil && proxyConfig.GatewayTopology.ProxyProtocol != nil {
+		for _, listener := range listeners {
+			listener.ListenerFilters = append(listener.ListenerFilters, xdsfilters.ProxyProtocol)
+		}
+	}
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err := errs.ErrorOrNil()
 	if err != nil {

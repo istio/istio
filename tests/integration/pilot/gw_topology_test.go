@@ -164,6 +164,7 @@ spec:
         proxy.istio.io/config: |
           gatewayTopology:
             numTrustedProxies: 1
+          proxyProtocol: {}
       labels:
         istio: ingressgateway
         {{ .injectLabel }}
@@ -185,33 +186,8 @@ spec:
 				return err
 			}, retry.Timeout(time.Minute*2), retry.Delay(time.Second))
 
-			t.NewSubTest("nofilter").Run(func(t framework.TestContext) {
-				for _, tt := range common.ProxyProtocolFilterNotAppliedGatewayCase(&apps, fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name())) {
-					tt.Run(t, apps.Namespace.Name())
-				}
-			})
-
 			// Apply an envoy filter in a subtest to the existing gateway
 			t.NewSubTest("filter").Run(func(t framework.TestContext) {
-				t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: v1
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: proxy-protocol
-spec:
-  configPatches:
-  - applyTo: LISTENER_FILTER
-    patch:
-      operation: INSERT_FIRST
-      value:
-        name: proxy_protocol
-        typed_config:
-          "@type": "type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol"
-  workloadSelector:
-    labels:
-      istio: ingressgateway
----
-`).ApplyOrFail(t, apply.CleanupConditionally)
 				for _, tt := range common.ProxyProtocolFilterAppliedGatewayCase(&apps, fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name())) {
 					tt.Run(t, apps.Namespace.Name())
 				}
