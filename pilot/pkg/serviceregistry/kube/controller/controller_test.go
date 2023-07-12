@@ -1332,7 +1332,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		controller *FakeController,
 	) {
 		// update meshConfig
-		if err := testMeshWatcher.Update(meshConfig, 5); err != nil {
+		if err := testMeshWatcher.Update(meshConfig, time.Second*5); err != nil {
 			t.Fatalf("%v", err)
 		}
 
@@ -1531,7 +1531,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	) {
 		t.Helper()
 		// update meshConfig
-		if err := testMeshWatcher.Update(meshConfig, 5); err != nil {
+		if err := testMeshWatcher.Update(meshConfig, time.Second*5); err != nil {
 			t.Fatalf("%v", err)
 		}
 
