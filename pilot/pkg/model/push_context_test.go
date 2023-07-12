@@ -445,7 +445,7 @@ func TestEnvoyFilterOrder(t *testing.T) {
 
 	// Init a new push context
 	pc := NewPushContext()
-	pc.initEnvoyFilters(env)
+	pc.initEnvoyFilters(env, nil, nil)
 	gotns := make([]string, 0)
 	for _, filter := range pc.envoyFiltersByNamespace["testns"] {
 		gotns = append(gotns, filter.Keys()...)
