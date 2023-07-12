@@ -133,13 +133,6 @@ func TestServices(t *testing.T) {
 			opt.Check = tcpValidator
 		}
 
-		if src.Config().IsUncaptured() && dst.Config().HasWaypointProxy() {
-			// For this case, it is broken if the src and dst are on the same node.
-			// Because client request is not captured to perform the hairpin
-			// TODO(https://github.com/istio/istio/issues/43238): fix this and remove this skip
-			opt.Check = check.OK()
-		}
-
 		if !dst.Config().HasWaypointProxy() &&
 			!src.Config().HasWaypointProxy() &&
 			(src.Config().Service != dst.Config().Service) &&
@@ -263,10 +256,6 @@ func TestServerRouting(t *testing.T) {
 		if !dst.Config().HasWaypointProxy() {
 			return
 		}
-		if src.Config().IsUncaptured() {
-			// TODO: fix this and remove this skip
-			t.Skip("https://github.com/istio/istio/issues/43238")
-		}
 		t.NewSubTest("set header").Run(func(t framework.TestContext) {
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": dst.Config().Service,
@@ -346,10 +335,6 @@ func TestWaypointEnvoyFilter(t *testing.T) {
 		if !dst.Config().HasWaypointProxy() {
 			return
 		}
-		if src.Config().IsUncaptured() {
-			// TODO: fix this and remove this skip
-			t.Skip("https://github.com/istio/istio/issues/43238")
-		}
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Destination": dst.Config().Service,
 		}, `apiVersion: networking.istio.io/v1alpha3
@@ -419,10 +404,6 @@ func TestTrafficSplit(t *testing.T) {
 		}
 		if !dst.Config().HasWaypointProxy() {
 			return
-		}
-		if src.Config().IsUncaptured() {
-			// TODO: fix this and remove this skip
-			t.Skip("https://github.com/istio/istio/issues/43238")
 		}
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 			"Destination": dst.Config().Service,
@@ -610,11 +591,6 @@ spec:
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
-			if src.Config().IsUncaptured() {
-				// For this case, it is broken if the src and dst are on the same node.
-				// TODO: fix this and remove this skip
-				t.Skip("https://github.com/istio/istio/issues/43238")
-			}
 
 			t.NewSubTest("permissive").Run(func(t framework.TestContext) {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
@@ -679,11 +655,6 @@ spec:
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
-			if src.Config().IsUncaptured() {
-				// For this case, it is broken if the src and dst are on the same node.
-				// TODO: fix this and remove this skip
-				t.Skip("https://github.com/istio/istio/issues/43238")
-			}
 
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
@@ -954,10 +925,6 @@ spec:
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
-			if src.Config().IsUncaptured() {
-				// TODO: fix this and remove this skip
-				t.Skip("https://github.com/istio/istio/issues/43238")
-			}
 			policySpec := `
   rules:
   - to:
