@@ -255,6 +255,12 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist),
 		}
 	}
+
+	// If the InsecureSkipVerify is true, there is no need to configure CA Cert and SAN.
+	if tlsOpts.GetInsecureSkipVerify().GetValue() {
+		return
+	}
+
 	// create SDS config for gateway to fetch certificate validation context
 	// at gateway agent.
 	defaultValidationContext := &tls.CertificateValidationContext{
