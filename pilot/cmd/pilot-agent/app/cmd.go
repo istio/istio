@@ -365,7 +365,7 @@ func applyExcludeInterfaces(ifaces []string) []string {
 				continue
 			}
 			unwrapAddr := ipAddr.Unmap()
-			if !unwrapAddr.IsValid() || unwrapAddr.IsLoopback() || unwrapAddr.IsLinkLocalUnicast() || unwrapAddr.IsLinkLocalMulticast() || unwrapAddr.IsUnspecified() {
+			if !unwrapAddr.IsValid() || unwrapAddr.IsLoopback() || unwrapAddr.IsLinkLocalMulticast() || unwrapAddr.IsUnspecified() {
 				continue
 			}
 
