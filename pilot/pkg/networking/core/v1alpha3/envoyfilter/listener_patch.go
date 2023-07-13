@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/util/runtime"
-	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
 )
@@ -499,7 +498,7 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 					retVal = filter.GetTypedConfig()
 				}
 			}
-			filter.Name = toCanonicalName(filterName)
+			filter.Name = filterName
 			if retVal != nil {
 				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: retVal}
 			}
@@ -680,7 +679,7 @@ func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 				}
 			}
 			applied = true
-			httpFilter.Name = toCanonicalName(httpFilterName)
+			httpFilter.Name = httpFilterName
 			if retVal != nil {
 				httpFilter.ConfigType = &hcm.HttpFilter_TypedConfig{TypedConfig: retVal}
 			}
@@ -788,7 +787,7 @@ func listenerFilterMatch(filter *listener.ListenerFilter, cp *model.EnvoyFilterC
 		return true
 	}
 
-	return nameMatches(cp.Match.GetListener().ListenerFilter, filter.Name)
+	return cp.Match.GetListener().ListenerFilter == filter.Name
 }
 
 func hasNetworkFilterMatch(lp *model.EnvoyFilterConfigPatchWrapper) bool {
@@ -811,7 +810,7 @@ func networkFilterMatch(filter *listener.Filter, cp *model.EnvoyFilterConfigPatc
 		return true
 	}
 
-	return nameMatches(cp.Match.GetListener().FilterChain.Filter.Name, filter.Name)
+	return cp.Match.GetListener().FilterChain.Filter.Name == filter.Name
 }
 
 func hasHTTPFilterMatch(lp *model.EnvoyFilterConfigPatchWrapper) bool {
@@ -831,7 +830,7 @@ func httpFilterMatch(filter *hcm.HttpFilter, lp *model.EnvoyFilterConfigPatchWra
 
 	match := lp.Match.GetListener().FilterChain.Filter.SubFilter
 
-	return nameMatches(match.Name, filter.Name)
+	return match.Name == filter.Name
 }
 
 func patchContextMatch(patchContext networking.EnvoyFilter_PatchContext,
@@ -844,18 +843,4 @@ func commonConditionMatch(patchContext networking.EnvoyFilter_PatchContext,
 	lp *model.EnvoyFilterConfigPatchWrapper,
 ) bool {
 	return patchContextMatch(patchContext, lp)
-}
-
-// toCanonicalName converts a deprecated filter name to the replacement, if present. Otherwise, the
-// same name is returned.
-func toCanonicalName(name string) string {
-	if nn, f := xds.ReverseDeprecatedFilterNames[name]; f {
-		return nn
-	}
-	return name
-}
-
-// nameMatches compares two filter names, matching even if a deprecated filter name is used.
-func nameMatches(matchName, filterName string) bool {
-	return matchName == filterName || matchName == xds.DeprecatedFilterNames[filterName]
 }
