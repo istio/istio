@@ -67,7 +67,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/common v0.44.0
-	github.com/prometheus/prom2json v1.3.3
 	github.com/prometheus/prometheus v0.44.0
 	github.com/quic-go/quic-go v0.35.1
 	github.com/ryanuber/go-glob v1.0.0
