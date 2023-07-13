@@ -1,3 +1,6 @@
+//go:build sd
+// +build sd
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -64,6 +67,18 @@ type stackdriverCore struct {
 }
 
 type CloseFunc func() error
+
+// TeeToStackdriver configures a parallel logging pipeline that writes logs to the Google Cloud Logging API.
+func TeeToStackdriver(project, logName string, mr *monitoredres.MonitoredResource) Extension {
+	return TeeToStackdriverWithQuotaProject(project, project, logName, mr)
+}
+
+// TeeToStackdriverWithQuotaProject configures a parallel logging pipeline that writes logs to the Google Cloud Logging API.
+func TeeToStackdriverWithQuotaProject(project, quotaProject, logName string, mr *monitoredres.MonitoredResource) Extension {
+	return func(c zapcore.Core) (zapcore.Core, func() error, error) {
+		return teeToStackdriver(c, project, quotaProject, logName, mr)
+	}
+}
 
 // teeToStackdriver returns a zapcore.Core that writes entries to both the provided core and to Stackdriver.
 func teeToStackdriver(baseCore zapcore.Core, project, quotaProject, logName string, mr *monitoredres.MonitoredResource) (zapcore.Core, CloseFunc, error) {
