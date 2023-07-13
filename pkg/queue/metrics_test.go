@@ -55,17 +55,6 @@ func BenchmarkMetricsQueueDisabled(b *testing.B) {
 	close(s)
 }
 
-func BenchmarkMetricsQueueAdd(b *testing.B) {
-	q := newQueueMetrics("test")
-	var task Task
-	task = func() error {
-		return nil
-	}
-	for n := 0; n < b.N; n++ {
-		q.add(&task)
-	}
-}
-
 func BenchmarkMetricsQueueInc(b *testing.B) {
 	q := newQueueMetrics("test")
 	for n := 0; n < b.N; n++ {
@@ -85,40 +74,5 @@ func BenchmarkMetricsQueueSinceInSeconds(b *testing.B) {
 	dt := time.Now()
 	for n := 0; n < b.N; n++ {
 		q.sinceInSeconds(dt)
-	}
-}
-
-func BenchmarkMetricsQueueGet(b *testing.B) {
-	mq := newQueueMetrics("test")
-	var task Task
-	task = func() error {
-		return nil
-	}
-	for n := 0; n < b.N; n++ {
-		mq.add(&task)
-		mq.get(&task)
-	}
-}
-
-func Test_queueMetrics_add(t *testing.T) {
-	q := newQueueMetrics("test")
-	type args struct {
-		item *Task
-	}
-	tests := []struct {
-		name string
-		args args
-	}{
-		{
-			name: "item",
-			args: args{
-				item: nil,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			q.add(tt.args.item)
-		})
 	}
 }
