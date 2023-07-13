@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 )
 
 // ImageAnalyzer checks the image of auto-injection configured with the running proxies on pods.
@@ -119,7 +120,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		for _, container := range append(pod.Containers, pod.InitContainers...) {
+		for _, container := range append(slices.Clone(pod.Containers), pod.InitContainers...) {
 			if container.Name != util.IstioProxyName {
 				continue
 			}

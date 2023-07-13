@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 )
 
 // DeploymentInMesh returns true if deployment is in the service mesh (has sidecar)
@@ -36,7 +37,7 @@ func DeploymentInMesh(r *resource.Instance, c analysis.Context) bool {
 func PodInMesh(r *resource.Instance, c analysis.Context) bool {
 	p := r.Message.(*v1.PodSpec)
 	return inMesh(r.Metadata.Annotations, r.Metadata.Labels,
-		r.Metadata.FullName.Namespace, append(p.Containers, p.InitContainers...), c)
+		r.Metadata.FullName.Namespace, append(slices.Clone(p.Containers), p.InitContainers...), c)
 }
 
 // PodInAmbientMode returns true if a Pod is in the service mesh with the ambient mode
