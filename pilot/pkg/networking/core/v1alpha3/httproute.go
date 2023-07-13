@@ -343,6 +343,10 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 					Labels:          svc.Attributes.Labels,
 				},
 			}
+			if features.EnableDualStack {
+				// cannot correctly build virtualHost domains for dual stack without ClusterVIPs
+				servicesByName[svc.Hostname].ClusterVIPs = *svc.ClusterVIPs.DeepCopy()
+			}
 		}
 	}
 
@@ -568,6 +572,14 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
 		domains = appendDomainPort(domains, svcAddr, port)
 	}
+
+	// handle dual stack's extra address when generating the virtualHost domains
+	// assumes that conversion is stripping out the DefaultAddress from ClusterVIPs
+	extraAddr := service.GetExtraAddressesForProxy(node)
+	for _, addr := range extraAddr {
+		domains = appendDomainPort(domains, addr, port)
+	}
+
 	return domains, altHosts
 }
 

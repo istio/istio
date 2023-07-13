@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
+	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
@@ -75,6 +76,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				podName, ns, err := ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
 				if err != nil {
 					return err
+				}
+				if ambient.IsZtunnelPod(kubeClient, podName, ns) {
+					_, _ = fmt.Fprintf(c.OutOrStdout(),
+						"Sync diff is not available for ztunnel pod %s.%s\n", podName, ns)
+					return nil
 				}
 				var envoyDump []byte
 				if configDumpFile != "" {
@@ -182,6 +188,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				podName, ns, err := ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
 				if err != nil {
 					return err
+				}
+				if ambient.IsZtunnelPod(kubeClient, podName, ns) {
+					_, _ = fmt.Fprintf(c.OutOrStdout(),
+						"Sync diff is not available for ztunnel pod %s.%s\n", podName, ns)
+					return nil
 				}
 				var envoyDump []byte
 				if configDumpFile != "" {

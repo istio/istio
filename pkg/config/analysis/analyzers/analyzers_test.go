@@ -228,6 +228,7 @@ var testGrid = []testCase{
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
 			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace-native"},
 		},
 	},
 	{
@@ -239,6 +240,7 @@ var testGrid = []testCase{
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
 			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace-native"},
 		},
 	},
 	{
@@ -251,6 +253,7 @@ var testGrid = []testCase{
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
 			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace-native"},
 			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace revision-namespace"},
 		},
 	},

@@ -24,9 +24,11 @@ import (
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -39,11 +41,12 @@ import (
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
 	cases := []struct {
-		name    string
-		service *model.Service
-		port    int
-		node    *model.Proxy
-		want    []string
+		name            string
+		service         *model.Service
+		port            int
+		node            *model.Proxy
+		want            []string
+		enableDualStack bool
 	}{
 		{
 			name: "same domain",
@@ -242,6 +245,36 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"*.headless.default",
 			},
 		},
+		{
+			name: "dual stack k8s service with default domain",
+			service: &model.Service{
+				Hostname:       "echo.default.svc.cluster.local",
+				MeshExternal:   false,
+				DefaultAddress: "1.2.3.4",
+				ClusterVIPs: model.AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cluster-1": {"1.2.3.4", "2406:3003:2064:35b8:864:a648:4b96:e37d"},
+						"cluster-2": {"4.3.2.1"}, // ensure other clusters aren't being populated in domains slice
+					},
+				},
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "default.svc.cluster.local",
+				Metadata: &model.NodeMetadata{
+					ClusterID: "cluster-1",
+				},
+			},
+			want: []string{
+				"echo.default.svc.cluster.local",
+				"echo",
+				"echo.default.svc",
+				"echo.default",
+				"1.2.3.4",
+				"[2406:3003:2064:35b8:864:a648:4b96:e37d]",
+			},
+			enableDualStack: true,
+		},
 	}
 
 	testFn := func(t test.Failer, service *model.Service, port int, node *model.Proxy, want []string) {
@@ -252,6 +285,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
+			test.SetForTest[bool](t, &features.EnableDualStack, c.enableDualStack)
 			testFn(t, c.service, c.port, c.node, c.want)
 		})
 	}
