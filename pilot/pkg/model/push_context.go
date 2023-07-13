@@ -1290,7 +1290,7 @@ func (ps *PushContext) updateContext(
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool
 
-	var changedEnvoyFilters sets.Set[ConfigKey]
+	changedEnvoyFilters := sets.New[ConfigKey]()
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
