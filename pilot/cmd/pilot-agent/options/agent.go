@@ -64,7 +64,6 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		ProxyNamespace:              PodNamespaceVar.Get(),
 		ProxyDomain:                 proxy.DNSDomain,
 		IstiodSAN:                   istiodSAN.Get(),
-		DualStack:                   features.EnableDualStack,
 		UseExternalWorkloadSDS:      useExternalWorkloadSDSEnv,
 	}
 	extractXDSHeadersFromEnv(o)

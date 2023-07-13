@@ -187,9 +187,6 @@ type AgentOptions struct {
 
 	WASMOptions wasm.Options
 
-	// Is the proxy in Dual Stack environment
-	DualStack bool
-
 	UseExternalWorkloadSDS bool
 }
 
