@@ -3140,6 +3140,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 		name             string
 		gateways         []config.Config
 		virtualServices  []config.Config
+		proxyConfig      *pilot_model.NodeMetaProxyConfig
 		expectedListener listenertest.ListenerTest
 	}{
 		{
@@ -3403,6 +3404,91 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "http server with proxy proto",
+			gateways: []config.Config{
+				{
+					Meta: config.Meta{Name: "http-server", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+							},
+						},
+					},
+				},
+			},
+			proxyConfig: &pilot_model.NodeMetaProxyConfig{
+				GatewayTopology: &meshconfig.Topology{ProxyProtocol: &meshconfig.Topology_ProxyProtocolConfiguration{}},
+			},
+			expectedListener: listenertest.ListenerTest{
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						NetworkFilters: []string{wellknown.HTTPConnectionManager},
+						HTTPFilters: []string{
+							xdsfilters.MxFilterName,
+							xdsfilters.Alpn.GetName(),
+							xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
+						},
+					},
+				},
+				Filters: []string{wellknown.ProxyProtocol},
+			},
+		},
+		{
+			name: "terminated-tls server with proxy proto",
+			gateways: []config.Config{
+				{
+					Meta: config.Meta{Name: "terminated-tls-gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "tls", Number: 5678, Protocol: "TLS"},
+								Hosts: []string{"barone.example.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+						},
+					},
+				},
+			},
+			proxyConfig: &pilot_model.NodeMetaProxyConfig{
+				GatewayTopology: &meshconfig.Topology{ProxyProtocol: &meshconfig.Topology_ProxyProtocolConfiguration{}},
+			},
+			virtualServices: []config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/terminated-tls-gateway"},
+						Hosts:    []string{"barone.example.com"},
+						Tcp: []*networking.TCPRoute{
+							{
+								Match: []*networking.L4MatchAttributes{
+									{
+										Port: 5678,
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "foo.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedListener: listenertest.ListenerTest{
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						NetworkFilters: []string{wellknown.TCPProxy},
+						HTTPFilters:    []string{},
+					},
+				},
+				Filters: []string{wellknown.ProxyProtocol},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -3413,7 +3499,9 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				Configs: Configs,
 			})
 			proxy := cg.SetupProxy(&proxyGateway)
-			proxy.Metadata = &proxyGatewayMetadata
+			metadata := proxyGatewayMetadata
+			metadata.ProxyConfig = tt.proxyConfig
+			proxy.Metadata = &metadata
 			proxy.IstioVersion = nil // to ensure `util.IsIstioVersionGE117(node.IstioVersion) == true`
 
 			builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})

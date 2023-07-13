@@ -1153,6 +1153,7 @@ type buildListenerOpts struct {
 	bindToPort        bool
 	skipUserFilters   bool
 	needHTTPInspector bool
+	needPROXYProtocol bool
 	class             istionetworking.ListenerClass
 	service           *model.Service
 	transport         istionetworking.TransportProtocol
@@ -1165,6 +1166,11 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	filterChains := make([]*listener.FilterChain, 0, len(opts.filterChainOpts))
 	listenerFiltersMap := make(map[string]bool)
 	var listenerFilters []*listener.ListenerFilter
+
+	// Strip PROXY header first for non-QUIC traffic if requested.
+	if opts.needPROXYProtocol {
+		listenerFilters = append(listenerFilters, xdsfilters.ProxyProtocol)
+	}
 
 	// add a TLS inspector if we need to detect ServerName or ALPN
 	// (this is not applicable for QUIC listeners)
