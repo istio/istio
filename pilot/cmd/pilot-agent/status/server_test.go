@@ -346,12 +346,17 @@ my_metric{app="bar"} 0
 			if err != nil {
 				t.Fatal(err)
 			}
+			registry, err := initializeMonitoring()
+			if err != nil {
+				t.Fatal(err)
+			}
 			server := &Server{
 				prometheus: &PrometheusScrapeConfiguration{
 					Port: strings.Split(app.URL, ":")[2],
 				},
 				envoyStatsPort: envoyPort,
 				http:           &http.Client{},
+				registry:       registry,
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)
@@ -488,10 +493,15 @@ my_other_metric{} 0
 			if err != nil {
 				t.Fatal(err)
 			}
+			registry, err := initializeMonitoring()
+			if err != nil {
+				t.Fatal(err)
+			}
 			server := &Server{
 				prometheus: &PrometheusScrapeConfiguration{
 					Port: strings.Split(app.URL, ":")[2],
 				},
+				registry:       registry,
 				envoyStatsPort: envoyPort,
 				http:           &http.Client{},
 			}
@@ -554,10 +564,15 @@ func TestStatsError(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			registry, err := initializeMonitoring()
+			if err != nil {
+				t.Fatal(err)
+			}
 			server := &Server{
 				prometheus: &PrometheusScrapeConfiguration{
 					Port: strconv.Itoa(tt.app),
 				},
+				registry:       registry,
 				envoyStatsPort: tt.envoy,
 				http:           &http.Client{},
 			}
