@@ -217,12 +217,12 @@ func getLinkWithDestinationOf(ip string) (netlink.Link, error) {
 		return nil, err
 	}
 
-	if len(routes) == 0 {
-		return nil, fmt.Errorf("no routes found for %s", ip)
+	if len(routes) > 0 {
+		linkIndex := routes[0].LinkIndex
+		return netlink.LinkByIndex(linkIndex)
 	}
 
-	linkIndex := routes[0].LinkIndex
-	return netlink.LinkByIndex(linkIndex)
+	return findVethLinkForPeerIP(net.ParseIP(ip))
 }
 
 func getVethWithDestinationOf(ip string) (*netlink.Veth, error) {
@@ -235,6 +235,49 @@ func getVethWithDestinationOf(ip string) (*netlink.Veth, error) {
 		return nil, errors.New("not veth implemented CNI")
 	}
 	return veth, nil
+}
+
+func findVethLinkForPeerIP(peerIP net.IP) (*netlink.Veth, error) {
+	links, err := netlink.LinkList()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list links: %v", err)
+	}
+	var v netlink.Veth
+	for _, l := range links {
+		if l.Type() != v.Type() {
+			continue
+		}
+		veth := l.(*netlink.Veth)
+		peerIndex, err := getPeerIndex(veth)
+		if err != nil {
+			log.Warnf("failed to get peer index for veth link %s: %v", veth.Name, err)
+		}
+		peerNs, err := getNsNameFromNsID(veth.Attrs().NetNsID)
+		if err != nil {
+			log.Warnf("failed to get network namespace name from namespace id '%d' for veth interface %s: %v", veth.Attrs().NetNsID, veth.Name, err)
+		}
+		var vethFound bool
+		if err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", filepath.Base(peerNs)), func(netns.NetNS) error {
+			peerLink, err := netlink.LinkByIndex(peerIndex)
+			if err != nil {
+				return fmt.Errorf("failed to get link by index [veth=%s,peerIndex=%d,peerNs=%s]: %v", veth.Name, peerIndex, peerNs, err)
+			}
+			addrs, err := netlink.AddrList(peerLink, netlink.FAMILY_V4)
+			if err != nil {
+				return fmt.Errorf("failed to get address for peer's link [veth=%s,peerIndex=%d,peerNs=%s,peerLink=%s]: %v", veth.Name, peerIndex, peerNs, peerLink.Attrs().Name, err)
+			}
+			if addrs[0].IP.Equal(peerIP) {
+				vethFound = true
+			}
+			return nil
+		}); err != nil {
+			log.Warnf("failed to inspect peer link: %v", err)
+		}
+		if vethFound {
+			return veth, nil
+		}
+	}
+	return nil, fmt.Errorf("no veth interface found for peer IP %s", peerIP)
 }
 
 func getDeviceWithDestinationOf(ip string) (string, error) {
