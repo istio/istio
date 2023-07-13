@@ -14,10 +14,11 @@
 package queue
 
 import (
-	"istio.io/istio/pilot/pkg/features"
 	"sync"
 	"testing"
 	"time"
+
+	"istio.io/istio/pilot/pkg/features"
 )
 
 func BenchmarkMetricsQueue(b *testing.B) {

@@ -45,7 +45,6 @@ type queueMetrics struct {
 	workDuration monitoring.Metric
 	id           string
 	clock        clock.WithTicker
-	queueDepth   int64
 }
 
 // Gets the time since the specified start in seconds.
