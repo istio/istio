@@ -569,6 +569,6 @@ func configLogs(opt *log.Options) error {
 	return log.Configure(&opt2)
 }
 
-func logRuntime(start time.Time, args ...any) {
-	log.WithLabels("runtime", time.Since(start)).Infof(args...)
+func logRuntime(start time.Time, format string, args ...any) {
+	log.WithLabels("runtime", time.Since(start)).Infof(format, args...)
 }

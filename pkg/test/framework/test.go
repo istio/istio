@@ -152,7 +152,7 @@ func (t *testImpl) Label(labels ...label.Instance) Test {
 func (t *testImpl) Features(feats ...features.Feature) Test {
 	if err := addFeatureLabels(t.featureLabels, feats...); err != nil {
 		// test runs shouldn't fail
-		log.Errorf(err)
+		log.Error(err)
 	}
 	return t
 }

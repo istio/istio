@@ -777,7 +777,7 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	for _, route := range routes {
 		err = execute(route.Cmd, route.Args...)
 		if err != nil {
-			log.Errorf(fmt.Errorf("failed to add route (%+v): %v", route, err))
+			log.Errorf("failed to add route (%+v): %v", route, err)
 		}
 	}
 
