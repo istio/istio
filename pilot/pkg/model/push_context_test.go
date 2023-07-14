@@ -700,6 +700,66 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 			deletes: []ConfigKey{{Kind: kind.EnvoyFilter, Name: "default-priority", Namespace: "testns-1"}},
 		},
 		{
+			name: "create, update delete",
+			creates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority-2", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "default-priority-3", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			updates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "default-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			deletes: []ConfigKey{{Kind: kind.EnvoyFilter, Name: "b-medium-priority", Namespace: "testns-1"}},
+		},
+		{
 			name:    "delete entire namespace",
 			creates: []config.Config{},
 			updates: []config.Config{},
