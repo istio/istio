@@ -1,4 +1,4 @@
-{{ $mcsAPIGroup := or .Values.pilot.env.MCS_API_GROUP "multicluster.k8s.io" }}
+{{ $mcsAPIGroup := or .Values.pilot.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -21,7 +21,7 @@ rules:
   - apiGroups: ["networking.istio.io"]
     verbs: [ "get", "watch", "list" ]
     resources: [ "workloadentries" ]
-  - apiGroups: ["gateway.networking.k8s.io"]
+  - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
     resources: ["gateways"]
     verbs: ["get", "watch", "list"]
   - apiGroups: ["apiextensions.k8s.io"]
