@@ -186,6 +186,8 @@ type AgentOptions struct {
 	IstiodSAN string
 
 	WASMOptions wasm.Options
+
+	UseExternalWorkloadSDS bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -341,6 +343,9 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	if socketExists {
 		log.Info("Workload SDS socket found. Istio SDS Server won't be started")
 	} else {
+		if a.cfg.UseExternalWorkloadSDS {
+			return nil, errors.New("workload SDS socket is required but not found")
+		}
 		log.Info("Workload SDS socket not found. Starting Istio SDS Server")
 		err = a.initSdsServer()
 		if err != nil {
