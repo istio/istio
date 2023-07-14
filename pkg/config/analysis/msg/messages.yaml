@@ -605,3 +605,19 @@ messages:
         type: string
       - name: gatewayNamespace
         type: string
+
+  - name: "MultiClusterInconsistentService"
+    code: IST0162
+    level: Warning
+    description: "The services lived in different clusters under multi-cluster deployment model are inconsistent"
+    template: "The service %v in namespace %q is inconsistent across clusters %q, which can lead to undefined behaviors. The inconsistent behaviors are: %v."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0162/"
+    args:
+    - name: serviceName
+      type: string
+    - name: namespace
+      type: string
+    - name: clusters
+      type: "[]string"
+    - name: error
+      type: string

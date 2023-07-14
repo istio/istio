@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -33,8 +34,9 @@ import (
 )
 
 // NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.
-func NewContext(store model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
+func NewContext(store model.ConfigStore, cluster cluster.ID, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
 	return &istiodContext{
+		cluster:            cluster,
 		store:              store,
 		cancelCh:           cancelCh,
 		messages:           diag.Messages{},
@@ -45,6 +47,7 @@ func NewContext(store model.ConfigStore, cancelCh <-chan struct{}, collectionRep
 }
 
 type istiodContext struct {
+	cluster            cluster.ID
 	store              model.ConfigStore
 	cancelCh           <-chan struct{}
 	messages           diag.Messages
@@ -82,7 +85,7 @@ func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName
 		log.Debugf(" %s resource [%s/%s] could not be found", colschema.GroupVersionKind(), name.Namespace.String(), name.Name.String())
 		return nil
 	}
-	result, err := cfgToInstance(*cfg, col, colschema)
+	result, err := cfgToInstance(*cfg, col, colschema, i.cluster)
 	if err != nil {
 		log.Errorf("failed converting found config %s %s/%s to instance: %s, ",
 			cfg.Meta.GroupVersionKind.Kind, cfg.Meta.Namespace, cfg.Meta.Namespace, err)
@@ -98,7 +101,9 @@ func (i *istiodContext) Exists(col config.GroupVersionKind, name resource.FullNa
 }
 
 func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.IteratorFn) {
-	i.collectionReporter(col)
+	if i.collectionReporter != nil {
+		i.collectionReporter(col)
+	}
 	if cached, ok := i.foundCollections[col]; ok {
 		for _, res := range cached {
 			if !fn(res) {
@@ -131,7 +136,7 @@ func (i *istiodContext) ForEach(col config.GroupVersionKind, fn analysis.Iterato
 			cache[res.Metadata.FullName] = res
 			continue
 		}
-		res, err := cfgToInstance(cfg, col, colschema)
+		res, err := cfgToInstance(cfg, col, colschema, i.cluster)
 		if err != nil {
 			// TODO: demote this log before merging
 			log.Error(err)
@@ -157,7 +162,8 @@ func (i *istiodContext) Canceled() bool {
 	}
 }
 
-func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema sresource.Schema) (*resource.Instance, error) {
+func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema sresource.Schema, cluster cluster.ID) (*resource.Instance,
+	error) {
 	res := resource.PilotConfigToInstance(&cfg, colschema)
 	fmstring := cfg.Meta.Annotations[file.FieldMapKey]
 	var out map[string]int
@@ -182,6 +188,7 @@ func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema sre
 		ResourceVersion: resource.Version(cfg.ResourceVersion),
 		Ref:             outref,
 		FieldsMap:       out,
+		Cluster:         cluster,
 	}
 	// MCP is not aware of generation, add that here.
 	res.Metadata.Generation = cfg.Generation

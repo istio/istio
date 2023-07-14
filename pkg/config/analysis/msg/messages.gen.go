@@ -236,6 +236,10 @@ var (
 	// InvalidGatewayCredential defines a diag.MessageType for message "InvalidGatewayCredential".
 	// Description: The credential provided for the Gateway resource is invalid
 	InvalidGatewayCredential = diag.NewMessageType(diag.Error, "IST0161", "The credential referenced by the Gateway %s in namespace %s is invalid, which can cause the traffic not to work as expected.")
+
+	// MultiClusterInconsistentService defines a diag.MessageType for message "MultiClusterInconsistentService".
+	// Description: The services lived in different clusters under multi-cluster deployment model are inconsistent
+	MultiClusterInconsistentService = diag.NewMessageType(diag.Warning, "IST0162", "The service %v in namespace %q is inconsistent across clusters %q, which can lead to undefined behaviors. The inconsistent behaviors are: %v.")
 )
 
 // All returns a list of all known message types.
@@ -298,6 +302,7 @@ func All() []*diag.MessageType {
 		ConflictingTelemetryWorkloadSelectors,
 		MultipleTelemetriesWithoutWorkloadSelectors,
 		InvalidGatewayCredential,
+		MultiClusterInconsistentService,
 	}
 }
 
@@ -858,5 +863,17 @@ func NewInvalidGatewayCredential(r *resource.Instance, gatewayName string, gatew
 		r,
 		gatewayName,
 		gatewayNamespace,
+	)
+}
+
+// NewMultiClusterInconsistentService returns a new diag.Message based on MultiClusterInconsistentService.
+func NewMultiClusterInconsistentService(r *resource.Instance, serviceName string, namespace string, clusters []string, error string) diag.Message {
+	return diag.NewMessage(
+		MultiClusterInconsistentService,
+		r,
+		serviceName,
+		namespace,
+		clusters,
+		error,
 	)
 }

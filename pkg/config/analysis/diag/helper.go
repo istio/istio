@@ -15,6 +15,7 @@
 package diag
 
 import (
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -27,6 +28,11 @@ type testOrigin struct {
 	name     string
 	ref      resource.Reference
 	fieldMap map[string]int
+	cluster  cluster.ID
+}
+
+func (o testOrigin) ClusterName() cluster.ID {
+	return o.cluster
 }
 
 func (o testOrigin) FriendlyName() string {

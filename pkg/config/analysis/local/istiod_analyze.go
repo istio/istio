@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -57,12 +58,17 @@ type IstiodAnalyzer struct {
 	internalStore model.ConfigStore
 	// stores contains all the (non file) config sources to analyze
 	stores []model.ConfigStoreController
+	// cluster is the cluster ID for the environment we are analyzing
+	cluster cluster.ID
+	// multiClusterStores contains all the multi-cluster config sources to analyze
+	multiClusterStores map[cluster.ID]model.ConfigStoreController
 	// fileSource contains all file bases sources
 	fileSource *file.KubeSource
 
-	analyzer       *analysis.CombinedAnalyzer
-	namespace      resource.Namespace
-	istioNamespace resource.Namespace
+	analyzer              *analysis.CombinedAnalyzer
+	multiClusterAnalyzers *analysis.CombinedAnalyzer
+	namespace             resource.Namespace
+	istioNamespace        resource.Namespace
 
 	initializedStore model.ConfigStoreController
 
@@ -82,7 +88,7 @@ type IstiodAnalyzer struct {
 	// Hook function called when a collection is used in analysis
 	collectionReporter CollectionReporterFn
 
-	clientsToRun []kubelib.Client
+	clientsToRun map[cluster.ID]kubelib.Client
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
@@ -104,16 +110,20 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
 	kubeResources := kuberesource.ConvertInputsToSchemas(analyzer.Metadata().Inputs)
 
+	kubeResources = kubeResources.Union(kuberesource.DefaultExcludedSchemas())
+
 	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
 		meshCfg:            mcfg,
 		meshNetworks:       mesh.DefaultMeshNetworks(),
 		analyzer:           analyzer,
+		multiClusterStores: map[cluster.ID]model.ConfigStoreController{},
 		namespace:          namespace,
 		internalStore:      memory.Make(collection.SchemasFor(collections.MeshNetworks, collections.MeshConfig)),
 		istioNamespace:     istioNamespace,
 		kubeResources:      kubeResources,
 		collectionReporter: cr,
+		clientsToRun:       map[cluster.ID]kubelib.Client{},
 	}
 
 	return sa
@@ -128,7 +138,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 
 	kubelib.WaitForCacheSync("istiod analyzer", cancel, store.HasSynced)
 
-	ctx := NewContext(store, cancel, sa.collectionReporter)
+	ctx := NewContext(store, sa.cluster, cancel, sa.collectionReporter)
 
 	sa.analyzer.Analyze(ctx)
 
@@ -141,7 +151,25 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 	msgs := filterMessages(ctx.(*istiodContext).messages, namespaces, sa.suppressions)
 	result.Messages = msgs.SortedDedupedCopy()
 
+	if len(sa.multiClusterStores) == 0 || sa.multiClusterAnalyzers == nil {
+		return result, nil
+	}
+	stores := func() map[cluster.ID]model.ConfigStore {
+		stores := map[cluster.ID]model.ConfigStore{}
+		for c, s := range sa.multiClusterStores {
+			stores[c] = s
+		}
+		return stores
+	}()
+	mcCtx := NewMultiClusterContext(stores, cancel)
+	sa.multiClusterAnalyzers.Analyze(mcCtx)
+	msgs = filterMessages(mcCtx.(*multiClusterContext).messages, namespaces, sa.suppressions)
+	result.Messages.Add(msgs.SortedDedupedCopy()...)
 	return result, nil
+}
+
+func (sa *IstiodAnalyzer) AddMultiClusterAnalyzers(analyzers *analysis.CombinedAnalyzer) {
+	sa.multiClusterAnalyzers = analyzers
 }
 
 // Analyze loads the sources and executes the analysis
@@ -273,10 +301,14 @@ func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, in
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
-	sa.AddRunningKubeSourceWithRevision(c, "default")
+
 }
 
-func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
+// AddMultiClusterSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
+func (sa *IstiodAnalyzer) AddMultiClusterSource(c kubelib.Client, revision string) {
+}
+
+func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string, multicluster bool) {
 	// This makes the assumption we don't care about Helm secrets or SA token secrets - two common
 	// large secrets in clusters.
 	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
@@ -297,9 +329,16 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		},
 	}, sa.kubeResources)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
-	sa.stores = append(sa.stores, store)
-
-	sa.clientsToRun = append(sa.clientsToRun, c)
+	if multicluster {
+		clusterID := c.ClusterID()
+		if clusterID == "" {
+			clusterID = "default"
+		}
+		sa.multiClusterStores[c.ClusterID()] = store
+	} else {
+		sa.stores = append(sa.stores, store)
+	}
+	sa.clientsToRun[c.ClusterID()] = c
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
 	if err := sa.addRunningKubeIstioConfigMapSource(c); err != nil {
@@ -400,6 +439,12 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 
 	sa.meshNetworks = mn
 	return nil
+}
+
+// AddSourceForCluster adds a source based on user supplied configstore to the current IstiodAnalyzer with cluster specified.
+// It functions like the same as AddSource, but it adds the source to the specified cluster.
+func (sa *IstiodAnalyzer) AddSourceForCluster(src model.ConfigStoreController, clusterName cluster.ID) {
+	sa.multiClusterStores[clusterName] = src
 }
 
 // CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context

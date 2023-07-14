@@ -450,6 +450,20 @@ func NewCLIClient(clientConfig clientcmd.ClientConfig, revision string) (CLIClie
 	return newClientInternal(newClientFactory(clientConfig, true), revision, "")
 }
 
+// NewCLIClientWithCluster creates a Kubernetes client from the given ClientConfig and cluster ID.
+// TODO(hanxiaop) investigate if this can be combined into NewCLIClient.
+func NewCLIClientWithCluster(clientConfig clientcmd.ClientConfig, revision string, cluster cluster.ID) (CLIClient, error) {
+	rawConfig, err := clientConfig.RawConfig()
+	if err != nil {
+		return nil, err
+	}
+	currentContext := rawConfig.Contexts[rawConfig.CurrentContext]
+	if currentContext == nil {
+		return nil, fmt.Errorf("current context not found")
+	}
+	return newClientInternal(newClientFactory(clientConfig, true), revision, cluster)
+}
+
 // NewClient creates a Kubernetes client from the given rest config.
 func NewClient(clientConfig clientcmd.ClientConfig, cluster cluster.ID) (Client, error) {
 	return newClientInternal(newClientFactory(clientConfig, false), "", cluster)
