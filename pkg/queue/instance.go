@@ -53,7 +53,7 @@ type Instance interface {
 
 type queueImpl struct {
 	delay     time.Duration
-	tasks     []queueTask
+	tasks     []*queueTask
 	cond      *sync.Cond
 	closing   bool
 	closed    chan struct{}
@@ -76,7 +76,7 @@ func NewQueueWithID(errorDelay time.Duration, name string) Instance {
 	}
 	return &queueImpl{
 		delay:       errorDelay,
-		tasks:       make([]queueTask, 0),
+		tasks:       make([]*queueTask, 0),
 		closing:     false,
 		closed:      make(chan struct{}),
 		closeOnce:   &sync.Once{},
@@ -91,7 +91,7 @@ func (q *queueImpl) Push(item Task) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 	if !q.closing {
-		q.tasks = append(q.tasks, queueTask{task: item, enqueueTime: time.Now()})
+		q.tasks = append(q.tasks, &queueTask{task: item, enqueueTime: time.Now()})
 		if q.metrics != nil {
 			q.metrics.depth.RecordInt(int64(len(q.tasks)))
 		}
@@ -106,7 +106,7 @@ func (q *queueImpl) Closed() <-chan struct{} {
 
 // get blocks until it can return a task to be processed. If shutdown = true,
 // the processing go routine should stop.
-func (q *queueImpl) get() (task queueTask, shutdown bool) {
+func (q *queueImpl) get() (task *queueTask, shutdown bool) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 	// wait for closing to be set, or a task to be pushed
@@ -116,14 +116,14 @@ func (q *queueImpl) get() (task queueTask, shutdown bool) {
 
 	if q.closing && len(q.tasks) == 0 {
 		// We must be shutting down.
-		return queueTask{}, true
+		return nil, true
 	}
 	task = q.tasks[0]
-	task.startTime = time.Now()
 	// Slicing will not free the underlying elements of the array, so explicitly clear them out here
-	q.tasks[0] = queueTask{}
+	q.tasks[0] = nil
 	q.tasks = q.tasks[1:]
 	if q.metrics != nil {
+		task.startTime = time.Now()
 		q.metrics.depth.RecordInt(int64(len(q.tasks)))
 		q.metrics.latency.Record(time.Since(task.enqueueTime).Seconds())
 	}
@@ -147,7 +147,7 @@ func (q *queueImpl) processNextItem() bool {
 		})
 	}
 	if q.metrics != nil {
-		q.metrics.latency.Record(time.Since(task.startTime).Seconds())
+		q.metrics.workDuration.Record(time.Since(task.startTime).Seconds())
 	}
 
 	return true
