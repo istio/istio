@@ -214,6 +214,9 @@
           "enum": ["", "IfHealthyBudget", "AlwaysAllow"]
         }
       }
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "number"
     }
   }
 }
