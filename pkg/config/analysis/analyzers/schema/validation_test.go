@@ -19,9 +19,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	. "github.com/onsi/gomega"
-	"istio.io/istio/pkg/cluster"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/analysis/testing/fixtures"

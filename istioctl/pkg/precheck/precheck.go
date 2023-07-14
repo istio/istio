@@ -30,7 +30,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
-	cluster2 "istio.io/istio/pkg/cluster"
 	authorizationapi "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -42,6 +41,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	"istio.io/istio/pilot/pkg/model"
+	istiocluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -539,7 +539,7 @@ func (b bindStatus) String() string {
 // clusterOrigin defines an Origin that refers to the cluster
 type clusterOrigin struct{}
 
-func (o clusterOrigin) ClusterName() cluster2.ID {
+func (o clusterOrigin) ClusterName() istiocluster.ID {
 	return "Cluster"
 }
 
