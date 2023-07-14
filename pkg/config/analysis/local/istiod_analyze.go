@@ -301,11 +301,7 @@ func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, in
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
-
-}
-
-// AddMultiClusterSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
-func (sa *IstiodAnalyzer) AddMultiClusterSource(c kubelib.Client, revision string) {
+	sa.AddRunningKubeSourceWithRevision(c, "default", false)
 }
 
 func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string, multicluster bool) {

@@ -145,7 +145,7 @@ func TestAddInMemorySource(t *testing.T) {
 	sa.AddSource(dfCache{ConfigStore: src})
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
-	g.Expect(sa.multiClusterStores["default"]).To(HaveLen(1))
+	g.Expect(sa.stores).To(HaveLen(1))
 }
 
 func TestAddRunningKubeSource(t *testing.T) {
@@ -158,7 +158,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 	sa.AddRunningKubeSource(mk)
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
-	g.Expect(sa.multiClusterStores["default"]).To(HaveLen(1))
+	g.Expect(sa.stores).To(HaveLen(1))
 }
 
 func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
@@ -188,7 +188,7 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(2))
-	g.Expect(sa.multiClusterStores["default"]).To(HaveLen(1))
+	g.Expect(sa.stores).To(HaveLen(1))
 }
 
 func TestAddReaderKubeSource(t *testing.T) {
@@ -202,7 +202,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(BeNil())
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
-	g.Expect(sa.multiClusterStores["default"]).To(HaveLen(0))
+	g.Expect(sa.stores).To(HaveLen(0))
 
 	// Note that a blank file for mesh cfg is equivalent to specifying all the defaults
 	testRootNamespace := "testNamespace"
@@ -264,7 +264,7 @@ func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	err := sa.AddFileKubeMeshConfig(ingressOffMeshCfg.Name())
 	g.Expect(err).To(BeNil())
 	sa.AddDefaultResources()
-	g.Expect(sa.multiClusterStores["default"]).To(BeEmpty())
+	g.Expect(sa.stores).To(BeEmpty())
 
 	// With ingress on, though, we should.
 	ingressStrictMeshCfg := tempFileFromString(t, "ingressControllerMode: 'STRICT'")
@@ -273,7 +273,7 @@ func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	err = sa.AddFileKubeMeshConfig(ingressStrictMeshCfg.Name())
 	g.Expect(err).To(BeNil())
 	sa.AddDefaultResources()
-	g.Expect(sa.multiClusterStores["default"]).To(HaveLen(0))
+	g.Expect(sa.stores).To(HaveLen(0))
 }
 
 func tempFileFromString(t *testing.T, content string) *os.File {
