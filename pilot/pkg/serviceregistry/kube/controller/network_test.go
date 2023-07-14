@@ -158,8 +158,8 @@ func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int)
 		Spec: v1beta1.GatewaySpec{
 			GatewayClassName: "istio",
 			Addresses: []v1beta1.GatewayAddress{
-				{&ipType, "1.2.3.4"},
-				{&hostnameType, "some hostname"},
+				{Type: &ipType, Value: "1.2.3.4"},
+				{Type: &hostnameType, Value: "some hostname"},
 			},
 			Listeners: []v1beta1.Listener{
 				{

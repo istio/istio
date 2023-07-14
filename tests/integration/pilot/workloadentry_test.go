@@ -208,7 +208,7 @@ spec:
 						// TODO possibly can run parallel
 						t.NewSubTestf("from %s", src.Clusters().Default().Name()).Run(func(t framework.TestContext) {
 							src.CallOrFail(t, echo.CallOptions{
-								// check that we lb to all the networks (we won't reach non-config clusters becuase of the topology.istio.io/cluster selector)
+								// check that we lb to all the networks (we won't reach non-config clusters because of the topology.istio.io/cluster selector)
 								// that selector helps us verify that we reached the endpoints due to the WorkloadEntry and not regular multicluster service discovery
 								Check:                   check.ReachedClusters(t.Clusters(), apps.A.Clusters().Configs()),
 								Address:                 "serviceentry.mesh.global",
