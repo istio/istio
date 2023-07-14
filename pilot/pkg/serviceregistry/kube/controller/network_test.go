@@ -28,16 +28,19 @@ import (
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestNetworkUpdateTriggers(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
 	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID:       "Kubernetes",
