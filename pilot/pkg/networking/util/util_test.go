@@ -36,11 +36,9 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 )
 
@@ -911,21 +909,18 @@ func TestCidrRangeSliceEqual(t *testing.T) {
 func TestEndpointMetadata(t *testing.T) {
 	test.SetForTest(t, &features.EndpointTelemetryLabel, true)
 	cases := []struct {
-		name         string
-		network      network.ID
-		tlsMode      string
-		workloadName string
-		clusterID    cluster.ID
-		namespace    string
-		labels       labels.Instance
-		want         *core.Metadata
+		name     string
+		metadata *model.EndpointMetadata
+		want     *core.Metadata
 	}{
 		{
-			name:         "all empty",
-			tlsMode:      model.DisabledTLSModeLabel,
-			network:      "",
-			workloadName: "",
-			clusterID:    "",
+			name: "all empty",
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.DisabledTLSModeLabel,
+				Network:      "",
+				WorkloadName: "",
+				ClusterID:    "",
+			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					IstioMetadataKey: {
@@ -941,40 +936,13 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:         "tls mode",
-			tlsMode:      model.IstioMutualTLSModeLabel,
-			network:      "",
-			workloadName: "",
-			clusterID:    "",
-			want: &core.Metadata{
-				FilterMetadata: map[string]*structpb.Struct{
-					EnvoyTransportSocketMetadataKey: {
-						Fields: map[string]*structpb.Value{
-							model.TLSModeLabelShortname: {
-								Kind: &structpb.Value_StringValue{
-									StringValue: model.IstioMutualTLSModeLabel,
-								},
-							},
-						},
-					},
-					IstioMetadataKey: {
-						Fields: map[string]*structpb.Value{
-							"workload": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: ";;;;",
-								},
-							},
-						},
-					},
-				},
+			name: "tls mode",
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "",
+				WorkloadName: "",
+				ClusterID:    "",
 			},
-		},
-		{
-			name:         "network and tls mode",
-			tlsMode:      model.IstioMutualTLSModeLabel,
-			network:      "network",
-			workloadName: "",
-			clusterID:    "",
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					EnvoyTransportSocketMetadataKey: {
@@ -999,15 +967,48 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:         "all label",
-			tlsMode:      model.IstioMutualTLSModeLabel,
-			network:      "network",
-			workloadName: "workload",
-			clusterID:    "cluster",
-			namespace:    "default",
-			labels: labels.Instance{
-				model.IstioCanonicalServiceLabelName:         "service",
-				model.IstioCanonicalServiceRevisionLabelName: "v1",
+			name: "network and tls mode",
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "network",
+				WorkloadName: "",
+				ClusterID:    "",
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: model.IstioMutualTLSModeLabel,
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: ";;;;",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "all label",
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "network",
+				WorkloadName: "workload",
+				ClusterID:    "cluster",
+				Namespace:    "default",
+				Labels: labels.Instance{
+					model.IstioCanonicalServiceLabelName:         "service",
+					model.IstioCanonicalServiceRevisionLabelName: "v1",
+				},
 			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -1033,12 +1034,14 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:         "miss pod label",
-			tlsMode:      model.IstioMutualTLSModeLabel,
-			network:      "network",
-			workloadName: "workload",
-			clusterID:    "cluster",
-			namespace:    "default",
+			name: "miss pod label",
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "network",
+				WorkloadName: "workload",
+				ClusterID:    "cluster",
+				Namespace:    "default",
+			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					EnvoyTransportSocketMetadataKey: {
@@ -1063,12 +1066,14 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:         "miss workload name",
-			tlsMode:      model.IstioMutualTLSModeLabel,
-			network:      "network",
-			workloadName: "",
-			clusterID:    "cluster",
-			namespace:    "",
+			name: "miss workload name",
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "network",
+				WorkloadName: "",
+				ClusterID:    "cluster",
+				Namespace:    "",
+			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					EnvoyTransportSocketMetadataKey: {
@@ -1096,7 +1101,7 @@ func TestEndpointMetadata(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			input := &core.Metadata{}
-			AppendLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.clusterID, tt.labels, input)
+			AppendLbEndpointMetadata(tt.metadata, input)
 			if !reflect.DeepEqual(input, tt.want) {
 				t.Errorf("Unexpected Endpoint metadata got %v, want %v", input, tt.want)
 			}
