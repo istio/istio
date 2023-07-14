@@ -48,6 +48,8 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -459,6 +461,353 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expectedns1, gotns1) {
 		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedns1, gotns1)
+	}
+}
+
+func TestEnvoyFilterUpdate(t *testing.T) {
+	ctime := time.Now()
+
+	initialEnvoyFilters := []config.Config{
+		{
+			Meta: config.Meta{Name: "default-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "default-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "b-medium-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "a-medium-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "b-medium-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "a-medium-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "a-low-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: time.Now()},
+			Spec: &networking.EnvoyFilter{
+				Priority: 20,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "b-low-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 20,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "high-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				Priority: -1,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "super-high-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				Priority: -10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cases := []struct {
+		name    string
+		creates []config.Config
+		updates []config.Config
+		deletes []ConfigKey
+	}{
+		{
+			name: "create one",
+			creates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority-2", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			updates: []config.Config{},
+			deletes: []ConfigKey{},
+		},
+		{
+			name:    "update one",
+			creates: []config.Config{},
+			updates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			deletes: []ConfigKey{},
+		},
+		{
+			name:    "delete one",
+			creates: []config.Config{},
+			updates: []config.Config{},
+			deletes: []ConfigKey{{Kind: kind.EnvoyFilter, Name: "default-priority", Namespace: "testns"}},
+		},
+		{
+			name: "create and delete one same namespace",
+			creates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority-2", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			updates: []config.Config{},
+			deletes: []ConfigKey{{Kind: kind.EnvoyFilter, Name: "default-priority", Namespace: "testns"}},
+		},
+		{
+			name: "create and delete one different namespace",
+			creates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority-2", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			updates: []config.Config{},
+			deletes: []ConfigKey{{Kind: kind.EnvoyFilter, Name: "default-priority", Namespace: "testns-1"}},
+		},
+		{
+			name:    "delete entire namespace",
+			creates: []config.Config{},
+			updates: []config.Config{},
+			deletes: []ConfigKey{
+				{Kind: kind.EnvoyFilter, Name: "default-priority", Namespace: "testns-1"},
+				{Kind: kind.EnvoyFilter, Name: "b-medium-priority", Namespace: "testns-1"},
+				{Kind: kind.EnvoyFilter, Name: "a-medium-priority", Namespace: "testns-1"},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			env := &Environment{}
+			store := NewFakeStore()
+			for _, cfg := range initialEnvoyFilters {
+				_, _ = store.Create(cfg)
+			}
+			env.ConfigStore = store
+			m := mesh.DefaultMeshConfig()
+			env.Watcher = mesh.NewFixedWatcher(m)
+			env.Init()
+
+			// Init a new push context
+			pc1 := NewPushContext()
+			pc1.initEnvoyFilters(env, nil, nil)
+
+			creates := map[ConfigKey]config.Config{}
+			for _, cfg := range tt.creates {
+				if _, err := store.Create(cfg); err != nil {
+					t.Errorf("Error creating config %s/%s", cfg.Namespace, cfg.Name)
+				}
+				creates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
+			}
+			updates := map[ConfigKey]config.Config{}
+			for _, cfg := range tt.updates {
+				if _, err := store.Update(cfg); err != nil {
+					t.Errorf("Error updating config %s/%s", cfg.Namespace, cfg.Name)
+				}
+				updates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
+			}
+			deletes := sets.Set[ConfigKey]{}
+			for _, key := range tt.deletes {
+				store.Delete(gvk.EnvoyFilter, key.Name, key.Namespace, nil)
+				deletes.Insert(key)
+			}
+			createSet := sets.New(maps.Keys(creates)...)
+			updateSet := sets.New(maps.Keys(updates)...)
+			changes := deletes.Union(createSet).Union(updateSet)
+			pc2 := NewPushContext()
+			pc2.initEnvoyFilters(env, changes, pc1.envoyFiltersByNamespace)
+
+			total2 := 0
+			for ns, envoyFilters := range pc2.envoyFiltersByNamespace {
+				total2 += len(envoyFilters)
+				for _, ef := range envoyFilters {
+					key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
+					foundPrevious := slices.FindFunc(pc1.envoyFiltersByNamespace[ns], func(e *EnvoyFilterWrapper) bool {
+						return e.Name == ef.Name
+					})
+					if cfg, ok := creates[key]; ok {
+						if foundPrevious != nil {
+							t.Errorf("Created Envoy filter %s/%s already existed", ns, ef.Name)
+						} else if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
+							t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
+						}
+					} else if cfg, ok := updates[key]; ok {
+						if foundPrevious == nil {
+							t.Errorf("Updated Envoy filter %s/%s did not exist", ns, ef.Name)
+						} else if reflect.DeepEqual(*foundPrevious, ef) {
+							t.Errorf("Envoy filter %s/%s was not updated", ns, ef.Name)
+						} else if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
+							t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
+						}
+					} else if deletes.Contains(key) {
+						t.Errorf("Found deleted EnvoyFilter %s/%s", ns, ef.Name)
+					} else {
+						if foundPrevious == nil {
+							t.Errorf("Unchanged EnvoyFilter was not previously found %s/%s", ns, ef.Name)
+						} else if *foundPrevious != ef {
+							t.Errorf("Unchanged EnvoyFilter is different from original %s/%s", ns, ef.Name)
+						}
+					}
+				}
+			}
+
+			total1 := 0
+			for ns, envoyFilters := range pc1.envoyFiltersByNamespace {
+				total1 += len(envoyFilters)
+				deleted := 0
+				for _, ef := range envoyFilters {
+					key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
+					if deletes.Contains(key) {
+						deleted++
+					}
+				}
+
+				if deleted == len(envoyFilters) {
+					if _, ok := pc2.envoyFiltersByNamespace[ns]; ok {
+						t.Errorf("Empty Namespace %s was not deleted", ns)
+					}
+				}
+			}
+
+			if total2 != total1+len(tt.creates)-len(tt.deletes) {
+				t.Errorf("Expected %d envoy filters, found %d", total1+len(tt.creates)-len(tt.deletes), total2)
+			}
+		})
 	}
 }
 
