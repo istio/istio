@@ -423,6 +423,9 @@ func (n *networkManager) handleGatewayResource(_ controllers.Object, obj control
 }
 
 func (n *networkManager) HasSynced() bool {
+	if n.gatewayResourceClient == nil {
+		return true
+	}
 	return n.gatewayResourceClient.HasSynced()
 }
 
