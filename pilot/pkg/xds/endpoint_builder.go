@@ -402,7 +402,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint) *endpoint.
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove pilot/pkg/xds/fake.go
-	util.AppendLbEndpointMetadata(e.Metadata(), ep.Metadata)
+	util.AppendLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels, ep.Metadata)
 
 	address, port := e.Address, e.EndpointPort
 	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
