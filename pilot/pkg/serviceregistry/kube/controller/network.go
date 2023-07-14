@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
@@ -336,6 +337,9 @@ func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGa
 }
 
 func (n *networkManager) watchGatewayResources(c *Controller, stop <-chan struct{}) {
+	if !features.MultiNetworkGatewayAPI {
+		return
+	}
 	n.gatewayResourceClient = kclient.NewDelayedInformer(c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
 	registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
 	go n.gatewayResourceClient.Start(stop)

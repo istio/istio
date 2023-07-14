@@ -592,6 +592,9 @@ var (
 	ResolveHostnameGateways = env.Register("RESOLVE_HOSTNAME_GATEWAYS", true,
 		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
 
+	MultiNetworkGatewayAPI = env.Register("PILOT_MULTI_NETWORK_DISCOVER_GATEWAY_API", false,
+		"If true, Pilot will discover labeled Kubernetes gateway objects as multi-network gateways.").Get()
+
 	CertSignerDomain = env.Register("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
 
 	EnableQUICListeners = env.Register("PILOT_ENABLE_QUIC_LISTENERS", false,
