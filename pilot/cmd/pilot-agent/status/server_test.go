@@ -597,17 +597,21 @@ jmx_config_reload_success_total 0.0
 jmx_config_reload_success_created 1.623984612719E9
 `
 	appOpenMetrics := appText + "# EOF"
-	envoy := `# TYPE my_metric counter
+
+	envoy := strings.Builder{}
+	envoy.Grow(size << 10 * 100)
+	envoy.WriteString(`# TYPE my_metric counter
 my_metric{} 0
 # TYPE my_other_metric counter
 my_other_metric{} 0
-`
-	for i := 0; len(envoy)+len(appText) < size<<10; i++ {
-		envoy = envoy + "#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0\n"
+`)
+	for i := 0; envoy.Len()+len(appText) < size<<10; i++ {
+		envoy.WriteString("#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0\n")
 	}
+	eb := []byte(envoy.String())
 
 	envoyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, err := w.Write([]byte(envoy)); err != nil {
+		if _, err := w.Write(eb); err != nil {
 			t.Fatalf("write failed: %v", err)
 		}
 	}))
@@ -630,13 +634,19 @@ my_other_metric{} 0
 	if err != nil {
 		t.Fatal(err)
 	}
+	registry, err := initializeMonitoring()
+	if err != nil {
+		t.Fatal(err)
+	}
 	server := &Server{
+		registry: registry,
 		prometheus: &PrometheusScrapeConfiguration{
 			Port: strings.Split(app.URL, ":")[2],
 		},
 		envoyStatsPort: envoyPort,
 		http:           &http.Client{},
 	}
+	t.ResetTimer()
 	return server
 }
 
