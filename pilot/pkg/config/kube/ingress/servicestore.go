@@ -57,7 +57,7 @@ func (s *serviceStore) ingressUpdated(ingress *knetworking.Ingress) {
 	s.updateIngressesByService(old, cur, namespacedName)
 }
 
-// ingressUpdated should be called when we receive deleted event of ingress resources.
+// ingressDeleted should be called when we receive deleted event of ingress resources.
 // Additionally, If this ingress wouldn't be processed by istio which can happen in the case of
 // this ingress's class has been changed, this method should be also invoked.
 func (s *serviceStore) ingressDeleted(ingress *knetworking.Ingress) {
@@ -93,11 +93,12 @@ func (s *serviceStore) updateIngressesByService(old, cur sets.String, ingress st
 			s.services.Delete(item)
 		}
 	}
-	for _, added := range added {
-		if s.ingressesByService[added] == nil {
-			s.ingressesByService[added] = sets.String{}
+	for _, item := range added {
+		if s.ingressesByService[item] == nil {
+			s.ingressesByService[item] = sets.String{}
 		}
-		s.ingressesByService[added].Insert(ingress)
+		s.ingressesByService[item].Insert(ingress)
+		s.services.Insert(item)
 	}
 }
 
