@@ -82,6 +82,8 @@ type controller struct {
 	mutex sync.RWMutex
 	// processed ingresses
 	ingresses map[types.NamespacedName]*knetworking.Ingress
+	// serviceStore stores the services that are of port name type, specified by ingresses.
+	serviceStore *serviceStore
 
 	classes  kclient.Client[*knetworking.IngressClass]
 	ingress  kclient.Client[*knetworking.Ingress]
@@ -104,6 +106,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		meshWatcher:  meshWatcher,
 		domainSuffix: options.DomainSuffix,
 		ingresses:    make(map[types.NamespacedName]*knetworking.Ingress),
+		serviceStore: newServiceStore(),
 		ingress:      ingress,
 		classes:      classes,
 		services:     services,
@@ -112,6 +115,26 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		controllers.WithReconciler(c.onEvent),
 		controllers.WithMaxAttempts(5))
 	c.ingress.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
+
+	// When the service which is referred by ingress using port name has been changed,
+	// we should trigger to rebuild rds.
+	c.services.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		serviceName := config.NamespacedName(o).String()
+		// We only care about the service which is referred by ingress using port name.
+		if c.serviceStore.contains(serviceName) {
+			vsmetadata := config.Meta{
+				Name:             o.GetName() + "-" + "virtualservice",
+				Namespace:        o.GetNamespace(),
+				GroupVersionKind: gvk.VirtualService,
+				// Set this label so that we do not compare configs and just push.
+				Labels: map[string]string{constants.AlwaysPushLabel: "true"},
+			}
+
+			for _, f := range c.virtualServiceHandlers {
+				f(config.Config{Meta: vsmetadata}, config.Config{Meta: vsmetadata}, model.EventUpdate)
+			}
+		}
+	}))
 	return c
 }
 
@@ -143,8 +166,13 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) bool {
 		c.mutex.Lock()
 		c.ingresses[item] = ing
 		c.mutex.Unlock()
+		c.serviceStore.ingressUpdated(ing)
 		return true
 	}
+
+	// The current ingress should not be processed.
+	// We can safely remove it.
+	c.serviceStore.ingressDeleted(ing)
 
 	c.mutex.Lock()
 	_, preProcessed := c.ingresses[item]
@@ -172,6 +200,7 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 			// It was a delete and we didn't have an existing known ingress, no action
 			return nil
 		}
+		c.serviceStore.ingressDeleted(ing)
 	}
 
 	// we should check need process only when event is not delete,
