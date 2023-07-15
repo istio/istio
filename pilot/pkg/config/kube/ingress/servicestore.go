@@ -33,15 +33,12 @@ type serviceStore struct {
 	// ingressesByService records ingresses that refer to the map key service that are of port name type.
 	// service's namespaced name -> ingresses' namespaced name collection.
 	ingressesByService map[string]sets.String
-	// records all unique services with namespaced name.
-	services sets.String
 }
 
 func newServiceStore() *serviceStore {
 	return &serviceStore{
 		servicesByIngress:  make(map[string]sets.String),
 		ingressesByService: make(map[string]sets.String),
-		services:           sets.String{},
 	}
 }
 
@@ -78,7 +75,8 @@ func (s *serviceStore) contains(service string) bool {
 	s.RLock()
 	defer s.RUnlock()
 
-	return s.services.Contains(service)
+	_, exist := s.ingressesByService[service]
+	return exist
 }
 
 // This method is not thread-safe and can only be directly called by ingressUpdated or ingressDeleted.
@@ -88,9 +86,8 @@ func (s *serviceStore) updateIngressesByService(old, cur sets.String, ingress st
 	for _, item := range deleted {
 		s.ingressesByService[item].Delete(ingress)
 		if len(s.ingressesByService[item]) == 0 {
+			// There are no ingresses refer this service, so we remove the service from map.
 			delete(s.ingressesByService, item)
-			// There are no ingresses refer this service, so we remove the service from the set.
-			s.services.Delete(item)
 		}
 	}
 	for _, item := range added {
@@ -98,7 +95,6 @@ func (s *serviceStore) updateIngressesByService(old, cur sets.String, ingress st
 			s.ingressesByService[item] = sets.String{}
 		}
 		s.ingressesByService[item].Insert(ingress)
-		s.services.Insert(item)
 	}
 }
 
