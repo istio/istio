@@ -17,11 +17,11 @@ package ingress
 import (
 	"sync"
 
+	knetworking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/util/sets"
-	knetworking "k8s.io/api/networking/v1"
 )
 
 // serviceStore stores the services that are of port name type, specified by ingresses.
@@ -51,7 +51,7 @@ func (s *serviceStore) ingressUpdated(ingress *knetworking.Ingress) {
 	defer s.Unlock()
 
 	namespacedName := config.NamespacedName(ingress).String()
-	old, _ := s.servicesByIngress[namespacedName]
+	old := s.servicesByIngress[namespacedName]
 	cur := extractServicesByPortNameType(ingress)
 	s.servicesByIngress[namespacedName] = cur
 	s.updateIngressesByService(old, cur, namespacedName)
