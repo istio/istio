@@ -658,6 +658,10 @@ var (
 	KubernetesClientContentType = env.Register("ISTIO_KUBE_CLIENT_CONTENT_TYPE", "protobuf",
 		"The content type to use for Kubernetes clients. Defaults to protobuf. Valid options: [protobuf, json]").Get()
 
+	// This is used in injection templates, it is not unused.
+	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
+		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
+
 	// This is an experimental feature flag, can be removed once it became stable, and should introduced to Telemetry API.
 	MetricRotationInterval = env.Register("METRIC_ROTATION_INTERVAL", 0*time.Second,
 		"Metric scope rotation interval, set to 0 to disable the metric scope rotation").Get()

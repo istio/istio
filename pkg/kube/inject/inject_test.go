@@ -35,6 +35,7 @@ import (
 	meshapi "istio.io/api/mesh/v1alpha1"
 	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
@@ -277,6 +278,31 @@ func TestInjection(t *testing.T) {
 		{
 			in:   "proxy-override-args.yaml",
 			want: "proxy-override-args.yaml.injected",
+		},
+		{
+			in:   "proxy-override-args.yaml",
+			want: "proxy-override-args-native.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+			},
+		},
+		{
+			in:   "gateway.yaml",
+			want: "gateway.yaml.injected",
+		},
+		{
+			in:   "gateway.yaml",
+			want: "gateway.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+			},
+		},
+		{
+			in:   "native-sidecar.yaml",
+			want: "native-sidecar.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+			},
 		},
 		{
 			in:         "custom-template.yaml",
