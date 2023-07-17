@@ -26,49 +26,43 @@ import (
 )
 
 var (
-	errTag     = monitoring.MustCreateLabel("err")
-	nodeTag    = monitoring.MustCreateLabel("node")
-	typeTag    = monitoring.MustCreateLabel("type")
-	versionTag = monitoring.MustCreateLabel("version")
+	errTag     = monitoring.CreateLabel("err")
+	nodeTag    = monitoring.CreateLabel("node")
+	typeTag    = monitoring.CreateLabel("type")
+	versionTag = monitoring.CreateLabel("version")
 
 	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	cdsReject = monitoring.NewGauge(
 		"pilot_xds_cds_reject",
 		"Pilot rejected CDS configs.",
-		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	edsReject = monitoring.NewGauge(
 		"pilot_xds_eds_reject",
 		"Pilot rejected EDS.",
-		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	ldsReject = monitoring.NewGauge(
 		"pilot_xds_lds_reject",
 		"Pilot rejected LDS.",
-		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
 	rdsReject = monitoring.NewGauge(
 		"pilot_xds_rds_reject",
 		"Pilot rejected RDS.",
-		monitoring.WithLabels(nodeTag, errTag),
 	)
 
 	totalXDSRejects = monitoring.NewSum(
 		"pilot_total_xds_rejects",
 		"Total number of XDS responses from pilot rejected by proxy.",
-		monitoring.WithLabels(typeTag),
 	)
 
 	xdsExpiredNonce = monitoring.NewSum(
 		"pilot_xds_expired_nonce",
 		"Total number of XDS requests with an expired nonce.",
-		monitoring.WithLabels(typeTag),
 	)
 
 	monServices = monitoring.NewGauge(
@@ -81,7 +75,6 @@ var (
 	xdsClients = monitoring.NewGauge(
 		"pilot_xds",
 		"Number of endpoints connected to this pilot using XDS.",
-		monitoring.WithLabels(versionTag),
 	)
 	xdsClientTrackerMutex = &sync.Mutex{}
 	xdsClientTracker      = make(map[string]float64)
@@ -95,7 +88,6 @@ var (
 	pushes = monitoring.NewSum(
 		"pilot_xds_pushes",
 		"Pilot build and send errors for lds, rds, cds and eds.",
-		monitoring.WithLabels(typeTag),
 	)
 
 	cdsSendErrPushes = pushes.With(typeTag.Value("cds_senderr"))
@@ -119,7 +111,6 @@ var (
 		"pilot_xds_push_time",
 		"Total time in seconds Pilot takes to push lds, rds, cds and eds.",
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
-		monitoring.WithLabels(typeTag),
 	)
 
 	sendTime = monitoring.NewDistribution(
@@ -137,7 +128,6 @@ var (
 	pushTriggers = monitoring.NewSum(
 		"pilot_push_triggers",
 		"Total number of times a push was triggered, labeled by reason for the push.",
-		monitoring.WithLabels(typeTag),
 	)
 
 	proxiesConvergeDelay = monitoring.NewDistribution(
@@ -159,7 +149,6 @@ var (
 	inboundUpdates = monitoring.NewSum(
 		"pilot_inbound_updates",
 		"Total number of updates received by pilot.",
-		monitoring.WithLabels(typeTag),
 	)
 
 	pilotSDSCertificateErrors = monitoring.NewSum(
@@ -179,7 +168,6 @@ var (
 		// 4M default limit for gRPC, 10M config will start to strain system,
 		// 40M is likely upper-bound on config sizes supported.
 		[]float64{1, 10000, 1000000, 4000000, 10000000, 40000000},
-		monitoring.WithLabels(typeTag),
 		monitoring.WithUnit(monitoring.Bytes),
 	)
 )
@@ -267,31 +255,4 @@ func recordSendTime(duration time.Duration) {
 func recordPushTime(xdsType string, duration time.Duration) {
 	pushTime.With(typeTag.Value(v3.GetMetricType(xdsType))).Record(duration.Seconds())
 	pushes.With(typeTag.Value(v3.GetMetricType(xdsType))).Increment()
-}
-
-func init() {
-	monitoring.MustRegister(
-		cdsReject,
-		edsReject,
-		ldsReject,
-		rdsReject,
-		xdsExpiredNonce,
-		totalXDSRejects,
-		monServices,
-		xdsClients,
-		xdsResponseWriteTimeouts,
-		pushes,
-		debounceTime,
-		pushContextInitTime,
-		pushTime,
-		proxiesConvergeDelay,
-		proxiesQueueTime,
-		pushContextErrors,
-		totalXDSInternalErrors,
-		inboundUpdates,
-		pushTriggers,
-		sendTime,
-		pilotSDSCertificateErrors,
-		configSizeBytes,
-	)
 }

@@ -152,10 +152,6 @@ type JwksResolver struct {
 	jwksUribackgroundChannel bool
 }
 
-func init() {
-	monitoring.MustRegister(networkFetchSuccessCounter, networkFetchFailCounter)
-}
-
 // NewJwksResolver creates new instance of JwksResolver.
 func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration) *JwksResolver {
 	return newJwksResolverWithCABundlePaths(

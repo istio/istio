@@ -74,13 +74,12 @@ const (
 var log = istiolog.RegisterScope("kube", "kubernetes service registry controller")
 
 var (
-	typeTag  = monitoring.MustCreateLabel("type")
-	eventTag = monitoring.MustCreateLabel("event")
+	typeTag  = monitoring.CreateLabel("type")
+	eventTag = monitoring.CreateLabel("event")
 
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
 		"Events from k8s registry.",
-		monitoring.WithLabels(typeTag, eventTag),
 	)
 
 	// nolint: gocritic
@@ -95,12 +94,6 @@ var (
 		"Number of endpoints that do not currently have any corresponding pods.",
 	)
 )
-
-func init() {
-	monitoring.MustRegister(k8sEvents)
-	monitoring.MustRegister(endpointsWithNoPods)
-	monitoring.MustRegister(endpointsPendingPodUpdate)
-}
 
 func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()

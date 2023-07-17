@@ -12,13 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package metrics provides utilities for generating metrics-related collateral
-// for a binary.
 package metrics
 
-// Exported contains the name, type, and description of an exported metric.
-type Exported struct {
-	Name        string
-	Type        string
-	Description string
+import (
+	"strings"
+
+	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
+)
+
+var charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_", "-", "")
+
+func promName(metricName string) string {
+	s := strings.TrimPrefix(metricName, "/")
+	return charReplacer.Replace(s)
+}
+
+func ExportedMetrics() []monitoring.MetricDefinition {
+	return slices.Map(monitoring.ExportMetricDefinitions(), func(e monitoring.MetricDefinition) monitoring.MetricDefinition {
+		e.Name = promName(e.Name)
+		return e
+	})
 }

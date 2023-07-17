@@ -25,21 +25,16 @@ import (
 )
 
 var (
-	clusterLabel = monitoring.MustCreateLabel("cluster")
+	clusterLabel = monitoring.CreateLabel("cluster")
 
 	errorMetric = monitoring.NewSum(
 		"controller_sync_errors_total",
 		"Total number of errorMetric syncing controllers.",
-		monitoring.WithLabels(clusterLabel),
 	)
 
 	mu       sync.RWMutex
 	handlers = map[cluster.ID]cache.WatchErrorHandler{}
 )
-
-func init() {
-	monitoring.MustRegister(errorMetric)
-}
 
 // ErrorHandlerForCluster fetches or creates an ErrorHandler that emits a metric
 // and logs when a watch error occurs. For use with SetWatchErrorHandler on SharedInformer.

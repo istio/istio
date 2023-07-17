@@ -126,6 +126,8 @@ type Options struct {
 	NoEnvoy             bool
 	GRPCBootstrap       string
 	EnableProfiling     bool
+	// PrometheusRegistry to use. Just for testing.
+	PrometheusRegistry prometheus.Gatherer
 }
 
 // Server provides an endpoint for handling status probes.
@@ -144,10 +146,10 @@ type Server struct {
 	config                Options
 	http                  *http.Client
 	enableProfiling       bool
-	registry              *prometheus.Registry
+	registry              prometheus.Gatherer
 }
 
-func initializeMonitoring() (*prometheus.Registry, error) {
+func initializeMonitoring() (prometheus.Gatherer, error) {
 	registry := prometheus.NewRegistry()
 	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", registry)
 	wrapped.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
@@ -191,9 +193,13 @@ func NewServer(config Options) (*Server, error) {
 	}
 
 	probes = append(probes, config.Probes...)
-	registry, err := initializeMonitoring()
-	if err != nil {
-		return nil, err
+	registry := config.PrometheusRegistry
+	if registry == nil {
+		var err error
+		registry, err = initializeMonitoring()
+		if err != nil {
+			return nil, err
+		}
 	}
 	s := &Server{
 		statusPort:            config.StatusPort,
@@ -584,7 +590,7 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 	return expfmt.FmtText
 }
 
-func scrapeAndWriteAgentMetrics(registry *prometheus.Registry, w io.Writer) error {
+func scrapeAndWriteAgentMetrics(registry prometheus.Gatherer, w io.Writer) error {
 	mfs, err := registry.Gather()
 	enc := expfmt.NewEncoder(w, expfmt.FmtText)
 	if err != nil {

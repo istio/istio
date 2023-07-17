@@ -22,28 +22,28 @@ import (
 
 var (
 	// OperatorVersionLabel describes version of running binary.
-	OperatorVersionLabel = monitoring.MustCreateLabel("version")
+	OperatorVersionLabel = monitoring.CreateLabel("version")
 
 	// MergeErrorLabel describes the type of merge error.
-	MergeErrorLabel = monitoring.MustCreateLabel("error_type")
+	MergeErrorLabel = monitoring.CreateLabel("error_type")
 
 	// RenderErrorLabel describes the type of the error while rendering.
-	RenderErrorLabel = monitoring.MustCreateLabel("render_error")
+	RenderErrorLabel = monitoring.CreateLabel("render_error")
 
 	// CRFetchErrorReasonLabel describes the reason/HTTP code
 	// for failing to fetch CR.
-	CRFetchErrorReasonLabel = monitoring.MustCreateLabel("reason")
+	CRFetchErrorReasonLabel = monitoring.CreateLabel("reason")
 
 	// ComponentNameLabel represents istio component name - like
 	// core, pilot, istio-cni etc.
-	ComponentNameLabel = monitoring.MustCreateLabel("component")
+	ComponentNameLabel = monitoring.CreateLabel("component")
 
 	// ResourceKindLabel indicates the kind of resource owned
 	// or created or updated or deleted or pruned by operator.
-	ResourceKindLabel = monitoring.MustCreateLabel("kind")
+	ResourceKindLabel = monitoring.CreateLabel("kind")
 
 	// ReconcileRequestReasonLabel describes reason of reconcile request.
-	ReconcileRequestReasonLabel = monitoring.MustCreateLabel("reason")
+	ReconcileRequestReasonLabel = monitoring.CreateLabel("reason")
 )
 
 // MergeErrorType describes the class of errors that could
@@ -99,13 +99,11 @@ var (
 	Version = monitoring.NewGauge(
 		"version",
 		"Version of operator binary",
-		monitoring.WithLabels(OperatorVersionLabel),
 	)
 
 	ReconcileRequestTotal = monitoring.NewSum(
 		"reconcile_request_total",
 		"Number of times requesting Reconcile",
-		monitoring.WithLabels(ReconcileRequestReasonLabel),
 	)
 
 	// GetCRErrorTotal counts the number of times fetching
@@ -113,14 +111,12 @@ var (
 	GetCRErrorTotal = monitoring.NewSum(
 		"get_cr_error_total",
 		"Number of times fetching CR from apiserver failed",
-		monitoring.WithLabels(CRFetchErrorReasonLabel),
 	)
 
 	// CRMergeFailureTotal counts number of CR merge failures.
 	CRMergeFailureTotal = monitoring.NewSum(
 		"cr_merge_failure_total",
 		"Number of IstioOperator CR merge failures",
-		monitoring.WithLabels(MergeErrorLabel),
 	)
 
 	// CRDeletionTotal counts the number of times
@@ -142,7 +138,6 @@ var (
 	RenderManifestTotal = monitoring.NewSum(
 		"render_manifest_total",
 		"Number of component manifests rendered",
-		monitoring.WithLabels(ComponentNameLabel),
 	)
 
 	// OwnedResourceTotal indicates the number of resources
@@ -150,7 +145,6 @@ var (
 	OwnedResourceTotal = monitoring.NewGauge(
 		"owned_resource_total",
 		"Number of resources currently owned by the operator",
-		monitoring.WithLabels(ResourceKindLabel),
 	)
 
 	// ResourceCreationTotal indicates the number of resources
@@ -158,7 +152,6 @@ var (
 	ResourceCreationTotal = monitoring.NewSum(
 		"resource_creation_total",
 		"Number of resources created by the operator",
-		monitoring.WithLabels(ResourceKindLabel),
 	)
 
 	// ResourceUpdateTotal indicates the number of resources updated by
@@ -166,7 +159,6 @@ var (
 	ResourceUpdateTotal = monitoring.NewSum(
 		"resource_update_total",
 		"Number of resources updated by the operator",
-		monitoring.WithLabels(ResourceKindLabel),
 	)
 
 	// ResourceDeletionTotal indicates the number of resources deleted
@@ -176,14 +168,12 @@ var (
 	ResourceDeletionTotal = monitoring.NewSum(
 		"resource_deletion_total",
 		"Number of resources deleted by the operator",
-		monitoring.WithLabels(ResourceKindLabel),
 	)
 
 	// ResourcePruneTotal indicates the resources pruned as a result of update.
 	ResourcePruneTotal = monitoring.NewSum(
 		"resource_prune_total",
 		"Number of resources pruned by the operator",
-		monitoring.WithLabels(ResourceKindLabel),
 	)
 
 	// ManifestPatchErrorTotal counts the total number of K8S patch errors.
@@ -196,7 +186,6 @@ var (
 	ManifestRenderErrorTotal = monitoring.NewSum(
 		"manifest_render_error_total",
 		"Number of times error occurred during rendering output manifest",
-		monitoring.WithLabels(ComponentNameLabel, RenderErrorLabel),
 	)
 
 	// LegacyPathTranslationTotal counts the translations from legacy API to new one.
@@ -213,29 +202,6 @@ var (
 )
 
 func init() {
-	monitoring.MustRegister(
-		Version,
-
-		GetCRErrorTotal,
-		CRMergeFailureTotal,
-		CRValidationErrorTotal,
-		CRDeletionTotal,
-		RenderManifestTotal,
-
-		OwnedResourceTotal,
-		ResourceCreationTotal,
-		ResourceUpdateTotal,
-		ResourceDeletionTotal,
-		ResourcePruneTotal,
-
-		ManifestPatchErrorTotal,
-		ManifestRenderErrorTotal,
-		LegacyPathTranslationTotal,
-		CacheFlushTotal,
-
-		ReconcileRequestTotal,
-	)
-
 	initOperatorCrdResourceMetrics()
 }
 
