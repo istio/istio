@@ -264,7 +264,7 @@ func Build(ctx context.Context, b BuildSpec) error {
 	return nil
 }
 
-func writeImage(ctx context.Context, b BuildSpec, images []v1.Image, trace func(d ...any)) error {
+func writeImage(ctx context.Context, b BuildSpec, images []v1.Image, trace func(format string, d ...any)) error {
 	ctx, span := tracing.Start(ctx, "Write")
 	defer span.End()
 	var artifact remote.Taggable
