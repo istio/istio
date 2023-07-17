@@ -1975,7 +1975,8 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 			// reuse the previously EnvoyFilterWrapper if it exists because it hasn't changed and optimized config rebuild is enabled
 			efw = prev
 		} else {
-			// if optimized config rebuild is disabled or the EnvoyFilterWrapper doesn't exist, create a new one
+			// create a new one if optimized config rebuild is disabled or the EnvoyFilterWrapper doesn't exist. The latter case should probably
+			// never happen, but we need to handle it just in case.
 			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
 		}
 		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
