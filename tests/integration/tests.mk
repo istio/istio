@@ -80,7 +80,7 @@ endif
 
 # Precompile tests before running. See https://blog.howardjohn.info/posts/go-build-times/#integration-tests.
 define run-test
-otel-cli exec -s test -n prewarm $(GO) test -exec=true -toolexec=$(REPO_ROOT)/tools/go-compile-without-link -vet=off -tags=integ $2 $1
+otel-cli exec -s test -n prewarm -- $(GO) test -exec=true -toolexec=$(REPO_ROOT)/tools/go-compile-without-link -vet=off -tags=integ $2 $1
 $(GO) test -p 1 ${T} -tags=integ -vet=off -timeout 30m $2 $1 ${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 endef
 
