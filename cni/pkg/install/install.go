@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/slices"
 )
 
 var installLog = log.RegisterScope("install", "CNI install")
@@ -47,42 +46,44 @@ func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	}
 }
 
-func (in *Installer) install(ctx context.Context) error {
-	if err := copyBinaries(in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs); err != nil {
+func (in *Installer) install(ctx context.Context) ([]string, error) {
+	copiedFiles, err := copyBinaries(in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs)
+	if err != nil {
 		cniInstalls.With(resultLabel.Value(resultCopyBinariesFailure)).Increment()
-		return fmt.Errorf("copy binaries: %v", err)
+		return copiedFiles, fmt.Errorf("copy binaries: %v", err)
 	}
 
 	if err := writeKubeConfigFile(in.cfg); err != nil {
 		cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
-		return fmt.Errorf("write kubeconfig: %v", err)
+		return copiedFiles, fmt.Errorf("write kubeconfig: %v", err)
 	}
 
 	cfgPath, err := createCNIConfigFile(ctx, in.cfg)
 	if err != nil {
 		cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
-		return fmt.Errorf("create CNI config file: %v", err)
+		return copiedFiles, fmt.Errorf("create CNI config file: %v", err)
 	}
 	in.cniConfigFilepath = cfgPath
 
-	return nil
+	return copiedFiles, nil
 }
 
 // Run starts the installation process, verifies the configuration, then sleeps.
 // If an invalid configuration is detected, the installation process will restart to restore a valid state.
 func (in *Installer) Run(ctx context.Context) error {
-	if err := in.install(ctx); err != nil {
+	installedBins, err := in.install(ctx)
+	if err != nil {
 		return err
 	}
 	installLog.Info("Installation succeed, start watching for re-installation.")
 
 	for {
-		if err := in.sleepCheckInstall(ctx); err != nil {
+		if err := in.sleepCheckInstall(ctx, installedBins); err != nil {
 			return err
 		}
 
 		installLog.Info("Detect changes to the CNI configuration and binaries, attempt reinstalling...")
-		if err := in.install(ctx); err != nil {
+		if _, err := in.install(ctx); err != nil {
 			return err
 		}
 		installLog.Info("CNI configuration and binaries reinstalled.")
@@ -153,9 +154,21 @@ func (in *Installer) Cleanup() error {
 // sleepCheckInstall verifies the configuration then blocks until an invalid configuration is detected, and return nil.
 // If an error occurs or context is canceled, the function will return the error.
 // Returning from this function will set the pod to "NotReady".
-func (in *Installer) sleepCheckInstall(ctx context.Context) error {
-	targets := append(slices.Clone(in.cfg.CNIBinTargetDirs), in.cfg.MountedCNINetDir, constants.ServiceAccountPath)
-
+func (in *Installer) sleepCheckInstall(ctx context.Context, installedBinFiles []string) error {
+	// Watch our specific binaries, in each configured binary dir.
+	// We may or may not be the only CNI plugin in play, and if we are not
+	// we shouldn't fire events for binaries that are not ours.
+	var binPaths []string
+	for _, bindir := range in.cfg.CNIBinTargetDirs {
+		for _, binary := range installedBinFiles {
+			binPaths = append(binPaths, filepath.Join(bindir, binary))
+		}
+	}
+	targets := append(
+		binPaths,
+		in.cfg.MountedCNINetDir,
+		constants.ServiceAccountPath,
+	)
 	// Create file watcher before checking for installation
 	// so that no file modifications are missed while and after checking
 	// note: we create a file watcher for each invocation, otherwise when we write to the directories

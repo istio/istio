@@ -172,7 +172,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			}
 
 			t.Log("Expecting an invalid configuration log:")
-			if err := in.sleepCheckInstall(ctx); err != nil {
+			if err := in.sleepCheckInstall(ctx, []string{}); err != nil {
 				t.Fatalf("error should be nil due to invalid config, got: %v", err)
 			}
 			assert.Equal(t, isReady.Load(), false)
@@ -209,7 +209,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			// Should detect a valid configuration and wait indefinitely for a file modification
 			errChan := make(chan error)
 			go func(ctx context.Context) {
-				errChan <- in.sleepCheckInstall(ctx)
+				errChan <- in.sleepCheckInstall(ctx, []string{})
 			}(ctx)
 
 			select {
@@ -249,7 +249,7 @@ func TestSleepCheckInstall(t *testing.T) {
 
 				// Run sleepCheckInstall
 				go func(ctx context.Context, in *Installer) {
-					errChan <- in.sleepCheckInstall(ctx)
+					errChan <- in.sleepCheckInstall(ctx, []string{})
 				}(ctx, in)
 			}
 

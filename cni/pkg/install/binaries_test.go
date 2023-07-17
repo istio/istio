@@ -54,7 +54,7 @@ func TestCopyBinaries(t *testing.T) {
 				file.WriteOrFail(t, filepath.Join(targetDir, filename), []byte(contents))
 			}
 
-			err := copyBinaries(srcDir, []string{targetDir})
+			binariesCopied, err := copyBinaries(srcDir, []string{targetDir})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -62,6 +62,14 @@ func TestCopyBinaries(t *testing.T) {
 			for filename, expectedContents := range c.expectedFiles {
 				contents := file.AsStringOrFail(t, filepath.Join(targetDir, filename))
 				assert.Equal(t, contents, expectedContents)
+
+				wasCopied := false
+				for _, bin := range binariesCopied {
+					if bin == filename {
+						wasCopied = true
+					}
+				}
+				assert.Equal(t, wasCopied, true)
 			}
 		})
 	}
