@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 45335
+releaseNotes:
+  - |
+    **Fixed** an issue preventing dualstack support for EKS IPv6 clusters with secondary IPv4 link-local address.
+
+upgradeNotes:
+  - title: Use the excluded interface option for Ignoring IPv4 in an IPv6 cluster.
+    content: |
+      If you don't wish to use Istio dualstack feature, you will need to add v4if0 to excluded interface list. e.g. traffic.sidecar.istio.io/excludeInterfaces: v4if0
+

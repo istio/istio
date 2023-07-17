@@ -102,7 +102,7 @@ func getPrivateIPsIfAvailable() ([]string, bool) {
 			}
 			// unwrap the IPv4-mapped IPv6 address
 			unwrapAddr := ipAddr.Unmap()
-			if !unwrapAddr.IsValid() || unwrapAddr.IsLoopback() || unwrapAddr.IsLinkLocalUnicast() || unwrapAddr.IsLinkLocalMulticast() {
+			if !unwrapAddr.IsValid() || unwrapAddr.IsLoopback() || unwrapAddr.IsLinkLocalMulticast() {
 				continue
 			}
 			if unwrapAddr.IsUnspecified() {
