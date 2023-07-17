@@ -45,8 +45,6 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	injectPath := args.InjectionOptions.InjectionDirectory
 	if injectPath == "" || !injectionEnabled.Get() {
 		log.Infof("Skipping sidecar injector, injection path is missing or disabled.")
-		// Mark readiness as ready when not used.
-		s.readinessFlags.sidecarInjectorReady.Store(true)
 		return nil, nil
 	}
 
@@ -65,7 +63,6 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		if _, err := cms.Get(context.TODO(), configMapName, metav1.GetOptions{}); err != nil {
 			if errors.IsNotFound(err) {
 				log.Infof("Skipping sidecar injector, template not found")
-				s.readinessFlags.sidecarInjectorReady.Store(true)
 				return nil, nil
 			}
 			return nil, err
@@ -73,7 +70,6 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		watcher = inject.NewConfigMapWatcher(s.kubeClient, args.Namespace, configMapName, "config", "values")
 	} else {
 		log.Infof("Skipping sidecar injector, template not found")
-		s.readinessFlags.sidecarInjectorReady.Store(true)
 		return nil, nil
 	}
 
@@ -107,8 +103,6 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 			return nil
 		})
 	}
-
-	s.readinessFlags.sidecarInjectorReady.Store(true)
 
 	s.addStartFunc("injection server", func(stop <-chan struct{}) error {
 		wh.Run(stop)
