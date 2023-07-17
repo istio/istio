@@ -579,16 +579,14 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) informersSynced() bool {
-	if !c.namespaces.HasSynced() ||
-		!c.services.HasSynced() ||
-		!c.endpoints.slices.HasSynced() ||
-		!c.pods.pods.HasSynced() ||
-		!c.nodes.HasSynced() ||
-		!c.imports.HasSynced() ||
-		!c.exports.HasSynced() {
-		return false
-	}
-	return true
+	return c.namespaces.HasSynced() &&
+		c.services.HasSynced() &&
+		c.endpoints.slices.HasSynced() &&
+		c.pods.pods.HasSynced() &&
+		c.nodes.HasSynced() &&
+		c.imports.HasSynced() &&
+		c.exports.HasSynced() &&
+		c.networkManager.HasSynced()
 }
 
 func (c *Controller) syncPods() error {
@@ -615,6 +613,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
+
+	c.networkManager.watchGatewayResources(c, stop)
 
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))

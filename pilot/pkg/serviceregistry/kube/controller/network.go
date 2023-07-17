@@ -22,21 +22,33 @@ import (
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 )
 
 type networkManager struct {
 	sync.RWMutex
 	// CIDR ranger based on path-compressed prefix trie
-	ranger              cidranger.Ranger
-	clusterID           cluster.ID
-	meshNetworksWatcher mesh.NetworksWatcher
+	ranger    cidranger.Ranger
+	clusterID cluster.ID
+
+	gatewayResourceClient kclient.Untyped
+	meshNetworksWatcher   mesh.NetworksWatcher
 
 	// Network name for to be used when the meshNetworks fromRegistry nor network label on pod is specified
 	// This is defined by a topology.istio.io/network label on the system namespace.
@@ -48,6 +60,11 @@ type networkManager struct {
 	registryServiceNameGateways map[host.Name][]model.NetworkGateway
 	// gateways for each service
 	networkGatewaysBySvc map[host.Name]model.NetworkGatewaySet
+	// gateways from kubernetes Gateway resources
+	gatewaysFromResource map[types.UID]model.NetworkGatewaySet
+	// we don't want to discover gateways with class "istio-remote" from outside cluster's API servers.
+	discoverRemoteGatewayResources bool
+
 	// implements NetworkGatewaysWatcher; we need to call c.NotifyGatewayHandlers when our gateways change
 	model.NetworkGatewaysHandler
 }
@@ -57,11 +74,13 @@ func initNetworkManager(options Options) networkManager {
 		clusterID:           options.ClusterID,
 		meshNetworksWatcher: options.MeshNetworksWatcher,
 		// zero values are a workaround structcheck issue: https://github.com/golangci/golangci-lint/issues/826
-		ranger:                      nil,
-		network:                     "",
-		networkFromMeshConfig:       "",
-		registryServiceNameGateways: make(map[host.Name][]model.NetworkGateway),
-		networkGatewaysBySvc:        make(map[host.Name]model.NetworkGatewaySet),
+		ranger:                         nil,
+		network:                        "",
+		networkFromMeshConfig:          "",
+		registryServiceNameGateways:    make(map[host.Name][]model.NetworkGateway),
+		networkGatewaysBySvc:           make(map[host.Name]model.NetworkGatewaySet),
+		gatewaysFromResource:           make(map[types.UID]model.NetworkGatewaySet),
+		discoverRemoteGatewayResources: options.ConfigCluster,
 	}
 }
 
@@ -208,6 +227,9 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 	for _, gateways := range c.networkGatewaysBySvc {
 		out.Merge(gateways)
 	}
+	for _, gateways := range c.gatewaysFromResource {
+		out.Merge(gateways)
+	}
 
 	unsorted := out.UnsortedList()
 	return model.SortGateways(unsorted)
@@ -312,6 +334,99 @@ func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGa
 	}
 
 	return nil
+}
+
+func (n *networkManager) watchGatewayResources(c *Controller, stop <-chan struct{}) {
+	if !features.MultiNetworkGatewayAPI {
+		return
+	}
+	n.gatewayResourceClient = kclient.NewDelayedInformer(c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
+	registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
+	go n.gatewayResourceClient.Start(stop)
+}
+
+// handleGateway resource adds a NetworkGateway for each combination of address and auto-passthrough listener
+// discovering duplicates from the generated Service is not a huge concern as we de-duplicate in NetworkGateways
+// which returns a set, although it's not totally efficient.
+func (n *networkManager) handleGatewayResource(_ controllers.Object, obj controllers.Object, event model.Event) error {
+	gw, ok := obj.(*v1beta1.Gateway)
+	if !ok {
+		return nil
+	}
+
+	if nw := gw.GetLabels()[label.TopologyNetwork.Name]; nw == "" {
+		return nil
+	}
+
+	// Gateway with istio-remote: only discover this from the config cluster
+	// this is a way to reference a gateway that lives in a place that this control plane
+	// won't have API server access. Nothing will be deployed for these Gateway resources.
+	if !n.discoverRemoteGatewayResources && gw.Spec.GatewayClassName == constants.RemoteGatewayClassName {
+		return nil
+	}
+
+	gatewaysChanged := false
+	n.Lock()
+	defer func() {
+		n.Unlock()
+		if gatewaysChanged {
+			n.NotifyGatewayHandlers()
+		}
+	}()
+
+	previousGateways := n.gatewaysFromResource[gw.UID]
+
+	if event == model.EventDelete {
+		gatewaysChanged = len(previousGateways) > 0
+		delete(n.gatewaysFromResource, gw.UID)
+		return nil
+	}
+
+	autoPassthrough := func(l v1beta1.Listener) bool {
+		return kube.IsAutoPassthrough(gw.GetLabels(), l)
+	}
+
+	base := model.NetworkGateway{
+		Network: network.ID(gw.GetLabels()[label.TopologyNetwork.Name]),
+		Cluster: n.clusterID,
+	}
+	newGateways := model.NetworkGatewaySet{}
+	for _, addr := range gw.Spec.Addresses {
+		if addr.Type == nil {
+			continue
+		}
+		if addrType := *addr.Type; addrType != v1beta1.IPAddressType && addrType != v1beta1.HostnameAddressType {
+			continue
+		}
+		for _, l := range slices.Filter(gw.Spec.Listeners, autoPassthrough) {
+			networkGateway := base
+			networkGateway.Addr = addr.Value
+			networkGateway.Port = uint32(l.Port)
+			newGateways.Insert(networkGateway)
+		}
+	}
+	n.gatewaysFromResource[gw.UID] = newGateways
+
+	if len(previousGateways) != len(newGateways) {
+		gatewaysChanged = true
+		return nil
+	}
+
+	gatewaysChanged = !newGateways.Equals(previousGateways)
+	if len(newGateways) > 0 {
+		n.gatewaysFromResource[gw.UID] = newGateways
+	} else {
+		delete(n.gatewaysFromResource, gw.UID)
+	}
+
+	return nil
+}
+
+func (n *networkManager) HasSynced() bool {
+	if n.gatewayResourceClient == nil {
+		return true
+	}
+	return n.gatewayResourceClient.HasSynced()
 }
 
 // updateServiceNodePortAddresses updates ClusterExternalAddresses for Services of nodePort type
