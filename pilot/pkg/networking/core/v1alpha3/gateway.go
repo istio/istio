@@ -748,6 +748,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 					networkFilters: filters,
 				},
 			}
+		} else {
+			log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port)
 		}
 	} else if !gateway.IsPassThroughServer(server) {
 		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
@@ -762,6 +764,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 					networkFilters: filters,
 				},
 			}
+		} else {
+			log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port)
 		}
 	} else {
 		// Passthrough server.
