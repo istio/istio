@@ -29,6 +29,10 @@ set -u
 # Print commands
 set -x
 
+export OTEL_EXPORTER_OTLP_INSECURE=true
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://35.225.165.244:4317
+export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
