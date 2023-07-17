@@ -29,7 +29,7 @@ set -u
 # Print commands
 set -x
 
-export TRACEPARENT="00-${PROW_JOB_ID}-12345678-01"
+export TRACEPARENT="$(go run $ROOT/uid $PROW_JOB_ID)"
 export OTEL_EXPORTER_OTLP_INSECURE=true
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://35.225.165.244:4317
 export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
