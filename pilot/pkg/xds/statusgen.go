@@ -148,6 +148,7 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 					Id: con.proxy.ID,
 					Metadata: model.NodeMetadata{
 						ClusterID:    con.proxy.Metadata.ClusterID,
+						Namespace:    con.proxy.Metadata.Namespace,
 						IstioVersion: con.proxy.Metadata.IstioVersion,
 					}.ToStruct(),
 				},
