@@ -1265,7 +1265,7 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 	ps.initTelemetry(env)
 	ps.initProxyConfigs(env)
 	ps.initWasmPlugins(env)
-	ps.initEnvoyFilters(env)
+	ps.initEnvoyFilters(env, nil, nil)
 	ps.initGateways(env)
 	ps.initAmbient(env)
 
@@ -1283,6 +1283,8 @@ func (ps *PushContext) updateContext(
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool
 
+	changedEnvoyFilters := sets.New[ConfigKey]()
+
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
 		case kind.ServiceEntry:
@@ -1299,6 +1301,9 @@ func (ps *PushContext) updateContext(
 			wasmPluginsChanged = true
 		case kind.EnvoyFilter:
 			envoyFiltersChanged = true
+			if features.OptimizedConfigRebuild {
+				changedEnvoyFilters.Insert(conf)
+			}
 		case kind.AuthorizationPolicy:
 			authzChanged = true
 		case kind.RequestAuthentication,
@@ -1375,7 +1380,7 @@ func (ps *PushContext) updateContext(
 	}
 
 	if envoyFiltersChanged {
-		ps.initEnvoyFilters(env)
+		ps.initEnvoyFilters(env, changedEnvoyFilters, oldPushContext.envoyFiltersByNamespace)
 	} else {
 		ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
 	}
@@ -1925,8 +1930,16 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 }
 
 // pre computes envoy filters per namespace
-func (ps *PushContext) initEnvoyFilters(env *Environment) {
+func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[ConfigKey], previousIndex map[string][]*EnvoyFilterWrapper) {
 	envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
+	previous := make(map[ConfigKey]*EnvoyFilterWrapper)
+	if features.OptimizedConfigRebuild {
+		for namespace, nsEnvoyFilters := range previousIndex {
+			for _, envoyFilter := range nsEnvoyFilters {
+				previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
+			}
+		}
+	}
 
 	sort.Slice(envoyFilterConfigs, func(i, j int) bool {
 		ifilter := envoyFilterConfigs[i].Spec.(*networking.EnvoyFilter)
@@ -1946,11 +1959,18 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) {
 		return in < jn
 	})
 
-	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
 	for _, envoyFilterConfig := range envoyFilterConfigs {
-		efw := convertToEnvoyFilterWrapper(&envoyFilterConfig)
-		if _, exists := ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace]; !exists {
-			ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = make([]*EnvoyFilterWrapper, 0)
+		key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
+		var efw *EnvoyFilterWrapper
+		if changed.Contains(key) {
+			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
+		} else if prev, ok := previous[key]; ok && features.OptimizedConfigRebuild {
+			// reuse the previously EnvoyFilterWrapper if it exists because it hasn't changed and optimized config rebuild is enabled
+			efw = prev
+		} else {
+			// create a new one if optimized config rebuild is disabled or the EnvoyFilterWrapper doesn't exist. The latter case should probably
+			// never happen, but we need to handle it just in case.
+			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
 		}
 		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
 	}
