@@ -65,7 +65,11 @@ func podHasSidecar(pod *corev1.Pod) bool {
 }
 
 func ztunnelPod(pod *corev1.Pod) bool {
-	return pod.GetLabels()["app"] == "ztunnel"
+	// Short term fix - we may make it customisable later
+	if pod.Namespace == "istio-system" || pod.Namespace == "kube-system" {
+		return pod.GetLabels()["app"] == "ztunnel"
+	}
+	return false
 }
 
 func AnnotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
