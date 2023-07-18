@@ -429,16 +429,14 @@ func TestXdsProxyStatus(t *testing.T) {
 			})
 
 			// test namespace filtering
-		retry.UntilSuccessOrFail(t, func() error {
-			args := []string{
-				"x", "proxy-status", "-n",  apps.Namespace.Name(),
-			}
-			output, _, err := istioCtl.Invoke(args)
-			if err != nil {
-				return err
-			}
-			return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
-		})
+			retry.UntilSuccessOrFail(t, func() error {
+				args := []string{"x", "proxy-status", "-n", apps.Namespace.Name()}
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
+				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
+			})
 		})
 }
 
