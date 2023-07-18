@@ -18,6 +18,7 @@ package ingress
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -39,6 +40,8 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -76,14 +79,13 @@ type controller struct {
 	domainSuffix string
 
 	queue                  controllers.Queue
+	serviceQueue           controllers.Queue
 	virtualServiceHandlers []model.EventHandler
 	gatewayHandlers        []model.EventHandler
 
 	mutex sync.RWMutex
 	// processed ingresses
 	ingresses map[types.NamespacedName]*knetworking.Ingress
-	// serviceStore stores the services that are of port name type, specified by ingresses.
-	serviceStore *serviceStore
 
 	classes  kclient.Client[*knetworking.IngressClass]
 	ingress  kclient.Client[*knetworking.Ingress]
@@ -106,7 +108,6 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		meshWatcher:  meshWatcher,
 		domainSuffix: options.DomainSuffix,
 		ingresses:    make(map[types.NamespacedName]*knetworking.Ingress),
-		serviceStore: newServiceStore(),
 		ingress:      ingress,
 		classes:      classes,
 		services:     services,
@@ -116,31 +117,33 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		controllers.WithMaxAttempts(5))
 	c.ingress.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 
-	// When the service which is referred by ingress using port name has been changed,
-	// we should trigger to rebuild rds.
-	c.services.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-		serviceName := config.NamespacedName(o).String()
-		// We only care about the service which is referred by ingress using port name.
-		if c.serviceStore.contains(serviceName) {
-			vsmetadata := config.Meta{
-				Name:             o.GetName() + "-" + "virtualservice",
-				Namespace:        o.GetNamespace(),
-				GroupVersionKind: gvk.VirtualService,
-				// Set this label so that we do not compare configs and just push.
-				Labels: map[string]string{constants.AlwaysPushLabel: "true"},
-			}
-
-			for _, f := range c.virtualServiceHandlers {
-				f(config.Config{Meta: vsmetadata}, config.Config{Meta: vsmetadata}, model.EventUpdate)
-			}
-		}
+	// We watch service changes to detect service port number change to trigger
+	// re-convert ingress to new-vs.
+	c.serviceQueue = controllers.NewQueue("service",
+		controllers.WithGenericReconciler(c.onServiceEvent),
+		controllers.WithMaxAttempts(5))
+	c.services.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
+		c.serviceQueue.Add(o)
 	}))
+
 	return c
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
 	kube.WaitForCacheSync("ingress", stop, c.ingress.HasSynced, c.services.HasSynced, c.classes.HasSynced)
-	c.queue.Run(stop)
+
+	waitGroup := sync.WaitGroup{}
+	waitGroup.Add(2)
+	go func() {
+		c.queue.Run(stop)
+		waitGroup.Done()
+	}()
+	go func() {
+		c.serviceQueue.Run(stop)
+		waitGroup.Done()
+	}()
+	waitGroup.Wait()
+
 	controllers.ShutdownAll(c.ingress, c.services, c.classes)
 }
 
@@ -166,13 +169,8 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) bool {
 		c.mutex.Lock()
 		c.ingresses[item] = ing
 		c.mutex.Unlock()
-		c.serviceStore.ingressUpdated(ing)
 		return true
 	}
-
-	// The current ingress should not be processed.
-	// We can safely remove it.
-	c.serviceStore.ingressDeleted(ing)
 
 	c.mutex.Lock()
 	_, preProcessed := c.ingresses[item]
@@ -200,7 +198,6 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 			// It was a delete and we didn't have an existing known ingress, no action
 			return nil
 		}
-		c.serviceStore.ingressDeleted(ing)
 	}
 
 	// we should check need process only when event is not delete,
@@ -239,6 +236,66 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 	return nil
 }
 
+func (c *controller) onServiceEvent(input any) error {
+	event := input.(controllers.Event)
+	curSvc := event.Latest().(*corev1.Service)
+	namespacedName := config.NamespacedName(curSvc).String()
+
+	ingresses := c.ingress.List(curSvc.GetNamespace(), klabels.Everything())
+	var firstMatchIngress *knetworking.Ingress
+	for _, ingress := range ingresses {
+		referredSvcSet := extractServicesByPortNameType(ingress)
+		if referredSvcSet.Contains(namespacedName) {
+			firstMatchIngress = ingress
+			break
+		}
+	}
+	if firstMatchIngress == nil {
+		log.Debugf("this svc %s doesn't be referred by any ingress, just ignore it.", namespacedName)
+		return nil
+	}
+
+	extractPorts := func(ports []corev1.ServicePort) sets.String {
+		result := sets.String{}
+		for _, port := range ports {
+			// the format is port number|port name.
+			result.Insert(fmt.Sprintf("%d|%s", port.Port, port.Name))
+		}
+		return result
+	}
+
+	switch event.Event {
+	case controllers.EventAdd:
+		fallthrough
+	case controllers.EventDelete:
+		c.notifyVirtualServiceHandler(firstMatchIngress)
+	case controllers.EventUpdate:
+		oldSvc := event.Old.(*corev1.Service)
+		oldPorts := extractPorts(oldSvc.Spec.Ports)
+		curPorts := extractPorts(curSvc.Spec.Ports)
+		removed, added := oldPorts.Diff(curPorts)
+		if len(removed) > 0 || len(added) > 0 {
+			c.notifyVirtualServiceHandler(firstMatchIngress)
+		}
+	}
+
+	return nil
+}
+
+func (c *controller) notifyVirtualServiceHandler(ingress *knetworking.Ingress) {
+	vsmetadata := config.Meta{
+		Name:             ingress.Name + "-" + "virtualservice",
+		Namespace:        ingress.Namespace,
+		GroupVersionKind: gvk.VirtualService,
+		// Set this label so that we do not compare configs and just push.
+		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
+	}
+
+	for _, f := range c.virtualServiceHandlers {
+		f(config.Config{Meta: vsmetadata}, config.Config{Meta: vsmetadata}, model.EventUpdate)
+	}
+}
+
 func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.EventHandler) {
 	switch kind {
 	case gvk.VirtualService:
@@ -249,7 +306,7 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 }
 
 func (c *controller) HasSynced() bool {
-	return c.queue.HasSynced()
+	return c.queue.HasSynced() && c.serviceQueue.HasSynced()
 }
 
 func (c *controller) Schemas() collection.Schemas {
@@ -307,6 +364,30 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) []confi
 	}
 
 	return out
+}
+
+// extractServicesByPortNameType extract services that are of port name type in the specified ingress resource.
+func extractServicesByPortNameType(ingress *knetworking.Ingress) sets.String {
+	services := sets.String{}
+	for _, rule := range ingress.Spec.Rules {
+		if rule.HTTP == nil {
+			continue
+		}
+
+		for _, route := range rule.HTTP.Paths {
+			if route.Backend.Service == nil {
+				continue
+			}
+
+			if route.Backend.Service.Port.Name != "" {
+				services.Insert(types.NamespacedName{
+					Namespace: ingress.GetNamespace(),
+					Name:      route.Backend.Service.Name,
+				}.String())
+			}
+		}
+	}
+	return services
 }
 
 func (c *controller) Create(_ config.Config) (string, error) {
