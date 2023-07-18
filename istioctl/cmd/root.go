@@ -253,8 +253,6 @@ debug and diagnose their Istio mesh.
 	// leave the multicluster commands in x for backwards compat
 	rootCmd.AddCommand(remoteSecretCmd)
 	rootCmd.AddCommand(remoteClustersCmd)
-	experimentalCmd.AddCommand(remoteSecretCmd)
-	experimentalCmd.AddCommand(remoteClustersCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
