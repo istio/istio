@@ -98,19 +98,14 @@ type MergedGateway struct {
 }
 
 var (
-	typeTag = monitoring.MustCreateLabel("type")
-	nameTag = monitoring.MustCreateLabel("name")
+	typeTag = monitoring.CreateLabel("type")
+	nameTag = monitoring.CreateLabel("name")
 
 	totalRejectedConfigs = monitoring.NewSum(
 		"pilot_total_rejected_configs",
 		"Total number of configs that Pilot had to reject or ignore.",
-		monitoring.WithLabels(typeTag, nameTag),
 	)
 )
-
-func init() {
-	monitoring.MustRegister(totalRejectedConfigs)
-}
 
 func RecordRejectedConfig(gatewayName string) {
 	totalRejectedConfigs.With(typeTag.Value("gateway"), nameTag.Value(gatewayName)).Increment()

@@ -35,6 +35,7 @@ templates:
         {{- end }}
       {{- end }}
     {{- end }}
+    {{ $nativeSidecar := (eq (env "ENABLE_NATIVE_SIDECARS" "false") "true") }}
     {{- $containers := list }}
     {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
     metadata:
@@ -195,13 +196,16 @@ templates:
           runAsNonRoot: false
           runAsUser: 0
       {{ end }}
+      {{ if not $nativeSidecar }}
       containers:
+      {{ end }}
       - name: istio-proxy
       {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
         image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
       {{- else }}
         image: "{{ .ProxyImage }}"
       {{- end }}
+        {{ if $nativeSidecar }}restartPolicy: Always{{end}}
         ports:
         - containerPort: 15090
           protocol: TCP
@@ -335,7 +339,11 @@ templates:
         {{- end }}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
+      {{ if $nativeSidecar }}
+        startupProbe:
+      {{ else }}
         readinessProbe:
+      {{ end }}
           httpGet:
             path: /healthz/ready
             port: 15021
@@ -1700,31 +1708,3 @@ templates:
       {{- end }}
       type: {{ index .Annotations "networking.istio.io/service-type" | default "LoadBalancer" | quote }}
     ---
-  custom: |
-    metadata:
-      annotations:
-        # Disable the built-in transformations. In the future we may want a template-level API
-        prometheus.istio.io/merge-metrics: "false"
-        sidecar.istio.io/rewriteAppHTTPProbers: "false"
-        foo: bar
-    spec:
-      containers:
-      {{- range $index, $container := .Spec.Containers }}
-      - name: {{ $container.Name }}
-        env:
-        - name: SOME_ENV
-          value: "true"
-        - name: SOME_FILE
-          value: /var/lib/data/foo.json
-        volumeMounts:
-        - mountPath: /var/lib/data/foo.json
-          subPath: foo.json
-          name: some-injected-file
-      {{- end}}
-      volumes:
-      - name: some-injected-file
-        downwardAPI:
-          items:
-          - path: foo.json
-            fieldRef:
-              fieldPath: "metadata.annotations['foo']"

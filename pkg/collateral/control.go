@@ -705,8 +705,7 @@ func (g *generator) genMetrics(selectFn SelectMetricFn) {
 </thead>
 <tbody>`)
 
-	r := metrics.NewOpenCensusRegistry()
-	for _, metric := range r.ExportedMetrics() {
+	for _, metric := range metrics.ExportedMetrics() {
 		if !selectFn(metric) {
 			continue
 		}

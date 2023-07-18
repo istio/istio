@@ -22,10 +22,6 @@ var pushLatency = monitoring.NewGauge(
 	monitoring.WithUnit(monitoring.Seconds),
 )
 
-func init() {
-	monitoring.MustRegister(pushLatency)
-}
-
 func ExampleNewGauge() {
 	// only the last recorded value (99.2) will be exported for this gauge
 	pushLatency.Record(77.3)

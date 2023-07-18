@@ -630,8 +630,9 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		}
 	}
 
-	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL) && tls.CredentialName != "" {
-		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
+	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL ||
+		tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL) && tls.CredentialName != "" {
+		// If tls mode is SIMPLE or MUTUAL/OPTIONL_MUTUAL, and CredentialName is specified, credentials are fetched
 		// remotely. ServerCertificate and CaCertificates fields are not required.
 		return
 	}
@@ -642,7 +643,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		if tls.PrivateKey == "" {
 			v = appendValidation(v, fmt.Errorf("SIMPLE TLS requires a private key"))
 		}
-	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL {
+	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL || tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
 		if tls.ServerCertificate == "" {
 			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
@@ -883,7 +884,6 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 									continue
 								}
 							}
-
 							errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetName()))
 							errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetSubFilter().GetName()))
 						}
@@ -1497,6 +1497,23 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 	if settings == nil {
 		return
+	}
+
+	if settings.GetInsecureSkipVerify().GetValue() {
+		if settings.Mode == networking.ClientTLSSettings_SIMPLE {
+			// In tls simple mode, we can specify ca cert by CaCertificates or CredentialName.
+			if settings.CaCertificates != "" || settings.CredentialName != "" || settings.SubjectAltNames != nil {
+				errs = appendErrors(errs, fmt.Errorf("cannot specify CaCertificates or CredentialName or SubjectAltNames when InsecureSkipVerify is set true"))
+			}
+		}
+
+		if settings.Mode == networking.ClientTLSSettings_MUTUAL {
+			// In tls mutual mode, we can specify both client cert and ca cert by CredentialName.
+			// However, here we can not distinguish whether user specify ca cert by CredentialName or not.
+			if settings.CaCertificates != "" || settings.SubjectAltNames != nil {
+				errs = appendErrors(errs, fmt.Errorf("cannot specify CaCertificates or SubjectAltNames when InsecureSkipVerify is set true"))
+			}
+		}
 	}
 
 	if (settings.Mode == networking.ClientTLSSettings_SIMPLE || settings.Mode == networking.ClientTLSSettings_MUTUAL) &&

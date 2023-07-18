@@ -39,6 +39,7 @@ var SupportedCiphers = []string{
 // BuildInboundTLS returns the TLS context corresponding to the mTLS mode.
 func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 	protocol networking.ListenerProtocol, trustDomainAliases []string, minTLSVersion tls.TlsParameters_TlsProtocol,
+	mc *meshconfig.MeshConfig,
 ) *tls.DownstreamTlsContext {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
@@ -64,10 +65,13 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		// protocol, e.g. HTTP/2.
 		ctx.CommonTlsContext.AlpnProtocols = util.ALPNHttp
 	}
-
+	ciphers := SupportedCiphers
+	if mc != nil && mc.MeshMTLS != nil && mc.MeshMTLS.CipherSuites != nil {
+		ciphers = mc.MeshMTLS.CipherSuites
+	}
 	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
 	ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
-		CipherSuites:              SupportedCiphers,
+		CipherSuites:              ciphers,
 		TlsMinimumProtocolVersion: minTLSVersion,
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}

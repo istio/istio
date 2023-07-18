@@ -193,9 +193,9 @@ func (a v1beta1PolicyApplier) InboundMTLSSettings(
 		Port: endpointPort,
 		Mode: effectiveMTLSMode,
 		TCP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP,
-			trustDomainAliases, minTLSVersion),
+			trustDomainAliases, minTLSVersion, mc),
 		HTTP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP,
-			trustDomainAliases, minTLSVersion),
+			trustDomainAliases, minTLSVersion, mc),
 	}
 }
 

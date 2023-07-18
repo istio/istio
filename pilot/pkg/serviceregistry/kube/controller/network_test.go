@@ -23,18 +23,31 @@ import (
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestNetworkUpdateTriggers(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
-	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{ClusterID: "Kubernetes", NetworksWatcher: meshNetworks, DomainSuffix: "cluster.local"})
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		ClusterID:       "Kubernetes",
+		NetworksWatcher: meshNetworks,
+		DomainSuffix:    "cluster.local",
+		CRDs:            []schema.GroupVersionResource{gvr.KubernetesGateway},
+	})
 
 	if len(c.NetworkGateways()) != 0 {
 		t.Fatal("did not expect any gateways yet")
@@ -87,6 +100,18 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 		addLabeledServiceGateway(t, c, "nw1")
 		expectGateways(t, 3)
 	})
+	t.Run("add kubernetes gateway", func(t *testing.T) {
+		addOrUpdateGatewayResource(t, c, 35443)
+		expectGateways(t, 7)
+	})
+	t.Run("update kubernetes gateway", func(t *testing.T) {
+		addOrUpdateGatewayResource(t, c, 45443)
+		expectGateways(t, 7)
+	})
+	t.Run("remove kubernetes gateway", func(t *testing.T) {
+		removeGatewayResource(t, c)
+		expectGateways(t, 3)
+	})
 	t.Run("remove labeled service", func(t *testing.T) {
 		removeLabeledServiceGateway(t, c)
 		expectGateways(t, 2)
@@ -116,6 +141,50 @@ func addLabeledServiceGateway(t *testing.T, c *FakeController, nw string) {
 
 func removeLabeledServiceGateway(t *testing.T, c *FakeController) {
 	clienttest.Wrap(t, c.services).Delete("istio-labeled-gw", "arbitrary-ns")
+}
+
+// creates a gateway that exposes 2 ports that are valid auto-passthrough ports
+// and it does so on an IP and a hostname
+func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int) {
+	passthroughMode := v1beta1.TLSModePassthrough
+	ipType := v1beta1.IPAddressType
+	hostnameType := v1beta1.HostnameAddressType
+	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).CreateOrUpdate(&v1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "eastwest-gwapi",
+			Namespace: "istio-system",
+			Labels:    map[string]string{label.TopologyNetwork.Name: "nw2"},
+		},
+		Spec: v1beta1.GatewaySpec{
+			GatewayClassName: "istio",
+			Addresses: []v1beta1.GatewayAddress{
+				{Type: &ipType, Value: "1.2.3.4"},
+				{Type: &hostnameType, Value: "some hostname"},
+			},
+			Listeners: []v1beta1.Listener{
+				{
+					Name: "detected-by-options",
+					TLS: &v1beta1.GatewayTLSConfig{
+						Mode: &passthroughMode,
+						Options: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{
+							constants.ListenerModeOption: constants.ListenerModeAutoPassthrough,
+						},
+					},
+					Port: v1beta1.PortNumber(customPort),
+				},
+				{
+					Name: "detected-by-number",
+					TLS:  &v1beta1.GatewayTLSConfig{Mode: &passthroughMode},
+					Port: 15443,
+				},
+			},
+		},
+		Status: v1beta1.GatewayStatus{},
+	})
+}
+
+func removeGatewayResource(t *testing.T, c *FakeController) {
+	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).Delete("eastwest-gwapi", "istio-system")
 }
 
 func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher mesh.NetworksWatcher) {

@@ -1568,7 +1568,7 @@ metadata:
   name: test-se
 spec:
   hosts:
-  - serviceentry.istio.io # not used
+  - serviceentry.istio.io
   addresses:
   - 111.111.222.222
   ports:
@@ -1603,7 +1603,7 @@ spec:
 						})).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							from.CallOrFail(t, echo.CallOptions{
-								Address: "111.111.222.222",
+								Address: "serviceentry.istio.io", // host here is important to test ztunnel DNS resolution
 								Port:    to.PortForName("http"),
 								// sample response:
 								//

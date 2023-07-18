@@ -367,7 +367,7 @@ type PushRequest struct {
 	// to avoid unbounded cardinality in metrics. If this is not set, it may be automatically filled in later.
 	// There should only be multiple reasons if the push request is the result of two distinct triggers, rather than
 	// classifying a single trigger as having multiple reasons.
-	Reason []TriggerReason
+	Reason ReasonStats
 
 	// Delta defines the resources that were added or removed as part of this push request.
 	// This is set only on requests from the client which change the set of resources they (un)subscribe from.
@@ -384,6 +384,53 @@ type ResourceDelta struct {
 
 func (rd ResourceDelta) IsEmpty() bool {
 	return len(rd.Subscribed) == 0 && len(rd.Unsubscribed) == 0
+}
+
+type ReasonStats map[TriggerReason]int
+
+func NewReasonStats(reasons ...TriggerReason) ReasonStats {
+	ret := make(ReasonStats)
+	for _, reason := range reasons {
+		ret.Add(reason)
+	}
+	return ret
+}
+
+func (r ReasonStats) Add(reason TriggerReason) {
+	r[reason]++
+}
+
+func (r ReasonStats) Merge(other ReasonStats) {
+	for reason, count := range other {
+		r[reason] += count
+	}
+}
+
+func (r ReasonStats) CopyMerge(other ReasonStats) ReasonStats {
+	if len(r) == 0 {
+		return other
+	}
+	if len(other) == 0 {
+		return r
+	}
+
+	merged := make(ReasonStats, len(r)+len(other))
+	merged.Merge(r)
+	merged.Merge(other)
+
+	return merged
+}
+
+func (r ReasonStats) Count() int {
+	var ret int
+	for _, count := range r {
+		ret += count
+	}
+	return ret
+}
+
+func (r ReasonStats) Has(reason TriggerReason) bool {
+	return r[reason] > 0
 }
 
 type TriggerReason string
@@ -435,7 +482,12 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	// Keep the first (older) start time
 
 	// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
-	pr.Reason = append(pr.Reason, other.Reason...)
+	if len(other.Reason) > 0 {
+		if pr.Reason == nil {
+			pr.Reason = make(map[TriggerReason]int)
+		}
+		pr.Reason.Merge(other.Reason)
+	}
 
 	// If either is full we need a full push
 	pr.Full = pr.Full || other.Full
@@ -468,11 +520,11 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 		return pr
 	}
 
-	var reason []TriggerReason
+	var reason ReasonStats
 	if len(pr.Reason)+len(other.Reason) > 0 {
-		reason = make([]TriggerReason, 0, len(pr.Reason)+len(other.Reason))
-		reason = append(reason, pr.Reason...)
-		reason = append(reason, other.Reason...)
+		reason = make(ReasonStats)
+		reason.Merge(pr.Reason)
+		reason.Merge(other.Reason)
 	}
 	merged := &PushRequest{
 		// Keep the first (older) start time
@@ -499,16 +551,11 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 }
 
 func (pr *PushRequest) IsRequest() bool {
-	return len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest
+	return len(pr.Reason) == 1 && pr.Reason.Has(ProxyRequest)
 }
 
 func (pr *PushRequest) IsProxyUpdate() bool {
-	for _, r := range pr.Reason {
-		if r == ProxyUpdate {
-			return true
-		}
-	}
-	return false
+	return pr.Reason.Has(ProxyUpdate)
 }
 
 func (pr *PushRequest) PushReason() string {
@@ -658,13 +705,6 @@ var (
 		DuplicatedSubsets,
 	}
 )
-
-func init() {
-	for _, m := range metrics {
-		monitoring.MustRegister(m)
-	}
-	monitoring.MustRegister(totalVirtualServices)
-}
 
 // NewPushContext creates a new PushContext structure to track push status.
 func NewPushContext() *PushContext {
@@ -1225,7 +1265,7 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 	ps.initTelemetry(env)
 	ps.initProxyConfigs(env)
 	ps.initWasmPlugins(env)
-	ps.initEnvoyFilters(env)
+	ps.initEnvoyFilters(env, nil, nil)
 	ps.initGateways(env)
 	ps.initAmbient(env)
 
@@ -1243,6 +1283,8 @@ func (ps *PushContext) updateContext(
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool
 
+	changedEnvoyFilters := sets.New[ConfigKey]()
+
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
 		case kind.ServiceEntry:
@@ -1259,6 +1301,9 @@ func (ps *PushContext) updateContext(
 			wasmPluginsChanged = true
 		case kind.EnvoyFilter:
 			envoyFiltersChanged = true
+			if features.OptimizedConfigRebuild {
+				changedEnvoyFilters.Insert(conf)
+			}
 		case kind.AuthorizationPolicy:
 			authzChanged = true
 		case kind.RequestAuthentication,
@@ -1335,7 +1380,7 @@ func (ps *PushContext) updateContext(
 	}
 
 	if envoyFiltersChanged {
-		ps.initEnvoyFilters(env)
+		ps.initEnvoyFilters(env, changedEnvoyFilters, oldPushContext.envoyFiltersByNamespace)
 	} else {
 		ps.envoyFiltersByNamespace = oldPushContext.envoyFiltersByNamespace
 	}
@@ -1565,6 +1610,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				}
 				for host := range virtualServiceDestinations(rule) {
 					sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
+				}
+				if _, exists := ps.virtualServiceIndex.destinationsByGateway[gw]; !exists {
+					ps.virtualServiceIndex.destinationsByGateway[gw] = sets.Set[string]{}
 				}
 				addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
 			}
@@ -1882,8 +1930,16 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 }
 
 // pre computes envoy filters per namespace
-func (ps *PushContext) initEnvoyFilters(env *Environment) {
+func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[ConfigKey], previousIndex map[string][]*EnvoyFilterWrapper) {
 	envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
+	previous := make(map[ConfigKey]*EnvoyFilterWrapper)
+	if features.OptimizedConfigRebuild {
+		for namespace, nsEnvoyFilters := range previousIndex {
+			for _, envoyFilter := range nsEnvoyFilters {
+				previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
+			}
+		}
+	}
 
 	sort.Slice(envoyFilterConfigs, func(i, j int) bool {
 		ifilter := envoyFilterConfigs[i].Spec.(*networking.EnvoyFilter)
@@ -1903,11 +1959,18 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) {
 		return in < jn
 	})
 
-	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
 	for _, envoyFilterConfig := range envoyFilterConfigs {
-		efw := convertToEnvoyFilterWrapper(&envoyFilterConfig)
-		if _, exists := ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace]; !exists {
-			ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = make([]*EnvoyFilterWrapper, 0)
+		key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
+		var efw *EnvoyFilterWrapper
+		if changed.Contains(key) {
+			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
+		} else if prev, ok := previous[key]; ok && features.OptimizedConfigRebuild {
+			// reuse the previously EnvoyFilterWrapper if it exists because it hasn't changed and optimized config rebuild is enabled
+			efw = prev
+		} else {
+			// create a new one if optimized config rebuild is disabled or the EnvoyFilterWrapper doesn't exist. The latter case should probably
+			// never happen, but we need to handle it just in case.
+			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
 		}
 		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
 	}

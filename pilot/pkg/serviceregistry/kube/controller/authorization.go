@@ -412,7 +412,7 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			ConfigsUpdated: updates,
-			Reason:         []model.TriggerReason{model.AmbientUpdate},
+			Reason:         model.NewReasonStats(model.AmbientUpdate),
 		})
 	}
 }
@@ -522,7 +522,7 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			ConfigsUpdated: updates,
-			Reason:         []model.TriggerReason{model.AmbientUpdate},
+			Reason:         model.NewReasonStats(model.AmbientUpdate),
 		})
 	}
 }

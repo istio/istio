@@ -195,7 +195,7 @@ func (s *DiscoveryServer) initJwksResolver() {
 
 	// Flush cached discovery responses when detecting jwt public key change.
 	s.JwtKeyResolver.PushFunc = func() {
-		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
+		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.UnknownTrigger)})
 	}
 }
 
@@ -388,7 +388,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 		case r := <-ch:
 			// If reason is not set, record it as an unknown reason
 			if len(r.Reason) == 0 {
-				r.Reason = []model.TriggerReason{model.UnknownTrigger}
+				r.Reason = model.NewReasonStats(model.UnknownTrigger)
 			}
 			if !opts.enableEDSDebounce && !r.Full {
 				// trigger push now, just for EDS
@@ -431,15 +431,31 @@ func configsUpdated(req *model.PushRequest) string {
 }
 
 func reasonsUpdated(req *model.PushRequest) string {
+	var (
+		reason0, reason1            model.TriggerReason
+		reason0Cnt, reason1Cnt, idx int
+	)
+	for r, cnt := range req.Reason {
+		if idx == 0 {
+			reason0, reason0Cnt = r, cnt
+		} else if idx == 1 {
+			reason1, reason1Cnt = r, cnt
+		} else {
+			break
+		}
+		idx++
+	}
+
 	switch len(req.Reason) {
 	case 0:
 		return "unknown"
 	case 1:
-		return string(req.Reason[0])
+		return fmt.Sprintf("%s:%d", reason0, reason0Cnt)
 	case 2:
-		return fmt.Sprintf("%s and %s", req.Reason[0], req.Reason[1])
+		return fmt.Sprintf("%s:%d and %s:%d", reason0, reason0Cnt, reason1, reason1Cnt)
 	default:
-		return fmt.Sprintf("%s and %d more reasons", req.Reason[0], len(req.Reason)-1)
+		return fmt.Sprintf("%s:%d and %d(%d) more reasons", reason0, reason0Cnt, len(req.Reason)-1,
+			req.Reason.Count()-reason0Cnt)
 	}
 }
 
@@ -458,7 +474,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			if shuttingdown {
 				return
 			}
-			recordPushTriggers(push.Reason...)
+			recordPushTriggers(push.Reason)
 			// Signals that a push is done by reading from the semaphore, allowing another send on it.
 			doneFunc := func() {
 				queue.MarkDone(client)

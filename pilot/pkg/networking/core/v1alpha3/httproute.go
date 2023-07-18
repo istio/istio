@@ -111,11 +111,11 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func buildSidecarInboundHTTPRouteConfig(lb *ListenerBuilder, cc inboundChainConfig) *route.RouteConfiguration {
-	traceOperation := telemetry.TraceOperation(string(cc.telemetryMetadata.InstanceHostname), int(cc.port.Port))
+	traceOperation := telemetry.TraceOperation(string(cc.telemetryMetadata.InstanceHostname), cc.port.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(cc.clusterName, traceOperation)
 
 	inboundVHost := &route.VirtualHost{
-		Name:    inboundVirtualHostPrefix + strconv.Itoa(int(cc.port.Port)), // Format: "inbound|http|%d"
+		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
 		Domains: []string{"*"},
 		Routes:  []*route.Route{defaultRoute},
 	}
@@ -343,6 +343,10 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 					Labels:          svc.Attributes.Labels,
 				},
 			}
+			if features.EnableDualStack {
+				// cannot correctly build virtualHost domains for dual stack without ClusterVIPs
+				servicesByName[svc.Hostname].ClusterVIPs = *svc.ClusterVIPs.DeepCopy()
+			}
 		}
 	}
 
@@ -568,6 +572,14 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
 		domains = appendDomainPort(domains, svcAddr, port)
 	}
+
+	// handle dual stack's extra address when generating the virtualHost domains
+	// assumes that conversion is stripping out the DefaultAddress from ClusterVIPs
+	extraAddr := service.GetExtraAddressesForProxy(node)
+	for _, addr := range extraAddr {
+		domains = appendDomainPort(domains, addr, port)
+	}
+
 	return domains, altHosts
 }
 

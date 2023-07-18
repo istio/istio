@@ -40,10 +40,3 @@ var (
 		[]float64{.005, .001, 0.01, 0.1, 1, 5},
 	)
 )
-
-func registerStats() {
-	monitoring.MustRegister(requests)
-	monitoring.MustRegister(upstreamRequests)
-	monitoring.MustRegister(failures)
-	monitoring.MustRegister(requestDuration)
-}

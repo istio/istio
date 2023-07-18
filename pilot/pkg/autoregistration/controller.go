@@ -44,14 +44,6 @@ import (
 	"istio.io/istio/pkg/queue"
 )
 
-func init() {
-	monitoring.MustRegister(autoRegistrationSuccess)
-	monitoring.MustRegister(autoRegistrationUpdates)
-	monitoring.MustRegister(autoRegistrationUnregistrations)
-	monitoring.MustRegister(autoRegistrationDeletes)
-	monitoring.MustRegister(autoRegistrationErrors)
-}
-
 var (
 	autoRegistrationSuccess = monitoring.NewSum(
 		"auto_registration_success_total",

@@ -18,8 +18,6 @@ import (
 	"regexp"
 	"strconv"
 	"testing"
-
-	"istio.io/istio/pkg/structured"
 )
 
 func testOptions() *Options {
@@ -192,31 +190,6 @@ func TestDefault(t *testing.T) {
 				t.Errorf("Got '%v', expected a match with '%v'", lines[0], c.pat)
 			}
 		})
-	}
-}
-
-func TestErrorDictionary(t *testing.T) {
-	ie := &structured.Error{
-		MoreInfo:    "MoreInfo",
-		Impact:      "Impact",
-		Action:      "Action",
-		LikelyCause: "LikelyCause",
-	}
-	lines, err := captureStdout(func() {
-		if err := Configure(DefaultOptions()); err != nil {
-			t.Errorf("Got err '%v', expecting success", err)
-		}
-
-		Infof(ie, "Hello")
-		_ = Sync()
-	})
-	if err != nil {
-		t.Errorf("Got error '%v', expected success", err)
-	}
-
-	expected := "Hello	moreInfo=MoreInfo impact=Impact action=Action likelyCause=LikelyCause"
-	if match, _ := regexp.MatchString(expected, lines[0]); !match {
-		t.Errorf("Got '%v', expected a match with '%v'", lines[0], expected)
 	}
 }
 

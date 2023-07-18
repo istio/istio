@@ -70,7 +70,7 @@ values:
 meshConfig:
   defaultConfig:
     proxyMetadata:
-      ISTIO_AGENT_DUAL_STACK: "true"
+      ISTIO_DUAL_STACK: "true"
     gatewayTopology:
       numTrustedProxies: 1 # Needed for X-Forwarded-For (See https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/)
 `
