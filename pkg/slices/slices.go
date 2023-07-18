@@ -84,6 +84,11 @@ func FindFunc[E any](s []E, f func(E) bool) *E {
 	return &s[idx]
 }
 
+// IndexFunc finds the index of the first element matching the function, or -1 if none do
+func IndexFunc[E any](s []E, f func(E) bool) int {
+	return slices.IndexFunc(s, f)
+}
+
 // Reverse returns its argument array reversed
 func Reverse[E any](r []E) []E {
 	for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {

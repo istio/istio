@@ -16,7 +16,6 @@ package controller
 
 import (
 	"net/netip"
-	"sort"
 	"strings"
 	"sync"
 
@@ -40,9 +39,15 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
+)
+
+const (
+	workloadEntryGroupKind = "/networking.istio.io/WorkloadEntry/"
+	serviceEntryGroupKind  = "/networking.istio.io/ServiceEntry/"
 )
 
 type AmbientIndex interface {
@@ -190,15 +195,36 @@ func (a *AmbientIndexImpl) All() []*model.AddressInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	res := make([]*model.AddressInfo, 0, len(a.byUID)+len(a.serviceByNamespacedHostname))
+
+	addedWEAddr := map[networkAddress]*model.AddressInfo{}
+	allNetworkAddresses := sets.New[networkAddress]()
+
 	for _, wl := range a.byUID {
-		res = append(res, workloadToAddressInfo(wl.Workload))
+		addressInfo := workloadToAddressInfo(wl.Workload)
+		networkAddr := networkAddressFromWorkload(wl)
+		// For WorkloadEntry we need to check whether a workload with similar network/address exists.
+		// WorkloadEntry may have a single address.
+		if strings.Contains(wl.GetUid(), workloadEntryGroupKind) && len(wl.GetAddresses()) > 0 {
+			if allNetworkAddresses.Contains(networkAddr[0]) {
+				// Workload with network/address similar to the WorkloadEntry network/address already exists.
+				// Skipping this WorkloadEntry.
+				continue
+			}
+			addedWEAddr[networkAddr[0]] = addressInfo
+		} else {
+			// Check if any of the network addresses of the workload are also used by a WorkloadEntry that
+			// was previously added. If there is such, remove the WE from the result.
+			for _, addr := range networkAddr {
+				if addedWE := addedWEAddr[addr]; addedWE != nil {
+					idx := slices.IndexFunc[*model.AddressInfo](res, func(ai *model.AddressInfo) bool { return *ai == *addedWE })
+					res = slices.Delete[[]*model.AddressInfo](res, idx)
+				}
+			}
+		}
+		allNetworkAddresses = allNetworkAddresses.InsertAll(networkAddr...)
+		res = append(res, addressInfo)
 	}
-	// TODO: fix https://github.com/istio/istio/issues/45942
-	// for now, maintain original behavior where all workload entries are returned last
-	// this should not be required, but currently there is a bug that must be fixed
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].GetWorkload().GetUid() < res[j].GetWorkload().GetUid()
-	})
+
 	for _, s := range a.serviceByNamespacedHostname {
 		res = append(res, serviceToAddressInfo(s.Service))
 	}
