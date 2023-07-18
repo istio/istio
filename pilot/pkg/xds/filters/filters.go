@@ -216,7 +216,7 @@ var (
 	}
 
 	WaypointUpstreamMetadataFilter = &hcm.HttpFilter{
-		Name: "connect_baggage",
+		Name: "waypoint_upstream_peer_metadata",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
 				map[string]any{
