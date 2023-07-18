@@ -427,6 +427,13 @@ func TestXdsProxyStatus(t *testing.T) {
 				}
 				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
 			})
+
+			// test namespace filtering
+			retry.UntilSuccessOrFail(t, func() error {
+				args = []string{"proxy-status", "-n", apps.Namespace.Name()}
+				output, _ = istioCtl.InvokeOrFail(t, args)
+				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
+			})
 		})
 }
 

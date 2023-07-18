@@ -230,7 +230,10 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			if err != nil {
 				return err
 			}
-			sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
+			sw := pilot.XdsStatusWriter{
+				Writer:    c.OutOrStdout(),
+				Namespace: ctx.Namespace(),
+			}
 			return sw.PrintAll(xdsResponses)
 		},
 	}
