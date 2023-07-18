@@ -95,16 +95,16 @@ TODO: list all supported annotations, which are working on ambient, plans for lo
 
 - plugin config "exclude namespaces" applies first
 - ambient is enabled if:
-  - namespace label "istio.io/dataplane-mode" == "ambient" is required (may change for 'on-by-default' mode)
-  - "sidecar.istio.io/status" annotation is not present on the pod (created by injection of sidecar)
-  - "ambient.istio.io/redirection" is not "disabled"
+    - namespace label "istio.io/dataplane-mode" == "ambient" is required (may change for 'on-by-default' mode)
+    - "sidecar.istio.io/status" annotation is not present on the pod (created by injection of sidecar)
+    - "ambient.istio.io/redirection" is not "disabled"
 - sidecar interception is enabled if:
-  - "istio-init" container is not present in the pod.
-  - istio-proxy container exists and
-    - does not have DISABLE_ENVOY environment variable (which triggers proxyless mode)
-    - has a istio-proxy container, with first 2 args "proxy" and "sidecar" - or less then 2 args, or first arg not proxy.
-    - "sidecar.istio.io/inject" is not false
-    - "sidecar.istio.io/status" exists
+    - "istio-init" container is not present in the pod.
+    - istio-proxy container exists and
+        - does not have DISABLE_ENVOY environment variable (which triggers proxyless mode)
+        - has a istio-proxy container, with first 2 args "proxy" and "sidecar" - or less then 2 args, or first arg not proxy.
+        - "sidecar.istio.io/inject" is not false
+        - "sidecar.istio.io/status" exists
 
 ### Redirect API
 
