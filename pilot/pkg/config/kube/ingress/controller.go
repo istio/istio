@@ -265,16 +265,13 @@ func (c *controller) onServiceEvent(input any) error {
 	}
 
 	switch event.Event {
-	case controllers.EventAdd:
-		fallthrough
-	case controllers.EventDelete:
+	case controllers.EventAdd, controllers.EventDelete:
 		c.notifyVirtualServiceHandler(firstMatchIngress)
 	case controllers.EventUpdate:
 		oldSvc := event.Old.(*corev1.Service)
 		oldPorts := extractPorts(oldSvc.Spec.Ports)
 		curPorts := extractPorts(curSvc.Spec.Ports)
-		removed, added := oldPorts.Diff(curPorts)
-		if len(removed) > 0 || len(added) > 0 {
+		if !oldPorts.Equals(curPorts) {
 			c.notifyVirtualServiceHandler(firstMatchIngress)
 		}
 	}
