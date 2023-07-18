@@ -204,10 +204,11 @@ func (a *AmbientIndexImpl) All() []*model.AddressInfo {
 		networkAddr := networkAddressFromWorkload(wl)
 		// For WorkloadEntry we need to check whether a workload with similar network/address exists.
 		// WorkloadEntry may have a single address.
-		if strings.Contains(wl.GetUid(), workloadEntryGroupKind) && len(wl.GetAddresses()) > 0 {
+		if strings.Contains(wl.GetUid(), workloadEntryGroupKind) && len(networkAddr) > 0 {
 			if allNetworkAddresses.Contains(networkAddr[0]) {
 				// Workload with network/address similar to the WorkloadEntry network/address already exists.
 				// Skipping this WorkloadEntry.
+				log.Warnf("Skipping WorkloadEntry %s as it has the same address of another workload on the same network", wl.GetUid())
 				continue
 			}
 			addedWEAddr[networkAddr[0]] = addressInfo
@@ -218,6 +219,7 @@ func (a *AmbientIndexImpl) All() []*model.AddressInfo {
 				if addedWE := addedWEAddr[addr]; addedWE != nil {
 					idx := slices.IndexFunc[*model.AddressInfo](res, func(ai *model.AddressInfo) bool { return *ai == *addedWE })
 					res = slices.Delete[[]*model.AddressInfo](res, idx)
+					log.Warnf("Skipping WorkloadEntry %s as it has the same address of another workload on the same network", addedWE.GetWorkload().GetUid())
 				}
 			}
 		}

@@ -75,10 +75,52 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	s.assertEvent(t, s.wleXdsName("name0"))
 	// workload entry is included in the result until pod1 with the same address below is added
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "name0")
+	// lookup by address should return the workload entry's address info
+	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []*model.AddressInfo{{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Workload{
+				Workload: &workloadapi.Workload{
+					Uid:               s.wleXdsName("name0"),
+					Name:              "name0",
+					Namespace:         testNS,
+					Addresses:         [][]byte{parseIP("140.140.0.10")},
+					Network:           testNW,
+					CanonicalName:     "a",
+					CanonicalRevision: "latest",
+					ServiceAccount:    "sa1",
+					WorkloadType:      workloadapi.WorkloadType_POD,
+					WorkloadName:      "name0",
+				},
+			},
+		},
+	}})
 
 	// test code path where service entry selects workloads via `ServiceEntry.workloadSelector`
 	s.addPods(t, "140.140.0.10", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
+
+	// lookup by address should return the pod's address info (ignore the workload entry with similar address)
+	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []*model.AddressInfo{{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Workload{
+				Workload: &workloadapi.Workload{
+					Uid:               s.podXdsName("pod1"),
+					Name:              "pod1",
+					Namespace:         testNS,
+					Addresses:         [][]byte{parseIP("140.140.0.10")},
+					Network:           testNW,
+					ClusterId:         testC,
+					Node:              "node1",
+					CanonicalName:     "a",
+					CanonicalRevision: "latest",
+					ServiceAccount:    "sa1",
+					WorkloadType:      workloadapi.WorkloadType_POD,
+					WorkloadName:      "pod1",
+				},
+			},
+		},
+	}})
+
 	s.addPods(t, "140.140.0.11", "pod2", "sa1", map[string]string{"app": "other"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod2"))
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2")
