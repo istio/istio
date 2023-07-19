@@ -1,6 +1,0 @@
-
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  hub: mcr.microsoft.com/oss/istio
-  tag: 1.17.1
