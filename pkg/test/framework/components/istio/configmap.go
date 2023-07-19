@@ -297,7 +297,7 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 				return err
 			}
 
-			cfgMap, err = mc.getConfigMap(c, cfgMapName)
+			cfgMap, err := mc.getConfigMap(c, cfgMapName)
 			if err != nil {
 				return err
 			}
