@@ -228,9 +228,31 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	return nil
 }
 
+// ensureProxyCanControlEntry ensures the connected proxy's identity matches that of the WorkloadEntry it is associating with.
+func ensureProxyCanControlEntry(proxy *model.Proxy, wle *config.Config) error {
+	if !features.ValidateWorkloadEntryIdentity {
+		// Validation disabled, skip
+		return nil
+	}
+	if proxy.VerifiedIdentity == nil {
+		return fmt.Errorf("registration of WorkloadEntry requires a verified identity")
+	}
+	if proxy.VerifiedIdentity.Namespace != wle.Namespace {
+		return fmt.Errorf("registration of WorkloadEntry namespace mismatch: %q vs %q", proxy.VerifiedIdentity.Namespace, wle.Namespace)
+	}
+	spec := wle.Spec.(*v1alpha3.WorkloadEntry)
+	if spec.ServiceAccount != "" && proxy.VerifiedIdentity.ServiceAccount != spec.ServiceAccount {
+		return fmt.Errorf("registration of WorkloadEntry service account mismatch: %q vs %q", proxy.VerifiedIdentity.ServiceAccount, spec.ServiceAccount)
+	}
+	return nil
+}
+
 func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conTime time.Time) error {
 	wle := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if wle != nil {
+		if err := ensureProxyCanControlEntry(proxy, wle); err != nil {
+			return err
+		}
 		lastConTime, _ := time.Parse(timeFormat, wle.Annotations[ConnectedAtAnnotation])
 		// the proxy has reconnected to another pilot, not belong to this one.
 		if conTime.Before(lastConTime) {
@@ -257,6 +279,9 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
 	}
 	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
+	if err := ensureProxyCanControlEntry(proxy, entry); err != nil {
+		return err
+	}
 	setConnectMeta(entry, c.instanceID, conTime)
 	_, err := c.store.Create(*entry)
 	if err != nil {
