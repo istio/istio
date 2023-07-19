@@ -399,11 +399,11 @@ func (mc *meshConfig) PatchMeshConfigOrFail(ctx resource.Context, t test.Failer,
 func (mc *meshConfig) configMapName() (string, error) {
 	i, err := Get(mc.ctx)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	sharedCfgMapName := i.Settings().SharedMeshConfigName
-	if sharedCfgMapName != nil {
+	if sharedCfgMapName != "" {
 		return sharedCfgMapName, nil
 	}
 
