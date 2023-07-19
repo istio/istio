@@ -241,7 +241,7 @@ func (mc *meshConfig) MeshConfig() (*meshconfig.MeshConfig, error) {
 
 		cfgMapName, err := mc.configMapName()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		cfgMap, err := mc.getConfigMap(c, cfgMapName)
