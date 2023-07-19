@@ -22,13 +22,13 @@ import (
 
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
-	pkgVersion "istio.io/pkg/version"
+	pkgVersion "istio.io/istio/pkg/version"
 )
 
 const (
 	// MinK8SVersion is the minimum k8s version required to run this version of Istio
 	// https://istio.io/docs/setup/platform-setup/
-	MinK8SVersion               = 23
+	MinK8SVersion               = 24
 	UnSupportedK8SVersionLogMsg = "\nThe Kubernetes version %s is not supported by Istio %s. The minimum supported Kubernetes version is 1.%d.\n" +
 		"Proceeding with the installation, but you might experience problems. " +
 		"See https://istio.io/latest/docs/setup/platform-setup/ for a list of supported versions.\n"

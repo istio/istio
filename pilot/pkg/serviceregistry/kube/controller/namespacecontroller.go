@@ -22,11 +22,12 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
-	filter "istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/security/pkg/k8s"
 )
 
@@ -54,56 +55,57 @@ type NamespaceController struct {
 	configmaps kclient.Client[*v1.ConfigMap]
 
 	// if meshConfig.DiscoverySelectors specified, DiscoveryNamespacesFilter tracks the namespaces to be watched by this controller.
-	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
+	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
 func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher,
-	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
+	discoveryNamespacesFilter namespace.DiscoveryNamespacesFilter,
 ) *NamespaceController {
 	c := &NamespaceController{
 		caBundleWatcher:           caBundleWatcher,
 		DiscoveryNamespacesFilter: discoveryNamespacesFilter,
 	}
 	c.queue = controllers.NewQueue("namespace controller",
-		controllers.WithReconciler(c.insertDataForNamespace),
+		controllers.WithReconciler(c.reconcileCACert),
 		controllers.WithMaxAttempts(maxRetries))
 
-	c.configmaps = kclient.New[*v1.ConfigMap](kubeClient)
+	c.configmaps = kclient.NewFiltered[*v1.ConfigMap](kubeClient, kclient.Filter{
+		FieldSelector: "metadata.name=" + CACertNamespaceConfigMap,
+		ObjectFilter:  c.GetFilter(),
+	})
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
 	c.configmaps.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
-		if o.GetName() != CACertNamespaceConfigMap {
-			// This is a change to a configmap we don't watch, ignore it
-			return false
-		}
-		if inject.IgnoredNamespaces.Contains(o.GetNamespace()) {
-			// skip special kubernetes system namespaces
-			return false
-		}
-		if c.DiscoveryNamespacesFilter != nil && !c.DiscoveryNamespacesFilter.Filter(o) {
-			// This is a change to a configmap we don't watch, ignore it
-			return false
-		}
-		return true
-	}))
-	c.namespaces.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
-		if features.InformerWatchNamespace != "" && features.InformerWatchNamespace != o.GetName() {
-			// We are only watching one namespace, and its not this one
-			return false
-		}
-		if inject.IgnoredNamespaces.Contains(o.GetName()) {
-			// skip special kubernetes system namespaces
-			return false
-		}
-		if c.DiscoveryNamespacesFilter != nil && !c.DiscoveryNamespacesFilter.FilterNamespace(o.(*v1.Namespace).ObjectMeta) {
-			// This is a change to a namespace we don't watch, ignore it
-			return false
-		}
-		return true
+		// skip special kubernetes system namespaces
+		return !inject.IgnoredNamespaces.Contains(o.GetNamespace())
 	}))
 
+	if c.DiscoveryNamespacesFilter != nil {
+		c.DiscoveryNamespacesFilter.AddHandler(func(ns string, event model.Event) {
+			c.syncNamespace(ns)
+		})
+	} else {
+		c.namespaces.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+			if features.InformerWatchNamespace != "" && features.InformerWatchNamespace != o.GetName() {
+				// We are only watching one namespace, and its not this one
+				return false
+			}
+			if inject.IgnoredNamespaces.Contains(o.GetName()) {
+				// skip special kubernetes system namespaces
+				return false
+			}
+			return true
+		}))
+	}
 	return c
+}
+
+func (nc *NamespaceController) GetFilter() namespace.DiscoveryFilter {
+	if nc.DiscoveryNamespacesFilter != nil {
+		return nc.DiscoveryNamespacesFilter.Filter
+	}
+	return nil
 }
 
 // Run starts the NamespaceController until a value is sent to stopCh.
@@ -111,6 +113,7 @@ func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
 	if !kube.WaitForCacheSync("namespace controller", stopCh, nc.namespaces.HasSynced, nc.configmaps.HasSynced) {
 		return
 	}
+
 	go nc.startCaBundleWatcher(stopCh)
 	nc.queue.Run(stopCh)
 	controllers.ShutdownAll(nc.configmaps, nc.namespaces)
@@ -132,15 +135,20 @@ func (nc *NamespaceController) startCaBundleWatcher(stop <-chan struct{}) {
 	}
 }
 
-// insertDataForNamespace will add data into the configmap for the specified namespace
+// reconcileCACert will reconcile the ca root cert configmap for the specified namespace
 // If the configmap is not found, it will be created.
-// If you know the current contents of the configmap, using UpdateDataInConfigMap is more efficient.
-func (nc *NamespaceController) insertDataForNamespace(o types.NamespacedName) error {
+// If the namespace is filtered out by discovery selector, the configmap will be deleted.
+func (nc *NamespaceController) reconcileCACert(o types.NamespacedName) error {
 	ns := o.Namespace
 	if ns == "" {
 		// For Namespace object, it will not have o.Namespace field set
 		ns = o.Name
 	}
+	if nc.DiscoveryNamespacesFilter != nil && !nc.DiscoveryNamespacesFilter.Filter(ns) {
+		// donot delete the configmap, maybe it is owned by another control plane
+		return nil
+	}
+
 	meta := metav1.ObjectMeta{
 		Name:      CACertNamespaceConfigMap,
 		Namespace: ns,
@@ -153,18 +161,14 @@ func (nc *NamespaceController) insertDataForNamespace(o types.NamespacedName) er
 // If terminating, this will be skipped
 func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) {
 	if ns.Status.Phase != v1.NamespaceTerminating {
-		nc.syncNamespace(ns)
+		nc.syncNamespace(ns.Name)
 	}
 }
 
-func (nc *NamespaceController) syncNamespace(ns *v1.Namespace) {
+func (nc *NamespaceController) syncNamespace(ns string) {
 	// skip special kubernetes system namespaces
-	if inject.IgnoredNamespaces.Contains(ns.Name) {
+	if inject.IgnoredNamespaces.Contains(ns) {
 		return
 	}
-	// skip namespaces we don't watch
-	if nc.DiscoveryNamespacesFilter != nil && !nc.DiscoveryNamespacesFilter.FilterNamespace(ns.ObjectMeta) {
-		return
-	}
-	nc.queue.Add(types.NamespacedName{Name: ns.Name})
+	nc.queue.Add(types.NamespacedName{Name: ns})
 }

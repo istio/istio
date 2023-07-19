@@ -48,7 +48,6 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -58,12 +57,13 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/grpc"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // Constants for duration fields
@@ -618,12 +618,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
 		}
 		if tls.CredentialName != "" {
-			if features.EnableLegacyIstioMutualCredentialName {
-				// Legacy mode enabled, just warn
-				v = appendWarningf(v, "ISTIO_MUTUAL TLS cannot have associated credentialName")
-			} else {
-				v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
-			}
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
 		}
 		return
 	}
@@ -635,8 +630,9 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		}
 	}
 
-	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL) && tls.CredentialName != "" {
-		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
+	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL ||
+		tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL) && tls.CredentialName != "" {
+		// If tls mode is SIMPLE or MUTUAL/OPTIONL_MUTUAL, and CredentialName is specified, credentials are fetched
 		// remotely. ServerCertificate and CaCertificates fields are not required.
 		return
 	}
@@ -647,7 +643,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		if tls.PrivateKey == "" {
 			v = appendValidation(v, fmt.Errorf("SIMPLE TLS requires a private key"))
 		}
-	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL {
+	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL || tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
 		if tls.ServerCertificate == "" {
 			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
@@ -888,7 +884,6 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 									continue
 								}
 							}
-
 							errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetName()))
 							errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetSubFilter().GetName()))
 						}
@@ -1138,7 +1133,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			return nil, fmt.Errorf("sidecar: empty configuration provided")
 		}
 
-		portMap := make(map[uint32]struct{})
+		portMap := sets.Set[uint32]{}
 		for _, i := range rule.Ingress {
 			if i == nil {
 				errs = appendValidation(errs, fmt.Errorf("sidecar: ingress may not be null"))
@@ -1152,10 +1147,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			bind := i.GetBind()
 			errs = appendValidation(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
-			if _, found := portMap[i.Port.Number]; found {
+			if portMap.Contains(i.Port.Number) {
 				errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 			}
-			portMap[i.Port.Number] = struct{}{}
+			portMap.Insert(i.Port.Number)
 
 			if len(i.DefaultEndpoint) != 0 {
 				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
@@ -1200,8 +1195,8 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			}
 		}
 
-		portMap = make(map[uint32]struct{})
-		udsMap := make(map[string]struct{})
+		portMap = sets.Set[uint32]{}
+		udsMap := sets.String{}
 		catchAllEgressListenerFound := false
 		for index, egress := range rule.Egress {
 			if egress == nil {
@@ -1231,10 +1226,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 					udsMap[bind] = struct{}{}
 				} else {
-					if _, found := portMap[egress.Port.Number]; found {
+					if portMap.Contains(egress.Port.Number) {
 						errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 					}
-					portMap[egress.Port.Number] = struct{}{}
+					portMap.Insert(egress.Port.Number)
 				}
 			}
 
@@ -1502,6 +1497,23 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 	if settings == nil {
 		return
+	}
+
+	if settings.GetInsecureSkipVerify().GetValue() {
+		if settings.Mode == networking.ClientTLSSettings_SIMPLE {
+			// In tls simple mode, we can specify ca cert by CaCertificates or CredentialName.
+			if settings.CaCertificates != "" || settings.CredentialName != "" || settings.SubjectAltNames != nil {
+				errs = appendErrors(errs, fmt.Errorf("cannot specify CaCertificates or CredentialName or SubjectAltNames when InsecureSkipVerify is set true"))
+			}
+		}
+
+		if settings.Mode == networking.ClientTLSSettings_MUTUAL {
+			// In tls mutual mode, we can specify both client cert and ca cert by CredentialName.
+			// However, here we can not distinguish whether user specify ca cert by CredentialName or not.
+			if settings.CaCertificates != "" || settings.SubjectAltNames != nil {
+				errs = appendErrors(errs, fmt.Errorf("cannot specify CaCertificates or SubjectAltNames when InsecureSkipVerify is set true"))
+			}
+		}
 	}
 
 	if (settings.Mode == networking.ClientTLSSettings_SIMPLE || settings.Mode == networking.ClientTLSSettings_MUTUAL) &&
@@ -2292,7 +2304,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		if !appliesToGateway {
 			validateJWTClaimRoute := func(headers map[string]*networking.StringMatch) {
 				for key := range headers {
-					if strings.HasPrefix(key, constant.HeaderJWTClaim) {
+					if jwt.ToRoutingClaim(key).Match {
 						msg := fmt.Sprintf("JWT claim based routing (key: %s) is only supported for gateway, found no gateways: %v", key, virtualService.Gateways)
 						errs = appendValidation(errs, errors.New(msg))
 					}
@@ -2812,7 +2824,10 @@ func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
 	if re == "" {
 		return fmt.Errorf("%q: regex string match should not be empty", where)
 	}
+	return validateStringRegexp(re, where)
+}
 
+func validateStringRegexp(re string, where string) error {
 	// Envoy enforces a re2.max_program_size.error_level re2 program size is not the same as length,
 	// but it is always *larger* than length. Because goland does not have a way to evaluate the
 	// program size, we approximate by the length. To ensure that a program that is smaller than 1024
@@ -3176,10 +3191,29 @@ func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) (
 }
 
 func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
-	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
-		return errors.New("rewrite must specify URI, authority, or both")
+	if rewrite == nil {
+		return nil
+	}
+	if rewrite.Uri != "" && rewrite.UriRegexRewrite != nil {
+		return errors.New("rewrite may only contain one of URI or UriRegexRewrite")
+	}
+	if rewrite.Uri == "" && rewrite.UriRegexRewrite == nil && rewrite.Authority == "" {
+		return errors.New("rewrite must specify at least one of URI, UriRegexRewrite, or authority. Only one of URI or UriRegexRewrite may be specified")
+	}
+	if err := validateURIRegexRewrite(rewrite.UriRegexRewrite); err != nil {
+		return errors.Join(errors.New("UriRegexRewrite has errors"), err)
 	}
 	return nil
+}
+
+func validateURIRegexRewrite(regexRewrite *networking.RegexRewrite) error {
+	if regexRewrite == nil {
+		return nil
+	}
+	if regexRewrite.Match == "" || regexRewrite.Rewrite == "" {
+		return errors.New("UriRegexRewrite requires both Rewrite and Match fields to be specified")
+	}
+	return validateStringRegexp(regexRewrite.Match, "HTTPRewrite.UriRegexRewrite.Match")
 }
 
 // ValidateWorkloadEntry validates a workload entry.
@@ -3193,21 +3227,25 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 	})
 
 func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
+	errs := Validation{}
+
 	addr := we.Address
 	if addr == "" {
-		return nil, fmt.Errorf("address must be set")
+		if we.Network == "" {
+			return nil, fmt.Errorf("address must be set")
+		}
+		errs = appendWarningf(errs, "address is unset with network %q", we.Network)
 	}
 
-	// Since we don't know if its meant to be DNS or STATIC type without association with a ServiceEntry,
+	// Since we don't know if it's meant to be DNS or STATIC type without association with a ServiceEntry,
 	// check based on content and try validations.
 	// First check if it is a Unix endpoint - this will be specified for STATIC.
-	errs := Validation{}
 	if strings.HasPrefix(addr, UnixAddressPrefix) {
 		errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
 		if len(we.Ports) != 0 {
 			errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 		}
-	} else if !netutil.IsValidIPAddress(addr) { // This could be IP (in STATIC resolution) or DNS host name (for DNS).
+	} else if addr != "" && !netutil.IsValidIPAddress(addr) { // This could be IP (in STATIC resolution) or DNS host name (for DNS).
 		if err := ValidateFQDN(addr); err != nil { // Otherwise could be an FQDN
 			errs = appendValidation(errs, fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", addr))
 		}

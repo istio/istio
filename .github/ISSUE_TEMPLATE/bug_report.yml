@@ -5,11 +5,25 @@ body:
     attributes:
       value: |
         Thanks for taking the time to fill out this bug report!
+  - type: checkboxes
+    id: security-check
+    attributes:
+      label: Is this the right place to submit this?
+      description: |-
+        This is used to report product bugs:
+        To report a security vulnerability, please visit <https://istio.io/about/security-vulnerabilities>.
+        Any crashes are potentially security vulnerabilities and should be treated as such.
+        To ask questions about how to use Istio, please visit <https://discuss.istio.io>.
+      options:
+        - label: "This is not a security vulnerability or a crashing bug"
+          required: true
+        - label: "This is not a question about how to use Istio"
+          required: true
   - type: textarea
     id: bug-description
     attributes:
       label: Bug Description
-      description: Tell us what issues you ran into
+      description: Tell us what issues you ran into.
       placeholder: Include information about what you tried, what you expected to happen, and what actually happened. The more details, the better!
     validations:
       required: true
@@ -56,16 +70,3 @@ body:
       - label: "Multi Cluster"
       - label: "Virtual Machine"
       - label: "Control Plane Revisions"
-  - type: checkboxes
-    id: security-check
-    attributes:
-      label: Is this the right place to submit this?
-      description: |-
-        This is used to report product bugs:
-        To report a security vulnerability, please visit <https://istio.io/about/security-vulnerabilities>
-        To ask questions about how to use Istio, please visit <https://discuss.istio.io>
-      options:
-        - label: "This is not a security vulnerability"
-          required: true
-        - label: "This is not a question about how to use Istio"
-          required: true

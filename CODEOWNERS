@@ -30,6 +30,7 @@ Makefile*                                                        @istio/wg-test-
 /pkg/envoy/                                                      @istio/wg-networking-maintainers
 /pkg/istio-agent/                                                @istio/wg-networking-maintainers @istio/wg-security-maintainers
 /pkg/keepalive/                                                  @istio/wg-networking-maintainers
+/pkg/monitoring/                                                 @istio/wg-networking-maintainers @istio/wg-policies-and-telemetry-maintainers
 /pkg/kube/                                                       @istio/wg-networking-maintainers
 /pkg/mcp/                                                        @istio/wg-networking-maintainers
 /pkg/queue/                                                      @istio/wg-networking-maintainers
@@ -61,5 +62,5 @@ Makefile*                                                        @istio/wg-test-
 /tools/packaging/common/envoy_bootstrap.json                     @istio/wg-networking-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
 /tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers
-manifests/charts/global.yaml                                     @costinm @jacob-delgado @Monkeyanator
-**/values.yaml                                                   @costinm @jacob-delgado @Monkeyanator
+manifests/charts/global.yaml                                     @costinm @jacob-delgado @Monkeyanator @hanxiaop @GregHanson
+**/values.yaml                                                   @costinm @jacob-delgado @Monkeyanator @hanxiaop @GregHanson

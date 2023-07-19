@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 45866
+releaseNotes:
+- |
+  **Fixed** an issue where the hostname package is not listed as a dependency for the VM packages.

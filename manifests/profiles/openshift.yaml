@@ -17,6 +17,8 @@ spec:
       logLevel: info
       privileged: true
       provider: "multus"
-    sidecarInjectorWebhook:
-      injectedAnnotations:
-        k8s.v1.cni.cncf.io/networks: default/istio-cni
+    global:
+      platform: openshift
+    istio_cni:
+      enabled: true
+      chained: false

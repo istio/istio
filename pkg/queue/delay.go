@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type delayTask struct {

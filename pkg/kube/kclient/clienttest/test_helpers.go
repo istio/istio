@@ -43,6 +43,7 @@ func (t TestClient[T]) List(namespace string, selector klabels.Selector) []T {
 }
 
 func (t TestWriter[T]) Create(object T) T {
+	t.t.Helper()
 	res, err := t.c.Create(object)
 	if err != nil {
 		t.t.Fatalf("create %v/%v: %v", object.GetNamespace(), object.GetName(), err)
@@ -51,6 +52,7 @@ func (t TestWriter[T]) Create(object T) T {
 }
 
 func (t TestWriter[T]) Update(object T) T {
+	t.t.Helper()
 	res, err := t.c.Update(object)
 	if err != nil {
 		t.t.Fatalf("update %v/%v: %v", object.GetNamespace(), object.GetName(), err)
@@ -59,6 +61,7 @@ func (t TestWriter[T]) Update(object T) T {
 }
 
 func (t TestWriter[T]) UpdateStatus(object T) T {
+	t.t.Helper()
 	res, err := t.c.UpdateStatus(object)
 	if err != nil {
 		t.t.Fatalf("update status %v/%v: %v", object.GetNamespace(), object.GetName(), err)
@@ -67,6 +70,7 @@ func (t TestWriter[T]) UpdateStatus(object T) T {
 }
 
 func (t TestWriter[T]) CreateOrUpdate(object T) T {
+	t.t.Helper()
 	res, err := kclient.CreateOrUpdate[T](t.c, object)
 	if err != nil {
 		t.t.Fatalf("createOrUpdate %v/%v: %v", object.GetNamespace(), object.GetName(), err)
@@ -75,6 +79,7 @@ func (t TestWriter[T]) CreateOrUpdate(object T) T {
 }
 
 func (t TestWriter[T]) Delete(name, namespace string) {
+	t.t.Helper()
 	err := t.c.Delete(name, namespace)
 	if err != nil {
 		t.t.Fatalf("delete %v/%v: %v", namespace, name, err)

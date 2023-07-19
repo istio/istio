@@ -47,11 +47,11 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/hash"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 type mutableListenerOpts struct {
@@ -109,19 +109,24 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				continue
 			}
 
+			needPROXYProtocol := transport != istionetworking.TransportProtocolQUIC &&
+				proxyConfig.GatewayTopology != nil &&
+				proxyConfig.GatewayTopology.ProxyProtocol != nil
+
 			// on a given port, we can either have plain text HTTP servers or
 			// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 			// We can also have QUIC on a given port along with HTTPS/TLS on a given port. It does not
 			// cause port-conflict as they use different transport protocols
 			opts := &buildListenerOpts{
-				push:       builder.push,
-				proxy:      builder.node,
-				bind:       bind,
-				extraBind:  extraBind,
-				port:       &model.Port{Port: int(port.Number)},
-				bindToPort: true,
-				class:      istionetworking.ListenerClassGateway,
-				transport:  transport,
+				push:              builder.push,
+				proxy:             builder.node,
+				bind:              bind,
+				extraBind:         extraBind,
+				port:              &model.Port{Port: int(port.Number)},
+				bindToPort:        true,
+				class:             istionetworking.ListenerClassGateway,
+				transport:         transport,
+				needPROXYProtocol: needPROXYProtocol,
 			}
 			lname := getListenerName(bind, int(port.Number), transport)
 			p := protocol.Parse(port.Protocol)
@@ -450,7 +455,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 					newVHost := &route.VirtualHost{
 						Name:                       util.DomainName(string(hostname), port),
-						Domains:                    buildGatewayVirtualHostDomains(node, string(hostname), port),
+						Domains:                    []string{hostname.String()},
 						Routes:                     routes,
 						TypedPerFilterConfig:       perRouteFilters,
 						IncludeRequestAttemptCount: true,
@@ -475,7 +480,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 			newVHost := &route.VirtualHost{
 				Name:                       util.DomainName(hostname, port),
-				Domains:                    buildGatewayVirtualHostDomains(node, hostname, port),
+				Domains:                    []string{hostname},
 				IncludeRequestAttemptCount: true,
 				RequireTls:                 route.VirtualHost_ALL,
 			}
@@ -749,6 +754,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 				},
 			}
 		}
+		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port)
 	} else if !gateway.IsPassThroughServer(server) {
 		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 		// and forward to backend
@@ -763,6 +769,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 				},
 			}
 		}
+		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port)
 	} else {
 		// Passthrough server.
 		return buildGatewayNetworkFiltersFromTLSRoutes(node, push, server, listenerPort, gatewayName, tlsHostsByPort)
@@ -1036,24 +1043,4 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 		}
 	}
 	return false
-}
-
-func buildGatewayVirtualHostDomains(node *model.Proxy, hostname string, port int) []string {
-	domains := []string{hostname}
-	if hostname == "*" || !node.IsProxylessGrpc() {
-		return domains
-	}
-
-	// Per https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto#config-route-v3-virtualhost
-	// we can only have one wildcard. Ideally, we want to match any port, as the host
-	// header may have a different port (behind a LB, nodeport, etc). However, if we
-	// have a wildcard domain we cannot do that since we would need two wildcards.
-	// Therefore, we we will preserve the original port if there is a wildcard host.
-	// TODO(https://github.com/envoyproxy/envoy/issues/12647) support wildcard host with wildcard port.
-	if len(hostname) > 0 && hostname[0] == '*' {
-		domains = append(domains, util.DomainName(hostname, port))
-	} else {
-		domains = append(domains, util.IPv6Compliant(hostname)+":*")
-	}
-	return domains
 }

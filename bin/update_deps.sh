@@ -40,7 +40,6 @@ make update-common
 export GO111MODULE=on
 go get -u "istio.io/api@${UPDATE_BRANCH}"
 go get -u "istio.io/client-go@${UPDATE_BRANCH}"
-go get -u "istio.io/pkg@${UPDATE_BRANCH}"
 go mod tidy
 
 sed -i "s/^BUILDER_SHA=.*\$/BUILDER_SHA=$(getSha release-builder)/" prow/release-commit.sh

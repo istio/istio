@@ -38,6 +38,9 @@ const (
 	InboundTun  = "istioin"
 	OutboundTun = "istioout"
 
+	InboundTunVNI  = uint32(1000)
+	OutboundTunVNI = uint32(1001)
+
 	InboundTunIP         = "192.168.126.1"
 	ZTunnelInboundTunIP  = "192.168.126.2"
 	OutboundTunIP        = "192.168.127.1"
@@ -58,6 +61,7 @@ const (
 
 	TableMangle = "mangle"
 	TableNat    = "nat"
+	TableFilter = "filter"
 
 	DNSCapturePort              = 15053
 	ZtunnelInboundPort          = 15008

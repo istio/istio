@@ -72,8 +72,7 @@ type VMDistro = string
 const (
 	UbuntuXenial VMDistro = "UbuntuXenial"
 	UbuntuJammy  VMDistro = "UbuntuJammy"
-	Debian11     VMDistro = "Debian9"
-	Centos7      VMDistro = "Centos7"
+	Debian11     VMDistro = "Debian11"
 	Rockylinux8  VMDistro = "Centos8"
 
 	DefaultVMDistro = UbuntuJammy
@@ -323,10 +322,17 @@ func (c Config) HasWaypointProxy() bool {
 }
 
 func (c Config) HasSidecar() bool {
-	return len(c.Subsets) > 0 && c.Subsets[0].Labels != nil && c.Subsets[0].Labels["sidecar.istio.io/inject"] == "true"
+	var perPodEnable, perPodDisable bool
+	if len(c.Subsets) > 0 && c.Subsets[0].Labels != nil {
+		perPodEnable = c.Subsets[0].Labels["sidecar.istio.io/inject"] == "true"
+		perPodDisable = c.Subsets[0].Labels["sidecar.istio.io/inject"] == "false"
+	}
+
+	return perPodEnable || (!perPodDisable && c.Namespace.IsInjected())
 }
 
 func (c Config) IsUncaptured() bool {
+	// TODO this can be more robust to not require labeling initial echo config (check namespace + isWaypoint + not sidecar)
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(AmbientType) == constants.AmbientRedirectionDisabled
 }
 
@@ -350,7 +356,21 @@ func (c Config) IsDelta() bool {
 // - TProxy
 // - Multi-Subset
 func (c Config) IsRegularPod() bool {
-	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet() && !c.IsProxylessGRPC()
+	return len(c.Subsets) == 1 &&
+		!c.IsVM() &&
+		!c.IsTProxy() &&
+		!c.IsNaked() &&
+		!c.IsHeadless() &&
+		!c.IsStatefulSet() &&
+		!c.IsProxylessGRPC() &&
+		!c.HasWaypointProxy() &&
+		!c.ZTunnelCaptured()
+}
+
+// ZTunnelCaptured returns true in ambient enabled namespaces where there is no sidecar
+func (c Config) ZTunnelCaptured() bool {
+	return c.Namespace.IsAmbient() && len(c.Subsets) > 0 &&
+		c.Subsets[0].Annotations.GetByName("ambient.istio.io/redirection") == "enabled"
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
@@ -539,6 +559,8 @@ func (c Config) WorkloadClass() WorkloadClass {
 	} else if c.IsDelta() {
 		// TODO remove if delta is on by default
 		return Delta
+	} else if c.ZTunnelCaptured() && !c.HasWaypointProxy() {
+		return Captured
 	}
 	if c.IsHeadless() {
 		return Headless

@@ -20,10 +20,10 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/wasm"
-	"istio.io/pkg/env"
 )
 
 var (
@@ -153,4 +153,7 @@ var (
 	exitOnZeroActiveConnectionsEnv = env.Register("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",
 		false,
 		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
+
+	useExternalWorkloadSDSEnv = env.Register("USE_EXTERNAL_WORKLOAD_SDS", false,
+		"When set to true, the istio-agent will require an external SDS and will throw an error if the workload SDS socket is not found").Get()
 )

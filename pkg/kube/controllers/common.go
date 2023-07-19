@@ -27,7 +27,7 @@ import (
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
 var log = istiolog.RegisterScope("controllers", "common controller logic")

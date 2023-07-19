@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/config/constants"
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
 var authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy")

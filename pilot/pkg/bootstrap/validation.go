@@ -17,9 +17,9 @@ package bootstrap
 import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
-	"istio.io/pkg/log"
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {

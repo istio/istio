@@ -27,7 +27,7 @@ import (
 	anypb "github.com/golang/protobuf/ptypes/any"
 	"sigs.k8s.io/yaml"
 
-	protio "istio.io/istio/istioctl/pkg/util/proto"
+	"istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
@@ -92,7 +92,7 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string
 	if err != nil {
 		return err
 	}
-	marshaller := make(protio.MessageSlice, 0, len(dump))
+	marshaller := make(proto.MessageSlice, 0, len(dump))
 	for _, eds := range dump {
 		marshaller = append(marshaller, eds)
 	}

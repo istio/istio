@@ -26,12 +26,12 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"sigs.k8s.io/yaml"
@@ -64,6 +64,7 @@ import (
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
@@ -133,6 +134,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", "", map[string]string{})
+	s.discoveryStartTime = time.Now()
 	s.InitGenerators(s.Env, "istio-system", nil)
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
@@ -143,7 +145,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
-			Reason:         []model.TriggerReason{model.ServiceUpdate},
+			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		}
 		s.ConfigUpdate(pushReq)
 	}
@@ -159,7 +161,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		opts.NetworksWatcher.AddNetworksHandler(func() {
 			s.ConfigUpdate(&model.PushRequest{
 				Full:   true,
-				Reason: []model.TriggerReason{model.NetworksTrigger},
+				Reason: model.NewReasonStats(model.NetworksTrigger),
 			})
 		})
 	}
@@ -205,9 +207,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			client.RunAndWait(stop)
 		}
 		registries = append(registries, k8s)
-		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop); err != nil {
-			t.Fatal(err)
-		}
+		creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop)
 	}
 
 	stop := test.NewStop(t)
@@ -225,10 +225,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		MeshConfig:          m,
 		NetworksWatcher:     opts.NetworksWatcher,
 		ServiceRegistries:   registries,
-		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreController{ingr},
 		CreateConfigStore: func(c model.ConfigStoreController) model.ConfigStoreController {
-			g := gateway.NewController(defaultKubeClient, c, func(class config.GroupVersionKind, stop <-chan struct{}) bool {
+			g := gateway.NewController(defaultKubeClient, c, func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
 				return true
 			}, nil, kube.Options{
 				DomainSuffix: "cluster.local",
@@ -242,7 +241,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Gateways:  opts.Gateways,
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
-	s.updateMutex.Lock()
 	s.Env = cg.Env()
 	s.Env.GatewayAPIController = gwc
 	if err := s.Env.InitNetworksManager(s); err != nil {
@@ -253,7 +251,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.debounceOptions.debounceAfter = opts.DebounceTime
 	memRegistry := cg.MemRegistry
 	memRegistry.XdsUpdater = s
-	s.updateMutex.Unlock()
 
 	// Setup config handlers
 	// TODO code re-use from server.go
@@ -261,7 +258,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
-			Reason:         []model.TriggerReason{model.ConfigUpdate},
+			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		}
 		s.ConfigUpdate(pushReq)
 	}
@@ -332,8 +329,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// initialized.
 	s.ConfigUpdate(&model.PushRequest{Full: true})
 
-	processStartTime = time.Now()
-
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()
 	retry.UntilOrFail(t, func() bool {
@@ -364,9 +359,7 @@ func (f *FakeDiscoveryServer) KubeClient() kubelib.Client {
 }
 
 func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
-	f.Discovery.updateMutex.RLock()
-	defer f.Discovery.updateMutex.RUnlock()
-	return f.Env().PushContext
+	return f.Env().PushContext()
 }
 
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
@@ -480,9 +473,10 @@ func (f *FakeDiscoveryServer) EnsureSynced(t test.Failer) {
 // out of sync fields typically are bugs.
 func (f *FakeDiscoveryServer) AssertEndpointConsistency() error {
 	f.t.Helper()
+	cache := model.DisabledCache{}
 	mock := &DiscoveryServer{
-		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex()},
-		Cache: model.DisabledCache{},
+		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex(cache)},
+		Cache: cache,
 	}
 	ag := f.Discovery.Env.ServiceDiscovery.(*aggregate.Controller)
 

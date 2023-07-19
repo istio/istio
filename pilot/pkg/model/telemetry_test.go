@@ -669,6 +669,33 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
+	disabledAllMetricsImplicit := &tpb.Telemetry{
+		Metrics: []*tpb.Metrics{
+			{
+				Overrides: []*tpb.MetricsOverrides{{
+					Disabled: &wrappers.BoolValue{
+						Value: true,
+					},
+				}},
+
+				Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+			},
+		},
+	}
+	stackdriverDisabled := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "stackdriver",
+					},
+				},
+				Disabled: &wrappers.BoolValue{
+					Value: true,
+				},
+			},
+		},
+	}
 
 	cfg := `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`
 
@@ -693,6 +720,15 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"disabled-prometheus",
 			[]config.Config{newTelemetry("istio-system", disabledAllMetrics)},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{},
+		},
+		{
+			"disabled-prometheus-implicit",
+			[]config.Config{newTelemetry("istio-system", disabledAllMetricsImplicit)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
@@ -911,6 +947,20 @@ func TestTelemetryFilters(t *testing.T) {
 				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL","metric_expiry_duration":"3600s"}`,
 			},
 		},
+		{
+			"disable stackdriver",
+			[]config.Config{newTelemetry("istio-system", stackdriverDisabled)},
+			sidecar,
+			networking.ListenerClassSidecarInbound,
+			networking.ListenerProtocolHTTP,
+			&meshconfig.MeshConfig_DefaultProviders{
+				Metrics:       []string{"stackdriver"},
+				AccessLogging: []string{"stackdriver"},
+			},
+			map[string]string{
+				"istio.stackdriver": `{"disable_server_access_logging":true,"disable_host_header_fallback":true,"metric_expiry_duration":"3600s"}`,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -975,6 +1025,34 @@ func TestTelemetryFilters(t *testing.T) {
 			if diff := cmp.Diff(res, tt.want); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}
+		})
+	}
+}
+
+func TestGetInterval(t *testing.T) {
+	cases := []struct {
+		name              string
+		input, defaultVal time.Duration
+		expected          *durationpb.Duration
+	}{
+		{
+			name:       "return nil",
+			input:      0,
+			defaultVal: 0,
+			expected:   nil,
+		},
+		{
+			name:       "return input",
+			input:      1 * time.Second,
+			defaultVal: 0,
+			expected:   durationpb.New(1 * time.Second),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := getInterval(tc.input, tc.defaultVal)
+			assert.Equal(t, tc.expected, actual)
 		})
 	}
 }

@@ -31,8 +31,8 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
 	netutil "istio.io/istio/pkg/util/net"
-	"istio.io/pkg/log"
 )
 
 var statusLog = log.RegisterScope("ingress status", "")
@@ -77,7 +77,7 @@ func NewStatusSyncer(meshHolder mesh.Watcher, kc kubelib.Client, options kubecon
 	// For any ingress change, enqueue it - we may need to update the status.
 	c.ingresses.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 	// For any class change, sync all ingress; the handler will filter non-matching ones already
-	c.ingresses.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+	c.ingressClasses.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		// Just sync them all
 		c.enqueueAll()
 	}))
@@ -102,7 +102,7 @@ func NewStatusSyncer(meshHolder mesh.Watcher, kc kubelib.Client, options kubecon
 			c.enqueueAll()
 		}
 	}))
-	// Mesh may have changed ingress fields, enqueu everything
+	// Mesh may have changed ingress fields, enqueue everything
 	c.meshConfig.AddMeshHandler(c.enqueueAll)
 	return c
 }

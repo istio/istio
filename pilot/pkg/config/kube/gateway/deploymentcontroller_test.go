@@ -22,42 +22,76 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	istioio_networking_v1beta1 "istio.io/api/networking/v1beta1"
+	istio_type_v1beta1 "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
-	istiolog "istio.io/pkg/log"
 )
 
 func TestConfigureIstioGateway(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	// Recompute with ambient enabled
 	classInfos = getClassInfos()
+	defaultIstio := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}}
+	customSA := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}}
+	defaultObjects := []runtime.Object{defaultIstio, customSA}
+	store := model.NewFakeStore()
+	if _, err := store.Create(config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.ProxyConfig,
+			Name:             "test",
+			Namespace:        "default",
+		},
+		Spec: &istioio_networking_v1beta1.ProxyConfig{
+			Selector: &istio_type_v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"istio.io/gateway-name": "default",
+				},
+			},
+			Image: &istioio_networking_v1beta1.ProxyImage{
+				ImageType: "distroless",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("failed to create ProxyConfigs: %s", err)
+	}
+	proxyConfig := model.GetProxyConfigs(store, mesh.DefaultMeshConfig())
 	tests := []struct {
-		name string
-		gw   v1beta1.Gateway
+		name    string
+		gw      v1beta1.Gateway
+		objects []runtime.Object
+		pcs     *model.ProxyConfigs
 	}{
 		{
-			"simple",
-			v1beta1.Gateway{
+			name: "simple",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -66,10 +100,11 @@ func TestConfigureIstioGateway(t *testing.T) {
 					GatewayClassName: defaultClassName,
 				},
 			},
+			objects: defaultObjects,
 		},
 		{
-			"manual-sa",
-			v1beta1.Gateway{
+			name: "manual-sa",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -79,10 +114,11 @@ func TestConfigureIstioGateway(t *testing.T) {
 					GatewayClassName: defaultClassName,
 				},
 			},
+			objects: defaultObjects,
 		},
 		{
-			"manual-ip",
-			v1beta1.Gateway{
+			name: "manual-ip",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -96,10 +132,11 @@ func TestConfigureIstioGateway(t *testing.T) {
 					}},
 				},
 			},
+			objects: defaultObjects,
 		},
 		{
-			"cluster-ip",
-			v1beta1.Gateway{
+			name: "cluster-ip",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -117,10 +154,11 @@ func TestConfigureIstioGateway(t *testing.T) {
 					}},
 				},
 			},
+			objects: defaultObjects,
 		},
 		{
-			"multinetwork",
-			v1beta1.Gateway{
+			name: "multinetwork",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -136,10 +174,11 @@ func TestConfigureIstioGateway(t *testing.T) {
 					}},
 				},
 			},
+			objects: defaultObjects,
 		},
 		{
-			"waypoint",
-			v1beta1.Gateway{
+			name: "waypoint",
+			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "namespace",
 					Namespace: "default",
@@ -153,16 +192,37 @@ func TestConfigureIstioGateway(t *testing.T) {
 					}},
 				},
 			},
+			objects: defaultObjects,
+		},
+		{
+			name: "proxy-config-crd",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: defaultClassName,
+				},
+			},
+			objects: defaultObjects,
+			pcs:     proxyConfig,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
+			client := kube.NewFakeClient(tt.objects...)
+			deployments := kclient.New[*appsv1.Deployment](client)
+			stop := test.NewStop(t)
+			client.RunAndWait(stop)
+			kube.WaitForCacheSync("test", stop, deployments.HasSynced)
+			env := model.NewEnvironment()
+			env.PushContext().ProxyConfigs = tt.pcs
 			d := &DeploymentController{
-				client: kube.NewFakeClient(
-					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}},
-					&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}},
-				),
+				client:       client,
+				env:          env,
+				deployments:  deployments,
 				clusterID:    cluster.ID(features.ClusterName),
 				injectConfig: testInjectionConfig(t),
 				patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
@@ -195,7 +255,8 @@ func TestVersionManagement(t *testing.T) {
 		},
 	})
 	tw := revisions.NewTagWatcher(c, "default")
-	d := NewDeploymentController(c, "", testInjectionConfig(t), func(fn func()) {}, tw, "")
+	env := &model.Environment{}
+	d := NewDeploymentController(c, "", env, testInjectionConfig(t), func(fn func()) {}, tw, "")
 	reconciles := atomic.NewInt32(0)
 	wantReconcile := int32(0)
 	expectReconciled := func() {

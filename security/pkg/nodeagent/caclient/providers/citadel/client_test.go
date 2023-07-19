@@ -36,13 +36,13 @@ import (
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/monitoring"
-	"istio.io/istio/security/pkg/nodeagent/util"
 )
 
 const (
@@ -65,10 +65,9 @@ type mockCAServer struct {
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
 	if ca.Authenticator != nil {
-		am := security.AuthenticationManager{Authenticators: []security.Authenticator{ca.Authenticator}}
-		caller := am.Authenticate(ctx)
+		caller, err := security.Authenticate(ctx, []security.Authenticator{ca.Authenticator})
 		if caller == nil {
-			return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
+			return nil, status.Error(codes.Unauthenticated, err.Error())
 		}
 	}
 	if ca.Err == nil {
@@ -252,6 +251,7 @@ func TestCitadelClient(t *testing.T) {
 
 	for id, tc := range testCases {
 		t.Run(id, func(t *testing.T) {
+			mt := monitortest.New(t)
 			addr := serve(t, tc.server)
 			cli, err := NewCitadelClient(&security.Options{CAEndpoint: addr}, nil)
 			if err != nil {
@@ -273,18 +273,7 @@ func TestCitadelClient(t *testing.T) {
 			}
 
 			if tc.expectRetry {
-				retry.UntilSuccessOrFail(t, func() error {
-					g, err := util.GetMetricsCounterValueWithTags("num_outgoing_retries", map[string]string{
-						"request_type": monitoring.CSR,
-					})
-					if err != nil {
-						return err
-					}
-					if g <= 0 {
-						return fmt.Errorf("expected retries, got %v", g)
-					}
-					return nil
-				}, retry.Timeout(time.Second*5))
+				mt.Assert("num_outgoing_retries", map[string]string{"request_type": monitoring.CSR}, monitortest.AtLeast(1))
 			}
 		})
 	}

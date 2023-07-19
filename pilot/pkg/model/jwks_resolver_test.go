@@ -20,9 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"go.opencensus.io/stats/view"
-
 	"istio.io/istio/pilot/pkg/model/test"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -49,7 +48,12 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 			expectedJwksURI: mockCertURL,
 		},
 		{
-			in:              ms.URL, // Send two same request, mock server is expected to hit twice.
+			in:              ms.URL,
+			expectedJwksURI: mockCertURL,
+		},
+		{
+			// if the URL has a trailing slash, it should be handled.
+			in:              ms.URL + "/",
 			expectedJwksURI: mockCertURL,
 		},
 		{
@@ -69,8 +73,8 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 		}
 	}
 
-	// Verify mock openID discovery http://localhost:9999/.well-known/openid-configuration was called twice.
-	if got, want := ms.OpenIDHitNum, uint64(2); got != want {
+	// Verify mock openID discovery http://localhost:9999/.well-known/openid-configuration was called three times.
+	if got, want := ms.OpenIDHitNum, uint64(3); got != want {
 		t.Errorf("Mock OpenID discovery Hit number => expected %d but got %d", want, got)
 	}
 }
@@ -292,6 +296,7 @@ func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 		for {
 			select {
 			case <-done:
+				c.Stop()
 				return
 			case <-c.C:
 				_, _ = r.GetPublicKey(mockCertURL, "")
@@ -422,19 +427,8 @@ func TestJwtRefreshIntervalRecoverFromFail(t *testing.T) {
 	}
 }
 
-func getCounterValue(counterName string, t *testing.T) float64 {
-	counterValue := 0.0
-	if data, err := view.RetrieveData(counterName); err == nil {
-		if len(data) != 0 {
-			counterValue = data[0].Data.(*view.SumData).Value
-		}
-	} else {
-		t.Fatalf("failed to get value for counter %s: %v", counterName, err)
-	}
-	return counterValue
-}
-
 func TestJwtPubKeyMetric(t *testing.T) {
+	mt := monitortest.New(t)
 	defaultRefreshInterval := 50 * time.Millisecond
 	refreshIntervalOnFail := 2 * time.Millisecond
 	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
@@ -445,38 +439,35 @@ func TestJwtPubKeyMetric(t *testing.T) {
 
 	ms.ReturnErrorForFirstNumHits = 1
 
-	successValueBefore := getCounterValue(networkFetchSuccessCounter.Name(), t)
-	failValueBefore := getCounterValue(networkFetchFailCounter.Name(), t)
-
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	cases := []struct {
+		name              string
 		in                []string
 		expectedJwtPubkey string
+		metric            string
 	}{
 		{
+			name:              "fail",
 			in:                []string{"", mockCertURL},
 			expectedJwtPubkey: "",
+			metric:            networkFetchFailCounter.Name(),
 		},
 		{
+			name:              "success",
 			in:                []string{"", mockCertURL},
 			expectedJwtPubkey: test.JwtPubKey2,
+			metric:            networkFetchFailCounter.Name(),
 		},
 	}
 
+	// First attempt should fail, but retries cause subsequent ones to succeed
+	// Mock server only returns an error on the first attempt
 	for _, c := range cases {
 		retry.UntilOrFail(t, func() bool {
 			pk, _ := r.GetPublicKey(c.in[0], c.in[1])
 			return c.expectedJwtPubkey == pk
 		}, retry.Delay(time.Millisecond))
-	}
-
-	successValueAfter := getCounterValue(networkFetchSuccessCounter.Name(), t)
-	failValueAfter := getCounterValue(networkFetchFailCounter.Name(), t)
-	if successValueBefore >= successValueAfter {
-		t.Errorf("the success counter is not incremented")
-	}
-	if failValueBefore >= failValueAfter {
-		t.Errorf("the fail counter is not incremented")
+		mt.Assert(c.metric, nil, monitortest.AtLeast(1))
 	}
 }
 

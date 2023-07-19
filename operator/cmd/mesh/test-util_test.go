@@ -30,8 +30,8 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
-	"istio.io/pkg/log"
 )
 
 // PathValue is a path/value type.

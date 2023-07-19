@@ -31,7 +31,7 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // minimumRsaKeySize is the minimum RSA key size to generate certificates

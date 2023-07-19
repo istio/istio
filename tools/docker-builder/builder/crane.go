@@ -33,7 +33,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type BuildSpec struct {
@@ -137,8 +137,8 @@ func ByteCount(b int64) string {
 func Build(b BuildSpec) error {
 	t0 := time.Now()
 	lt := t0
-	trace := func(d ...any) {
-		log.WithLabels("image", b.Name, "total", time.Since(t0), "step", time.Since(lt)).Infof(d...)
+	trace := func(format string, d ...any) {
+		log.WithLabels("image", b.Name, "total", time.Since(t0), "step", time.Since(lt)).Infof(format, d...)
 		lt = time.Now()
 	}
 	if len(b.Dests) == 0 {

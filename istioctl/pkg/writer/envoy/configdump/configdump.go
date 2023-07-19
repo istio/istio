@@ -41,10 +41,6 @@ func SetPrintConfigTypeInSummary(p bool) {
 	includeConfigType = p
 }
 
-func PrintConfigTypeInSummary() bool {
-	return includeConfigType
-}
-
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
 	cd := &adminv3.ConfigDump{}

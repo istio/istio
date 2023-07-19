@@ -39,15 +39,15 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/grpc"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // Headers with special meaning in Envoy
@@ -213,6 +213,20 @@ func buildSidecarVirtualHostsForVirtualService(
 	}
 
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
+
+	// Gateway allows only routes from the namespace of the proxy, or namespace of the destination.
+	if model.UseGatewaySemantics(virtualService) {
+		res := make([]*model.Service, 0, len(servicesInVirtualService))
+		for _, s := range servicesInVirtualService {
+			if s.Attributes.Namespace != virtualService.Namespace && node.ConfigNamespace != virtualService.Namespace {
+				continue
+			}
+			res = append(res, s)
+		}
+		if len(res) == 0 {
+			return nil
+		}
+	}
 
 	// Now group these Services by port so that we can infer the destination.port if the user
 	// doesn't specify any port for a multiport service. We need to know the destination port in
@@ -490,15 +504,15 @@ func applyHTTPRouteDestination(
 		action.ClusterSpecifier = &route.RouteAction_Cluster{
 			Cluster: in.Name,
 		}
-		uri := in.Rewrite.GetUri()
-		if fullURI, isFullPathRewrite := cutPrefix(uri, "%FULLREPLACE()%"); isFullPathRewrite && model.UseGatewaySemantics(vs) {
+
+		if regexRewrite := in.Rewrite.GetUriRegexRewrite(); regexRewrite != nil {
 			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
 				Pattern: &matcher.RegexMatcher{
-					Regex: "/.*",
+					Regex: regexRewrite.Match,
 				},
-				Substitution: fullURI,
+				Substitution: regexRewrite.Rewrite,
 			}
-		} else {
+		} else if uri := in.Rewrite.GetUri(); uri != "" {
 			action.PrefixRewrite = uri
 		}
 		if in.Rewrite.GetAuthority() != "" {
@@ -521,70 +535,88 @@ func applyHTTPRouteDestination(
 		}
 	}
 
-	// TODO: eliminate this logic and use the total_weight option in envoy route
-	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
-	for _, dst := range in.Route {
-		weight := &wrappers.UInt32Value{Value: uint32(dst.Weight)}
-		if dst.Weight == 0 {
-			// Ignore 0 weighted clusters if there are other clusters in the route.
-			// But if this is the only cluster in the route, then add it as a cluster with weight 100
-			if len(in.Route) == 1 {
-				weight.Value = uint32(100)
-			} else {
+	if len(in.Route) == 1 {
+		processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action)
+	} else {
+		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
+		for _, dst := range in.Route {
+			if dst.Weight == 0 {
+				// Ignore 0 weighted clusters if there are other clusters in the route.
 				continue
 			}
+			weighted = append(weighted, processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action))
 		}
-		hostname := host.Name(dst.GetDestination().GetHost())
-		n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort)
-		clusterWeight := &route.WeightedCluster_ClusterWeight{
-			Name:   n,
-			Weight: weight,
-		}
-		if dst.Headers != nil {
-			operations := TranslateHeadersOperations(dst.Headers)
-			clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
-			clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
-			clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
-			clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
-			if operations.Authority != "" {
-				clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
-					HostRewriteLiteral: operations.Authority,
-				}
-			}
-		}
-
-		weighted = append(weighted, clusterWeight)
-		hash := hashByDestination[dst]
-		hashPolicy := consistentHashToHashPolicy(hash)
-		if hashPolicy != nil {
-			action.HashPolicy = append(action.HashPolicy, hashPolicy)
-		}
-	}
-
-	// rewrite to a single cluster if there is only weighted cluster
-	if len(weighted) == 1 {
-		action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
-		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
-		out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, weighted[0].RequestHeadersToRemove...)
-		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
-		out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
-		if weighted[0].HostRewriteSpecifier != nil && action.HostRewriteSpecifier == nil {
-			// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
-			// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
-			// However, Envoy behavior is different when we set at both cluster level and route level, and we want
-			// behavior to be consistent with a single cluster and multiple clusters.
-			// As a result, we only override if the top level rewrite is not set
-			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
-				HostRewriteLiteral: weighted[0].GetHostRewriteLiteral(),
-			}
-		}
-	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
 				Clusters: weighted,
 			},
 		}
 	}
+}
+
+func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
+	listenerPort int,
+	hashByDestination DestinationHashMap,
+	out *route.Route,
+	action *route.RouteAction,
+) {
+	hostname := host.Name(dst.GetDestination().GetHost())
+	action.ClusterSpecifier = &route.RouteAction_Cluster{
+		Cluster: GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
+	}
+	if dst.Headers != nil {
+		operations := TranslateHeadersOperations(dst.Headers)
+		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, operations.RequestHeadersToAdd...)
+		out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, operations.RequestHeadersToRemove...)
+		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, operations.ResponseHeadersToAdd...)
+		out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, operations.ResponseHeadersToRemove...)
+		if operations.Authority != "" && action.HostRewriteSpecifier == nil {
+			// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
+			// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
+			// However, Envoy behavior is different when we set at both cluster level and route level, and we want
+			// behavior to be consistent with a single cluster and multiple clusters.
+			// As a result, we only override if the top level rewrite is not set
+			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+				HostRewriteLiteral: operations.Authority,
+			}
+		}
+	}
+	hash := hashByDestination[dst]
+	hashPolicy := consistentHashToHashPolicy(hash)
+	if hashPolicy != nil {
+		action.HashPolicy = append(action.HashPolicy, hashPolicy)
+	}
+}
+
+func processWeightedDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
+	listenerPort int,
+	hashByDestination DestinationHashMap,
+	action *route.RouteAction,
+) *route.WeightedCluster_ClusterWeight {
+	hostname := host.Name(dst.GetDestination().GetHost())
+	clusterWeight := &route.WeightedCluster_ClusterWeight{
+		Name:   GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
+		Weight: &wrappers.UInt32Value{Value: uint32(dst.Weight)},
+	}
+	if dst.Headers != nil {
+		operations := TranslateHeadersOperations(dst.Headers)
+		// If weighted destination has headers, we need to set them on the cluster weight.
+		clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
+		clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
+		clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
+		clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
+		if operations.Authority != "" {
+			clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
+				HostRewriteLiteral: operations.Authority,
+			}
+		}
+	}
+	hash := hashByDestination[dst]
+	hashPolicy := consistentHashToHashPolicy(hash)
+	if hashPolicy != nil {
+		action.HashPolicy = append(action.HashPolicy, hashPolicy)
+	}
+	return clusterWeight
 }
 
 func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, isTLS bool, useGatewaySemantics bool) {
@@ -963,16 +995,21 @@ func isCatchAllStringMatch(in *networking.StringMatch) bool {
 // or the header format is invalid for generating metadata matcher.
 //
 // The currently only supported header is @request.auth.claims for JWT claims matching. Claims of type string or list of string
-// are supported and nested claims are also supported using `.` as a separator for claim names.
-// Examples:
+// are supported and nested claims are also supported using `.` or `[]` as a separator for claim names, `[]` is recommended.
+//
+// Examples using `.` as a separator:
 // - `@request.auth.claims.admin` matches the claim "admin".
 // - `@request.auth.claims.group.id` matches the nested claims "group" and "id".
+//
+// Examples using `[]` as a separator:
+// - `@request.auth.claims[admin]` matches the claim "admin".
+// - `@request.auth.claims[group][id]` matches the nested claims "group" and "id".
 func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.MetadataMatcher {
-	if !strings.HasPrefix(strings.ToLower(name), constant.HeaderJWTClaim) {
+	rc := jwt.ToRoutingClaim(name)
+	if !rc.Match {
 		return nil
 	}
-	claims := strings.Split(name[len(constant.HeaderJWTClaim):], ".")
-	return authz.MetadataMatcherForJWTClaims(claims, util.ConvertToEnvoyMatch(in))
+	return authz.MetadataMatcherForJWTClaims(rc.Claims, util.ConvertToEnvoyMatch(in))
 }
 
 // translateHeaderMatch translates to HeaderMatcher

@@ -22,7 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (

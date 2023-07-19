@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -367,6 +368,28 @@ spec:
   ports:
     - appProtocol: fake
       port: 9080`
+	validK8sRecommendedLabels = `
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: helloworld-v1
+  labels:
+    app.kubernetes.io/name: helloworld
+    app.kubernetes.io/version: v1
+spec:
+  replicas: 1
+`
+	validIstioCanonical = `
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: helloworld-v1
+  labels:
+    service.istio.io/canonical-name: helloworld
+    service.istio.io/canonical-revision: v1
+spec:
+  replicas: 1
+`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -484,6 +507,16 @@ func TestValidateResource(t *testing.T) {
 			name:  "appProtocol=fake",
 			in:    inValidPortNamingSvcWithAppProtocol,
 			valid: false,
+		},
+		{
+			name:  "metric labels k8s recommended",
+			in:    validK8sRecommendedLabels,
+			valid: true,
+		},
+		{
+			name:  "metric labels istio canonical",
+			in:    validIstioCanonical,
+			valid: true,
 		},
 	}
 
@@ -707,11 +740,12 @@ Error: 1 error occurred:
 			wantError: true, // Since the directory has invalid files
 		},
 	}
-	istioNamespace := "istio-system"
-	defaultNamespace := ""
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(t *testing.T) {
-			validateCmd := NewValidateCommand(&istioNamespace, &defaultNamespace)
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+				IstioNamespace: "istio-system",
+			})
+			validateCmd := NewValidateCommand(ctx)
 			validateCmd.SilenceUsage = true
 			validateCmd.SetArgs(c.args)
 

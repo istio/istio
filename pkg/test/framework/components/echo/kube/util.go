@@ -68,5 +68,10 @@ func workloadHasSidecar(pod *corev1.Pod) bool {
 			return true
 		}
 	}
+	for _, c := range pod.Spec.InitContainers {
+		if c.Name == "istio-proxy" {
+			return true
+		}
+	}
 	return false
 }

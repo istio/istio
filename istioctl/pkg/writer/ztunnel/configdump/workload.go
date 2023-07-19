@@ -21,7 +21,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"golang.org/x/exp/slices"
 	"sigs.k8s.io/yaml"
 
 	ztunnelDump "istio.io/istio/istioctl/pkg/util/configdump"
@@ -80,10 +79,9 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE")
 	}
 
-	waypointsAddrToName := make(map[string]string)
 	for _, wl := range verifiedWorkloads {
 		if filter.Verbose {
-			waypoint := waypointName(wl, waypointsAddrToName, verifiedWorkloads)
+			waypoint := waypointName(wl, zDump.Services)
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, wl.WorkloadIP, wl.Node, waypoint, wl.Protocol)
 		} else {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, wl.WorkloadIP, wl.Node)
@@ -141,18 +139,14 @@ func (c *ConfigWriter) retrieveSortedWorkloadSlice() (*ztunnelDump.ZtunnelDump, 
 	return workloadDump, nil
 }
 
-func waypointName(wl *ztunnelDump.ZtunnelWorkload, prevAddresses map[string]string, workloads []*ztunnelDump.ZtunnelWorkload) string {
-	if len(wl.WaypointAddresses) == 0 {
+func waypointName(wl *ztunnelDump.ZtunnelWorkload, services map[string]*ztunnelDump.ZtunnelService) string {
+	if wl.Waypoint == nil {
 		return "None"
 	}
-	addr := wl.WaypointAddresses[0]
-	if name, ok := prevAddresses[addr]; ok {
-		return name
+
+	if svc, ok := services[wl.Waypoint.Destination.Content]; ok {
+		return svc.Name
 	}
-	if idx := slices.IndexFunc(workloads, func(w *ztunnelDump.ZtunnelWorkload) bool { return w.WorkloadIP == addr }); idx > 0 {
-		wpName := workloads[idx].CanonicalName
-		prevAddresses[addr] = wpName
-		return wpName
-	}
+
 	return "NA" // Shouldn't normally reach here
 }

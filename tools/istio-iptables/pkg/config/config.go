@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Command line options

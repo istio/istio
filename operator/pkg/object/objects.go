@@ -36,7 +36,7 @@ import (
 	names "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -236,7 +236,7 @@ func (os K8sObjects) String() string {
 
 // Keys returns a slice with the keys of os.
 func (os K8sObjects) Keys() []string {
-	var out []string
+	out := make([]string, 0, len(os))
 	for _, oo := range os {
 		out = append(out, oo.Hash())
 	}
@@ -245,7 +245,7 @@ func (os K8sObjects) Keys() []string {
 
 // UnstructuredItems returns the list of items of unstructured.Unstructured.
 func (os K8sObjects) UnstructuredItems() []unstructured.Unstructured {
-	var usList []unstructured.Unstructured
+	usList := make([]unstructured.Unstructured, 0, len(os))
 	for _, obj := range os {
 		usList = append(usList, *obj.UnstructuredObject())
 	}
@@ -457,7 +457,7 @@ func DefaultObjectOrder() func(o *K8sObject) int {
 			return 100
 
 			// Create the pods after we've created other things they might be waiting for
-		case gk == "extensions/Deployment" || gk == "app/Deployment":
+		case gk == "extensions/Deployment" || gk == "apps/Deployment":
 			return 1000
 
 			// Autoscalers typically act on a deployment

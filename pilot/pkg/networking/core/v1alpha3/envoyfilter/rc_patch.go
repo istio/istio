@@ -24,9 +24,10 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 func ApplyRouteConfigurationPatches(
@@ -253,7 +254,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 			routeMatch(virtualHost.Routes[routeIndex], rp) {
 			if !*clonedVhostRoutes {
 				// different virtualHosts may share same routes pointer
-				virtualHost.Routes = cloneVhostRoutes(virtualHost.Routes)
+				virtualHost.Routes = slices.Clone(virtualHost.Routes)
 				*clonedVhostRoutes = true
 			}
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
@@ -261,6 +262,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 				*routesRemoved = true
 				return
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
+				cloneVhostRouteByRouteIndex(virtualHost, routeIndex)
 				merge.Merge(virtualHost.Routes[routeIndex], rp.Value)
 			}
 			applied = true
@@ -395,11 +397,6 @@ func routeMatch(httpRoute *route.Route, rp *model.EnvoyFilterConfigPatchWrapper)
 	return true
 }
 
-func cloneVhostRoutes(routes []*route.Route) []*route.Route {
-	out := make([]*route.Route, len(routes))
-	for i := 0; i < len(routes); i++ {
-		clone := proto.Clone(routes[i]).(*route.Route)
-		out[i] = clone
-	}
-	return out
+func cloneVhostRouteByRouteIndex(virtualHost *route.VirtualHost, routeIndex int) {
+	virtualHost.Routes[routeIndex] = proto.Clone(virtualHost.Routes[routeIndex]).(*route.Route)
 }

@@ -20,8 +20,8 @@ import (
 
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/sleep"
-	"istio.io/pkg/log"
 )
 
 type slowClientStream struct {

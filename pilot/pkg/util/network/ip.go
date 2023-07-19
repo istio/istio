@@ -16,20 +16,30 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
 	"strconv"
 	"time"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/sleep"
-	"istio.io/pkg/log"
 )
 
 // Network-related utility functions
 const (
 	waitInterval = 100 * time.Millisecond
 	waitTimeout  = 2 * time.Minute
+)
+
+// ip family enum
+type IPFamilyType int
+
+const (
+	IPv4 = iota
+	IPv6
+	UNKNOWN
 )
 
 type lookupIPAddrType = func(ctx context.Context, addr string) ([]netip.Addr, error)
@@ -191,6 +201,22 @@ func AllIPv4(ipAddrs []string) bool {
 		}
 	}
 	return true
+}
+
+// CheckIPFamilyTypeForFirstIPs checks the ip family type for the first ip addresses
+func CheckIPFamilyTypeForFirstIPs(ipAddrs []string) (IPFamilyType, error) {
+	if len(ipAddrs) == 0 {
+		return UNKNOWN, errors.New("the ipAddr slice is empty")
+	}
+
+	netIP, err := netip.ParseAddr(ipAddrs[0])
+	if err != nil {
+		return UNKNOWN, err
+	}
+	if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
+		return IPv6, nil
+	}
+	return IPv4, nil
 }
 
 // GlobalUnicastIP returns the first global unicast address in the passed in addresses.

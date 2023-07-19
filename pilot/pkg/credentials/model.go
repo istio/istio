@@ -26,11 +26,13 @@ type CertInfo struct {
 	Key []byte
 	// The oscp staple
 	Staple []byte
+	// Certificate Revocation List information
+	CRL []byte
 }
 
 type Controller interface {
 	GetCertInfo(name, namespace string) (certInfo *CertInfo, err error)
-	GetCaCert(name, namespace string) (cert []byte, err error)
+	GetCaCert(name, namespace string) (certInfo *CertInfo, err error)
 	GetDockerCredential(name, namespace string) (cred []byte, err error)
 	Authorize(serviceAccount, namespace string) error
 	AddEventHandler(func(name, namespace string))

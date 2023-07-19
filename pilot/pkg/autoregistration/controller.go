@@ -25,13 +25,13 @@ import (
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/autoregistration/internal/health"
+	"istio.io/istio/pilot/pkg/autoregistration/internal/state"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
@@ -39,18 +39,10 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/queue"
-	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
-
-func init() {
-	monitoring.MustRegister(autoRegistrationSuccess)
-	monitoring.MustRegister(autoRegistrationUpdates)
-	monitoring.MustRegister(autoRegistrationUnregistrations)
-	monitoring.MustRegister(autoRegistrationDeletes)
-	monitoring.MustRegister(autoRegistrationErrors)
-}
 
 var (
 	autoRegistrationSuccess = monitoring.NewSum(
@@ -100,19 +92,6 @@ const (
 	maxRetries = 5
 )
 
-type HealthEvent struct {
-	// whether or not the agent thought the target is healthy
-	Healthy bool `json:"healthy,omitempty"`
-	// error message propagated
-	Message string `json:"errMessage,omitempty"`
-}
-
-type HealthCondition struct {
-	proxy     *model.Proxy
-	entryName string
-	condition *v1alpha1.IstioCondition
-}
-
 var log = istiolog.RegisterScope("wle", "wle controller debugging")
 
 type Controller struct {
@@ -142,11 +121,11 @@ type Controller struct {
 	// maxConnectionAge is a duration that workload entry should be cleaned up if it does not reconnects.
 	maxConnectionAge time.Duration
 
-	// healthCondition is a fifo queue used for updating health check status
-	healthCondition controllers.Queue
+	stateStore       *state.Store
+	healthController *health.Controller
 }
 
-type HealthStatus = v1alpha1.IstioCondition
+type HealthEvent = health.HealthEvent
 
 // NewController create a controller which manages workload lifecycle and health status.
 func NewController(store model.ConfigStoreController, instanceID string, maxConnAge time.Duration) *Controller {
@@ -169,9 +148,8 @@ func NewController(store model.ConfigStoreController, instanceID string, maxConn
 		c.queue = controllers.NewQueue("unregister_workloadentry",
 			controllers.WithMaxAttempts(maxRetries),
 			controllers.WithGenericReconciler(c.unregisterWorkload))
-		c.healthCondition = controllers.NewQueue("healthcheck",
-			controllers.WithMaxAttempts(maxRetries),
-			controllers.WithGenericReconciler(c.updateWorkloadEntryHealth))
+		c.stateStore = state.NewStore(store, c)
+		c.healthController = health.NewController(c.stateStore, maxRetries)
 		return c
 	}
 	return nil
@@ -187,7 +165,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	}
 
 	go c.queue.Run(stop)
-	go c.healthCondition.Run(stop)
+	go c.healthController.Run(stop)
 	<-stop
 }
 
@@ -237,7 +215,7 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 			return fmt.Errorf("proxy metadata indicates that it must correspond to an existing WorkloadEntry, "+
 				"however WorkloadEntry %s/%s is not found", proxy.Metadata.Namespace, proxy.Metadata.WorkloadEntry)
 		}
-		if isElegibleForHealthStatusUpdates(wle) {
+		if health.IsEligibleForHealthStatusUpdates(wle) {
 			entryName = wle.Name
 		}
 	}
@@ -317,7 +295,7 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 		return fmt.Errorf("auto-registration WorkloadEntry of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 	}
 	hcMessage := ""
-	if isElegibleForHealthStatusUpdates(entry) {
+	if health.IsEligibleForHealthStatusUpdates(entry) {
 		hcMessage = " with health checking enabled"
 	}
 	autoRegistrationSuccess.Increment()
@@ -475,53 +453,10 @@ func (c *Controller) unregisterWorkload(item any) error {
 
 // QueueWorkloadEntryHealth enqueues the associated WorkloadEntries health status.
 func (c *Controller) QueueWorkloadEntryHealth(proxy *model.Proxy, event HealthEvent) {
-	// we assume that the workload entry exists
-	// if auto registration does not exist, try looking
-	// up in NodeMetadata
-	entryName := proxy.WorkloadEntryName
-	if entryName == "" {
-		log.Errorf("unable to derive WorkloadEntry for health update for %v", proxy.ID)
+	if !features.WorkloadEntryHealthChecks {
 		return
 	}
-
-	condition := transformHealthEvent(proxy, entryName, event)
-	c.healthCondition.Add(condition)
-}
-
-// updateWorkloadEntryHealth updates the associated WorkloadEntries health status
-// based on the corresponding health check performed by istio-agent.
-func (c *Controller) updateWorkloadEntryHealth(obj any) error {
-	condition := obj.(HealthCondition)
-	// get previous status
-	cfg := c.store.Get(gvk.WorkloadEntry, condition.entryName, condition.proxy.Metadata.Namespace)
-	if cfg == nil {
-		return fmt.Errorf("failed to update health status for %v: WorkloadEntry %v not found", condition.proxy.ID, condition.entryName)
-	}
-	// The workloadentry has reconnected to the other istiod
-	if cfg.Annotations[WorkloadControllerAnnotation] != c.instanceID {
-		return nil
-	}
-
-	// check if the existing health status is newer than this one
-	wleStatus, ok := cfg.Status.(*v1alpha1.IstioStatus)
-	if ok {
-		healthCondition := status.GetCondition(wleStatus.Conditions, status.ConditionHealthy)
-		if healthCondition != nil {
-			if healthCondition.LastProbeTime.AsTime().After(condition.condition.LastProbeTime.AsTime()) {
-				return nil
-			}
-		}
-	}
-
-	// replace the updated status
-	wle := status.UpdateConfigCondition(*cfg, condition.condition)
-	// update the status
-	_, err := c.store.UpdateStatus(wle)
-	if err != nil {
-		return fmt.Errorf("error while updating WorkloadEntry health status for %s: %v", condition.proxy.ID, err)
-	}
-	log.Debugf("updated health status of %v to %v", condition.proxy.ID, condition.condition)
-	return nil
+	c.healthController.QueueWorkloadEntryHealth(proxy, event)
 }
 
 // periodicWorkloadEntryCleanup checks lists all WorkloadEntry
@@ -554,7 +489,7 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 	// don't clean up if WorkloadEntry is neither auto-registered
 	// nor health-checked
 	if !isAutoRegisteredWorkloadEntry(&wle) &&
-		!(isHealthCheckedWorkloadEntry(&wle) && hasHealthCondition(&wle)) {
+		!(isHealthCheckedWorkloadEntry(&wle) && health.HasHealthCondition(&wle)) {
 		return false
 	}
 
@@ -598,8 +533,8 @@ func (c *Controller) cleanupEntry(wle config.Config, periodic bool) {
 		c.deleteEntry(wle, periodic)
 		return
 	}
-	if isHealthCheckedWorkloadEntry(&wle) && hasHealthCondition(&wle) {
-		c.deleteHealthCondition(wle)
+	if isHealthCheckedWorkloadEntry(&wle) && health.HasHealthCondition(&wle) {
+		c.deleteHealthCondition(wle, periodic)
 		return
 	}
 }
@@ -618,15 +553,21 @@ func (c *Controller) deleteEntry(wle config.Config, periodic bool) {
 
 // deleteHealthCondition updates WorkloadEntry of a workload that is not using auto-registration
 // to remove information about the health status (since we can no longer be certain about it).
-func (c *Controller) deleteHealthCondition(wle config.Config) {
-	wle = status.DeleteConfigCondition(wle, status.ConditionHealthy)
-	// update the status
-	_, err := c.store.UpdateStatus(wle)
+func (c *Controller) deleteHealthCondition(wle config.Config, periodic bool) {
+	err := c.stateStore.DeleteHealthCondition(wle)
 	if err != nil {
 		log.Warnf("failed cleaning up health-checked WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
 		return
 	}
-	log.Infof("cleaned up health-checked WorkloadEntry %s/%s", wle.Namespace, wle.Name)
+	log.Infof("cleaned up health-checked WorkloadEntry %s/%s periodic:%v", wle.Namespace, wle.Name, periodic)
+}
+
+// IsControllerOf implements state.StoreCallbacks.
+func (c *Controller) IsControllerOf(wle *config.Config) bool {
+	if wle == nil {
+		return false
+	}
+	return wle.Annotations[WorkloadControllerAnnotation] == c.instanceID
 }
 
 func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
@@ -659,28 +600,6 @@ func sanitizeIP(s string) string {
 	return strings.ReplaceAll(s, ":", "-")
 }
 
-func transformHealthEvent(proxy *model.Proxy, entryName string, event HealthEvent) HealthCondition {
-	cond := &v1alpha1.IstioCondition{
-		Type: status.ConditionHealthy,
-		// last probe and transition are the same because
-		// we only send on transition in the agent
-		LastProbeTime:      timestamppb.Now(),
-		LastTransitionTime: timestamppb.Now(),
-	}
-	out := HealthCondition{
-		proxy:     proxy,
-		entryName: entryName,
-		condition: cond,
-	}
-	if event.Healthy {
-		cond.Status = status.StatusTrue
-		return out
-	}
-	cond.Status = status.StatusFalse
-	cond.Message = event.Message
-	return out
-}
-
 func mergeLabels(labels ...map[string]string) map[string]string {
 	if len(labels) == 0 {
 		return map[string]string{}
@@ -710,6 +629,10 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	// the workload entry.
 	if proxy.Metadata.Labels != nil {
 		entry.Labels = mergeLabels(entry.Labels, proxy.Metadata.Labels)
+		// the label has been converted to "istio-locality: region/zone/subzone"
+		// in pilot/pkg/xds/ads.go, and `/` is not allowed in k8s label value.
+		// Instead of converting again, we delete it since has set WorkloadEntry.Locality
+		delete(entry.Labels, model.LocalityLabel)
 	}
 
 	annotations := map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name}
@@ -720,10 +643,8 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	if proxy.Metadata.Network != "" {
 		entry.Network = string(proxy.Metadata.Network)
 	}
-	// proxy.Locality is unset when auto registration takes place, because its
-	// state is not fully initialized. Therefore, we check the bootstrap node.
-	if proxy.XdsNode.Locality != nil {
-		entry.Locality = util.LocalityToString(proxy.XdsNode.Locality)
+	if proxy.Locality != nil {
+		entry.Locality = util.LocalityToString(proxy.Locality)
 	}
 	if proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.ReadinessProbe != nil {
 		annotations[status.WorkloadEntryHealthCheckAnnotation] = "true"
@@ -759,34 +680,10 @@ func makeProxyKey(proxy *model.Proxy) string {
 	return key
 }
 
-// consider a workload elegible for health status updates as long as the
-// WorkloadEntryHealthCheckAnnotation is present (no matter what the value is).
-// In case the annotation is present but the value is not "true", the proxy should be allowed
-// to send health status updates, config health condition should be updated accordingly,
-// however reported health status should not come into effect.
-func isElegibleForHealthStatusUpdates(wle *config.Config) bool {
-	if wle == nil {
-		return false
-	}
-	_, annotated := wle.Annotations[status.WorkloadEntryHealthCheckAnnotation]
-	return annotated
-}
-
 func isAutoRegisteredWorkloadEntry(wle *config.Config) bool {
 	return wle != nil && wle.Annotations[AutoRegistrationGroupAnnotation] != ""
 }
 
 func isHealthCheckedWorkloadEntry(wle *config.Config) bool {
 	return wle != nil && wle.Annotations[WorkloadControllerAnnotation] != "" && !isAutoRegisteredWorkloadEntry(wle)
-}
-
-func hasHealthCondition(wle *config.Config) bool {
-	if wle == nil {
-		return false
-	}
-	s, ok := wle.Status.(*v1alpha1.IstioStatus)
-	if !ok {
-		return false
-	}
-	return status.GetCondition(s.Conditions, status.ConditionHealthy) != nil
 }

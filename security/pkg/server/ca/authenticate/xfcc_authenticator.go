@@ -23,8 +23,8 @@ import (
 	"github.com/alecholmes/xfccparser"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
-	"istio.io/pkg/log"
 )
 
 const (

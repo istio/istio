@@ -35,7 +35,7 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // SupportedECSignatureAlgorithms are the types of EC Signature Algorithms

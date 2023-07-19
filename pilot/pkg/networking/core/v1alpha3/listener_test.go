@@ -153,7 +153,7 @@ func TestInboundListenerConfig(t *testing.T) {
 	for _, p := range []*model.Proxy{getProxy(), &proxyHTTP10, &dualStackProxy} {
 		t.Run("multiple services", func(t *testing.T) {
 			testInboundListenerConfig(t, p,
-				buildService("test1.com", wildcardIPv4, protocol.HTTP, tnow.Add(1*time.Second)),
+				buildServiceWithPort("test1.com", 15021, protocol.HTTP, tnow.Add(1*time.Second)),
 				buildService("test2.com", wildcardIPv4, "unknown", tnow),
 				buildService("test3.com", wildcardIPv4, protocol.HTTP, tnow.Add(2*time.Second)))
 		})
@@ -168,6 +168,23 @@ func TestInboundListenerConfig(t *testing.T) {
 			testInboundListenerConfigWithSidecarWithoutServices(t, p)
 		})
 	}
+
+	t.Run("services target port conflict with static listener", func(t *testing.T) {
+		p := getProxy()
+		p.Metadata.EnvoyStatusPort = 15021
+		testInboundListenerConfigWithConflictPort(t, p,
+			buildServiceWithPort("test1.com", 15021, protocol.HTTP, tnow.Add(1*time.Second)),
+			buildService("test2.com", wildcardIPv4, "unknown", tnow),
+			buildService("test3.com", wildcardIPv4, protocol.HTTP, tnow.Add(2*time.Second)))
+	})
+
+	t.Run("sidecar conflict port", func(t *testing.T) {
+		p := getProxy()
+		p.Metadata.EnvoyStatusPort = 15021
+		p.Metadata.EnvoyPrometheusPort = 15090
+		testInboundListenerConfigWithSidecarConflictPort(t, p,
+			buildService("test.com", wildcardIPv4, protocol.HTTP, tnow))
+	})
 
 	t.Run("grpc", func(t *testing.T) {
 		testInboundListenerConfigWithGrpc(t, getProxy(),
@@ -311,6 +328,74 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	}
 	services = append(services, service6)
 	testOutboundListenerConfigWithSidecar(t, services...)
+}
+
+func TestOutboundListenerConflictWithStaticListener(t *testing.T) {
+	// Add a service and verify it's config
+	services := []*model.Service{
+		buildServiceWithPort("test1.com", 15021, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildServiceWithPort("test2.com", 15090, protocol.TCP, tnow),
+		buildServiceWithPort("test3.com", 8080, protocol.HTTP, tnow.Add(2*time.Second)),
+	}
+	// with sidecar
+	sidecarConfig := &config.Config{
+		Meta: config.Meta{
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   15021,
+						Protocol: "GRPC",
+						Name:     "http",
+					},
+					Hosts: []string{"*/*"},
+				},
+			},
+		},
+	}
+	testcases := []struct {
+		name             string
+		services         []*model.Service
+		sidecar          *config.Config
+		expectedListener []int
+	}{
+		{
+			name:             "service port conflict with proxy static listener",
+			services:         services,
+			sidecar:          nil,
+			expectedListener: []int{15090, 8080},
+		},
+		{
+			name:             "sidecar listener port conflict with proxy static listener",
+			services:         services,
+			sidecar:          sidecarConfig,
+			expectedListener: []int{},
+		},
+	}
+
+	proxy := getProxy()
+	proxy.Metadata.EnvoyStatusPort = 15021
+	proxy.Metadata.EnvoyPrometheusPort = 15090
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			listeners := buildOutboundListeners(t, proxy, nil, tc.sidecar, services...)
+			if len(listeners) != len(tc.expectedListener) {
+				t.Logf("listeners: %v", listeners[0].GetAddress().GetSocketAddress().GetPortValue())
+				t.Fatalf("expected %d listeners, found %d", len(tc.expectedListener), len(listeners))
+			}
+			for _, port := range tc.expectedListener {
+				l := findListenerByPort(listeners, uint32(port))
+				if l == nil {
+					t.Fatalf("found no listener with port %d", port)
+				}
+			}
+		})
+	}
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
@@ -607,7 +692,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			proxy.Metadata.InboundListenerExactBalance = true
 			proxy.Metadata.OutboundListenerExactBalance = true
 
-			listeners := NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(proxy, cg.env.PushContext)
+			listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(proxy, cg.env.PushContext())
 			listenersToCheck := make([]string, 0)
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
@@ -679,7 +764,7 @@ func TestOutboundListenerForExternalServices(t *testing.T) {
 
 			proxy := cg.SetupProxy(getIPv6Proxy())
 
-			listeners := NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(proxy, cg.env.PushContext)
+			listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(proxy, cg.env.PushContext())
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
 					if l.Name != tt.listenersOn {
@@ -1507,6 +1592,17 @@ func testInboundListenerConfig(t *testing.T, proxy *model.Proxy, services ...*mo
 	verifyFilterChainMatch(t, xdstest.ExtractListener(model.VirtualInboundListenerName, listeners))
 }
 
+func testInboundListenerConfigWithConflictPort(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+	t.Helper()
+	listeners := buildListeners(t, TestOptions{Services: services}, proxy)
+	virtualListener := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+	for _, fc := range virtualListener.FilterChains {
+		if fc.FilterChainMatch.DestinationPort.GetValue() == 15021 {
+			t.Fatalf("port 15021 should not be included in inbound listener")
+		}
+	}
+}
+
 func testInboundListenerConfigWithGrpc(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
 	t.Helper()
 	listeners := buildListeners(t, TestOptions{Services: services}, proxy)
@@ -1611,6 +1707,40 @@ func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, serv
 	}, proxy)
 	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 	verifyFilterChainMatch(t, l)
+}
+
+func testInboundListenerConfigWithSidecarConflictPort(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+	t.Helper()
+	sidecarConfig := config.Config{
+		Meta: config.Meta{
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
+		},
+		Spec: &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Number:   15021,
+						Protocol: "unknown",
+						Name:     "uds",
+					},
+					CaptureMode:     2, // None
+					Bind:            "1.1.1.1",
+					DefaultEndpoint: "127.0.0.1:80",
+				},
+			},
+		},
+	}
+	listeners := buildListeners(t, TestOptions{
+		Services: services,
+		Configs:  []config.Config{sidecarConfig},
+	}, proxy)
+	for _, l := range listeners {
+		if l.Name == "1.1.1.1_15021" {
+			t.Fatalf("unexpected listener with name %s", l.Name)
+		}
+	}
 }
 
 func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *model.Proxy) {
@@ -2608,7 +2738,7 @@ func buildOutboundListeners(t *testing.T, proxy *model.Proxy, sidecarConfig *con
 		Services:       services,
 		ConfigPointers: []*config.Config{sidecarConfig, virtualService},
 	})
-	listeners := NewListenerBuilder(proxy, cg.env.PushContext).buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext)
+	listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext())
 	xdstest.ValidateListeners(t, listeners)
 	return listeners
 }

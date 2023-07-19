@@ -22,9 +22,9 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/keepalive"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/env"
 )
 
 // RegistryOptions provide configuration options for the configuration controller. If FileDir is set, that directory will

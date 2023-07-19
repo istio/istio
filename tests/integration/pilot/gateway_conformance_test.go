@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -49,15 +50,14 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"HTTPRouteRedirectPath":          "spec is wrong, pending https://github.com/kubernetes-sigs/gateway-api/pull/1880",
-	"HTTPRouteRedirectHostAndStatus": "spec is wrong, pending https://github.com/kubernetes-sigs/gateway-api/pull/1880",
-	"MeshFrontendHostname":           "https://github.com/istio/istio/issues/44702",
+	"MeshFrontendHostname": "https://github.com/istio/istio/issues/44702",
 }
 
 func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.gateway").
+		Label(label.IPv4). // Need https://github.com/kubernetes-sigs/gateway-api/pull/2024 in 0.7.1
 		Run(func(ctx framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(ctx)
 

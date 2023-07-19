@@ -247,6 +247,11 @@ func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, cl
 		if tt.Metric.Type != wantClient.Metric.Type && tt.Metric.Type != wantServer.Metric.Type {
 			continue
 		}
+		// Do a fuzzy match for proxy_version label
+		// Remove any extra version information
+		if proxyVersion, ok := tt.Metric.Labels["proxy_version"]; ok {
+			tt.Metric.Labels["proxy_version"] = strings.Split(proxyVersion, "-")[0]
+		}
 		if proto.Equal(tt, &wantServer) {
 			gotServer = true
 		}
@@ -270,11 +275,16 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 	if err != nil {
 		return err
 	}
+	proxyVersion, err := env.ReadVersion()
+	if err != nil {
+		return err
+	}
 	resource, err := tmpl.Evaluate(string(templateFile), map[string]any{
 		"EchoNamespace": EchoNsInst.Name(),
 		"ClusterName":   clName,
 		"TrustDomain":   trustDomain,
 		"OnGCE":         metadata.OnGCE(),
+		"ProxyVersion":  proxyVersion,
 	})
 	if err != nil {
 		return err

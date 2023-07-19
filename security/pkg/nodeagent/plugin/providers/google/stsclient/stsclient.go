@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/monitoring"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 var (

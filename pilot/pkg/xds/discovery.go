@@ -38,18 +38,11 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/security"
 )
 
-var (
-	versionMutex sync.RWMutex
-	// version is the timestamp of the last registry event.
-	version = "0"
-	// versionNum counts versions
-	versionNum = atomic.NewUint64(0)
-
-	periodicRefreshMetrics = 10 * time.Second
-)
+var periodicRefreshMetrics = 10 * time.Second
 
 type debounceOptions struct {
 	// debounceAfter is the delay added to events to wait
@@ -107,9 +100,6 @@ type DiscoveryServer struct {
 	// after debouncing the pushRequest will be sent to pushQueue
 	pushChannel chan *model.PushRequest
 
-	// mutex used for protecting Environment.PushContext
-	updateMutex sync.RWMutex
-
 	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
 
@@ -150,6 +140,12 @@ type DiscoveryServer struct {
 	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[cluster.ID]cluster.ID
+
+	// pushVersion stores the numeric push version. This should be accessed via NextVersion()
+	pushVersion atomic.Uint64
+
+	// discoveryStartTime is the time since the binary started
+	discoveryStartTime time.Time
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -171,9 +167,10 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
-		Cache:      model.DisabledCache{},
-		instanceID: instanceID,
-		clusterID:  clusterID,
+		Cache:              env.Cache,
+		instanceID:         instanceID,
+		clusterID:          clusterID,
+		discoveryStartTime: processStartTime,
 	}
 
 	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
@@ -182,14 +179,7 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 	}
 
 	out.initJwksResolver()
-
-	if features.EnableXDSCaching {
-		out.Cache = model.NewXdsCache()
-		// clear the cache as endpoint shards are modified to avoid cache write race
-		out.Env.EndpointIndex.SetCache(out.Cache)
-	}
-
-	out.ConfigGenerator = core.NewConfigGenerator(out.Cache)
+	out.ConfigGenerator = core.NewConfigGenerator(env.Cache)
 
 	return out
 }
@@ -205,7 +195,7 @@ func (s *DiscoveryServer) initJwksResolver() {
 
 	// Flush cached discovery responses when detecting jwt public key change.
 	s.JwtKeyResolver.PushFunc = func() {
-		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
+		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.UnknownTrigger)})
 	}
 }
 
@@ -227,7 +217,7 @@ var processStartTime = time.Now()
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
-	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
+	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(s.discoveryStartTime))
 	s.serverReady.Store(true)
 }
 
@@ -283,7 +273,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
 		s.dropCacheForRequest(req)
-		s.AdsPushAll(versionInfo(), req)
+		s.AdsPushAll(req)
 		return
 	}
 	// Reset the status during the push.
@@ -296,8 +286,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// PushContext is reset after a config change. Previous status is
 	// saved.
 	t0 := time.Now()
-
-	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Inc(), 10)
+	versionLocal := s.NextVersion()
 	push, err := s.initPushContext(req, oldPushContext, versionLocal)
 	if err != nil {
 		return
@@ -306,31 +295,19 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 	pushContextInitTime.Record(initContextTime.Seconds())
 
-	versionMutex.Lock()
-	version = versionLocal
-	versionMutex.Unlock()
-
 	req.Push = push
-	s.AdsPushAll(versionLocal, req)
+	s.AdsPushAll(req)
 }
 
 func nonce(noncePrefix string) string {
 	return noncePrefix + uuid.New().String()
 }
 
-func versionInfo() string {
-	versionMutex.RLock()
-	defer versionMutex.RUnlock()
-	return version
-}
-
 // Returns the global push context. This should be used with caution; generally the proxy-specific
 // PushContext should be used to get the current state in the context of a single proxy. This should
 // only be used for "global" lookups, such as initiating a new push to all proxies.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
-	s.updateMutex.RLock()
-	defer s.updateMutex.RUnlock()
-	return s.Env.PushContext
+	return s.Env.PushContext()
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
@@ -411,7 +388,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 		case r := <-ch:
 			// If reason is not set, record it as an unknown reason
 			if len(r.Reason) == 0 {
-				r.Reason = []model.TriggerReason{model.UnknownTrigger}
+				r.Reason = model.NewReasonStats(model.UnknownTrigger)
 			}
 			if !opts.enableEDSDebounce && !r.Full {
 				// trigger push now, just for EDS
@@ -454,15 +431,31 @@ func configsUpdated(req *model.PushRequest) string {
 }
 
 func reasonsUpdated(req *model.PushRequest) string {
+	var (
+		reason0, reason1            model.TriggerReason
+		reason0Cnt, reason1Cnt, idx int
+	)
+	for r, cnt := range req.Reason {
+		if idx == 0 {
+			reason0, reason0Cnt = r, cnt
+		} else if idx == 1 {
+			reason1, reason1Cnt = r, cnt
+		} else {
+			break
+		}
+		idx++
+	}
+
 	switch len(req.Reason) {
 	case 0:
 		return "unknown"
 	case 1:
-		return string(req.Reason[0])
+		return fmt.Sprintf("%s:%d", reason0, reason0Cnt)
 	case 2:
-		return fmt.Sprintf("%s and %s", req.Reason[0], req.Reason[1])
+		return fmt.Sprintf("%s:%d and %s:%d", reason0, reason0Cnt, reason1, reason1Cnt)
 	default:
-		return fmt.Sprintf("%s and %d more reasons", req.Reason[0], len(req.Reason)-1)
+		return fmt.Sprintf("%s:%d and %d(%d) more reasons", reason0, reason0Cnt, len(req.Reason)-1,
+			req.Reason.Count()-reason0Cnt)
 	}
 }
 
@@ -481,7 +474,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			if shuttingdown {
 				return
 			}
-			recordPushTriggers(push.Reason...)
+			recordPushTriggers(push.Reason)
 			// Signals that a push is done by reading from the semaphore, allowing another send on it.
 			doneFunc := func() {
 				queue.MarkDone(client)
@@ -528,11 +521,8 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 		return nil, err
 	}
 
-	s.updateMutex.Lock()
-	s.Env.PushContext = push
-	// Ensure we drop the cache in the lock to avoid races, where we drop the cache, fill it back up, then update push context
 	s.dropCacheForRequest(req)
-	s.updateMutex.Unlock()
+	s.Env.SetPushContext(push)
 
 	return push, nil
 }
@@ -558,7 +548,10 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
 
-	s.Generators[v3.WorkloadType] = &WorkloadGenerator{s: s}
+	workloadGen := &WorkloadGenerator{s: s}
+	s.Generators[v3.AddressType] = workloadGen
+	s.Generators[v3.WorkloadType] = workloadGen
+	s.Generators[v3.ServiceType] = workloadGen
 	s.Generators[v3.WorkloadAuthorizationType] = &WorkloadRBACGenerator{s: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
@@ -607,11 +600,7 @@ func (s *DiscoveryServer) Clients() []*Connection {
 func (s *DiscoveryServer) AllClients() []*Connection {
 	s.adsClientsMutex.RLock()
 	defer s.adsClientsMutex.RUnlock()
-	clients := make([]*Connection, 0, len(s.adsClients))
-	for _, con := range s.adsClients {
-		clients = append(clients, con)
-	}
-	return clients
+	return maps.Values(s.adsClients)
 }
 
 // SendResponse will immediately send the response to all connections.
@@ -656,4 +645,8 @@ func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
 	wait, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	return s.RequestRateLimit.Wait(wait)
+}
+
+func (s *DiscoveryServer) NextVersion() string {
+	return time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(s.pushVersion.Inc(), 10)
 }

@@ -28,7 +28,7 @@ import (
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -111,7 +111,7 @@ func validateStringList(vf ValidatorFunc) ValidatorFunc {
 		}
 		var errs util.Errors
 		for _, s := range strings.Split(val.(string), ",") {
-			errs = util.AppendErrs(errs, vf(path, strings.TrimSpace(s)))
+			errs = util.AppendErrs(errs, vf(path, s))
 			scope.Debugf("\nerrors(%d): %v", len(errs), errs)
 			msg += fmt.Sprintf("\nerrors(%d): %v", len(errs), errs)
 		}

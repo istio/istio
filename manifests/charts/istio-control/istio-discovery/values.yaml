@@ -27,10 +27,19 @@ pilot:
   # Set to `type: RuntimeDefault` to use the default profile if available.
   seccompProfile: {}
 
+  # Additional container arguments
+  extraContainerArgs: []
+
   env: {}
 
   cpu:
     targetAverageUtilization: 80
+
+  # Additional volumeMounts to the istiod container
+  volumeMounts: []
+
+  # Additional volumes to the istiod pod
+  volumes: []
 
   # if protocol sniffing is enabled for outbound
   enableProtocolSniffingForOutbound: true
@@ -40,6 +49,8 @@ pilot:
   nodeSelector: {}
   podAnnotations: {}
   serviceAnnotations: {}
+
+  topologySpreadConstraints: []
 
   # You can use jwksResolverExtraRootCA to provide a root certificate
   # in PEM format. This will then be trusted by pilot when resolving
@@ -96,6 +107,11 @@ sidecarInjectorWebhook:
   # with the exception of namespaces with "istio-injection:disabled" annotation
   # Only one environment should have this enabled.
   enableNamespacesByDefault: false
+
+  # Mutations that occur after the sidecar injector are not handled by default, as the Istio sidecar injector is only run
+  # once. For example, an OPA sidecar injected after the Istio sidecar will not have it's liveness/readiness probes rewritten.
+  # Setting this to `IfNeeded` will result in the sidecar injector being run again if additonal mutations occur.
+  reinvocationPolicy: Never
 
   rewriteAppHTTPProbe: true
 
@@ -484,3 +500,8 @@ base:
   # it works to have multiple redundant validations, this adds complexity and operational risks.
   # Users should consider enabling this if they want full gateway-api validation but don't have other validation servers.
   validateGateway: false
+
+# keep in sync with settings used when installing the Istio CNI chart
+istio_cni:
+  enabled: false
+  chained: true

@@ -35,12 +35,9 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	commonDeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
-	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -57,10 +54,6 @@ var (
 `)
 
 	describePodAOutput = describeSvcAOutput
-
-	addToMeshPodAOutput = `deployment .* updated successfully with Istio sidecar injected.
-Next Step: Add related labels to the deployment to align with Istio's requirement: ` + url.DeploymentRequirements
-	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
 
 func TestWait(t *testing.T) {
@@ -204,62 +197,6 @@ func getPodID(i echo.Instance) (string, error) {
 	}
 
 	return "", fmt.Errorf("no workloads")
-}
-
-func TestAddToAndRemoveFromMesh(t *testing.T) {
-	// nolint: staticcheck
-	framework.NewTest(t).Features("usability.helpers.add-to-mesh", "usability.helpers.remove-from-mesh").
-		RequiresSingleCluster().
-		RequiresLocalControlPlane().
-		RunParallel(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "istioctl-add-to-mesh",
-				Inject: true,
-			})
-
-			var a echo.Instance
-			deployment.New(t).
-				With(&a, echoConfig(ns, "a")).
-				BuildOrFail(t)
-
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
-
-			var output string
-			var args []string
-			g := gomega.NewWithT(t)
-
-			// able to remove from mesh when the deployment is auto injected
-			args = []string{
-				fmt.Sprintf("--namespace=%s", ns.Name()),
-				"x", "remove-from-mesh", "service", "a",
-			}
-			output, _ = istioCtl.InvokeOrFail(t, args)
-			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
-
-			retry.UntilSuccessOrFail(t, func() error {
-				// Wait until the new pod is ready
-				fetch := kubetest.NewPodMustFetch(t.Clusters().Default(), ns.Name(), "app=a")
-				pods, err := kubetest.WaitUntilPodsAreReady(fetch)
-				if err != nil {
-					return err
-				}
-				for _, p := range pods {
-					for _, c := range p.Spec.Containers {
-						if c.Name == "istio-proxy" {
-							return fmt.Errorf("sidecar still present in %v", p.Name)
-						}
-					}
-				}
-				return nil
-			}, retry.Delay(time.Second), retry.Timeout(time.Minute))
-
-			args = []string{
-				fmt.Sprintf("--namespace=%s", ns.Name()),
-				"x", "add-to-mesh", "service", "a",
-			}
-			output, _ = istioCtl.InvokeOrFail(t, args)
-			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
-		})
 }
 
 func TestProxyConfig(t *testing.T) {
@@ -414,6 +351,13 @@ func TestProxyStatus(t *testing.T) {
 					return err
 				}
 				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
+			})
+
+			// test namespace filtering
+			retry.UntilSuccessOrFail(t, func() error {
+				args = []string{"proxy-status", "-n", apps.Namespace.Name()}
+				output, _ = istioCtl.InvokeOrFail(t, args)
+				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
 			})
 		})
 }

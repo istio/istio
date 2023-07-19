@@ -16,8 +16,6 @@ package v1beta1
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -41,7 +39,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/jwt"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 var authnLog = log.RegisterScope("authn", "authn debugging")
@@ -51,7 +50,7 @@ type v1beta1PolicyApplier struct {
 	// processedJwtRules is the consolidate JWT rules from all jwtPolicies.
 	processedJwtRules []*v1beta1.JWTRule
 
-	consolidatedPeerPolicy *v1beta1.PeerAuthentication
+	consolidatedPeerPolicy MergedPeerAuthentication
 
 	push *model.PushContext
 }
@@ -73,19 +72,18 @@ func NewPolicyApplier(rootNamespace string,
 
 	// Sort the jwt rules by the issuer alphabetically to make the later-on generated filter
 	// config deterministic.
-	sort.Slice(processedJwtRules, func(i, j int) bool {
-		return strings.Compare(
-			processedJwtRules[i].GetIssuer(), processedJwtRules[j].GetIssuer()) < 0
+	slices.SortFunc(processedJwtRules, func(a, b *v1beta1.JWTRule) bool {
+		return a.GetIssuer() < b.GetIssuer()
 	})
 
-	return &v1beta1PolicyApplier{
+	return v1beta1PolicyApplier{
 		processedJwtRules:      processedJwtRules,
 		consolidatedPeerPolicy: ComposePeerAuthentication(rootNamespace, peerPolicies),
 		push:                   push,
 	}
 }
 
-func (a *v1beta1PolicyApplier) JwtFilter() *hcm.HttpFilter {
+func (a v1beta1PolicyApplier) JwtFilter() *hcm.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
 		return nil
 	}
@@ -109,7 +107,7 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	}
 }
 
-func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
+func (a v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
 	if len(a.processedJwtRules) == 0 {
 		// (beta) RequestAuthentication is not set for workload, do nothing.
 		authnLog.Debug("AuthnFilter: RequestAuthentication (beta policy) not found, keep settings with alpha API")
@@ -150,7 +148,7 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 // AuthNFilter returns the Istio authn filter config:
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *hcm.HttpFilter {
+func (a v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *hcm.HttpFilter {
 	var filterConfigProto *authn_filter.FilterConfig
 
 	// Override the config with request authentication, if applicable.
@@ -171,7 +169,7 @@ func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *hcm.HttpFilter {
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundMTLSSettings(
+func (a v1beta1PolicyApplier) InboundMTLSSettings(
 	endpointPort uint32,
 	node *model.Proxy,
 	trustDomainAliases []string,
@@ -195,9 +193,9 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(
 		Port: endpointPort,
 		Mode: effectiveMTLSMode,
 		TCP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP,
-			trustDomainAliases, minTLSVersion),
+			trustDomainAliases, minTLSVersion, mc),
 		HTTP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP,
-			trustDomainAliases, minTLSVersion),
+			trustDomainAliases, minTLSVersion, mc),
 	}
 }
 
@@ -382,24 +380,23 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 	}
 }
 
-func (a *v1beta1PolicyApplier) PortLevelSetting() map[uint32]*v1beta1.PeerAuthentication_MutualTLS {
-	return a.consolidatedPeerPolicy.PortLevelMtls
+func (a v1beta1PolicyApplier) PortLevelSetting() map[uint32]model.MutualTLSMode {
+	return a.consolidatedPeerPolicy.PerPort
 }
 
-func (a *v1beta1PolicyApplier) GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
-	if a.consolidatedPeerPolicy.PortLevelMtls != nil {
-		if portMtls, ok := a.consolidatedPeerPolicy.PortLevelMtls[endpointPort]; ok {
-			return getMutualTLSMode(portMtls)
-		}
+func (a v1beta1PolicyApplier) GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
+	if portMtls, ok := a.consolidatedPeerPolicy.PerPort[endpointPort]; ok {
+		return portMtls
 	}
 
-	return getMutualTLSMode(a.consolidatedPeerPolicy.Mtls)
+	return a.consolidatedPeerPolicy.Mode
 }
 
-// getMutualTLSMode returns the MutualTLSMode enum corresponding peer MutualTLS settings.
-// Input cannot be nil.
-func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTLSMode {
-	return model.ConvertToMutualTLSMode(mtls.Mode)
+type MergedPeerAuthentication struct {
+	// Mode is the overall mode of policy. May be overridden by PerPort
+	Mode model.MutualTLSMode
+	// PerPort is the per-port policy
+	PerPort map[uint32]model.MutualTLSMode
 }
 
 // ComposePeerAuthentication returns the effective PeerAuthentication given the list of applicable
@@ -415,14 +412,12 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // - UNSET will be replaced with the setting from the parent. I.e UNSET port-level config will be
 // replaced with config from workload-level, UNSET in workload-level config will be replaced with
 // one in namespace-level and so on.
-func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) *v1beta1.PeerAuthentication {
+func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) MergedPeerAuthentication {
 	var meshCfg, namespaceCfg, workloadCfg *config.Config
 
 	// Initial outputPolicy is set to a PERMISSIVE.
-	outputPolicy := v1beta1.PeerAuthentication{
-		Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-			Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-		},
+	outputPolicy := MergedPeerAuthentication{
+		Mode: model.MTLSPermissive,
 	}
 
 	for _, cfg := range configs {
@@ -453,13 +448,13 @@ func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) *
 
 	if meshCfg != nil && !isMtlsModeUnset(meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls) {
 		// If mesh policy is defined, update parent policy to mesh policy.
-		outputPolicy.Mtls = meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls
+		outputPolicy.Mode = model.ConvertToMutualTLSMode(meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls.Mode)
 	}
 
 	if namespaceCfg != nil && !isMtlsModeUnset(namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls) {
 		// If namespace policy is defined, update output policy to namespace policy. This means namespace
 		// policy overwrite mesh policy.
-		outputPolicy.Mtls = namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls
+		outputPolicy.Mode = model.ConvertToMutualTLSMode(namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls.Mode)
 	}
 
 	var workloadPolicy *v1beta1.PeerAuthentication
@@ -469,22 +464,22 @@ func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) *
 
 	if workloadPolicy != nil && !isMtlsModeUnset(workloadPolicy.Mtls) {
 		// If workload policy is defined, update parent policy to workload policy.
-		outputPolicy.Mtls = workloadPolicy.Mtls
+		outputPolicy.Mode = model.ConvertToMutualTLSMode(workloadPolicy.Mtls.Mode)
 	}
 
 	if workloadPolicy != nil && workloadPolicy.PortLevelMtls != nil {
-		outputPolicy.PortLevelMtls = make(map[uint32]*v1beta1.PeerAuthentication_MutualTLS, len(workloadPolicy.PortLevelMtls))
+		outputPolicy.PerPort = make(map[uint32]model.MutualTLSMode, len(workloadPolicy.PortLevelMtls))
 		for port, mtls := range workloadPolicy.PortLevelMtls {
 			if isMtlsModeUnset(mtls) {
 				// Inherit from workload level.
-				outputPolicy.PortLevelMtls[port] = outputPolicy.Mtls
+				outputPolicy.PerPort[port] = outputPolicy.Mode
 			} else {
-				outputPolicy.PortLevelMtls[port] = mtls
+				outputPolicy.PerPort[port] = model.ConvertToMutualTLSMode(mtls.Mode)
 			}
 		}
 	}
 
-	return &outputPolicy
+	return outputPolicy
 }
 
 func isMtlsModeUnset(mtls *v1beta1.PeerAuthentication_MutualTLS) bool {

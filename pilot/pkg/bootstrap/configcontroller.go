@@ -36,9 +36,9 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/analysis/incluster"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
-	"istio.io/pkg/log"
 )
 
 // URL schemes supported by the config store
@@ -136,16 +136,13 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	if s.kubeClient == nil {
 		return nil
 	}
-	configController, err := s.makeKubeConfigController(args)
-	if err != nil {
-		return err
-	}
+	configController := s.makeKubeConfigController(args)
 	s.ConfigStores = append(s.ConfigStores, configController)
 	if features.EnableGatewayAPI {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)
 		}
-		gwc := gateway.NewController(s.kubeClient, configController, configController.WaitForCRD,
+		gwc := gateway.NewController(s.kubeClient, configController, s.kubeClient.CrdWatcher().WaitForCRD,
 			s.environment.CredentialsController, args.RegistryOptions.KubeOptions)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
@@ -159,7 +156,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					// Trigger a push so we can recompute status
 					s.XDSServer.ConfigUpdate(&model.PushRequest{
 						Full:   true,
-						Reason: []model.TriggerReason{model.GlobalUpdate},
+						Reason: model.NewReasonStats(model.GlobalUpdate),
 					})
 					<-leaderStop
 					log.Infof("Stopping gateway status writer")
@@ -174,9 +171,9 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					NewPerRevisionLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, args.Revision, s.kubeClient).
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
-						if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
+						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
 							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
-							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID,
+							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
 								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
@@ -198,6 +195,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
+	var err error
 	s.RWConfigStore, err = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
 	if err != nil {
 		return err
@@ -341,7 +339,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	}
 }
 
-func (s *Server) makeKubeConfigController(args *PilotArgs) (*crdclient.Client, error) {
+func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 	opts := crdclient.Option{
 		Revision:     args.Revision,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,

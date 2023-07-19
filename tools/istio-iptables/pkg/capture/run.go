@@ -22,12 +22,12 @@ import (
 
 	"github.com/vishvananda/netlink"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
-	"istio.io/pkg/log"
 )
 
 type Ops int

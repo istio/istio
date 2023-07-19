@@ -40,6 +40,13 @@ spec:
             description: 'Extend the functionality provided by the Istio proxy through
               WebAssembly filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/wasm-plugin.html'
             properties:
+              failStrategy:
+                description: Specifies the failure behavior for the plugin due to
+                  fatal errors.
+                enum:
+                - FAIL_CLOSE
+                - FAIL_OPEN
+                type: string
               imagePullPolicy:
                 enum:
                 - UNSPECIFIED_POLICY
@@ -3301,7 +3308,7 @@ spec:
                         behavior.
                       properties:
                         caCertificates:
-                          description: REQUIRED if mode is `MUTUAL`.
+                          description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -3338,6 +3345,7 @@ spec:
                           - MUTUAL
                           - AUTO_PASSTHROUGH
                           - ISTIO_MUTUAL
+                          - OPTIONAL_MUTUAL
                           type: string
                         privateKey:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -3417,7 +3425,7 @@ spec:
                         behavior.
                       properties:
                         caCertificates:
-                          description: REQUIRED if mode is `MUTUAL`.
+                          description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -3454,6 +3462,7 @@ spec:
                           - MUTUAL
                           - AUTO_PASSTHROUGH
                           - ISTIO_MUTUAL
+                          - OPTIONAL_MUTUAL
                           type: string
                         privateKey:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -3924,7 +3933,7 @@ spec:
                     tls:
                       properties:
                         caCertificates:
-                          description: REQUIRED if mode is `MUTUAL`.
+                          description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -3961,6 +3970,7 @@ spec:
                           - MUTUAL
                           - AUTO_PASSTHROUGH
                           - ISTIO_MUTUAL
+                          - OPTIONAL_MUTUAL
                           type: string
                         privateKey:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -4097,7 +4107,7 @@ spec:
                     tls:
                       properties:
                         caCertificates:
-                          description: REQUIRED if mode is `MUTUAL`.
+                          description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -4134,6 +4144,7 @@ spec:
                           - MUTUAL
                           - AUTO_PASSTHROUGH
                           - ISTIO_MUTUAL
+                          - OPTIONAL_MUTUAL
                           type: string
                         privateKey:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -4794,6 +4805,18 @@ spec:
                           type: string
                         uri:
                           type: string
+                        uriRegexRewrite:
+                          description: rewrite the path portion of the URI with the
+                            specified regex.
+                          properties:
+                            match:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                              type: string
+                            rewrite:
+                              description: The string that should replace into matching
+                                portions of original URI.
+                              type: string
+                          type: object
                       type: object
                     route:
                       description: A HTTP rule can either return a direct_response,
@@ -5577,6 +5600,18 @@ spec:
                           type: string
                         uri:
                           type: string
+                        uriRegexRewrite:
+                          description: rewrite the path portion of the URI with the
+                            specified regex.
+                          properties:
+                            match:
+                              description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+                              type: string
+                            rewrite:
+                              description: The string that should replace into matching
+                                portions of original URI.
+                              type: string
+                          type: object
                       type: object
                     route:
                       description: A HTTP rule can either return a direct_response,

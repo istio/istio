@@ -30,12 +30,15 @@ import (
 	"github.com/spf13/cobra"
 
 	label2 "istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/version"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/common"
@@ -45,8 +48,6 @@ import (
 	"istio.io/istio/tools/bug-report/pkg/kubeclient"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
 	"istio.io/istio/tools/bug-report/pkg/processlog"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -60,7 +61,7 @@ var (
 )
 
 // Cmd returns a cobra command for bug-report.
-func Cmd(logOpts *log.Options) *cobra.Command {
+func Cmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "bug-report",
 		Short:        "Cluster information and log capture support tool.",
@@ -79,7 +80,7 @@ e.g.
 --include ns1,ns2 (only namespaces ns1 and ns2)
 --include n*//p*/l=v* (pods with name beginning with 'p' in namespaces beginning with 'n' and having label 'l' with value beginning with 'v'.)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBugReportCommand(cmd, logOpts)
+			return runBugReportCommand(ctx, cmd, logOpts)
 		},
 	}
 	rootCmd.AddCommand(version.CobraCommand())
@@ -99,7 +100,7 @@ var (
 	lock    = sync.RWMutex{}
 )
 
-func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
+func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options) error {
 	runner := kubectlcmd.NewRunner(gConfig.RequestsPerSecondLimit)
 	runner.ReportRunningTasks()
 	if err := configLogs(logOpts); err != nil {
@@ -137,8 +138,8 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	clusterResourcesCtx, getClusterResourcesCancel := context.WithTimeout(context.Background(), commandTimeout)
 	curTime := time.Now()
 	defer func() {
-		message := "Timeout when get cluster resources, please using --include or --exclude to filter"
 		if time.Until(curTime.Add(commandTimeout)) < 0 {
+			message := "Timeout when running bug report command, please using --include or --exclude to filter"
 			common.LogAndPrintf(message)
 		}
 		getClusterResourcesCancel()
@@ -147,8 +148,9 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return err
 	}
+	logRuntime(curTime, "Done collecting cluster resource")
 
-	dumpRevisionsAndVersions(resources, config.KubeConfigPath, config.Context, config.IstioNamespace, config.DryRun)
+	dumpRevisionsAndVersions(ctx, resources, config.IstioNamespace, config.DryRun)
 
 	log.Infof("Cluster resource tree:\n\n%s\n\n", resources)
 	paths, err := filter.GetMatchingPaths(config, resources)
@@ -156,7 +158,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		return err
 	}
 
-	common.LogAndPrintf("\n\nFetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
+	common.LogAndPrintf("\n\nFetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	gatherInfo(runner, config, resources, paths)
 	if len(gErrors) != 0 {
@@ -172,6 +174,8 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		}
 		writeFile(filepath.Join(archive.ProxyOutputPath(tempDir, namespace, pod), common.ProxyContainerName+".log"), text, config.DryRun)
 	}
+
+	logRuntime(curTime, "Done with bug-report command before generating the archive file")
 
 	outDir, err := os.Getwd()
 	if err != nil {
@@ -189,7 +193,10 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 		if tempDir != "" {
 			archiveDir = tempDir
 		}
-		if err := archive.Create(archiveDir, outPath); err != nil {
+		curTime = time.Now()
+		err := archive.Create(archiveDir, outPath)
+		fmt.Printf("Time used for creating the tar file is %v.\n", time.Since(curTime))
+		if err != nil {
 			return err
 		}
 		common.LogAndPrintf("Cleaning up temporary files in %s.\n", archiveDir)
@@ -203,12 +210,14 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	return nil
 }
 
-func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string, dryRun bool) {
+func dumpRevisionsAndVersions(ctx cli.Context, resources *cluster2.Resources, istioNamespace string, dryRun bool) {
+	defer logRuntime(time.Now(), "Done getting control plane revisions/versions")
+
 	text := ""
 	text += fmt.Sprintf("CLI version:\n%s\n\n", version.Info.LongForm())
 
 	revisions := getIstioRevisions(resources)
-	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)
+	istioVersions, proxyVersions := getIstioVersions(ctx, istioNamespace, revisions)
 	text += "The following Istio control plane revisions/versions were found in the cluster:\n"
 	for rev, ver := range istioVersions {
 		text += fmt.Sprintf("Revision %s:\n%s\n\n", rev, ver)
@@ -236,13 +245,18 @@ func getIstioRevisions(resources *cluster2.Resources) []string {
 
 // getIstioVersions returns a mapping of revision to aggregated version string for Istio components and revision to
 // slice of versions for proxies. Any errors are embedded in the revision strings.
-func getIstioVersions(kubeconfig, configContext, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
+func getIstioVersions(ctx cli.Context, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
 	istioVersions := make(map[string]string)
 	proxyVersionsMap := make(map[string]sets.String)
 	proxyVersions := make(map[string][]string)
 	for _, revision := range revisions {
-		istioVersions[revision] = getIstioVersion(kubeconfig, configContext, istioNamespace, revision)
-		proxyInfo, err := proxy.GetProxyInfo(kubeconfig, configContext, revision, istioNamespace)
+		client, err := ctx.CLIClientWithRevision(revision)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+		istioVersions[revision] = getIstioVersion(client, istioNamespace)
+		proxyInfo, err := proxy.GetProxyInfo(client, istioNamespace)
 		if err != nil {
 			log.Error(err)
 			continue
@@ -259,12 +273,7 @@ func getIstioVersions(kubeconfig, configContext, istioNamespace string, revision
 	return istioVersions, proxyVersions
 }
 
-func getIstioVersion(kubeconfig, configContext, istioNamespace, revision string) string {
-	kubeClient, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
-	if err != nil {
-		return err.Error()
-	}
-
+func getIstioVersion(kubeClient kube.CLIClient, istioNamespace string) string {
 	versions, err := kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
 	if err != nil {
 		return err.Error()
@@ -302,6 +311,11 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	getFromCluster(content.GetNodeInfo, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
 	getFromCluster(content.GetDescribePods, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
+
+	common.LogAndPrintf("\nFetching CNI logs from cluster.\n\n")
+	for _, cniPod := range resources.CniPod {
+		getCniLogs(runner, config, resources, cniPod.Namespace, cniPod.Name, &mandatoryWg)
+	}
 
 	// optionalWg is subject to timer.
 	var optionalWg sync.WaitGroup
@@ -360,7 +374,11 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 	wg.Add(1)
 	log.Infof("Waiting on %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			logRuntime(time.Now(), "Done getting from cluster for %v", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+		}()
+
 		out, err := f(params)
 		appendGlobalErr(err)
 		if err == nil {
@@ -377,9 +395,13 @@ func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, res
 	path, namespace, pod, container string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
-	log.Infof("Waiting on logs %s", pod)
+	log.Infof("Waiting on proxy logs %v/%v/%v", namespace, pod, container)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			logRuntime(time.Now(), "Done getting from proxy logs for %v/%v/%v", namespace, pod, container)
+		}()
+
 		clog, cstat, imp, err := getLog(runner, resources, config, namespace, pod, container)
 		appendGlobalErr(err)
 		lock.Lock()
@@ -387,7 +409,7 @@ func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, res
 			logs[path], stats[path], importance[path] = clog, cstat, imp
 		}
 		lock.Unlock()
-		log.Infof("Done with logs %s", pod)
+		log.Infof("Done with proxy logs %v/%v/%v", namespace, pod, container)
 	}()
 }
 
@@ -397,13 +419,17 @@ func getIstiodLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, re
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
-	log.Infof("Waiting on logs %s", pod)
+	log.Infof("Waiting on Istiod logs for %v/%v", namespace, pod)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			logRuntime(time.Now(), "Done getting Istiod logs for %v/%v", namespace, pod)
+		}()
+
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
 		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog, config.DryRun)
-		log.Infof("Done with logs %s", pod)
+		log.Infof("Done with Istiod logs for %v/%v", namespace, pod)
 	}()
 }
 
@@ -412,13 +438,37 @@ func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, 
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
 	wg.Add(1)
-	log.Infof("Waiting on logs %s", pod)
+	log.Infof("Waiting on operator logs for %v/%v", namespace, pod)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			logRuntime(time.Now(), "Done getting operator logs for %v/%v", namespace, pod)
+		}()
+
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.OperatorContainerName)
 		appendGlobalErr(err)
 		writeFile(filepath.Join(archive.OperatorPath(tempDir, namespace, pod), "operator.log"), clog, config.DryRun)
-		log.Infof("Done with logs %s", pod)
+		log.Infof("Done with operator logs for %v/%v", namespace, pod)
+	}()
+}
+
+// getCniLogs fetches Cni logs from istio-cni-node daemonsets inside namespace kube-system and writes the output
+// Runs if a goroutine, with errors reported through gErrors
+func getCniLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
+	namespace, pod string, wg *sync.WaitGroup,
+) {
+	wg.Add(1)
+	log.Infof("Waiting on CNI logs for %v", pod)
+	go func() {
+		defer func() {
+			wg.Done()
+			logRuntime(time.Now(), "Done getting CNI logs for %v", pod)
+		}()
+
+		clog, _, _, err := getLog(runner, resources, config, namespace, pod, "")
+		appendGlobalErr(err)
+		writeFile(filepath.Join(archive.CniPath(tempDir, pod), "cni.log"), clog, config.DryRun)
+		log.Infof("Done with CNI logs %v", pod)
 	}()
 }
 
@@ -426,12 +476,14 @@ func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, 
 func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *config.BugReportConfig,
 	namespace, pod, container string,
 ) (string, *processlog.Stats, int, error) {
+	defer logRuntime(time.Now(), "Done getting logs only for %v/%v/%v", namespace, pod, container)
+
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
 	clog, err := runner.Logs(namespace, pod, container, false, config.DryRun)
 	if err != nil {
 		return "", nil, 0, err
 	}
-	if resources.ContainerRestarts(namespace, pod, container) > 0 {
+	if resources.ContainerRestarts(namespace, pod, container, common.IsCniPod(pod)) > 0 {
 		pclog, err := runner.Logs(namespace, pod, container, true, config.DryRun)
 		if err != nil {
 			return "", nil, 0, err
@@ -446,7 +498,10 @@ func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *co
 
 func runAnalyze(config *config.BugReportConfig, params *content.Params, analyzeTimeout time.Duration) {
 	newParam := params.SetNamespace(common.NamespaceAll)
-	common.LogAndPrintf("Running istio analyze on all namespaces and report as below:")
+
+	defer logRuntime(time.Now(), "Done running Istio analyze on all namespaces and report")
+
+	common.LogAndPrintf("Running Istio analyze on all namespaces and report as below:")
 	out, err := content.GetAnalyze(newParam.SetIstioNamespace(config.IstioNamespace), analyzeTimeout)
 	if err != nil {
 		log.Error(err.Error())
@@ -459,6 +514,7 @@ func runAnalyze(config *config.BugReportConfig, params *content.Params, analyzeT
 }
 
 func writeFiles(dir string, files map[string]string, dryRun bool) {
+	defer logRuntime(time.Now(), "Done writing files for dir %v", dir)
 	for fname, text := range files {
 		writeFile(filepath.Join(dir, fname), text, dryRun)
 	}
@@ -472,6 +528,9 @@ func writeFile(path, text string, dryRun bool) {
 		return
 	}
 	mkdirOrExit(path)
+
+	defer logRuntime(time.Now(), "Done writing file for path %v", path)
+
 	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
 		log.Errorf(err.Error())
 	}
@@ -508,4 +567,8 @@ func configLogs(opt *log.Options) error {
 	opt2.SetOutputLevel("default", log.InfoLevel)
 
 	return log.Configure(&opt2)
+}
+
+func logRuntime(start time.Time, format string, args ...any) {
+	log.WithLabels("runtime", time.Since(start)).Infof(format, args...)
 }

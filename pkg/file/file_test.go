@@ -52,3 +52,38 @@ func TestCopy(t *testing.T) {
 func TestAtomicCopy(t *testing.T) {
 	copyTest(t, AtomicCopy)
 }
+
+func TestAtomicWrite(t *testing.T) {
+	d := t.TempDir()
+	file := filepath.Join(d, "test")
+	data := []byte("hello world")
+	err := AtomicWrite(file, data, 0o750)
+	assert.NoError(t, err)
+	f, err := os.Open(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, body, data)
+}
+
+func TestExists(t *testing.T) {
+	d := t.TempDir()
+	exist := Exists(d)
+	assert.Equal(t, exist, true)
+
+	unExist := Exists("unExist")
+	assert.Equal(t, unExist, false)
+}
+
+func TestIsDirWriteable(t *testing.T) {
+	d := t.TempDir()
+	err := IsDirWriteable(d)
+	assert.NoError(t, err)
+
+	err = IsDirWriteable("unWriteAble")
+	assert.Error(t, err)
+}

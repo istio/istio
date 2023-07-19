@@ -194,18 +194,13 @@ func TestCustomResourceScoping(t *testing.T) {
 		Features("installation.multiplecontrolplanes").
 		Run(func(t framework.TestContext) {
 			// allow access to external service only for app-ns-2 namespace which is under usergroup-2
-			allowExternalService(t, apps.NS[1].Namespace.Name(), externalNS.Name())
+			allowExternalService(t, apps.NS[1].Namespace.Name(), externalNS.Name(), "usergroup-2")
 
 			testCases := []struct {
 				name       string
 				statusCode int
 				from       echo.Instances
 			}{
-				{
-					name:       "workloads in non-SE configured usergroup cannot reach external service",
-					statusCode: http.StatusBadGateway,
-					from:       apps.NS[0].A,
-				},
 				{
 					name:       "workloads in SE configured namespace can reach external service",
 					statusCode: http.StatusOK,
@@ -215,6 +210,11 @@ func TestCustomResourceScoping(t *testing.T) {
 					name:       "workloads in non-SE configured namespace, but same usergroup can reach external service",
 					statusCode: http.StatusOK,
 					from:       apps.NS[2].A,
+				},
+				{
+					name:       "workloads in non-SE configured usergroup cannot reach external service",
+					statusCode: http.StatusBadGateway,
+					from:       apps.NS[0].A,
 				},
 			}
 			for _, tc := range testCases {
@@ -255,13 +255,16 @@ spec:
 	}
 }
 
-func allowExternalService(t framework.TestContext, ns string, externalNs string) {
+func allowExternalService(t framework.TestContext, ns string, externalNs string, revision string) {
 	t.ConfigIstio().Eval(ns, map[string]any{
 		"Namespace": externalNs,
+		"Revision":  revision,
 	}, `apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-service
+  labels:
+    istio.io/rev: {{.Revision}}
 spec:
   hosts:
   - "fake.external.com"

@@ -45,14 +45,18 @@ import (
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/mesh"
+	pkgenv "istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/http"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
@@ -64,11 +68,11 @@ import (
 	stsmock "istio.io/istio/security/pkg/stsservice/mock"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/tests/util/leak"
-	pkgenv "istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 func TestAgent(t *testing.T) {
+	test.SetForTest(t, &version.Info.Version, "version")
+
 	wd := t.TempDir()
 	mktemp := t.TempDir
 	// Normally we call leak checker first. Here we call it after TempDir to avoid the (extremely
@@ -311,6 +315,20 @@ func TestAgent(t *testing.T) {
 			_ = os.RemoveAll(dir)
 		})
 	})
+
+	t.Run("Unhealthy SDS socket - required", func(t *testing.T) {
+		// starting an unresponsive listener on the socket
+		a := NewAgent(nil, &AgentOptions{UseExternalWorkloadSDS: true}, nil, envoy.ProxyConfig{})
+		ctx, done := context.WithCancel(context.Background())
+		_, err := a.Run(ctx)
+		if err == nil {
+			t.Fatalf("expected to return an error if SDS socket not provided")
+		}
+		t.Cleanup(done)
+		t.Cleanup(func() {
+			a.Close()
+		})
+	})
 	t.Run("Workload certificates", func(t *testing.T) {
 		dir := security.WorkloadIdentityCredentialsPath
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -483,8 +501,8 @@ func TestAgent(t *testing.T) {
 	})
 	envoyReady := func(t test.Failer, name string, port int) {
 		retry.UntilSuccessOrFail(t, func() error {
-			code, _, _ := env.HTTPGet(fmt.Sprintf("http://localhost:%d/ready", port))
-			if code != 200 {
+			_, err := http.DoHTTPGet(fmt.Sprintf("http://localhost:%d/ready", port))
+			if err != nil {
 				return fmt.Errorf("envoy %q is not ready", name)
 			}
 			return nil

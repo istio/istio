@@ -35,15 +35,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 )
 
-func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
-	for _, addr := range addresses {
-		if addr.IP == proxyIP {
-			return true
-		}
-	}
-	return false
-}
-
 func getLabelValue(metadata metav1.ObjectMeta, label string, fallBackLabel string) string {
 	metaLabels := metadata.GetLabels()
 	val := metaLabels[label]

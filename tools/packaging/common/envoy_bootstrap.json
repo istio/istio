@@ -127,6 +127,9 @@
         "regex": "(\\.shadow_(allowed|denied))"
       }
     ],
+    {{- if .histogram_buckets }}
+    "histogram_bucket_settings": {{ toJson .histogram_buckets }},
+    {{- end }}
     "stats_matcher": {
       "inclusion_list": {
         "patterns": [
@@ -736,12 +739,20 @@
     {{ end }}
   ]
   {{ end }}
-  {{ if .outlier_log_path }}
+  {{ if or .outlier_log_path .load_stats_config_json_str }}
   ,
   "cluster_manager": {
+    {{- if .outlier_log_path}}
     "outlier_detection": {
       "event_log_path": "{{ .outlier_log_path }}"
     }
+    {{- end}}
+    {{- if and .outlier_log_path .load_stats_config_json_str }}
+    ,
+    {{- end}}
+    {{- if .load_stats_config_json_str }}
+    "load_stats_config": {{- .load_stats_config_json_str }}
+    {{- end }}
   }
   {{ end }}
 }

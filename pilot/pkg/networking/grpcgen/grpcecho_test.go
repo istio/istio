@@ -73,7 +73,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 
 	cgt := &configGenTest{T: t}
 	wg := sync.WaitGroup{}
-	cfgs := []config.Config{}
+	var cfgs []config.Config
 
 	discoveryOpts.ListenerBuilder = func() (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")

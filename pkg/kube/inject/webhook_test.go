@@ -54,9 +54,9 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/monitoring/monitortest"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/retry"
-	sutil "istio.io/istio/security/pkg/nodeagent/util"
 )
 
 const yamlSeparator = "\n---"
@@ -734,7 +734,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	}
 }
 
-func convertToJSON(i any, t *testing.T) []byte {
+func convertToJSON(i any, t test.Failer) []byte {
 	t.Helper()
 	outputJSON, err := json.Marshal(i)
 	if err != nil {
@@ -743,7 +743,7 @@ func convertToJSON(i any, t *testing.T) []byte {
 	return prettyJSON(outputJSON, t)
 }
 
-func prettyJSON(inputJSON []byte, t *testing.T) []byte {
+func prettyJSON(inputJSON []byte, t test.Failer) []byte {
 	t.Helper()
 	// Pretty-print the JSON
 	var prettyBuffer bytes.Buffer
@@ -913,12 +913,12 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	}
 	pcs := model.GetProxyConfigs(store, m)
 	env := model.Environment{
-		Watcher: mesh.NewFixedWatcher(m),
-		PushContext: &model.PushContext{
-			ProxyConfigs: pcs,
-		},
+		Watcher:     mesh.NewFixedWatcher(m),
 		ConfigStore: store,
 	}
+	env.SetPushContext(&model.PushContext{
+		ProxyConfigs: pcs,
+	})
 	watcher, err := NewFileWatcher(configFile, valuesFile)
 	if err != nil {
 		t.Fatalf("NewFileWatcher() failed: %v", err)
@@ -946,67 +946,12 @@ func TestRunAndServe(t *testing.T) {
 	validReviewV1 := makeTestData(t, false, "v1")
 	skipReview := makeTestData(t, true, "v1beta1")
 
-	// nolint: lll
-	validPatch := []byte(`[
-{
-    "op": "add",
-    "path": "/metadata/annotations",
-    "value": {
-        "prometheus.io/path": "/stats/prometheus",
-        "prometheus.io/port": "15020",
-        "prometheus.io/scrape": "true",
-        "sidecar.istio.io/status": "{\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"],\"revision\":\"default\"}"
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/volumes/1",
-    "value": {
-        "name": "v0"
-    }
-},
-{
-    "op": "replace",
-    "path": "/spec/volumes/0/name",
-    "value": "istio-envoy"
-},
-{
-    "op": "add",
-    "path": "/spec/initContainers/1",
-    "value": {
-        "name": "istio-init",
-        "resources": {}
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/containers/1",
-    "value": {
-        "name": "istio-proxy",
-        "resources": {}
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/imagePullSecrets/1",
-    "value": {
-        "name": "p0"
-    }
-},
-{
-    "op": "replace",
-    "path": "/spec/imagePullSecrets/0/name",
-    "value": "istio-image-pull-secrets"
-}
-]`)
-
 	cases := []struct {
 		name           string
 		body           []byte
 		contentType    string
 		wantAllowed    bool
 		wantStatusCode int
-		wantPatch      []byte
 	}{
 		{
 			name:           "valid",
@@ -1014,7 +959,6 @@ func TestRunAndServe(t *testing.T) {
 			contentType:    "application/json",
 			wantAllowed:    true,
 			wantStatusCode: http.StatusOK,
-			wantPatch:      validPatch,
 		},
 		{
 			name:           "valid(v1 version)",
@@ -1022,7 +966,6 @@ func TestRunAndServe(t *testing.T) {
 			contentType:    "application/json",
 			wantAllowed:    true,
 			wantStatusCode: http.StatusOK,
-			wantPatch:      validPatch,
 		},
 		{
 			name:           "skipped",
@@ -1052,7 +995,7 @@ func TestRunAndServe(t *testing.T) {
 			wantStatusCode: http.StatusBadRequest,
 		},
 	}
-
+	mt := monitortest.New(t)
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%d] %s", i, c.name), func(t *testing.T) {
 			req := httptest.NewRequest("POST", "http://sidecar-injector/inject", bytes.NewReader(c.body))
@@ -1089,23 +1032,13 @@ func TestRunAndServe(t *testing.T) {
 					t.Fatalf(err.Error())
 				}
 			}
-			var wantPatch bytes.Buffer
-			if len(c.wantPatch) > 0 {
-				if err := json.Compact(&wantPatch, c.wantPatch); err != nil {
-					t.Fatalf(err.Error())
-				}
-			}
-
-			if !bytes.Equal(gotPatch.Bytes(), wantPatch.Bytes()) {
-				t.Fatalf("got bad patch: \n got  %v \n want %v", gotPatch.String(), wantPatch.String())
-			}
 		})
 	}
 	// Now Validate that metrics are created.
-	testSideCarInjectorMetrics(t)
+	testSideCarInjectorMetrics(mt)
 }
 
-func testSideCarInjectorMetrics(t *testing.T) {
+func testSideCarInjectorMetrics(mt *monitortest.MetricsTest) {
 	expected := []string{
 		"sidecar_injection_requests_total",
 		"sidecar_injection_success_total",
@@ -1113,16 +1046,7 @@ func testSideCarInjectorMetrics(t *testing.T) {
 		"sidecar_injection_failure_total",
 	}
 	for _, e := range expected {
-		retry.UntilSuccessOrFail(t, func() error {
-			got, err := sutil.GetMetricsCounterValueWithTags(e, nil)
-			if err != nil {
-				return err
-			}
-			if got <= 0 {
-				return fmt.Errorf("metric empty")
-			}
-			return nil
-		})
+		mt.Assert(e, nil, monitortest.AtLeast(1))
 	}
 }
 

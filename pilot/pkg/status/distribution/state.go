@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var scope = log.RegisterScope("status",

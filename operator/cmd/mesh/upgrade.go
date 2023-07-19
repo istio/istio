@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type upgradeArgs struct {

@@ -182,22 +182,21 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 
 	isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
 	if isCAOnlySecret {
-		caCert, err := secretController.GetCaCert(sr.Name, sr.Namespace)
+		caCertInfo, err := secretController.GetCaCert(sr.Name, sr.Namespace)
 		if err != nil {
 			pilotSDSCertificateErrors.Increment()
 			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
 			return nil
 		}
 		if features.VerifySDSCertificate {
-			if err := ValidateCertificate(caCert); err != nil {
+			if err := ValidateCertificate(caCertInfo.Cert); err != nil {
 				recordInvalidCertificate(sr.ResourceName, err)
 				return nil
 			}
 		}
-		res := toEnvoyCaSecret(sr.ResourceName, caCert)
+		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
 		return res
 	}
-
 	certInfo, err := secretController.GetCertInfo(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
@@ -320,17 +319,25 @@ func atMostNJoin(data []string, limit int) string {
 	return strings.Join(data[:limit-1], ", ") + fmt.Sprintf(", and %d others", len(data)-limit+1)
 }
 
-func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
+func toEnvoyCaSecret(name string, certInfo *credscontroller.CertInfo) *discovery.Resource {
+	validationContext := &envoytls.CertificateValidationContext{
+		TrustedCa: &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{
+				InlineBytes: certInfo.Cert,
+			},
+		},
+	}
+	if certInfo.CRL != nil {
+		validationContext.Crl = &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{
+				InlineBytes: certInfo.CRL,
+			},
+		}
+	}
 	res := protoconv.MessageToAny(&envoytls.Secret{
 		Name: name,
 		Type: &envoytls.Secret_ValidationContext{
-			ValidationContext: &envoytls.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: cert,
-					},
-				},
-			},
+			ValidationContext: validationContext,
 		},
 	})
 	return &discovery.Resource{
@@ -400,26 +407,29 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 			},
 		})
 	default:
+		tlsCertificate := &envoytls.TlsCertificate{
+			CertificateChain: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: certInfo.Cert,
+				},
+			},
+			PrivateKey: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: certInfo.Key,
+				},
+			},
+		}
+		if certInfo.Staple != nil {
+			tlsCertificate.OcspStaple = &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: certInfo.Staple,
+				},
+			}
+		}
 		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{
-				TlsCertificate: &envoytls.TlsCertificate{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: certInfo.Cert,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: certInfo.Key,
-						},
-					},
-					OcspStaple: &core.DataSource{
-						Specifier: &core.DataSource_InlineBytes{
-							InlineBytes: certInfo.Staple,
-						},
-					},
-				},
+				TlsCertificate: tlsCertificate,
 			},
 		})
 	}

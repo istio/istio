@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
-	istioversion "istio.io/pkg/version"
+	istioversion "istio.io/istio/pkg/version"
 )
 
 var cronJobNameRegexp = regexp.MustCompile(`(.+)-\d{8,10}$`)
@@ -190,6 +190,11 @@ func CheckPodReady(pod *corev1.Pod) error {
 	switch pod.Status.Phase {
 	case corev1.PodRunning:
 		// Wait until all containers are ready.
+		for _, containerStatus := range pod.Status.InitContainerStatuses {
+			if !containerStatus.Ready {
+				return fmt.Errorf("init container not ready: '%s'", containerStatus.Name)
+			}
+		}
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			if !containerStatus.Ready {
 				return fmt.Errorf("container not ready: '%s'", containerStatus.Name)

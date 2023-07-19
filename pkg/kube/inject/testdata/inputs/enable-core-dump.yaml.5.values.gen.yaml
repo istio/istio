@@ -96,6 +96,7 @@
     "variant": ""
   },
   "istio_cni": {
+    "chained": true,
     "enabled": false
   },
   "revision": "",
@@ -105,6 +106,7 @@
     "enableNamespacesByDefault": false,
     "injectedAnnotations": {},
     "neverInjectSelector": [],
+    "reinvocationPolicy": "Never",
     "rewriteAppHTTPProbe": true,
     "templates": {}
   }

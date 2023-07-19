@@ -30,8 +30,8 @@ import (
 	"gopkg.in/square/go-jose.v2"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -235,24 +235,20 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 			return nil, fmt.Errorf("trust domain [%s] at URL [%s] failed to decode bundle: %v", trustDomain, endpoint, err)
 		}
 
-		var cert *x509.Certificate
+		var certs []*x509.Certificate
 		for i, key := range doc.Keys {
 			if key.Use == "x509-svid" {
 				if len(key.Certificates) != 1 {
 					return nil, fmt.Errorf("trust domain [%s] at URL [%s] expected 1 certificate in x509-svid entry %d; got %d",
 						trustDomain, endpoint, i, len(key.Certificates))
 				}
-				cert = key.Certificates[0]
+				certs = append(certs, key.Certificates[0])
 			}
 		}
-		if cert == nil {
+		if len(certs) == 0 {
 			return nil, fmt.Errorf("trust domain [%s] at URL [%s] does not provide a X509 SVID", trustDomain, endpoint)
 		}
-		if certs, ok := ret[trustDomain]; ok {
-			ret[trustDomain] = append(certs, cert)
-		} else {
-			ret[trustDomain] = []*x509.Certificate{cert}
-		}
+		ret[trustDomain] = certs
 	}
 	for trustDomain, certs := range ret {
 		spiffeLog.Infof("Loaded SPIFFE trust bundle for: %v, containing %d certs", trustDomain, len(certs))

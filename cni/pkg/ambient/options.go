@@ -17,7 +17,7 @@ package ambient
 import (
 	ipsetlib "istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/pkg/env"
+	"istio.io/istio/pkg/env"
 )
 
 var (

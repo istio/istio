@@ -98,13 +98,10 @@ function download_untar_istio_release() {
 }
 
 function buildx-create() {
-  export DOCKER_CLI_EXPERIMENTAL=enabled
-  if ! docker buildx ls | grep -q container-builder; then
-    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name container-builder --buildkitd-flags="--debug"
-    # Pre-warm the builder. If it fails, fetch logs, but continue
-    docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
-  fi
-  docker buildx use container-builder
+  WD=$(dirname "$0")
+  WD=$(cd "$WD" || exit; pwd)
+  ROOT=$(dirname "$WD")
+  "$ROOT/prow/buildx-create"
 }
 
 function build_images() {
@@ -117,7 +114,7 @@ function build_images() {
   nonDistrolessTargets="docker.app docker.app_sidecar_ubuntu_jammy docker.ext-authz "
   if [[ "${JOB_TYPE:-presubmit}" == "postsubmit" ]]; then
     # We run tests across all VM types only in postsubmit
-    nonDistrolessTargets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_debian_11  docker.app_sidecar_centos_7 "
+    nonDistrolessTargets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_debian_11 "
     # TODO(https://github.com/istio/istio/issues/38224)
 #    nonDistrolessTargets+="docker.app_sidecar_rockylinux_8 "
   fi

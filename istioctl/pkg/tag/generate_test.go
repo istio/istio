@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -146,18 +147,46 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			whSVC:          "",
 			whCA:           "ca",
 		},
+		{
+			name:           "webhook-process-failure-policy",
+			istioNamespace: "istio-system",
+			webhook:        revisionCanonicalWebhook,
+			whURL:          "",
+			whSVC:          "istiod-revision",
+			whCA:           "ca",
+		},
 	}
 	scheme := runtime.NewScheme()
 	codecFactory := serializer.NewCodecFactory(scheme)
 	deserializer := codecFactory.UniversalDeserializer()
 
+	fail := admitv1.Fail
+	fakeClient := kube.NewFakeClient(&admitv1.ValidatingWebhookConfiguration{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "istiod-default-validator",
+		},
+		Webhooks: []admitv1.ValidatingWebhook{
+			{
+				Name: "random",
+			},
+			{
+				FailurePolicy: &fail,
+				Name:          "validation.istio.io",
+			},
+		},
+	})
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, "default", tc.istioNamespace)
 			if err != nil {
 				t.Fatalf("webhook parsing failed with error: %v", err)
 			}
-			webhookYAML, err := generateValidatingWebhook(fixWhConfig(webhookConfig), filepath.Join(env.IstioSrc, "manifests"))
+			webhookConfig, err = fixWhConfig(fakeClient, webhookConfig)
+			if err != nil {
+				t.Fatalf("webhook fixing failed with error: %v", err)
+			}
+			webhookYAML, err := generateValidatingWebhook(webhookConfig, filepath.Join(env.IstioSrc, "manifests"), nil)
 			if err != nil {
 				t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 			}
@@ -170,6 +199,12 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 
 			for _, webhook := range wh.Webhooks {
 				validationWhConf := webhook.ClientConfig
+
+				// this is nil since we've already have one with failed FailurePolicy in the fake client
+				if webhook.FailurePolicy != nil {
+					t.Fatalf("expected FailurePolicy to be nil, got %v", *webhook.FailurePolicy)
+				}
+
 				if tc.whSVC != "" {
 					if validationWhConf.Service == nil {
 						t.Fatalf("expected validation service %s, got nil", tc.whSVC)
@@ -255,7 +290,12 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 		if err != nil {
 			t.Fatalf("webhook parsing failed with error: %v", err)
 		}
-		webhookYAML, err := generateMutatingWebhook(webhookConfig, "", filepath.Join(env.IstioSrc, "manifests"), false)
+		webhookYAML, err := generateMutatingWebhook(webhookConfig, &GenerateOptions{
+			WebhookName:          "",
+			ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
+			AutoInjectNamespaces: false,
+			CustomLabels:         nil,
+		})
 		if err != nil {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 		}

@@ -29,3 +29,5 @@ RUN npm install
 
 EXPOSE 9080
 CMD ["node", "/opt/microservices/ratings.js", "9080"]
+
+USER 1000

@@ -21,9 +21,9 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/kubemesh"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 const (

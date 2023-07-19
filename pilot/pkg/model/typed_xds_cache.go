@@ -22,12 +22,12 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/monitoring"
 )
 
 var enableStats = func() bool {
@@ -35,23 +35,29 @@ var enableStats = func() bool {
 }
 
 var (
-	xdsCacheReads = monitoring.RegisterIf(monitoring.NewSum(
+	xdsCacheReads = monitoring.NewSum(
 		"xds_cache_reads",
 		"Total number of xds cache xdsCacheReads.",
-		monitoring.WithLabels(typeTag)), enableStats)
+		monitoring.WithEnabled(enableStats),
+	)
 
-	xdsCacheEvictions = monitoring.RegisterIf(monitoring.NewSum(
+	xdsCacheEvictions = monitoring.NewSum(
 		"xds_cache_evictions",
 		"Total number of xds cache evictions.",
-		monitoring.WithLabels(typeTag)), enableStats)
+		monitoring.WithEnabled(enableStats),
+	)
 
-	xdsCacheSize = monitoring.RegisterIf(monitoring.NewGauge(
+	xdsCacheSize = monitoring.NewGauge(
 		"xds_cache_size",
-		"Current size of xds cache"), enableStats)
+		"Current size of xds cache",
+		monitoring.WithEnabled(enableStats),
+	)
 
-	dependentConfigSize = monitoring.RegisterIf(monitoring.NewGauge(
+	dependentConfigSize = monitoring.NewGauge(
 		"xds_cache_dependent_config_size",
-		"Current size of dependent configs"), enableStats)
+		"Current size of dependent configs",
+		monitoring.WithEnabled(enableStats),
+	)
 
 	xdsCacheHits             = xdsCacheReads.With(typeTag.Value("hit"))
 	xdsCacheMisses           = xdsCacheReads.With(typeTag.Value("miss"))

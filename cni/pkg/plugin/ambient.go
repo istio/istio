@@ -21,27 +21,19 @@ import (
 	"net/netip"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/cni/pkg/ambient"
-	"istio.io/istio/cni/pkg/ambient/ambientpod"
 	ebpf "istio.io/istio/cni/pkg/ebpf/server"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
-func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName, podNamespace, podIfname, podNetNs string, podIPs []net.IPNet) (bool, error) {
-	if !ambientConfig.ZTunnelReady {
-		return false, fmt.Errorf("ztunnel not ready")
-	}
-
-	client, err := newKubeClient(conf)
-	if err != nil {
-		return false, err
-	}
-
-	if client == nil {
-		return false, nil
-	}
-
+func checkAmbient(
+	client *kubernetes.Clientset,
+	ambientConfig ambient.AmbientConfigFile,
+	podName, podNamespace, podIfname, podNetNs string,
+	podIPs []net.IPNet,
+) (bool, error) {
 	pod, err := client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
@@ -51,7 +43,7 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 		return false, err
 	}
 
-	if ambientpod.PodZtunnelEnabled(ns, pod) {
+	if ambient.PodRedirectionEnabled(ns, pod) {
 		if ambientConfig.RedirectMode == ambient.EbpfMode.String() {
 			ifIndex, mac, err := ambient.GetIndexAndPeerMac(podIfname, podNetNs)
 			if err != nil {
@@ -82,7 +74,11 @@ func checkAmbient(conf Config, ambientConfig ambient.AmbientConfigFile, podName,
 			_ = ambient.SetProc("/proc/sys/net/ipv4/conf/"+podIfname+"/rp_filter", "0")
 
 			for _, ip := range podIPs {
-				ambient.AddPodToMesh(client, pod, ip.IP.String())
+				err = ambient.AddPodToMesh(client, pod, ip.IP.String())
+				if err != nil {
+					log.WithLabels("err", err, "pod", pod.Name, "ip", ip.IP.String()).Error("Failed to add pod to host network")
+					return false, err
+				}
 			}
 			return true, nil
 		}

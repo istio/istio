@@ -45,8 +45,9 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	sresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -82,13 +83,9 @@ func (s *KubeSource) Get(typ config.GroupVersionKind, name, namespace string) *c
 func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	configs := s.inner.List(typ, namespace)
 	if s.namespacesFilter != nil {
-		var out []config.Config
-		for _, config := range configs {
-			if s.namespacesFilter(config) {
-				out = append(out, config)
-			}
-		}
-		return out
+		return slices.Filter(configs, func(c config.Config) bool {
+			return s.namespacesFilter(c)
+		})
 	}
 	return configs
 }

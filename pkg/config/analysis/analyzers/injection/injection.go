@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 )
 
 // Analyzer checks conditions related to Istio sidecar injection.
@@ -153,7 +154,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		proxyImage := ""
-		for _, container := range pod.Containers {
+		for _, container := range append(slices.Clone(pod.Containers), pod.InitContainers...) {
 			if container.Name == util.IstioProxyName {
 				proxyImage = container.Image
 				break

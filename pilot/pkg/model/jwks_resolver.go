@@ -37,7 +37,7 @@ import (
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 const (
@@ -150,10 +150,6 @@ type JwksResolver struct {
 
 	// Whenever istiod fails to fetch the pubkey from jwksuri in main flow this variable becomes true for background trigger
 	jwksUribackgroundChannel bool
-}
-
-func init() {
-	monitoring.MustRegister(networkFetchSuccessCounter, networkFetchFailCounter)
 }
 
 // NewJwksResolver creates new instance of JwksResolver.
@@ -309,6 +305,7 @@ func CreateFakeJwks(jwksURI string) string {
 // Resolve jwks_uri through openID discovery.
 func (r *JwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) {
 	// Try to get jwks_uri through OpenID Discovery.
+	issuer = strings.TrimSuffix(issuer, "/")
 	body, err := r.getRemoteContentWithRetry(issuer+openIDDiscoveryCfgURLSuffix, networkFetchRetryCountOnMainFlow)
 	if err != nil {
 		log.Errorf("Failed to fetch jwks_uri from %q: %v", issuer+openIDDiscoveryCfgURLSuffix, err)

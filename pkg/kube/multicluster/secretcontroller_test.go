@@ -70,25 +70,22 @@ var _ ClusterHandler = &handler{}
 
 type handler struct{}
 
-func (h handler) ClusterAdded(cluster *Cluster, stop <-chan struct{}) error {
+func (h handler) ClusterAdded(cluster *Cluster, stop <-chan struct{}) {
 	mu.Lock()
 	defer mu.Unlock()
 	added = cluster.ID
-	return nil
 }
 
-func (h handler) ClusterUpdated(cluster *Cluster, stop <-chan struct{}) error {
+func (h handler) ClusterUpdated(cluster *Cluster, stop <-chan struct{}) {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = cluster.ID
-	return nil
 }
 
-func (h handler) ClusterDeleted(id cluster.ID) error {
+func (h handler) ClusterDeleted(id cluster.ID) {
 	mu.Lock()
 	defer mu.Unlock()
 	deleted = id
-	return nil
 }
 
 func resetCallbackData() {
@@ -186,13 +183,14 @@ func Test_SecretController(t *testing.T) {
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
 	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil))
+	clientset.RunAndWait(stopCh)
 	c.AddHandler(&handler{})
+	clientset.RunAndWait(stopCh)
 	_ = c.Run(stopCh)
 	t.Run("sync timeout", func(t *testing.T) {
 		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	})
-	kube.WaitForCacheSync("test", stopCh, c.informer.HasSynced)
-	clientset.RunAndWait(stopCh)
+	kube.WaitForCacheSync("test", stopCh, c.HasSynced)
 
 	for _, step := range steps {
 		resetCallbackData()

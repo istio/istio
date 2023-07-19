@@ -18,8 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"istio.io/istio/pkg/log"
 	types "istio.io/istio/tools/istio-iptables/pkg/config"
-	"istio.io/pkg/log"
 )
 
 // Command line options

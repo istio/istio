@@ -14,18 +14,11 @@
 
 package model
 
-import "istio.io/pkg/monitoring"
-
-func init() {
-	monitoring.MustRegister(
-		providerLookupClusterFailures,
-	)
-}
+import "istio.io/istio/pkg/monitoring"
 
 var providerLookupClusterFailures = monitoring.NewSum(
 	"provider_lookup_cluster_failures",
 	"Number of times a cluster lookup failed",
-	monitoring.WithLabels(typeTag),
 )
 
 func IncLookupClusterFailures(provider string) {

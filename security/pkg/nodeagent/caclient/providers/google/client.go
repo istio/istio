@@ -30,11 +30,11 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	gcapb "istio.io/istio/security/proto/providers/google"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const hubIDPPrefix = "https://gkehub.googleapis.com/"

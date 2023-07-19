@@ -54,6 +54,9 @@ cni:
     enabled: false
     # Set ambient redirection mode: "iptables" or "ebpf"
     redirectMode: "iptables"
+    # Set ambient config dir path: defaults to /etc/ambient-config
+    configDir: ""
+
 
   repair:
     enabled: true
@@ -79,6 +82,13 @@ cni:
   resourceQuotas:
     enabled: false
     pods: 5000
+
+  # The number of pods that can be unavailable during rolling update (see
+  # `updateStrategy.rollingUpdate.maxUnavailable` here:
+  # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).
+  # May be specified as a number of pods or as a percent of the total number
+  # of pods at the start of the update.
+  rollingMaxUnavailable: 1
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""

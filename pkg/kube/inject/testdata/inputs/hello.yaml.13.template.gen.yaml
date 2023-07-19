@@ -35,6 +35,7 @@ templates:
         {{- end }}
       {{- end }}
     {{- end }}
+    {{ $nativeSidecar := (eq (env "ENABLE_NATIVE_SIDECARS" "false") "true") }}
     {{- $containers := list }}
     {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
     metadata:
@@ -57,7 +58,7 @@ templates:
         {{- end }}
     {{- if .Values.istio_cni.enabled }}
         {{- if not .Values.istio_cni.chained }}
-        k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `istio-cni` }}',
+        k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `default/istio-cni` }}',
         {{- end }}
         sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}",
         {{ with annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}traffic.sidecar.istio.io/includeOutboundIPRanges: "{{.}}",{{ end }}
@@ -166,7 +167,6 @@ templates:
           runAsUser: 1337
           runAsNonRoot: true
         {{- end }}
-        restartPolicy: Always
       {{ end -}}
       {{- if eq (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
       - name: enable-core-dump
@@ -196,13 +196,16 @@ templates:
           runAsNonRoot: false
           runAsUser: 0
       {{ end }}
+      {{ if not $nativeSidecar }}
       containers:
+      {{ end }}
       - name: istio-proxy
       {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
         image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
       {{- else }}
         image: "{{ .ProxyImage }}"
       {{- end }}
+        {{ if $nativeSidecar }}restartPolicy: Always{{end}}
         ports:
         - containerPort: 15090
           protocol: TCP
@@ -336,7 +339,11 @@ templates:
         {{- end }}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
+      {{ if $nativeSidecar }}
+        startupProbe:
+      {{ else }}
         readinessProbe:
+      {{ end }}
           httpGet:
             path: /healthz/ready
             port: 15021
@@ -356,7 +363,6 @@ templates:
           privileged: true
           readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
           runAsGroup: 1337
-          fsGroup: 1337
           runAsNonRoot: false
           runAsUser: 0
           {{- else }}
@@ -376,7 +382,6 @@ templates:
           privileged: {{ .Values.global.proxy.privileged }}
           readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
           runAsGroup: 1337
-          fsGroup: 1337
           {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
           runAsNonRoot: false
           runAsUser: 0
@@ -757,7 +762,8 @@ templates:
       {{- end }}
   grpc-simple: |
     metadata:
-      sidecar.istio.io/rewriteAppHTTPProbers: "false"
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: "false"
     spec:
       initContainers:
         - name: grpc-bootstrap-init
@@ -1190,7 +1196,17 @@ templates:
           terminationGracePeriodSeconds: 2
           serviceAccountName: {{.ServiceAccount | quote}}
           containers:
-          - args:
+          - name: istio-proxy
+            ports:
+            - containerPort: 15021
+              name: status-port
+              protocol: TCP
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+            image: {{.ProxyImage}}
+            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
+            args:
             - proxy
             - waypoint
             - --domain
@@ -1267,9 +1283,6 @@ templates:
             - name: ISTIO_META_MESH_ID
               value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
             {{- end }}
-            image: {{.ProxyImage}}
-            {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
-            name: istio-proxy
             resources:
               limits:
                 cpu: "2"
@@ -1369,10 +1382,12 @@ templates:
         uid: "{{.UID}}"
     spec:
       ports:
-      - name: https-hbone
-        port: 15008
+      {{- range $key, $val := .Ports }}
+      - name: {{ $val.Name | quote }}
+        port: {{ $val.Port }}
         protocol: TCP
-        appProtocol: https
+        appProtocol: {{ $val.AppProtocol }}
+      {{- end }}
       selector:
         istio.io/gateway-name: "{{.Name}}"
     ---
@@ -1433,6 +1448,10 @@ templates:
           containers:
           - name: istio-proxy
             image: "{{ .ProxyImage }}"
+            {{- if .Values.global.proxy.resources }}
+            resources:
+              {{- toYaml .Values.global.proxy.resources | nindent 10 }}
+            {{- end }}
             {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             securityContext:
             {{- if .KubeVersion122 }}
@@ -1536,9 +1555,9 @@ templates:
                   fieldPath: spec.nodeName
             - name: ISTIO_META_INTERCEPTION_MODE
               value: "{{ .ProxyConfig.InterceptionMode.String }}"
-            {{- if .Values.global.network }}
+            {{- with (valueOrDefault  (index .Labels "topology.istio.io/network") .Values.global.network) }}
             - name: ISTIO_META_NETWORK
-              value: "{{ .Values.global.network }}"
+              value: {{.|quote}}
             {{- end }}
             - name: ISTIO_META_WORKLOAD_NAME
               value: {{.DeploymentName|quote}}

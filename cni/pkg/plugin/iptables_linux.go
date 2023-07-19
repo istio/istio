@@ -22,10 +22,10 @@ import (
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spf13/viper"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
-	"istio.io/pkg/log"
 )
 
 // getNs is a unit test override variable for interface create.

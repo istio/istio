@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"os"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 var (

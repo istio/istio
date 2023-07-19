@@ -38,6 +38,7 @@ import (
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/labels"
@@ -130,9 +131,11 @@ func getTelemetries(env *Environment) *Telemetries {
 }
 
 type metricsConfig struct {
-	ClientMetrics     metricConfig
-	ServerMetrics     metricConfig
-	ReportingInterval *durationpb.Duration
+	ClientMetrics            metricConfig
+	ServerMetrics            metricConfig
+	ReportingInterval        *durationpb.Duration
+	RotationInterval         *durationpb.Duration
+	GracefulDeletionInterval *durationpb.Duration
 }
 
 type metricConfig struct {
@@ -504,19 +507,25 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 		allKeys.Insert(k)
 	}
 
+	rotationInterval := getInterval(features.MetricRotationInterval, defaultMetricRotationInterval)
+	gracefulDeletionInterval := getInterval(features.MetricGracefulDeletionInterval, defaultMetricGracefulDeletionInterval)
+
 	m := make([]telemetryFilterConfig, 0, allKeys.Len())
 	for _, k := range sets.SortedList(allKeys) {
 		p := t.fetchProvider(k)
 		if p == nil {
 			continue
 		}
-		_, logging := tml[k]
-		_, metrics := tmm[k]
+		loggingCfg, logging := tml[k]
+		mertricCfg, metrics := tmm[k]
+
+		mertricCfg.RotationInterval = rotationInterval
+		mertricCfg.GracefulDeletionInterval = gracefulDeletionInterval
 
 		cfg := telemetryFilterConfig{
 			Provider:      p,
-			metricsConfig: tmm[k],
-			AccessLogging: logging,
+			metricsConfig: mertricCfg,
+			AccessLogging: logging && !loggingCfg.Disabled,
 			Metrics:       metrics,
 			LogsFilter:    tml[p.Name].Filter,
 			NodeType:      proxy.Type,
@@ -536,6 +545,22 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	// Update cache
 	t.computedMetricsFilters[key] = res
 	return res
+}
+
+// defaul value for metric rotation interval and graceful deletion interval,
+// more details can be found in here: https://github.com/istio/proxy/blob/master/source/extensions/filters/http/istio_stats/config.proto#L116
+var (
+	defaultMetricRotationInterval         = 0 * time.Second
+	defaultMetricGracefulDeletionInterval = 5 * time.Minute
+)
+
+// getInterval return nil to reduce the size of the config, when equal to the default.
+func getInterval(input, defaultValue time.Duration) *durationpb.Duration {
+	if input == defaultValue {
+		return nil
+	}
+
+	return durationpb.New(input)
 }
 
 // mergeLogs returns the set of providers for the given logging configuration.
@@ -845,7 +870,7 @@ func isAllMetrics(match *tpb.MetricSelector) bool {
 	case *tpb.MetricSelector_Metric:
 		return m.Metric == tpb.MetricSelector_ALL_METRICS
 	default:
-		return false
+		return true
 	}
 }
 
@@ -1102,6 +1127,8 @@ func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryF
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 		TcpReportingDuration:      filterConfig.ReportingInterval,
+		RotationInterval:          filterConfig.RotationInterval,
+		GracefulDeletionInterval:  filterConfig.GracefulDeletionInterval,
 	}
 
 	for _, override := range listenerCfg.Overrides {

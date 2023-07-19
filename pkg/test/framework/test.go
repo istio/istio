@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/pkg/log"
 )
 
 type Test interface {
@@ -152,7 +152,7 @@ func (t *testImpl) Label(labels ...label.Instance) Test {
 func (t *testImpl) Features(feats ...features.Feature) Test {
 	if err := addFeatureLabels(t.featureLabels, feats...); err != nil {
 		// test runs shouldn't fail
-		log.Errorf(err)
+		log.Error(err)
 	}
 	return t
 }

@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // NdsGenerator generates config for Nds i.e. Name Discovery Service. Istio agents
@@ -35,22 +36,22 @@ type NdsGenerator struct {
 var _ model.XdsResourceGenerator = &NdsGenerator{}
 
 // Map of all configs that do not impact NDS
-var skippedNdsConfigs = map[kind.Kind]struct{}{
-	kind.Gateway:               {},
-	kind.VirtualService:        {},
-	kind.DestinationRule:       {},
-	kind.Secret:                {},
-	kind.Telemetry:             {},
-	kind.EnvoyFilter:           {},
-	kind.WorkloadEntry:         {},
-	kind.WorkloadGroup:         {},
-	kind.AuthorizationPolicy:   {},
-	kind.RequestAuthentication: {},
-	kind.PeerAuthentication:    {},
-	kind.WasmPlugin:            {},
-	kind.ProxyConfig:           {},
-	kind.MeshConfig:            {},
-}
+var skippedNdsConfigs = sets.New[kind.Kind](
+	kind.Gateway,
+	kind.VirtualService,
+	kind.DestinationRule,
+	kind.Secret,
+	kind.Telemetry,
+	kind.EnvoyFilter,
+	kind.WorkloadEntry,
+	kind.WorkloadGroup,
+	kind.AuthorizationPolicy,
+	kind.RequestAuthentication,
+	kind.PeerAuthentication,
+	kind.WasmPlugin,
+	kind.ProxyConfig,
+	kind.MeshConfig,
+)
 
 func ndsNeedsPush(req *model.PushRequest) bool {
 	if req == nil {
@@ -73,12 +74,7 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 }
 
 func headlessEndpointsUpdated(req *model.PushRequest) bool {
-	for _, reason := range req.Reason {
-		if reason == model.HeadlessEndpointUpdate {
-			return true
-		}
-	}
-	return false
+	return req.Reason.Has(model.HeadlessEndpointUpdate)
 }
 
 func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

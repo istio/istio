@@ -230,6 +230,8 @@ func TestCreateCertificate(t *testing.T) {
 		},
 	}
 
+	p := &peer.Peer{Addr: &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}, AuthInfo: credentials.TLSInfo{}}
+	ctx := peer.NewContext(context.Background(), p)
 	for id, c := range testCases {
 		server := &Server{
 			ca:             c.ca,
@@ -238,7 +240,7 @@ func TestCreateCertificate(t *testing.T) {
 		}
 		request := &pb.IstioCertificateRequest{Csr: "dumb CSR"}
 
-		response, err := server.CreateCertificate(context.Background(), request)
+		response, err := server.CreateCertificate(ctx, request)
 		s, _ := status.FromError(err)
 		code := s.Code()
 		if c.code != code {

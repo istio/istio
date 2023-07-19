@@ -30,7 +30,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"sigs.k8s.io/yaml"
 
-	protio "istio.io/istio/istioctl/pkg/util/proto"
+	"istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -550,7 +550,7 @@ func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter, outputFormat str
 	if err != nil {
 		return err
 	}
-	filteredListeners := protio.MessageSlice{}
+	filteredListeners := proto.MessageSlice{}
 	for _, listener := range listeners {
 		if filter.Verify(listener) {
 			filteredListeners = append(filteredListeners, listener)

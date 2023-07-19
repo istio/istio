@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -45,14 +46,14 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/kube/namespace"
-	"istio.io/istio/pkg/kube/watcher/crdwatcher"
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/queue"
-	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -73,13 +74,12 @@ const (
 var log = istiolog.RegisterScope("kube", "kubernetes service registry controller")
 
 var (
-	typeTag  = monitoring.MustCreateLabel("type")
-	eventTag = monitoring.MustCreateLabel("event")
+	typeTag  = monitoring.CreateLabel("type")
+	eventTag = monitoring.CreateLabel("event")
 
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
 		"Events from k8s registry.",
-		monitoring.WithLabels(typeTag, eventTag),
 	)
 
 	// nolint: gocritic
@@ -94,12 +94,6 @@ var (
 		"Number of endpoints that do not currently have any corresponding pods.",
 	)
 )
-
-func init() {
-	monitoring.MustRegister(k8sEvents)
-	monitoring.MustRegister(endpointsWithNoPods)
-	monitoring.MustRegister(endpointsPendingPodUpdate)
-}
 
 func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
@@ -193,10 +187,9 @@ type Controller struct {
 	// With this, we can populate mesh's gateway address with the node ips.
 	nodes kclient.Client[*v1.Node]
 
-	crdWatcher *crdwatcher.Controller
-	exports    serviceExportCache
-	imports    serviceImportCache
-	pods       *PodCache
+	exports serviceExportCache
+	imports serviceImportCache
+	pods    *PodCache
 
 	crdHandlers                []func(name string)
 	handlers                   model.ControllerHandlers
@@ -229,7 +222,7 @@ type Controller struct {
 
 	podsClient kclient.Client[*v1.Pod]
 
-	ambientIndex     *AmbientIndex
+	ambientIndex     AmbientIndex
 	configController model.ConfigStoreController
 	configCluster    bool
 }
@@ -252,6 +245,23 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
+
+	if features.EnableAmbientControllers {
+		registerHandlers[*v1.Namespace](
+			c,
+			c.namespaces,
+			"Namespaces",
+			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+				c.handleSelectedNamespace(cur.Name)
+				return nil
+			},
+			func(old, cur *v1.Namespace) bool {
+				oldLabel := old.Labels[constants.DataplaneMode]
+				newLabel := cur.Labels[constants.DataplaneMode]
+				return oldLabel == newLabel
+			},
+		)
+	}
 	if c.opts.SystemNamespace != "" {
 		registerHandlers[*v1.Namespace](
 			c,
@@ -267,10 +277,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		)
 	}
 
-	if c.opts.DiscoveryNamespacesFilter == nil {
+	// always init for each cluster, otherwise different ns labels in different cluster may not take effect,
+	// but we skip it for configCluster which has been initiated before
+	if !c.opts.ConfigCluster || c.opts.DiscoveryNamespacesFilter == nil {
 		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
-
 	c.initDiscoveryHandlers(options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
 
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
@@ -294,9 +305,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
 
-	if features.EnableMCSServiceDiscovery || features.EnableMCSHost {
-		c.crdWatcher = crdwatcher.NewController(kubeClient)
-	}
 	if features.EnableAmbientControllers {
 		c.configController = options.ConfigController
 		c.ambientIndex = c.setupIndex()
@@ -325,42 +333,31 @@ func (c *Controller) Cluster() cluster.ID {
 }
 
 func (c *Controller) MCSServices() []model.MCSServiceInfo {
-	outMap := make(map[types.NamespacedName]*model.MCSServiceInfo)
+	outMap := make(map[types.NamespacedName]model.MCSServiceInfo)
 
 	// Add the ServiceExport info.
 	for _, se := range c.exports.ExportedServices() {
 		mcsService := outMap[se.namespacedName]
-		if mcsService == nil {
-			mcsService = &model.MCSServiceInfo{}
-			outMap[se.namespacedName] = mcsService
-		}
 		mcsService.Cluster = c.Cluster()
 		mcsService.Name = se.namespacedName.Name
 		mcsService.Namespace = se.namespacedName.Namespace
 		mcsService.Exported = true
 		mcsService.Discoverability = se.discoverability
+		outMap[se.namespacedName] = mcsService
 	}
 
 	// Add the ServiceImport info.
 	for _, si := range c.imports.ImportedServices() {
 		mcsService := outMap[si.namespacedName]
-		if mcsService == nil {
-			mcsService = &model.MCSServiceInfo{}
-			outMap[si.namespacedName] = mcsService
-		}
 		mcsService.Cluster = c.Cluster()
 		mcsService.Name = si.namespacedName.Name
 		mcsService.Namespace = si.namespacedName.Namespace
 		mcsService.Imported = true
 		mcsService.ClusterSetVIP = si.clusterSetVIP
+		outMap[si.namespacedName] = mcsService
 	}
 
-	out := make([]model.MCSServiceInfo, 0, len(outMap))
-	for _, v := range outMap {
-		out = append(out, *v)
-	}
-
-	return out
+	return maps.Values(outMap)
 }
 
 func (c *Controller) Network(endpointIP string, labels labels.Instance) network.ID {
@@ -420,7 +417,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 		c.NotifyGatewayHandlers()
 		// TODO trigger push via handler
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
@@ -434,7 +431,7 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
-	if !currConv.Attributes.ClusterExternalAddresses.IsEmpty() {
+	if currConv.Attributes.ClusterExternalAddresses.Len() > 0 {
 		needsFullPush = c.extractGatewaysFromService(currConv)
 	} else if isNodePortGatewayService(curr) {
 		// We need to know which services are using node selectors because during node events,
@@ -462,7 +459,7 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	// as that full push is only triggered for the specific service.
 	if needsFullPush {
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
@@ -524,7 +521,7 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 	if updatedNeeded && c.updateServiceNodePortAddresses() {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.ServiceUpdate},
+			Reason: model.NewReasonStats(model.ServiceUpdate),
 		})
 	}
 	return nil
@@ -582,31 +579,14 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) informersSynced() bool {
-	if !c.namespaces.HasSynced() ||
-		!c.services.HasSynced() ||
-		!c.endpoints.slices.HasSynced() ||
-		!c.pods.pods.HasSynced() ||
-		!c.nodes.HasSynced() ||
-		(c.crdWatcher != nil && !c.crdWatcher.HasSynced()) {
-		return false
-	}
-
-	// wait for mcs sync if the CRD exists, otherwise do not wait for them
-	// Because crdWatcher.HasSynced only indicates the cache synced, but does not guarantee the event handler called.
-	// So we wait get the CRD explicitly and if MCS installed, we wait until serviceImports and serviceExports sync.
-	if c.crdWatcher != nil {
-		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceImportGVR.Resource + "." + mcs.ServiceImportGVR.Group); exists {
-			if !c.imports.HasSynced() {
-				return false
-			}
-		}
-		if _, exists, _ := c.crdWatcher.GetByKey(mcs.ServiceExportGVR.Resource + "." + mcs.ServiceExportGVR.Group); exists {
-			if !c.exports.HasSynced() {
-				return false
-			}
-		}
-	}
-	return true
+	return c.namespaces.HasSynced() &&
+		c.services.HasSynced() &&
+		c.endpoints.slices.HasSynced() &&
+		c.pods.pods.HasSynced() &&
+		c.nodes.HasSynced() &&
+		c.imports.HasSynced() &&
+		c.exports.HasSynced() &&
+		c.networkManager.HasSynced()
 }
 
 func (c *Controller) syncPods() error {
@@ -633,6 +613,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
+
+	c.networkManager.watchGatewayResources(c, stop)
 
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
@@ -712,13 +694,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int) []*mode
 	externalNameInstances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
 	if externalNameInstances != nil {
-		inScopeInstances := make([]*model.ServiceInstance, 0)
-		for _, i := range externalNameInstances {
-			if i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort {
-				inScopeInstances = append(inScopeInstances, i)
-			}
-		}
-		return inScopeInstances
+		return slices.Filter(externalNameInstances, func(i *model.ServiceInstance) bool {
+			return i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort
+		})
 	}
 	return nil
 }
@@ -787,7 +765,7 @@ func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.
 	targetPort serviceTargetPort, wi *model.WorkloadInstance,
 ) *model.ServiceInstance {
 	// create an instance with endpoint whose service port name matches
-	istioEndpoint := *wi.Endpoint
+	istioEndpoint := wi.Endpoint.ShallowCopy()
 
 	// by default, use the numbered targetPort
 	istioEndpoint.EndpointPort = uint32(targetPort.num)
@@ -807,7 +785,7 @@ func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.
 	return &model.ServiceInstance{
 		Service:     svc,
 		ServicePort: servicePort,
-		Endpoint:    &istioEndpoint,
+		Endpoint:    istioEndpoint,
 	}
 }
 

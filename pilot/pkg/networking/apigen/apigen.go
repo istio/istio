@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // APIGenerator supports generation of high-level API resources, similar with the MCP

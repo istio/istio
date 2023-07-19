@@ -18,9 +18,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/netip"
 	"os"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -37,12 +37,13 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -144,8 +145,11 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		if features.EnableDualStack {
 			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
 			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
-			netIP, _ := netip.ParseAddr(cfg.Metadata.InstanceIPs[0])
-			if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
+			ipFamily, err := network.CheckIPFamilyTypeForFirstIPs(cfg.Metadata.InstanceIPs)
+			if err != nil {
+				return nil, err
+			}
+			if ipFamily == network.IPv6 {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv6),
 					option.Wildcard(option.WildcardIPv6),
@@ -170,6 +174,9 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		return nil, err
 	}
 	opts = append(opts, proxyOpts...)
+
+	// Append LRS related options.
+	opts = append(opts, option.LoadStatsConfigJSONStr(cfg.Node))
 
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info
@@ -248,6 +255,22 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		inclusionSuffixes = requiredEnvoyStatsMatcherInclusionSuffixes
 	}
 
+	var buckets []option.HistogramBucket
+	if bucketsAnno, ok := meta.Annotations[annotation.SidecarStatsHistogramBuckets.Name]; ok {
+		js := map[string][]float64{}
+		err := json.Unmarshal([]byte(bucketsAnno), &js)
+		if err == nil {
+			for prefix, value := range js {
+				buckets = append(buckets, option.HistogramBucket{Match: option.HistogramMatch{Prefix: prefix}, Buckets: value})
+			}
+			sort.Slice(buckets, func(i, j int) bool {
+				return buckets[i].Match.Prefix < buckets[j].Match.Prefix
+			})
+		} else {
+			log.Warnf("Failed to unmarshal histogram buckets: %v", bucketsAnno, err)
+		}
+	}
+
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
@@ -255,6 +278,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 			inclusionSuffixes, proxyConfigSuffixes)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
+		option.EnvoyHistogramBuckets(buckets),
 	}
 }
 
@@ -278,14 +302,13 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
-func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
+func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
 	// Setup defaults
-	runtimeFlags := map[string]string{
-		"overload.global_downstream_max_connections":                                                           "2147483647",
-		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": "true",
-		"re2.max_program_size.error_level":                                                                     "32768",
-		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
-		"envoy.reloadable_features.no_extension_lookup_by_name":                                                "false",
+	runtimeFlags := map[string]any{
+		"overload.global_downstream_max_connections": "2147483647",
+		"re2.max_program_size.error_level":           "32768",
+		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted
@@ -297,7 +320,17 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 			delete(runtimeFlags, k)
 			continue
 		}
-		runtimeFlags[k] = v
+		// Envoy used to allow everything as string but stopped in https://github.com/envoyproxy/envoy/issues/27434
+		// However, our API always takes in strings.
+		// Convert strings to bools for backwards compat.
+		switch v {
+		case "false":
+			runtimeFlags[k] = false
+		case "true":
+			runtimeFlags[k] = true
+		default:
+			runtimeFlags[k] = v
+		}
 	}
 	return runtimeFlags
 }
@@ -557,6 +590,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		return nil, err
 	}
 
+	meta = SetIstioVersion(meta)
+
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
 
@@ -642,6 +677,13 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		RawMetadata: untypedMeta,
 		Locality:    l,
 	}, nil
+}
+
+func SetIstioVersion(meta *model.BootstrapNodeMetadata) *model.BootstrapNodeMetadata {
+	if meta.IstioVersion == "" {
+		meta.IstioVersion = version.Info.Version
+	}
+	return meta
 }
 
 // ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.

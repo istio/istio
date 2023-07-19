@@ -14,7 +14,7 @@
 
 package wasm
 
-import "istio.io/pkg/monitoring"
+import "istio.io/istio/pkg/monitoring"
 
 // Const strings for label value.
 const (
@@ -34,8 +34,8 @@ const (
 )
 
 var (
-	hitTag    = monitoring.MustCreateLabel("hit")
-	resultTag = monitoring.MustCreateLabel("result")
+	hitTag    = monitoring.CreateLabel("hit")
+	resultTag = monitoring.CreateLabel("result")
 
 	wasmCacheEntries = monitoring.NewGauge(
 		"wasm_cache_entries",
@@ -45,19 +45,16 @@ var (
 	wasmCacheLookupCount = monitoring.NewSum(
 		"wasm_cache_lookup_count",
 		"number of Wasm remote fetch cache lookups.",
-		monitoring.WithLabels(hitTag),
 	)
 
 	wasmRemoteFetchCount = monitoring.NewSum(
 		"wasm_remote_fetch_count",
 		"number of Wasm remote fetches and results, including success, download failure, and checksum mismatch.",
-		monitoring.WithLabels(resultTag),
 	)
 
 	wasmConfigConversionCount = monitoring.NewSum(
 		"wasm_config_conversion_count",
 		"number of Wasm config conversion count and results, including success, no remote load, marshal failure, remote fetch failure, miss remote fetch hint.",
-		monitoring.WithLabels(resultTag),
 	)
 
 	wasmConfigConversionDuration = monitoring.NewDistribution(
@@ -66,13 +63,3 @@ var (
 		[]float64{1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384},
 	)
 )
-
-func init() {
-	monitoring.MustRegister(
-		wasmCacheEntries,
-		wasmCacheLookupCount,
-		wasmRemoteFetchCount,
-		wasmConfigConversionCount,
-		wasmConfigConversionDuration,
-	)
-}

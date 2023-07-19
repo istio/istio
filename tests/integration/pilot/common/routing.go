@@ -137,7 +137,7 @@ spec:
       protocol: {{.GatewayProtocol}}
 {{- if .Credential }}
     tls:
-      mode: SIMPLE
+      mode: {{.TLSMode}}
       credentialName: {{.Credential}}
 {{- if .Ciphers }}
       cipherSuites:
@@ -159,8 +159,9 @@ func httpGateway(host string, port int, portName, protocol string, gatewayIstioL
 		GatewayProtocol   string
 		Credential        string
 		GatewayIstioLabel string
+		TLSMode           string
 	}{
-		host, port, portName, protocol, "", gatewayIstioLabel,
+		host, port, portName, protocol, "", gatewayIstioLabel, "SIMPLE",
 	})
 }
 
@@ -831,6 +832,7 @@ spec:
 		split := split
 		t.RunTraffic(TrafficTestCase{
 			name:           fmt.Sprintf("shifting-%d", split[0]),
+			skip:           skipAmbient(t, "https://github.com/istio/istio/issues/44948"),
 			toN:            len(split),
 			sourceMatchers: []match.Matcher{match.NotHeadless, match.NotNaked},
 			targetMatchers: []match.Matcher{match.NotHeadless, match.NotNaked, match.NotExternal, match.NotProxylessGRPC},
@@ -1147,6 +1149,8 @@ spec:
 }
 
 func gatewayCases(t TrafficContext) {
+	// TODO fix for ambient
+	skipEnvoyPeerMeta := skipAmbient(t, "X-Envoy-Peer-Metadata present in response")
 	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string) map[string]any {
 		hostName, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
@@ -1163,6 +1167,7 @@ func gatewayCases(t TrafficContext) {
 			"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
 			"Credential":         cred,
 			"Ciphers":            ciphers,
+			"TLSMode":            "SIMPLE",
 			"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 		}
 	}
@@ -1340,6 +1345,26 @@ spec:
 		workloadAgnostic: true,
 	})
 	t.RunTraffic(TrafficTestCase{
+		name: "optional mTLS",
+		config: gatewayTmpl + httpVirtualServiceTmpl +
+			ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
+		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
+			params := templateParams(protocol.HTTPS, src, dests, nil)
+			params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
+			params["TLSMode"] = "OPTIONAL_MUTUAL"
+			return params
+		},
+		setupOpts: fqdnHostHeader,
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Protocol: protocol.HTTPS,
+			},
+		},
+		viaIngress:       true,
+		workloadAgnostic: true,
+	})
+	t.RunTraffic(TrafficTestCase{
 		// See https://github.com/istio/istio/issues/34609
 		name:             "http redirect when vs port specify https",
 		targetMatchers:   singleTarget,
@@ -1503,6 +1528,7 @@ spec:
 	t.RunTraffic(TrafficTestCase{
 		// https://github.com/istio/istio/issues/37196
 		name:             "client protocol - http2",
+		skip:             skipEnvoyPeerMeta,
 		targetMatchers:   singleTarget,
 		workloadAgnostic: true,
 		viaIngress:       true,
@@ -1644,6 +1670,7 @@ spec:
 			t.RunTraffic(TrafficTestCase{
 				// https://github.com/istio/istio/issues/37196
 				name:             fmt.Sprintf("client protocol - %v use client with %v", protoName, port),
+				skip:             skipEnvoyPeerMeta,
 				targetMatchers:   singleTarget,
 				workloadAgnostic: true,
 				viaIngress:       true,
@@ -1740,64 +1767,6 @@ spec:
 			workloadAgnostic: true,
 		})
 	}
-}
-
-// 1. Creates a TCP Gateway and VirtualService listener
-// 2. Configures the echoserver to call itself via the TCP gateway using PROXY protocol https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
-// 3. Assumes that the proxy filter EnvoyFilter is not applied
-func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
-	var cases []TrafficTestCase
-	gatewayListenPort := 80
-	gatewayListenPortName := "tcp"
-
-	destinationSets := []echo.Instances{
-		apps.A,
-	}
-
-	for _, d := range destinationSets {
-		d := d
-		if len(d) == 0 {
-			continue
-		}
-
-		fqdn := d[0].Config().ClusterLocalFQDN()
-		cases = append(cases, TrafficTestCase{
-			name: d[0].Config().Service,
-			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
-			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP", "") + // use the default label since this test creates its own gateway
-				tcpVirtualService("gateway", fqdn, "", 80, ports.TCP.ServicePort),
-			call: apps.Naked[0].CallOrFail,
-			opts: echo.CallOptions{
-				Count:                1,
-				Port:                 echo.Port{ServicePort: 80},
-				Scheme:               scheme.TCP,
-				Address:              gateway,
-				ProxyProtocolVersion: 1,
-				// Envoy requires PROXY protocol TCP payloads have a minimum size, see:
-				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto
-				//
-				// If the PROXY protocol filter is enabled,
-				// Envoy will parse and consume the header out of the TCP payload, otherwise echo it back as-is)
-				//
-				// Note that Envoy's behavior is odd here and contradicts the PROXY protocol spec - it should _terminate the connection_ if it
-				// is configured to expect PROXY protocol headers and does not get them - instead, it ignores them for TCP traffic, as this test demonstrates.
-				Message: "This is a test TCP message",
-				Check: check.Each(
-					func(r echoClient.Response) error {
-						body := r.RawContent
-						// Tests run for both TCP4 and 6
-						ok := (strings.Contains(body, "PROXY TCP4") || strings.Contains(body, "PROXY TCP6"))
-						if !ok {
-							return fmt.Errorf("sent proxy protocol header, and it was not echoed back")
-						}
-						return nil
-					}),
-			},
-		},
-		)
-	}
-	return cases
 }
 
 // 1. Creates a TCP Gateway and VirtualService listener
@@ -3058,6 +3027,9 @@ spec:
     mode: "REGISTRY_ONLY"
 `, t.Apps.EchoNamespace.Namespace.Name())
 
+	if len(t.Apps.External.All) == 0 {
+		t.Skip("no external service instances")
+	}
 	fakeExternalAddress := t.Apps.External.All[0].Address()
 	parsedIP, err := netip.ParseAddr(fakeExternalAddress)
 	if err == nil {
@@ -3375,6 +3347,10 @@ spec:
 		"Authorization":      {"Bearer " + jwt.TokenIssuer1WithNestedClaims2},
 		"x-jwt-wrong-header": {"header_to_be_deleted"},
 	}
+	headersWithToken3 := map[string][]string{
+		"Host":          {"foo.bar"},
+		"Authorization": {"Bearer " + jwt.TokenIssuer1WithCollisionResistantName},
+	}
 
 	type configData struct {
 		Name, Match, Value string
@@ -3458,6 +3434,11 @@ spec:
 			Check: check.Status(http.StatusNotFound),
 		},
 	})
+
+	// ---------------------------------------------
+	// Usage 1: using `.` as a separator test cases
+	// ---------------------------------------------
+
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with nested claims:200",
 		targetMatchers:   podB,
@@ -3793,6 +3774,454 @@ spec:
 			},
 			HTTP: echo.HTTP{
 				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusNotFound),
+		},
+	})
+
+	// ---------------------------------------------
+	// Usage 2: using `[]` as a separator test cases
+	// ---------------------------------------------
+
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: matched with nested claims:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers":           []configData{{"@request.auth.claims[nested][key1]", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: matched with single claim:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers":           []configData{{"@request.auth.claims[sub]", "prefix", "sub"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: matched multiple claims with regex:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{
+					{"@request.auth.claims[sub]", "regex", "(\\W|^)(sub-1|sub-2)(\\W|$)"},
+					{"@request.auth.claims[nested][key1]", "regex", "(\\W|^)value[AB](\\W|$)"},
+				},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: matched multiple claims:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{
+					{"@request.auth.claims[nested][key1]", "exact", "valueA"},
+					{"@request.auth.claims[sub]", "prefix", "sub"},
+				},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: matched without claim:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"WithoutHeaders":    []configData{{"@request.auth.claims[nested][key1]", "exact", "value-not-matched"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: unmatched without claim:404",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"WithoutHeaders":    []configData{{"@request.auth.claims[nested][key1]", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusNotFound),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: matched both with and without claims with regex:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{{"@request.auth.claims[sub]", "prefix", "sub"}},
+				"WithoutHeaders": []configData{
+					{"@request.auth.claims[nested][key1]", "exact", "value-not-matched"},
+					{"@request.auth.claims[nested][key1]", "regex", "(\\W|^)value\\s{0,3}not{0,1}\\s{0,3}matched(\\W|$)"},
+				},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: unmatched multiple claims:404",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers": []configData{
+					{"@request.auth.claims[nested][key1]", "exact", "valueA"},
+					{"@request.auth.claims[sub]", "prefix", "value-not-matched"},
+				},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusNotFound),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: unmatched token:404",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers":           []configData{{"@request.auth.claims[sub]", "exact", "value-not-matched"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusNotFound),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: unmatched with invalid token:401",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers":           []configData{{"@request.auth.claims[nested][key1]", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithInvalidToken,
+			},
+			Check: check.Status(http.StatusUnauthorized),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: unmatched with no token:404",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers":           []configData{{"@request.auth.claims[nested][key1]", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithNoToken,
+			},
+			Check: check.Status(http.StatusNotFound),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: unmatched with no token but same header:404",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers":           []configData{{"@request.auth.claims[nested][key1]", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				// Include a header @request.auth.claims[nested][key1] and value same as the JWT claim, should not be routed.
+				Headers: headersWithNoTokenButSameHeader,
+			},
+			Check: check.Status(http.StatusNotFound),
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: unmatched with no request authentication:404",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configRoute,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers":           []configData{{"@request.auth.claims[nested][key1]", "exact", "valueA"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken,
+			},
+			Check: check.Status(http.StatusNotFound),
+		},
+	})
+
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: matched with simple collision-resistant claim name:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers":           []configData{{"@request.auth.claims[test-issuer-1@istio.io/simple]", "exact", "valueC"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken3,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: unmatched with simple collision-resistant claim name:404",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers":           []configData{{"@request.auth.claims[test-issuer-1@istio.io/simple]", "exact", "value-not-matched"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken3,
+			},
+			Check: check.Status(http.StatusNotFound),
+		},
+	})
+
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: matched with nested collision-resistant claim name:200",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers":           []configData{{"@request.auth.claims[test-issuer-1@istio.io/nested][key1]", "exact", "valueC"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken3,
+			},
+			Check: check.Status(http.StatusOK),
+		},
+	})
+
+	t.RunTraffic(TrafficTestCase{
+		name:             "usage2: unmatched with nested collision-resistant claim name:404",
+		targetMatchers:   podB,
+		workloadAgnostic: true,
+		viaIngress:       true,
+		config:           configAll,
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{
+				"Headers":           []configData{{"@request.auth.claims[test-issuer-1@istio.io/nested][key1]", "exact", "value-not-matched"}},
+				"SystemNamespace":   t.Istio.Settings().SystemNamespace,
+				"GatewayIstioLabel": t.Istio.Settings().IngressGatewayIstioLabel,
+			}
+		},
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Name:     "http",
+				Protocol: protocol.HTTP,
+			},
+			HTTP: echo.HTTP{
+				Headers: headersWithToken3,
 			},
 			Check: check.Status(http.StatusNotFound),
 		},

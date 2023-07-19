@@ -29,16 +29,16 @@ import (
 
 	"go.uber.org/atomic"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 var goroutinesToIgnore = []string{
 	// "global" goroutines we always initialize. Maybe we shouldn't always initialize these, but for now every
 	// test fails with these
 	"k8s.io/klog/v2.(*loggingT).flushDaemon",      // k8s logging
-	"go.opencensus.io/stats/view.(*worker).start", // metrics runs on init. Maybe it should be in main()
+	"go.opencensus.io/stats/view.(*worker).start", // metrics runs on init. We are *almost* off opencensus, but transitively import it.
 
 	// goroutines for test
 	"testing.Main(",

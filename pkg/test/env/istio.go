@@ -21,8 +21,9 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -149,4 +150,15 @@ func ReadProxySHA() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("PROXY_REPO_SHA not found")
+}
+
+// ReadVersion returns the contents of the $ROOTDIR/VERSION file
+func ReadVersion() (string, error) {
+	f := filepath.Join(IstioSrc, "VERSION")
+	v, err := os.ReadFile(f)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSuffix(string(v), "\n"), nil
 }

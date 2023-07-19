@@ -23,8 +23,8 @@ import (
 	"github.com/florianl/go-nflog/v2"
 	"golang.org/x/net/ipv4"
 
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 )
 
 var TraceLoggingEnabled = env.Register(

@@ -24,10 +24,10 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 
 	"istio.io/istio/cni/pkg/plugin"
+	"istio.io/istio/pkg/log"
+	istioversion "istio.io/istio/pkg/version"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/log"
-	istioversion "istio.io/pkg/version"
 )
 
 func main() {

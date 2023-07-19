@@ -31,8 +31,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
 )
 
 var InjectionFuncmap = createInjectionFuncmap()
@@ -49,7 +49,6 @@ func createInjectionFuncmap() template.FuncMap {
 		"annotation":          getAnnotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
-		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
 		"fromJSON":            fromJSON,
 		"structToJSON":        structToJSON,
 		"protoToJSON":         protoToJSON,

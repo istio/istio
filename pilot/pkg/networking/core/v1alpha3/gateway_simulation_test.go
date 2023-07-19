@@ -21,8 +21,8 @@ import (
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/pkg/env"
 )
 
 func TestDisablePortTranslation(t *testing.T) {

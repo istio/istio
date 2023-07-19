@@ -23,13 +23,13 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v3"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 type commonAnalyzer struct {
@@ -244,7 +244,7 @@ func (t *testAnalyzer) Label(labels ...label.Instance) Test {
 
 func (t *testAnalyzer) Features(feats ...features.Feature) Test {
 	if err := addFeatureLabels(t.featureLabels, feats...); err != nil {
-		log.Errorf(err)
+		log.Error(err)
 		t.goTest.FailNow()
 	}
 	return t

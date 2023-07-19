@@ -28,8 +28,8 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/pkg/log"
 )
 
 var healthCheckLog = log.RegisterScope("healthcheck", "Health Checks performed by Istio-Agent")

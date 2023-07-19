@@ -17,8 +17,9 @@ package common
 
 import (
 	"fmt"
+	"strings"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -30,8 +31,9 @@ const (
 	OperatorContainerName  = "istio-operator"
 
 	// namespaceAll is the default argument of across all namespaces
-	NamespaceAll    = ""
-	StrNamespaceAll = "allNamespaces"
+	NamespaceAll        = ""
+	StrNamespaceAll     = "allNamespaces"
+	KubeSystemNamespace = "kube-system"
 )
 
 type kv struct {
@@ -125,6 +127,10 @@ func IsProxyContainer(_, container string) bool {
 // IsOperatorContainer reports whether the container is an istio-operator container.
 func IsOperatorContainer(_, container string) bool {
 	return container == OperatorContainerName
+}
+
+func IsCniPod(pod string) bool {
+	return strings.HasPrefix(pod, "istio-cni-node")
 }
 
 func getVersionKey(clusterVersion string) string {

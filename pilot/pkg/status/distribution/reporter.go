@@ -31,8 +31,8 @@ import (
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/ledger"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/ledger"
 )
 
 func GenStatusReporterMapKey(conID string, distributionType xds.EventType) string {

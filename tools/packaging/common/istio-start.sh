@@ -18,12 +18,8 @@
 #
 # Script to configure and start the Istio sidecar.
 
-set -e
+set -ea
 
-# Match pilot/docker/Dockerfile.proxyv2
-export ISTIO_META_ISTIO_VERSION="1.19.0"
-
-set -a
 # Load optional config variables
 ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-./var/lib/istio/envoy/sidecar.env}
 if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then

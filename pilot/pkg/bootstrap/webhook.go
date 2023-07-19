@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strings"
 
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
 type httpServerErrorLogWriter struct{}

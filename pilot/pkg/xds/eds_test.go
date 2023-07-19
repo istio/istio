@@ -24,7 +24,6 @@ import (
 	"reflect"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -44,11 +43,12 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // The connect and reconnect tests are removed - ADS already has coverage, and the
@@ -373,12 +373,12 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 		if expectPush {
 			upd, _ := adscon.Wait(5*time.Second, v3.EndpointType)
 
-			if len(upd) > 0 && !contains(upd, v3.EndpointType) {
+			if len(upd) > 0 && !slices.Contains(upd, v3.EndpointType) {
 				t.Fatalf("Expecting EDS push as endpoint health is changed. But received %v", upd)
 			}
 		} else {
 			upd, _ := adscon.Wait(50*time.Millisecond, v3.EndpointType)
-			if contains(upd, v3.EndpointType) {
+			if slices.Contains(upd, v3.EndpointType) {
 				t.Fatalf("Expected no EDS push, got %v", upd)
 			}
 		}
@@ -604,19 +604,19 @@ func TestEndpointFlipFlops(t *testing.T) {
 			upd, _ = adscConn.Wait(5*time.Second, v3.EndpointType)
 
 			if tt.expectFullPush {
-				if !contains(upd, v3.ClusterType) {
+				if !slices.Contains(upd, v3.ClusterType) {
 					t.Fatalf("expected a CDS push, got: %+v", upd)
 				}
 
-				if !contains(upd, v3.EndpointType) {
+				if !slices.Contains(upd, v3.EndpointType) {
 					t.Fatalf("expected an EDS push, got: %+v", upd)
 				}
 			} else {
-				if contains(upd, v3.ClusterType) {
+				if slices.Contains(upd, v3.ClusterType) {
 					t.Fatalf("expected no CDS push, got: %+v", upd)
 				}
 
-				if !contains(upd, v3.EndpointType) {
+				if !slices.Contains(upd, v3.EndpointType) {
 					t.Fatalf("expected an EDS push, got: %+v", upd)
 				}
 			}
@@ -938,7 +938,7 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	if err != nil {
 		t.Fatal("Incremental push failed", err)
 	}
-	if contains(upd, v3.ClusterType) {
+	if slices.Contains(upd, v3.ClusterType) {
 		t.Fatal("Expecting EDS only update, got", upd)
 	}
 
@@ -1079,13 +1079,13 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 	for j := 0; j < nPushes; j++ {
 		if inc {
 			// This will be throttled - we want to trigger a single push
-			s.Discovery.AdsPushAll(strconv.Itoa(j), &model.PushRequest{
+			s.Discovery.AdsPushAll(&model.PushRequest{
 				Full: false,
 				ConfigsUpdated: sets.New(model.ConfigKey{
 					Kind: kind.ServiceEntry,
 					Name: edsIncSvc,
 				}),
-				Push: s.Discovery.Env.PushContext,
+				Push: s.Discovery.Env.PushContext(),
 			})
 		} else {
 			xds.AdsPushAll(s.Discovery)
@@ -1155,7 +1155,7 @@ func addUdsEndpoint(s *xds.DiscoveryServer, m *memory.ServiceDiscovery) {
 
 	pushReq := &model.PushRequest{
 		Full:   true,
-		Reason: []model.TriggerReason{model.ConfigUpdate},
+		Reason: model.NewReasonStats(model.ConfigUpdate),
 	}
 	s.ConfigUpdate(pushReq)
 }
@@ -1340,13 +1340,4 @@ func testEdsz(t *testing.T, s *xds.FakeDiscoveryServer, proxyID string) {
 	if !strings.Contains(statusStr, "\"outbound|8080||eds.test.svc.cluster.local\"") {
 		t.Fatal("Mock eds service not found ", statusStr)
 	}
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }

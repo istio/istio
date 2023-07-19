@@ -101,3 +101,207 @@ func TestUpdateConditionIfChanged(t *testing.T) {
 		})
 	}
 }
+
+func TestGetCondition(t *testing.T) {
+	transitionTime := metav1.Now()
+
+	tests := []struct {
+		name       string
+		conditions []metav1.Condition
+		condition  string
+		want       metav1.Condition
+	}{
+		{
+			name: "ResolvedRefs condition",
+			conditions: []metav1.Condition{
+				{
+					Type:               string(k8s.RouteConditionAccepted),
+					Reason:             string(k8s.RouteReasonAccepted),
+					Status:             StatusFalse,
+					Message:            "invalid backend",
+					LastTransitionTime: transitionTime,
+				},
+				{
+					Type:               string(k8s.RouteConditionResolvedRefs),
+					Reason:             string(k8s.RouteReasonResolvedRefs),
+					Status:             StatusTrue,
+					Message:            "foo",
+					LastTransitionTime: transitionTime,
+				},
+			},
+			condition: string(k8s.RouteConditionResolvedRefs),
+			want: metav1.Condition{
+				Type:               string(k8s.RouteConditionResolvedRefs),
+				Reason:             string(k8s.RouteReasonResolvedRefs),
+				Status:             StatusTrue,
+				Message:            "foo",
+				LastTransitionTime: transitionTime,
+			},
+		},
+		{
+			name: "Empty condition",
+			conditions: []metav1.Condition{
+				{
+					Type:               string(k8s.RouteConditionAccepted),
+					Reason:             string(k8s.RouteReasonAccepted),
+					Status:             StatusFalse,
+					Message:            "invalid backend",
+					LastTransitionTime: transitionTime,
+				},
+			},
+			condition: "",
+			want:      metav1.Condition{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetCondition(tt.conditions, tt.condition); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetCondition got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCreateCondition(t *testing.T) {
+	transitionTime := metav1.Now()
+	tests := []struct {
+		name        string
+		conditions  []metav1.Condition
+		condition   metav1.Condition
+		unsetReason string
+		want        []metav1.Condition
+	}{
+		{
+			name: "condition is set, reason is unsetReason",
+			conditions: []metav1.Condition{
+				{
+					Type:               string(k8s.RouteConditionAccepted),
+					Reason:             string(k8s.RouteReasonAccepted),
+					Status:             StatusFalse,
+					Message:            "invalid backend",
+					LastTransitionTime: transitionTime,
+				},
+			},
+			condition: metav1.Condition{
+				Type:               string(k8s.RouteConditionAccepted),
+				Reason:             string(k8s.RouteReasonAccepted),
+				Status:             StatusTrue,
+				Message:            "foo",
+				LastTransitionTime: transitionTime,
+			},
+			unsetReason: string(k8s.RouteReasonAccepted),
+			want: []metav1.Condition{
+				{
+					Type:               string(k8s.RouteConditionAccepted),
+					Reason:             string(k8s.RouteReasonAccepted),
+					Status:             StatusTrue,
+					Message:            "foo",
+					LastTransitionTime: transitionTime,
+				},
+			},
+		},
+		{
+			name: "condition is set, reason is not unsetReason",
+			conditions: []metav1.Condition{
+				{
+					Type:               string(k8s.RouteConditionAccepted),
+					Reason:             string(k8s.RouteReasonAccepted),
+					Status:             StatusFalse,
+					Message:            "invalid backend",
+					LastTransitionTime: transitionTime,
+				},
+			},
+			condition: metav1.Condition{
+				Type:               string(k8s.RouteConditionAccepted),
+				Reason:             string(k8s.RouteReasonAccepted),
+				Status:             StatusTrue,
+				Message:            "foo",
+				LastTransitionTime: transitionTime,
+			},
+			unsetReason: string(k8s.RouteReasonPending),
+			want: []metav1.Condition{
+				{
+					Type:               string(k8s.RouteConditionAccepted),
+					Reason:             string(k8s.RouteReasonAccepted),
+					Status:             StatusFalse,
+					Message:            "invalid backend",
+					LastTransitionTime: transitionTime,
+				},
+			},
+		},
+		{
+			name: "add a new condition",
+			conditions: []metav1.Condition{
+				{
+					Type:               string(k8s.RouteConditionAccepted),
+					Reason:             string(k8s.RouteReasonAccepted),
+					Status:             StatusFalse,
+					Message:            "invalid backend",
+					LastTransitionTime: transitionTime,
+				},
+			},
+			condition: metav1.Condition{
+				Type:               string(k8s.RouteConditionResolvedRefs),
+				Reason:             string(k8s.RouteReasonResolvedRefs),
+				Status:             StatusTrue,
+				Message:            "foo",
+				LastTransitionTime: transitionTime,
+			},
+			unsetReason: string(k8s.RouteReasonNotAllowedByListeners),
+			want: []metav1.Condition{
+				{
+					Type:               string(k8s.RouteConditionAccepted),
+					Reason:             string(k8s.RouteConditionAccepted),
+					Status:             StatusFalse,
+					Message:            "invalid backend",
+					LastTransitionTime: transitionTime,
+				},
+				{
+					Type:               string(k8s.RouteConditionResolvedRefs),
+					Reason:             string(k8s.RouteReasonResolvedRefs),
+					Status:             StatusTrue,
+					Message:            "foo",
+					LastTransitionTime: transitionTime,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CreateCondition(tt.conditions, tt.condition, tt.unsetReason); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CreateCondition got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInvertStatus(t *testing.T) {
+	tests := []struct {
+		name   string
+		status metav1.ConditionStatus
+		want   metav1.ConditionStatus
+	}{
+		{
+			name:   "return false",
+			status: metav1.ConditionTrue,
+			want:   metav1.ConditionFalse,
+		},
+		{
+			name:   "return true",
+			status: metav1.ConditionFalse,
+			want:   metav1.ConditionTrue,
+		},
+		{
+			name:   "default return false",
+			status: metav1.ConditionUnknown,
+			want:   metav1.ConditionFalse,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := InvertStatus(tt.status); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("InvertStatus got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

@@ -56,9 +56,10 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -374,6 +375,9 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		serverCABytes = a.cfg.RootCert
 	} else if a.cfg.XDSRootCAFile != "" {
 		serverCABytes, err = os.ReadFile(a.cfg.XDSRootCAFile)
+		if err != nil {
+			return nil, err
+		}
 	} else if a.cfg.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
 		rootCA, err := a.cfg.SecretManager.GenerateSecret(security.RootCertReqResourceName)
@@ -1035,10 +1039,7 @@ func (a *ADSC) WaitSingle(to time.Duration, want string, reject string) error {
 // If updates is empty, this will wait for any update
 func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	t := time.NewTimer(to)
-	want := map[string]struct{}{}
-	for _, update := range updates {
-		want[update] = struct{}{}
-	}
+	want := sets.New[string](updates...)
 	got := make([]string, 0, len(updates))
 	for {
 		select {
@@ -1046,9 +1047,9 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 			if toDelete == "" {
 				return got, fmt.Errorf("closed")
 			}
-			delete(want, toDelete)
+			want.Delete(toDelete)
 			got = append(got, toDelete)
-			if len(want) == 0 {
+			if want.Len() == 0 {
 				return got, nil
 			}
 		case <-t.C:
@@ -1180,36 +1181,36 @@ func (a *ADSC) GetHTTPListeners() map[string]*listener.Listener {
 
 // GetTCPListeners returns all the tcp listeners.
 func (a *ADSC) GetTCPListeners() map[string]*listener.Listener {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.tcpListeners
 }
 
 // GetEdsClusters returns all the eds type clusters.
 func (a *ADSC) GetEdsClusters() map[string]*cluster.Cluster {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.edsClusters
 }
 
 // GetClusters returns all the non-eds type clusters.
 func (a *ADSC) GetClusters() map[string]*cluster.Cluster {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.clusters
 }
 
 // GetRoutes returns all the routes.
 func (a *ADSC) GetRoutes() map[string]*route.RouteConfiguration {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.routes
 }
 
 // GetEndpoints returns all the routes.
 func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.eds
 }
 

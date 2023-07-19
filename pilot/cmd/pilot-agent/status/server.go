@@ -33,11 +33,9 @@ import (
 	"syscall"
 	"time"
 
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/expfmt"
-	"go.opencensus.io/stats/view"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -45,7 +43,6 @@ import (
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	grpcStatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/strings/slices"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
@@ -53,9 +50,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/apimirror"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -83,8 +82,6 @@ var PrometheusScrapingConfig = env.Register("ISTIO_PROMETHEUS_ANNOTATIONS", "", 
 
 var (
 	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz|startupz)$`)
-
-	promRegistry *prometheus.Registry
 
 	EnableHTTP2Probing = env.Register("ISTIO_ENABLE_HTTP2_PROBING", true,
 		"If enabled, HTTP2 probes will be enabled for HTTPS probes, following Kubernetes").Get()
@@ -129,6 +126,8 @@ type Options struct {
 	NoEnvoy             bool
 	GRPCBootstrap       string
 	EnableProfiling     bool
+	// PrometheusRegistry to use. Just for testing.
+	PrometheusRegistry prometheus.Gatherer
 }
 
 // Server provides an endpoint for handling status probes.
@@ -147,21 +146,20 @@ type Server struct {
 	config                Options
 	http                  *http.Client
 	enableProfiling       bool
+	registry              prometheus.Gatherer
 }
 
-func init() {
+func initializeMonitoring() (prometheus.Gatherer, error) {
 	registry := prometheus.NewRegistry()
-	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", prometheus.Registerer(registry))
+	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", registry)
 	wrapped.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	wrapped.MustRegister(collectors.NewGoCollector())
 
-	promRegistry = registry
-	// go collector metrics collide with other metrics.
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry, Registerer: wrapped})
+	_, err := monitoring.RegisterPrometheusExporter(wrapped, registry)
 	if err != nil {
-		log.Fatalf("could not setup exporter: %v", err)
+		return nil, fmt.Errorf("could not setup exporter: %v", err)
 	}
-	view.RegisterExporter(exporter)
+	return registry, nil
 }
 
 // NewServer creates a new status server.
@@ -195,6 +193,14 @@ func NewServer(config Options) (*Server, error) {
 	}
 
 	probes = append(probes, config.Probes...)
+	registry := config.PrometheusRegistry
+	if registry == nil {
+		var err error
+		registry, err = initializeMonitoring()
+		if err != nil {
+			return nil, err
+		}
+	}
 	s := &Server{
 		statusPort:            config.StatusPort,
 		ready:                 probes,
@@ -205,6 +211,7 @@ func NewServer(config Options) (*Server, error) {
 		upstreamLocalAddress:  upstreamLocalAddress,
 		config:                config,
 		enableProfiling:       config.EnableProfiling,
+		registry:              registry,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -546,7 +553,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", string(format))
 
 	// Write out the metrics
-	if err = scrapeAndWriteAgentMetrics(io.Writer(w)); err != nil {
+	if err = scrapeAndWriteAgentMetrics(s.registry, io.Writer(w)); err != nil {
 		log.Errorf("failed scraping and writing agent metrics: %v", err)
 		metrics.AgentScrapeErrors.Increment()
 	}
@@ -571,15 +578,20 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func negotiateMetricsFormat(contentType string) expfmt.Format {
-	mediaType, _, err := mime.ParseMediaType(contentType)
+	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err == nil && mediaType == expfmt.OpenMetricsType {
-		return expfmt.FmtOpenMetrics
+		switch params["version"] {
+		case expfmt.OpenMetricsVersion_1_0_0:
+			return expfmt.FmtOpenMetrics_1_0_0
+		case expfmt.OpenMetricsVersion_0_0_1, "":
+			return expfmt.FmtOpenMetrics_0_0_1
+		}
 	}
 	return expfmt.FmtText
 }
 
-func scrapeAndWriteAgentMetrics(w io.Writer) error {
-	mfs, err := promRegistry.Gather()
+func scrapeAndWriteAgentMetrics(registry prometheus.Gatherer, w io.Writer) error {
+	mfs, err := registry.Gather()
 	enc := expfmt.NewEncoder(w, expfmt.FmtText)
 	if err != nil {
 		return err
@@ -707,10 +719,13 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	}
 
 	// Forward incoming headers to the application.
-	appReq.Host = req.Host
+	if prober.HTTPGet.Host != "" {
+		appReq.Host = prober.HTTPGet.Host
+	}
 	for name, values := range req.Header {
 		appReq.Header[name] = slices.Clone(values)
 		if len(values) > 0 && (strings.EqualFold(name, "Host") || name == ":authority") {
+			// Probe has specific host header override; honor it
 			appReq.Host = values[0]
 		}
 	}

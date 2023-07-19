@@ -24,10 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/webhooks"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (

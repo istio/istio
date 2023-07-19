@@ -23,15 +23,15 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
 	pconstants "istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var log = istiolog.RegisterScope("ambient", "ambient controller")
@@ -50,17 +50,29 @@ func RouteExists(rte []string) bool {
 	return output == "1"
 }
 
-func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) {
-	addPodToMeshWithIptables(pod, ip)
+// AddPodToMesh will actually add a pod IP to the mesh - and will be called once for each IP.
+// In the normal case ( CNI chain ) the IPs are based on the IPAM allocations of CNI plugins before Istio.
+// Normally Istio should be the last in the chain - but not clear we can guarantee this. The Pod may add
+// additional interfaces and IPs outside of the CNI framework - those will not be handled.
+//
+// When called from the controller ( which has various startup corner cases and should mainly be used for
+// unsafe migrations since it'll break existing connections and cause traffic loss) the ip is empty and the
+// pod IP from status is used. And only one IP is added to the mesh in current implementation.
+//
+// In practice this method is adding a pod IP to the host networking capture.
+func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) error {
+	return addPodToMeshWithIptables(pod, ip)
 }
 
-func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
+func addPodToMeshWithIptables(pod *corev1.Pod, ip string) error {
 	if ip == "" {
 		ip = pod.Status.PodIP
 	}
+	// TODO: bug, pod may have multiple IPs in PodIPs
 	if ip == "" {
 		log.Debugf("skip adding pod %s/%s, IP not yet allocated", pod.Name, pod.Namespace)
-		return
+		// TODO: is this an error ? Only a case for the post-start controller.
+		return nil
 	}
 
 	if !IsPodInIpset(pod) {
@@ -68,14 +80,16 @@ func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
 		err := Ipset.AddIP(net.ParseIP(ip).To4(), string(pod.UID))
 		if err != nil {
 			log.Errorf("Failed to add pod %s to ipset list: %v", pod.Name, err)
+			return err
 		}
 	} else {
 		log.Infof("Pod '%s/%s' (%s) is in ipset", pod.Name, pod.Namespace, string(pod.UID))
 	}
 
-	rte, err := buildRouteFromPod(pod, ip)
+	rte, err := buildRouteForPod(ip)
 	if err != nil {
 		log.Errorf("Failed to build route for pod %s: %v", pod.Name, err)
+		return err
 	}
 
 	if !RouteExists(rte) {
@@ -88,6 +102,7 @@ func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
 		err = execute("ip", append([]string{"route", "add"}, rte...)...)
 		if err != nil {
 			log.Warnf("Failed to add route (%s) for pod %s: %v", rte, pod.Name, err)
+			return err
 		}
 	} else {
 		log.Infof("Route already exists for %s/%s: %+v", pod.Name, pod.Namespace, rte)
@@ -96,73 +111,35 @@ func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
 	dev, err := getDeviceWithDestinationOf(ip)
 	if err != nil {
 		log.Warnf("Failed to get device for destination %s", ip)
-		return
+		return err
 	}
 
 	err = disableRPFiltersForLink(dev)
 	if err != nil {
 		log.Warnf("failed to disable procfs rp_filter for device %s: %v", dev, err)
+		// I believe this is not a fatal error ?
 	}
+
+	return nil
 }
 
-var annotationPatch = []byte(fmt.Sprintf(
-	`{"metadata":{"annotations":{"%s":"%s"}}}`,
-	pconstants.AmbientRedirection,
-	pconstants.AmbientRedirectionEnabled,
-))
-
-var annotationRemovePatch = []byte(fmt.Sprintf(
-	`{"metadata":{"annotations":{"%s":null}}}`,
-	pconstants.AmbientRedirection,
-))
-
-func AnnotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
-	_, err := client.CoreV1().
-		Pods(pod.Namespace).
-		Patch(
-			context.Background(),
-			pod.Name,
-			types.MergePatchType,
-			annotationPatch,
-			metav1.PatchOptions{},
-		)
-	return err
-}
-
-func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
-	if pod.Annotations[pconstants.AmbientRedirection] != pconstants.AmbientRedirectionEnabled {
-		return nil
-	}
-	// TODO: do not overwrite if already none
-	_, err := client.CoreV1().
-		Pods(pod.Namespace).
-		Patch(
-			context.Background(),
-			pod.Name,
-			types.MergePatchType,
-			annotationRemovePatch,
-			metav1.PatchOptions{},
-		)
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	return err
-}
-
-func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
+func delPodFromMeshWithIptables(pod *corev1.Pod) {
 	log.Debugf("Removing pod '%s/%s' (%s) from mesh", pod.Name, pod.Namespace, string(pod.UID))
 	if IsPodInIpset(pod) {
-		log.Infof("Removing pod '%s' (%s) from ipset", pod.Name, string(pod.UID))
-		err := Ipset.DeleteIP(net.ParseIP(pod.Status.PodIP).To4())
-		if err != nil {
-			log.Errorf("Failed to delete pod %s from ipset list: %v", pod.Name, err)
-		}
+		log.Infof("Removing pod '%s' (%s) from ipset and related route", pod.Name, string(pod.UID))
+		delIPsetAndRoute(pod.Status.PodIP)
 	} else {
 		log.Infof("Pod '%s/%s' (%s) is not in ipset", pod.Name, pod.Namespace, string(pod.UID))
 	}
-	rte, err := buildRouteFromPod(pod, "")
+}
+
+func delIPsetAndRoute(ip string) {
+	if err := Ipset.DeleteIP(net.ParseIP(ip).To4()); err != nil {
+		log.Errorf("Failed to delete %s from ipset list: %v", ip, err)
+	}
+	rte, err := buildRouteForPod(ip)
 	if err != nil {
-		log.Errorf("Failed to build route for pod %s: %v", pod.Name, err)
+		log.Errorf("Failed to build route for %s: %v", ip, err)
 	}
 	if RouteExists(rte) {
 		log.Infof("Removing route: %+v", rte)
@@ -171,7 +148,7 @@ func DelPodFromMesh(client kubernetes.Interface, pod *corev1.Pod) {
 		// err = netlink.RouteDel(rte)
 		err = execute("ip", append([]string{"route", "del"}, rte...)...)
 		if err != nil {
-			log.Warnf("Failed to delete route (%s) for pod %s: %v", rte, pod.Name, err)
+			log.Warnf("Failed to delete route (%s): %v", rte, err)
 		}
 	}
 }
@@ -261,10 +238,16 @@ func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
 func (s *Server) AddPodToMesh(pod *corev1.Pod) {
 	switch s.redirectMode {
 	case IptablesMode:
-		AddPodToMesh(s.kubeClient.Kube(), pod, "")
+		// This is used for pods already running - we can't block, but we
+		// should not annotate.
+		err := AddPodToMesh(s.kubeClient.Kube(), pod, "")
+		if err != nil {
+			return
+		}
 	case EbpfMode:
 		if err := s.updatePodEbpfOnNode(pod); err != nil {
 			log.Errorf("failed to update POD ebpf: %v", err)
+			return
 		}
 	}
 	if err := AnnotateEnrolledPod(s.kubeClient.Kube(), pod); err != nil {
@@ -276,13 +259,13 @@ func (s *Server) DelPodFromMesh(pod *corev1.Pod, event controllers.Event) {
 	log.Debugf("Pod %s/%s is now stopped or opt out... cleaning up.", pod.Namespace, pod.Name)
 	switch s.redirectMode {
 	case IptablesMode:
-		DelPodFromMesh(s.kubeClient.Kube(), pod)
+		delPodFromMeshWithIptables(pod)
 	case EbpfMode:
 		if pod.Spec.HostNetwork {
 			log.Debugf("pod(%s/%s) is using host network, skip it", pod.Namespace, pod.Name)
 			return
 		}
-		if err := s.delPodEbpfOnNode(pod.Status.PodIP); err != nil {
+		if err := s.delPodEbpfOnNode(pod.Status.PodIP, false); err != nil {
 			log.Errorf("failed to del POD ebpf: %v", err)
 		}
 	}
@@ -296,4 +279,40 @@ func (s *Server) DelPodFromMesh(pod *corev1.Pod, event controllers.Event) {
 
 func SetProc(path string, value string) error {
 	return os.WriteFile(path, []byte(value), 0o644)
+}
+
+func (s *Server) cleanStaleIPs(stales sets.Set[string]) {
+	log.Infof("Ambient stale Pod IPs to be cleaned: %s", stales)
+	switch s.redirectMode {
+	case IptablesMode:
+		for ip := range stales {
+			delIPsetAndRoute(ip)
+		}
+	case EbpfMode:
+		for ip := range stales {
+			if err := s.delPodEbpfOnNode(ip, false); err != nil {
+				log.Errorf("failed to cleanup POD(%s) ebpf: %v", ip, err)
+			}
+		}
+	}
+}
+
+func (s *Server) cleanupPodsEbpfOnNode() error {
+	if s.ebpfServer == nil {
+		return fmt.Errorf("uninitialized ebpf server")
+	}
+	for _, ns := range s.namespaces.List(
+		metav1.NamespaceAll, klabels.Set{pconstants.DataplaneMode: pconstants.DataplaneModeAmbient}.AsSelector()) {
+		namespace := ns.GetName()
+		for _, pod := range s.pods.List(namespace, klabels.Everything()) {
+			log.Infof("cleanup Pod %s in %s", pod.Name, namespace)
+			if err := s.delPodEbpfOnNode(pod.Status.PodIP, true); err != nil {
+				log.Errorf("failed to cleanup pod ebpf: %v", err)
+			}
+			if err := AnnotateUnenrollPod(s.kubeClient.Kube(), pod); err != nil {
+				log.Errorf("failed to annotate pod unenrollment: %v", err)
+			}
+		}
+	}
+	return nil
 }

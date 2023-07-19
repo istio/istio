@@ -48,8 +48,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
@@ -164,7 +164,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 	return lb.buildConnectTerminateListener(routes)
 }
 
-func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs map[host.Name]*model.Service) *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs map[host.Name]*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
 	chains := []*listener.FilterChain{}
 	pre, post := lb.buildWaypointHTTPFilters()
@@ -178,10 +178,8 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 			cc := inboundChainConfig{
 				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
 				port: ServiceInstancePort{
-					Name:       port.Name,
-					Port:       uint32(port.Port),
-					TargetPort: uint32(port.Port),
-					Protocol:   port.Protocol,
+					ServicePort: port,
+					TargetPort:  uint32(port.Port),
 				},
 				bind:  "0.0.0.0",
 				hbone: true,
@@ -232,8 +230,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		cc := inboundChainConfig{
 			clusterName: EncapClusterName,
 			port: ServiceInstancePort{
-				Name:     "unknown",
-				Protocol: protocol.TCP,
+				ServicePort: &model.Port{
+					Name:     "unknown",
+					Protocol: protocol.TCP,
+				},
 			},
 			bind:  "0.0.0.0",
 			hbone: true,
@@ -257,13 +257,15 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []WorkloadAndServices, svcs
 		if len(wls) > 0 {
 			// Workload IP filtering happens here.
 			ipRange := []*xds.CidrRange{}
-			for _, wlx := range wls {
-				addr, _ := netip.AddrFromSlice(wlx.WorkloadInfo.Address)
-				cidr := util.ConvertAddressToCidr(addr.String())
-				ipRange = append(ipRange, &xds.CidrRange{
-					AddressPrefix: cidr.AddressPrefix,
-					PrefixLen:     cidr.PrefixLen,
-				})
+			for _, wl := range wls {
+				for _, ip := range wl.Addresses {
+					addr, _ := netip.AddrFromSlice(ip)
+					cidr := util.ConvertAddressToCidr(addr.String())
+					ipRange = append(ipRange, &xds.CidrRange{
+						AddressPrefix: cidr.AddressPrefix,
+						PrefixLen:     cidr.PrefixLen,
+					})
+				}
 			}
 			ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
 				&matcher.IPMatcher_IPRangeMatcher{
@@ -357,6 +359,7 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, po
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	post = extension.PopAppend(post, wasm, extensions.PluginPhase_STATS)
 	post = extension.PopAppend(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	post = append(post, xdsfilters.WaypointUpstreamMetadataFilter)
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls)...)
 	return
 }
@@ -419,13 +422,13 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
 	// hostname purely to match to the Service VIP. So we only need a single VHost, with routes compute based on the VS.
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
-	routes, err := lb.waypointInboundRoute(vs, int(cc.port.Port))
+	routes, err := lb.waypointInboundRoute(vs, cc.port.Port)
 	if err != nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
 
 	inboundVHost := &route.VirtualHost{
-		Name:    inboundVirtualHostPrefix + strconv.Itoa(int(cc.port.Port)), // Format: "inbound|http|%d"
+		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
 		Domains: []string{"*"},
 		Routes:  routes,
 	}

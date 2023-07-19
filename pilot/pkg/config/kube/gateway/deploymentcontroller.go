@@ -44,11 +44,11 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
 // DeploymentController implements a controller that materializes a Gateway into an in cluster gateway proxy
@@ -77,6 +77,7 @@ import (
 type DeploymentController struct {
 	client         kube.Client
 	clusterID      cluster.ID
+	env            *model.Environment
 	queue          controllers.Queue
 	patcher        patcher
 	gateways       kclient.Client[*gateway.Gateway]
@@ -116,6 +117,12 @@ func getClassInfos() map[string]classInfo {
 			description: "The default Istio GatewayClass",
 			templates:   "kube-gateway",
 		},
+		constants.RemoteGatewayClassName: {
+			// This represents a gateway that our control plane cannot discover directly via the API server.
+			// We shouldn't generate Istio resources for it. We aren't programming this gateway.
+			controller:  constants.UnmanagedGatewayController,
+			description: "Remote to this cluster. Does not deploy or affect configuration.",
+		},
 	}
 	if features.EnableAmbientControllers {
 		m[constants.WaypointGatewayClassName] = classInfo{
@@ -138,7 +145,7 @@ var knownControllers = func() sets.String {
 
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
-func NewDeploymentController(client kube.Client, clusterID cluster.ID,
+func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *model.Environment,
 	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher, revision string,
 ) *DeploymentController {
 	gateways := kclient.New[*gateway.Gateway](client)
@@ -147,6 +154,7 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID,
 		client:    client,
 		clusterID: clusterID,
 		clients:   map[schema.GroupVersionResource]getter{},
+		env:       env,
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
 			t := true
@@ -280,6 +288,10 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	if !f {
 		return nil
 	}
+	if gi.templates == "" {
+		log.Debug("skip gateway class without template")
+		return nil
+	}
 	if !IsManaged(&gw.Spec) {
 		log.Debug("skip disabled gateway")
 		return nil
@@ -310,6 +322,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	} else {
 		log.Debugf("controller version existing=%v, no action needed", existingControllerVersion)
 	}
+
 	rendered, err := d.render(gi.templates, input)
 	if err != nil {
 		return fmt.Errorf("failed to render template: %v", err)
@@ -389,14 +402,17 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 	if template == nil {
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
+
+	labelToMatch := map[string]string{"istio.io/gateway-name": mi.Name}
+	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
 		ProxyImage: inject.ProxyImage(
 			cfg.Values.Struct(),
-			cfg.MeshConfig.GetDefaultConfig().GetImage(),
+			proxyConfig.GetImage(),
 			mi.Annotations,
 		),
-		ProxyConfig: cfg.MeshConfig.GetDefaultConfig(),
+		ProxyConfig: proxyConfig,
 		MeshConfig:  cfg.MeshConfig,
 		Values:      cfg.Values.Map(),
 	}
@@ -499,12 +515,12 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 		Port:        int32(15021),
 		AppProtocol: &tcp,
 	})
-	portNums := map[int32]struct{}{}
+	portNums := sets.New[int32]()
 	for i, l := range gw.Spec.Listeners {
-		if _, f := portNums[int32(l.Port)]; f {
+		if portNums.Contains(int32(l.Port)) {
 			continue
 		}
-		portNums[int32(l.Port)] = struct{}{}
+		portNums.Insert(int32(l.Port))
 		name := string(l.Name)
 		if name == "" {
 			// Should not happen since name is required, but in case an invalid resource gets in...

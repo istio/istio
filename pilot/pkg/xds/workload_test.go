@@ -22,6 +22,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
@@ -69,9 +70,10 @@ func buildExpectExpectRemoved(t *testing.T) func(resp *discovery.DeltaDiscoveryR
 func TestWorkloadReconnect(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	expect := buildExpect(t)
-	s := NewFakeDiscoveryServer(t, FakeOptions{})
-	ads := s.ConnectDeltaADS().WithType(v3.WorkloadType).WithMetadata(model.NodeMetadata{NodeName: "node"})
-	createPod(s, "pod", "sa", "127.0.0.1", "not-node")
+	s := NewFakeDiscoveryServer(t, FakeOptions{
+		KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
+	})
+	ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 	ads.Request(&discovery.DeltaDiscoveryRequest{
 		ResourceNamesSubscribe:   []string{"*"},
 		ResourceNamesUnsubscribe: []string{"*"},
@@ -80,21 +82,21 @@ func TestWorkloadReconnect(t *testing.T) {
 
 	// Now subscribe to the pod, should get it back
 	resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
-		ResourceNamesSubscribe: []string{"127.0.0.1"},
+		ResourceNamesSubscribe: []string{"/127.0.0.1"},
 	})
-	expect(resp, "127.0.0.1")
+	expect(resp, "Kubernetes//Pod/default/pod")
 	ads.Cleanup()
 
 	// Reconnect
-	ads = s.ConnectDeltaADS().WithType(v3.WorkloadType)
+	ads = s.ConnectDeltaADS().WithType(v3.AddressType)
 	ads.Request(&discovery.DeltaDiscoveryRequest{
 		ResourceNamesSubscribe:   []string{"*"},
 		ResourceNamesUnsubscribe: []string{"*"},
 		InitialResourceVersions: map[string]string{
-			"127.0.0.1": "",
+			"/127.0.0.1": "",
 		},
 	})
-	expect(ads.ExpectResponse(), "127.0.0.1")
+	expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
 }
 
 func TestWorkload(t *testing.T) {
@@ -103,7 +105,7 @@ func TestWorkload(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
-		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe:   []string{"*"},
@@ -117,41 +119,41 @@ func TestWorkload(t *testing.T) {
 
 		// Now subscribe to it, should get it back
 		resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
-			ResourceNamesSubscribe: []string{"127.0.0.1"},
+			ResourceNamesSubscribe: []string{"/127.0.0.1"},
 		})
-		expect(resp, "127.0.0.1")
+		expect(resp, "Kubernetes//Pod/default/pod")
 
 		// Subscribe to unknown pod
 		ads.Request(&discovery.DeltaDiscoveryRequest{
-			ResourceNamesSubscribe: []string{"127.0.0.2"},
+			ResourceNamesSubscribe: []string{"/127.0.0.2"},
 		})
 		// "Removed" is a misnomer, but per the spec this is how we report "not found"
-		expectRemoved(ads.ExpectResponse(), "127.0.0.2")
+		expectRemoved(ads.ExpectResponse(), "/127.0.0.2")
 
 		// Once we create it, we should get a push
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
-		expect(ads.ExpectResponse(), "127.0.0.2")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod2")
 
 		// TODO: implement pod update; this actually cannot really be done without waypoints or VIPs
 		deletePod(s, "pod")
-		expectRemoved(ads.ExpectResponse(), "127.0.0.1")
+		expectRemoved(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
 
 		// Create pod we are not subscribed to; due to same-node optimization this will push
 		createPod(s, "pod-same-node", "sa", "127.0.0.3", "node")
-		expect(ads.ExpectResponse(), "127.0.0.3")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod-same-node")
 		deletePod(s, "pod-same-node")
-		expectRemoved(ads.ExpectResponse(), "127.0.0.3")
+		expectRemoved(ads.ExpectResponse(), "Kubernetes//Pod/default/pod-same-node")
 
 		// Add service: we should not get any new resources, but updates to existing ones
 		// Note: we are not subscribed to svc1 explicitly, but it impacts pods we are subscribed to
 		createService(s, "svc1", "default", map[string]string{"app": "sa"})
-		expect(ads.ExpectResponse(), "127.0.0.2")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod2")
 		// Creating a pod in the service should send an update as usual
 		createPod(s, "pod", "sa", "127.0.0.1", "node")
-		expect(ads.ExpectResponse(), "127.0.0.1")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
 		// Make service not select workload should also update things
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "127.0.0.1", "127.0.0.2")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
 
 		// Now create pods in the service...
 		createPod(s, "pod4", "not-sa", "127.0.0.4", "not-node")
@@ -160,23 +162,23 @@ func TestWorkload(t *testing.T) {
 
 		// Now we subscribe to the service explicitly
 		ads.Request(&discovery.DeltaDiscoveryRequest{
-			ResourceNamesSubscribe: []string{"10.0.0.1"},
+			ResourceNamesSubscribe: []string{"/10.0.0.1"},
 		})
 		// Should get updates for all pods in the service
-		expect(ads.ExpectResponse(), "127.0.0.4")
-		// Adding a pod in the service should trigger an update for that pod, even if we didn't explicitly subscribe
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod4", "default/svc1.default.svc.cluster.local")
+		// Adding a pod in the service should not trigger an update for that pod - we didn't explicitly subscribe
 		createPod(s, "pod5", "not-sa", "127.0.0.5", "not-node")
-		expect(ads.ExpectResponse(), "127.0.0.5")
+		ads.ExpectNoResponse()
 
 		// And if the service changes to no longer select them, we should see them *removed* (not updated)
 		createService(s, "svc1", "default", map[string]string{"app": "nothing"})
-		expect(ads.ExpectResponse(), "127.0.0.4", "127.0.0.5")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod4", "default/svc1.default.svc.cluster.local")
 	})
 	t.Run("wildcard", func(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
 		s := NewFakeDiscoveryServer(t, FakeOptions{})
-		ads := s.ConnectDeltaADS().WithType(v3.WorkloadType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe: []string{"*"},
@@ -185,26 +187,26 @@ func TestWorkload(t *testing.T) {
 
 		// Create pod, due to wildcard subscribe we should receive it
 		createPod(s, "pod", "sa", "127.0.0.1", "not-node")
-		expect(ads.ExpectResponse(), "127.0.0.1")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
 
 		// A new pod should push only that one
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
-		expect(ads.ExpectResponse(), "127.0.0.2")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod2")
 
 		// TODO: implement pod update; this actually cannot really be done without waypoints or VIPs
 		deletePod(s, "pod")
-		expectRemoved(ads.ExpectResponse(), "127.0.0.1")
+		expectRemoved(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
 
 		// Add service: we should not get any new resources, but updates to existing ones
 		createService(s, "svc1", "default", map[string]string{"app": "sa"})
-		expect(ads.ExpectResponse(), "127.0.0.2")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod2", "default/svc1.default.svc.cluster.local")
 		// Creating a pod in the service should send an update as usual
 		createPod(s, "pod", "sa", "127.0.0.3", "node")
-		expect(ads.ExpectResponse(), "127.0.0.3")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
 
 		// Make service not select workload should also update things
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "127.0.0.2", "127.0.0.3")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2", "default/svc1.default.svc.cluster.local")
 	})
 }
 
@@ -229,8 +231,8 @@ func createRBAC(s *FakeDiscoveryServer, name string, ns string) {
 	}
 }
 
-func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node string) {
-	pod := &corev1.Pod{
+func mkPod(name string, sa string, ip string, node string) *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
@@ -247,6 +249,11 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node s
 		},
 		Status: corev1.PodStatus{
 			PodIP: ip,
+			PodIPs: []corev1.PodIP{
+				{
+					IP: ip,
+				},
+			},
 			Phase: corev1.PodRunning,
 			Conditions: []corev1.PodCondition{
 				{
@@ -257,6 +264,10 @@ func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node s
 			},
 		},
 	}
+}
+
+func createPod(s *FakeDiscoveryServer, name string, sa string, ip string, node string) {
+	pod := mkPod(name, sa, ip, node)
 	pods := clienttest.NewWriter[*corev1.Pod](s.t, s.kubeClient)
 	pods.CreateOrUpdate(pod)
 	pods.UpdateStatus(pod)

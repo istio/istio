@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -44,6 +44,8 @@ const (
 	GenericScrtKey = "key"
 	// The ID/name for the CA certificate in kubernetes generic secret.
 	GenericScrtCaCert = "cacert"
+	// The ID/name for the CRL in kubernetes generic secret.
+	GenericScrtCRL = "crl"
 
 	// The ID/name for the certificate chain in kubernetes tls secret.
 	TLSSecretCert = "tls.crt"
@@ -53,6 +55,8 @@ const (
 	TLSSecretOcspStaple = "tls.ocsp-staple"
 	// The ID/name for the CA certificate in kubernetes tls secret
 	TLSSecretCaCert = "ca.crt"
+	// The ID/name for the CRL in kubernetes tls secret.
+	TLSSecretCrl = "ca.crl"
 )
 
 type CredentialsController struct {
@@ -175,7 +179,7 @@ func (s *CredentialsController) GetCertInfo(name, namespace string) (certInfo *c
 	return ExtractCertInfo(k8sSecret)
 }
 
-func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, err error) {
+func (s *CredentialsController) GetCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
 	k8sSecret := s.secrets.Get(name, namespace)
 	if k8sSecret == nil {
 		strippedName := strings.TrimSuffix(name, securitymodel.SdsCaSuffix)
@@ -229,14 +233,14 @@ func ExtractCertInfo(scrt *v1.Secret) (certInfo *credentials.CertInfo, err error
 	if hasValue(scrt.Data, GenericScrtCert, GenericScrtKey) {
 		ret.Cert = scrt.Data[GenericScrtCert]
 		ret.Key = scrt.Data[GenericScrtKey]
+		ret.CRL = scrt.Data[GenericScrtCRL]
 		return ret, nil
 	}
 	if hasValue(scrt.Data, TLSSecretCert, TLSSecretKey) {
 		ret.Cert = scrt.Data[TLSSecretCert]
 		ret.Key = scrt.Data[TLSSecretKey]
-		if hasValue(scrt.Data, TLSSecretOcspStaple) {
-			ret.Staple = scrt.Data[TLSSecretOcspStaple]
-		}
+		ret.Staple = scrt.Data[TLSSecretOcspStaple]
+		ret.CRL = scrt.Data[TLSSecretCrl]
 		return ret, nil
 	}
 	// No cert found. Try to generate a helpful error messsage
@@ -264,12 +268,17 @@ func truncatedKeysMessage(data map[string][]byte) string {
 }
 
 // extractRoot extracts the root certificate
-func extractRoot(scrt *v1.Secret) (cert []byte, err error) {
+func extractRoot(scrt *v1.Secret) (certInfo *credentials.CertInfo, err error) {
+	ret := &credentials.CertInfo{}
 	if hasValue(scrt.Data, GenericScrtCaCert) {
-		return scrt.Data[GenericScrtCaCert], nil
+		ret.Cert = scrt.Data[GenericScrtCaCert]
+		ret.CRL = scrt.Data[GenericScrtCRL]
+		return ret, nil
 	}
 	if hasValue(scrt.Data, TLSSecretCaCert) {
-		return scrt.Data[TLSSecretCaCert], nil
+		ret.Cert = scrt.Data[TLSSecretCaCert]
+		ret.CRL = scrt.Data[TLSSecretCrl]
+		return ret, nil
 	}
 	// No cert found. Try to generate a helpful error messsage
 	if hasKeys(scrt.Data, GenericScrtCaCert) {

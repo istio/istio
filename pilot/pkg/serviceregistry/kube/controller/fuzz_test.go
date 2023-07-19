@@ -30,6 +30,8 @@ func FuzzKubeController(f *testing.F) {
 		networkID := network.ID("fakeNetwork")
 		fco := fuzz.Struct[FakeControllerOptions](fg)
 		fco.SkipRun = true
+		// Overlapping CRDs would fail, just remove them
+		fco.CRDs = nil
 		controller, _ := NewFakeControllerWithOptions(fg.T(), fco)
 		controller.network = networkID
 

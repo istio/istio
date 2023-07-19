@@ -850,6 +850,41 @@ func TestWorkloadInstances(t *testing.T) {
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nil)
 	})
 
+	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
+		kc, _, store, kube, _ := setupTest(t)
+		makeService(t, kube, service)
+
+		// Start as unhealthy, should have no instances
+		makeIstioObject(t, store, setHealth(workloadEntry, false))
+		instances := []ServiceInstanceResponse{}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Mark healthy, get instances
+		makeIstioObject(t, store, setHealth(workloadEntry, true))
+		instances = []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Set back to unhealthy
+		makeIstioObject(t, store, setHealth(workloadEntry, false))
+		instances = []ServiceInstanceResponse{}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Remove health status entirely
+		makeIstioObject(t, store, workloadEntry)
+		instances = []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
 	istiotest.SetForTest(t, &features.EnableHBONE, true)
 	istiotest.SetForTest(t, &features.EnableAmbientControllers, true)
 	for _, ambient := range []bool{false, true} {
@@ -936,48 +971,13 @@ func TestWorkloadInstances(t *testing.T) {
 			})
 		})
 	}
-
-	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
-		kc, _, store, kube, _ := setupTest(t)
-		makeService(t, kube, service)
-
-		// Start as unhealthy, should have no instances
-		makeIstioObject(t, store, setHealth(workloadEntry, false))
-		instances := []ServiceInstanceResponse{}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Mark healthy, get instances
-		makeIstioObject(t, store, setHealth(workloadEntry, true))
-		instances = []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.Hostname,
-			Namestring: expectedSvc.Attributes.Namespace,
-			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
-			Port:       80,
-		}}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Set back to unhealthy
-		makeIstioObject(t, store, setHealth(workloadEntry, false))
-		instances = []ServiceInstanceResponse{}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Remove health status entirely
-		makeIstioObject(t, store, workloadEntry)
-		instances = []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.Hostname,
-			Namestring: expectedSvc.Attributes.Namespace,
-			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
-			Port:       80,
-		}}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-	})
 }
 
 func expectAmbient(strings []string, ambient bool) []string {
 	if !ambient {
 		return strings
 	}
-	var out []string
+	out := make([]string, 0, len(strings))
 	for _, s := range strings {
 		out = append(out, "connect_originate;"+s)
 	}
@@ -1280,6 +1280,11 @@ func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 	// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
 	// events - since PodIP will be "".
 	newPod.Status.PodIP = pod.Status.PodIP
+	newPod.Status.PodIPs = []v1.PodIP{
+		{
+			IP: pod.Status.PodIP,
+		},
+	}
 	newPod.Status.Phase = v1.PodRunning
 
 	// Also need to sets the pod to be ready as now we only add pod into service entry endpoint when it's ready

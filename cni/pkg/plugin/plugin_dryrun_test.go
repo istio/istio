@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
 
@@ -35,7 +34,10 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	diff "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -97,8 +99,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 		{
 			name: "basic",
 			input: &PodInfo{
-				Containers:        []string{"test", "istio-proxy"},
-				InitContainers:    map[string]struct{}{"istio-validate": {}},
+				Containers:        sets.New("test", "istio-proxy", "istio-validate"),
 				Annotations:       map[string]string{annotation.SidecarStatus.Name: "true"},
 				ProxyEnvironments: map[string]string{},
 			},
@@ -107,8 +108,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 		{
 			name: "include-exclude-ip",
 			input: &PodInfo{
-				Containers:     []string{"test", "istio-proxy"},
-				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Containers: sets.New("test", "istio-proxy", "istio-validate"),
 				Annotations: map[string]string{
 					annotation.SidecarStatus.Name:                         "true",
 					annotation.SidecarTrafficIncludeOutboundIPRanges.Name: "127.0.0.0/8",
@@ -121,8 +121,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 		{
 			name: "include-exclude-ports",
 			input: &PodInfo{
-				Containers:     []string{"test", "istio-proxy"},
-				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Containers: sets.New("test", "istio-proxy", "istio-validate"),
 				Annotations: map[string]string{
 					annotation.SidecarStatus.Name:                      "true",
 					annotation.SidecarTrafficIncludeInboundPorts.Name:  "1111,2222",
@@ -136,8 +135,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 		{
 			name: "tproxy",
 			input: &PodInfo{
-				Containers:     []string{"test", "istio-proxy"},
-				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Containers: sets.New("test", "istio-proxy", "istio-validate"),
 				Annotations: map[string]string{
 					annotation.SidecarStatus.Name:           "true",
 					annotation.SidecarInterceptionMode.Name: redirectModeTPROXY,
@@ -149,8 +147,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 		{
 			name: "DNS",
 			input: &PodInfo{
-				Containers:        []string{"test", "istio-proxy"},
-				InitContainers:    map[string]struct{}{"istio-validate": {}},
+				Containers:        sets.New("test", "istio-proxy", "istio-validate"),
 				Annotations:       map[string]string{annotation.SidecarStatus.Name: "true"},
 				ProxyEnvironments: map[string]string{options.DNSCaptureByAgent.Name: "true"},
 			},
@@ -159,8 +156,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 		{
 			name: "invalid-drop",
 			input: &PodInfo{
-				Containers:        []string{"test", "istio-proxy"},
-				InitContainers:    map[string]struct{}{"istio-validate": {}},
+				Containers:        sets.New("test", "istio-proxy", "istio-validate"),
 				Annotations:       map[string]string{annotation.SidecarStatus.Name: "true"},
 				ProxyEnvironments: map[string]string{cmd.InvalidDropByIptables.Name: "true"},
 			},
@@ -169,29 +165,26 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 		{
 			name: "custom-uid",
 			input: &PodInfo{
-				Containers:     []string{"test", "istio-proxy"},
-				InitContainers: map[string]struct{}{"istio-validate": {}},
-				Annotations:    map[string]string{annotation.SidecarStatus.Name: "true"},
-				ProxyUID:       &customUID,
-				ProxyGID:       &customGID,
+				Containers:  sets.New("test", "istio-proxy", "istio-validate"),
+				Annotations: map[string]string{annotation.SidecarStatus.Name: "true"},
+				ProxyUID:    &customUID,
+				ProxyGID:    &customGID,
 			},
 			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/custom-uid.txt.golden"),
 		},
 		{
 			name: "custom-uid-zero",
 			input: &PodInfo{
-				Containers:     []string{"test", "istio-proxy"},
-				InitContainers: map[string]struct{}{"istio-validate": {}},
-				Annotations:    map[string]string{annotation.SidecarStatus.Name: "true"},
-				ProxyUID:       &zero,
+				Containers:  sets.New("test", "istio-proxy", "istio-validate"),
+				Annotations: map[string]string{annotation.SidecarStatus.Name: "true"},
+				ProxyUID:    &zero,
 			},
 			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/basic.txt.golden"),
 		},
 		{
 			name: "custom-uid-tproxy",
 			input: &PodInfo{
-				Containers:     []string{"test", "istio-proxy"},
-				InitContainers: map[string]struct{}{"istio-validate": {}},
+				Containers: sets.New("test", "istio-proxy", "istio-validate"),
 				Annotations: map[string]string{
 					annotation.SidecarStatus.Name:           "true",
 					annotation.SidecarInterceptionMode.Name: redirectModeTPROXY,
@@ -266,11 +259,7 @@ func getRules(b []byte) map[string]string {
 }
 
 func refreshGoldens(t *testing.T, goldenFileName string, generatedRules map[string]string) {
-	tables := make([]string, 0)
-	for table := range generatedRules {
-		tables = append(tables, table)
-	}
-	sort.Strings(tables)
+	tables := slices.Sort(maps.Keys(generatedRules))
 	goldenFileContent := ""
 	for _, t := range tables {
 		goldenFileContent += generatedRules[t] + "\n"
