@@ -287,3 +287,97 @@ func TestDereference(t *testing.T) {
 		})
 	}
 }
+
+func TestReverse(t *testing.T) {
+	type args[E any] struct {
+		r []E
+	}
+	type testCase[E any] struct {
+		name string
+		args args[E]
+		want []E
+	}
+	tests := []testCase[string]{
+		{
+			name: "empty slice",
+			args: args[string]{
+				[]string{},
+			},
+			want: []string{},
+		},
+		{
+			name: "slice with 1 element",
+			args: args[string]{
+				[]string{s1},
+			},
+			want: []string{s1},
+		},
+		{
+			name: "slice with many elements",
+			args: args[string]{
+				[]string{s1, s2, s3},
+			},
+			want: []string{s3, s2, s1},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Reverse(tt.args.r); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Reverse() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMapFilter(t *testing.T) {
+	type args[E any, O any] struct {
+		s []E
+		f func(E) *O
+	}
+	type testCase[E any, O any] struct {
+		name string
+		args args[E, O]
+		want []O
+	}
+
+	tests := []testCase[string, string]{
+		{
+			name: "empty slice",
+			args: args[string, string]{
+				[]string{},
+				func(s string) *string {
+					return &s
+				},
+			},
+			want: []string{},
+		},
+		{
+			name: "test nil filter",
+			args: args[string, string]{
+				[]string{s1, s2, s3},
+				nil,
+			},
+			want: nil,
+		},
+		{
+			name: "test many elements",
+			args: args[string, string]{
+				[]string{s1, s2, s3},
+				func(s string) *string {
+					if s == s1 {
+						return &s
+					}
+					return nil
+				},
+			},
+			want: []string{s1},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := MapFilter(tt.args.s, tt.args.f); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("MapFilter() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

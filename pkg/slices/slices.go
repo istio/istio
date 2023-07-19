@@ -35,6 +35,9 @@ func Equal[E comparable](s1, s2 []E) bool {
 // increasing index order, and the comparison stops at the first index
 // for which eq returns false.
 func EqualFunc[E1, E2 comparable](s1 []E1, s2 []E2, eq func(E1, E2) bool) bool {
+	if eq == nil {
+		return false
+	}
 	return slices.EqualFunc(s1, s2, eq)
 }
 
@@ -42,6 +45,9 @@ func EqualFunc[E1, E2 comparable](s1 []E1, s2 []E2, eq func(E1, E2) bool) bool {
 // This sort is not guaranteed to be stable.
 // The slice is modified in place but returned.
 func SortFunc[E any](x []E, less func(a, b E) bool) []E {
+	if less == nil {
+		return x
+	}
 	if len(x) <= 1 {
 		return x
 	}
@@ -77,6 +83,9 @@ func Contains[E comparable](s []E, v E) bool {
 
 // FindFunc finds the first element matching the function, or nil if none do
 func FindFunc[E any](s []E, f func(E) bool) *E {
+	if f == nil {
+		return nil
+	}
 	idx := slices.IndexFunc(s, f)
 	if idx == -1 {
 		return nil
@@ -96,6 +105,9 @@ func Reverse[E any](r []E) []E {
 // The array is *mutated in place* and returned.
 // Used Filter to avoid mutation
 func FilterInPlace[E any](s []E, f func(E) bool) []E {
+	if f == nil {
+		return s
+	}
 	n := 0
 	for _, val := range s {
 		if f(val) {
@@ -110,6 +122,9 @@ func FilterInPlace[E any](s []E, f func(E) bool) []E {
 // Filter retains all elements in []E that f(E) returns true for.
 // A new slice is created and returned. Use FilterInPlace to perform in-place
 func Filter[E any](s []E, f func(E) bool) []E {
+	if f == nil {
+		return s
+	}
 	matched := []E{}
 	for _, v := range s {
 		if f(v) {
@@ -121,6 +136,9 @@ func Filter[E any](s []E, f func(E) bool) []E {
 
 // Map runs f() over all elements in s and returns the result
 func Map[E any, O any](s []E, f func(E) O) []O {
+	if f == nil {
+		return nil
+	}
 	n := make([]O, 0, len(s))
 	for _, e := range s {
 		n = append(n, f(e))
@@ -130,6 +148,9 @@ func Map[E any, O any](s []E, f func(E) O) []O {
 
 // MapFilter runs f() over all elements in s and returns any non-nil results
 func MapFilter[E any, O any](s []E, f func(E) *O) []O {
+	if f == nil {
+		return nil
+	}
 	n := make([]O, 0, len(s))
 	for _, e := range s {
 		if res := f(e); res != nil {
