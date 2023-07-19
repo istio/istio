@@ -27,6 +27,8 @@ spec:
         sidecar.istio.io/inject: "false"
 {{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
     spec:
+      nodeSelector:
+        kubernetes.io/os: linux
       serviceAccountName: ztunnel
       tolerations:
         - effect: NoSchedule
