@@ -203,7 +203,29 @@ var (
 	ConnectBaggageFilter = &hcm.HttpFilter{
 		Name: "connect_baggage",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.http.connect_baggage.Config"),
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"downstream_discovery": []any{
+						map[string]any{
+							"baggage": map[string]any{},
+						},
+					},
+					"shared_with_upstream": true,
+				}),
+		},
+	}
+
+	WaypointUpstreamMetadataFilter = &hcm.HttpFilter{
+		Name: "waypoint_upstream_peer_metadata",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+				}),
 		},
 	}
 
