@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/scopes"
@@ -397,7 +398,7 @@ func (mc *meshConfig) PatchMeshConfigOrFail(ctx resource.Context, t test.Failer,
 }
 
 func (mc *meshConfig) configMapName() string, error {
-	i, err := Get(mc.ctx)
+	i, err := istio.Get(mc.ctx)
 	if err != nil {
 		return nil, err
 	}
