@@ -229,6 +229,44 @@ var (
 		},
 	}
 
+	SidecarInboundMetadataFilter = &hcm.HttpFilter{
+		Name: "inbound_peer_metadata",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"downstream_discovery": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+					},
+					"downstream_propagation": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+					},
+				}),
+		},
+	}
+
+	SidecarOutboundMetadataFilter = &hcm.HttpFilter{
+		Name: "outbound_peer_metadata",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+					},
+					"upstream_propagation": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+					},
+				}),
+		},
+	}
+
 	ConnectAuthorityFilter = &hcm.HttpFilter{
 		Name: "connect_authority",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
