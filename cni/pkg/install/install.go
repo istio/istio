@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var installLog = log.RegisterScope("install", "CNI install")
@@ -46,7 +47,7 @@ func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	}
 }
 
-func (in *Installer) install(ctx context.Context) ([]string, error) {
+func (in *Installer) install(ctx context.Context) (sets.Set[string], error) {
 	copiedFiles, err := copyBinaries(in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs)
 	if err != nil {
 		cniInstalls.With(resultLabel.Value(resultCopyBinariesFailure)).Increment()
@@ -83,6 +84,8 @@ func (in *Installer) Run(ctx context.Context) error {
 		}
 
 		installLog.Info("Detect changes to the CNI configuration and binaries, attempt reinstalling...")
+		// We don't support (or want) to silently (re)deploy any binaries that were not in the initial "snapshot"
+		// so we intentionally discard/do not update the list of installedBins on redeploys.
 		if _, err := in.install(ctx); err != nil {
 			return err
 		}
@@ -154,13 +157,13 @@ func (in *Installer) Cleanup() error {
 // sleepCheckInstall verifies the configuration then blocks until an invalid configuration is detected, and return nil.
 // If an error occurs or context is canceled, the function will return the error.
 // Returning from this function will set the pod to "NotReady".
-func (in *Installer) sleepCheckInstall(ctx context.Context, installedBinFiles []string) error {
+func (in *Installer) sleepCheckInstall(ctx context.Context, installedBinFiles sets.Set[string]) error {
 	// Watch our specific binaries, in each configured binary dir.
 	// We may or may not be the only CNI plugin in play, and if we are not
 	// we shouldn't fire events for binaries that are not ours.
 	var binPaths []string
 	for _, bindir := range in.cfg.CNIBinTargetDirs {
-		for _, binary := range installedBinFiles {
+		for _, binary := range installedBinFiles.UnsortedList() {
 			binPaths = append(binPaths, filepath.Join(bindir, binary))
 		}
 	}
@@ -173,6 +176,9 @@ func (in *Installer) sleepCheckInstall(ctx context.Context, installedBinFiles []
 	// so that no file modifications are missed while and after checking
 	// note: we create a file watcher for each invocation, otherwise when we write to the directories
 	// we would get infinite looping of events
+	//
+	// Additionally, fsnotify will lose existing watches on atomic copies (due to overwrite/rename),
+	// so we have to re-watch after re-copy to make sure we always have fresh watches.
 	watcher, err := util.CreateFileWatcher(targets...)
 	if err != nil {
 		return err

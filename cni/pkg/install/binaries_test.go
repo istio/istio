@@ -64,7 +64,7 @@ func TestCopyBinaries(t *testing.T) {
 				assert.Equal(t, contents, expectedContents)
 
 				wasCopied := false
-				for _, bin := range binariesCopied {
+				for _, bin := range binariesCopied.UnsortedList() {
 					if bin == filename {
 						wasCopied = true
 					}

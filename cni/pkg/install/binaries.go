@@ -19,12 +19,13 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Copies/mirrors any files present in a single source dir to N number of target dirs
-// and returns a slice of the filenames copied.
-func copyBinaries(srcDir string, targetDirs []string) ([]string, error) {
-	var copiedFilenames []string
+// and returns a set of the filenames copied.
+func copyBinaries(srcDir string, targetDirs []string) (sets.Set[string], error) {
+	copiedFilenames := sets.Set[string]{}
 	srcFiles, err := os.ReadDir(srcDir)
 	if err != nil {
 		return copiedFilenames, err
@@ -51,7 +52,7 @@ func copyBinaries(srcDir string, targetDirs []string) ([]string, error) {
 			installLog.Infof("Copied %s to %s.", filename, targetDir)
 		}
 
-		copiedFilenames = append(copiedFilenames, filename)
+		copiedFilenames.Insert(filename)
 	}
 
 	return copiedFilenames, nil
