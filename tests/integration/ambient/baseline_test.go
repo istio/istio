@@ -1475,7 +1475,7 @@ func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
 
 			// Configure a gateway with one app as the destination to be accessible through the ingress
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": apps.All[0].Config().Service,
+				"Destination": apps.Captured[0].Config().Service,
 			}, `apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
