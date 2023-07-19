@@ -183,11 +183,11 @@ WARNING: No output specified for examples-bookinfo-mysqldb, examples-bookinfo-ra
 + find ./samples/bookinfo/platform -name '*bookinfo*.yaml' -exec sed -i.bak 's#image:.*\(\/examples-bookinfo-.*\):.*#image: user1\1:test1.0#g' '{}' +
 ```
 
-Verify that expected image eg: `user1/examples-bookinfo-details-v1:test1.0` is updated in `platform/kube/bookinfo*.yaml` files.
+Verify that expected image eg: `user1/examples-bookinfo-*:test1.0` is updated in `platform/kube/bookinfo*.yaml` files.
 
 ## Tests
 
-Test that the bookinfo samples work with the latest image eg: `user1/examples-bookinfo-details-v1:test1.0` that you pushed.
+Test that the bookinfo samples work with the latest image eg: `user1/examples-bookinfo-*:test1.0` that you pushed.
 
 ```bash
 $ cd ../../
