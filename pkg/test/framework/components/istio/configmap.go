@@ -287,7 +287,19 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 	for _, c := range mc.ctx.AllClusters().Kube() {
 		c := c
 		errG.Go(func() error {
-			cfgMap, err := mc.getConfigMap(c, mc.configMapName())
+			i, err := Get(mc.ctx)
+			if err != nil {
+				return err
+			}
+
+			var cfgMapName string
+			sharedCfgMapName := i.Settings().SharedMeshConfigName
+			if i.Settings().UseSharedMeshConfig && sharedCfgMapName != nil {
+				cfgMapName = sharedCfgMapName
+			} else {
+				cfgMapName = mc.configMapName()
+			}
+			cfgMap, err = mc.getConfigMap(c, cfgMapName)
 			if err != nil {
 				return err
 			}

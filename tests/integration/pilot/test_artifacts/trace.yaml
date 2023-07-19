@@ -1,0 +1,20 @@
+suite/pilot:
+  echo-calls: 2395
+  istio-deploy: 0.000112944
+  suite-runtime: 309.108394257
+  yaml-apply: 313
+suite/pilot:
+  echo-calls: 2286
+  istio-deploy: 7.4193e-05
+  suite-runtime: 298.999527869
+  yaml-apply: 313
+suite/pilot:
+  echo-calls: 2284
+  istio-deploy: 9.1931e-05
+  suite-runtime: 306.404470119
+  yaml-apply: 313
+suite/pilot:
+  echo-calls: 2300
+  istio-deploy: 7.9708e-05
+  suite-runtime: 296.942973016
+  yaml-apply: 313

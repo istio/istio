@@ -1,0 +1,53 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: echo-2-60257
+spec:
+  selector:
+    istio: aks-istio-ingressgateway-external
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+  namespace: echo-2-60257
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - foo.bar
+  http:
+  - match:
+    - headers:
+        '@request.auth.claims.sub':
+          exact: value-not-matched
+      uri:
+        prefix: /
+    route:
+    - destination:
+        host: b
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: default
+  namespace: aks-istio-system
+spec:
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    outputClaimToHeaders:
+    - header: "x-jwt-nested-key"
+      claim: "nested.nested-2.key2"
+    - header: "x-jwt-iss"
+      claim: "iss"
+    - header: "x-jwt-wrong-header"
+      claim: "wrong_claim"

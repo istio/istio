@@ -1,0 +1,17 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+  namespace: echo-2-88348
+spec:
+  hosts:
+  - b
+  http:
+  - fault:
+      abort:
+        httpStatus: 418
+        percentage:
+          value: 100
+    route:
+    - destination:
+        host: b

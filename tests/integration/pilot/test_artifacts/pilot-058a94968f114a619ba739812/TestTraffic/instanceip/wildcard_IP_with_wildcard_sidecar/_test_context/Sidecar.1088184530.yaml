@@ -1,0 +1,17 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: sidecar
+  namespace: echo-2-98059
+spec:
+  egress:
+  - hosts:
+    - ./*
+  ingress:
+  - defaultEndpoint: 0.0.0.0:18080
+    port:
+      number: 18080
+      protocol: HTTP
+  workloadSelector:
+    labels:
+      app: b

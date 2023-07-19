@@ -1,0 +1,13 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: idletimeout-dr
+  namespace: echo-2-60257
+spec:
+  host: c
+  trafficPolicy:
+    connectionPool:
+      http:
+        idleTimeout: 100s
+    tls:
+      mode: DISABLE

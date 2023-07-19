@@ -1,0 +1,10 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: external
+  namespace: echo-2-88348
+spec:
+  host: fake.external.com
+  trafficPolicy:
+    tls:
+      mode: SIMPLE

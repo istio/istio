@@ -1,0 +1,59 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: echo-2-98059
+spec:
+  selector:
+    istio: aks-istio-ingressgateway-external
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+    tls:
+      httpsRedirect: true
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ingressgateway-redirect-config
+  namespace: aks-istio-system
+spec:
+  configPatches:
+  - applyTo: NETWORK_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          xff_num_trusted_hops: 1
+          normalize_path: true
+  workloadSelector:
+    labels:
+      istio: aks-istio-ingressgateway-external
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: b.echo-2-98059.svc.cluster.local
+  namespace: echo-2-98059
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - b.echo-2-98059.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: b.echo-2-98059.svc.cluster.local
+        port:
+          number: 443

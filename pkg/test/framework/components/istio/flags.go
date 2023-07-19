@@ -65,4 +65,12 @@ func init() {
 		settingsFromCommandline.EgressGatewayIstioLabel,
 		`Specifies the istio label of the egressgateway to search for when running tests in a preinstalled istio installation.
 		Should only be set when istio.test.kube.deploy=false`)
+	flag.StringVar(&settingsFromCommandline.UseSharedMeshConfig, "istio.test.kube.useSharedMeshConfig",
+		settingsFromCommandline.UseSharedMeshConfig,
+		`Indicates whether tests should patch the SHARED_MESH_CONFIG created locally by the user or the default Istio ConfigMap.
+		Sould only be set when istio.test.kube.deploy=false`)
+	flag.StringVar(&settingsFromCommandline.SharedMeshConfigName, "istio.test.kube.sharedMeshConfigName",
+		settingsFromCommandline.SharedMeshConfigName,
+		`Specifies the name of the SHARED_MESH_CONFIG defined and created by the user upon installing Istio.
+		Should only be set when istio.test.kube.userSharedMeshConfig=true and istio.test.kube.deploy=false.`)
 }

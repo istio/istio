@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: consistent-hash
+  namespace: echo-2-60257
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 18080
+  - name: tcp
+    port: 9090
+    targetPort: 19090
+  selector:
+    test.istio.io/class: standard

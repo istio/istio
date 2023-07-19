@@ -1,0 +1,32 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: echo-2-98059
+spec:
+  selector:
+    istio: aks-istio-ingressgateway-external
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: external.external-1-76106.svc.cluster.local
+  namespace: echo-2-98059
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - external.external-1-76106.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: external.external-1-76106.svc.cluster.local
+        port:
+          number: 80
