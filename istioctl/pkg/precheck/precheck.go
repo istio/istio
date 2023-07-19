@@ -58,6 +58,7 @@ import (
 func Cmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var skipControlPlane bool
+	var msgOutputFormat string
 	// cmd represents the upgradeCheck command
 	cmd := &cobra.Command{
 		Use:   "precheck",
@@ -88,7 +89,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			msgs.Add(nsmsgs...)
 			// Print all the messages to stdout in the specified format
 			msgs = msgs.SortedDedupedCopy()
-			output, err := formatting.Print(msgs, formatting.LogFormat, false)
+			output, err := formatting.Print(msgs, msgOutputFormat, false)
 			if err != nil {
 				return err
 			}
@@ -109,6 +110,8 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 		},
 	}
 	cmd.PersistentFlags().BoolVar(&skipControlPlane, "skip-controlplane", false, "skip checking the control plane")
+	cmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", formatting.LogFormat,
+		fmt.Sprintf("Output format: one of %v", formatting.MsgOutputFormatKeys))
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
