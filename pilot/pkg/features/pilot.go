@@ -702,6 +702,11 @@ var (
 
 	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
 		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
+
+	ValidateWorkloadEntryIdentity = env.Register("ISTIO_WORKLOAD_ENTRY_VALIDATE_IDENTITY", true,
+		"If enabled, will validate the identity of a workload matches the identity of the "+
+			"WorkloadEntry it is associating with for health checks and auto registration. "+
+			"This flag is added for backwards compatibility only and will be removed in future releases").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
