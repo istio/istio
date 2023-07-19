@@ -403,7 +403,7 @@ func (mc *meshConfig) configMapName() string, error {
 	}
 
 	sharedCfgMapName := i.Settings().SharedMeshConfigName
-	if i.Settings().UseSharedMeshConfig && sharedCfgMapName != nil {
+	if sharedCfgMapName != nil {
 		return sharedCfgMapName, nil
 	}
 

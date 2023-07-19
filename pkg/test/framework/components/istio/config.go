@@ -87,7 +87,6 @@ var (
 		DumpKubernetesManifests: false,
 		IstiodlessRemotes:       true,
 		EnableCNI:               false,
-		UseSharedMeshConfig:     false,
 	}
 )
 
@@ -185,13 +184,9 @@ type Config struct {
 	// This field should only be set when DeployIstio is false
 	EgressGatewayIstioLabel string
 
-	// UseSharedMeshConfig indicates whether tests should patch the SHARED_MESH_CONFIG created locally by the user or the default Istio ConfigMap.
-	// This field should only be set when DeployIstio is false
-	UseSharedMeshConfig bool
-
 	// SharedMeshConfigName is the name of the user's local ConfigMap to be patched, which the user sets as the SHARED_MESH_CONFIG pilot env variable
 	// upon installing Istio.
-	// This field should only be set if UseSharedMeshConfig is set to true and when DeployIstio is false.
+	// This field should only be set when DeployIstio is false.
 	SharedMeshConfigName string
 }
 
@@ -367,7 +362,6 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("EgressGatewayServiceName:      %v\n", c.EgressGatewayServiceName)
 	result += fmt.Sprintf("EressGatewayServiceNamespace: %v\n", c.EgressGatewayServiceNamespace)
 	result += fmt.Sprintf("EgressGatewayIstioLabel:     	 %v\n", c.EgressGatewayIstioLabel)
-	result += fmt.Springf("UseSharedMeshConfig:            %v\n", c.UseSharedMeshConfig)
 	result += fmt.Springf("SharedMeshConfigName:           %v\n", c.SharedMeshConfigName)
 
 	return result
