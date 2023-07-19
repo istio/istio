@@ -1396,6 +1396,38 @@ func TestServiceEntryInlinedWorkloadEntry(t *testing.T) {
 				// TODO dns cases
 			}
 
+			// Configure a gateway with one app as the destination to be accessible through the ingress
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": apps.Captured[0].Config().Service,
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+
 			cfg := config.YAML(`
 {{ $to := .To }}
 apiVersion: networking.istio.io/v1beta1
@@ -1415,11 +1447,12 @@ spec:
   location: {{.Location}}
   endpoints:
   # we send directly to a Pod IP here. This is essentially headless
-  - address: {{ (index .To.MustWorkloads 0).Address }} # TODO won't work with DNS resolution tests
+  - address: {{.IngressIp}} # TODO won't work with DNS resolution tests
     ports:
-      http: {{ (.To.PortForName "http").WorkloadPort }}`).
+      http: {{.IngressHttpPort}}`).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
+			ip, port := istio.DefaultIngressOrFail(t, t).HTTPAddress()
 			for _, tc := range testCases {
 				tc := tc
 				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
@@ -1430,14 +1463,11 @@ spec:
 							Name:      "uncaptured",
 							Namespace: apps.Namespace,
 						}))).
-						// captured pods cannot be selected by SEs or be WEs; IPs are unique per network
-						ToMatch(match.Not(match.ServiceName(echo.NamespacedName{
-							Name:      "captured",
-							Namespace: apps.Namespace,
-						}))).
 						Config(cfg.WithParams(param.Params{
-							"Resolution": tc.resolution.String(),
-							"Location":   tc.location.String(),
+							"Resolution":      tc.resolution.String(),
+							"Location":        tc.location.String(),
+							"IngressIp":       ip,
+							"IngressHttpPort": port,
 						})).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
