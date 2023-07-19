@@ -38,6 +38,7 @@ import (
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -99,6 +100,8 @@ func TestXdsProxyBasicFlow(t *testing.T) {
 
 // Validates the proxy health checking updates
 func TestXdsProxyHealthCheck(t *testing.T) {
+	// TODO: allow fake XDS to be "authenticated"
+	test.SetForTest(t, &features.ValidateWorkloadEntryIdentity, false)
 	healthy := &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
 	unhealthy := &discovery.DiscoveryRequest{
 		TypeUrl: v3.HealthInfoType,
