@@ -19,6 +19,7 @@ import (
 
 	"k8s.io/utils/clock"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/monitoring"
 )
 
@@ -63,5 +64,10 @@ func newQueueMetrics(id string) *queueMetrics {
 }
 
 func init() {
-	monitoring.MustRegister(depth, latency, workDuration)
+	enableQueueMetrics := func() bool {
+		return features.EnableControllerQueueMetrics
+	}
+	monitoring.RegisterIf(depth, enableQueueMetrics)
+	monitoring.RegisterIf(latency, enableQueueMetrics)
+	monitoring.RegisterIf(workDuration, enableQueueMetrics)
 }

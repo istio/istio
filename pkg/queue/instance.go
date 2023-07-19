@@ -21,7 +21,6 @@ import (
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/log"
 )
 
@@ -70,10 +69,6 @@ func NewQueue(errorDelay time.Duration) Instance {
 }
 
 func NewQueueWithID(errorDelay time.Duration, name string) Instance {
-	var metrics *queueMetrics
-	if features.EnableControllerQueueMetrics {
-		metrics = newQueueMetrics(name)
-	}
 	return &queueImpl{
 		delay:       errorDelay,
 		tasks:       make([]*queueTask, 0),
@@ -83,7 +78,7 @@ func NewQueueWithID(errorDelay time.Duration, name string) Instance {
 		initialSync: atomic.NewBool(false),
 		cond:        sync.NewCond(&sync.Mutex{}),
 		id:          name,
-		metrics:     metrics,
+		metrics:     newQueueMetrics(name),
 	}
 }
 
@@ -92,10 +87,7 @@ func (q *queueImpl) Push(item Task) {
 	defer q.cond.L.Unlock()
 	if !q.closing {
 		q.tasks = append(q.tasks, &queueTask{task: item, enqueueTime: time.Now()})
-		if q.metrics != nil {
-			q.metrics.depth.RecordInt(int64(len(q.tasks)))
-		}
-
+		q.metrics.depth.RecordInt(int64(len(q.tasks)))
 	}
 	q.cond.Signal()
 }
@@ -122,11 +114,10 @@ func (q *queueImpl) get() (task *queueTask, shutdown bool) {
 	// Slicing will not free the underlying elements of the array, so explicitly clear them out here
 	q.tasks[0] = nil
 	q.tasks = q.tasks[1:]
-	if q.metrics != nil {
-		task.startTime = time.Now()
-		q.metrics.depth.RecordInt(int64(len(q.tasks)))
-		q.metrics.latency.Record(time.Since(task.enqueueTime).Seconds())
-	}
+
+	task.startTime = time.Now()
+	q.metrics.depth.RecordInt(int64(len(q.tasks)))
+	q.metrics.latency.Record(time.Since(task.enqueueTime).Seconds())
 
 	return task, false
 }
@@ -146,9 +137,7 @@ func (q *queueImpl) processNextItem() bool {
 			q.Push(task.task)
 		})
 	}
-	if q.metrics != nil {
-		q.metrics.workDuration.Record(time.Since(task.startTime).Seconds())
-	}
+	q.metrics.workDuration.Record(time.Since(task.startTime).Seconds())
 
 	return true
 }
