@@ -123,7 +123,7 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 		return
 	}
 
-	// Patch MeshConfig to intall the providers.
+	// Patch MeshConfig to install the providers.
 	err = server.installProviders(ctx)
 	return
 }
