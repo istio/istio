@@ -78,7 +78,6 @@ type controller struct {
 	domainSuffix string
 
 	queue                  controllers.Queue
-	serviceQueue           controllers.Queue
 	virtualServiceHandlers []model.EventHandler
 	gatewayHandlers        []model.EventHandler
 
@@ -246,20 +245,6 @@ func (c *controller) onServiceEvent(input any) {
 	}
 }
 
-func (c *controller) notifyVirtualServiceHandler(ingress *knetworking.Ingress) {
-	vsmetadata := config.Meta{
-		Name:             ingress.Name + "-" + "virtualservice",
-		Namespace:        ingress.Namespace,
-		GroupVersionKind: gvk.VirtualService,
-		// Set this label so that we do not compare configs and just push.
-		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
-	}
-
-	for _, f := range c.virtualServiceHandlers {
-		f(config.Config{Meta: vsmetadata}, config.Config{Meta: vsmetadata}, model.EventUpdate)
-	}
-}
-
 func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.EventHandler) {
 	switch kind {
 	case gvk.VirtualService:
@@ -270,7 +255,7 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 }
 
 func (c *controller) HasSynced() bool {
-	return c.queue.HasSynced() && c.serviceQueue.HasSynced()
+	return c.queue.HasSynced()
 }
 
 func (c *controller) Schemas() collection.Schemas {
