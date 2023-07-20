@@ -520,13 +520,13 @@ func (c *Controller) getControllerWorkloadEntries(ns string) []*apiv1alpha3.Work
 // name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
 // if the WorkloadEntry is inlined in the ServiceEntry, we may need section name. caller should use generateServiceEntryUID
 func (c *Controller) generateWorkloadEntryUID(wkEntryNamespace, wkEntryName string) string {
-	return c.clusterID.String() + workloadEntryGroupKind + wkEntryNamespace + "/" + wkEntryName
+	return c.clusterID.String() + "/networking.istio.io/WorkloadEntry/" + wkEntryNamespace + "/" + wkEntryName
 }
 
 // name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
 // section name should be the WE address, which needs to be stable across SE updates (it is assumed WE addresses are unique)
 func (c *Controller) generateServiceEntryUID(svcEntryNamespace, svcEntryName, addr string) string {
-	return c.clusterID.String() + serviceEntryGroupKind + svcEntryNamespace + "/" + svcEntryName + "/" + addr
+	return c.clusterID.String() + "/networking.istio.io/ServiceEntry/" + svcEntryNamespace + "/" + svcEntryName + "/" + addr
 }
 
 // prefer this style to better enable us for future support for auto-allocated VIPs on ServiceEntries.

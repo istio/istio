@@ -39,15 +39,9 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
-)
-
-const (
-	workloadEntryGroupKind = "/networking.istio.io/WorkloadEntry/"
-	serviceEntryGroupKind  = "/networking.istio.io/ServiceEntry/"
 )
 
 type AmbientIndex interface {
@@ -196,35 +190,44 @@ func (a *AmbientIndexImpl) All() []*model.AddressInfo {
 	defer a.mu.RUnlock()
 	res := make([]*model.AddressInfo, 0, len(a.byUID)+len(a.serviceByNamespacedHostname))
 
-	addedWEAddr := map[networkAddress]*model.AddressInfo{}
-	allNetworkAddresses := sets.New[networkAddress]()
+	handledAddresses := sets.New[networkAddress]()
+	handledUIDs := sets.New[string]()
 
 	for _, wl := range a.byUID {
-		addressInfo := workloadToAddressInfo(wl.Workload)
-		networkAddr := networkAddressFromWorkload(wl)
-		// For WorkloadEntry we need to check whether a workload with similar network/address exists.
-		// WorkloadEntry may have a single address.
-		if strings.Contains(wl.GetUid(), workloadEntryGroupKind) && len(networkAddr) > 0 {
-			if allNetworkAddresses.Contains(networkAddr[0]) {
-				// Workload with network/address similar to the WorkloadEntry network/address already exists.
-				// Skipping this WorkloadEntry.
-				log.Warnf("Skipping WorkloadEntry %s as it has the same address of another workload on the same network", wl.GetUid())
-				continue
-			}
-			addedWEAddr[networkAddr[0]] = addressInfo
-		} else {
-			// Check if any of the network addresses of the workload are also used by a WorkloadEntry that
-			// was previously added. If there is such, remove the WE from the result.
-			for _, addr := range networkAddr {
-				if addedWE := addedWEAddr[addr]; addedWE != nil {
-					idx := slices.IndexFunc[*model.AddressInfo](res, func(ai *model.AddressInfo) bool { return *ai == *addedWE })
-					res = slices.Delete[[]*model.AddressInfo](res, idx)
-					log.Warnf("Skipping WorkloadEntry %s as it has the same address of another workload on the same network", addedWE.GetWorkload().GetUid())
-				}
+		netAddrs := networkAddressFromWorkload(wl)
+
+		// Workload without an (optional) address is possible and should still be included
+		if len(netAddrs) == 0 {
+			res = append(res, workloadToAddressInfo(wl.Workload))
+			continue
+		}
+
+		// WorkloadEntry will have a single network address
+		netAddr := netAddrs[0]
+
+		// We use the UIDs and Addresses sets to determine whether we encounter while iterating over the Workloads
+		// a WorkloadEntry that has a network address similar to Workload in iteration before/after this one.
+		// In such cases we don't include the WorkloadEntry in the result and warn the users about it.
+
+		if p := a.byPod[netAddr]; p != nil {
+			if !handledUIDs.InsertContains(p.GetUid()) {
+				handledAddresses.InsertAll(netAddrs...)
 			}
 		}
-		allNetworkAddresses = allNetworkAddresses.InsertAll(networkAddr...)
-		res = append(res, addressInfo)
+
+		if we := a.byWorkloadEntry[netAddr]; we != nil {
+			if handledAddresses.Contains(netAddr) {
+				if !handledUIDs.Contains(wl.GetUid()) {
+					log.Warnf("Skipping WorkloadEntry %s as in Ambient it can't have the same address of another workload on the same network", wl.GetName())
+					continue
+				}
+			} else {
+				handledAddresses.Insert(netAddr)
+				handledUIDs.Insert(we.GetUid())
+			}
+		}
+
+		res = append(res, workloadToAddressInfo(wl.Workload))
 	}
 
 	for _, s := range a.serviceByNamespacedHostname {
