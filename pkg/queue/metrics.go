@@ -24,20 +24,17 @@ import (
 )
 
 var (
-	queueIDTag = monitoring.MustCreateLabel("queueID")
+	queueIDTag   = monitoring.CreateLabel("queueID")
+	enableMetric = monitoring.WithEnabled(func() bool {
+		return features.EnableControllerQueueMetrics
+	})
+	depth = monitoring.NewGauge("pilot_worker_queue_depth", "Depth of the controller queues", enableMetric)
 
-	depth = monitoring.NewGauge("pilot_worker_queue_depth", "Depth of the controller queues", monitoring.WithLabels(queueIDTag))
-
-	latency = monitoring.NewDistribution(
-		"pilot_worker_queue_latency",
-		"Latency before the item is processed",
-		[]float64{.01, .1, .2, .5, 1, 3, 5},
-		monitoring.WithLabels(queueIDTag))
+	latency = monitoring.NewDistribution("pilot_worker_queue_latency",
+		"Latency before the item is processed", []float64{.01, .1, .2, .5, 1, 3, 5}, enableMetric)
 
 	workDuration = monitoring.NewDistribution("pilot_worker_queue_duration",
-		"Time taken to process an item",
-		[]float64{.01, .1, .2, .5, 1, 3, 5},
-		monitoring.WithLabels(queueIDTag))
+		"Time taken to process an item", []float64{.01, .1, .2, .5, 1, 3, 5}, enableMetric)
 )
 
 type queueMetrics struct {
@@ -61,13 +58,4 @@ func newQueueMetrics(id string) *queueMetrics {
 		latency:      latency.With(queueIDTag.Value(id)),
 		clock:        clock.RealClock{},
 	}
-}
-
-func init() {
-	enableQueueMetrics := func() bool {
-		return features.EnableControllerQueueMetrics
-	}
-	monitoring.RegisterIf(depth, enableQueueMetrics)
-	monitoring.RegisterIf(latency, enableQueueMetrics)
-	monitoring.RegisterIf(workDuration, enableQueueMetrics)
 }
