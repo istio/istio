@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -119,11 +118,8 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 
 	// We watch service changes to detect service port number change to trigger
 	// re-convert ingress to new-vs.
-	c.serviceQueue = controllers.NewQueue("service",
-		controllers.WithGenericReconciler(c.onServiceEvent),
-		controllers.WithMaxAttempts(5))
 	c.services.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
-		c.serviceQueue.Add(o)
+		c.onServiceEvent(o)
 	}))
 
 	return c
@@ -131,19 +127,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 
 func (c *controller) Run(stop <-chan struct{}) {
 	kube.WaitForCacheSync("ingress", stop, c.ingress.HasSynced, c.services.HasSynced, c.classes.HasSynced)
-
-	waitGroup := sync.WaitGroup{}
-	waitGroup.Add(2)
-	go func() {
-		c.queue.Run(stop)
-		waitGroup.Done()
-	}()
-	go func() {
-		c.serviceQueue.Run(stop)
-		waitGroup.Done()
-	}()
-	waitGroup.Wait()
-
+	c.queue.Run(stop)
 	controllers.ShutdownAll(c.ingress, c.services, c.classes)
 }
 
@@ -236,47 +220,30 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 	return nil
 }
 
-func (c *controller) onServiceEvent(input any) error {
+func (c *controller) onServiceEvent(input any) {
 	event := input.(controllers.Event)
 	curSvc := event.Latest().(*corev1.Service)
-	namespacedName := config.NamespacedName(curSvc).String()
 
-	ingresses := c.ingress.List(curSvc.GetNamespace(), klabels.Everything())
-	var firstMatchIngress *knetworking.Ingress
-	for _, ingress := range ingresses {
-		referredSvcSet := extractServicesByPortNameType(ingress)
-		if referredSvcSet.Contains(namespacedName) {
-			firstMatchIngress = ingress
-			break
-		}
-	}
-	if firstMatchIngress == nil {
-		log.Debugf("this svc %s doesn't be referred by any ingress, just ignore it.", namespacedName)
-		return nil
-	}
-
-	extractPorts := func(ports []corev1.ServicePort) sets.String {
-		result := sets.String{}
-		for _, port := range ports {
-			// the format is port number|port name.
-			result.Insert(fmt.Sprintf("%d|%s", port.Port, port.Name))
-		}
-		return result
-	}
-
-	switch event.Event {
-	case controllers.EventAdd, controllers.EventDelete:
-		c.notifyVirtualServiceHandler(firstMatchIngress)
-	case controllers.EventUpdate:
+	// This is shortcut. We only care about the port number change if we receive service update event.
+	if event.Event == controllers.EventUpdate {
 		oldSvc := event.Old.(*corev1.Service)
 		oldPorts := extractPorts(oldSvc.Spec.Ports)
 		curPorts := extractPorts(curSvc.Spec.Ports)
-		if !oldPorts.Equals(curPorts) {
-			c.notifyVirtualServiceHandler(firstMatchIngress)
+		// If the ports don't change, we do nothing.
+		if oldPorts.Equals(curPorts) {
+			return
 		}
 	}
 
-	return nil
+	// We care about add, delete and ports changed event of services that are referred
+	// by ingress using port name.
+	namespacedName := config.NamespacedName(curSvc).String()
+	for _, ingress := range c.ingress.List(curSvc.GetNamespace(), klabels.Everything()) {
+		referredSvcSet := extractServicesByPortNameType(ingress)
+		if referredSvcSet.Contains(namespacedName) {
+			c.queue.AddObject(ingress)
+		}
+	}
 }
 
 func (c *controller) notifyVirtualServiceHandler(ingress *knetworking.Ingress) {
@@ -385,6 +352,15 @@ func extractServicesByPortNameType(ingress *knetworking.Ingress) sets.String {
 		}
 	}
 	return services
+}
+
+func extractPorts(ports []corev1.ServicePort) sets.String {
+	result := sets.String{}
+	for _, port := range ports {
+		// the format is port number|port name.
+		result.Insert(fmt.Sprintf("%d|%s", port.Port, port.Name))
+	}
+	return result
 }
 
 func (c *controller) Create(_ config.Config) (string, error) {

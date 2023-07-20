@@ -412,3 +412,20 @@ func TestExtractServicesByPortNameType(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractPorts(t *testing.T) {
+	ports := []corev1.ServicePort{
+		{
+			Port: 80,
+		},
+		{
+			Name: "http",
+			Port: 8080,
+		},
+	}
+
+	expect := sets.New("80|", "8080|http")
+	if !expect.Equals(extractPorts(ports)) {
+		t.Fatal("should be equal")
+	}
+}
