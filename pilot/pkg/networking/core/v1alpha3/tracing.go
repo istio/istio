@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -179,13 +178,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 				model.IncLookupClusterFailures("lightstep")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
-			// TODO: read raw metadata and retrieve lightstep extensions (instead of relying on version)
-			// Envoy dropped support for Lightstep in v1.24+ (~istio 1.16+). So, we generate old-style configuration
-			// for lightstep for everything before 1.16, but OTel-based configuration for all other cases
-			if util.IsIstioVersionGE116(model.ParseIstioVersion(proxy.Metadata.IstioVersion)) {
-				return otelLightStepConfig(clusterName, hostname, provider.Lightstep.GetAccessToken())
-			}
-			return legacyLightStepConfig(clusterName, provider.Lightstep.GetAccessToken())
+			return otelLightStepConfig(clusterName, hostname, provider.Lightstep.GetAccessToken())
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
 		maxTagLength = provider.Opencensus.GetMaxTagLength()
@@ -397,15 +390,6 @@ func otelLightStepConfig(clusterName, hostname, accessToken string) (*anypb.Any,
 		},
 	}
 	return anypb.New(dc)
-}
-
-func legacyLightStepConfig(clusterName, accessToken string) (*anypb.Any, error) {
-	//nolint: staticcheck  // Lightstep deprecated
-	lc := &tracingcfg.LightstepConfig{
-		CollectorCluster: clusterName,
-		AccessTokenFile:  accessToken,
-	}
-	return protoconv.MessageToAnyWithError(lc)
 }
 
 func buildHCMTracing(provider string, maxTagLen uint32, anyFn typedConfigGenFn) (*hcm.HttpConnectionManager_Tracing, error) {
