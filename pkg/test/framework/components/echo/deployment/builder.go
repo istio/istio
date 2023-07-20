@@ -111,7 +111,7 @@ type builder struct {
 	// Only the first per-cluster entry for a given config should have a non-nil ref.
 	refs map[cluster.Kind][]*echo.Instance
 	// namespaces caches namespaces by their prefix; used for converting Static namespace from configs into actual
-	// namesapces
+	// namespaces
 	namespaces map[string]namespace.Instance
 	// the set of injection templates for each cluster
 	templates map[string]sets.String
