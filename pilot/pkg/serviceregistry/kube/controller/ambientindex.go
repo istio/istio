@@ -190,9 +190,6 @@ func (a *AmbientIndexImpl) All() []*model.AddressInfo {
 	defer a.mu.RUnlock()
 	res := make([]*model.AddressInfo, 0, len(a.byUID)+len(a.serviceByNamespacedHostname))
 
-	handledAddresses := sets.New[networkAddress]()
-	handledUIDs := sets.New[string]()
-
 	for _, wl := range a.byUID {
 		netAddrs := networkAddressFromWorkload(wl)
 
@@ -202,29 +199,17 @@ func (a *AmbientIndexImpl) All() []*model.AddressInfo {
 			continue
 		}
 
-		// WorkloadEntry will have a single network address
-		netAddr := netAddrs[0]
-
-		// We use the UIDs and Addresses sets to determine whether we encounter while iterating over the Workloads
-		// a WorkloadEntry that has a network address similar to Workload in iteration before/after this one.
+		// We need to determine whether we encounter, while iterating over the Workloads, a WorkloadEntry that has
+		// a network address similar to another Workload (Pod).
 		// In such cases we don't include the WorkloadEntry in the result and warn the users about it.
 
-		if p := a.byPod[netAddr]; p != nil {
-			if !handledUIDs.InsertContains(p.GetUid()) {
-				handledAddresses.InsertAll(netAddrs...)
-			}
-		}
-
-		if we := a.byWorkloadEntry[netAddr]; we != nil {
-			if handledAddresses.Contains(netAddr) {
-				if !handledUIDs.Contains(wl.GetUid()) {
-					log.Warnf("Skipping WorkloadEntry %s as in Ambient it can't have the same address of another workload on the same network", wl.GetName())
-					continue
-				}
-			} else {
-				handledAddresses.Insert(netAddr)
-				handledUIDs.Insert(we.GetUid())
-			}
+		// WorkloadEntry will have a single network address
+		netAddr := netAddrs[0]
+		p := a.byPod[netAddr]
+		we := a.byWorkloadEntry[netAddr]
+		if p != nil && we != nil && wl.GetUid() != p.GetUid() {
+			log.Warnf("Skipping WorkloadEntry %s as in Ambient it can't have the same address of another workload on the same network", wl.GetName())
+			continue
 		}
 
 		res = append(res, workloadToAddressInfo(wl.Workload))
