@@ -181,7 +181,7 @@ func TestDelayQueueRetry(t *testing.T) {
 	done := make(chan struct{})
 	dq.PushDelayed(func() error {
 		count++
-		if count == maxTaskRetry {
+		if count == maxTaskRetry+1 {
 			close(done)
 		}
 		return fmt.Errorf("error count %d", count)
@@ -194,6 +194,6 @@ func TestDelayQueueRetry(t *testing.T) {
 	}
 
 	if count != maxTaskRetry+1 {
-		t.Errorf("retry count %d != %d", count, maxTaskRetry+1)
+		t.Errorf("running count %d != %d", count, maxTaskRetry+1)
 	}
 }
