@@ -5,6 +5,7 @@ See <https://istio.io/docs/examples/bookinfo/>.
 **Note**: We need the owner of the PR to perform the appropriate testing with built/pushed images to their own docker repository before we would build/push images to the official Istio repository.
 
 ## General Setup
+
 ```bash
 # This defines the docker hub to use when running integration tests and building docker images
 # eg: HUB="docker.io/istio", HUB="gcr.io/istio-testing"
@@ -17,7 +18,7 @@ export TAG=<version number>
 ```
 
 ## Compile code
- 
+
 ```bash
 cd samples/bookinfo
 BOOKINFO_TAG=$TAG BOOKINFO_HUB=$HUB src/build-services.sh
@@ -26,7 +27,7 @@ BOOKINFO_TAG=$TAG BOOKINFO_HUB=$HUB src/build-services.sh
 For example:
 
 ```bash
-$ BOOKINFO_TAG=test1.0 BOOKINFO_HUB=docker.io/user1  src/build-services.sh 
+$ BOOKINFO_TAG=test1.0 BOOKINFO_HUB=docker.io/user1  src/build-services.sh
 +++ dirname ./build-services.sh
 ++ cd .
 ++ pwd
@@ -39,7 +40,7 @@ $ BOOKINFO_TAG=test1.0 BOOKINFO_HUB=docker.io/user1  src/build-services.sh
 + plat=linux/amd64
 + [[ '' == \t\r\u\e ]]
 + env TAG=test1.0 HUB=docker.io/user1 docker buildx bake -f samples/bookinfo/src/docker-bake.hcl --set '*.platform=linux/amd64'
-[+] Building 1.9s (123/133)                                                                                                                                                                                
+[+] Building 1.9s (123/133)
  => [examples-bookinfo-ratings-v-faulty internal] load build definition from Dockerfile                                                                                                               0.0s
  => => transferring dockerfile: 1.05kB                                                                                                                                                                0.0s
 ...
