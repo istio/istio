@@ -19,35 +19,41 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/util/sets"
 )
 
-func copyBinaries(srcDir string, targetDirs []string) error {
-	for _, targetDir := range targetDirs {
-		if err := file.IsDirWriteable(targetDir); err != nil {
-			installLog.Infof("Directory %s is not writable, skipping.", targetDir)
+// Copies/mirrors any files present in a single source dir to N number of target dirs
+// and returns a set of the filenames copied.
+func copyBinaries(srcDir string, targetDirs []string) (sets.Set[string], error) {
+	copiedFilenames := sets.Set[string]{}
+	srcFiles, err := os.ReadDir(srcDir)
+	if err != nil {
+		return copiedFilenames, err
+	}
+
+	for _, f := range srcFiles {
+		if f.IsDir() {
 			continue
 		}
 
-		files, err := os.ReadDir(srcDir)
-		if err != nil {
-			return err
-		}
+		filename := f.Name()
+		srcFilepath := filepath.Join(srcDir, filename)
 
-		for _, f := range files {
-			if f.IsDir() {
+		for _, targetDir := range targetDirs {
+			if err := file.IsDirWriteable(targetDir); err != nil {
+				installLog.Infof("Directory %s is not writable, skipping.", targetDir)
 				continue
 			}
 
-			filename := f.Name()
-
-			srcFilepath := filepath.Join(srcDir, filename)
 			err := file.AtomicCopy(srcFilepath, targetDir, filename)
 			if err != nil {
-				return err
+				return copiedFilenames, err
 			}
 			installLog.Infof("Copied %s to %s.", filename, targetDir)
 		}
+
+		copiedFilenames.Insert(filename)
 	}
 
-	return nil
+	return copiedFilenames, nil
 }
