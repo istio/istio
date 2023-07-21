@@ -198,17 +198,23 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return res
 	}
 
-	res := s.mayBeGetEnvoyTLSCertificate(secretController, sr, proxy)
-	if res == nil {
-		res = s.mayBeGetEnvoyGenericSecret(secretController, sr)
+	var res *discovery.Resource
+	switch sr.SubType {
+	case credentials.GenericSecret:
+		res = s.GetEnvoyGenericSecret(secretController, sr)
+	case "":
+		res = s.GetEnvoyTLSCertificate(secretController, sr, proxy)
+	default:
+		// this should never happen
 	}
 	if res == nil {
-		log.Debugf("no secret found for %s", sr.ResourceName)
+		pilotSDSSecretErrors.Increment()
+		log.Warnf("no secret found for %s", sr.ResourceName)
 	}
 	return res
 }
 
-func (s *SecretGen) mayBeGetEnvoyTLSCertificate(secretController credscontroller.Controller, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
+func (s *SecretGen) GetEnvoyTLSCertificate(secretController credscontroller.Controller, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
 	certInfo, err := secretController.GetCertInfo(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
@@ -224,7 +230,7 @@ func (s *SecretGen) mayBeGetEnvoyTLSCertificate(secretController credscontroller
 	return toEnvoyTLSSecret(sr.ResourceName, certInfo, proxy, s.meshConfig)
 }
 
-func (s *SecretGen) mayBeGetEnvoyGenericSecret(secretController credscontroller.Controller, sr SecretResource) *discovery.Resource {
+func (s *SecretGen) GetEnvoyGenericSecret(secretController credscontroller.Controller, sr SecretResource) *discovery.Resource {
 	value, err := secretController.GetIstioGenericSecretValue(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSGenericSecretErrors.Increment()

@@ -102,7 +102,7 @@ func TestGenerate(t *testing.T) {
 	allResources := []string{
 		"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert",
 		"kubernetes://generic-mtls-split", "kubernetes://generic-mtls-split-cacert", "kubernetes://generic-mtls-crl",
-		"kubernetes://generic-mtls-crl-cacert", "kubernetes://istio-generic-secret",
+		"kubernetes://generic-mtls-crl-cacert", "kubernetes://istio-generic-secret?type=generic",
 	}
 	cases := []struct {
 		name                 string
@@ -175,7 +175,7 @@ func TestGenerate(t *testing.T) {
 					CaCert: string(genericMtlsCertCrl.Data[credentials.GenericScrtCaCert]),
 					CaCrl:  string(genericMtlsCertCrl.Data[credentials.GenericScrtCRL]),
 				},
-				"kubernetes://istio-generic-secret": {
+				"kubernetes://istio-generic-secret?type=generic": {
 					IstioGenericSecret: string(istioGenericSecret.Data[credentials.IstioGenericSecret]),
 				},
 			},

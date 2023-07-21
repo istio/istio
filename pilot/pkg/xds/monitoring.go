@@ -151,6 +151,11 @@ var (
 		"Total number of updates received by pilot.",
 	)
 
+	pilotSDSSecretErrors = monitoring.NewSum(
+		"pilot_sds_secret_errors_total",
+		"Total number of failures to fetch SDS secret",
+	)
+
 	pilotSDSCertificateErrors = monitoring.NewSum(
 		"pilot_sds_certificate_errors_total",
 		"Total number of failures to fetch SDS key and certificate.",
