@@ -80,14 +80,14 @@ endif
 
 # Precompile tests before running. See https://blog.howardjohn.info/posts/go-build-times/#integration-tests.
 define run-test
-$(GO) test -exec=true -toolexec=$(REPO_ROOT)/tools/go-compile-without-link -vet=off -tags=integ $2 $1
-$(GO) test -p 1 ${T} -tags=integ -vet=off -timeout 30m $2 $1 ${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+$(GO) test -exec=true -toolexec=$(REPO_ROOT)/tools/go-compile-without-link -vet=off -tags="integ experimental" $2 $1
+$(GO) test -p 1 ${T} -tags="integ experimental" -vet=off -timeout 30m $2 $1 ${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 endef
 
 test.integration.analyze: test.integration...analyze
 
 test.integration.%.analyze: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test ${T} -tags=integ -vet=off ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	$(GO) test ${T} -tags="integ experimental" -vet=off ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} \
 	--istio.test.analyze \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
@@ -103,7 +103,7 @@ test.integration.%.kube: | $(JUNIT_REPORT) check-go-tag
 
 # Generate integration fuzz test targets for kubernetes environment.
 test.integration-fuzz.%.kube: | $(JUNIT_REPORT) check-go-tag
-	$(call run-test,./tests/integration/$(subst .,/,$*)/...,-tags="integfuzz integ")
+	$(call run-test,./tests/integration/$(subst .,/,$*)/...,-tags="integfuzz integfuzz experimental")
 
 # Generate presubmit integration test targets for each component in kubernetes environment
 test.integration.%.kube.presubmit:

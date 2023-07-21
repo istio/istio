@@ -18,18 +18,25 @@
 package pilot
 
 import (
+	"os"
+	filepath "path/filepath"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/gateway-api/conformance/apis/v1alpha1"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/version"
 )
 
 // GatewayConformanceInputs defines inputs to the gateway conformance test.
@@ -91,6 +98,7 @@ func TestGatewayConformance(t *testing.T) {
 				Debug:                scopes.Framework.DebugEnabled(),
 				CleanupBaseResources: gatewayConformanceInputs.Cleanup,
 				SupportedFeatures:    suite.AllFeatures,
+				SkipTests:            maps.Keys(skippedTests),
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{
@@ -111,16 +119,42 @@ func TestGatewayConformance(t *testing.T) {
 					}
 				}
 			})
-			csuite := suite.New(opts)
-			csuite.Setup(t)
 
-			for _, ct := range tests.ConformanceTests {
-				t.Run(ct.ShortName, func(t *testing.T) {
-					if reason, f := skippedTests[ct.ShortName]; f {
-						t.Skip(reason)
-					}
-					ct.Run(t, csuite)
+			csuite, err := suite.NewExperimentalConformanceTestSuite(
+				suite.ExperimentalConformanceOptions{
+					Options: opts,
+					Implementation: v1alpha1.Implementation{
+						Organization: "istio.io",
+						Project:      "istio",
+						URL:          "istio.io",
+						Version:      version.Info.Version,
+						Contact:      []string{"@istio/maintainers"},
+					},
+					ConformanceProfiles: sets.New(
+						suite.HTTPConformanceProfileName,
+						suite.TLSConformanceProfileName,
+						// suite.MeshConformanceProfileName,
+					),
 				})
+			if err != nil {
+				t.Fatal(err)
+			}
+			// csuite := suite.New(opts)
+			csuite.Setup(t)
+			if err := csuite.Run(t, tests.ConformanceTests); err != nil {
+				t.Fatal(err)
+			}
+			report, err := csuite.Report()
+			if err != nil {
+				t.Fatal(err)
+			}
+			reportYaml, err := yaml.Marshal(report)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("Conformance results: %v", string(reportYaml))
+			if err := os.WriteFile(filepath.Join(ctx.WorkDir(), "conformance.yaml"), reportYaml, 0o644); err != nil {
+				t.Fatal(err)
 			}
 		})
 }
