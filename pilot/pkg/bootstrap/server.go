@@ -313,6 +313,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 		}
+		s.readinessFlags.sidecarInjectorReady.Store(true)
 		if err := s.initConfigValidation(args); err != nil {
 			return nil, fmt.Errorf("error initializing config validator: %v", err)
 		}
