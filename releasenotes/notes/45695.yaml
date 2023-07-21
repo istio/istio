@@ -3,4 +3,4 @@ kind: feature
 area: istioctl
 releaseNotes:
 - |
-  **Added** a new `istioctl dashboard proxy` command, which can be used to show the admin UI of proxies, including Envoy and Ztunnel. This is similar to `istioctl dashboard envoy`.
+  **Added** a new `istioctl dashboard ztunnel` command, which can be used to show the admin UI of Ztunnel pods.
