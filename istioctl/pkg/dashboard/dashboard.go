@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
@@ -594,7 +595,7 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 
 	ztunnel := ztunnelDashCmd(cliContext)
 	ztunnel.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	ztunnel.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", cliContext.NamespaceOrDefault(""),
+	ztunnel.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", constants.IstioSystemNamespace,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 	ztunnel.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", util.DefaultProxyAdminPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(ztunnel)
