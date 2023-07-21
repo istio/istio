@@ -81,6 +81,8 @@ type NetworkManager struct {
 	NameCache  *networkGatewayNameCache
 	xdsUpdater XDSUpdater
 
+	// just to ensure NetworkGateways and Unresolved are updated together
+	mu sync.Mutex
 	// embedded NetworkGateways only includes gateways with IPs
 	// hostnames are resolved in control plane (or filtered out if feature is disabled)
 	*NetworkGateways
@@ -154,6 +156,8 @@ func (mgr *NetworkManager) reload() bool {
 	gatewaySet.InsertAll(mgr.env.NetworkGateways()...)
 	resolvedGatewaySet := mgr.resolveHostnameGateways(gatewaySet)
 
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
 	return mgr.NetworkGateways.update(resolvedGatewaySet) || mgr.Unresolved.update(gatewaySet)
 }
 
