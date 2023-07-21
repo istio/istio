@@ -1249,6 +1249,34 @@ func (node *Proxy) GetNodeName() string {
 	return node.Labels[label.LabelHostname]
 }
 
+func (node *Proxy) GetClusterID() cluster.ID {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.ClusterID
+}
+
+func (node *Proxy) GetNamespace() string {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.Namespace
+}
+
+func (node *Proxy) GetIstioVersion() string {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.IstioVersion
+}
+
+func (node *Proxy) GetID() string {
+	if node == nil {
+		return ""
+	}
+	return node.ID
+}
+
 func (node *Proxy) FuzzValidate() bool {
 	if node.Metadata == nil {
 		return false

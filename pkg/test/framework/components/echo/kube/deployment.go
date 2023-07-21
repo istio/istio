@@ -545,7 +545,7 @@ spec:
 			return fmt.Errorf("failed customizing cluster.env: %v", err)
 		}
 
-		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
+		// push bootstrap config as a ConfigMap so we can mount it on our "vm" pods
 		cmData := map[string][]byte{}
 		generatedFiles, err := os.ReadDir(subsetDir)
 		if err != nil {

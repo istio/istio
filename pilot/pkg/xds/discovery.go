@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -592,6 +593,22 @@ func (s *DiscoveryServer) Clients() []*Connection {
 		}
 		clients = append(clients, con)
 	}
+	return clients
+}
+
+// SortedClients returns all currently connected clients in an ordered manner.
+// Sorting order priority is as follows: ClusterID, Namespace, ID.
+func (s *DiscoveryServer) SortedClients() []*Connection {
+	clients := s.Clients()
+	sort.Slice(clients, func(i, j int) bool {
+		if clients[i].proxy.GetClusterID().String() < clients[j].proxy.GetClusterID().String() {
+			return true
+		}
+		if clients[i].proxy.GetNamespace() < clients[j].proxy.GetNamespace() {
+			return true
+		}
+		return clients[i].proxy.GetID() < clients[j].proxy.GetID()
+	})
 	return clients
 }
 

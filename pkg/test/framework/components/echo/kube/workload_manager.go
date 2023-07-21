@@ -69,7 +69,7 @@ func newWorkloadManager(ctx resource.Context, cfg echo.Config, handler workloadH
 		}
 	}
 	if grpcInstancePort == 0 {
-		return nil, errors.New("unable fo find GRPC command port")
+		return nil, errors.New("unable to find GRPC command port")
 	}
 
 	m := &workloadManager{
