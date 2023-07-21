@@ -111,8 +111,10 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 			name = strings.TrimSuffix(name, GenericSecretURISuffix)
 			subType = GenericSecret
 		}
-		return SecretResource{ResourceType: KubernetesSecretType, SubType: subType, Name: name, Namespace: namespace,
-			ResourceName: resourceName, Cluster: proxyCluster}, nil
+		return SecretResource{
+			ResourceType: KubernetesSecretType, SubType: subType, Name: name, Namespace: namespace,
+			ResourceName: resourceName, Cluster: proxyCluster,
+		}, nil
 	} else if strings.HasPrefix(resourceName, kubernetesGatewaySecretTypeURI) {
 		// Valid formats:
 		// * kubernetes-gateway://secret-namespace/secret-name
