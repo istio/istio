@@ -34,11 +34,15 @@ var (
 )
 
 // BuildStatPrefix builds a stat prefix based on the stat pattern.
-func BuildStatPrefix(statPattern string, host string, subset string, port *model.Port, attributes *model.ServiceAttributes) string {
+func BuildStatPrefix(statPattern string, host string, subset string, targetPort int, port *model.Port, attributes *model.ServiceAttributes) string {
 	prefix := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
 	prefix = strings.ReplaceAll(prefix, serviceFQDNStatPattern, host)
 	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
-	prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(port.Port))
+	if targetPort != 0 {
+		prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(targetPort))
+	} else {
+		prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(port.Port))
+	}
 	prefix = strings.ReplaceAll(prefix, servicePortNameStatPattern, port.Name)
 	return prefix
 }

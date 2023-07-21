@@ -358,7 +358,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// If stat name is configured, build the alternate stats name.
 			if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
 				defaultCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-					string(service.Hostname), "", port, &service.Attributes)
+					string(service.Hostname), "", 0, port, &service.Attributes)
 			}
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
