@@ -103,7 +103,7 @@ Docker images are now created.
 
 ## Push docker images to docker hub
 
-After the local build is successful, you will need to push the images to docker hub.  You may need to login to docker before you run the command using `docker login`
+After the local build is successful, you will need to push the images to Docker hub.  You may need to login to Docker before you run the command using `docker login`.
 
 ```bash
 cd samples/bookinfo
@@ -148,7 +148,7 @@ $ BOOKINFO_TAG=test1.0 BOOKINFO_HUB=docker.io/user1  src/build-services.sh --pus
 
 ## Update YAML files to point to the newly created images
 
-You need to update the YAML file with the latest tag that you used during the build eg: `$HUB:$TAG`.
+You need to update the YAML file with the latest tag that you used during the build, eg: `$HUB:$TAG`.
 
 Run the following script to update the YAML files in one step.
 
