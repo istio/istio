@@ -306,13 +306,13 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 				v.reportFailure(kind, name, namespace, err)
 				return err
 			}
+			if namespace == v.istioNamespace && strings.HasPrefix(name, "istio") {
+				istioDeploymentCount++
+			}
 			if err = verifyDeploymentStatus(deployment); err != nil {
 				ivf := istioVerificationFailureError(filename, err)
 				v.reportFailure(kind, name, namespace, ivf)
 				return ivf
-			}
-			if namespace == v.istioNamespace && strings.HasPrefix(name, "istio") {
-				istioDeploymentCount++
 			}
 		case "Job":
 			job := &v1batch.Job{}
