@@ -333,6 +333,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 		}
+		s.readinessFlags.sidecarInjectorReady.Store(true)
 		s.webhookInfo.mu.Lock()
 		s.webhookInfo.wh = wh
 		s.webhookInfo.mu.Unlock()
