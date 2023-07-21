@@ -331,23 +331,20 @@ func envoyDashCmd(ctx cli.Context) *cobra.Command {
 	})
 }
 
-func proxyDashCmd(ctx cli.Context) *cobra.Command {
+func ztunnelDashCmd(ctx cli.Context) *cobra.Command {
 	return createDashCmd(ctx, CreateProxyDashCmdConfig{
-		CommandUsage: "proxy [<type>/]<name>[.<namespace>]",
-		CommandShort: "Open proxy admin web UI",
-		CommandLong:  `Open the proxy admin dashboard for a sidecar or a ztunnel pod`,
-		CommandExample: `  # Open proxy dashboard for the productpage-123-456.default pod
-  istioctl dashboard proxy productpage-123-456.default
+		CommandUsage: "ztunnel [<type>/]<name>[.<namespace>]",
+		CommandShort: "Open ztunnel admin web UI",
+		CommandLong:  `Open the ztunnel admin dashboard for a ztunnel pod`,
+		CommandExample: `  # Open ztunnel dashboard for the ztunnel-bwh89.istio-system pod
+  istioctl dashboard ztunnel ztunnel-bwh89.istio-system
 
-  # Open proxy admin dashboard for one pod under a deployment
-  istioctl dashboard proxy deployment/productpage-v1
-
-  # Open proxy admin dashboard for a ztunnel pod
-  istioctl dashboard proxy ztunnel-dk6ns.istio-system
+  # Open ztunnel admin dashboard for one pod under a deployment
+  istioctl dashboard ztunnel daemonset/ztunnel
 
   # with short syntax
-  istioctl dash proxy productpage-123-456.default
-  istioctl d proxy productpage-123-456.default
+  istioctl dash ztunnel ztunnel-bwh89.istio-system
+  istioctl d ztunnel ztunnel-bwh89.istio-system
 `,
 	})
 }
@@ -595,12 +592,12 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	envoy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", util.DefaultProxyAdminPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(envoy)
 
-	proxy := proxyDashCmd(cliContext)
-	proxy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	proxy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", cliContext.NamespaceOrDefault(""),
+	ztunnel := ztunnelDashCmd(cliContext)
+	ztunnel.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
+	ztunnel.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", cliContext.NamespaceOrDefault(""),
 		"Namespace where the addon is running, if not specified, istio-system would be used")
-	proxy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", util.DefaultProxyAdminPort, "The component dashboard UI port.")
-	dashboardCmd.AddCommand(proxy)
+	ztunnel.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", util.DefaultProxyAdminPort, "The component dashboard UI port.")
+	dashboardCmd.AddCommand(ztunnel)
 
 	controlz := controlZDashCmd(cliContext)
 	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
