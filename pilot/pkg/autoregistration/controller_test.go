@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -70,6 +71,39 @@ var (
 			},
 		},
 		Spec:   tmplA,
+		Status: nil,
+	}
+	wgAWrongNs = config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadGroup,
+			Namespace:        "wrong",
+			Name:             "wg-a",
+			Labels: map[string]string{
+				"grouplabel": "notonentry",
+			},
+		},
+		Spec:   tmplA,
+		Status: nil,
+	}
+	wgWithoutSA = config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadGroup,
+			Namespace:        "a",
+			Name:             "wg-b",
+			Labels: map[string]string{
+				"grouplabel": "notonentry",
+			},
+		},
+		Spec: &v1alpha3.WorkloadGroup{
+			Template: &v1alpha3.WorkloadEntry{
+				Ports:          map[string]uint32{"http": 80},
+				Labels:         map[string]string{"app": "a"},
+				Network:        "nw0",
+				Locality:       "reg0/zone0/subzone0",
+				Weight:         1,
+				ServiceAccount: "",
+			},
+		},
 		Status: nil,
 	}
 	weB = config.Config{
@@ -134,13 +168,13 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 	n := fakeNode("reg1", "zone1", "subzone1")
 
-	p := fakeProxy("1.2.3.4", wgA, "nw1")
+	p := fakeProxy("1.2.3.4", wgA, "nw1", "sa-a")
 	p.XdsNode = n
 
-	p2 := fakeProxy("1.2.3.4", wgA, "nw2")
+	p2 := fakeProxy("1.2.3.4", wgA, "nw2", "sa-a")
 	p2.XdsNode = n
 
-	p3 := fakeProxy("1.2.3.5", wgA, "nw1")
+	p3 := fakeProxy("1.2.3.5", wgA, "nw1", "sa-a")
 	p3.XdsNode = n
 
 	// allows associating a Register call with Unregister
@@ -222,7 +256,39 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			return checkNoEntry(store, wgA, p3)
 		}, retry.Timeout(time.Until(time.Now().Add(21*features.WorkloadEntryCleanupGracePeriod))))
 	})
+	t.Run("unverified client", func(t *testing.T) {
+		p := fakeProxy("1.2.3.6", wgA, "nw1", "")
+		p.XdsNode = fakeNode("reg1", "zone1", "subzone1")
 
+		// Should fail
+		assert.Error(t, c1.RegisterWorkload(p, time.Now()))
+		checkNoEntryOrFail(t, store, wgA, p)
+	})
+	t.Run("wrong SA client", func(t *testing.T) {
+		p := fakeProxy("1.2.3.6", wgA, "nw1", "wrong")
+		p.XdsNode = fakeNode("reg1", "zone1", "subzone1")
+
+		// Should fail
+		assert.Error(t, c1.RegisterWorkload(p, time.Now()))
+		checkNoEntryOrFail(t, store, wgA, p)
+	})
+	t.Run("wrong NS client", func(t *testing.T) {
+		p := fakeProxy("1.2.3.6", wgA, "nw1", "sa-a")
+		p.Metadata.Namespace = "wrong"
+		p.XdsNode = fakeNode("reg1", "zone1", "subzone1")
+
+		// Should fail
+		assert.Error(t, c1.RegisterWorkload(p, time.Now()))
+		checkNoEntryOrFail(t, store, wgA, p)
+	})
+	t.Run("no SA WG", func(t *testing.T) {
+		p := fakeProxy("1.2.3.6", wgWithoutSA, "nw1", "sa-a")
+		p.XdsNode = fakeNode("reg1", "zone1", "subzone1")
+
+		// Should fail
+		assert.NoError(t, c1.RegisterWorkload(p, time.Now()))
+		checkEntryOrFail(t, store, wgWithoutSA, p, n, c1.instanceID)
+	})
 	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
 }
 
@@ -231,7 +297,7 @@ func TestUpdateHealthCondition(t *testing.T) {
 	ig, ig2, store := setup(t)
 	go ig.Run(stop)
 	go ig2.Run(stop)
-	p := fakeProxy("1.2.3.4", wgA, "litNw")
+	p := fakeProxy("1.2.3.4", wgA, "litNw", "sa-a")
 	p.XdsNode = fakeNode("reg1", "zone1", "subzone1")
 	ig.RegisterWorkload(p, time.Now())
 	t.Run("auto registered healthy health", func(t *testing.T) {
@@ -274,7 +340,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 			},
 		},
 	}
-	proxy := fakeProxy("10.0.0.1", group, "nw1")
+	proxy := fakeProxy("10.0.0.1", group, "nw1", "sa")
 	proxy.XdsNode = fakeNode("rgn2", "zone2", "subzone2")
 
 	wantLabels := map[string]string{
@@ -573,6 +639,8 @@ func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreController)
 	c1 := NewController(store, "pilot-1", keepalive.Infinity)
 	c2 := NewController(store, "pilot-2", keepalive.Infinity)
 	createOrFail(t, store, wgA)
+	createOrFail(t, store, wgAWrongNs)
+	createOrFail(t, store, wgWithoutSA)
 	return c1, c2, store
 }
 
@@ -681,6 +749,23 @@ func checkEntryOrFail(
 	}
 }
 
+func checkNoEntryOrFail(
+	t test.Failer,
+	store model.ConfigStoreController,
+	wg config.Config,
+	proxy *model.Proxy,
+) {
+	name := wg.Name + "-" + proxy.IPAddresses[0]
+	if proxy.Metadata.Network != "" {
+		name += "-" + string(proxy.Metadata.Network)
+	}
+
+	cfg := store.Get(gvk.WorkloadEntry, name, wg.Namespace)
+	if cfg != nil {
+		t.Fatalf("workload entry found when it was not expected")
+	}
+}
+
 func checkNoEntryHealth(store model.ConfigStoreController, proxy *model.Proxy) error {
 	name := proxy.WorkloadEntryName
 	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
@@ -769,10 +854,15 @@ func checkNonAutoRegisteredEntryOrFail(t test.Failer, store model.ConfigStoreCon
 	}
 }
 
-func fakeProxy(ip string, wg config.Config, nw network.ID) *model.Proxy {
+func fakeProxy(ip string, wg config.Config, nw network.ID, sa string) *model.Proxy {
+	var id *spiffe.Identity
+	if wg.Namespace != "" && sa != "" {
+		id = &spiffe.Identity{Namespace: wg.Namespace, ServiceAccount: sa}
+	}
 	return &model.Proxy{
-		IPAddresses: []string{ip},
-		Labels:      map[string]string{"merge": "me"},
+		IPAddresses:      []string{ip},
+		Labels:           map[string]string{"merge": "me"},
+		VerifiedIdentity: id,
 		Metadata: &model.NodeMetadata{
 			AutoRegisterGroup: wg.Name,
 			Namespace:         wg.Namespace,
@@ -785,8 +875,9 @@ func fakeProxy(ip string, wg config.Config, nw network.ID) *model.Proxy {
 func fakeProxySuitableForHealthChecks(wle config.Config) *model.Proxy {
 	wleSpec := wle.Spec.(*v1alpha3.WorkloadEntry)
 	return &model.Proxy{
-		ID:          wle.Name + "." + wle.Namespace,
-		IPAddresses: []string{wleSpec.Address},
+		ID:               wle.Name + "." + wle.Namespace,
+		IPAddresses:      []string{wleSpec.Address},
+		VerifiedIdentity: &spiffe.Identity{Namespace: wle.Namespace, ServiceAccount: "my-sa"},
 		Metadata: &model.NodeMetadata{
 			Namespace: wle.Namespace,
 			Network:   network.ID(wleSpec.Network),
