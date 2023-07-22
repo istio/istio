@@ -230,7 +230,7 @@ func TestBuildStatPrefix(t *testing.T) {
 		},
 		{
 			"Service With Port and Port Name pattern With Target Port",
-			"%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
+			"%SERVICE%_%SERVICE_PORT_NAME%_%TARGET_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
 			9443,

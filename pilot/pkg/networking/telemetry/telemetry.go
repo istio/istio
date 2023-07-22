@@ -26,11 +26,12 @@ import (
 
 var (
 	// StatName patterns
-	serviceStatPattern         = "%SERVICE%"
-	serviceFQDNStatPattern     = "%SERVICE_FQDN%"
-	servicePortStatPattern     = "%SERVICE_PORT%"
-	servicePortNameStatPattern = "%SERVICE_PORT_NAME%"
-	subsetNameStatPattern      = "%SUBSET_NAME%"
+	serviceStatPattern           = "%SERVICE%"
+	serviceFQDNStatPattern       = "%SERVICE_FQDN%"
+	servicePortStatPattern       = "%SERVICE_PORT%"
+	serviceTargetPortStatPattern = "%TARGET_PORT%"
+	servicePortNameStatPattern   = "%SERVICE_PORT_NAME%"
+	subsetNameStatPattern        = "%SUBSET_NAME%"
 )
 
 // BuildStatPrefix builds a stat prefix based on the stat pattern.
@@ -38,11 +39,8 @@ func BuildStatPrefix(statPattern string, host string, subset string, targetPort 
 	prefix := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
 	prefix = strings.ReplaceAll(prefix, serviceFQDNStatPattern, host)
 	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
-	if targetPort != 0 {
-		prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(targetPort))
-	} else {
-		prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(port.Port))
-	}
+	prefix = strings.ReplaceAll(prefix, serviceTargetPortStatPattern, strconv.Itoa(targetPort))
+	prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(port.Port))
 	prefix = strings.ReplaceAll(prefix, servicePortNameStatPattern, port.Name)
 	return prefix
 }
