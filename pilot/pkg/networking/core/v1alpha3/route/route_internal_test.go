@@ -429,7 +429,7 @@ func TestMirrorPercent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mp := MirrorPercent(tt.route)
 			if !reflect.DeepEqual(mp, tt.want) {
-				t.Errorf("Unexpected mirro percent want %v, got %v", tt.want, mp)
+				t.Errorf("Unexpected mirror percent want %v, got %v", tt.want, mp)
 			}
 		})
 	}

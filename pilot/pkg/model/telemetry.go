@@ -139,7 +139,7 @@ type metricsConfig struct {
 }
 
 type metricConfig struct {
-	// if ture, do not add filter to chain
+	// if true, do not add filter to chain
 	Disabled  bool
 	Overrides []metricsOverride
 }
@@ -547,7 +547,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	return res
 }
 
-// defaul value for metric rotation interval and graceful deletion interval,
+// default value for metric rotation interval and graceful deletion interval,
 // more details can be found in here: https://github.com/istio/proxy/blob/master/source/extensions/filters/http/istio_stats/config.proto#L116
 var (
 	defaultMetricRotationInterval         = 0 * time.Second

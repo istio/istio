@@ -55,7 +55,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 							Ports: []*workloadapi.Port{
 								{
 									ServicePort: 80,
-									TargetPort:  8081, // port is overidden by inlined WE port
+									TargetPort:  8081, // port is overridden by inlined WE port
 								},
 							},
 						},

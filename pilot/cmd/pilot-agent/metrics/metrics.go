@@ -25,7 +25,7 @@ var (
 	typeTag = monitoring.CreateLabel("type")
 
 	// StartupTime measures the time it takes for the agent to get ready Note: This
-	// is dependant on readiness probes. This means our granularity is correlated to
+	// is dependent on readiness probes. This means our granularity is correlated to
 	// the probing interval.
 	startupTime = monitoring.NewGauge(
 		"startup_duration_seconds",

@@ -464,7 +464,7 @@ func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetada
 	// Add compressed telemetry metadata. Note this is a short term solution to make server workload metadata
 	// available at client sidecar, so that telemetry filter could use for metric labels. This is useful for two cases:
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
-	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
+	// Due to performance concern, telemetry metadata is compressed into a semicolon separated string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
 	if features.EndpointTelemetryLabel {
 		// allow defaulting for non-injected cases
