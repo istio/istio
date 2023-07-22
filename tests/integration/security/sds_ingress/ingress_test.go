@@ -216,7 +216,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 func TestSingleOptionalMTLSGateway(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.ingress.optional_mtls").
+		Features("security.ingress.tls.gateway.optional-mtls").
 		Run(func(t framework.TestContext) {
 			var (
 				credName   = "testsinglemtlsgateway-serverkeyoptionalmtls"
