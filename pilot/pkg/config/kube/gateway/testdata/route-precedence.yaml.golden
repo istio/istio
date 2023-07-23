@@ -78,17 +78,6 @@ spec:
         port:
           number: 80
   - match:
-    - method:
-        exact: PATCH
-      uri:
-        prefix: /
-    name: allowed-2.http.3
-    route:
-    - destination:
-        host: svc2.allowed-2.svc.domain.suffix
-        port:
-          number: 80
-  - match:
     - uri:
         prefix: /
     name: allowed-2.http.2
@@ -261,17 +250,6 @@ spec:
     - uri:
         prefix: /bar
     name: allowed-2.http.0
-    route:
-    - destination:
-        host: svc2.allowed-2.svc.domain.suffix
-        port:
-          number: 80
-  - match:
-    - method:
-        exact: PATCH
-      uri:
-        prefix: /
-    name: allowed-2.http.3
     route:
     - destination:
         host: svc2.allowed-2.svc.domain.suffix
