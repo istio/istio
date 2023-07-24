@@ -49,7 +49,10 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-mesh",
 }
 
-var skippedTests = map[string]string{}
+var skippedTests = map[string]string{
+	// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/1996) scope this skip more
+	"MeshConsumerRoute": "This requires an egress waypoint which is not yet implemented",
+}
 
 func TestGatewayConformance(t *testing.T) {
 	framework.
