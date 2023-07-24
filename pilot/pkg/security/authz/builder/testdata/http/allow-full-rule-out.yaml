@@ -438,17 +438,14 @@ typedConfig:
                   - header:
                       name: X-header
                       safeRegexMatch:
-                        googleRe2: {}
                         regex: ^not-header$|^not-header,.*|.*,not-header,.*|.*,not-header$
                   - header:
                       name: X-header
                       safeRegexMatch:
-                        googleRe2: {}
                         regex: ^not-header-prefix-.*$|^not-header-prefix-.*,.*|.*,not-header-prefix-.*,.*|.*,not-header-prefix-.*$
                   - header:
                       name: X-header
                       safeRegexMatch:
-                        googleRe2: {}
                         regex: ^.*-not-suffix-header$|^.*-not-suffix-header,.*|.*,.*-not-suffix-header,.*|.*,.*-not-suffix-header$
                   - header:
                       name: X-header
