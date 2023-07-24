@@ -15,8 +15,9 @@
 package multicluster
 
 import (
-	"istio.io/istio/istioctl/pkg/cli"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/istioctl/pkg/cli"
 )
 
 const (
