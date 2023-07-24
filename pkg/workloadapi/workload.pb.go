@@ -315,7 +315,7 @@ type Service struct {
 	// The target_port may be overridden on a per-workload basis.
 	Ports []*Port `protobuf:"bytes,5,rep,name=ports,proto3" json:"ports,omitempty"`
 	// Optional; if set, the SAN to verify for TLS connections.
-	// Typically, this is not set and per-workload identity is used to verfiy
+	// Typically, this is not set and per-workload identity is used to verify
 	// TODO: support this field
 	SubjectAltNames []string `protobuf:"bytes,6,rep,name=subject_alt_names,json=subjectAltNames,proto3" json:"subject_alt_names,omitempty"`
 }

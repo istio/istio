@@ -132,7 +132,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 
 	sa.analyzer.Analyze(ctx)
 
-	// TODO(hzxuzhonghu): we donot need set here
+	// TODO(hzxuzhonghu): we do not need set here
 	namespaces := sets.New[resource.Namespace]()
 	if sa.namespace != "" {
 		namespaces.Insert(sa.namespace)

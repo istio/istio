@@ -199,7 +199,7 @@ func parseNetworkTopology() (map[clusterIndex]string, error) {
 	for _, v := range values {
 		parts := strings.Split(v, ":")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("failed parsing network mapping mapping entry %s", v)
+			return nil, fmt.Errorf("failed parsing network mapping entry %s", v)
 		}
 		cluster, err := parseClusterIndex(parts[0])
 		if err != nil {

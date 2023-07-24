@@ -47,7 +47,7 @@ func WithName(name string) func(q *Queue) {
 	}
 }
 
-// WithRateLimiter allows defining a custom rate limitter for the queue
+// WithRateLimiter allows defining a custom rate limiter for the queue
 func WithRateLimiter(r workqueue.RateLimiter) func(q *Queue) {
 	return func(q *Queue) {
 		q.queue = workqueue.NewRateLimitingQueue(r)

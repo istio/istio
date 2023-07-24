@@ -149,7 +149,7 @@ func Reference[E any](s []E) []*E {
 	return res
 }
 
-// Dereference returns all non-nil references, derefernced
+// Dereference returns all non-nil references, dereferenced
 func Dereference[E any](s []*E) []E {
 	res := make([]E, 0, len(s))
 	for _, v := range s {
