@@ -20,7 +20,6 @@ package ambient
 import (
 	"testing"
 
-	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
@@ -79,7 +78,7 @@ func TestGatewayConformance(t *testing.T) {
 
 			opts := suite.Options{
 				Client:               c,
-				Clientset:            gatewayConformanceInputs.Client.Kube().(*kubernetes.Clientset),
+				Clientset:            gatewayConformanceInputs.Client.Kube(),
 				RestConfig:           gatewayConformanceInputs.Client.RESTConfig(),
 				RESTClient:           rc,
 				GatewayClassName:     "istio",
