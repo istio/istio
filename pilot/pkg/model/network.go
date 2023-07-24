@@ -67,7 +67,7 @@ func (ngh *NetworkGatewaysHandler) NotifyGatewayHandlers() {
 }
 
 type NetworkGateways struct {
-	mu sync.RWMutex
+	mu *sync.RWMutex
 	// least common multiple of gateway number of {per network, per cluster}
 	lcm                 uint32
 	byNetwork           map[network.ID][]NetworkGateway
@@ -82,7 +82,7 @@ type NetworkManager struct {
 	xdsUpdater XDSUpdater
 
 	// just to ensure NetworkGateways and Unresolved are updated together
-	mu sync.Mutex
+	mu sync.RWMutex
 	// embedded NetworkGateways only includes gateways with IPs
 	// hostnames are resolved in control plane (or filtered out if feature is disabled)
 	*NetworkGateways
@@ -104,6 +104,11 @@ func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager
 		NetworkGateways: &NetworkGateways{},
 		Unresolved:      &NetworkGateways{},
 	}
+
+	// share lock with root NetworkManager
+	mgr.NetworkGateways.mu = &mgr.mu
+	mgr.Unresolved.mu = &mgr.mu
+
 	env.AddNetworksHandler(mgr.reloadGateways)
 	// register to per registry, will be called when gateway service changed
 	env.AppendNetworkGatewayHandler(mgr.reloadGateways)
@@ -161,9 +166,8 @@ func (mgr *NetworkManager) reload() bool {
 	return mgr.NetworkGateways.update(resolvedGatewaySet) || mgr.Unresolved.update(gatewaySet)
 }
 
+// update calls should with the lock held
 func (gws *NetworkGateways) update(gatewaySet NetworkGatewaySet) bool {
-	gws.mu.Lock()
-	defer gws.mu.Unlock()
 	if gatewaySet.Equals(sets.New(gws.allGateways()...)) {
 		return false
 	}
@@ -177,7 +181,7 @@ func (gws *NetworkGateways) update(gatewaySet NetworkGatewaySet) bool {
 		byNetworkAndCluster[nc] = append(byNetworkAndCluster[nc], gw)
 	}
 
-	gwNum := []int{}
+	var gwNum []int
 	// Sort the gateways in byNetwork, and also calculate the max number
 	// of gateways per network.
 	for k, gws := range byNetwork {
