@@ -718,10 +718,12 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 		return
 	}
 
-	// Forward incoming headers to the application.
-	if prober.HTTPGet.Host != "" {
-		appReq.Host = prober.HTTPGet.Host
+	appReq.Host = req.Host
+	// trim port if any
+	if host, _, err := net.SplitHostPort(req.Host); err != nil {
+		appReq.Host = host
 	}
+	// Forward incoming headers to the application.
 	for name, values := range req.Header {
 		appReq.Header[name] = slices.Clone(values)
 		if len(values) > 0 && (strings.EqualFold(name, "Host") || name == ":authority") {
