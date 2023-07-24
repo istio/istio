@@ -218,7 +218,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 
 	if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
 		subsetCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-			string(service.Hostname), subset.Name, 0, opts.port, &service.Attributes)
+			string(service.Hostname), subset.Name, opts.port, 0, &service.Attributes)
 	}
 
 	// Apply traffic policy for subset cluster with the destination rule traffic policy.
@@ -458,7 +458,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", clusterPort, instance.Port.ServicePort, &instance.Service.Attributes)
+			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort, &instance.Service.Attributes)
 	}
 
 	opts := buildClusterOpts{

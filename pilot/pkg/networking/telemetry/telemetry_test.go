@@ -246,7 +246,7 @@ func TestBuildStatPrefix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := BuildStatPrefix(tt.statPattern, tt.host, tt.subsetName, tt.targetPort, tt.port, tt.attributes)
+			got := BuildStatPrefix(tt.statPattern, tt.host, tt.subsetName, tt.port, tt.targetPort, tt.attributes)
 			if got != tt.want {
 				t.Errorf("BuildStatPrefix:: Expected alt statname %s, but got %s", tt.want, got)
 			}

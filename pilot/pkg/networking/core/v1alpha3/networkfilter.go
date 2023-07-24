@@ -241,7 +241,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 		// If stat name is configured, build the stat prefix from configured pattern.
 		if len(push.Mesh.OutboundClusterStatName) != 0 && service != nil {
 			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, routes[0].Destination.Host,
-				routes[0].Destination.Subset, 0, port, &service.Attributes)
+				routes[0].Destination.Subset, port, 0, &service.Attributes)
 		}
 
 		return buildOutboundNetworkFiltersWithSingleDestination(
