@@ -720,7 +720,7 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 
 	appReq.Host = req.Host
 	// trim port if any
-	if host, _, err := net.SplitHostPort(req.Host); err != nil {
+	if host, _, err := net.SplitHostPort(req.Host); err == nil {
 		appReq.Host = host
 	}
 	// Forward incoming headers to the application.
