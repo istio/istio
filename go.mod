@@ -61,8 +61,8 @@ require (
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/buildkit v0.12.0
-	github.com/onsi/gomega v1.27.8
-	github.com/openshift/api v0.0.0-20230718161610-2a3e8b481cec
+	github.com/onsi/gomega v1.27.10
+	github.com/openshift/api v0.0.0-20230720094506-afcbe27aec7c
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.16.0
@@ -93,9 +93,9 @@ require (
 	golang.org/x/time v0.3.0
 	gomodules.xyz/jsonpatch/v2 v2.3.0
 	google.golang.org/api v0.132.0
-	google.golang.org/genproto v0.0.0-20230717213848-3f92550aa753
-	google.golang.org/genproto/googleapis/api v0.0.0-20230717213848-3f92550aa753
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230717213848-3f92550aa753
+	google.golang.org/genproto v0.0.0-20230720185612-659f7aaaa771
+	google.golang.org/genproto/googleapis/api v0.0.0-20230720185612-659f7aaaa771
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230720185612-659f7aaaa771
 	google.golang.org/grpc v1.56.2
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -113,7 +113,7 @@ require (
 	k8s.io/client-go v0.28.0-beta.0
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kubectl v0.28.0-beta.0
-	k8s.io/utils v0.0.0-20230505201702-9f6742963106
+	k8s.io/utils v0.0.0-20230711102312-30195339c3c7
 	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/gateway-api v0.7.1-0.20230718212805-cce52879057c
 	sigs.k8s.io/mcs-api v0.1.0
@@ -200,7 +200,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/onsi/ginkgo/v2 v2.9.7 // indirect
+	github.com/onsi/ginkgo/v2 v2.11.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc3 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
