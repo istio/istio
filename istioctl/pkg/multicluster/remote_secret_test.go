@@ -26,6 +26,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/pflag"
+	"istio.io/istio/istioctl/pkg/cli"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,8 +53,6 @@ var (
 const (
 	testNamespace          = "istio-system-test"
 	testServiceAccountName = "test-service-account"
-	testKubeconfig         = "test-kubeconfig"
-	testContext            = "test-context"
 )
 
 func makeServiceAccount(secrets ...string) *v1.ServiceAccount {
@@ -120,15 +119,12 @@ func TestCreateRemoteSecrets(t *testing.T) {
 	saSecret := makeSecret("saSecret", "caData", "token")
 	saSecret2 := makeSecret("saSecret2", "caData", "token")
 	saSecretMissingToken := makeSecret("saSecret", "caData", "")
-	badStartingConfigErrStr := "could not find cluster for context"
 
 	tokenWaitBackoff = 10 * time.Millisecond
 
 	cases := []struct {
 		testName string
 
-		// test input
-		config     *api.Config
 		objs       []runtime.Object
 		name       string
 		secType    SecretType
@@ -142,138 +138,52 @@ func TestCreateRemoteSecrets(t *testing.T) {
 		wantErrStr      string
 		k8sMinorVersion string
 	}{
-		//{
-		//	testName:   "fail to get service account secret token",
-		//	objs:       []runtime.Object{kubeSystemNamespace, sa},
-		//	wantErrStr: "no \"ca.crt\" data found",
-		//},
 		{
-			testName:          "fail to create starting config",
-			objs:              []runtime.Object{kubeSystemNamespace, sa, saSecret},
-			config:            api.NewConfig(),
-			badStartingConfig: true,
-			wantErrStr:        badStartingConfigErrStr,
-		},
-		{
-			testName: "fail to find cluster in local Kubeconfig",
-			objs:     []runtime.Object{kubeSystemNamespace, sa, saSecret},
-			config: &api.Config{
-				CurrentContext: testContext,
-				Clusters:       map[string]*api.Cluster{ /* missing cluster */ },
-			},
-			wantErrStr: fmt.Sprintf(`could not find cluster for context %q`, testContext),
-		},
-		{
-			testName: "fail to create remote secret token",
-			objs:     []runtime.Object{kubeSystemNamespace, sa, saSecretMissingToken},
-			config: &api.Config{
-				CurrentContext: testContext,
-				Contexts: map[string]*api.Context{
-					testContext: {Cluster: "cluster"},
-				},
-				Clusters: map[string]*api.Cluster{
-					"cluster": {Server: "server"},
-				},
-			},
+			testName:   "fail to create remote secret token",
+			objs:       []runtime.Object{kubeSystemNamespace, sa, saSecretMissingToken},
 			wantErrStr: `no "token" data found`,
 		},
 		{
-			testName: "fail to encode secret",
-			objs:     []runtime.Object{kubeSystemNamespace, sa, saSecret},
-			config: &api.Config{
-				CurrentContext: testContext,
-				Contexts: map[string]*api.Context{
-					testContext: {Cluster: "cluster"},
-				},
-				Clusters: map[string]*api.Cluster{
-					"cluster": {Server: "server"},
-				},
-			},
+			testName:          "fail to encode secret",
+			objs:              []runtime.Object{kubeSystemNamespace, sa, saSecret},
 			outputWriterError: errors.New("injected encode error"),
 			wantErrStr:        "injected encode error",
 		},
 		{
 			testName: "success",
 			objs:     []runtime.Object{kubeSystemNamespace, sa, saSecret},
-			config: &api.Config{
-				CurrentContext: testContext,
-				Contexts: map[string]*api.Context{
-					testContext: {Cluster: "cluster"},
-				},
-				Clusters: map[string]*api.Cluster{
-					"cluster": {Server: "server"},
-				},
-			},
-			name: "cluster-foo",
-			want: "cal-want",
+			name:     "cluster-foo",
+			want:     "cal-want",
 		},
 		{
 			testName: "success with type defined",
 			objs:     []runtime.Object{kubeSystemNamespace, sa, saSecret},
-			config: &api.Config{
-				CurrentContext: testContext,
-				Contexts: map[string]*api.Context{
-					testContext: {Cluster: "cluster"},
-				},
-				Clusters: map[string]*api.Cluster{
-					"cluster": {Server: "server"},
-				},
-			},
-			name:    "cluster-foo",
-			secType: "config",
-			want:    "cal-want",
+			name:     "cluster-foo",
+			secType:  "config",
+			want:     "cal-want",
 		},
 		{
-			testName: "failure due to multiple secrets",
-			objs:     []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
-			config: &api.Config{
-				CurrentContext: testContext,
-				Contexts: map[string]*api.Context{
-					testContext: {Cluster: "cluster"},
-				},
-				Clusters: map[string]*api.Cluster{
-					"cluster": {Server: "server"},
-				},
-			},
+			testName:   "failure due to multiple secrets",
+			objs:       []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
 			name:       "cluster-foo",
-			want:       "cal-want",
 			wantErrStr: "wrong number of secrets (2) in serviceaccount",
 			// for k8s 1.24+ we auto-create a secret instead of relying on a reference in service account
 			k8sMinorVersion: "23",
 		},
 		{
-			testName: "success when specific secret name provided",
-			objs:     []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
-			config: &api.Config{
-				CurrentContext: testContext,
-				Contexts: map[string]*api.Context{
-					testContext: {Cluster: "cluster"},
-				},
-				Clusters: map[string]*api.Cluster{
-					"cluster": {Server: "server"},
-				},
-			},
+			testName:   "success when specific secret name provided",
+			objs:       []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
 			secretName: saSecret.Name,
 			name:       "cluster-foo",
 			want:       "cal-want",
 		},
 		{
-			testName: "fail when non-existing secret name provided",
-			objs:     []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
-			config: &api.Config{
-				CurrentContext: testContext,
-				Contexts: map[string]*api.Context{
-					testContext: {Cluster: "cluster"},
-				},
-				Clusters: map[string]*api.Cluster{
-					"cluster": {Server: "server"},
-				},
-			},
-			secretName: "nonexistingSecret",
-			name:       "cluster-foo",
-			want:       "cal-want",
-			wantErrStr: "provided secret does not exist",
-			// for k8s 1.24+ we auto-create a secret instead of relying on a reference in service account
+			testName:        "fail when non-existing secret name provided",
+			objs:            []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
+			secretName:      "nonexistingSecret",
+			name:            "cluster-foo",
+			want:            "cal-want",
+			wantErrStr:      "provided secret does not exist",
 			k8sMinorVersion: "23",
 		},
 	}
@@ -292,17 +202,23 @@ func TestCreateRemoteSecrets(t *testing.T) {
 				AuthType:           RemoteSecretAuthTypeBearerToken,
 				// ClusterName: testCluster,
 				KubeOptions: KubeOptions{
-					Namespace:  testNamespace,
-					Context:    testContext,
-					Kubeconfig: testKubeconfig,
+					Namespace: testNamespace,
 				},
 				Type:       c.secType,
 				SecretName: c.secretName,
 			}
 
-			env := newFakeEnvironmentOrDie(t, c.k8sMinorVersion, c.config, c.objs...)
-
-			got, _, err := CreateRemoteSecret(opts, env) // TODO
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+				IstioNamespace: "istio-system",
+				Objects:        c.objs,
+				Namespace:      testNamespace,
+				Version:        c.k8sMinorVersion,
+			})
+			client, err := ctx.CLIClient()
+			if err != nil {
+				tt.Fatalf("failed to create client: %v", err)
+			}
+			got, _, err := CreateRemoteSecret(client, opts)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
@@ -524,116 +440,6 @@ func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) {
 	}
 	if obj == nil {
 		t.Fatalf("expected %v/%v", name, kind)
-	}
-}
-
-func TestGetClusterServerFromKubeconfig(t *testing.T) {
-	server := "server0"
-	context := "context0"
-	cluster := "cluster0"
-
-	cases := []struct {
-		name        string
-		config      *api.Config
-		context     string
-		wantServer  string
-		wantErrStr  string
-		wantWarning bool
-	}{
-		{
-			name:       "bad starting config",
-			context:    context,
-			config:     api.NewConfig(),
-			wantErrStr: "could not find cluster for context",
-		},
-		{
-			name:    "missing cluster",
-			context: context,
-			config: &api.Config{
-				CurrentContext: context,
-				Contexts:       map[string]*api.Context{},
-				Clusters:       map[string]*api.Cluster{},
-			},
-			wantErrStr: "could not find cluster for context",
-		},
-		{
-			name:    "missing server",
-			context: context,
-			config: &api.Config{
-				CurrentContext: context,
-				Contexts: map[string]*api.Context{
-					context: {Cluster: cluster},
-				},
-				Clusters: map[string]*api.Cluster{},
-			},
-			wantErrStr: "could not find server for context",
-		},
-		{
-			name:    "success",
-			context: context,
-			config: &api.Config{
-				CurrentContext: context,
-				Contexts: map[string]*api.Context{
-					context: {Cluster: cluster},
-				},
-				Clusters: map[string]*api.Cluster{
-					cluster: {Server: server},
-				},
-			},
-			wantServer: server,
-		},
-		{
-			name:    "warning",
-			context: context,
-			config: &api.Config{
-				CurrentContext: context,
-				Contexts: map[string]*api.Context{
-					context: {Cluster: cluster},
-				},
-				Clusters: map[string]*api.Cluster{
-					cluster: {Server: "http://127.0.0.1:12345"},
-				},
-			},
-			wantWarning: true,
-			wantServer:  "http://127.0.0.1:12345",
-		},
-		{
-			name:    "use explicit Context different from current-context",
-			context: context,
-			config: &api.Config{
-				CurrentContext: "ignored-context", // verify context override is used
-				Contexts: map[string]*api.Context{
-					context: {Cluster: cluster},
-				},
-				Clusters: map[string]*api.Cluster{
-					cluster: {Server: server},
-				},
-			},
-			wantServer: server,
-		},
-	}
-
-	for i := range cases {
-		c := &cases[i]
-		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(t *testing.T) {
-			gotServer, warn, err := getServerFromKubeconfig(c.context, c.config)
-			if c.wantWarning && warn == nil {
-				t.Fatalf("wanted warning but got nil")
-			} else if !c.wantWarning && warn != nil {
-				t.Fatalf("wanted non-warning but got: %v", warn)
-			}
-			if c.wantErrStr != "" {
-				if err == nil {
-					t.Fatalf("wanted error including %q but got none", c.wantErrStr)
-				} else if !strings.Contains(err.Error(), c.wantErrStr) {
-					t.Fatalf("wanted error including %q but got %v", c.wantErrStr, err)
-				}
-			} else if c.wantErrStr == "" && err != nil {
-				t.Fatalf("wanted non-error but got %q", err)
-			} else if gotServer != c.wantServer {
-				t.Errorf("got server %v want %v", gotServer, server)
-			}
-		})
 	}
 }
 
@@ -929,6 +735,7 @@ users:
 func TestRemoteSecretOptions(t *testing.T) {
 	g := NewWithT(t)
 
+	ctx := cli.NewFakeContext(nil)
 	o := RemoteSecretOptions{}
 	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	o.addFlags(flags)
@@ -936,7 +743,7 @@ func TestRemoteSecretOptions(t *testing.T) {
 		"--name",
 		"valid-name",
 	})).Should(Succeed())
-	g.Expect(o.prepare(flags)).Should(Succeed())
+	g.Expect(o.prepare(ctx)).Should(Succeed())
 
 	o = RemoteSecretOptions{}
 	flags = pflag.NewFlagSet("test", pflag.ContinueOnError)
@@ -945,5 +752,5 @@ func TestRemoteSecretOptions(t *testing.T) {
 		"--name",
 		"?-invalid-name",
 	})).Should(Succeed())
-	g.Expect(o.prepare(flags)).Should(Not(Succeed()))
+	g.Expect(o.prepare(ctx)).Should(Not(Succeed()))
 }
