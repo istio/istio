@@ -107,9 +107,17 @@ function maybe_build_ztunnel() {
 
   pushd "${BUILD_ZTUNNEL_REPO}"
   cargo build --profile="${BUILD_ZTUNNEL_PROFILE:-dev}"
-  echo "Copying $(pwd)/out/rust/debug/ztunnel to ${TARGET_OUT_LINUX}/ztunnel"
-  mkdir -p "${ISTIO_ZTUNNEL_LINUX_DEBUG_DIR}"
-  cp out/rust/debug/ztunnel "${TARGET_OUT_LINUX}/ztunnel"
+
+  local ZTUNNEL_BIN_PATH
+  if [[ "${BUILD_ZTUNNEL_PROFILE:-dev}" == "dev" ]]; then
+      ZTUNNEL_BIN_PATH=debug
+  else
+      ZTUNNEL_BIN_PATH="${BUILD_ZTUNNEL_PROFILE}"
+  fi
+  ZTUNNEL_BIN_PATH="out/rust/${ZTUNNEL_BIN_PATH}/ztunnel"
+
+  echo "Copying $(pwd)/${ZTUNNEL_BIN_PATH} to ${TARGET_OUT_LINUX}/ztunnel"
+  cp "${ZTUNNEL_BIN_PATH}" "${TARGET_OUT_LINUX}/ztunnel"
   popd
 }
 
