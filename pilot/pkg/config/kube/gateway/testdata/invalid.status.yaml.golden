@@ -12,6 +12,9 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  routabilities:
+  - Public
+  - Cluster
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -22,7 +25,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: Public
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
@@ -171,43 +175,15 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Resource accepted
-    reason: Accepted
-    status: "True"
+    message: only Hostname is supported, ignoring [1.2.3.4]
+    reason: UnsupportedAddress
+    status: "False"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: Only Hostname is supported,
-      ignoring [1.2.3.4]'
-    reason: Invalid
+    message: Failed to assign to any requested addresses
+    reason: UnsupportedAddress
     status: "False"
     type: Programmed
-  listeners:
-  - attachedRoutes: 0
-    conditions:
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
-      type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
-      type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    name: default
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway

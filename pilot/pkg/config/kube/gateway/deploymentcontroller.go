@@ -104,8 +104,14 @@ type classInfo struct {
 	description string
 	// The key in the templates to use for this class
 	templates string
-	// reportGatewayClassStatus, if enabled, will update the status when it is first created.
-	reportGatewayClassStatus bool
+
+	// routabilities sets all the allowed GatewayRoutability settings
+	routabilities []gateway.GatewayRoutability
+	// defaultRoutability sets the default GatewayRoutability if one is not explicit set
+	defaultRoutability gateway.GatewayRoutability
+
+	// disableRouteGeneration, if set, will make it so the controller ignores this class.
+	disableRouteGeneration bool
 }
 
 var classInfos = getClassInfos()
@@ -126,23 +132,32 @@ func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 func getClassInfos() map[gateway.GatewayController]classInfo {
 	m := map[gateway.GatewayController]classInfo{
 		constants.ManagedGatewayController: {
-			controller:  constants.ManagedGatewayController,
-			description: "The default Istio GatewayClass",
-			templates:   "kube-gateway",
+			controller:         constants.ManagedGatewayController,
+			description:        "The default Istio GatewayClass",
+			templates:          "kube-gateway",
+			defaultRoutability: gateway.GatewayRoutabilityPublic,
+			routabilities: []gateway.GatewayRoutability{
+				gateway.GatewayRoutabilityPublic,
+				gateway.GatewayRoutabilityCluster,
+			},
 		},
 		constants.UnmanagedGatewayController: {
 			// This represents a gateway that our control plane cannot discover directly via the API server.
 			// We shouldn't generate Istio resources for it. We aren't programming this gateway.
-			controller:  constants.UnmanagedGatewayController,
-			description: "Remote to this cluster. Does not deploy or affect configuration.",
+			controller:             constants.UnmanagedGatewayController,
+			description:            "Remote to this cluster. Does not deploy or affect configuration.",
+			disableRouteGeneration: true,
 		},
 	}
 	if features.EnableAmbientControllers {
 		m[constants.ManagedGatewayMeshController] = classInfo{
-			controller:               constants.ManagedGatewayMeshController,
-			description:              "The default Istio waypoint GatewayClass",
-			templates:                "waypoint",
-			reportGatewayClassStatus: true,
+			controller:         constants.ManagedGatewayMeshController,
+			description:        "The default Istio waypoint GatewayClass",
+			templates:          "waypoint",
+			defaultRoutability: gateway.GatewayRoutabilityCluster,
+			routabilities: []gateway.GatewayRoutability{
+				gateway.GatewayRoutabilityCluster,
+			},
 		}
 	}
 	return m
@@ -287,6 +302,11 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	return d.configureIstioGateway(log, *gw, ci)
 }
 
+var routeabilityToService = map[gateway.GatewayRoutability]corev1.ServiceType{
+	gateway.GatewayRoutabilityPublic:  corev1.ServiceTypeLoadBalancer,
+	gateway.GatewayRoutabilityCluster: corev1.ServiceTypeClusterIP,
+}
+
 func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway, gi classInfo) error {
 	// If user explicitly sets addresses, we are assuming they are pointing to an existing deployment.
 	// We will not manage it in this case
@@ -306,6 +326,20 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	log.Info("reconciling")
 
 	defaultName := getDefaultName(gw.Name, &gw.Spec)
+
+	routeability := gi.defaultRoutability
+	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.Routability != nil {
+		routeability = *gw.Spec.Infrastructure.Routability
+	}
+	serviceType, f := routeabilityToService[routeability]
+	if !f {
+		log.Debugf("skipping gateway which has unsupported routability type %v", routeability)
+		return nil
+	}
+	if o, f := gw.Annotations[serviceTypeOverride]; f {
+		serviceType = corev1.ServiceType(o)
+	}
+
 	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
@@ -314,6 +348,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		ClusterID:      d.clusterID.String(),
 		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
 		Revision:       d.revision,
+		ServiceType:    serviceType,
 	}
 
 	if overwriteControllerVersion {
@@ -504,6 +539,7 @@ type TemplateInput struct {
 	DeploymentName string
 	ServiceAccount string
 	Ports          []corev1.ServicePort
+	ServiceType    corev1.ServiceType
 	ClusterID      string
 	KubeVersion122 bool
 	Revision       string

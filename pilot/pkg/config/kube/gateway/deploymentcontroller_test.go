@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -196,6 +197,25 @@ func TestConfigureIstioGateway(t *testing.T) {
 						Name:     "mesh",
 						Port:     v1beta1.PortNumber(15008),
 						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+		},
+		{
+			name: "infrastructure",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: v1beta1.GatewaySpec{
+					GatewayClassName: defaultClassName,
+					Infrastructure:   &v1beta1.GatewayInfrastructure{Routability: ptr.Of(v1beta1.GatewayRoutabilityCluster)},
+					Listeners: []v1beta1.Listener{{
+						Name:     "http",
+						Port:     v1beta1.PortNumber(80),
+						Protocol: v1beta1.HTTPProtocolType,
 					}},
 				},
 			},

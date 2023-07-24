@@ -244,4 +244,8 @@ spec:
   {{- end }}
   selector:
     istio.io/gateway-name: "{{.Name}}"
+  {{- if and (.Spec.Addresses) (eq .ServiceType "LoadBalancer") }}
+  loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
+  {{- end }}
+  type: {{ .ServiceType | quote }}
 ---

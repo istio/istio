@@ -12,6 +12,9 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
+  routabilities:
+  - Public
+  - Cluster
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -22,7 +25,8 @@ metadata:
 spec: null
 status:
   addresses:
-  - type: IPAddress
+  - routability: Public
+    type: IPAddress
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
