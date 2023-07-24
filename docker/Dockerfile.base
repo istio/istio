@@ -1,4 +1,4 @@
-FROM ubuntu:focal
+FROM cr.loongnix.cn/library/debian:buster
 
 ENV DEBIAN_FRONTEND=noninteractive
 

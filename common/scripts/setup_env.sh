@@ -21,7 +21,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
+set -ex
 
 LOCAL_ARCH=$(uname -m)
 export LOCAL_ARCH
@@ -40,6 +40,8 @@ elif [[ ${LOCAL_ARCH} == s390x ]]; then
 ￼    export TARGET_ARCH=s390x
 elif [[ ${LOCAL_ARCH} == ppc64le ]]; then
     export TARGET_ARCH=ppc64le
+elif [[ ${LOCAL_ARCH} == loongarch64 ]]; then
+    export TARGET_ARCH=loong64
 else
     echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
     exit 1

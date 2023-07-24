@@ -25,7 +25,7 @@ export VERSION ?= 1.11-dev
 BASE_VERSION ?= 1.11-dev.6
 
 export GO111MODULE ?= on
-export GOPROXY ?= https://proxy.golang.org
+export GOPROXY ?= https://goproxy.cn
 export GOSUMDB ?= sum.golang.org
 
 # If GOPATH is not set by the env, set it to a sane value
@@ -72,7 +72,7 @@ export ISTIO_BIN=$(GOBIN)
 
 export ISTIO_OUT:=$(TARGET_OUT)
 export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
-
+#TARGET_OUT_LINUX = out/linux_loong64
 # LOCAL_OUT should point to architecture where we are currently running versus the desired.
 # This is used when we need to run a build artifact during tests or later as part of another
 # target. If we are running in the Linux build container on non Linux hosts, we add the
@@ -129,11 +129,9 @@ export SIDECAR ?= envoy
 # OS-neutral vars. These currently only work for linux.
 export ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 export ISTIO_ENVOY_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
-export ISTIO_ENVOY_CENTOS_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-centos-debug-$(ISTIO_ENVOY_VERSION).tar.gz
-export ISTIO_ENVOY_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
-export ISTIO_ENVOY_CENTOS_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-centos-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
+export ISTIO_ENVOY_RELEASE_URL ?= https://github.com/Loongson-Cloud-Community/envoy/releases/download/v1.15.0/envoy-1.15.0-linux-loongarch64
 
-# Envoy Linux vars.
+# Envoy Linux vars. Delete Centos Var
 export ISTIO_ENVOY_LINUX_VERSION ?= ${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_LINUX_DEBUG_URL ?= ${ISTIO_ENVOY_DEBUG_URL}
 export ISTIO_ENVOY_LINUX_RELEASE_URL ?= ${ISTIO_ENVOY_RELEASE_URL}
@@ -141,14 +139,10 @@ export ISTIO_ENVOY_LINUX_RELEASE_URL ?= ${ISTIO_ENVOY_RELEASE_URL}
 export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${TARGET_OUT_LINUX}/debug
 export ISTIO_ENVOY_LINUX_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}
 export ISTIO_ENVOY_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}
-export ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME ?= envoy-centos-debug-${ISTIO_ENVOY_LINUX_VERSION}
-export ISTIO_ENVOY_CENTOS_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME}
 
 export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${TARGET_OUT_LINUX}/release
 export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= ${SIDECAR}-${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}
-export ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME ?= envoy-centos-${ISTIO_ENVOY_LINUX_VERSION}
-export ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME}
 
 # Envoy macOS vars.
 # TODO Change url when official envoy release for macOS is available
@@ -227,6 +221,11 @@ init: $(ISTIO_OUT)/istio_is_init
 $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
 	@# Add a retry, as occasionally we see transient connection failures to GCS
 	@# Like `curl: (56) OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 104`
+	#if [ ! -d $(ISTIO_OUT)/release ]; then
+	mkdir -p $(ISTIO_OUT)/release
+	#touch $(ISTIO_OUT)/release/envoy-9a976952980250ed356ebdd4f94e219e28a041dd
+	wget -O $(ISTIO_OUT)/release/envoy-9a976952980250ed356ebdd4f94e219e28a041dd https://github.com/Loongson-Cloud-Community/envoy/releases/download/v1.15.0/envoy-1.15.0-linux-loongarch64
+	#fi
 	ISTIO_OUT=$(ISTIO_OUT) ISTIO_BIN=$(ISTIO_BIN) GOOS_LOCAL=$(GOOS_LOCAL) bin/retry.sh SSL_ERROR_SYSCALL bin/init.sh
 	touch $(ISTIO_OUT)/istio_is_init
 

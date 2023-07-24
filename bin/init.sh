@@ -68,7 +68,7 @@ function download_envoy_if_necessary () {
 
     # Download and extract the binary to the output directory.
     echo "Downloading ${SIDECAR}: $1 to $2"
-    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" | tar xz
+    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1"
 
     # Copy the extracted binary to the output location
     cp usr/local/bin/"${SIDECAR}" "$2"
@@ -124,7 +124,6 @@ fi
 
 # Download and extract the Envoy linux release binary.
 download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH" "${SIDECAR}"
-download_envoy_if_necessary "${ISTIO_ENVOY_CENTOS_RELEASE_URL}" "$ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH" "${SIDECAR}-centos"
 
 if [[ "$GOOS_LOCAL" == "darwin" ]]; then
   # Download and extract the Envoy macOS release binary
@@ -148,9 +147,6 @@ done
 echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/${SIDECAR}"
 cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/${SIDECAR}"
 
-# Copy CentOS binary
-echo "Copying ${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH} to ${ISTIO_OUT_LINUX}/${SIDECAR}-centos"
-cp -f "${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH}" "${ISTIO_OUT_LINUX}/${SIDECAR}-centos"
 
 # Copy the envoy binary to ISTIO_OUT_LINUX if the local OS is not Linux
 if [[ "$GOOS_LOCAL" != "linux" ]]; then

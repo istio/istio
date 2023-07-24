@@ -19,7 +19,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SHELL := /bin/bash
+SHELL := /bin/bash -x
 
 # allow optional per-repo overrides
 -include Makefile.overrides.mk
@@ -28,7 +28,7 @@ SHELL := /bin/bash
 # to build the repo. The only dependencies in this mode are to have make and
 # docker. If you'd rather build with a local tool chain instead, you'll need to
 # figure out all the tools you need in your environment to make that work.
-export BUILD_WITH_CONTAINER ?= 0
+export BUILD_WITH_CONTAINER := 0
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
 
@@ -50,6 +50,7 @@ default:
 
 shell:
 	@$(RUN) /bin/bash
+
 
 .PHONY: default shell
 

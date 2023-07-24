@@ -1,22 +1,22 @@
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
-ARG BASE_DISTRIBUTION=default
+#ARG BASE_DISTRIBUTION=default
 
 # Version is the base image version from the TLD Makefile
-ARG BASE_VERSION=latest
+#ARG BASE_VERSION=latest
 
 # The following section is used as base image if BASE_DISTRIBUTION=default
-FROM gcr.io/istio-release/base:${BASE_VERSION} as default
+#FROM gcr.io/istio-release/base:${BASE_VERSION} as default
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 # This image is a custom built debian10 distroless image with multiarchitecture support.
 # It is built on the base distroless image, with iptables binary and libraries added
 # The source can be found at https://github.com/istio/distroless/tree/iptables
-FROM gcr.io/istio-release/iptables@sha256:e8f940d0d0163ec4563ee070188c1d97308ac08f4a711152ff55f3a81e525140 as distroless
+#FROM gcr.io/istio-release/iptables@sha256:e8f940d0d0163ec4563ee070188c1d97308ac08f4a711152ff55f3a81e525140 as distroless
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
-FROM ${BASE_DISTRIBUTION}
-
+#FROM ${BASE_DISTRIBUTION}
+FROM cr.loongnix.cn/library/istio:0.1.0-base
 WORKDIR /
 
 ARG proxy_version
@@ -29,7 +29,8 @@ COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 # Install Envoy.
 ARG TARGETARCH
-COPY ${TARGETARCH:-amd64}/${SIDECAR} /usr/local/bin/${SIDECAR}
+#COPY ${TARGETARCH:-linux_loong64}/${SIDECAR} /usr/local/bin/${SIDECAR}
+COPY envoy /usr/local/bin/${SIDECAR}
 
 # Environment variable indicating the exact proxy sha - for debugging or version-specific configs 
 ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
@@ -37,7 +38,9 @@ ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
 ENV ISTIO_META_ISTIO_VERSION $istio_version
 
 ARG TARGETARCH
-COPY ${TARGETARCH:-amd64}/pilot-agent /usr/local/bin/pilot-agent
+#COPY ${TARGETARCH:-loong64}/pilot-agent /usr/local/bin/pilot-agent
+COPY pilot-agent /usr/local/bin/pilot-agent
+
 
 COPY stats-filter.wasm /etc/istio/extensions/stats-filter.wasm
 COPY stats-filter.compiled.wasm /etc/istio/extensions/stats-filter.compiled.wasm

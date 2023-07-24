@@ -35,10 +35,10 @@ SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 OUT=${1:?"output path"}
 shift
 
-set -e
+set -ex
 
 BUILD_GOOS=${GOOS:-linux}
-BUILD_GOARCH=${GOARCH:-amd64}
+BUILD_GOARCH=${GOARCH:-loong64}
 GOBINARY=${GOBINARY:-go}
 GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
@@ -72,7 +72,7 @@ done < "${BUILDINFO}"
 
 # verify go version before build
 # NB. this was copied verbatim from Kubernetes hack
-minimum_go_version=go1.13 # supported patterns: go1.x, go1.x.x (x should be a number)
+minimum_go_version=go1.19 # supported patterns: go1.x, go1.x.x (x should be a number)
 IFS=" " read -ra go_version <<< "$(${GOBINARY} version)"
 if [[ "${minimum_go_version}" != $(echo -e "${minimum_go_version}\n${go_version[2]}" | sort -s -t. -k 1,1 -k 2,2n -k 3,3n | head -n1) && "${go_version[2]}" != "devel" ]]; then
     echo "Warning: Detected that you are using an older version of the Go compiler. Istio requires ${minimum_go_version} or greater."
