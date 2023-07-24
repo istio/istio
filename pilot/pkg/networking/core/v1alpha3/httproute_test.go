@@ -1585,11 +1585,11 @@ func TestSelectVirtualService(t *testing.T) {
 		servicesByName)
 	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name}
 	if len(expectedVS) != len(configs) {
-		t.Fatalf("Unexpected virtualService, got %d, epxected %d", len(configs), len(expectedVS))
+		t.Fatalf("Unexpected virtualService, got %d, expected %d", len(configs), len(expectedVS))
 	}
 	for i, config := range configs {
 		if config.Name != expectedVS[i] {
-			t.Fatalf("Unexpected virtualService, got %s, epxected %s", config.Name, expectedVS[i])
+			t.Fatalf("Unexpected virtualService, got %s, expected %s", config.Name, expectedVS[i])
 		}
 	}
 }

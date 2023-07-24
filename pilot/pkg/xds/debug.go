@@ -706,7 +706,7 @@ func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *mod
 				case v3.ExtensionConfigurationType:
 					tce := &core.TypedExtensionConfig{}
 					if err := rr.GetResource().UnmarshalTo(tce); err != nil {
-						istiolog.Warnf("failed to unmarshal extenstion: %v", err)
+						istiolog.Warnf("failed to unmarshal extension: %v", err)
 						continue
 					}
 

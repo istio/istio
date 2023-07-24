@@ -126,7 +126,7 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 
 	for _, con := range sg.Server.Clients() {
 		con.proxy.RLock()
-		// Skip "nodes" without metdata (they are probably istioctl queries!)
+		// Skip "nodes" without metadata (they are probably istioctl queries!)
 		if isProxy(con) || isZtunnel(con) {
 			xdsConfigs := make([]*status.ClientConfig_GenericXdsConfig, 0)
 			for _, stype := range stypes {

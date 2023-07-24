@@ -72,7 +72,7 @@ spec:
 func TestServiceEntry(t *testing.T) {
 	cases := []simulationTest{
 		{
-			name:       "identical CIDR (ignoreing insignificant bits) is dropped",
+			name:       "identical CIDR (ignoring insignificant bits) is dropped",
 			config:     fmt.Sprintf(se, "1234:1f1:123:123:f816:3eff:feb8:2287/32", "1234:1f1:123:123:f816:3eff:febf:57ce/32"),
 			kubeConfig: "",
 			calls: []simulation.Expect{{

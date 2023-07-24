@@ -553,7 +553,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		services := s.services.getServices(seNamespacedName)
 		currInstance := convertWorkloadInstanceToServiceInstance(wi, services, se)
 
-		// We chech if the wi is still a subset of se. This would cover Case 1 and Case 2 from above.
+		// We check if the wi is still a subset of se. This would cover Case 1 and Case 2 from above.
 		if labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels) {
 			// If the workload instance still matches. We take care of the possible events.
 			instances = append(instances, currInstance...)
@@ -726,7 +726,7 @@ func (s *Controller) edsUpdate(instances []*model.ServiceInstance) {
 	s.queueEdsEvent(keys, s.doEdsUpdate)
 }
 
-// edsCacheUpdate upates eds cache serially such that we can prevent allinstances
+// edsCacheUpdate updates eds cache serially such that we can prevent allinstances
 // got at t1 can accidentally override that got at t2 if multiple threads are
 // running this function. Queueing ensures latest updated wins.
 func (s *Controller) edsCacheUpdate(instances []*model.ServiceInstance) {

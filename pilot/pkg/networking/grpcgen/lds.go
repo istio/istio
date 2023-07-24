@@ -151,7 +151,7 @@ func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *mo
 		mode = model.MTLSDisable
 	}
 	if mode == model.MTLSPermissive {
-		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
+		// TODO gRPC's filter chain match is super limited - only effective transport_protocol match is "raw_buffer"
 		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
 		// No need to warn on each push - the behavior is still consistent with auto-mtls, which is the
 		// replacement for permissive.
@@ -241,7 +241,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 
 // buildRBAC builds the RBAC config expected by gRPC.
 //
-// See: xds/interal/httpfilter/rbac
+// See: xds/internal/httpfilter/rbac
 //
 // TODO: gRPC also supports 'per route override' - not yet clear how to use it, Istio uses path expressions instead and we don't generate
 // vhosts or routes for the inbound listener.
