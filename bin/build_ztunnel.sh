@@ -117,6 +117,7 @@ function maybe_build_ztunnel() {
   ZTUNNEL_BIN_PATH="out/rust/${ZTUNNEL_BIN_PATH}/ztunnel"
 
   echo "Copying $(pwd)/${ZTUNNEL_BIN_PATH} to ${TARGET_OUT_LINUX}/ztunnel"
+  mkdir -p "${ISTIO_ZTUNNEL_LINUX_DEBUG_DIR}"
   cp "${ZTUNNEL_BIN_PATH}" "${TARGET_OUT_LINUX}/ztunnel"
   popd
 }
