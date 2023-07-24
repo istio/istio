@@ -55,7 +55,6 @@ This will regenerate the Go structs used for schema validation.
 ## Step 4. Update the generated manifests
 
 Tests of istioctl use the auto-generated manifests to ensure that the istioctl binary has the correct version of the charts.
-These manifests can be found in [gen-istio.yaml](../charts/istio-control/istio-discovery/files/gen-istio.yaml).
 To regenerate the manifests, run:
 
 ```bash

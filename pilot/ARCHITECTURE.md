@@ -190,7 +190,7 @@ In Istio, we use the term a bit more liberally. Istio controllers watch more tha
 
 Istio provides a few helper libraries to get started writing a controller. While these libraries help, there are still a lot of subtleties in correctly writing (and testing!) a controller properly.
 
-To get started writing a controller, review the [Example Controller](pkg/kube/controllers/example_test.go).
+To get started writing a controller, review the [Example Controller](../pkg/kube/controllers/example_test.go).
 
 ### Controllers overview
 
