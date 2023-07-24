@@ -146,6 +146,7 @@ spec:
       requests:
         cpu: 100m
         memory: 128Mi
+    restartPolicy: Always
     securityContext:
       allowPrivilegeEscalation: false
       capabilities:
@@ -191,6 +192,7 @@ spec:
         path: /app-health/other-sidecar/readyz
         port: 15020
     resources: {}
+    restartPolicy: Always
   volumes:
   - name: workload-socket
   - name: credential-socket

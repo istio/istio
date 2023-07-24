@@ -75,13 +75,16 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Instance, ga
 }
 
 // Select the config pertaining to the service being processed.
-func getConfigsForHost(hostname host.Name, configs []config.Config) []config.Config {
+func getConfigsForHost(filterNamespace string, hostname host.Name, configs []config.Config) []config.Config {
 	svcConfigs := make([]config.Config, 0)
-	for index := range configs {
-		virtualService := configs[index].Spec.(*v1alpha3.VirtualService)
+	for _, cfg := range configs {
+		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
+			if filterNamespace != "" && filterNamespace != cfg.Namespace {
+				continue
+			}
 			if host.Name(vsHost).Matches(hostname) {
-				svcConfigs = append(svcConfigs, configs[index])
+				svcConfigs = append(svcConfigs, cfg)
 				break
 			}
 		}
@@ -341,7 +344,9 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.Pu
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []config.Config
 	if service != nil {
-		svcConfigs = getConfigsForHost(service.Hostname, configs)
+		// Do not filter namespace for now.
+		// TODO(https://github.com/istio/istio/issues/46146) we may need to, or something more sophisticated
+		svcConfigs = getConfigsForHost("", service.Hostname, configs)
 	} else {
 		svcConfigs = configs
 	}

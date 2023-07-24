@@ -499,19 +499,26 @@ func sortHTTPRoutes(routes []*istio.HTTPRoute) {
 		} else if len(routes[j].Match) == 0 {
 			return true
 		}
+		// Only look at match[0], we always generate only one match
 		m1, m2 := routes[i].Match[0], routes[j].Match[0]
 		r1, r2 := getURIRank(m1), getURIRank(m2)
 		len1, len2 := getURILength(m1), getURILength(m2)
-		if r1 == r2 {
-			if len1 == len2 {
-				if len(m1.Headers) == len(m2.Headers) {
-					return len(m1.QueryParams) > len(m2.QueryParams)
-				}
-				return len(m1.Headers) > len(m2.Headers)
-			}
+		switch {
+		// 1: Exact/Prefix/Regex
+		case r1 != r2:
+			return r1 > r2
+		case len1 != len2:
 			return len1 > len2
+			// 2: method math
+		case (m1.Method == nil) != (m2.Method == nil):
+			return m1.Method != nil
+			// 3: number of header matches
+		case len(m1.Headers) != len(m2.Headers):
+			return len(m1.Headers) > len(m2.Headers)
+			// 4: number of query matches
+		default:
+			return len(m1.QueryParams) > len(m2.QueryParams)
 		}
-		return r1 > r2
 	})
 }
 
@@ -1698,9 +1705,9 @@ func reportGatewayStatus(
 				}
 			}
 		}
-		gs.Addresses = make([]k8s.GatewayAddress, 0, len(addressesToReport))
+		gs.Addresses = make([]k8sbeta.GatewayStatusAddress, 0, len(addressesToReport))
 		for _, addr := range addressesToReport {
-			gs.Addresses = append(gs.Addresses, k8s.GatewayAddress{
+			gs.Addresses = append(gs.Addresses, k8sbeta.GatewayStatusAddress{
 				Type:  &addrType,
 				Value: addr,
 			})
