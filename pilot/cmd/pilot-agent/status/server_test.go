@@ -59,7 +59,7 @@ type handler struct {
 const (
 	testHeader      = "Some-Header"
 	testHeaderValue = "some-value"
-	testHostValue   = "host"
+	testHostValue   = "test.com"
 )
 
 var liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\nlistener_manager.workers_started: 1"
@@ -693,9 +693,9 @@ func TestAppProbe(t *testing.T) {
 					HTTPGet: &apimirror.HTTPGetAction{
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
-						Host: testHostValue,
 						HTTPHeaders: []apimirror.HTTPHeader{
 							{Name: testHeader, Value: testHeaderValue},
+							{Name: "Host", Value: testHostValue},
 						},
 					},
 				},
@@ -853,6 +853,10 @@ func TestAppProbe(t *testing.T) {
 				}
 			}
 		}
+		if host := req.Header.Get("Host"); host != "" {
+			req.Host = host
+		}
+
 		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatal("request failed: ", err)
