@@ -394,7 +394,7 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.WithoutHeaders[k] = v
 	}
 	// queryparams
-	if len(root.QueryParams) > 0 && len(out.QueryParams) > 0 {
+	if len(root.QueryParams) > 0 && len(out.QueryParams) == 0 {
 		out.QueryParams = make(map[string]*networking.StringMatch)
 	}
 	for k, v := range root.QueryParams {
