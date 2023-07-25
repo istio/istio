@@ -34,17 +34,17 @@ import (
 var (
 	scope = log.RegisterScope("validation", "API validation")
 
-	// alphaNumericRegexp defines the alpha numeric atom, typically a
+	// alphaNumericRegexp defines the alphanumeric atom, typically a
 	// component of names. This only allows lower case characters and digits.
 	alphaNumericRegexp = match(`[a-z0-9]+`)
 
 	// separatorRegexp defines the separators allowed to be embedded in name
-	// components. This allow one period, one or two underscore and multiple
+	// components. This allows one period, one or two underscore and multiple
 	// dashes.
 	separatorRegexp = match(`(?:[._]|__|[-]*)`)
 
 	// nameComponentRegexp restricts registry path component names to start
-	// with at least one letter or number, with following parts able to be
+	// with at least one letter or number, with the following parts able to be
 	// separated by one period, one or two underscore and multiple dashes.
 	nameComponentRegexp = expression(
 		alphaNumericRegexp,
@@ -71,7 +71,7 @@ var (
 	DigestRegexp = match(`[A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}`)
 
 	// NameRegexp is the format for the name component of references. The
-	// regexp has capturing groups for the domain and name part omitting
+	// regexp has captured groups for the domain and name part omitting
 	// the separating forward slash from either.
 	NameRegexp = expression(
 		optional(DomainRegexp, literal(`/`)),
@@ -202,7 +202,7 @@ func printError(err error) {
 	scope.Debugf("%v", err)
 }
 
-// logWithError prints debug log with err message
+// logWithError prints debug log with an error message
 func logWithError(err error, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	if err == nil {
@@ -269,7 +269,7 @@ func anchored(res ...*regexp.Regexp) *regexp.Regexp {
 // ValidatorFunc validates a value.
 type ValidatorFunc func(path util.Path, i any) util.Errors
 
-// UnmarshalIOP unmarshals a string containing IstioOperator as YAML.
+// UnmarshalIOP unmarshal a string containing IstioOperator as YAML.
 func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 	// Remove creationDate (util.UnmarshalWithJSONPB fails if present)
 	mapIOP := make(map[string]any)
@@ -297,12 +297,12 @@ func ValidIOP(iop *v1alpha1.IstioOperator) error {
 	return errs.ToError()
 }
 
-// compose path for slice s with index i
+// compose a path for slice s with index i
 func indexPathForSlice(s string, i int) string {
 	return fmt.Sprintf("%s[%d]", s, i)
 }
 
-// get validation function for specified path
+// get validation function for a specified path
 func getValidationFuncForPath(validations map[string]ValidatorFunc, path util.Path) (ValidatorFunc, bool) {
 	pstr := path.String()
 	// fast match
