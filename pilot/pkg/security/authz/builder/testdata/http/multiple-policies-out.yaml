@@ -156,9 +156,11 @@ typedConfig:
             - orIds:
                 ids:
                 - header:
-                    exactMatch: abc1
                     name: X-abc
+                    safeRegexMatch:
+                      regex: ^abc1$|^abc1,.*|.*,abc1,.*|.*,abc1$
                 - header:
-                    exactMatch: abc2
                     name: X-abc
+                    safeRegexMatch:
+                      regex: ^abc2$|^abc2,.*|.*,abc2,.*|.*,abc2$
   shadowRulesStatPrefix: istio_dry_run_allow_

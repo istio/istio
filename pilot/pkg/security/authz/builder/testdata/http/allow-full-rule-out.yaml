@@ -418,14 +418,17 @@ typedConfig:
             - orIds:
                 ids:
                 - header:
-                    exactMatch: header
                     name: X-header
+                    safeRegexMatch:
+                      regex: ^header$|^header,.*|.*,header,.*|.*,header$
                 - header:
                     name: X-header
-                    prefixMatch: header-prefix-
+                    safeRegexMatch:
+                      regex: ^header-prefix-.*$|^header-prefix-.*,.*|.*,header-prefix-.*,.*|.*,header-prefix-.*$
                 - header:
                     name: X-header
-                    suffixMatch: -suffix-header
+                    safeRegexMatch:
+                      regex: ^.*-suffix-header$|^.*-suffix-header,.*|.*,.*-suffix-header,.*|.*,.*-suffix-header$
                 - header:
                     name: X-header
                     presentMatch: true
@@ -433,14 +436,17 @@ typedConfig:
                 orIds:
                   ids:
                   - header:
-                      exactMatch: not-header
                       name: X-header
+                      safeRegexMatch:
+                        regex: ^not-header$|^not-header,.*|.*,not-header,.*|.*,not-header$
                   - header:
                       name: X-header
-                      prefixMatch: not-header-prefix-
+                      safeRegexMatch:
+                        regex: ^not-header-prefix-.*$|^not-header-prefix-.*,.*|.*,not-header-prefix-.*,.*|.*,not-header-prefix-.*$
                   - header:
                       name: X-header
-                      suffixMatch: -not-suffix-header
+                      safeRegexMatch:
+                        regex: ^.*-not-suffix-header$|^.*-not-suffix-header,.*|.*,.*-not-suffix-header,.*|.*,.*-not-suffix-header$
                   - header:
                       name: X-header
                       presentMatch: true
