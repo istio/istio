@@ -185,7 +185,7 @@ func BuildAddress(bind string, port uint32) *core.Address {
 // BuildAdditionalAddresses can add extra addresses to additional addresses for a listener
 func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *model.Proxy) []*listener.AdditionalAddress {
 	var additionalAddresses []*listener.AdditionalAddress
-	if len(extrAddresses) > 0 && IsIstioVersionGE116(node.IstioVersion) {
+	if len(extrAddresses) > 0 {
 		for _, exbd := range extrAddresses {
 			if exbd == "" {
 				continue
@@ -227,12 +227,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
-}
-
-// IsIstioVersionGE116 checks whether the given Istio version is greater than or equals 1.16.
-func IsIstioVersionGE116(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 16, Patch: -1}) >= 0
 }
 
 // IsIstioVersionGE117 checks whether the given Istio version is greater than or equals 1.17.
@@ -470,7 +464,7 @@ func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetada
 	// Add compressed telemetry metadata. Note this is a short term solution to make server workload metadata
 	// available at client sidecar, so that telemetry filter could use for metric labels. This is useful for two cases:
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
-	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
+	// Due to performance concern, telemetry metadata is compressed into a semicolon separated string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
 	if features.EndpointTelemetryLabel {
 		// allow defaulting for non-injected cases

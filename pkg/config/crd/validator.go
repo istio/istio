@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/kube-openapi/pkg/validation/validate"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test"
@@ -42,7 +41,7 @@ import (
 // Validator returns a new validator for custom resources
 // Warning: this is meant for usage in tests only
 type Validator struct {
-	byGvk      map[schema.GroupVersionKind]*validate.SchemaValidator
+	byGvk      map[schema.GroupVersionKind]validation.SchemaCreateValidator
 	structural map[schema.GroupVersionKind]*structuralschema.Structural
 	// If enabled, resources without a validator will be ignored. Otherwise, they will fail.
 	SkipMissing bool
@@ -146,7 +145,7 @@ func NewValidatorFromFiles(files ...string) (*Validator, error) {
 
 func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Validator, error) {
 	v := &Validator{
-		byGvk:      map[schema.GroupVersionKind]*validate.SchemaValidator{},
+		byGvk:      map[schema.GroupVersionKind]validation.SchemaCreateValidator{},
 		structural: map[schema.GroupVersionKind]*structuralschema.Structural{},
 	}
 	for _, crd := range crds {
@@ -168,7 +167,7 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 				return nil, fmt.Errorf("crd did not have validation defined")
 			}
 
-			schemaValidator, _, err := validation.NewSchemaValidator(crdSchema)
+			schemaValidator, _, err := validation.NewSchemaValidator(crdSchema.OpenAPIV3Schema)
 			if err != nil {
 				return nil, err
 			}

@@ -183,6 +183,11 @@ type Config struct {
 	// EgressGatewayIstioLabel allows overriding the selector of the egressgateway service (defaults to istio=egressgateway)
 	// This field should only be set when DeployIstio is false
 	EgressGatewayIstioLabel string
+
+	// SharedMeshConfigName is the name of the user's local ConfigMap to be patched, which the user sets as the SHARED_MESH_CONFIG pilot env variable
+	// upon installing Istio.
+	// This field should only be set when DeployIstio is false.
+	SharedMeshConfigName string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {
@@ -353,10 +358,11 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("EnableCNI:                      %v\n", c.EnableCNI)
 	result += fmt.Sprintf("IngressGatewayServiceName:      %v\n", c.IngressGatewayServiceName)
 	result += fmt.Sprintf("IngressGatewayServiceNamespace: %v\n", c.IngressGatewayServiceNamespace)
-	result += fmt.Sprintf("IngressGatewayIstioLabel:     	 %v\n", c.IngressGatewayIstioLabel)
-	result += fmt.Sprintf("EgressGatewayServiceName:      %v\n", c.EgressGatewayServiceName)
-	result += fmt.Sprintf("EressGatewayServiceNamespace: %v\n", c.EgressGatewayServiceNamespace)
-	result += fmt.Sprintf("EgressGatewayIstioLabel:     	 %v\n", c.EgressGatewayIstioLabel)
+	result += fmt.Sprintf("IngressGatewayIstioLabel:       %v\n", c.IngressGatewayIstioLabel)
+	result += fmt.Sprintf("EgressGatewayServiceName:       %v\n", c.EgressGatewayServiceName)
+	result += fmt.Sprintf("EressGatewayServiceNamespace:   %v\n", c.EgressGatewayServiceNamespace)
+	result += fmt.Sprintf("EgressGatewayIstioLabel:        %v\n", c.EgressGatewayIstioLabel)
+	result += fmt.Sprintf("SharedMeshConfigName:           %v\n", c.SharedMeshConfigName)
 
 	return result
 }

@@ -29,7 +29,7 @@ type Probe struct {
 	LocalHostAddr       string
 	AdminPort           uint16
 	receivedFirstUpdate bool
-	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
+	// Indicates that Envoy is ready at least once so that we can cache and reuse that probe.
 	atleastOnceReady bool
 	Context          context.Context
 	// NoEnvoy so we only check config status

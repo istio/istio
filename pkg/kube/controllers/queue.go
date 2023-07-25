@@ -200,14 +200,21 @@ func (q Queue) WaitForClose(timeout time.Duration) error {
 }
 
 func formatKey(key any) string {
+	if t, ok := key.(types.NamespacedName); ok {
+		if len(t.Namespace) > 0 {
+			return t.String()
+		}
+		// because we use namespacedName for non namespace scope resource as well
+		return t.Name
+	}
 	if t, ok := key.(Event); ok {
 		key = t.Latest()
 	}
-	if t, ok := key.(types.NamespacedName); ok {
-		return t.String()
-	}
 	if t, ok := key.(Object); ok {
-		return t.GetNamespace() + "/" + t.GetName()
+		if len(t.GetNamespace()) > 0 {
+			return t.GetNamespace() + "/" + t.GetName()
+		}
+		return t.GetName()
 	}
 	res := fmt.Sprint(key)
 	if len(res) >= 50 {

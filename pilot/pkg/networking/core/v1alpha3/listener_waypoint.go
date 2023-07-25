@@ -410,7 +410,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	if svc == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
-	vss := getConfigsForHost(svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+	vss := getConfigsForHost(lb.node.ConfigNamespace, svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 	if len(vss) == 0 {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}

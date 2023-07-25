@@ -75,7 +75,7 @@
       }
     },
     "replicaCount": {
-      "type": "integer"
+      "type": [ "integer", "null" ]
     },
     "resources": {
       "type": "object",

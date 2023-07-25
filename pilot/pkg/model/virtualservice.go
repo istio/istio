@@ -515,7 +515,7 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 			return true
 		}
 	}
-	// If delgate regex match is specified, root should not have other matches.
+	// If delegate regex match is specified, root should not have other matches.
 	if leaf.GetRegex() != "" {
 		if root.GetRegex() != "" || root.GetPrefix() != "" || root.GetExact() != "" {
 			return true

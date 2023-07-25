@@ -674,6 +674,9 @@ var (
 	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
 		"If enabled, pilot will only rebuild config for resources that have changed").Get()
 
+	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
+		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
+
 	JwksResolverInsecureSkipVerify = env.Register("JWKS_RESOLVER_INSECURE_SKIP_VERIFY", false,
 		"If enabled, istiod will skip verifying the certificate of the JWKS server.").Get()
 )

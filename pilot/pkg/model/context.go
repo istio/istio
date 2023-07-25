@@ -1083,7 +1083,7 @@ func ParseIstioVersion(ver string) *IstioVersion {
 	}
 
 	parts := strings.Split(ver, ".")
-	// we are guaranteed to have atleast major and minor based on the regex
+	// we are guaranteed to have at least major and minor based on the regex
 	major, _ := strconv.Atoi(parts[0])
 	minor, _ := strconv.Atoi(parts[1])
 	// Assume very large patch release if not set
@@ -1231,7 +1231,7 @@ func IsPrivilegedPort(port uint32) bool {
 }
 
 func (node *Proxy) IsVM() bool {
-	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
+	// TODO use node metadata to indicate that this is a VM instead of the TestVMLabel
 	return node.Metadata.Labels[constants.TestVMLabel] != ""
 }
 
@@ -1247,6 +1247,34 @@ func (node *Proxy) GetNodeName() string {
 	// this can happen for an "old" proxy with no `Metadata.NodeName` set
 	// TODO: remove this when 1.16 is EOL?
 	return node.Labels[label.LabelHostname]
+}
+
+func (node *Proxy) GetClusterID() cluster.ID {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.ClusterID
+}
+
+func (node *Proxy) GetNamespace() string {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.Namespace
+}
+
+func (node *Proxy) GetIstioVersion() string {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.IstioVersion
+}
+
+func (node *Proxy) GetID() string {
+	if node == nil {
+		return ""
+	}
+	return node.ID
 }
 
 func (node *Proxy) FuzzValidate() bool {
