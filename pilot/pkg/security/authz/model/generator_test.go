@@ -27,7 +27,7 @@ import (
 
 func TestGenerator(t *testing.T) {
 	cases := []struct {
-		name   stringgit
+		name   string
 		g      generator
 		key    string
 		value  string
