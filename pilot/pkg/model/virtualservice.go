@@ -380,33 +380,24 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.Authority = root.Authority
 	}
 	// headers
-	if len(root.Headers) > 0 || len(delegate.Headers) > 0 {
+	if len(root.Headers) > 0 && len(out.Headers) == 0 {
 		out.Headers = make(map[string]*networking.StringMatch)
 	}
 	for k, v := range root.Headers {
 		out.Headers[k] = v
 	}
-	for k, v := range delegate.Headers {
-		out.Headers[k] = v
-	}
 	// withoutheaders
-	if len(root.WithoutHeaders) > 0 || len(delegate.WithoutHeaders) > 0 {
+	if len(root.WithoutHeaders) > 0 && len(out.WithoutHeaders) == 0 {
 		out.WithoutHeaders = make(map[string]*networking.StringMatch)
 	}
 	for k, v := range root.WithoutHeaders {
 		out.WithoutHeaders[k] = v
 	}
-	for k, v := range delegate.WithoutHeaders {
-		out.WithoutHeaders[k] = v
-	}
 	// queryparams
-	if len(root.QueryParams) > 0 || len(delegate.QueryParams) > 0 {
+	if len(root.QueryParams) > 0 && len(out.QueryParams) > 0 {
 		out.QueryParams = make(map[string]*networking.StringMatch)
 	}
 	for k, v := range root.QueryParams {
-		out.QueryParams[k] = v
-	}
-	for k, v := range delegate.QueryParams {
 		out.QueryParams[k] = v
 	}
 
@@ -415,13 +406,10 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 	}
 
 	// SourceLabels
-	if len(root.SourceLabels) > 0 || len(delegate.SourceLabels) > 0 {
+	if len(root.SourceLabels) > 0 && len(out.SourceLabels) == 0 {
 		out.SourceLabels = make(map[string]string)
 	}
 	for k, v := range root.SourceLabels {
-		out.SourceLabels[k] = v
-	}
-	for k, v := range delegate.SourceLabels {
 		out.SourceLabels[k] = v
 	}
 

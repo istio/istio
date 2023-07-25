@@ -1249,7 +1249,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			},
 		},
 		{
-			name: "headers",
+			name: "headers conflict",
 			root: []*networking.HTTPMatchRequest{
 				{
 					Headers: map[string]*networking.StringMatch{
@@ -1484,6 +1484,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			tc.delegate = config.DeepCopy(tc.delegate).([]*networking.HTTPMatchRequest)
 			got, _ := mergeHTTPMatchRequests(tc.root, tc.delegate)
 			assert.Equal(t, got, tc.expected)
 		})
