@@ -906,13 +906,18 @@ func printIngressInfo(
 	pod := pods.Items[0]
 
 	// Currently no support for non-standard gateways selecting non ingressgateway pods
-	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: "istio=ingressgateway",
-	})
+	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return multierror.Prefix(err, "Could not find ingress gateway service")
 	}
-	if len(ingressSvcs.Items) == 0 {
+	filteredIngressSvcs := []corev1.Service{}
+	for _, svc := range ingressSvcs.Items {
+		svc := svc
+		if v, ok := svc.Spec.Selector["istio"]; ok && v == "ingressgateway" {
+			filteredIngressSvcs = append(filteredIngressSvcs, svc)
+		}
+	}
+	if len(filteredIngressSvcs) == 0 {
 		return fmt.Errorf("no ingress gateway service")
 	}
 	byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump")
@@ -926,7 +931,7 @@ func printIngressInfo(
 		return fmt.Errorf("can't parse ingress gateway sidecar config_dump: %v", err)
 	}
 
-	ipIngress := getIngressIP(ingressSvcs.Items[0], pod)
+	ipIngress := getIngressIP(filteredIngressSvcs[0], pod)
 
 	for row, svc := range matchingServices {
 		for _, port := range svc.Spec.Ports {
@@ -955,7 +960,7 @@ func printIngressInfo(
 						fmt.Fprintf(writer, "--------------------\n")
 					}
 
-					printIngressService(writer, &ingressSvcs.Items[0], &pod, ipIngress)
+					printIngressService(writer, &filteredIngressSvcs[0], &pod, ipIngress)
 					printVirtualService(writer, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
 				} else {
 					fmt.Fprintf(writer,
