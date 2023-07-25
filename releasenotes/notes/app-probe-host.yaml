@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 46087
+releaseNotes:
+  - |
+    **Fixed** an issue where the `Host` header cannot be set in application probes. This behavior has changed multiple times in recent releases
+    A probe can be optionally configured to have an explicit `Host` set.
+
+    *In Kubernetes without Istio, and the new behavior with Istio*: If host is set, it is used. If not, `POD_IP:PORT`.
+    
+    *In 1.18.0 and prior*: If host is set, it is used. If not, `POD_IP:15020` (the wrong port is set)
+
+    *In 1.18.1 until now*: If host is set, it is ignored (incorrectly). If not, `POD_IP:PORT`.

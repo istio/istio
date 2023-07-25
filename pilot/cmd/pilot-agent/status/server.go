@@ -718,16 +718,11 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 		return
 	}
 
+	appReq.Host = determineHost(req, prober)
+
 	// Forward incoming headers to the application.
-	if prober.HTTPGet.Host != "" {
-		appReq.Host = prober.HTTPGet.Host
-	}
 	for name, values := range req.Header {
 		appReq.Header[name] = slices.Clone(values)
-		if len(values) > 0 && (strings.EqualFold(name, "Host") || name == ":authority") {
-			// Probe has specific host header override; honor it
-			appReq.Host = values[0]
-		}
 	}
 
 	// get the http client must exist because
@@ -754,6 +749,31 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	}
 	// We only write the status code to the response.
 	w.WriteHeader(response.StatusCode)
+}
+
+// Host can either come from user explicitly setting the host in `httpHeaders`, or implicit defined to be IP:port.
+//
+// `httpHeaders`, in an edge case, can set Host multiple times due to header casing.
+// On older Kubernetes versions, this results in 2 Host headers, which Go (pilot-agent) rejects.
+// On newer versions (https://github.com/kubernetes/kubernetes/pull/117323), the first one is picked.
+//
+// Using the implicit hostname also has issues, though. The port will be seen as 15020 by Kubernetes. To handle this, we
+// need to overwrite it
+func determineHost(req *http.Request, prober *Prober) string {
+	for _, header := range prober.HTTPGet.HTTPHeaders {
+		if strings.EqualFold(header.Name, "Host") {
+			// Case 1: explicit set host.
+			// Case insensitive match with the first match winning
+			return header.Value
+		}
+	}
+	if host, _, err := net.SplitHostPort(req.Host); err == nil {
+		// Injected Prober already has port rewritten to a number, so IntValue is always correct
+		port := strconv.Itoa(prober.HTTPGet.Port.IntValue())
+		return net.JoinHostPort(host, port)
+	}
+	// Cannot establish host, fallback to forwarding original
+	return req.Host
 }
 
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
