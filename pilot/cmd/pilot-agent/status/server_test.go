@@ -909,10 +909,8 @@ func TestAppProbe(t *testing.T) {
 				}
 			}
 		}
-		if host := req.Header.Get("Host"); host != "" {
-			req.Host = host
-		}
-
+		// This is simulating the kubelet behavior of setting the Host header to Header["Host"].
+		req.Host = req.Header.Get("Host")
 		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatal("request failed: ", err)
