@@ -912,7 +912,6 @@ func printIngressInfo(
 	}
 	filteredIngressSvcs := []corev1.Service{}
 	for _, svc := range ingressSvcs.Items {
-		svc := svc
 		if v, ok := svc.Spec.Selector["istio"]; ok && v == "ingressgateway" {
 			filteredIngressSvcs = append(filteredIngressSvcs, svc)
 		}
