@@ -127,9 +127,9 @@ func (s *Server) initDNSCerts() error {
 		istioGenerated, detectedSigningCABundle := false, false
 		if _, err := os.Stat(fileBundle.SigningKeyFile); err == nil {
 			detectedSigningCABundle = true
-		}
-		if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
-			istioGenerated = true
+			if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
+				istioGenerated = true
+			}
 		}
 		// check if signing key file exists the cert dir and if the istio-generated file exists
 		if !detectedSigningCABundle || (detectedSigningCABundle && istioGenerated) {

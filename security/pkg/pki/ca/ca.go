@@ -195,7 +195,12 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			}
 			// Write the key/cert back to secret, so they will be persistent when CA restarts.
 			secret := BuildSecret(caCertName, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
-			if _, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+			_, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+			if apierror.IsAlreadyExists(err) {
+				pkiCaLog.Debugf("Failed to write secret to CA (error: %s). Retry getting secret %s", err, caCertName)
+				return fmt.Errorf("failed to create CA due to secret already existing")
+			}
+			if err != nil {
 				pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 				return fmt.Errorf("failed to create CA due to secret write error")
 			}

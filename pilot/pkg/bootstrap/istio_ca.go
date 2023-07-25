@@ -431,9 +431,9 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	}
 	if _, err := os.Stat(fileBundle.SigningKeyFile); err == nil {
 		detectedSigningCABundle = true
-	}
-	if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
-		istioGenerated = true
+		if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
+			istioGenerated = true
+		}
 	}
 
 	if !detectedSigningCABundle || (detectedSigningCABundle && istioGenerated) {
