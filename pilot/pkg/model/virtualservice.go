@@ -17,7 +17,6 @@ package model
 import (
 	"strings"
 
-	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -244,8 +243,8 @@ func mergeVirtualServicesIfNeeded(
 				}
 				// DeepCopy to prevent mutate the original delegate, it can conflict
 				// when multiple routes delegate to one single VS.
-				copiedDelegate := delegateVS.DeepCopy()
-				vs := copiedDelegate.Spec.(*networking.VirtualService)
+				copiedDelegate := config.DeepCopy(delegateVS.Spec)
+				vs := copiedDelegate.(*networking.VirtualService)
 				merged := mergeHTTPRoutes(route, vs.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
 			} else {
@@ -362,7 +361,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {
-	out := proto.Clone(delegate).(*networking.HTTPMatchRequest)
+	out := delegate
 	if out.Name == "" {
 		out.Name = root.Name
 	} else if root.Name != "" {
@@ -381,33 +380,24 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.Authority = root.Authority
 	}
 	// headers
-	if len(root.Headers) > 0 || len(delegate.Headers) > 0 {
+	if len(root.Headers) > 0 && len(out.Headers) == 0 {
 		out.Headers = make(map[string]*networking.StringMatch)
 	}
 	for k, v := range root.Headers {
 		out.Headers[k] = v
 	}
-	for k, v := range delegate.Headers {
-		out.Headers[k] = v
-	}
 	// withoutheaders
-	if len(root.WithoutHeaders) > 0 || len(delegate.WithoutHeaders) > 0 {
+	if len(root.WithoutHeaders) > 0 && len(out.WithoutHeaders) == 0 {
 		out.WithoutHeaders = make(map[string]*networking.StringMatch)
 	}
 	for k, v := range root.WithoutHeaders {
 		out.WithoutHeaders[k] = v
 	}
-	for k, v := range delegate.WithoutHeaders {
-		out.WithoutHeaders[k] = v
-	}
 	// queryparams
-	if len(root.QueryParams) > 0 || len(delegate.QueryParams) > 0 {
+	if len(root.QueryParams) > 0 && len(out.QueryParams) == 0 {
 		out.QueryParams = make(map[string]*networking.StringMatch)
 	}
 	for k, v := range root.QueryParams {
-		out.QueryParams[k] = v
-	}
-	for k, v := range delegate.QueryParams {
 		out.QueryParams[k] = v
 	}
 
@@ -416,13 +406,10 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 	}
 
 	// SourceLabels
-	if len(root.SourceLabels) > 0 || len(delegate.SourceLabels) > 0 {
+	if len(root.SourceLabels) > 0 && len(out.SourceLabels) == 0 {
 		out.SourceLabels = make(map[string]string)
 	}
 	for k, v := range root.SourceLabels {
-		out.SourceLabels[k] = v
-	}
-	for k, v := range delegate.SourceLabels {
 		out.SourceLabels[k] = v
 	}
 
@@ -515,7 +502,7 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 			return true
 		}
 	}
-	// If delgate regex match is specified, root should not have other matches.
+	// If delegate regex match is specified, root should not have other matches.
 	if leaf.GetRegex() != "" {
 		if root.GetRegex() != "" || root.GetPrefix() != "" || root.GetExact() != "" {
 			return true

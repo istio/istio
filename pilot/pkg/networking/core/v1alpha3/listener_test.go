@@ -1057,7 +1057,7 @@ func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 			t.Fatalf("expected listener on port %d, but not found", 15080)
 		}
 		if len(l.FilterChains) != 1 {
-			t.Fatalf("expectd %d filter chains, found %d", 1, len(l.FilterChains))
+			t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
 		} else {
 			if !isHTTPFilterChain(l.FilterChains[0]) {
 				t.Fatalf("expected http filter chain, found %s", l.FilterChains[1].Filters[0].Name)
@@ -1485,7 +1485,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			}
 		} else if oldestProtocol != protocol.HTTP && oldestProtocol != protocol.TCP {
 			if len(listeners[0].FilterChains) != 1 {
-				t.Fatalf("expectd %d filter chains, found %d", 1, len(listeners[0].FilterChains))
+				t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
 			}
 			if !isHTTPFilterChain(listeners[0].FilterChains[0]) {
 				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[0].Filters[0].Name)
@@ -1499,7 +1499,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			verifyListenerFilters(t, listeners[0].ListenerFilters)
 
 			if !listeners[0].ContinueOnListenerFiltersTimeout || listeners[0].ListenerFiltersTimeout == nil {
-				t.Fatalf("exptected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+				t.Fatalf("expected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
 					listeners[0].ContinueOnListenerFiltersTimeout,
 					listeners[0].ListenerFiltersTimeout)
 			}
@@ -1513,7 +1513,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			}
 		} else {
 			if len(listeners[0].FilterChains) != 1 {
-				t.Fatalf("expectd %d filter chains, found %d", 1, len(listeners[0].FilterChains))
+				t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
 			}
 			if listeners[0].DefaultFilterChain == nil {
 				t.Fatalf("expected default filter chains, found none")
@@ -1526,7 +1526,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			verifyListenerFilters(t, listeners[0].ListenerFilters)
 
 			if !listeners[0].ContinueOnListenerFiltersTimeout || listeners[0].ListenerFiltersTimeout == nil {
-				t.Fatalf("exptected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+				t.Fatalf("expected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
 					listeners[0].ContinueOnListenerFiltersTimeout,
 					listeners[0].ListenerFiltersTimeout)
 			}
@@ -1794,7 +1794,7 @@ func verifyListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
 func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain) {
 	t.Helper()
 	if fc.FilterChainMatch.TransportProtocol != xdsfilters.RawBufferTransportProtocol {
-		t.Fatalf("exepct %q transport protocol, found %q", xdsfilters.RawBufferTransportProtocol, fc.FilterChainMatch.TransportProtocol)
+		t.Fatalf("expect %q transport protocol, found %q", xdsfilters.RawBufferTransportProtocol, fc.FilterChainMatch.TransportProtocol)
 	}
 
 	if !reflect.DeepEqual(plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols) {
@@ -1884,7 +1884,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 
 		l := findListenerByPort(listeners, 8080)
 		if len(l.FilterChains) != 1 {
-			t.Fatalf("expectd %d filter chains, found %d", 1, len(l.FilterChains))
+			t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
 		}
 		if !isHTTPFilterChain(l.FilterChains[0]) {
 			t.Fatalf("expected http filter chain, found %s", l.FilterChains[0].Filters[0].Name)
@@ -2619,7 +2619,7 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 		t.Fatalf("failed to find listener")
 	}
 	if len(l.FilterChains) != 1 {
-		t.Fatalf("expectd %d filter chains, found %d", 1, len(l.FilterChains))
+		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
 	}
 
 	verifyHTTPFilterChainMatch(t, l.FilterChains[0])

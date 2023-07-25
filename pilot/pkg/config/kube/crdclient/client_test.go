@@ -300,7 +300,7 @@ func TestClient(t *testing.T) {
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
 			if cfg == nil {
-				return fmt.Errorf("cfg shouldnt be nil :(")
+				return fmt.Errorf("cfg shouldn't be nil :(")
 			}
 			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
 				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
@@ -328,7 +328,7 @@ func TestClient(t *testing.T) {
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
 			if cfg == nil {
-				return fmt.Errorf("cfg cant be nil")
+				return fmt.Errorf("cfg can't be nil")
 			}
 			if !reflect.DeepEqual(cfg.Status, stat) {
 				return fmt.Errorf("status %v does not match %v", cfg.Status, stat)

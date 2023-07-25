@@ -37,7 +37,7 @@ import (
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoints) []*LocalityEndpoints {
-	if !b.push.NetworkManager().IsMultiNetworkEnabled() {
+	if !b.gateways().IsMultiNetworkEnabled() {
 		// Multi-network is not configured (this is the case by default). Just access all endpoints directly.
 		return endpoints
 	}
@@ -49,7 +49,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 	// Scale all weights by the lcm of gateways per network and gateways per cluster.
 	// This will allow us to more easily spread traffic to the endpoint across multiple
 	// network gateways, increasing reliability of the endpoint.
-	scaleFactor := b.push.NetworkManager().GetLBWeightScaleFactor()
+	scaleFactor := b.gateways().GetLBWeightScaleFactor()
 
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
@@ -178,10 +178,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 //     where the exported endpoints reside, we ensure that we only send traffic to exported endpoints.
 func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []model.NetworkGateway {
 	// Get the gateways for this network+cluster combination.
-	gws := b.push.NetworkManager().GatewaysForNetworkAndCluster(nw, c)
+	gws := b.gateways().GatewaysForNetworkAndCluster(nw, c)
 	if len(gws) == 0 {
 		// No match for network+cluster, just match the network.
-		gws = b.push.NetworkManager().GatewaysForNetwork(nw)
+		gws = b.gateways().GatewaysForNetwork(nw)
 	}
 	return gws
 }

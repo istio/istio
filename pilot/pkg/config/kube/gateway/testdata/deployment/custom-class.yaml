@@ -1,89 +1,66 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.istio.io/controller-version: "5"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    gateway.istio.io/managed: istio.io-gateway-controller
+  name: default-custom
+  namespace: default
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
-  name: hello
+  annotations: {}
+  labels:
+    gateway.istio.io/managed: istio.io-gateway-controller
+  name: default-custom
+  namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: default
+    uid: ""
 spec:
   selector:
     matchLabels:
-      app: hello
-  strategy: {}
+      istio.io/gateway-name: default
   template:
     metadata:
       annotations:
         istio.io/rev: default
-        kubectl.kubernetes.io/default-container: hello
-        kubectl.kubernetes.io/default-logs-container: hello
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        proxy.istio.io/overrides: '{"initContainers":[{"name":"istio-proxy","command":["envoy"],"args":["-c","my-config.yaml"],"resources":{}}]}'
-        sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
-      creationTimestamp: null
       labels:
-        app: hello
-        security.istio.io/tlsMode: istio
-        service.istio.io/canonical-name: hello
+        istio.io/gateway-name: default
+        service.istio.io/canonical-name: default-custom
         service.istio.io/canonical-revision: latest
+        sidecar.istio.io/inject: "false"
     spec:
       containers:
-      - image: fake.docker.io/google-samples/hello-go-gke:1.0
-        name: hello
-        resources: {}
-      initContainers:
       - args:
-        - istio-iptables
-        - -p
-        - "15001"
-        - -z
-        - "15006"
-        - -u
-        - "1337"
-        - -m
-        - REDIRECT
-        - -i
-        - '*'
-        - -x
-        - ""
-        - -b
-        - '*'
-        - -d
-        - 15090,15021,15020
-        - --log_output_level=default:info
-        image: gcr.io/istio-testing/proxyv2:latest
-        name: istio-init
-        resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
-      - args:
-        - -c
-        - my-config.yaml
-        command:
-        - envoy
+        - proxy
+        - router
+        - --domain
+        - $(POD_NAMESPACE).svc.<no value>
+        - --proxyLogLevel
+        - <nil>
+        - --proxyComponentLogLevel
+        - <nil>
+        - --log_output_level
+        - <nil>
         env:
         - name: JWT_POLICY
-          value: third-party-jwt
+          value: <no value>
         - name: PILOT_CERT_PROVIDER
-          value: istiod
+          value: <no value>
         - name: CA_ADDR
-          value: istiod.istio-system.svc:15012
+          value: istiod-<no value>.<no value>.svc:15012
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -107,17 +84,14 @@ spec:
         - name: ISTIO_CPU_LIMIT
           valueFrom:
             resourceFieldRef:
-              divisor: "0"
               resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
             {}
         - name: ISTIO_META_POD_PORTS
-          value: |-
-            [
-            ]
+          value: '[]'
         - name: ISTIO_META_APP_CONTAINERS
-          value: hello
+          value: ""
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_NODE_NAME
@@ -127,27 +101,32 @@ spec:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
-          value: hello
+          value: default-custom
         - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/default-custom
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: test/proxyv2:test
         name: istio-proxy
         ports:
+        - containerPort: 15021
+          name: status-port
+          protocol: TCP
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
-        resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        restartPolicy: Always
+        readinessProbe:
+          failureThreshold: 4
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -163,9 +142,11 @@ spec:
           httpGet:
             path: /healthz/ready
             port: 15021
+            scheme: HTTP
           initialDelaySeconds: 1
-          periodSeconds: 2
-          timeoutSeconds: 3
+          periodSeconds: 1
+          successThreshold: 1
+          timeoutSeconds: 1
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket
@@ -173,20 +154,24 @@ spec:
           name: credential-socket
         - mountPath: /var/run/secrets/workload-spiffe-credentials
           name: workload-certs
-        - mountPath: /var/run/secrets/istio
-          name: istiod-ca-cert
         - mountPath: /var/lib/istio/data
           name: istio-data
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        - mountPath: /var/run/secrets/tokens
-          name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      serviceAccountName: default-custom
       volumes:
-      - name: workload-socket
-      - name: credential-socket
-      - name: workload-certs
+      - emptyDir: {}
+        name: workload-socket
+      - emptyDir: {}
+        name: credential-socket
+      - emptyDir: {}
+        name: workload-certs
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -201,15 +186,27 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: istio-podinfo
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              audience: istio-ca
-              expirationSeconds: 43200
-              path: istio-token
-      - configMap:
-          name: istio-ca-root-cert
-        name: istiod-ca-cert
-status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations: {}
+  labels:
+    gateway.istio.io/managed: istio.io-gateway-controller
+  name: default-custom
+  namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: default
+    uid: null
+spec:
+  ports:
+  - appProtocol: tcp
+    name: status-port
+    port: 15021
+    protocol: TCP
+  selector:
+    istio.io/gateway-name: default
+  type: LoadBalancer
 ---

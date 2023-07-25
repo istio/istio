@@ -138,7 +138,7 @@ type DiscoveryServer struct {
 	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
 	ListRemoteClusters func() []cluster.DebugInfo
 
-	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// ClusterAliases are alias names for cluster. When a proxy connects with a cluster ID
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[cluster.ID]cluster.ID
 
@@ -612,7 +612,7 @@ func (s *DiscoveryServer) SortedClients() []*Connection {
 	return clients
 }
 
-// AllClients returns all connected clients, per Clients, but additionally includes unintialized connections
+// AllClients returns all connected clients, per Clients, but additionally includes uninitialized connections
 // Warning: callers must take care not to rely on the con.proxy field being set
 func (s *DiscoveryServer) AllClients() []*Connection {
 	s.adsClientsMutex.RLock()

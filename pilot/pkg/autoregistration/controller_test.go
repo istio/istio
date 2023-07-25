@@ -811,7 +811,7 @@ func fakeNode(r, z, sz string) *core.Node {
 	}
 }
 
-// createOrFail wraps config creation with convience for failing tests
+// createOrFail wraps config creation with convenience for failing tests
 func createOrFail(t test.Failer, store model.ConfigStoreController, cfg config.Config) {
 	if _, err := store.Create(cfg); err != nil {
 		t.Fatalf("failed creating %s/%s: %v", cfg.Namespace, cfg.Name, err)

@@ -248,7 +248,7 @@ func TestNewServerCertInit(t *testing.T) {
 			} else {
 				if len(c.expCert) != 0 {
 					if !checkCert(t, s, c.expCert, c.expKey) {
-						t.Errorf("Istiod certifiate does not match the expectation")
+						t.Errorf("Istiod certificate does not match the expectation")
 					}
 				} else {
 					if _, err := s.getIstiodCertificate(nil); err == nil {
@@ -317,7 +317,7 @@ func TestReloadIstiodCert(t *testing.T) {
 
 	// Validate that the certs are loaded.
 	if !checkCert(t, s, testcerts.ServerCert, testcerts.ServerKey) {
-		t.Errorf("Istiod certifiate does not match the expectation")
+		t.Errorf("Istiod certificate does not match the expectation")
 	}
 
 	// Update cert/key files.

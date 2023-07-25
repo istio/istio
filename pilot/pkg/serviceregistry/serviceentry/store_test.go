@@ -141,7 +141,7 @@ func TestServiceStore(t *testing.T) {
 
 // Tests that when multiple service entries with "DNSRounbRobinLB" resolution type
 // are created with different/same endpoints, we only consider the first service because
-// Envoy's LogicalDNS type of cluster does not allow more than one locality LB Enpoint.
+// Envoy's LogicalDNS type of cluster does not allow more than one locality LB Endpoint.
 func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	store := serviceInstancesStore{
 		ip2instance:            map[string][]*model.ServiceInstance{},

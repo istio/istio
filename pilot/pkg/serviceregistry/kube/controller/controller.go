@@ -111,7 +111,7 @@ type Options struct {
 	// ClusterID identifies the cluster which the controller communicate with.
 	ClusterID cluster.ID
 
-	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// ClusterAliases are alias names for cluster. When a proxy connects with a cluster ID
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[string]string
 

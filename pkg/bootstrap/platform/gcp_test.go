@@ -233,6 +233,27 @@ func TestGCPMetadata(t *testing.T) {
 				GCPClusterURL: "https://container.googleapis.com/v1/projects/env_pid/locations/env_location/clusters/env_cluster",
 			},
 		},
+		{
+			"use env variable without fill",
+			func() bool { return false },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			map[string]string{
+				GCPProject:       "env_pid",
+				GCPProjectNumber: "env_pn",
+				GCPCluster:       "env_cluster",
+				GCPLocation:      "env_location",
+			},
+			map[string]string{
+				GCPProject: "env_pid", GCPProjectNumber: "env_pn", GCPLocation: "env_location", GCPCluster: "env_cluster",
+			},
+		},
 	}
 
 	for _, tt := range tests {
