@@ -17,7 +17,6 @@ package model
 import (
 	"strings"
 
-	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -244,8 +243,8 @@ func mergeVirtualServicesIfNeeded(
 				}
 				// DeepCopy to prevent mutate the original delegate, it can conflict
 				// when multiple routes delegate to one single VS.
-				copiedDelegate := delegateVS.DeepCopy()
-				vs := copiedDelegate.Spec.(*networking.VirtualService)
+				copiedDelegate := config.DeepCopy(delegateVS.Spec)
+				vs := copiedDelegate.(*networking.VirtualService)
 				merged := mergeHTTPRoutes(route, vs.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
 			} else {
@@ -362,7 +361,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {
-	out := proto.Clone(delegate).(*networking.HTTPMatchRequest)
+	out := delegate
 	if out.Name == "" {
 		out.Name = root.Name
 	} else if root.Name != "" {
