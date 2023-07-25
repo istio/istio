@@ -114,7 +114,7 @@ func newProxyCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			proxyConfig, err := config.ConstructProxyConfig(proxyArgs.MeshConfigFile, proxyArgs.ServiceCluster, options.ProxyConfigEnv, proxyArgs.Concurrency, proxy)
+			proxyConfig, err := config.ConstructProxyConfig(proxyArgs.MeshConfigFile, proxyArgs.ServiceCluster, options.ProxyConfigEnv, proxyArgs.Concurrency)
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}

@@ -45,7 +45,7 @@ func TestGetTokenForXDS(t *testing.T) {
 	serviceCluster := constants.ServiceClusterName
 	proxyConfigEnv := ""
 	concurrency := 0
-	proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv, concurrency, role)
+	proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv, concurrency)
 	if err != nil {
 		t.Fatalf("failed to construct proxy config: %v", err)
 	}
