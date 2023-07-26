@@ -282,9 +282,8 @@ linters-settings:
       DenyOpenTelemetry:
         files:
           - $all
-          - "!**/pkg/collateral/**"
-          - "!**/pkg/ctrlz/**"
           - "!**/pkg/monitoring/**"
+          - "!**/pkg/tracing/**"
         deny:
           - pkg: go.opentelemetry.io/otel
             desc: "do not use OpenTelemetry directly; use pkg/monitoring"

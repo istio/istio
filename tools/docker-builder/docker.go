@@ -16,6 +16,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -81,7 +82,7 @@ func runDocker(args Args) error {
 
 	makeStart := time.Now()
 	for _, arch := range args.Architectures {
-		if err := RunMake(args, arch, args.PlanFor(arch).Targets()...); err != nil {
+		if err := RunMake(context.Background(), args, arch, args.PlanFor(arch).Targets()...); err != nil {
 			return err
 		}
 	}
