@@ -42,8 +42,8 @@ function _genattrs() {
     "ci.pipeline.run.id=${PROW_JOB_ID},"\
     "ci.pipeline.run.repo=${REPO_OWNER}/${REPO_NAME},"\
     "ci.pipeline.run.base=${PULL_BASE_REF},"\
-    "ci.pipeline.run.pull_number=${PULL_NUMBER},"\
-    "ci.pipeline.run.pull_sha=${PULL_PULL_SHA}"
+    "ci.pipeline.run.pull_number=${PULL_NUMBER:-none},"\
+    "ci.pipeline.run.pull_sha=${PULL_PULL_SHA:-${PULL_BASE_SHA:-none}}"
 }
 
 # Usage: tracing::run <span name> [command ...]
