@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -380,38 +381,20 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.Authority = root.Authority
 	}
 	// headers
-	if len(root.Headers) > 0 && len(out.Headers) == 0 {
-		out.Headers = make(map[string]*networking.StringMatch)
-	}
-	for k, v := range root.Headers {
-		out.Headers[k] = v
-	}
+	out.Headers = maps.MergeCopy(root.Headers, delegate.Headers)
+
 	// withoutheaders
-	if len(root.WithoutHeaders) > 0 && len(out.WithoutHeaders) == 0 {
-		out.WithoutHeaders = make(map[string]*networking.StringMatch)
-	}
-	for k, v := range root.WithoutHeaders {
-		out.WithoutHeaders[k] = v
-	}
+	out.WithoutHeaders = maps.MergeCopy(root.WithoutHeaders, delegate.WithoutHeaders)
+
 	// queryparams
-	if len(root.QueryParams) > 0 && len(out.QueryParams) == 0 {
-		out.QueryParams = make(map[string]*networking.StringMatch)
-	}
-	for k, v := range root.QueryParams {
-		out.QueryParams[k] = v
-	}
+	out.QueryParams = maps.MergeCopy(root.QueryParams, delegate.QueryParams)
 
 	if out.Port == 0 {
 		out.Port = root.Port
 	}
 
 	// SourceLabels
-	if len(root.SourceLabels) > 0 && len(out.SourceLabels) == 0 {
-		out.SourceLabels = make(map[string]string)
-	}
-	for k, v := range root.SourceLabels {
-		out.SourceLabels[k] = v
-	}
+	out.SourceLabels = maps.MergeCopy(root.SourceLabels, delegate.SourceLabels)
 
 	if out.SourceNamespace == "" {
 		out.SourceNamespace = root.SourceNamespace

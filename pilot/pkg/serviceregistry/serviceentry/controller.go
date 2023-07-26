@@ -205,14 +205,9 @@ func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 		return nil
 	}
 
-	labels := make(map[string]string, len(wle.Labels)+len(cfg.Labels))
-	for k, v := range wle.Labels {
-		labels[k] = v
-	}
 	// we will merge labels from metadata with spec, with precedence to the metadata
-	for k, v := range cfg.Labels {
-		labels[k] = v
-	}
+	labels := maps.MergeCopy(wle.Labels, cfg.Labels)
+
 	// shallow copy
 	copied := &networking.WorkloadEntry{}
 	protomarshal.ShallowCopy(copied, wle)
