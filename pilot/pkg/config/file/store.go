@@ -31,10 +31,8 @@ import (
 	yamlv3 "gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/istio/operator/pkg/object"
 	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -320,18 +318,25 @@ func (e unknownSchemaError) Error() string {
 
 func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte) ([]kubeResource, error) {
 	resources := make([]kubeResource, 0)
-	// Convert to JSON
-	jsonChunk, err := yaml.ToJSON(yamlChunk)
-	if err != nil {
-		return resources, fmt.Errorf("failed converting YAML to JSON: %v", err)
+
+	// yamlChunk only contains a single resource with line number
+	jsonDecoder := yaml.NewYAMLToJSONDecoder(bytes.NewReader(yamlChunk))
+	var obj unstructured.Unstructured
+	if err := jsonDecoder.Decode(&obj); err != nil {
+		if err == io.EOF {
+			return resources, nil
+		}
+		return resources, fmt.Errorf("unable to parse invalid k8s object")
+	}
+	// If the object is nil, it means the yamlChunk is empty or contains only comments
+	if obj.Object == nil {
+		return resources, nil
+	}
+	if !IsValidKubernetesObject(obj) {
+		return resources, fmt.Errorf("unable to parse invalid k8s object")
 	}
 
-	// Peek at the beginning of the JSON to
-	groupVersionKind, err := kubeJson.DefaultMetaFactory.Interpret(jsonChunk)
-	if err != nil {
-		return resources, fmt.Errorf("failed interpreting jsonChunk: %v", err)
-	}
-
+	groupVersionKind := obj.GroupVersionKind()
 	if groupVersionKind.Kind == "List" {
 		resourceChunks, err := extractResourceChunksFromListYamlChunk(yamlChunk)
 		if err != nil {
@@ -347,22 +352,23 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		return resources, nil
 	}
 
-	objects, err := object.ParseK8sObjectsFromYAMLManifestFailOption(string(yamlChunk), true)
-	if err != nil {
-		return resources, fmt.Errorf("unable to parse invalid k8s object")
-	}
-	// Possible that the YAML is empty or contains only comments.
-	if len(objects) == 0 {
-		return resources, nil
-	}
-	if len(objects) > 1 {
-		// This should not happen.
-		return resources, fmt.Errorf("yaml chunk expected 1 object, got %d", len(objects))
-	}
-	obj := objects[0]
-	gvk := obj.GroupVersionKind()
-	schema, found := r.FindByGroupVersionAliasesKind(sresource.FromKubernetesGVK(&gvk))
+	schema, found := r.FindByGroupVersionAliasesKind(sresource.FromKubernetesGVK(&groupVersionKind))
+
 	if !found {
+		return resources, &unknownSchemaError{
+			group:   groupVersionKind.Group,
+			version: groupVersionKind.Version,
+			kind:    groupVersionKind.Kind,
+		}
+	}
+
+	// Cannot create new instance. This occurs because while newer types do not implement proto.Message,
+	// this legacy code only supports proto.Messages.
+	// Note: while NewInstance can be slightly modified to not return error here, the rest of the code
+	// still requires a proto.Message so it won't work without completely refactoring galley/
+	_, e := schema.NewInstance()
+	cannotHandleProto := e != nil
+	if cannotHandleProto {
 		return resources, &unknownSchemaError{
 			group:   groupVersionKind.Group,
 			version: groupVersionKind.Version,
@@ -374,13 +380,13 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
 	// Don't do this for cluster scoped resources
 	if !schema.IsClusterScoped() {
-		if obj.UnstructuredObject().GetNamespace() == "" && s.defaultNs != "" {
-			scope.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", obj.Name, s.defaultNs)
-			obj.UnstructuredObject().SetNamespace(string(s.defaultNs))
+		if obj.GetNamespace() == "" && s.defaultNs != "" {
+			scope.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", obj.GetName(), s.defaultNs)
+			obj.SetNamespace(string(s.defaultNs))
 		}
 	} else {
 		// Clear the namespace if there is any specified.
-		obj.UnstructuredObject().SetNamespace("")
+		obj.SetNamespace("")
 	}
 
 	// Build flat map for analyzers if the line JSON object exists, if the YAML text is ill-formed, this will be nil
@@ -388,7 +394,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 
 	// yamlv3.Node contains information like line number of the node, which will be used with its name to construct the field map
 	yamlChunkNode := yamlv3.Node{}
-	err = yamlv3.Unmarshal(yamlChunk, &yamlChunkNode)
+	err := yamlv3.Unmarshal(yamlChunk, &yamlChunkNode)
 	if err == nil && len(yamlChunkNode.Content) == 1 {
 
 		// Get the Node that contains all the YAML chunk information
@@ -398,7 +404,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}
 
 	pos := kube2.Position{Filename: name, Line: lineNum}
-	c, err := ToConfig(obj.UnstructuredObject(), schema, &pos, fieldMap)
+	c, err := ToConfig(&obj, schema, &pos, fieldMap)
 	if err != nil {
 		return resources, err
 	}
@@ -409,7 +415,16 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 			config: c,
 		},
 	}, nil
-	return resources, nil
+}
+
+func IsValidKubernetesObject(obj unstructured.Unstructured) bool {
+	if _, ok := obj.Object["apiVersion"]; !ok {
+		return false
+	}
+	if _, ok := obj.Object["kind"]; !ok {
+		return false
+	}
+	return true
 }
 
 type resourceYamlChunk struct {

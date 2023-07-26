@@ -37,6 +37,7 @@ import (
 	names "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pkg/log"
 )
 
@@ -290,7 +291,7 @@ func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool
 			continue
 		}
 
-		if !isValidKubernetesObject(obj) {
+		if !file.IsValidKubernetesObject(obj) {
 			if failOnError {
 				err := wrapErr(fmt.Errorf("failed to parse YAML to a k8s object: object is an invalid k8s object: %v", obj))
 				return nil, err
@@ -578,14 +579,4 @@ func resolvePDBConflict(o *K8sObject) *K8sObject {
 		}
 	}
 	return o
-}
-
-func isValidKubernetesObject(obj unstructured.Unstructured) bool {
-	if _, ok := obj.Object["apiVersion"]; !ok {
-		return false
-	}
-	if _, ok := obj.Object["kind"]; !ok {
-		return false
-	}
-	return true
 }
