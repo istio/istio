@@ -29,10 +29,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	yamlv3 "gopkg.in/yaml.v3"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"istio.io/istio/operator/pkg/object"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
@@ -44,7 +43,6 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	sresource "istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -287,8 +285,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
-		chunkStr := resource.RemoveNonYAMLLines(string(chunk))
-		if len(chunkStr) == 0 {
+		if len(chunk) == 0 {
 			continue
 		}
 		chunkResources, err := s.parseChunk(r, name, lineNum, chunk)
@@ -350,12 +347,21 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		return resources, nil
 	}
 
-	if groupVersionKind.Empty() {
-		return resources, fmt.Errorf("unable to parse resource with no group, version and kind")
+	objects, err := object.ParseK8sObjectsFromYAMLManifestFailOption(string(yamlChunk), true)
+	if err != nil {
+		return resources, fmt.Errorf("unable to parse invalid k8s object")
 	}
-
-	schema, found := r.FindByGroupVersionAliasesKind(sresource.FromKubernetesGVK(groupVersionKind))
-
+	// Possible that the YAML is empty or contains only comments.
+	if len(objects) == 0 {
+		return resources, nil
+	}
+	if len(objects) > 1 {
+		// This should not happen.
+		return resources, fmt.Errorf("yaml chunk expected 1 object, got %d", len(objects))
+	}
+	obj := objects[0]
+	gvk := obj.GroupVersionKind()
+	schema, found := r.FindByGroupVersionAliasesKind(sresource.FromKubernetesGVK(&gvk))
 	if !found {
 		return resources, &unknownSchemaError{
 			group:   groupVersionKind.Group,
@@ -364,47 +370,17 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		}
 	}
 
-	// Cannot create new instance. This occurs because while newer types do not implement proto.Message,
-	// this legacy code only supports proto.Messages.
-	// Note: while NewInstance can be slightly modified to not return error here, the rest of the code
-	// still requires a proto.Message so it won't work without completely refactoring galley/
-	_, e := schema.NewInstance()
-	cannotHandleProto := e != nil
-	if cannotHandleProto {
-		return resources, &unknownSchemaError{
-			group:   groupVersionKind.Group,
-			version: groupVersionKind.Version,
-			kind:    groupVersionKind.Kind,
-		}
-	}
-
-	runtimeScheme := runtime.NewScheme()
-	codecs := serializer.NewCodecFactory(runtimeScheme)
-	deserializer := codecs.UniversalDeserializer()
-	obj, err := kube.IstioScheme.New(schema.GroupVersionKind().Kubernetes())
-	if err != nil {
-		return resources, fmt.Errorf("failed to initialize interface for built-in type: %v", err)
-	}
-	_, _, err = deserializer.Decode(jsonChunk, nil, obj)
-	if err != nil {
-		return resources, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
-	}
-	objMeta, ok := obj.(metav1.Object)
-	if !ok {
-		return resources, errors.New("failed to assert type of object metadata")
-	}
-
 	// If namespace is blank and we have a default set, fill in the default
 	// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
 	// Don't do this for cluster scoped resources
 	if !schema.IsClusterScoped() {
-		if objMeta.GetNamespace() == "" && s.defaultNs != "" {
-			scope.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
-			objMeta.SetNamespace(string(s.defaultNs))
+		if obj.UnstructuredObject().GetNamespace() == "" && s.defaultNs != "" {
+			scope.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", obj.Name, s.defaultNs)
+			obj.UnstructuredObject().SetNamespace(string(s.defaultNs))
 		}
 	} else {
 		// Clear the namespace if there is any specified.
-		objMeta.SetNamespace("")
+		obj.UnstructuredObject().SetNamespace("")
 	}
 
 	// Build flat map for analyzers if the line JSON object exists, if the YAML text is ill-formed, this will be nil
@@ -422,7 +398,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}
 
 	pos := kube2.Position{Filename: name, Line: lineNum}
-	c, err := ToConfig(objMeta, schema, &pos, fieldMap)
+	c, err := ToConfig(obj.UnstructuredObject(), schema, &pos, fieldMap)
 	if err != nil {
 		return resources, err
 	}
@@ -433,6 +409,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 			config: c,
 		},
 	}, nil
+	return resources, nil
 }
 
 type resourceYamlChunk struct {
@@ -483,12 +460,8 @@ const (
 )
 
 // ToConfig converts the given object and proto to a config.Config
-func ToConfig(object metav1.Object, schema sresource.Schema, source resource.Reference, fieldMap map[string]int) (*config.Config, error) {
-	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
-	if err != nil {
-		return nil, err
-	}
-	u := &unstructured.Unstructured{Object: m}
+func ToConfig(object *unstructured.Unstructured, schema sresource.Schema, source resource.Reference, fieldMap map[string]int) (*config.Config, error) {
+	u := object
 	if len(fieldMap) > 0 || source != nil {
 		// TODO: populate
 		annots := u.GetAnnotations()
