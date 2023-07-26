@@ -384,17 +384,17 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 	out.Headers = maps.MergeCopy(root.Headers, delegate.Headers)
 
 	// withoutheaders
-	maps.MergeCopy(root.WithoutHeaders, delegate.WithoutHeaders)
+	out.WithoutHeaders = maps.MergeCopy(root.WithoutHeaders, delegate.WithoutHeaders)
 
 	// queryparams
-	maps.MergeCopy(root.QueryParams, delegate.QueryParams)
+	out.QueryParams = maps.MergeCopy(root.QueryParams, delegate.QueryParams)
 
 	if out.Port == 0 {
 		out.Port = root.Port
 	}
 
 	// SourceLabels
-	maps.MergeCopy(root.SourceLabels, delegate.SourceLabels)
+	out.SourceLabels = maps.MergeCopy(root.SourceLabels, delegate.SourceLabels)
 
 	if out.SourceNamespace == "" {
 		out.SourceNamespace = root.SourceNamespace
