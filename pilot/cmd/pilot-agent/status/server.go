@@ -719,9 +719,13 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	}
 
 	appReq.Host = req.Host
-	// trim port if any
-	if host, _, err := net.SplitHostPort(req.Host); err == nil {
-		appReq.Host = host
+	if host, port, err := net.SplitHostPort(req.Host); err == nil {
+		port, _ := strconv.Atoi(port)
+		// the port is same as the status port, then we need to replace the port in the host with the real one
+		if port == int(s.statusPort) {
+			realPort := strconv.Itoa(prober.HTTPGet.Port.IntValue())
+			appReq.Host = net.JoinHostPort(host, realPort)
+		}
 	}
 	// Forward incoming headers to the application.
 	for name, values := range req.Header {
