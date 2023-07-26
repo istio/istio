@@ -48,8 +48,8 @@ function _genattrs() {
 
 # Usage: tracing::run <span name> [command ...]
 function tracing::run() {
-  # If otel-cli is not available (e.g. not running in a prow job) just run the command
-  if ! command -v otel-cli &> /dev/null
+  # If not running in a prow job or otel-cli is not available (e.g. build system without otel-cli) just run the command
+  if [ -z "${JOB_NAME:-}" ] || ! command -v otel-cli &> /dev/null
   then
     "${@:2}"
     return "$?"
