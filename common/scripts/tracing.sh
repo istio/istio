@@ -37,7 +37,7 @@ function _genattrs() {
   # No upstream standard, so copy from https://github.com/jenkinsci/opentelemetry-plugin/blob/master/docs/job-traces.md
   if [[ -n "${PULL_NUMBER}" ]]
   then
-    url="https://prow.istio.io/view/gs/istio-prow/pr-logs/pull/${REPO_OWNER}_${REPO_NAME}/${PULL_NUMBER:-none}/${JOB_NAME}/${BUILD_ID},"
+    url="https://prow.istio.io/view/gs/istio-prow/pr-logs/pull/${REPO_OWNER}_${REPO_NAME}/${PULL_NUMBER}/${JOB_NAME}/${BUILD_ID},"
   else
     url="https://prow.istio.io/view/gs/istio-prow/pr-logs/${JOB_NAME}/${BUILD_ID},"
   fi
