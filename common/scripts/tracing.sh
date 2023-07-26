@@ -37,7 +37,7 @@ function _genattrs() {
   # No upstream standard, so copy from https://github.com/jenkinsci/opentelemetry-plugin/blob/master/docs/job-traces.md
   echo "ci.pipeline.id=${JOB_NAME},"\
     "ci.pipeline.type=${JOB_TYPE},"\
-    "ci.pipeline.run.url=https://prow.istio.io/view/gs/istio-prow/pr-logs/pull/${REPO_OWNER}_${REPO_NAME}/${PULL_NUMBER}/${JOB_NAME}/${BUILD_ID},"\
+    "ci.pipeline.run.url=https://prow.istio.io/view/gs/istio-prow/pr-logs/pull/${REPO_OWNER}_${REPO_NAME}/${PULL_NUMBER:-none}/${JOB_NAME}/${BUILD_ID},"\
     "ci.pipeline.run.number=${BUILD_ID},"\
     "ci.pipeline.run.id=${PROW_JOB_ID},"\
     "ci.pipeline.run.repo=${REPO_OWNER}/${REPO_NAME},"\
