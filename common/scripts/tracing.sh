@@ -41,7 +41,8 @@ function _genattrs() {
   else
     url="https://prow.istio.io/view/gs/istio-prow/pr-logs/${JOB_NAME}/${BUILD_ID},"
   fi
-  echo "ci.pipeline.id=${JOB_NAME},"\
+  # Use printf instead of echo to avoid spaces between args
+  printf '%s' "ci.pipeline.id=${JOB_NAME},"\
     "ci.pipeline.type=${JOB_TYPE},"\
     "ci.pipeline.run.url=${url}"\
     "ci.pipeline.run.number=${BUILD_ID},"\
