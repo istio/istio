@@ -630,12 +630,12 @@ func TestWorkloadInstances(t *testing.T) {
 					{
 						Name:       "http",
 						Port:       80,
-						TargetPort: intstr.FromInt(8080),
+						TargetPort: intstr.FromInt32(8080),
 					},
 					{
 						Name:       "http2",
 						Port:       90,
-						TargetPort: intstr.FromInt(9090),
+						TargetPort: intstr.FromInt32(9090),
 					},
 				},
 				Selector:  labels,

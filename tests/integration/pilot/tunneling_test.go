@@ -238,7 +238,7 @@ func applyForwardProxyService(ctx framework.TestContext, externalNs string) {
 		servicePorts = append(servicePorts, corev1.ServicePort{
 			Name:       fmt.Sprintf("%s-%d", selectPortName(cfg.HTTPVersion), i),
 			Port:       int32(cfg.Port),
-			TargetPort: intstr.FromInt(int(cfg.Port)),
+			TargetPort: intstr.FromInt32(cfg.Port),
 		})
 	}
 	templateParams := map[string]any{

@@ -98,7 +98,7 @@ func TestDescribe(t *testing.T) {
 							{
 								Name:       "http",
 								Port:       9080,
-								TargetPort: intstr.FromInt(9080),
+								TargetPort: intstr.FromInt32(9080),
 							},
 						},
 					},
@@ -119,7 +119,7 @@ func TestDescribe(t *testing.T) {
 							{
 								Name:       "http",
 								Port:       80,
-								TargetPort: intstr.FromInt(80),
+								TargetPort: intstr.FromInt32(80),
 							},
 						},
 					},

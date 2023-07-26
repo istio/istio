@@ -547,13 +547,13 @@ func resolvePDBConflict(o *K8sObject) *K8sObject {
 		var ii intstr.IntOrString
 		switch item := item.(type) {
 		case int:
-			ii = intstr.FromInt(item)
+			ii = intstr.FromInt32(int32(item))
 		case int64:
-			ii = intstr.FromInt(int(item))
+			ii = intstr.FromInt32(int32(item))
 		case string:
 			ii = intstr.FromString(item)
 		default:
-			ii = intstr.FromInt(0)
+			ii = intstr.FromInt32(0)
 		}
 		intVal, err := intstr.GetScaledValueFromIntOrPercent(&ii, 100, false)
 		if err != nil || intVal == 0 {
