@@ -39,6 +39,9 @@ spec:
         - key: "request.headers[X-header]"
           values: ["header", "header-prefix-*", "*-suffix-header", "*"]
           notValues: ["not-header", "not-header-prefix-*", "*-not-suffix-header", "*"]
+        - key: "request.experimental.inline.headers[X-inline-header]"
+          values: [ "header", "header-prefix-*", "*-suffix-header", "*" ]
+          notValues: [ "not-header", "not-header-prefix-*", "*-not-suffix-header", "*" ]
         - key: "source.ip"
           values: ["10.10.10.10", "192.168.10.0/24"]
           notValues: ["90.10.10.10", "90.168.10.0/24"]

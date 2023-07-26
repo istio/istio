@@ -15,6 +15,8 @@
 package matcher
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -51,6 +53,37 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 		Name: k,
 		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
 			StringMatch: StringMatcherExact(v, false),
+		},
+	}
+}
+
+// HeaderMatcherWithRegex converts a key, value string pair to a corresponding
+// HeaderMatcher to support matching the value presented in the inline header with
+// multiple values concatenated by commas, as per RFC7230.
+func HeaderMatcherWithRegex(k, v string) *routepb.HeaderMatcher {
+	// We must check "*" first to distinguish present match from the other
+	// cases.
+	var regex string
+	if v == "*" {
+		return &routepb.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{
+				PresentMatch: true,
+			},
+		}
+	} else if strings.HasPrefix(v, "*") {
+		regex = `.*` + regexp.QuoteMeta(v[1:])
+	} else if strings.HasSuffix(v, "*") {
+		regex = regexp.QuoteMeta(v[:len(v)-1]) + `.*`
+	} else {
+		regex = regexp.QuoteMeta(v)
+	}
+	return &routepb.HeaderMatcher{
+		Name: k,
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+			SafeRegexMatch: &matcher.RegexMatcher{
+				Regex: fmt.Sprintf(`^%s$|^%s,.*|.*,%s,.*|.*,%s$`, regex, regex, regex, regex),
+			},
 		},
 	}
 }

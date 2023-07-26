@@ -336,6 +336,25 @@ func (requestHeaderGenerator) principal(key, value string, forTCP bool, _ bool) 
 	return principalHeader(m), nil
 }
 
+type requestInlineHeaderGenerator struct{}
+
+func (requestInlineHeaderGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (requestInlineHeaderGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
+	if forTCP {
+		return nil, fmt.Errorf("%q is HTTP only", key)
+	}
+
+	header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestInlineHeader))
+	if err != nil {
+		return nil, err
+	}
+	m := matcher.HeaderMatcherWithRegex(header, value)
+	return principalHeader(m), nil
+}
+
 type requestClaimGenerator struct{}
 
 func (requestClaimGenerator) extendedPermission(_ string, _ []string, _ bool) (*rbacpb.Permission, error) {
