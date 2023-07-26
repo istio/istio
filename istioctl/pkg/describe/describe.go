@@ -64,7 +64,10 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/url"
 )
 
 type myProtoValue struct {
@@ -297,13 +300,13 @@ func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTP
 		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			if dest.Destination.Subset != "" {
-				if Contains(nonmatchingSubsets, dest.Destination.Subset) {
+				if slices.Contains(nonmatchingSubsets, dest.Destination.Subset) {
 					mismatchNotes = append(mismatchNotes, fmt.Sprintf("Route to non-matching subset %s for (%s)",
 						dest.Destination.Subset,
 						renderMatches(route.Match)))
 					continue
 				}
-				if !Contains(matchingSubsets, dest.Destination.Subset) {
+				if !slices.Contains(matchingSubsets, dest.Destination.Subset) {
 					if dr == nil {
 						// Don't bother giving the match conditions, the problem is that there are unknowns in the VirtualService
 						mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to subset %s but NO DESTINATION RULE defining subsets!", dest.Destination.Subset))
@@ -470,6 +473,11 @@ func printPod(writer io.Writer, pod *corev1.Pod, revision string) {
 			fmt.Fprintf(writer, "WARNING: Pod %s Container %s NOT READY\n", kname(pod.ObjectMeta), containerStatus.Name)
 		}
 	}
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
+		if !containerStatus.Ready {
+			fmt.Fprintf(writer, "WARNING: Pod %s Init Container %s NOT READY\n", kname(pod.ObjectMeta), containerStatus.Name)
+		}
+	}
 
 	if ignoreUnmeshed {
 		return
@@ -489,13 +497,13 @@ func printPod(writer io.Writer, pod *corev1.Pod, revision string) {
 
 	// https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
 	// says "We recommend adding an explicit app label and version label to deployments."
-	app, ok := pod.ObjectMeta.Labels["app"]
-	if !ok || app == "" {
-		fmt.Fprintf(writer, "Suggestion: add 'app' label to pod for Istio telemetry.\n")
+	if !labels.HasCanonicalServiceName(pod.Labels) {
+		fmt.Fprintf(writer, "Suggestion: add required service name label for Istio telemetry. "+
+			"See %s.\n", url.DeploymentRequirements)
 	}
-	version, ok := pod.ObjectMeta.Labels["version"]
-	if !ok || version == "" {
-		fmt.Fprintf(writer, "Suggestion: add 'version' label to pod for Istio telemetry.\n")
+	if !labels.HasCanonicalServiceRevision(pod.Labels) {
+		fmt.Fprintf(writer, "Suggestion: add required service revision label for Istio telemetry. "+
+			"See %s.\n", url.DeploymentRequirements)
 	}
 }
 
@@ -536,24 +544,8 @@ func findProtocolForPort(port *corev1.ServicePort) string {
 	return protocol
 }
 
-func Contains(slice []string, s string) bool {
-	for _, candidate := range slice {
-		if candidate == s {
-			return true
-		}
-	}
-
-	return false
-}
-
 func isMeshed(pod *corev1.Pod) bool {
-	var sidecar bool
-
-	for _, container := range pod.Spec.Containers {
-		sidecar = sidecar || (container.Name == inject.ProxyContainerName)
-	}
-
-	return sidecar
+	return inject.FindSidecar(pod) != nil
 }
 
 // Extract value of key out of Struct, but always return a Struct, even if the value isn't one
@@ -1224,6 +1216,11 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 
 func containerReady(pod *corev1.Pod, containerName string) (bool, error) {
 	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == containerName {
+			return containerStatus.Ready, nil
+		}
+	}
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
 		if containerStatus.Name == containerName {
 			return containerStatus.Ready, nil
 		}

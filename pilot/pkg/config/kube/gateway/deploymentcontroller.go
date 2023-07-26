@@ -110,16 +110,35 @@ type classInfo struct {
 
 var classInfos = getClassInfos()
 
-func getClassInfos() map[string]classInfo {
-	m := map[string]classInfo{
-		defaultClassName: {
+var builtinClasses = getBuiltinClasses()
+
+func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
+	res := map[gateway.ObjectName]gateway.GatewayController{
+		defaultClassName:                 constants.ManagedGatewayController,
+		constants.RemoteGatewayClassName: constants.UnmanagedGatewayController,
+	}
+	if features.EnableAmbientControllers {
+		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
+	}
+	return res
+}
+
+func getClassInfos() map[gateway.GatewayController]classInfo {
+	m := map[gateway.GatewayController]classInfo{
+		constants.ManagedGatewayController: {
 			controller:  constants.ManagedGatewayController,
 			description: "The default Istio GatewayClass",
 			templates:   "kube-gateway",
 		},
+		constants.UnmanagedGatewayController: {
+			// This represents a gateway that our control plane cannot discover directly via the API server.
+			// We shouldn't generate Istio resources for it. We aren't programming this gateway.
+			controller:  constants.UnmanagedGatewayController,
+			description: "Remote to this cluster. Does not deploy or affect configuration.",
+		},
 	}
 	if features.EnableAmbientControllers {
-		m[constants.WaypointGatewayClassName] = classInfo{
+		m[constants.ManagedGatewayMeshController] = classInfo{
 			controller:               constants.ManagedGatewayMeshController,
 			description:              "The default Istio waypoint GatewayClass",
 			templates:                "waypoint",
@@ -128,14 +147,6 @@ func getClassInfos() map[string]classInfo {
 	}
 	return m
 }
-
-var knownControllers = func() sets.String {
-	res := sets.New[string]()
-	for _, v := range classInfos {
-		res.Insert(v.controller)
-	}
-	return res
-}()
 
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
@@ -243,17 +254,18 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 		return nil
 	}
 
-	gc := d.gatewayClasses.Get(string(gw.Spec.GatewayClassName), "")
-	if gc != nil {
-		// We found the gateway class, but we do not implement it. Skip
-		if !knownControllers.Contains(string(gc.Spec.ControllerName)) {
-			return nil
-		}
+	var controller gateway.GatewayController
+	if gc := d.gatewayClasses.Get(string(gw.Spec.GatewayClassName), ""); gc != nil {
+		controller = gc.Spec.ControllerName
 	} else {
-		// Didn't find gateway class, and it wasn't an implicitly known one
-		if _, f := classInfos[string(gw.Spec.GatewayClassName)]; !f {
-			return nil
+		if builtin, f := builtinClasses[gw.Spec.GatewayClassName]; f {
+			controller = builtin
 		}
+	}
+	ci, f := classInfos[controller]
+	if !f {
+		log.Debugf("skipping unknown controller %q", controller)
+		return nil
 	}
 
 	// find the tag or revision indicated by the object
@@ -272,14 +284,14 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	// TODO: Here we could check if the tag is set and matches no known tags, and handle that if we are default.
 
 	// Matched class, reconcile it
-	return d.configureIstioGateway(log, *gw)
+	return d.configureIstioGateway(log, *gw, ci)
 }
 
-func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway) error {
+func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway, gi classInfo) error {
 	// If user explicitly sets addresses, we are assuming they are pointing to an existing deployment.
 	// We will not manage it in this case
-	gi, f := classInfos[string(gw.Spec.GatewayClassName)]
-	if !f {
+	if gi.templates == "" {
+		log.Debug("skip gateway class without template")
 		return nil
 	}
 	if !IsManaged(&gw.Spec) {
@@ -505,12 +517,12 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 		Port:        int32(15021),
 		AppProtocol: &tcp,
 	})
-	portNums := map[int32]struct{}{}
+	portNums := sets.New[int32]()
 	for i, l := range gw.Spec.Listeners {
-		if _, f := portNums[int32(l.Port)]; f {
+		if portNums.Contains(int32(l.Port)) {
 			continue
 		}
-		portNums[int32(l.Port)] = struct{}{}
+		portNums.Insert(int32(l.Port))
 		name := string(l.Name)
 		if name == "" {
 			// Should not happen since name is required, but in case an invalid resource gets in...

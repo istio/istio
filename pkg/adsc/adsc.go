@@ -59,6 +59,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -1038,10 +1039,7 @@ func (a *ADSC) WaitSingle(to time.Duration, want string, reject string) error {
 // If updates is empty, this will wait for any update
 func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	t := time.NewTimer(to)
-	want := map[string]struct{}{}
-	for _, update := range updates {
-		want[update] = struct{}{}
-	}
+	want := sets.New[string](updates...)
 	got := make([]string, 0, len(updates))
 	for {
 		select {
@@ -1049,9 +1047,9 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 			if toDelete == "" {
 				return got, fmt.Errorf("closed")
 			}
-			delete(want, toDelete)
+			want.Delete(toDelete)
 			got = append(got, toDelete)
-			if len(want) == 0 {
+			if want.Len() == 0 {
 				return got, nil
 			}
 		case <-t.C:

@@ -96,6 +96,9 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 			fcc := inboundChainConfig{
 				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: "v0.default.example.org"},
 				clusterName:       "inbound|8888||",
+				port: ServiceInstancePort{
+					ServicePort: &model.Port{},
+				},
 			}
 
 			listenerFilters := NewListenerBuilder(cg.SetupProxy(nil), cg.PushContext()).buildInboundNetworkFilters(fcc)
@@ -120,6 +123,7 @@ func TestInboundNetworkFilterOrder(t *testing.T) {
 
 		fcc := inboundChainConfig{
 			clusterName: "inbound|8888||",
+			port:        ServiceInstancePort{ServicePort: &model.Port{}},
 		}
 		push := cg.PushContext()
 		push.AuthzPolicies = getAuthorizationPolicies()
@@ -168,7 +172,9 @@ func TestInboundNetworkFilterIdleTimeout(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{Services: services})
 
-			fcc := inboundChainConfig{}
+			fcc := inboundChainConfig{
+				port: ServiceInstancePort{ServicePort: &model.Port{}},
+			}
 			node := &model.Proxy{Metadata: &model.NodeMetadata{IdleTimeout: tt.idleTimeout}}
 			listenerFilters := NewListenerBuilder(cg.SetupProxy(node), cg.PushContext()).buildInboundNetworkFilters(fcc)
 			tcp := &tcp.TcpProxy{}

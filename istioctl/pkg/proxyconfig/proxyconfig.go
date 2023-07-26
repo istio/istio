@@ -811,8 +811,8 @@ func logCmd(ctx cli.Context) *cobra.Command {
 
 	logCmd := &cobra.Command{
 		Use:   "log [<type>/]<name>[.<namespace>]",
-		Short: "(experimental) Retrieves logging levels of the Envoy in the specified pod",
-		Long:  "(experimental) Retrieve information about logging levels of the Envoy instance in the specified pod, and update optionally",
+		Short: "Retrieves logging levels of the Envoy in the specified pod",
+		Long:  "Retrieve information about logging levels of the Envoy instance in the specified pod, and update optionally",
 		Example: `  # Retrieve information about logging levels for a given pod from Envoy.
   istioctl proxy-config log <pod-name[.namespace]>
 
@@ -1356,7 +1356,6 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
-	secretConfigCmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return secretConfigCmd
 }
 
@@ -1378,16 +1377,17 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			var configWriter1, configWriter2 *configdump.ConfigWriter
 			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return err
 			}
+
+			var rootCA1, rootCA2 string
 			if len(args) == 2 {
 				if podName1, podNamespace1, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter1, err = setupPodConfigdumpWriter(kubeClient, podName1, podNamespace1, false, c.OutOrStdout())
+				rootCA1, err = extractRootCA(kubeClient, podName1, podNamespace1, c.OutOrStdout())
 				if err != nil {
 					return err
 				}
@@ -1395,22 +1395,13 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName2, podNamespace2, err = getPodName(ctx, args[1]); err != nil {
 					return err
 				}
-				configWriter2, err = setupPodConfigdumpWriter(kubeClient, podName2, podNamespace2, false, c.OutOrStdout())
+				rootCA2, err = extractRootCA(kubeClient, podName2, podNamespace2, c.OutOrStdout())
 				if err != nil {
 					return err
 				}
 			} else {
 				c.Println(c.UsageString())
 				return fmt.Errorf("rootca-compare requires 2 pods as an argument")
-			}
-
-			rootCA1, err1 := configWriter1.PrintPodRootCAFromDynamicSecretDump()
-			if err1 != nil {
-				return fmt.Errorf("error when retrieving ROOTCA of [%s]: %v", args[0], err1)
-			}
-			rootCA2, err2 := configWriter2.PrintPodRootCAFromDynamicSecretDump()
-			if err2 != nil {
-				return fmt.Errorf("error when retrieving ROOTCA of [%s]: %v", args[1], err2)
 			}
 
 			var returnErr error
@@ -1433,6 +1424,22 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 
 	rootCACompareConfigCmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return rootCACompareConfigCmd
+}
+
+func extractRootCA(client kube.CLIClient, podName, podNamespace string, out io.Writer) (string, error) {
+	ztunnelPod := ambientutil.IsZtunnelPod(client, podName, podNamespace)
+	if ztunnelPod {
+		configWriter, err := setupZtunnelConfigDumpWriter(client, podName, podNamespace, out)
+		if err != nil {
+			return "", err
+		}
+		return configWriter.PrintPodRootCAFromDynamicSecretDump()
+	}
+	configWriter, err := setupPodConfigdumpWriter(client, podName, podNamespace, false, out)
+	if err != nil {
+		return "", err
+	}
+	return configWriter.PrintPodRootCAFromDynamicSecretDump()
 }
 
 func ProxyConfig(ctx cli.Context) *cobra.Command {

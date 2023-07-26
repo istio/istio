@@ -13,6 +13,7 @@ subjects:
 - kind: ServiceAccount
   name: my-service-role
   namespace: istio-system
+
 ---
 
 
@@ -167,6 +168,7 @@ webhooks:
     resources:
     - pods
   sideEffects: None
+
 ---
 
 
@@ -316,6 +318,7 @@ spec:
           name: istio-ca-root-cert
           optional: true
         name: istio-csr-ca-configmap
+
 ---
 
 
@@ -349,4 +352,5 @@ spec:
   selector:
     app: istiod
     istio: pilot
+
 ---

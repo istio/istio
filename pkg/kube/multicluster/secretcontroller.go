@@ -44,33 +44,20 @@ import (
 
 const (
 	MultiClusterSecretLabel = "istio/multiCluster"
-	// maxRetries is the number of times a multicluster secret will be retried before it is dropped out of the queue.
-	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the
-	// sequence of delays between successive queuings of a service.
-	//
-	// 5ms, 10ms, 20ms, 40ms, 80ms, 160ms, 320ms, 640ms, 1.3s, 2.6s, 5.1s, 10.2s, 20.4s, 41s, 82s
-	maxRetries = 15
 )
 
-func init() {
-	monitoring.MustRegister(timeouts)
-	monitoring.MustRegister(clustersCount)
-}
-
 var (
-	clusterLabel = monitoring.MustCreateLabel("cluster")
+	clusterLabel = monitoring.CreateLabel("cluster")
 	timeouts     = monitoring.NewSum(
 		"remote_cluster_sync_timeouts_total",
 		"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
-		monitoring.WithLabels(clusterLabel),
 	)
 
-	clusterType = monitoring.MustCreateLabel("cluster_type")
+	clusterType = monitoring.CreateLabel("cluster_type")
 
 	clustersCount = monitoring.NewGauge(
 		"istiod_managed_clusters",
 		"Number of clusters managed by istiod",
-		monitoring.WithLabels(clusterType),
 	)
 
 	localClusters  = clustersCount.With(clusterType.Value("local"))
@@ -78,9 +65,9 @@ var (
 )
 
 type ClusterHandler interface {
-	ClusterAdded(cluster *Cluster, stop <-chan struct{}) error
-	ClusterUpdated(cluster *Cluster, stop <-chan struct{}) error
-	ClusterDeleted(clusterID cluster.ID) error
+	ClusterAdded(cluster *Cluster, stop <-chan struct{})
+	ClusterUpdated(cluster *Cluster, stop <-chan struct{})
+	ClusterDeleted(clusterID cluster.ID)
 }
 
 // Controller is the controller implementation for Secret resources
@@ -142,8 +129,12 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	namespaces := kclient.New[*corev1.Namespace](kubeclientset)
 	controller.namespaces = namespaces
 	controller.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(namespaces, meshWatcher.Mesh().GetDiscoverySelectors())
+	// Queue does NOT retry. The only error that can occur is if the kubeconfig is
+	// malformed. This is a static analysis that cannot be resolved by retry. Actual
+	// connectivity issues would result in HasSynced returning false rather than an
+	// error. In this case, things will be retried automatically (via informers or
+	// others), and the time is capped by RemoteClusterTimeout).
 	controller.queue = controllers.NewQueue("multicluster secret",
-		controllers.WithMaxAttempts(maxRetries),
 		controllers.WithReconciler(controller.processItem))
 
 	secrets.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
@@ -166,9 +157,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	// run handlers for the config cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
 	configCluster := &Cluster{Client: c.configClusterClient, ID: c.configClusterID}
-	if err := c.handleAdd(configCluster, stopCh); err != nil {
-		return fmt.Errorf("failed initializing primary cluster %s: %v", c.configClusterID, err)
-	}
+	c.handleAdd(configCluster, stopCh)
 	go func() {
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
@@ -359,14 +348,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		if err := callback(remoteCluster, remoteCluster.stop); err != nil {
-			remoteCluster.Stop()
-			logger.Errorf("%s cluster: initialize cluster failed: %v", action, err)
-			c.cs.Delete(secretKey, remoteCluster.ID)
-			err = fmt.Errorf("%s cluster_id=%s from secret=%v: %w", action, clusterID, secretKey, err)
-			errs = multierror.Append(errs, err)
-			continue
-		}
+		callback(remoteCluster, remoteCluster.stop)
 		logger.Infof("finished callback for cluster and starting to sync")
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		go remoteCluster.Run()
@@ -392,38 +374,28 @@ func (c *Controller) deleteSecret(secretKey string) {
 func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
 	log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
 	cluster.Stop()
-	err := c.handleDelete(cluster.ID)
-	if err != nil {
-		log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
-			cluster.ID, secretKey, err)
-	}
+	c.handleDelete(cluster.ID)
 	c.cs.Delete(secretKey, cluster.ID)
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }
 
-func (c *Controller) handleAdd(cluster *Cluster, stop <-chan struct{}) error {
-	var errs *multierror.Error
+func (c *Controller) handleAdd(cluster *Cluster, stop <-chan struct{}) {
 	for _, handler := range c.handlers {
-		errs = multierror.Append(errs, handler.ClusterAdded(cluster, stop))
+		handler.ClusterAdded(cluster, stop)
 	}
-	return errs.ErrorOrNil()
 }
 
-func (c *Controller) handleUpdate(cluster *Cluster, stop <-chan struct{}) error {
-	var errs *multierror.Error
+func (c *Controller) handleUpdate(cluster *Cluster, stop <-chan struct{}) {
 	for _, handler := range c.handlers {
-		errs = multierror.Append(errs, handler.ClusterUpdated(cluster, stop))
+		handler.ClusterUpdated(cluster, stop)
 	}
-	return errs.ErrorOrNil()
 }
 
-func (c *Controller) handleDelete(key cluster.ID) error {
-	var errs *multierror.Error
+func (c *Controller) handleDelete(key cluster.ID) {
 	for _, handler := range c.handlers {
-		errs = multierror.Append(errs, handler.ClusterDeleted(key))
+		handler.ClusterDeleted(key)
 	}
-	return errs.ErrorOrNil()
 }
 
 // ListRemoteClusters provides debug info about connected remote clusters.

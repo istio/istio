@@ -530,7 +530,7 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 }
 
 // From xds_resolver_test
-// testClientConn is a fake implemetation of resolver.ClientConn. All is does
+// testClientConn is a fake implementation of resolver.ClientConn. All is does
 // is to store the state received from the resolver locally and signal that
 // event through a channel.
 type testClientConn struct {

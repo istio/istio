@@ -167,7 +167,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		if pilotExists {
 			// TODO(ramaraochavali): Find a better alternative instead of using debug interface
 			// of istiod as it is typically not recommended in production environments.
-			pids, err := proxy.GetIDsFromProxyInfo("", "", iopSpec.Revision, ns)
+			pids, err := proxy.GetIDsFromProxyInfo(kubeClient, ns)
 			if err != nil {
 				return errStatus, fmt.Errorf("failed to check proxy infos: %v", err)
 			}

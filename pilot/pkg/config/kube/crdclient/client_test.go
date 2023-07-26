@@ -51,10 +51,7 @@ func makeClient(t *testing.T, schemas collection.Schemas, f ...func(o Option) Op
 	for _, fn := range f {
 		o = fn(o)
 	}
-	config, err := New(fake, o)
-	if err != nil {
-		t.Fatal(err)
-	}
+	config := New(fake, o)
 	go config.Run(stop)
 	fake.RunAndWait(stop)
 	kube.WaitForCacheSync("test", stop, config.HasSynced)
@@ -303,7 +300,7 @@ func TestClient(t *testing.T) {
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
 			if cfg == nil {
-				return fmt.Errorf("cfg shouldnt be nil :(")
+				return fmt.Errorf("cfg shouldn't be nil :(")
 			}
 			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
 				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
@@ -331,7 +328,7 @@ func TestClient(t *testing.T) {
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
 			if cfg == nil {
-				return fmt.Errorf("cfg cant be nil")
+				return fmt.Errorf("cfg can't be nil")
 			}
 			if !reflect.DeepEqual(cfg.Status, stat) {
 				return fmt.Errorf("status %v does not match %v", cfg.Status, stat)
@@ -376,8 +373,7 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 	}
 
 	// Create a config store with a handler that records add events
-	store, err := New(fake, Option{})
-	assert.NoError(t, err)
+	store := New(fake, Option{})
 
 	var cfgsAdded []config.Config
 	store.RegisterEventHandler(
@@ -420,8 +416,7 @@ func TestClientSync(t *testing.T) {
 		clienttest.MakeCRD(t, fake, s.GroupVersionResource())
 	}
 	stop := test.NewStop(t)
-	c, err := New(fake, Option{})
-	assert.NoError(t, err)
+	c := New(fake, Option{})
 
 	events := atomic.NewInt64(0)
 	c.RegisterEventHandler(gvk.ServiceEntry, func(c config.Config, c2 config.Config, event model.Event) {

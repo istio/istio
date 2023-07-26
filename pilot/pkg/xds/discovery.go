@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -137,12 +138,15 @@ type DiscoveryServer struct {
 	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
 	ListRemoteClusters func() []cluster.DebugInfo
 
-	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// ClusterAliases are alias names for cluster. When a proxy connects with a cluster ID
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[cluster.ID]cluster.ID
 
 	// pushVersion stores the numeric push version. This should be accessed via NextVersion()
 	pushVersion atomic.Uint64
+
+	// discoveryStartTime is the time since the binary started
+	discoveryStartTime time.Time
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -164,9 +168,10 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
-		Cache:      model.DisabledCache{},
-		instanceID: instanceID,
-		clusterID:  clusterID,
+		Cache:              env.Cache,
+		instanceID:         instanceID,
+		clusterID:          clusterID,
+		discoveryStartTime: processStartTime,
 	}
 
 	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
@@ -175,14 +180,7 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 	}
 
 	out.initJwksResolver()
-
-	if features.EnableXDSCaching {
-		out.Cache = model.NewXdsCache()
-		// clear the cache as endpoint shards are modified to avoid cache write race
-		out.Env.EndpointIndex.SetCache(out.Cache)
-	}
-
-	out.ConfigGenerator = core.NewConfigGenerator(out.Cache)
+	out.ConfigGenerator = core.NewConfigGenerator(env.Cache)
 
 	return out
 }
@@ -198,7 +196,7 @@ func (s *DiscoveryServer) initJwksResolver() {
 
 	// Flush cached discovery responses when detecting jwt public key change.
 	s.JwtKeyResolver.PushFunc = func() {
-		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
+		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.UnknownTrigger)})
 	}
 }
 
@@ -220,7 +218,7 @@ var processStartTime = time.Now()
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
-	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
+	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(s.discoveryStartTime))
 	s.serverReady.Store(true)
 }
 
@@ -391,7 +389,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 		case r := <-ch:
 			// If reason is not set, record it as an unknown reason
 			if len(r.Reason) == 0 {
-				r.Reason = []model.TriggerReason{model.UnknownTrigger}
+				r.Reason = model.NewReasonStats(model.UnknownTrigger)
 			}
 			if !opts.enableEDSDebounce && !r.Full {
 				// trigger push now, just for EDS
@@ -434,15 +432,31 @@ func configsUpdated(req *model.PushRequest) string {
 }
 
 func reasonsUpdated(req *model.PushRequest) string {
+	var (
+		reason0, reason1            model.TriggerReason
+		reason0Cnt, reason1Cnt, idx int
+	)
+	for r, cnt := range req.Reason {
+		if idx == 0 {
+			reason0, reason0Cnt = r, cnt
+		} else if idx == 1 {
+			reason1, reason1Cnt = r, cnt
+		} else {
+			break
+		}
+		idx++
+	}
+
 	switch len(req.Reason) {
 	case 0:
 		return "unknown"
 	case 1:
-		return string(req.Reason[0])
+		return fmt.Sprintf("%s:%d", reason0, reason0Cnt)
 	case 2:
-		return fmt.Sprintf("%s and %s", req.Reason[0], req.Reason[1])
+		return fmt.Sprintf("%s:%d and %s:%d", reason0, reason0Cnt, reason1, reason1Cnt)
 	default:
-		return fmt.Sprintf("%s and %d more reasons", req.Reason[0], len(req.Reason)-1)
+		return fmt.Sprintf("%s:%d and %d(%d) more reasons", reason0, reason0Cnt, len(req.Reason)-1,
+			req.Reason.Count()-reason0Cnt)
 	}
 }
 
@@ -461,7 +475,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			if shuttingdown {
 				return
 			}
-			recordPushTriggers(push.Reason...)
+			recordPushTriggers(push.Reason)
 			// Signals that a push is done by reading from the semaphore, allowing another send on it.
 			doneFunc := func() {
 				queue.MarkDone(client)
@@ -582,7 +596,23 @@ func (s *DiscoveryServer) Clients() []*Connection {
 	return clients
 }
 
-// AllClients returns all connected clients, per Clients, but additionally includes unintialized connections
+// SortedClients returns all currently connected clients in an ordered manner.
+// Sorting order priority is as follows: ClusterID, Namespace, ID.
+func (s *DiscoveryServer) SortedClients() []*Connection {
+	clients := s.Clients()
+	sort.Slice(clients, func(i, j int) bool {
+		if clients[i].proxy.GetClusterID().String() < clients[j].proxy.GetClusterID().String() {
+			return true
+		}
+		if clients[i].proxy.GetNamespace() < clients[j].proxy.GetNamespace() {
+			return true
+		}
+		return clients[i].proxy.GetID() < clients[j].proxy.GetID()
+	})
+	return clients
+}
+
+// AllClients returns all connected clients, per Clients, but additionally includes uninitialized connections
 // Warning: callers must take care not to rely on the con.proxy field being set
 func (s *DiscoveryServer) AllClients() []*Connection {
 	s.adsClientsMutex.RLock()

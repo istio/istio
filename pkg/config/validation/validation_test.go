@@ -1474,6 +1474,36 @@ func TestValidateTlsOptions(t *testing.T) {
 			"client CA bundle", "",
 		},
 		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"server certificate", "",
+		},
+		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"private key", "",
+		},
+		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"client CA bundle", "",
+		},
+		{
 			"pass through sds no certs",
 			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_PASSTHROUGH,
@@ -3758,23 +3788,225 @@ func TestValidateDestinationRule(t *testing.T) {
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CaCertificates:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CaCertificates:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_SIMPLE,
+					CredentialName: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_SIMPLE,
+					CaCertificates: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the san is specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is not specified with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode mutual, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_MUTUAL,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode mutual, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_MUTUAL,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_MUTUAL,
+					CredentialName: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is not specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the san is specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
 	}
 	for _, c := range cases {
-		warn, got := ValidateDestinationRule(config.Config{
-			Meta: config.Meta{
-				Name:      someName,
-				Namespace: someNamespace,
-			},
-			Spec: c.in,
+		t.Run(c.name, func(t *testing.T) {
+			warn, got := ValidateDestinationRule(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: c.in,
+			})
+			if (got == nil) != c.valid {
+				t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
+					c.name, got == nil, c.valid, got)
+			}
+			if (warn == nil) == c.warning {
+				t.Errorf("ValidateDestinationRule failed on %v: got warn=%v but wanted warn=%v: %v",
+					c.name, warn == nil, c.warning, warn)
+			}
 		})
-		if (got == nil) != c.valid {
-			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
-		}
-		if (warn == nil) == c.warning {
-			t.Errorf("ValidateDestinationRule failed on %v: got warn=%v but wanted warn=%v: %v",
-				c.name, warn == nil, c.warning, warn)
-		}
 	}
 }
 

@@ -331,7 +331,7 @@ func getPeerIndex(veth *netlink.Veth) (int, error) {
 }
 
 // CreateRulesOnNode initializes the routing, firewall and ipset rules on the node.
-func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS bool) error {
+func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS bool, geneveDstPort uint16) error {
 	var err error
 
 	log.Debugf("CreateRulesOnNode: ztunnelVeth=%s, ztunnelIP=%s", ztunnelVeth, ztunnelIP)
@@ -456,6 +456,19 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			"--mark", constants.OutboundMark,
 			"-j", "ACCEPT",
 		),
+
+		// If we have an outbound mark, we don't need kube-proxy to do anything,
+		// so accept it before the KUBE-SERVICES chain in the Filter table rejects
+		// destinations that do not have a k8s endpoint resource. This is necessary
+		// for traffic destined to workloads outside k8s whose endpoints are known
+		// to ZTunnel but for whom k8s endpoints resources do not exist.
+		newIptableRule(
+			constants.TableFilter,
+			constants.ChainZTunnelForward,
+			"-m", "mark",
+			"--mark", constants.OutboundMark,
+			"-j", "ACCEPT",
+		),
 	}
 
 	if captureDNS {
@@ -481,7 +494,7 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			constants.ChainZTunnelPrerouting,
 			"-p", "udp",
 			"-m", "udp",
-			"--dport", "6081",
+			"--dport", fmt.Sprintf("%d", geneveDstPort),
 			"-j", "RETURN",
 		),
 
@@ -614,8 +627,9 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		LinkAttrs: netlink.LinkAttrs{
 			Name: constants.InboundTun,
 		},
-		ID:     1000,
+		ID:     constants.InboundTunVNI,
 		Remote: net.ParseIP(ztunnelIP),
+		Dport:  geneveDstPort,
 	}
 	log.Debugf("Building inbound tunnel: %+v", inbnd)
 	err = netlink.LinkAdd(inbnd)
@@ -636,8 +650,9 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		LinkAttrs: netlink.LinkAttrs{
 			Name: constants.OutboundTun,
 		},
-		ID:     1001,
+		ID:     constants.OutboundTunVNI,
 		Remote: net.ParseIP(ztunnelIP),
+		Dport:  geneveDstPort,
 	}
 	log.Debugf("Building outbound tunnel: %+v", outbnd)
 	err = netlink.LinkAdd(outbnd)
@@ -762,11 +777,53 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	for _, route := range routes {
 		err = execute(route.Cmd, route.Args...)
 		if err != nil {
-			log.Errorf(fmt.Errorf("failed to add route (%+v): %v", route, err))
+			log.Errorf("failed to add route (%+v): %v", route, err)
 		}
 	}
 
 	return nil
+}
+
+// determineDstPortForGeneveLink looks for first available destination port for given VNI and remote IP
+// starting from the default value 6081 (https://man7.org/linux/man-pages/man8/ip-link.8.html).
+// Destination port cannot be reused and must be dynamically determined when:
+// - an external geneve link already exists (external geneve link does not have ID and remote IP address);
+// - a geneve link with the same ID and remote IP already exist.
+func determineDstPortForGeneveLink(remoteIP net.IP, vnis ...uint32) uint16 {
+	defaultGenevePort := uint16(6081)
+	vniSet := sets.New[uint32](vnis...)
+
+	existingLinks, err := netlink.LinkList()
+	if err != nil {
+		log.Errorf("failed to list links on the node: %v", err)
+		return defaultGenevePort
+	}
+
+	isExternal := func(genveLink *netlink.Geneve) bool {
+		return genveLink.ID == 0 && genveLink.Remote == nil
+	}
+	isConfigurationReserved := func(geneveLink *netlink.Geneve) bool {
+		return vniSet.Contains(geneveLink.ID) && geneveLink.Remote.Equal(remoteIP)
+	}
+
+	geneveType := netlink.Geneve{}
+	reservedPorts := sets.New[uint16]()
+	for _, l := range existingLinks {
+		if l.Type() == geneveType.Type() {
+			geneveLink := l.(*netlink.Geneve)
+			if isExternal(geneveLink) || isConfigurationReserved(geneveLink) {
+				reservedPorts.Insert(geneveLink.Dport)
+			}
+		}
+	}
+
+	for {
+		if reservedPorts.Contains(defaultGenevePort) {
+			defaultGenevePort++
+		} else {
+			return defaultGenevePort
+		}
+	}
 }
 
 // CreateEBPFRulesInNodeProxyNS initializes the routes and iptable rules that need to exist WITHIN
@@ -922,7 +979,7 @@ func (s *Server) createTProxyRulesForLegacyEBPF(ztunnelIP, ifName string) error 
 //
 // There is no cleanup required for things we do within the netns, as when the netns is destroyed on pod delete,
 // everything within the netns goes away.
-func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztunnelNetNS, hostIP string) error {
+func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztunnelNetNS, hostIP string, geneveDstPort uint16) error {
 	ns := filepath.Base(ztunnelNetNS)
 	log.Debugf("CreateRulesWithinNodeProxyNS: proxyNsVethIdx=%d, ztunnelIP=%s, hostIP=%s, from within netns=%s", proxyNsVethIdx, ztunnelIP, hostIP, ztunnelNetNS)
 	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
@@ -945,8 +1002,9 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 			LinkAttrs: netlink.LinkAttrs{
 				Name: inboundGeneveLinkName,
 			},
-			ID:     1000,
+			ID:     constants.InboundTunVNI,
 			Remote: net.ParseIP(hostIP),
+			Dport:  geneveDstPort,
 		}
 		log.Debugf("Building inbound tunnel: %+v", inbndTunLink)
 		err := netlink.LinkAdd(inbndTunLink)
@@ -968,8 +1026,9 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 			LinkAttrs: netlink.LinkAttrs{
 				Name: outboundGeneveLinkName,
 			},
-			ID:     1001,
+			ID:     constants.OutboundTunVNI,
 			Remote: net.ParseIP(hostIP),
+			Dport:  geneveDstPort,
 		}
 		log.Debugf("Building outbound tunnel: %+v", outbndTunLink)
 		err = netlink.LinkAdd(outbndTunLink)

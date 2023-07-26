@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes: 
+- |
+  **Removed** the support for deprecated envoy filter names in Envoy API name maches. Envoy filter will only be matched with canonical naming standard. See https://www.envoyproxy.io/docs/envoy/latest/version_history/v1.14.0#deprecated
+
+upgradeNotes:
+  - title: Use the canonical filter names for EnvoyFilter
+    content: |
+      If you are using EnvoyFilter API, please use canonical filter names https://www.envoyproxy.io/docs/envoy/latest/version_history/v1.14.0#deprecated.
+      The use of deprecated filter name is not supported.

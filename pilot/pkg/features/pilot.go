@@ -358,7 +358,7 @@ var (
 		"If this is set to true, gateway-api resources will automatically provision in cluster deployment, services, etc").Get()
 
 	ClusterName = env.Register("CLUSTER_ID", "Kubernetes",
-		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
+		"Defines the cluster and service registry that this Istiod instance belongs to").Get()
 
 	ExternalIstiod = env.Register("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
@@ -592,6 +592,9 @@ var (
 	ResolveHostnameGateways = env.Register("RESOLVE_HOSTNAME_GATEWAYS", true,
 		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
 
+	MultiNetworkGatewayAPI = env.Register("PILOT_MULTI_NETWORK_DISCOVER_GATEWAY_API", false,
+		"If true, Pilot will discover labeled Kubernetes gateway objects as multi-network gateways.").Get()
+
 	CertSignerDomain = env.Register("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
 
 	EnableQUICListeners = env.Register("PILOT_ENABLE_QUIC_LISTENERS", false,
@@ -645,7 +648,7 @@ var (
 	).Get()
 
 	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
-		"If enabled, pilot will configure clusters/listeners/routes for dual stack capability.").Get()
+		"If true, Istio will enable the Dual Stack feature.").Get()
 
 	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
 		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
@@ -658,11 +661,21 @@ var (
 	KubernetesClientContentType = env.Register("ISTIO_KUBE_CLIENT_CONTENT_TYPE", "protobuf",
 		"The content type to use for Kubernetes clients. Defaults to protobuf. Valid options: [protobuf, json]").Get()
 
+	// This is used in injection templates, it is not unused.
+	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
+		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
+
 	// This is an experimental feature flag, can be removed once it became stable, and should introduced to Telemetry API.
 	MetricRotationInterval = env.Register("METRIC_ROTATION_INTERVAL", 0*time.Second,
 		"Metric scope rotation interval, set to 0 to disable the metric scope rotation").Get()
 	MetricGracefulDeletionInterval = env.Register("METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute,
 		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disabled.").Get()
+
+	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
+		"If enabled, pilot will only rebuild config for resources that have changed").Get()
+
+	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
+		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

@@ -22,28 +22,20 @@ import (
 
 var (
 	// reasonLabel describes reason
-	reasonLabel = monitoring.MustCreateLabel("reason")
+	reasonLabel = monitoring.CreateLabel("reason")
 
 	metricWebhookConfigurationUpdateError = monitoring.NewSum(
 		"galley_validation_config_update_error",
 		"k8s webhook configuration update error",
-		monitoring.WithLabels(reasonLabel))
+	)
 	metricWebhookConfigurationUpdates = monitoring.NewSum(
 		"galley_validation_config_updates",
 		"k8s webhook configuration updates")
 	metricWebhookConfigurationLoadError = monitoring.NewSum(
 		"galley_validation_config_load_error",
 		"k8s webhook configuration (re)load error",
-		monitoring.WithLabels(reasonLabel))
-)
-
-func init() {
-	monitoring.MustRegister(
-		metricWebhookConfigurationUpdateError,
-		metricWebhookConfigurationUpdates,
-		metricWebhookConfigurationLoadError,
 	)
-}
+)
 
 func reportValidationConfigUpdateError(reason metav1.StatusReason) {
 	metricWebhookConfigurationUpdateError.With(reasonLabel.Value(string(reason))).Increment()

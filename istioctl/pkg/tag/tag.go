@@ -111,21 +111,21 @@ func tagSetCommand(ctx cli.Context) *cobra.Command {
 		Short: "Create or modify revision tags",
 		Long: `Create or modify revision tags. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
-		Example: ` # Create a revision tag from the "1-8-0" revision
- istioctl tag set prod --revision 1-8-0
+		Example: `  # Create a revision tag from the "1-8-0" revision
+  istioctl tag set prod --revision 1-8-0
 
- # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
- kubectl label ns test-ns istio.io/rev=prod
+  # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
+  kubectl label ns test-ns istio.io/rev=prod
 
- # Change the revision tag to reference the "1-8-1" revision
- istioctl tag set prod --revision 1-8-1 --overwrite
+  # Change the revision tag to reference the "1-8-1" revision
+  istioctl tag set prod --revision 1-8-1 --overwrite
 
- # Make revision "1-8-1" the default revision, both resulting in that revision handling injection for "istio-injection=enabled"
- # and validating resources cluster-wide
- istioctl tag set default --revision 1-8-1
+  # Make revision "1-8-1" the default revision, both resulting in that revision handling injection for "istio-injection=enabled"
+  # and validating resources cluster-wide
+  istioctl tag set default --revision 1-8-1
 
- # Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
- kubectl rollout restart deployments -n test-ns
+  # Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
+  kubectl rollout restart deployments -n test-ns
 `,
 		SuggestFor: []string{"create"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -164,17 +164,17 @@ func tagGenerateCommand(ctx cli.Context) *cobra.Command {
 		Short: "Generate configuration for a revision tag to stdout",
 		Long: `Create a revision tag and output to the command's stdout. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
-		Example: ` # Create a revision tag from the "1-8-0" revision
- istioctl tag generate prod --revision 1-8-0 > tag.yaml
+		Example: `  # Create a revision tag from the "1-8-0" revision
+  istioctl tag generate prod --revision 1-8-0 > tag.yaml
 
- # Apply the tag to cluster
- kubectl apply -f tag.yaml
+  # Apply the tag to cluster
+  kubectl apply -f tag.yaml
 
- # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
- kubectl label ns test-ns istio.io/rev=prod
+  # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
+  kubectl label ns test-ns istio.io/rev=prod
 
- # Rollout namespace "test-ns" to update workloads to the "1-8-0" revision
- kubectl rollout restart deployments -n test-ns
+  # Rollout namespace "test-ns" to update workloads to the "1-8-0" revision
+  kubectl rollout restart deployments -n test-ns
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

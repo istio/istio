@@ -299,7 +299,7 @@ func (e *endpointSliceCache) update(hostname host.Name, slice string, endpoints 
 	// from one slice to another See
 	// https://github.com/kubernetes/website/blob/master/content/en/docs/concepts/services-networking/endpoint-slices.md#duplicate-endpoints
 	// In this case, we can always assume and update is fresh, although older slices
-	// we have not gotten updates may be stale; therefor we always take the new
+	// we have not gotten updates may be stale; therefore we always take the new
 	// update.
 	e.endpointsByServiceAndSlice[hostname][slice] = endpoints
 }
@@ -372,7 +372,7 @@ func (esc *endpointSliceController) processEndpointEvent(name string, namespace 
 					// TODO: extend and set service instance type, so no need to re-init push context
 					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
 
-					Reason: []model.TriggerReason{model.HeadlessEndpointUpdate},
+					Reason: model.NewReasonStats(model.HeadlessEndpointUpdate),
 				})
 				return nil
 			}

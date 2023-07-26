@@ -607,15 +607,15 @@ func BenchmarkPushRequest(b *testing.B) {
 			trigger := allTriggers[i%len(allTriggers)]
 			nreq := &model.PushRequest{
 				ConfigsUpdated: sets.New[model.ConfigKey](),
-				Reason:         []model.TriggerReason{trigger},
+				Reason:         model.NewReasonStats(trigger),
 			}
 			for c := 0; c < configs; c++ {
-				nreq.ConfigsUpdated[model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
+				nreq.ConfigsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"})
 			}
 			req = req.Merge(nreq)
 		}
 		for p := 0; p < proxies; p++ {
-			recordPushTriggers(req.Reason...)
+			recordPushTriggers(req.Reason)
 		}
 	}
 }

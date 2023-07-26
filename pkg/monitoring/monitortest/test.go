@@ -15,148 +15,211 @@
 package monitortest
 
 import (
-	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
-	"go.opencensus.io/metric/metricdata"
-	"go.opencensus.io/metric/metricexport"
-	"go.opencensus.io/stats/view"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil/promlint"
+	dto "github.com/prometheus/client_model/go"
+	"go.opentelemetry.io/otel/attribute"
 
+	"istio.io/istio/pkg/lazy"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/util/sets"
 )
 
-type testExporter struct {
-	sync.Mutex
-
-	t       test.Failer
-	rows    map[string][]*view.Row
-	metrics map[string]*metricdata.Metric
-}
-
-func (t *testExporter) ExportView(d *view.Data) {
-	t.Lock()
-	defer t.Unlock()
-	for _, tk := range d.View.TagKeys {
-		if len(tk.Name()) < 1 {
-			t.t.Fatalf("got invalid tag: %v", tk)
-		}
-	}
-	t.rows[d.View.Name] = append(t.rows[d.View.Name], d.Rows...)
-}
-
-func (t *testExporter) ExportMetrics(ctx context.Context, data []*metricdata.Metric) error {
-	t.metrics = map[string]*metricdata.Metric{}
-	for _, m := range data {
-		t.metrics[m.Descriptor.Name] = m
-	}
-	return nil
-}
-
 type MetricsTest struct {
-	t   test.Failer
-	exp *testExporter
+	t      test.Failer
+	reg    prometheus.Gatherer
+	deltas map[metricKey]float64
+}
+
+type metricKey struct {
+	name  string
+	attrs attribute.Set
+}
+
+var reg = lazy.New(func() (prometheus.Gatherer, error) {
+	// TODO: do not use a global and/or add a way to reset (https://github.com/open-telemetry/opentelemetry-go/issues/4291)
+	reg := prometheus.NewRegistry()
+	_, err := monitoring.RegisterPrometheusExporter(reg, reg)
+	if err != nil {
+		return nil, err
+	}
+	return reg, nil
+})
+
+func TestRegistry(t test.Failer) prometheus.Gatherer {
+	r, err := reg.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
 }
 
 func New(t test.Failer) *MetricsTest {
-	exp := &testExporter{
-		t:    t,
-		rows: make(map[string][]*view.Row),
-	}
-	mt := &MetricsTest{t: t, exp: exp}
-	view.RegisterExporter(exp)
-	t.Cleanup(func() {
-		view.UnregisterExporter(exp)
-		mt.resetAll()
-	})
-	view.SetReportingPeriod(time.Millisecond)
+	r := TestRegistry(t)
+	mt := &MetricsTest{t: t, reg: r, deltas: computeDeltas(t, r)}
 	return mt
 }
 
-func (m *MetricsTest) resetAll() {
-	m.t.Helper()
-	m.exp.Lock()
-	defer m.exp.Unlock()
-	names := sets.New[string](maps.Keys(m.exp.rows)...)
-	names.InsertAll(maps.Keys(m.exp.metrics)...)
-	for name := range names {
-		v := view.Find(name)
-		if v == nil {
-			continue
+func computeDeltas(t test.Failer, reg prometheus.Gatherer) map[metricKey]float64 {
+	res := map[metricKey]float64{}
+	metrics, err := reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, metric := range metrics {
+		for _, row := range metric.Metric {
+			if row.Counter == nil {
+				continue
+			}
+			key := toMetricKey(row, metric)
+			res[key] = *row.Counter.Value
 		}
-		view.Unregister(v)
-		if err := view.Register(v); err != nil {
-			m.t.Fatal(err)
+	}
+	return res
+}
+
+func toMetricKey(row *dto.Metric, metric *dto.MetricFamily) metricKey {
+	kvs := []attribute.KeyValue{}
+	for _, lv := range row.Label {
+		kvs = append(kvs, attribute.String(*lv.Name, *lv.Value))
+	}
+	key := metricKey{
+		name:  *metric.Name,
+		attrs: attribute.NewSet(kvs...),
+	}
+	return key
+}
+
+type Compare func(any) error
+
+func DoesNotExist(any) error {
+	// special case logic in the Assert
+	return nil
+}
+
+func Exactly(v float64) func(any) error {
+	return func(f any) error {
+		if v != toFloat(f) {
+			return fmt.Errorf("want %v, got %v", v, toFloat(f))
 		}
+		return nil
 	}
 }
 
-type Compare func(any) bool
-
-func Exactly(v float64) func(any) bool {
-	return func(f any) bool {
-		return v == toFloat(f)
+func Distribution(count uint64, sum float64) func(any) error {
+	return func(f any) error {
+		d := f.(*dto.Histogram)
+		if *d.SampleCount != count {
+			return fmt.Errorf("want %v samples, got %v", count, *d.SampleCount)
+		}
+		if *d.SampleSum != sum {
+			return fmt.Errorf("want %v sum, got %v", count, *d.SampleSum)
+		}
+		return nil
 	}
 }
 
-func Distribution(count int64, sum float64) func(any) bool {
-	return func(f any) bool {
-		d := f.(*metricdata.Distribution)
-		return d.Count == count && d.Sum == sum
+// Buckets asserts a distribution has the number of buckets
+func Buckets(count int) func(any) error {
+	return func(f any) error {
+		d := f.(*dto.Histogram)
+		if len(d.Bucket) != count {
+			return fmt.Errorf("want %v buckets, got %v", count, len(d.Bucket))
+		}
+		return nil
 	}
 }
 
-func AtLeast(v float64) func(any) bool {
-	return func(f any) bool {
-		return toFloat(f) >= v
+func AtLeast(want float64) func(any) error {
+	return func(got any) error {
+		if want > toFloat(got) {
+			return fmt.Errorf("want %v <= %v (got %v)", want, toFloat(got), want)
+		}
+		return nil
 	}
 }
 
-func (m *MetricsTest) Assert(name string, tags map[string]string, val Compare, opts ...retry.Option) {
+func (m *MetricsTest) Assert(name string, tags map[string]string, compare Compare, opts ...retry.Option) {
 	m.t.Helper()
 	opt := []retry.Option{retry.Timeout(time.Second * 5), retry.Message("metric not found")}
 	opt = append(opt, opts...)
 	err := retry.UntilSuccess(func() error {
-		reader := metricexport.NewReader()
-		reader.ReadAndExport(m.exp)
-		m.exp.Lock()
-		defer m.exp.Unlock()
-		ts, f := m.exp.metrics[name]
-		if !f || len(ts.TimeSeries) == 0 {
-			return fmt.Errorf("metric %v not found", name)
+		res, err := m.reg.Gather()
+		if err != nil {
+			return err
 		}
-		for _, r := range ts.TimeSeries {
-			want := maps.Clone(tags)
-			for i, t := range r.LabelValues {
-				k := ts.Descriptor.LabelKeys[i].Key
-				if want[k] == t.Value {
-					delete(want, k)
-				} else {
-					m.t.Logf("skip metric: want %v=%v, got %v=%v", k, want[k], k, t.Value)
+		if fmt.Sprintf("%p", compare) == fmt.Sprintf("%p", DoesNotExist) {
+			for _, metric := range res {
+				if *metric.Name == name {
+					return fmt.Errorf("metric was found when it should not have been")
 				}
 			}
-			if len(want) > 0 {
-				// Not a match
-				m.t.Logf("missing labels: %+v", want)
+			return nil
+		}
+		for _, metric := range res {
+			if *metric.Name != name {
 				continue
 			}
-			if val(r.Points[0].Value) {
+			for _, row := range metric.Metric {
+				want := maps.Clone(tags)
+				for _, lv := range row.Label {
+					k, v := *lv.Name, *lv.Value
+					if want[k] == v {
+						delete(want, k)
+					} else {
+						m.t.Logf("skip metric: want %v=%v, got %v=%v", k, want[k], k, v)
+					}
+				}
+				if len(want) > 0 {
+					// Not a match
+					m.t.Logf("skip metric: missing labels: %+v", want)
+					continue
+				}
+				var v any
+				if row.Counter != nil {
+					cv := *row.Counter.Value
+					key := toMetricKey(row, metric)
+					if delta, f := m.deltas[key]; f {
+						cv -= delta
+					}
+					v = cv
+				} else if row.Gauge != nil {
+					v = *row.Gauge.Value
+				} else if row.Histogram != nil {
+					v = row.Histogram
+				}
+				err := compare(v)
+				if err != nil {
+					return fmt.Errorf("got unexpected val %v: %v", v, err)
+				}
 				return nil
 			}
-			m.t.Logf("got unexpected val %v", display(r.Points[0].Value))
-
 		}
 		return fmt.Errorf("no matching rows found")
 	}, opt...)
 	if err != nil {
-		m.t.Logf("Metric %v not found; Dumping known metrics:", name)
+		m.t.Logf("Metric %v/%v not matched (%v); Dumping known metrics:", name, tags, err)
 		m.Dump()
 		m.t.Fatal(err)
+	}
+
+	// Run through linter. For now this is warning, maybe allow opt-in to strict
+	res, err := m.reg.Gather()
+	if err != nil {
+		m.t.Fatal(err)
+	}
+	problems, err := promlint.NewWithMetricFamilies(res).Lint()
+	if err != nil {
+		m.t.Fatal(err)
+	}
+	if len(problems) > 0 {
+		m.t.Logf("WARNING: Prometheus linter issue: %v", problems)
 	}
 }
 
@@ -168,36 +231,40 @@ func toFloat(r interface{}) float64 {
 		return float64(v)
 	case float64:
 		return v
-	case *metricdata.Distribution:
-		return v.Sum
 	}
 }
 
 func (m *MetricsTest) Dump() {
 	m.t.Helper()
-	reader := metricexport.NewReader()
-	reader.ReadAndExport(m.exp)
-	m.exp.Lock()
-	defer m.exp.Unlock()
-	for name, met := range m.exp.metrics {
-		m.t.Logf("metric %v: %v rows", name, len(met.TimeSeries))
-		for _, row := range met.TimeSeries {
-			kv := []string{}
-			for i, v := range row.LabelValues {
-				k := met.Descriptor.LabelKeys[i]
-				kv = append(kv, k.Key+"="+v.Value)
+	res, err := m.reg.Gather()
+	if err != nil {
+		m.t.Fatal(err)
+	}
+	for _, metric := range res {
+		if len(metric.Metric) == 0 {
+			m.t.Logf("%v: no rows", *metric.Name)
+		}
+		for _, row := range metric.Metric {
+			kvs := []string{}
+			for _, kv := range row.Label {
+				k, v := *kv.Name, *kv.Value
+				kvs = append(kvs, k+"="+v)
 			}
-			tags := strings.Join(kv, ",")
-			m.t.Logf(" %v{%v} %v", name, tags, display(row.Points[0].Value))
+			tags := strings.Join(kvs, ",")
+			m.t.Logf(" %v{%v} %v", *metric.Name, tags, display(row))
 		}
 	}
 }
 
-func display(r interface{}) string {
-	switch v := r.(type) {
-	default:
-		return fmt.Sprintf("%v", v)
-	case *metricdata.Distribution:
-		return fmt.Sprintf("distribution{count=%v,sum=%v}", v.Count, v.Sum)
+func display(row *dto.Metric) string {
+	if row.Counter != nil {
+		return fmt.Sprint(*row.Counter.Value)
+	} else if row.Gauge != nil {
+		return fmt.Sprint(*row.Gauge.Value)
+	} else if row.Histogram != nil {
+		return fmt.Sprintf("histogram{count=%v,sum=%v}", *row.Histogram.SampleCount, *row.Histogram.SampleSum)
+	} else if row.Summary != nil {
+		return fmt.Sprintf("summary{count=%v,sum=%v}", *row.Summary.SampleCount, *row.Summary.SampleSum)
 	}
+	return "?"
 }

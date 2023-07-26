@@ -97,7 +97,7 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID in
 			return "", err
 		}
 		if string(readBytes) != common.ServerFirstMagicString {
-			return "", fmt.Errorf("did not receive magic sting. Want %q, got %q", common.ServerFirstMagicString, string(readBytes))
+			return "", fmt.Errorf("did not receive magic string. Want %q, got %q", common.ServerFirstMagicString, string(readBytes))
 		}
 	}
 

@@ -245,6 +245,10 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 						Value: strconv.FormatBool(false),
 					},
 				},
+				Labels: map[string]string{
+					label.SidecarInject.Name:     "false",
+					constants.AmbientRedirection: constants.AmbientRedirectionDisabled,
+				},
 			},
 		},
 	}
@@ -255,6 +259,9 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		Ports:          ports.All(),
 		Subsets: []echo.SubsetConfig{{
 			Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
+			Labels: map[string]string{
+				constants.AmbientRedirection: constants.AmbientRedirectionDisabled,
+			},
 		}},
 		IncludeExtAuthz: c.IncludeExtAuthz,
 	}

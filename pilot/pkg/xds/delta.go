@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -292,7 +293,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	request := &model.PushRequest{
 		Full:   true,
 		Push:   con.proxy.LastPushContext,
-		Reason: []model.TriggerReason{model.ProxyRequest},
+		Reason: model.NewReasonStats(model.ProxyRequest),
 
 		// The usage of LastPushTime (rather than time.Now()), is critical here for correctness; This time
 		// is used by the XDS cache to determine if a entry is stale. If we use Now() with an old push context,
@@ -487,7 +488,9 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		Nonce:             nonce(req.Push.LedgerVersion),
 		Resources:         res,
 	}
-	currentResources := extractNames(res)
+	currentResources := slices.Map(res, func(r *discovery.Resource) string {
+		return r.Name
+	})
 	if usedDelta {
 		resp.RemovedResources = deletedRes
 	} else if req.Full {
@@ -612,12 +615,4 @@ func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryR
 		wildcard = true
 	}
 	return sets.SortedList(res), wildcard
-}
-
-func extractNames(res []*discovery.Resource) []string {
-	names := []string{}
-	for _, r := range res {
-		names = append(names, r.Name)
-	}
-	return names
 }

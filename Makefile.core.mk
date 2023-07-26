@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2023-06-15T19-01-36
+BASE_VERSION ?= master-2023-07-20T20-50-43
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -422,9 +422,10 @@ test: racetest ## Runs all unit tests
 # For now, keep a minimal subset. This can be expanded in the future.
 BENCH_TARGETS ?= ./pilot/...
 
+PKG ?= ./...
 .PHONY: racetest
 racetest: $(JUNIT_REPORT)
-	go test ${GOBUILDFLAGS} ${T} -race ./... 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	go test ${GOBUILDFLAGS} ${T} -race $(PKG) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks

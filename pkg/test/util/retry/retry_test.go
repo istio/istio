@@ -45,7 +45,7 @@ func TestConverge(t *testing.T) {
 			return nil
 		}, Converge(2), Timeout(time.Second*10000), Delay(time.Millisecond))
 		if err != nil {
-			t.Fatalf("expected convergance, but test failed: %v", err)
+			t.Fatalf("expected convergence, but test failed: %v", err)
 		}
 	})
 

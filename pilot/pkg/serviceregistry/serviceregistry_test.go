@@ -850,6 +850,41 @@ func TestWorkloadInstances(t *testing.T) {
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nil)
 	})
 
+	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
+		kc, _, store, kube, _ := setupTest(t)
+		makeService(t, kube, service)
+
+		// Start as unhealthy, should have no instances
+		makeIstioObject(t, store, setHealth(workloadEntry, false))
+		instances := []ServiceInstanceResponse{}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Mark healthy, get instances
+		makeIstioObject(t, store, setHealth(workloadEntry, true))
+		instances = []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Set back to unhealthy
+		makeIstioObject(t, store, setHealth(workloadEntry, false))
+		instances = []ServiceInstanceResponse{}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+
+		// Remove health status entirely
+		makeIstioObject(t, store, workloadEntry)
+		instances = []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
 	istiotest.SetForTest(t, &features.EnableHBONE, true)
 	istiotest.SetForTest(t, &features.EnableAmbientControllers, true)
 	for _, ambient := range []bool{false, true} {
@@ -936,48 +971,13 @@ func TestWorkloadInstances(t *testing.T) {
 			})
 		})
 	}
-
-	t.Run("Service selects WorkloadEntry: health status", func(t *testing.T) {
-		kc, _, store, kube, _ := setupTest(t)
-		makeService(t, kube, service)
-
-		// Start as unhealthy, should have no instances
-		makeIstioObject(t, store, setHealth(workloadEntry, false))
-		instances := []ServiceInstanceResponse{}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Mark healthy, get instances
-		makeIstioObject(t, store, setHealth(workloadEntry, true))
-		instances = []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.Hostname,
-			Namestring: expectedSvc.Attributes.Namespace,
-			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
-			Port:       80,
-		}}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Set back to unhealthy
-		makeIstioObject(t, store, setHealth(workloadEntry, false))
-		instances = []ServiceInstanceResponse{}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-
-		// Remove health status entirely
-		makeIstioObject(t, store, workloadEntry)
-		instances = []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.Hostname,
-			Namestring: expectedSvc.Attributes.Namespace,
-			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
-			Port:       80,
-		}}
-		expectServiceInstances(t, kc, expectedSvc, 80, instances)
-	})
 }
 
 func expectAmbient(strings []string, ambient bool) []string {
 	if !ambient {
 		return strings
 	}
-	var out []string
+	out := make([]string, 0, len(strings))
 	for _, s := range strings {
 		out = append(out, "connect_originate;"+s)
 	}
@@ -1083,7 +1083,7 @@ func TestEndpointsDeduping(t *testing.T) {
 // TestEndpointSlicingServiceUpdate is a regression test to ensure we do not end up with duplicate endpoints when a service changes.
 func TestEndpointSlicingServiceUpdate(t *testing.T) {
 	for _, version := range []string{"latest", "20"} {
-		t.Run("kuberentes 1."+version, func(t *testing.T) {
+		t.Run("kubernetes 1."+version, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 				KubernetesVersion:    version,
 				EnableFakeXDSUpdater: true,

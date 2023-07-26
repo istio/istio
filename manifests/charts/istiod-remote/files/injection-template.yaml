@@ -24,6 +24,7 @@
     {{- end }}
   {{- end }}
 {{- end }}
+{{ $nativeSidecar := (eq (env "ENABLE_NATIVE_SIDECARS" "false") "true") }}
 {{- $containers := list }}
 {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
 metadata:
@@ -46,7 +47,7 @@ metadata:
     {{- end }}
 {{- if .Values.istio_cni.enabled }}
     {{- if not .Values.istio_cni.chained }}
-    k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `istio-cni` }}',
+    k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `default/istio-cni` }}',
     {{- end }}
     sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}",
     {{ with annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}traffic.sidecar.istio.io/includeOutboundIPRanges: "{{.}}",{{ end }}
@@ -184,13 +185,16 @@ spec:
       runAsNonRoot: false
       runAsUser: 0
   {{ end }}
+  {{ if not $nativeSidecar }}
   containers:
+  {{ end }}
   - name: istio-proxy
   {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
     image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
   {{- else }}
     image: "{{ .ProxyImage }}"
   {{- end }}
+    {{ if $nativeSidecar }}restartPolicy: Always{{end}}
     ports:
     - containerPort: 15090
       protocol: TCP
@@ -324,7 +328,11 @@ spec:
     {{- end }}
     {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
     {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
+  {{ if $nativeSidecar }}
+    startupProbe:
+  {{ else }}
     readinessProbe:
+  {{ end }}
       httpGet:
         path: /healthz/ready
         port: 15021

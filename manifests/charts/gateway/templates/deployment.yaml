@@ -9,7 +9,9 @@ metadata:
     {{- .Values.annotations | toYaml | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
+  {{- with .Values.replicaCount }}
+  replicas: {{ . }}
+  {{- end }}
   {{- end }}
   selector:
     matchLabels:
@@ -105,3 +107,4 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}

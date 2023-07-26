@@ -44,7 +44,7 @@ func (t *TestWatcher) Update(meshConfig *meshconfig.MeshConfig, timeout time.Dur
 	select {
 	case <-t.doneCh:
 		return nil
-	case <-time.After(time.Second * timeout):
+	case <-time.After(timeout):
 		return errors.New("timed out waiting for mesh.Watcher handler to trigger")
 	}
 }

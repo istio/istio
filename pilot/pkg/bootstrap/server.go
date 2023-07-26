@@ -319,6 +319,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 		}
+		s.readinessFlags.sidecarInjectorReady.Store(true)
 		s.webhookInfo.mu.Lock()
 		s.webhookInfo.wh = wh
 		s.webhookInfo.mu.Unlock()
@@ -495,7 +496,7 @@ func (s *Server) initSDSServer() {
 				Full:           false,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: name, Namespace: namespace}),
 
-				Reason: []model.TriggerReason{model.SecretTrigger},
+				Reason: model.NewReasonStats(model.SecretTrigger),
 			})
 		})
 		s.multiclusterController.AddHandler(creds)
@@ -851,7 +852,7 @@ func (s *Server) initRegistryEventHandlers() {
 			pushReq := &model.PushRequest{
 				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
-				Reason:         []model.TriggerReason{model.ServiceUpdate},
+				Reason:         model.NewReasonStats(model.ServiceUpdate),
 			}
 			s.XDSServer.ConfigUpdate(pushReq)
 		}
@@ -876,7 +877,7 @@ func (s *Server) initRegistryEventHandlers() {
 			pushReq := &model.PushRequest{
 				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
-				Reason:         []model.TriggerReason{model.ConfigUpdate},
+				Reason:         model.NewReasonStats(model.ConfigUpdate),
 			}
 			s.XDSServer.ConfigUpdate(pushReq)
 		}
@@ -902,7 +903,7 @@ func (s *Server) initRegistryEventHandlers() {
 			s.environment.GatewayAPIController.RegisterEventHandler(gvk.Namespace, func(config.Config, config.Config, model.Event) {
 				s.XDSServer.ConfigUpdate(&model.PushRequest{
 					Full:   true,
-					Reason: []model.TriggerReason{model.NamespaceUpdate},
+					Reason: model.NewReasonStats(model.NamespaceUpdate),
 				})
 			})
 			s.environment.GatewayAPIController.RegisterEventHandler(gvk.Secret, func(_ config.Config, gw config.Config, _ model.Event) {
@@ -915,7 +916,7 @@ func (s *Server) initRegistryEventHandlers() {
 							Namespace: gw.Namespace,
 						}: {},
 					},
-					Reason: []model.TriggerReason{model.SecretTrigger},
+					Reason: model.NewReasonStats(model.SecretTrigger),
 				})
 			})
 		}
@@ -1208,7 +1209,7 @@ func (s *Server) initMeshHandlers() {
 		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.GlobalUpdate},
+			Reason: model.NewReasonStats(model.GlobalUpdate),
 		})
 	})
 }
@@ -1241,7 +1242,7 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	s.workloadTrustBundle.UpdateCb(func() {
 		pushReq := &model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.GlobalUpdate},
+			Reason: model.NewReasonStats(model.GlobalUpdate),
 		}
 		s.XDSServer.ConfigUpdate(pushReq)
 	})

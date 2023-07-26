@@ -132,9 +132,10 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 
 	sa.analyzer.Analyze(ctx)
 
-	namespaces := make(map[resource.Namespace]struct{})
+	// TODO(hzxuzhonghu): we donot need set here
+	namespaces := sets.New[resource.Namespace]()
 	if sa.namespace != "" {
-		namespaces[sa.namespace] = struct{}{}
+		namespaces.Insert(sa.namespace)
 	}
 	// TODO: analysis is run for all namespaces, even if they are requested to be filtered.
 	msgs := filterMessages(ctx.(*istiodContext).messages, namespaces, sa.suppressions)
@@ -285,7 +286,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 
 	// TODO: are either of these string constants intended to vary?
 	// This gets us only istio/ ones
-	store, err := crdclient.NewForSchemas(c, crdclient.Option{
+	store := crdclient.NewForSchemas(c, crdclient.Option{
 		Revision:     revision,
 		DomainSuffix: "cluster.local",
 		Identifier:   "analysis-controller",
@@ -296,10 +297,6 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		},
 	}, sa.kubeResources)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
-	if err != nil {
-		scope.Analysis.Errorf("error adding kube crdclient: %v", err)
-		return
-	}
 	sa.stores = append(sa.stores, store)
 
 	sa.clientsToRun = append(sa.clientsToRun, c)
@@ -409,7 +406,7 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 type CollectionReporterFn func(config.GroupVersionKind)
 
 // copied from processing/snapshotter/analyzingdistributor.go
-func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {
+func filterMessages(messages diag.Messages, namespaces sets.Set[resource.Namespace], suppressions []AnalysisSuppression) diag.Messages {
 	nsNames := sets.New[string]()
 	for k := range namespaces {
 		nsNames.Insert(k.String())

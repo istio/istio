@@ -118,7 +118,7 @@ debug and diagnose their Istio mesh.
 	flags := rootCmd.PersistentFlags()
 	rootOptions := cli.AddRootFlags(flags)
 
-	ctx := cli.NewCLIContext(*rootOptions)
+	ctx := cli.NewCLIContext(rootOptions)
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if err := configureLogging(cmd, args); err != nil {
@@ -203,7 +203,6 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(metrics.Cmd(ctx))
 	experimentalCmd.AddCommand(describe.Cmd(ctx))
 	experimentalCmd.AddCommand(wait.Cmd(ctx))
-	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(root.LoggingOptions)))
 	experimentalCmd.AddCommand(config.Cmd())
 	experimentalCmd.AddCommand(workload.Cmd(ctx))
 	experimentalCmd.AddCommand(revision.Cmd(ctx))
@@ -241,7 +240,7 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(upgradeCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
-	bugReportCmd := bugreport.Cmd(root.LoggingOptions)
+	bugReportCmd := bugreport.Cmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(bugReportCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(bugReportCmd)
 
@@ -249,13 +248,9 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(tag.TagCommand(ctx), cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(tagCmd)
 
-	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
-	remoteClustersCmd := proxyconfig.ClustersCommand(ctx)
 	// leave the multicluster commands in x for backwards compat
-	rootCmd.AddCommand(remoteSecretCmd)
-	rootCmd.AddCommand(remoteClustersCmd)
-	experimentalCmd.AddCommand(remoteSecretCmd)
-	experimentalCmd.AddCommand(remoteClustersCmd)
+	rootCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
+	rootCmd.AddCommand(proxyconfig.ClustersCommand(ctx))
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
@@ -309,20 +304,6 @@ func configureLogging(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	return nil
-}
-
-// softGraduatedCmd is used for commands that have graduated, but we still want the old invocation to work.
-func softGraduatedCmd(cmd *cobra.Command) *cobra.Command {
-	msg := fmt.Sprintf("(%s has graduated. Use `istioctl %s`)", cmd.Name(), cmd.Name())
-
-	newCmd := *cmd
-	newCmd.Short = fmt.Sprintf("%s %s", cmd.Short, msg)
-	newCmd.RunE = func(c *cobra.Command, args []string) error {
-		fmt.Fprintln(cmd.ErrOrStderr(), msg)
-		return cmd.RunE(c, args)
-	}
-
-	return &newCmd
 }
 
 // seeExperimentalCmd is used for commands that have been around for a release but not graduated from

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 33472
+releaseNotes:
+  - |
+    **Added** `insecureSkipVerify` implementation from DestinationRule. Setting `insecureSkipVerify` to `true` will disable CA certificate and Subject Alternative Names verification for the host.

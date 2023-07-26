@@ -56,6 +56,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/version"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
@@ -70,6 +71,8 @@ import (
 )
 
 func TestAgent(t *testing.T) {
+	test.SetForTest(t, &version.Info.Version, "version")
+
 	wd := t.TempDir()
 	mktemp := t.TempDir
 	// Normally we call leak checker first. Here we call it after TempDir to avoid the (extremely
@@ -310,6 +313,20 @@ func TestAgent(t *testing.T) {
 
 		t.Cleanup(func() {
 			_ = os.RemoveAll(dir)
+		})
+	})
+
+	t.Run("Unhealthy SDS socket - required", func(t *testing.T) {
+		// starting an unresponsive listener on the socket
+		a := NewAgent(nil, &AgentOptions{UseExternalWorkloadSDS: true}, nil, envoy.ProxyConfig{})
+		ctx, done := context.WithCancel(context.Background())
+		_, err := a.Run(ctx)
+		if err == nil {
+			t.Fatalf("expected to return an error if SDS socket not provided")
+		}
+		t.Cleanup(done)
+		t.Cleanup(func() {
+			a.Close()
 		})
 	})
 	t.Run("Workload certificates", func(t *testing.T) {

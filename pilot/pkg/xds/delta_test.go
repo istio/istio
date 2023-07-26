@@ -121,7 +121,7 @@ func TestDeltaEDS(t *testing.T) {
 		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
 	}
 
-	// delete svc, only send eds fot this service
+	// delete svc, only send eds for this service
 	s.MemRegistry.RemoveService(edsIncSvc)
 	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: edsIncSvc, Namespace: ""})})
 

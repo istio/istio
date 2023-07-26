@@ -50,7 +50,7 @@ func NewClassController(kc kube.Client) *ClassController {
 
 	gc.classes = kclient.New[*gateway.GatewayClass](kc)
 	gc.classes.AddEventHandler(controllers.FilteredObjectHandler(gc.queue.AddObject, func(o controllers.Object) bool {
-		_, f := classInfos[o.GetName()]
+		_, f := builtinClasses[gateway.ObjectName(o.GetName())]
 		return f
 	}))
 	return gc
@@ -64,21 +64,26 @@ func (c *ClassController) Run(stop <-chan struct{}) {
 
 func (c *ClassController) Reconcile(types.NamespacedName) error {
 	err := istiomultierror.New()
-	for class := range classInfos {
+	for class := range builtinClasses {
 		err = multierror.Append(err, c.reconcileClass(class))
 	}
 	return err.ErrorOrNil()
 }
 
-func (c *ClassController) reconcileClass(class string) error {
-	if c.classes.Get(class, "") != nil {
+func (c *ClassController) reconcileClass(class gateway.ObjectName) error {
+	if c.classes.Get(string(class), "") != nil {
 		log.Debugf("GatewayClass/%v already exists, no action", class)
 		return nil
 	}
-	classInfo := classInfos[class]
+	controller := builtinClasses[class]
+	classInfo, f := classInfos[controller]
+	if !f {
+		// Should only happen when ambient is disabled; otherwise builtinClasses and classInfos should be consistent
+		return nil
+	}
 	gc := &gateway.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: class,
+			Name: string(class),
 		},
 		Spec: gateway.GatewayClassSpec{
 			ControllerName: gateway.GatewayController(classInfo.controller),

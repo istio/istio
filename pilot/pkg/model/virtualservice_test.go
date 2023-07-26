@@ -1249,7 +1249,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			},
 		},
 		{
-			name: "headers",
+			name: "headers conflict",
 			root: []*networking.HTTPMatchRequest{
 				{
 					Headers: map[string]*networking.StringMatch{
@@ -1484,6 +1484,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			tc.delegate = config.DeepCopy(tc.delegate).([]*networking.HTTPMatchRequest)
 			got, _ := mergeHTTPMatchRequests(tc.root, tc.delegate)
 			assert.Equal(t, got, tc.expected)
 		})
@@ -2166,11 +2167,11 @@ func TestSelectVirtualService(t *testing.T) {
 	configs := SelectVirtualServices(index, "some-ns", hostsByNamespace)
 	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name}
 	if len(expectedVS) != len(configs) {
-		t.Fatalf("Unexpected virtualService, got %d, epxected %d", len(configs), len(expectedVS))
+		t.Fatalf("Unexpected virtualService, got %d, expected %d", len(configs), len(expectedVS))
 	}
 	for i, config := range configs {
 		if config.Name != expectedVS[i] {
-			t.Fatalf("Unexpected virtualService, got %s, epxected %s", config.Name, expectedVS[i])
+			t.Fatalf("Unexpected virtualService, got %s, expected %s", config.Name, expectedVS[i])
 		}
 	}
 }

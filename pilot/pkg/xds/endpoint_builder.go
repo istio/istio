@@ -256,7 +256,9 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	// and should, therefore, not be accessed from outside the cluster.
 	isClusterLocal := b.clusterLocal
 
-	shards.Lock()
+	// To avoid lock contention, grab endpoints list before we process anything
+	eps := []*model.IstioEndpoint{}
+	shards.RLock()
 	// Extract shard keys so we can iterate in order. This ensures a stable EDS output.
 	keys := shards.Keys()
 	// The shards are updated independently, now need to filter and merge for this cluster
@@ -298,42 +300,45 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 					continue
 				}
 			}
-
-			mtlsEnabled := b.mtlsChecker.checkMtlsEnabled(ep)
-			// Determine if we need to build the endpoint. We try to cache it for performance reasons
-			needToCompute := ep.EnvoyEndpoint == nil
-			if features.EnableHBONE {
-				// Currently the HBONE implementation leads to different endpoint generation depending on if the
-				// client proxy supports HBONE or not. This breaks the cache.
-				// For now, just disable caching if the global HBONE flag is enabled.
-				needToCompute = true
-			}
-			if ep.EnvoyEndpoint != nil && mtlsEnabled != isMtlsEnabled(ep.EnvoyEndpoint) {
-				// The mTLS settings may have changed, invalidating the cache endpoint. Rebuild it
-				needToCompute = true
-			}
-			if needToCompute {
-				eep := buildEnvoyLbEndpoint(b, ep, mtlsEnabled)
-				if eep == nil {
-					continue
-				}
-				ep.EnvoyEndpoint = eep
-			}
-
-			locLbEps, found := localityEpMap[ep.Locality.Label]
-			if !found {
-				locLbEps = &LocalityEndpoints{
-					llbEndpoints: endpoint.LocalityLbEndpoints{
-						Locality:    util.ConvertLocality(ep.Locality.Label),
-						LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
-					},
-				}
-				localityEpMap[ep.Locality.Label] = locLbEps
-			}
-			locLbEps.append(ep, ep.EnvoyEndpoint)
+			eps = append(eps, ep)
 		}
 	}
-	shards.Unlock()
+	shards.RUnlock()
+
+	for _, ep := range eps {
+		eep := ep.EnvoyEndpoint()
+		mtlsEnabled := b.mtlsChecker.checkMtlsEnabled(ep)
+		// Determine if we need to build the endpoint. We try to cache it for performance reasons
+		needToCompute := eep == nil
+		if features.EnableHBONE {
+			// Currently the HBONE implementation leads to different endpoint generation depending on if the
+			// client proxy supports HBONE or not. This breaks the cache.
+			// For now, just disable caching if the global HBONE flag is enabled.
+			needToCompute = true
+		}
+		if eep != nil && mtlsEnabled != isMtlsEnabled(eep) {
+			// The mTLS settings may have changed, invalidating the cache endpoint. Rebuild it
+			needToCompute = true
+		}
+		if needToCompute {
+			eep = buildEnvoyLbEndpoint(b, ep, mtlsEnabled)
+			if eep == nil {
+				continue
+			}
+			ep.ComputeEnvoyEndpoint(eep)
+		}
+		locLbEps, found := localityEpMap[ep.Locality.Label]
+		if !found {
+			locLbEps = &LocalityEndpoints{
+				llbEndpoints: endpoint.LocalityLbEndpoints{
+					Locality:    util.ConvertLocality(ep.Locality.Label),
+					LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(eps)),
+				},
+			}
+			localityEpMap[ep.Locality.Label] = locLbEps
+		}
+		locLbEps.append(ep, eep)
+	}
 
 	locEps := make([]*LocalityEndpoints, 0, len(localityEpMap))
 	locs := make([]string, 0, len(localityEpMap))
@@ -372,6 +377,17 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 		ClusterName: b.clusterName,
 		Endpoints:   llbEndpoints,
 	}
+}
+
+func (b *EndpointBuilder) IsDNSCluster() bool {
+	return b.service != nil && (b.service.Resolution == model.DNSLB || b.service.Resolution == model.DNSRoundRobinLB)
+}
+
+func (b *EndpointBuilder) gateways() *model.NetworkGateways {
+	if b.IsDNSCluster() {
+		return b.push.NetworkManager().Unresolved
+	}
+	return b.push.NetworkManager().NetworkGateways
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.

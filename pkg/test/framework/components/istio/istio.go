@@ -54,7 +54,7 @@ func getConfigValue(path []string, val map[string]*structpb.Value) *structpb.Val
 				return getConfigValue(path[1:], thisVal.GetStructValue().Fields)
 			}
 			retVal = thisVal
-		case 3: // match somthing like aaa[100]
+		case 3: // match something like aaa[100]
 			thisVal := val[match[1]]
 			// If it is a list and looking for more down the path
 			if thisVal.GetListValue() != nil && len(path) > 1 {

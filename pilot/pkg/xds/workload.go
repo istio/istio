@@ -151,6 +151,7 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 	var updatedPolicies sets.Set[model.ConfigKey]
 	if len(req.ConfigsUpdated) != 0 {
 		updatedPolicies = model.ConfigsOfKind(req.ConfigsUpdated, kind.AuthorizationPolicy)
+		updatedPolicies = updatedPolicies.Merge(model.ConfigsOfKind(req.ConfigsUpdated, kind.PeerAuthentication))
 	}
 	if len(req.ConfigsUpdated) != 0 && len(updatedPolicies) == 0 {
 		// This was a incremental push for a resource we don't watch... skip

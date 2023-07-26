@@ -41,11 +41,6 @@ type Context interface {
 	// ConfigureDefaultNamespace sets the default namespace to use for commands that don't specify a namespace.
 	// This should be called before NamespaceOrDefault is called.
 	ConfigureDefaultNamespace()
-	// KubeConfig returns the kubeconfig specified by the user
-	KubeConfig() string
-	// KubeContext returns the kubecontext specified by the user
-	KubeContext() string
-	// TODO(hanxiaop) entirely drop KubeConfig and KubeContext, use CLIClient instead. Currently this is used not only in istioctl package.
 }
 
 type instance struct {
@@ -67,9 +62,18 @@ func newKubeClientWithRevision(kubeconfig, configContext, revision string) (kube
 	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
-func NewCLIContext(rootFlags RootFlags) Context {
+func NewCLIContext(rootFlags *RootFlags) Context {
+	if rootFlags == nil {
+		rootFlags = &RootFlags{
+			kubeconfig:       ptr.Of[string](""),
+			configContext:    ptr.Of[string](""),
+			namespace:        ptr.Of[string](""),
+			istioNamespace:   ptr.Of[string](""),
+			defaultNamespace: "",
+		}
+	}
 	return &instance{
-		RootFlags: rootFlags,
+		RootFlags: *rootFlags,
 	}
 }
 

@@ -27,6 +27,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1070,7 +1071,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 				if diff := cmp.Diff(tc.want[i].Service.Hostname, got[i].Service.Hostname); diff != "" {
 					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Service.Hostname (--want/++got): %v", i, diff)
 				}
-				if diff := cmp.Diff(tc.want[i].Endpoint, got[i].Endpoint); diff != "" {
+				if diff := cmp.Diff(tc.want[i].Endpoint, got[i].Endpoint, cmpopts.IgnoreUnexported(model.IstioEndpoint{})); diff != "" {
 					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Endpoint (--want/++got): %v", i, diff)
 				}
 			}
@@ -1331,7 +1332,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		controller *FakeController,
 	) {
 		// update meshConfig
-		if err := testMeshWatcher.Update(meshConfig, 5); err != nil {
+		if err := testMeshWatcher.Update(meshConfig, time.Second*5); err != nil {
 			t.Fatalf("%v", err)
 		}
 
@@ -1530,7 +1531,7 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	) {
 		t.Helper()
 		// update meshConfig
-		if err := testMeshWatcher.Update(meshConfig, 5); err != nil {
+		if err := testMeshWatcher.Update(meshConfig, time.Second*5); err != nil {
 			t.Fatalf("%v", err)
 		}
 
@@ -1731,7 +1732,7 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 
 	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
 
-	var got []string
+	got := make([]string, 0, len(instances))
 	for _, instance := range instances {
 		got = append(got, net.JoinHostPort(instance.Endpoint.Address, strconv.Itoa(int(instance.Endpoint.EndpointPort))))
 	}
@@ -1919,7 +1920,7 @@ func createEndpoints(t *testing.T, controller *FakeController, name, namespace s
 		esps = append(esps, discovery.EndpointPort{Name: &n, Port: &portNum})
 	}
 
-	var sliceEndpoint []discovery.Endpoint
+	sliceEndpoint := make([]discovery.Endpoint, 0, len(ips))
 	for i, ip := range ips {
 		sliceEndpoint = append(sliceEndpoint, discovery.Endpoint{
 			Addresses: []string{ip},
@@ -2471,7 +2472,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	// we should have the pod IP and the workload Entry's IP in the endpoints..
 	// the first endpoint should be that of the k8s pod and the second one should be the workload entry
 
-	var gotEndpointIPs []string
+	gotEndpointIPs := make([]string, 0, len(ev.Endpoints))
 	for _, ep := range ev.Endpoints {
 		gotEndpointIPs = append(gotEndpointIPs, ep.Address)
 	}
@@ -2515,7 +2516,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 	verifyGetByIP := func(address string, want []*model.WorkloadInstance) {
 		got := ctl.workloadInstancesIndex.GetByIP(address)
 
-		if diff := cmp.Diff(want, got); diff != "" {
+		if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(model.IstioEndpoint{})); diff != "" {
 			t.Fatalf("workload index is not valid (--want/++got): %v", diff)
 		}
 	}

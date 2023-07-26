@@ -26,12 +26,12 @@ import (
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	creds "istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -499,19 +499,26 @@ func sortHTTPRoutes(routes []*istio.HTTPRoute) {
 		} else if len(routes[j].Match) == 0 {
 			return true
 		}
+		// Only look at match[0], we always generate only one match
 		m1, m2 := routes[i].Match[0], routes[j].Match[0]
 		r1, r2 := getURIRank(m1), getURIRank(m2)
 		len1, len2 := getURILength(m1), getURILength(m2)
-		if r1 == r2 {
-			if len1 == len2 {
-				if len(m1.Headers) == len(m2.Headers) {
-					return len(m1.QueryParams) > len(m2.QueryParams)
-				}
-				return len(m1.Headers) > len(m2.Headers)
-			}
+		switch {
+		// 1: Exact/Prefix/Regex
+		case r1 != r2:
+			return r1 > r2
+		case len1 != len2:
 			return len1 > len2
+			// 2: method math
+		case (m1.Method == nil) != (m2.Method == nil):
+			return m1.Method != nil
+			// 3: number of header matches
+		case len(m1.Headers) != len(m2.Headers):
+			return len(m1.Headers) > len(m2.Headers)
+			// 4: number of query matches
+		default:
+			return len(m1.QueryParams) > len(m2.QueryParams)
 		}
-		return r1 > r2
 	})
 }
 
@@ -722,7 +729,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 	}
 	// Ensure stable order
 	slices.SortFunc(parentRefs, func(a, b routeParentReference) bool {
-		return fmt.Sprint(a.OriginalReference) < fmt.Sprint(b.OriginalReference)
+		return parentRefString(a.OriginalReference) < parentRefString(b.OriginalReference)
 	})
 	return parentRefs
 }
@@ -1693,14 +1700,14 @@ func reportGatewayStatus(
 			addrType = k8s.HostnameAddressType
 			for _, hostport := range internal {
 				svchost, _, _ := net.SplitHostPort(hostport)
-				if !contains(pending, svchost) && !contains(addressesToReport, svchost) {
+				if !slices.Contains(pending, svchost) && !slices.Contains(addressesToReport, svchost) {
 					addressesToReport = append(addressesToReport, svchost)
 				}
 			}
 		}
-		gs.Addresses = make([]k8s.GatewayAddress, 0, len(addressesToReport))
+		gs.Addresses = make([]k8sbeta.GatewayStatusAddress, 0, len(addressesToReport))
 		for _, addr := range addressesToReport {
-			gs.Addresses = append(gs.Addresses, k8s.GatewayAddress{
+			gs.Addresses = append(gs.Addresses, k8sbeta.GatewayStatusAddress{
 				Type:  &addrType,
 				Value: addr,
 			})
@@ -1816,7 +1823,7 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 
 	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
 
-	tls, err := buildTLS(r, l.TLS, obj, isAutoPassthrough(obj, l))
+	tls, err := buildTLS(r, l.TLS, obj, kube.IsAutoPassthrough(obj.Labels, l))
 	if err != nil {
 		listenerConditions[string(k8sbeta.ListenerConditionResolvedRefs)].error = err
 		return nil, false
@@ -1842,25 +1849,6 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 	}
 
 	return server, true
-}
-
-// isAutoPassthrough determines if a listener should use auto passthrough mode. This is used for
-// multi-network. In the Istio API, this is an explicit tls.Mode. However, this mode is not part of
-// the gateway-api, and leaks implementation details. We already have an API to declare a Gateway as
-// a multinetwork gateway, so we will use this as a signal.
-// A user who wishes to expose multinetwork connectivity should create a listener with port 15443 (by default, overridable by label),
-// and declare it as PASSTRHOUGH
-func isAutoPassthrough(obj config.Config, l k8s.Listener) bool {
-	_, networkSet := obj.Labels[label.TopologyNetwork.Name]
-	if !networkSet {
-		return false
-	}
-	expectedPort := "15443"
-
-	if port, f := obj.Labels[label.NetworkingGatewayPort.Name]; f {
-		expectedPort = port
-	}
-	return fmt.Sprint(l.Port) == expectedPort
 }
 
 func listenerProtocolToIstio(protocol k8s.ProtocolType) string {
@@ -2039,15 +2027,6 @@ func humanReadableJoin(ss []string) string {
 	default:
 		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
 	}
-}
-
-func contains(ss []string, s string) bool {
-	for _, str := range ss {
-		if str == s {
-			return true
-		}
-	}
-	return false
 }
 
 // NamespaceNameLabel represents that label added automatically to namespaces is newer Kubernetes clusters

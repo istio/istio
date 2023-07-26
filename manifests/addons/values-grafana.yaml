@@ -14,12 +14,12 @@ podLabels:
 
 # Demo only, so we will have no authentication
 admin:
-  existingSecret: true
+  existingSecret: ""
 ldap:
   existingSecret: true
 env:
-  GF_SECURITY_ADMIN_USER: "-"
-  GF_SECURITY_ADMIN_PASSWORD: "-"
+  GF_SECURITY_ADMIN_USER: "admin"
+  GF_SECURITY_ADMIN_PASSWORD: "admin"
   GF_AUTH_BASIC_ENABLED: "false"
   GF_AUTH_ANONYMOUS_ENABLED: "true"
   GF_AUTH_ANONYMOUS_ORG_ROLE: Admin

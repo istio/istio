@@ -74,7 +74,11 @@ func checkAmbient(
 			_ = ambient.SetProc("/proc/sys/net/ipv4/conf/"+podIfname+"/rp_filter", "0")
 
 			for _, ip := range podIPs {
-				ambient.AddPodToMesh(client, pod, ip.IP.String())
+				err = ambient.AddPodToMesh(client, pod, ip.IP.String())
+				if err != nil {
+					log.WithLabels("err", err, "pod", pod.Name, "ip", ip.IP.String()).Error("Failed to add pod to host network")
+					return false, err
+				}
 			}
 			return true, nil
 		}

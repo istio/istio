@@ -49,7 +49,9 @@ func initVersions(ctx resource.Context) error {
 	previousVersion := semver.New(v.Major(), v.Minor()-1, v.Patch(), v.Prerelease(), v.Metadata())
 
 	// If the previous version is not published yet, use the latest one
-	if exists, _ := image.Exists(imageToCheck + ":" + previousVersion.String()); !exists {
+	if exists, err := image.Exists(imageToCheck + ":" + previousVersion.String()); err != nil {
+		return err
+	} else if !exists {
 		previousVersion = semver.New(v.Major(), v.Minor()-2, v.Patch(), v.Prerelease(), v.Metadata())
 	}
 

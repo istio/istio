@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/version"
 )
 
 func TestParseDownwardApi(t *testing.T) {
@@ -115,6 +116,41 @@ func TestGetNodeMetaData(t *testing.T) {
 	g.Expect(node.RawMetadata["OWNER"]).To(Equal(expectOwner))
 	g.Expect(node.RawMetadata["WORKLOAD_NAME"]).To(Equal(expectWorkloadName))
 	g.Expect(node.Metadata.Labels[model.LocalityLabel]).To(Equal("region/zone/subzone"))
+}
+
+func TestSetIstioVersion(t *testing.T) {
+	test.SetForTest(t, &version.Info.Version, "binary")
+
+	testCases := []struct {
+		name            string
+		meta            *model.BootstrapNodeMetadata
+		binaryVersion   string
+		expectedVersion string
+	}{
+		{
+			name:            "if IstioVersion is not specified, set it from binary version",
+			meta:            &model.BootstrapNodeMetadata{},
+			expectedVersion: "binary",
+		},
+		{
+			name: "if IstioVersion is specified, don't set it from binary version",
+			meta: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					IstioVersion: "metadata-version",
+				},
+			},
+			expectedVersion: "metadata-version",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ret := SetIstioVersion(tc.meta)
+			if ret.IstioVersion != tc.expectedVersion {
+				t.Fatalf("SetIstioVersion: expected '%s', got '%s'", tc.expectedVersion, ret.IstioVersion)
+			}
+		})
+	}
 }
 
 func TestConvertNodeMetadata(t *testing.T) {

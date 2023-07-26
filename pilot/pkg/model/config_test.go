@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // getByMessageName finds a schema by message name if it is available
@@ -295,13 +296,13 @@ func TestMostSpecificHostMatch(t *testing.T) {
 	}
 
 	for idx, tt := range tests {
-		specific := make(map[host.Name]struct{})
-		wildcard := make(map[host.Name]struct{})
+		specific := sets.New[host.Name]()
+		wildcard := sets.New[host.Name]()
 		for _, h := range tt.in {
 			if h.IsWildCarded() {
-				wildcard[h] = struct{}{}
+				wildcard.Insert(h)
 			} else {
-				specific[h] = struct{}{}
+				specific.Insert(h)
 			}
 		}
 
@@ -330,8 +331,8 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 		needle           host.Name
 		baseHost         string
 		hosts            []host.Name
-		specificHostsMap map[host.Name]struct{}
-		wildcardHostsMap map[host.Name]struct{}
+		specificHostsMap sets.Set[host.Name]
+		wildcardHostsMap sets.Set[host.Name]
 		time             int
 		matches          bool
 	}{
@@ -373,15 +374,15 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 	}
 
 	for _, bm := range benchmarks {
-		bm.specificHostsMap = make(map[host.Name]struct{}, bm.time)
-		bm.wildcardHostsMap = make(map[host.Name]struct{}, bm.time)
+		bm.specificHostsMap = sets.NewWithLength[host.Name](bm.time)
+		bm.wildcardHostsMap = sets.NewWithLength[host.Name](bm.time)
 
 		for i := 1; i <= bm.time; i++ {
 			h := host.Name(bm.baseHost + "." + strconv.Itoa(i))
 			if h.IsWildCarded() {
-				bm.wildcardHostsMap[h] = struct{}{}
+				bm.wildcardHostsMap.Insert(h)
 			} else {
-				bm.specificHostsMap[h] = struct{}{}
+				bm.specificHostsMap.Insert(h)
 			}
 		}
 
@@ -402,8 +403,8 @@ func BenchmarkMostSpecificHostMatchMixed(b *testing.B) {
 		needle           host.Name
 		baseHost         string
 		hosts            []host.Name
-		specificHostsMap map[host.Name]struct{}
-		wildcardHostsMap map[host.Name]struct{}
+		specificHostsMap sets.Set[host.Name]
+		wildcardHostsMap sets.Set[host.Name]
 		time             int
 		matches          bool
 	}{
@@ -472,8 +473,8 @@ func BenchmarkMostSpecificHostMatchMultiMatch(b *testing.B) {
 	}
 
 	for _, bm := range benchmarks {
-		bm.specificHostsMap = make(map[host.Name]struct{}, 0)
-		bm.wildcardHostsMap = make(map[host.Name]struct{}, len(bm.hosts))
+		bm.specificHostsMap = sets.New[host.Name]()
+		bm.wildcardHostsMap = sets.NewWithLength[host.Name](len(bm.hosts))
 
 		for _, h := range bm.hosts {
 			if h.IsWildCarded() {

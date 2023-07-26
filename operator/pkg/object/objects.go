@@ -19,14 +19,15 @@ or YAML representations.
 package object
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
@@ -36,7 +37,6 @@ import (
 	names "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/log"
 )
 
@@ -237,7 +237,7 @@ func (os K8sObjects) String() string {
 
 // Keys returns a slice with the keys of os.
 func (os K8sObjects) Keys() []string {
-	var out []string
+	out := make([]string, 0, len(os))
 	for _, oo := range os {
 		out = append(out, oo.Hash())
 	}
@@ -246,7 +246,7 @@ func (os K8sObjects) Keys() []string {
 
 // UnstructuredItems returns the list of items of unstructured.Unstructured.
 func (os K8sObjects) UnstructuredItems() []unstructured.Unstructured {
-	var usList []unstructured.Unstructured
+	usList := make([]unstructured.Unstructured, 0, len(os))
 	for _, obj := range os {
 		usList = append(usList, *obj.UnstructuredObject())
 	}
@@ -261,48 +261,59 @@ func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 // ParseK8sObjectsFromYAMLManifestFailOption returns a K8sObjects representation of manifest. Continues parsing when a bad object
 // is found if failOnError is set to false.
 func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool) (K8sObjects, error) {
-	var b bytes.Buffer
-
-	var yamls []string
-	scanner := bufio.NewScanner(strings.NewReader(manifest))
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "---") {
-			// yaml separator
-			yamls = append(yamls, b.String())
-			b.Reset()
-		} else {
-			if _, err := b.WriteString(line); err != nil {
-				return nil, err
-			}
-			if _, err := b.WriteString("\n"); err != nil {
-				return nil, err
-			}
-		}
-	}
-	yamls = append(yamls, b.String())
-
+	jsonDecoder := k8syaml.NewYAMLToJSONDecoder(bytes.NewReader([]byte(manifest)))
 	var objects K8sObjects
 
-	for _, yaml := range yamls {
-		yaml = resource.RemoveNonYAMLLines(yaml)
-		if yaml == "" {
-			continue
-		}
-		o, err := ParseYAMLToK8sObject([]byte(yaml))
-		if err != nil {
-			e := fmt.Errorf("failed to parse YAML to a k8s object: %s", err)
+	wrapErr := func(err error) error {
+		return fmt.Errorf("failed to parse YAML to a k8s object: %v", err)
+	}
+
+	s := json.NewSerializerWithOptions(json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
+		Yaml:   true,
+		Pretty: true,
+		Strict: true,
+	})
+	for {
+		var obj unstructured.Unstructured
+		if err := jsonDecoder.Decode(&obj); err != nil {
+			if err == io.EOF {
+				break
+			}
+			err = wrapErr(err)
 			if failOnError {
-				return nil, e
+				return nil, err
 			}
 			log.Error(err.Error())
 			continue
 		}
-		if o.Valid() {
-			objects = append(objects, o)
+		if obj.Object == nil {
+			continue
+		}
+
+		if !isValidKubernetesObject(obj) {
+			if failOnError {
+				err := wrapErr(fmt.Errorf("failed to parse YAML to a k8s object: object is an invalid k8s object: %v", obj))
+				return nil, err
+			}
+		}
+
+		// Convert the unstructured object back into YAML, without comments
+		var buf bytes.Buffer
+		if err := s.Encode(&obj, &buf); err != nil {
+			err = wrapErr(err)
+			if failOnError {
+				return nil, err
+			}
+			log.Error(err.Error())
+			continue
+		}
+		cleanedYaml := buf.String()
+
+		k8sObj := NewK8sObject(&obj, nil, []byte(cleanedYaml))
+		if k8sObj.Valid() {
+			objects = append(objects, k8sObj)
 		}
 	}
-
 	return objects, nil
 }
 
@@ -444,7 +455,7 @@ func DefaultObjectOrder() func(o *K8sObject) int {
 			return 100
 
 			// Create the pods after we've created other things they might be waiting for
-		case gk == "extensions/Deployment" || gk == "app/Deployment":
+		case gk == "extensions/Deployment" || gk == "apps/Deployment":
 			return 1000
 
 			// Autoscalers typically act on a deployment
@@ -567,4 +578,14 @@ func resolvePDBConflict(o *K8sObject) *K8sObject {
 		}
 	}
 	return o
+}
+
+func isValidKubernetesObject(obj unstructured.Unstructured) bool {
+	if _, ok := obj.Object["apiVersion"]; !ok {
+		return false
+	}
+	if _, ok := obj.Object["kind"]; !ok {
+		return false
+	}
+	return true
 }

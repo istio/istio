@@ -43,28 +43,23 @@ const (
 )
 
 var (
-	patchType  = monitoring.MustCreateLabel("patch")
-	resultType = monitoring.MustCreateLabel("result")
-	nameType   = monitoring.MustCreateLabel("name")
+	patchType  = monitoring.CreateLabel("patch")
+	resultType = monitoring.CreateLabel("result")
+	nameType   = monitoring.CreateLabel("name")
 
 	envoyFilterStatus = monitoring.NewGauge(
 		"pilot_envoy_filter_status",
 		"Status of Envoy filters whether it was applied or errored.",
-		monitoring.WithLabels(nameType, patchType, resultType),
+		monitoring.WithEnabled(func() bool {
+			return features.EnableEnvoyFilterMetrics
+		}),
 	)
 )
 
 var (
-	envoyFilterStatusMap map[string]map[string]bool // Map of Envoy filter name, patch and status.
+	envoyFilterStatusMap = map[string]map[string]bool{} // Map of Envoy filter name, patch and status.
 	envoyFilterMutex     sync.RWMutex
 )
-
-func init() {
-	if features.EnableEnvoyFilterMetrics {
-		monitoring.MustRegister(envoyFilterStatus)
-		envoyFilterStatusMap = make(map[string]map[string]bool)
-	}
-}
 
 // IncrementEnvoyFilterMetric increments filter metric.
 func IncrementEnvoyFilterMetric(name string, pt PatchType, applied bool) {

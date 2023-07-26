@@ -16,6 +16,8 @@ package structured
 
 import (
 	"fmt"
+
+	"istio.io/istio/pkg/log"
 )
 
 // Error represents structured error information, for optional use in scope.X or log.X calls.
@@ -35,7 +37,27 @@ type Error struct {
 	Err error
 }
 
-// Error implements the error#Error interface.
+// Log appends relevant labels to the log scope.
+func (e *Error) Log(s *log.Scope) *log.Scope {
+	lbls := make([]any, 0, 10)
+	if e.MoreInfo != "" {
+		lbls = append(lbls, "moreInfo", e.MoreInfo)
+	}
+	if e.Impact != "" {
+		lbls = append(lbls, "impact", e.Impact)
+	}
+	if e.Action != "" {
+		lbls = append(lbls, "action", e.Action)
+	}
+	if e.LikelyCause != "" {
+		lbls = append(lbls, "likelyCause", e.LikelyCause)
+	}
+	if e.Err != nil {
+		lbls = append(lbls, "err", e.Err.Error())
+	}
+	return s.WithLabels(lbls...)
+}
+
 func (e *Error) Error() string {
 	if e == nil {
 		return ""
