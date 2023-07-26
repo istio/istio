@@ -20,9 +20,11 @@ import (
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -30,6 +32,8 @@ import (
 // TestRegistration is an e2e test for registration. Most tests are in autoregister package, but this
 // exercises the full XDS flow.
 func TestRegistration(t *testing.T) {
+	// TODO: allow fake XDS to be "authenticated"
+	test.SetForTest(t, &features.ValidateWorkloadEntryIdentity, false)
 	ds := NewFakeDiscoveryServer(t, FakeOptions{})
 	ds.Store().Create(config.Config{
 		Meta: config.Meta{
