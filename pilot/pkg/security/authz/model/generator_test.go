@@ -213,7 +213,7 @@ func TestGenerator(t *testing.T) {
 		{
 			name:  "requestInlineHeaderGenerator",
 			g:     requestInlineHeaderGenerator{},
-			key:   "request.inline-headers[x-foo]",
+			key:   "request.experimental.inline.headers[x-foo]",
 			value: "foo",
 			want: yamlPrincipal(t, `
          header:

@@ -99,7 +99,7 @@ func TestValidateCondition(t *testing.T) {
 			wantError: true,
 		},
 		{
-			key:       "request.inline-headers[:authority]",
+			key:       "request.experimental.inline.headers[:authority]",
 			values:    []string{"productpage", ""},
 			wantError: true,
 		},
@@ -108,7 +108,7 @@ func TestValidateCondition(t *testing.T) {
 			values: []string{"productpage"},
 		},
 		{
-			key:    "request.inline-headers[:authority]",
+			key:    "request.experimental.inline.headers[:authority]",
 			values: []string{"productpage"},
 		},
 		{
@@ -117,7 +117,7 @@ func TestValidateCondition(t *testing.T) {
 			wantError: true,
 		},
 		{
-			key:       "request.inline-headers[]",
+			key:       "request.experimental.inline.headers[]",
 			values:    []string{"productpage"},
 			wantError: true,
 		},
