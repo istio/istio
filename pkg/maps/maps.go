@@ -40,12 +40,20 @@ func Keys[M ~map[K]V, K comparable, V any](m M) []K {
 	return maps.Keys(m)
 }
 
+// Copy copies all key/value pairs in src adding them to dst.
+// When a key in src is already present in dst,
+// the value in dst will be overwritten by the value associated
+// with the key in src.
+func Copy[M1 ~map[K]V, M2 ~map[K]V, K comparable, V any](dst M1, src M2) {
+	maps.Copy(dst, src)
+}
+
 // MergeCopy creates a new map by merging all key/value pairs from base and override.
 // When a key in override is already present in base,
 // the value in base will be overwritten by the value associated
 // with the key in override.
 func MergeCopy[M1 ~map[K]V, M2 ~map[K]V, K comparable, V any](base M1, override M2) M1 {
-	dst := make(M1)
+	dst := make(M1, len(base)+len(override))
 	maps.Copy(dst, base)
 	maps.Copy(dst, override)
 	return dst
