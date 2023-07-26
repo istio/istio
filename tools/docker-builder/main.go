@@ -41,6 +41,7 @@ func main() {
 	rootCmd.Flags().StringVar(&globalArgs.BaseVersion, "base-version", globalArgs.BaseVersion, "base version to use")
 	rootCmd.Flags().StringVar(&globalArgs.BaseImageRegistry, "image-base-registry", globalArgs.BaseImageRegistry, "base image registry to use")
 	rootCmd.Flags().StringVar(&globalArgs.ProxyVersion, "proxy-version", globalArgs.ProxyVersion, "proxy version to use")
+	rootCmd.Flags().StringVar(&globalArgs.ZtunnelVersion, "ztunnel-version", globalArgs.ZtunnelVersion, "ztunnel version to use")
 	rootCmd.Flags().StringVar(&globalArgs.IstioVersion, "istio-version", globalArgs.IstioVersion, "istio version to use")
 
 	rootCmd.Flags().StringSliceVar(&globalArgs.Targets, "targets", globalArgs.Targets, "targets to build")
