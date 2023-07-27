@@ -59,6 +59,7 @@ const (
 	TLSSecretCrl = "ca.crl"
 
 	// IstioGenericSecretAnnotation refers the generic secret data key in kubernetes generic secret.
+	// TODO: move to API
 	IstioGenericSecretAnnotation = "security.istio.io/genericSecret"
 )
 

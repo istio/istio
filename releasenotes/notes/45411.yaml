@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Added** Support for fetching (envoy generic secrets)[https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/secret.proto#extensions-transport-sockets-tls-v3-secret] of type (`inline_bytes` datasource)[https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/base.proto#envoy-v3-api-msg-config-core-v3-datasource] using key `istio_generic_secret`.
+  **Added** Support for fetching (envoy generic secrets)[https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/secret.proto#extensions-transport-sockets-tls-v3-secret] of type (`inline_bytes` datasource)[https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/base.proto#envoy-v3-api-msg-config-core-v3-datasource] by annotating Kubernetes Secret with `security.istio.io/genericSecret: {key_name_containing_secret}`. 
