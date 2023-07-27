@@ -215,12 +215,12 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		pilotSDSCertificateErrors.Increment()
 
 	default:
-		// this should never happen
+		// this should only happen if secret was not found
 	}
 
 	// no secret was found
 	pilotSDSSecretErrors.Increment()
-	log.Warnf("no secret found for %s", sr.ResourceName)
+	log.Warnf("failed fetching secret for %s: %v", sr.ResourceName, err)
 
 	return nil
 }
