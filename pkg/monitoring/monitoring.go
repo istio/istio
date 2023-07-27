@@ -32,8 +32,16 @@ import (
 	"istio.io/istio/pkg/slices"
 )
 
-var meter = func() api.Meter {
-	return otel.GetMeterProvider().Meter("istio")
+var (
+	meter = func() api.Meter {
+		return otel.GetMeterProvider().Meter("istio")
+	}
+
+	monitoringLogger = log.RegisterScope("monitoring", "metrics monitoring")
+)
+
+func init() {
+	otel.SetLogger(log.NewLogrAdapter(monitoringLogger))
 }
 
 // RegisterPrometheusExporter sets the global metrics handler to the provided Prometheus registerer and gatherer.
