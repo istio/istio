@@ -43,6 +43,12 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+func makeSecretWithAnnotations(name string, data map[string]string, annotations map[string]string) *corev1.Secret {
+	secret := makeSecret(name, data)
+	secret.Annotations = annotations
+	return secret
+}
+
 func makeSecret(name string, data map[string]string) *corev1.Secret {
 	bdata := map[string][]byte{}
 	for k, v := range data {
@@ -81,9 +87,9 @@ var (
 	genericMtlsCertSplitCa = makeSecret("generic-mtls-split-cacert", map[string]string{
 		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "mountedcerts-client/root-cert.pem")),
 	})
-	istioGenericSecret = makeSecret("istio-generic-secret", map[string]string{
-		credentials.IstioGenericSecret: "istio-generic-secret-value",
-	})
+	istioGenericSecret = makeSecretWithAnnotations("istio-generic-secret", map[string]string{
+		"foo": "bar",
+	}, map[string]string{credentials.IstioGenericSecretAnnotation: "foo"})
 )
 
 func readFile(name string) string {
@@ -176,7 +182,7 @@ func TestGenerate(t *testing.T) {
 					CaCrl:  string(genericMtlsCertCrl.Data[credentials.GenericScrtCRL]),
 				},
 				"kubernetes://istio-generic-secret?type=generic": {
-					IstioGenericSecret: string(istioGenericSecret.Data[credentials.IstioGenericSecret]),
+					IstioGenericSecret: string(istioGenericSecret.Data["foo"]),
 				},
 			},
 		},

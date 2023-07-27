@@ -58,8 +58,8 @@ const (
 	// The ID/name for the CRL in kubernetes tls secret.
 	TLSSecretCrl = "ca.crl"
 
-	// The ID/name for IstioGenericSecret in kubernetes generic secret.
-	IstioGenericSecret = "istio_generic_secret"
+	// IstioGenericSecretAnnotation refers the generic secret data key in kubernetes generic secret.
+	IstioGenericSecretAnnotation = "security.istio.io/genericSecret"
 )
 
 type CredentialsController struct {
@@ -268,16 +268,22 @@ func ExtractCertInfo(scrt *v1.Secret) (certInfo *credentials.CertInfo, err error
 }
 
 func extractGenericSecretValue(scrt *v1.Secret) (value []byte, err error) {
-	if hasValue(scrt.Data, IstioGenericSecret) {
-		return scrt.Data[IstioGenericSecret], nil
+	genericSecretKey, ok := scrt.Annotations[IstioGenericSecretAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("found secret, but didn't have expected annotation (%q)",
+			IstioGenericSecretAnnotation)
 	}
-	// No value found. Try to generate corresponding helpful error message
-	if hasKeys(scrt.Data, IstioGenericSecret) {
-		return nil, fmt.Errorf("found key %q but it was empty", IstioGenericSecret)
+
+	value, found := scrt.Data[genericSecretKey]
+	if !found {
+		return nil, fmt.Errorf("found secret, but didn't have expected key (%s); found: %s",
+			genericSecretKey, truncatedKeysMessage(scrt.Data))
 	}
-	found := truncatedKeysMessage(scrt.Data)
-	return nil, fmt.Errorf("found secret, but didn't have expected key (%s); found: %s",
-		IstioGenericSecret, found)
+	if len(value) > 0 {
+		return value, nil
+	}
+
+	return nil, fmt.Errorf("found key %q but it was empty", genericSecretKey)
 }
 
 func truncatedKeysMessage(data map[string][]byte) string {

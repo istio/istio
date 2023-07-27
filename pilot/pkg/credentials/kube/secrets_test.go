@@ -32,6 +32,12 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+func makeSecretWithAnnotations(name string, data map[string]string, secretType corev1.SecretType, annotations map[string]string) *corev1.Secret {
+	secret := makeSecret(name, data, secretType)
+	secret.Annotations = annotations
+	return secret
+}
+
 func makeSecret(name string, data map[string]string, secretType corev1.SecretType) *corev1.Secret {
 	bdata := map[string][]byte{}
 	for k, v := range data {
@@ -90,20 +96,23 @@ var (
 	emptyCert = makeSecret("empty-cert", map[string]string{
 		TLSSecretCert: "", TLSSecretKey: "tls-key",
 	}, corev1.SecretTypeTLS)
-	wrongKeys = makeSecret("wrong-keys", map[string]string{
+	wrongKeys = makeSecretWithAnnotations("wrong-keys", map[string]string{
 		"foo-bar": "my-cert", TLSSecretKey: "tls-key",
-	}, corev1.SecretTypeTLS)
+	}, corev1.SecretTypeTLS, map[string]string{IstioGenericSecretAnnotation: "foo"})
 	dockerjson = makeSecret("docker-json", map[string]string{
 		corev1.DockerConfigJsonKey: "docker-cred",
 	}, corev1.SecretTypeDockerConfigJson)
 	badDockerjson = makeSecret("bad-docker-json", map[string]string{
 		"docker-key": "docker-cred",
 	}, corev1.SecretTypeDockerConfigJson)
-	istioGenericSecret = makeSecret("istio-generic-secret", map[string]string{
-		IstioGenericSecret: "bar",
-	}, corev1.SecretTypeOpaque)
-	emptyIstioGenericSecret = makeSecret("empty-istio-generic-secret", map[string]string{
-		IstioGenericSecret: "",
+	istioGenericSecret = makeSecretWithAnnotations("istio-generic-secret", map[string]string{
+		"foo": "bar",
+	}, corev1.SecretTypeOpaque, map[string]string{IstioGenericSecretAnnotation: "foo"})
+	emptyIstioGenericSecret = makeSecretWithAnnotations("empty-istio-generic-secret", map[string]string{
+		"foo": "",
+	}, corev1.SecretTypeOpaque, map[string]string{IstioGenericSecretAnnotation: "foo"})
+	missingIstioGenericSecretAnnotation = makeSecret("missing-annotation", map[string]string{
+		"foo": "bar",
 	}, corev1.SecretTypeOpaque)
 )
 
@@ -290,6 +299,7 @@ func TestIstioGenericSecret(t *testing.T) {
 	secrets := []runtime.Object{
 		istioGenericSecret,
 		emptyIstioGenericSecret,
+		missingIstioGenericSecretAnnotation,
 		wrongKeys,
 	}
 	client := kube.NewFakeClient(secrets...)
@@ -309,12 +319,17 @@ func TestIstioGenericSecret(t *testing.T) {
 		{
 			name:          "empty-istio-generic-secret",
 			namespace:     "default",
-			expectedError: `found key "istio_generic_secret" but it was empty`,
+			expectedError: `found key "foo" but it was empty`,
+		},
+		{
+			name:          "missing-annotation",
+			namespace:     "default",
+			expectedError: `found secret, but didn't have expected annotation ("security.istio.io/genericSecret")`,
 		},
 		{
 			name:          "wrong-keys",
 			namespace:     "default",
-			expectedError: "found secret, but didn't have expected key (istio_generic_secret); found: foo-bar, tls.key",
+			expectedError: `found secret, but didn't have expected key (foo); found: foo-bar, tls.key`,
 		},
 	}
 	for _, tt := range cases {
