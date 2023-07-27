@@ -198,9 +198,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return res
 	}
 
-	var res *discovery.Resource
 	secretInfo, err := secretController.GetSecretInfo(sr.Name, sr.Namespace)
-
 	switch secretInfo.Type {
 	case credscontroller.IstioGenericSecret:
 		if err == nil {
@@ -220,11 +218,11 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		// this should never happen
 	}
 
-	if res == nil {
-		pilotSDSSecretErrors.Increment()
-		log.Warnf("no secret found for %s", sr.ResourceName)
-	}
-	return res
+	// no secret was found
+	pilotSDSSecretErrors.Increment()
+	log.Warnf("no secret found for %s", sr.ResourceName)
+
+	return nil
 }
 
 func (s *SecretGen) GetEnvoyTLSCertificate(certInfo *credscontroller.CertInfo, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
