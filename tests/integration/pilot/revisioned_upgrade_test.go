@@ -52,12 +52,7 @@ func TestRevisionedUpgrade(t *testing.T) {
 		Label(label.CustomSetup).
 		Features("installation.upgrade").
 		Run(func(t framework.TestContext) {
-			// Kubernetes 1.22 drops support for a number of legacy resources, so we cannot install the old versions
-			if !t.Clusters().Default().MaxKubeVersion(21) {
-				t.Skipf("k8s version not supported for %s (>%s)", t.Name(), "1.21")
-			}
-			versions := []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour}
-			for _, v := range versions {
+			for _, v := range allVersions {
 				t.NewSubTest(fmt.Sprintf("%s->master", v)).Run(func(t framework.TestContext) {
 					testUpgradeFromVersion(t, v)
 				})

@@ -19,6 +19,7 @@ package pilot
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/versions"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -37,15 +38,13 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-const (
-	NMinusOne   = "1.10.0"
-	NMinusTwo   = "1.9.5"
-	NMinusThree = "1.8.6"
-	NMinusFour  = "1.7.6"
-	NMinusFive  = "1.6.11"
-)
-
-var versions = []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour, NMinusFive}
+var allVersions = []string{
+	versions.Previous(1),
+	versions.Previous(2),
+	versions.Previous(3),
+	versions.Previous(4),
+	versions.Previous(5),
+}
 
 type revisionedNamespace struct {
 	revision  string
@@ -75,7 +74,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			})
 
 			revisionedNamespaces := []revisionedNamespace{}
-			for _, v := range versions {
+			for _, v := range allVersions {
 				installRevisionOrFail(t, v, configs)
 
 				// create a namespace pointed to the revisioned control plane we just installed
