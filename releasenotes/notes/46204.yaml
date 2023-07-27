@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Fixed** an issue where Ztunnel component was not being pruned during the uninstallation process, when the Istio
+  is applied using the `istioctl manifest generate` command.
