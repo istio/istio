@@ -91,7 +91,7 @@ type Controller struct {
 	// do not support writing. We only use it here for reading WorkloadEntry/WorkloadGroup.
 	store model.ConfigStoreController
 
-	// Note: unregister is to update the workload entry status: like setting `annotation.IoIstioDisconnectedAt.Name`
+	// Note: unregister is to update the workload entry status: like setting `istio.io/disconnectedAt`
 	// and make the workload entry enqueue `cleanupQueue`
 	// cleanup is to delete the workload entry
 

@@ -412,8 +412,8 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldBeTreatedAsCon
 			if wle == nil {
 				t.Fatalf("WorkloadEntry %s/%s must exist", we.Namespace, we.Name)
 			}
-			if diff := cmp.Diff("pilot-x", wle.Annotations[WorkloadControllerAnnotation]); diff != "" {
-				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", WorkloadControllerAnnotation, diff)
+			if diff := cmp.Diff("pilot-x", wle.Annotations[annotation.IoIstioWorkloadController.Name]); diff != "" {
+				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", annotation.IoIstioWorkloadController.Name, diff)
 			}
 			if diff := cmp.Diff(now.Format(time.RFC3339Nano), wle.Annotations[annotation.IoIstioConnectedAt.Name]); diff != "" {
 				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", annotation.IoIstioConnectedAt.Name, diff)
@@ -628,7 +628,7 @@ func checkEntry(
 
 	// check controller annotations
 	if connectedTo != "" {
-		if v := cfg.Annotations[WorkloadControllerAnnotation]; v != connectedTo {
+		if v := cfg.Annotations[annotation.IoIstioWorkloadController.Name]; v != connectedTo {
 			err = multierror.Append(err, fmt.Errorf("expected WorkloadEntry to be updated by %s; got %s", connectedTo, v))
 		}
 		if _, ok := cfg.Annotations[annotation.IoIstioConnectedAt.Name]; !ok {
@@ -762,7 +762,7 @@ func checkNonAutoRegisteredEntryOrFail(t test.Failer, store model.ConfigStoreCon
 
 	// check controller annotations
 	if connectedTo != "" {
-		if v := cfg.Annotations[WorkloadControllerAnnotation]; v != connectedTo {
+		if v := cfg.Annotations[annotation.IoIstioWorkloadController.Name]; v != connectedTo {
 			t.Fatalf("expected WorkloadEntry to be updated by %s; got %s", connectedTo, v)
 		}
 		if _, ok := cfg.Annotations[annotation.IoIstioConnectedAt.Name]; !ok {
