@@ -768,7 +768,7 @@ func checkNonAutoRegisteredEntryOrFail(t test.Failer, store model.ConfigStoreCon
 		if _, ok := cfg.Annotations[annotation.IoIstioConnectedAt.Name]; !ok {
 			t.Fatalf("expected connection timestamp to be set")
 		}
-	} else if _, ok := cfg.Annotations[annotation.IoIstioConnectedAt.Name]; !ok {
+	} else if _, ok := cfg.Annotations[annotation.IoIstioDisconnectedAt.Name]; !ok {
 		t.Fatalf("expected disconnection timestamp to be set")
 	}
 }

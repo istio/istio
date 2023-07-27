@@ -483,11 +483,11 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 		return false
 	}
 
-	// If there is annotation.IoIstioConnectedAt.Name set, don't cleanup this workload entry.
+	// If there is `istio.io/connectedAt` set, don't cleanup this workload entry.
 	// This may happen when the workload fast reconnects to the same istiod.
 	// 1. disconnect: the workload entry has been updated
 	// 2. connect: but the patch is based on the old workloadentry because of the propagation latency.
-	// So in this case the `annotation.IoIstioDisconnectedAt.Name` is still there and the cleanup procedure will go on.
+	// So in this case the `istio.io/disconnectedAt` is still there and the cleanup procedure will go on.
 	connTime := wle.Annotations[annotation.IoIstioConnectedAt.Name]
 	if connTime != "" {
 		// handle workload leak when both workload/pilot down at the same time before pilot has a chance to set disconnTime
