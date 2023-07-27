@@ -199,14 +199,27 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	}
 
 	var res *discovery.Resource
-	switch sr.SubType {
-	case credentials.GenericSecret:
-		res = s.GetEnvoyGenericSecret(secretController, sr)
-	case "":
-		res = s.GetEnvoyTLSCertificate(secretController, sr, proxy)
+	secretInfo, err := secretController.GetSecretInfo(sr.Name, sr.Namespace)
+
+	switch secretInfo.Type {
+	case credscontroller.IstioGenericSecret:
+		if err == nil {
+			return s.GetEnvoyGenericSecret(secretInfo.GenericSecretInfo, sr)
+		}
+		log.Warnf("failed to fetch istio generic secret value for %s: %v", sr.ResourceName, err)
+		pilotSDSGenericSecretErrors.Increment()
+
+	case credscontroller.TLSSecret:
+		if err == nil {
+			return s.GetEnvoyTLSCertificate(secretInfo.CertInfo, sr, proxy)
+		}
+		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
+		pilotSDSCertificateErrors.Increment()
+
 	default:
 		// this should never happen
 	}
+
 	if res == nil {
 		pilotSDSSecretErrors.Increment()
 		log.Warnf("no secret found for %s", sr.ResourceName)
@@ -214,13 +227,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	return res
 }
 
-func (s *SecretGen) GetEnvoyTLSCertificate(secretController credscontroller.Controller, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
-	certInfo, err := secretController.GetCertInfo(sr.Name, sr.Namespace)
-	if err != nil {
-		pilotSDSCertificateErrors.Increment()
-		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
-		return nil
-	}
+func (s *SecretGen) GetEnvoyTLSCertificate(certInfo *credscontroller.CertInfo, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
 	if features.VerifySDSCertificate {
 		if err := ValidateCertificate(certInfo.Cert); err != nil {
 			recordInvalidCertificate(sr.ResourceName, err)
@@ -230,14 +237,8 @@ func (s *SecretGen) GetEnvoyTLSCertificate(secretController credscontroller.Cont
 	return toEnvoyTLSSecret(sr.ResourceName, certInfo, proxy, s.meshConfig)
 }
 
-func (s *SecretGen) GetEnvoyGenericSecret(secretController credscontroller.Controller, sr SecretResource) *discovery.Resource {
-	value, err := secretController.GetIstioGenericSecretValue(sr.Name, sr.Namespace)
-	if err != nil {
-		pilotSDSGenericSecretErrors.Increment()
-		log.Warnf("failed to fetch istio generic secret value for %s: %v", sr.ResourceName, err)
-		return nil
-	}
-	return toEnvoyGenericSecret(sr.ResourceName, value)
+func (s *SecretGen) GetEnvoyGenericSecret(genericSecretInfo *credscontroller.GenericSecretInfo, sr SecretResource) *discovery.Resource {
+	return toEnvoyGenericSecret(sr.ResourceName, genericSecretInfo.Value)
 }
 
 func ValidateCertificate(data []byte) error {

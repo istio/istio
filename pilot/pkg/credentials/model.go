@@ -18,6 +18,26 @@ import (
 	"istio.io/istio/pkg/cluster"
 )
 
+// SecretType contains the secret sub types used by Istio
+type SecretType string
+
+const (
+	// IstioGenericSecret is a kubernetes generic secret annotated with
+	// security.istio.io/genericSecret suggesting its type
+	IstioGenericSecret SecretType = "IstioGenericSecret"
+	// TLSSecret is a kubernetes generic TLS secret and is the default
+	// secret sub type used by Istio
+	TLSSecret SecretType = "TLSSecret"
+)
+
+// SecretInfo wraps CertInfo and GenericSecretInfo containing information
+// about TLSSecret and IstioGenericSecret respectively
+type SecretInfo struct {
+	Type              SecretType
+	CertInfo          *CertInfo
+	GenericSecretInfo *GenericSecretInfo
+}
+
 // CertInfo wraps a certificate, key, and oscp staple information.
 type CertInfo struct {
 	// The certificate chain
@@ -30,11 +50,17 @@ type CertInfo struct {
 	CRL []byte
 }
 
+type GenericSecretInfo struct {
+	// The secret key
+	Key string
+	// The secret value
+	Value []byte
+}
+
 type Controller interface {
-	GetCertInfo(name, namespace string) (certInfo *CertInfo, err error)
 	GetCaCert(name, namespace string) (certInfo *CertInfo, err error)
-	GetIstioGenericSecretValue(name, namespace string) (value []byte, err error)
 	GetDockerCredential(name, namespace string) (cred []byte, err error)
+	GetSecretInfo(name, namespace string) (secretInfo SecretInfo, err error)
 	Authorize(serviceAccount, namespace string) error
 	AddEventHandler(func(name, namespace string))
 }

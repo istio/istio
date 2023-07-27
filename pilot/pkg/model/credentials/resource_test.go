@@ -51,19 +51,6 @@ func TestParseResourceName(t *testing.T) {
 			},
 		},
 		{
-			name:             "of generic type",
-			resource:         "kubernetes://generic-secret?type=generic",
-			defaultNamespace: "default",
-			expected: SecretResource{
-				ResourceType: KubernetesSecretType,
-				SubType:      GenericSecret,
-				Name:         "generic-secret",
-				Namespace:    "default",
-				ResourceName: "kubernetes://generic-secret?type=generic",
-				Cluster:      "cluster",
-			},
-		},
-		{
 			name:             "kubernetes-gateway",
 			resource:         "kubernetes-gateway://namespace/cert",
 			defaultNamespace: "default",

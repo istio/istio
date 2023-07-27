@@ -96,9 +96,9 @@ var (
 	emptyCert = makeSecret("empty-cert", map[string]string{
 		TLSSecretCert: "", TLSSecretKey: "tls-key",
 	}, corev1.SecretTypeTLS)
-	wrongKeys = makeSecretWithAnnotations("wrong-keys", map[string]string{
+	wrongKeys = makeSecret("wrong-keys", map[string]string{
 		"foo-bar": "my-cert", TLSSecretKey: "tls-key",
-	}, corev1.SecretTypeTLS, map[string]string{IstioGenericSecretAnnotation: "foo"})
+	}, corev1.SecretTypeTLS)
 	dockerjson = makeSecret("docker-json", map[string]string{
 		corev1.DockerConfigJsonKey: "docker-cred",
 	}, corev1.SecretTypeDockerConfigJson)
@@ -111,6 +111,9 @@ var (
 	emptyIstioGenericSecret = makeSecretWithAnnotations("empty-istio-generic-secret", map[string]string{
 		"foo": "",
 	}, corev1.SecretTypeOpaque, map[string]string{IstioGenericSecretAnnotation: "foo"})
+	wrongKeysIstioGenericSecret = makeSecretWithAnnotations("wrong-keys", map[string]string{
+		"foo-bar": "my-cert", TLSSecretKey: "tls-key",
+	}, corev1.SecretTypeTLS, map[string]string{IstioGenericSecretAnnotation: "foo"})
 	missingIstioGenericSecretAnnotation = makeSecret("missing-annotation", map[string]string{
 		"foo": "bar",
 	}, corev1.SecretTypeOpaque)
@@ -255,7 +258,8 @@ func TestSecretsController(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			certInfo, err := sc.GetCertInfo(tt.name, tt.namespace)
+			secretInfo, err := sc.GetSecretInfo(tt.name, tt.namespace)
+			certInfo := secretInfo.CertInfo
 			var actualKey []byte
 			var actualCert []byte
 			var actualStaple []byte
@@ -300,7 +304,7 @@ func TestIstioGenericSecret(t *testing.T) {
 		istioGenericSecret,
 		emptyIstioGenericSecret,
 		missingIstioGenericSecretAnnotation,
-		wrongKeys,
+		wrongKeysIstioGenericSecret,
 	}
 	client := kube.NewFakeClient(secrets...)
 	sc := NewCredentialsController(client)
@@ -322,9 +326,10 @@ func TestIstioGenericSecret(t *testing.T) {
 			expectedError: `found key "foo" but it was empty`,
 		},
 		{
-			name:          "missing-annotation",
-			namespace:     "default",
-			expectedError: `found secret, but didn't have expected annotation ("security.istio.io/genericSecret")`,
+			name:      "missing-annotation",
+			namespace: "default",
+			// the secret is not treated as IstioGenericSecret in this case
+			expectedError: `found secret, but didn't have expected keys (cert and key) or (tls.crt and tls.key); found: foo`,
 		},
 		{
 			name:          "wrong-keys",
@@ -334,9 +339,9 @@ func TestIstioGenericSecret(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			val, err := sc.GetIstioGenericSecretValue(tt.name, tt.namespace)
-			if tt.expectedValue != string(val) {
-				t.Errorf("got value %q, wanted %q", string(val), tt.expectedValue)
+			secretInfo, err := sc.GetSecretInfo(tt.name, tt.namespace)
+			if secretInfo.GenericSecretInfo != nil && tt.expectedValue != string(secretInfo.GenericSecretInfo.Value) {
+				t.Errorf("got value %q, wanted %q", string(secretInfo.GenericSecretInfo.Value), tt.expectedValue)
 			}
 			if tt.expectedError != errString(err) {
 				t.Errorf("got err %q, wanted %q", errString(err), tt.expectedError)
@@ -571,7 +576,8 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			certInfo, _ := con.GetCertInfo(tt.name, tt.namespace)
+			secretInfo, _ := con.GetSecretInfo(tt.name, tt.namespace)
+			certInfo := secretInfo.CertInfo
 			var actualKey []byte
 			var actualCert []byte
 			if certInfo != nil {

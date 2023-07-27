@@ -173,13 +173,22 @@ func (s *CredentialsController) Authorize(serviceAccount, namespace string) erro
 	return err
 }
 
-func (s *CredentialsController) GetCertInfo(name, namespace string) (certInfo *credentials.CertInfo, err error) {
+func (s *CredentialsController) GetSecretInfo(name, namespace string) (secretInfo credentials.SecretInfo, err error) {
 	k8sSecret := s.secrets.Get(name, namespace)
 	if k8sSecret == nil {
-		return nil, fmt.Errorf("secret %v/%v not found", namespace, name)
+		return secretInfo, fmt.Errorf("secret %v/%v not found", namespace, name)
 	}
 
-	return ExtractCertInfo(k8sSecret)
+	_, isGenericSecret := k8sSecret.Annotations[IstioGenericSecretAnnotation]
+	if isGenericSecret {
+		secretInfo.GenericSecretInfo, err = extractGenericSecretValue(k8sSecret)
+		secretInfo.Type = credentials.IstioGenericSecret
+	} else {
+		secretInfo.CertInfo, err = ExtractCertInfo(k8sSecret)
+		secretInfo.Type = credentials.TLSSecret
+	}
+
+	return
 }
 
 func (s *CredentialsController) GetCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
@@ -194,15 +203,6 @@ func (s *CredentialsController) GetCaCert(name, namespace string) (certInfo *cre
 		return extractRoot(k8sSecret)
 	}
 	return extractRoot(k8sSecret)
-}
-
-func (s *CredentialsController) GetIstioGenericSecretValue(name, namespace string) (value []byte, err error) {
-	k8sSecret := s.secrets.Get(name, namespace)
-	if k8sSecret == nil {
-		return nil, fmt.Errorf("secret %v/%v not found", namespace, name)
-	}
-
-	return extractGenericSecretValue(k8sSecret)
 }
 
 func (s *CredentialsController) GetDockerCredential(name, namespace string) ([]byte, error) {
@@ -267,7 +267,7 @@ func ExtractCertInfo(scrt *v1.Secret) (certInfo *credentials.CertInfo, err error
 		GenericScrtCert, GenericScrtKey, TLSSecretCert, TLSSecretKey, found)
 }
 
-func extractGenericSecretValue(scrt *v1.Secret) (value []byte, err error) {
+func extractGenericSecretValue(scrt *v1.Secret) (secretInfo *credentials.GenericSecretInfo, err error) {
 	genericSecretKey, ok := scrt.Annotations[IstioGenericSecretAnnotation]
 	if !ok {
 		return nil, fmt.Errorf("found secret, but didn't have expected annotation (%q)",
@@ -280,7 +280,7 @@ func extractGenericSecretValue(scrt *v1.Secret) (value []byte, err error) {
 			genericSecretKey, truncatedKeysMessage(scrt.Data))
 	}
 	if len(value) > 0 {
-		return value, nil
+		return &credentials.GenericSecretInfo{Key: genericSecretKey, Value: value}, nil
 	}
 
 	return nil, fmt.Errorf("found key %q but it was empty", genericSecretKey)

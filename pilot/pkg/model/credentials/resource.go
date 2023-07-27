@@ -35,17 +35,12 @@ const (
 	BuiltinGatewaySecretTypeURI = BuiltinGatewaySecretType + "://"
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = "-cacert"
-	// GenericSecretURISuffix is a SubType for KubernetesSecretType suggesting secret is an IstioGenericSecret
-	GenericSecret          = "generic"
-	GenericSecretURISuffix = "?type=" + GenericSecret
 )
 
 // SecretResource defines a reference to a secret
 type SecretResource struct {
 	// ResourceType is the type of secret. One of KubernetesSecretType or KubernetesGatewaySecretType
 	ResourceType string
-	// SubType is the SubType of a secret ResourceType. For eg. GenericSecret
-	SubType string
 	// Name is the name of the secret
 	Name string
 	// Namespace is the namespace the secret resides in. For implicit namespace references (such as in KubernetesSecretType),
@@ -102,19 +97,7 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 			namespace = split[0]
 			name = split[1]
 		}
-		// Check if secret has a sub type
-		// Valid SubTypes:
-		// "?type=generic": IstioGenericSecret
-		// If no subtype is provided the secret is treated as a TLS secret
-		subType := ""
-		if strings.HasSuffix(name, GenericSecretURISuffix) {
-			name = strings.TrimSuffix(name, GenericSecretURISuffix)
-			subType = GenericSecret
-		}
-		return SecretResource{
-			ResourceType: KubernetesSecretType, SubType: subType, Name: name, Namespace: namespace,
-			ResourceName: resourceName, Cluster: proxyCluster,
-		}, nil
+		return SecretResource{ResourceType: KubernetesSecretType, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: proxyCluster}, nil
 	} else if strings.HasPrefix(resourceName, kubernetesGatewaySecretTypeURI) {
 		// Valid formats:
 		// * kubernetes-gateway://secret-namespace/secret-name

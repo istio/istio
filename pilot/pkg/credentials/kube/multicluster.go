@@ -115,20 +115,20 @@ type AggregateController struct {
 
 var _ credentials.Controller = &AggregateController{}
 
-func (a *AggregateController) GetCertInfo(name, namespace string) (certInfo *credentials.CertInfo, err error) {
+func (a *AggregateController) GetSecretInfo(name, namespace string) (secretInfo credentials.SecretInfo, err error) {
 	// Search through all clusters, find first non-empty result
 	var firstError error
 	for _, c := range a.controllers {
-		certInfo, err := c.GetCertInfo(name, namespace)
+		secretInfo, err := c.GetSecretInfo(name, namespace)
 		if err != nil {
 			if firstError == nil {
 				firstError = err
 			}
 		} else {
-			return certInfo, nil
+			return secretInfo, nil
 		}
 	}
-	return nil, firstError
+	return secretInfo, firstError
 }
 
 func (a *AggregateController) GetCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
@@ -142,22 +142,6 @@ func (a *AggregateController) GetCaCert(name, namespace string) (certInfo *crede
 			}
 		} else {
 			return k, nil
-		}
-	}
-	return nil, firstError
-}
-
-func (a *AggregateController) GetIstioGenericSecretValue(name, namespace string) (value []byte, err error) {
-	// Search through all clusters, find first non-empty result
-	var firstError error
-	for _, c := range a.controllers {
-		val, err := c.GetIstioGenericSecretValue(name, namespace)
-		if err != nil {
-			if firstError == nil {
-				firstError = err
-			}
-		} else {
-			return val, nil
 		}
 	}
 	return nil, firstError
