@@ -422,7 +422,7 @@ func NewValidateCommand(ctx cli.Context) *cobra.Command {
 	flags := c.PersistentFlags()
 	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Inputs of files to validate")
 	flags.BoolVarP(&referential, "referential", "x", true, "Enable structural validation for policy and telemetry")
-	flags.MarkHidden("referential")
+	_ = flags.MarkHidden("referential")
 	return c
 }
 
