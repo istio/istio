@@ -634,7 +634,7 @@ func checkEntry(
 		if _, ok := cfg.Annotations[annotation.IoIstioConnectedAt.Name]; !ok {
 			err = multierror.Append(err, fmt.Errorf("expected connection timestamp to be set"))
 		}
-	} else if _, ok := cfg.Annotations[annotation.IoIstioConnectedAt.Name]; !ok {
+	} else if _, ok := cfg.Annotations[annotation.IoIstioDisconnectedAt.Name]; !ok {
 		err = multierror.Append(err, fmt.Errorf("expected disconnection timestamp to be set"))
 	}
 
@@ -746,7 +746,7 @@ func checkEntryDisconnected(store model.ConfigStoreController, we config.Config)
 	if cfg == nil {
 		return fmt.Errorf("expected WorkloadEntry %s/%s to exist", we.Namespace, we.Name)
 	}
-	if _, ok := cfg.Annotations[annotation.IoIstioConnectedAt.Name]; !ok {
+	if _, ok := cfg.Annotations[annotation.IoIstioDisconnectedAt.Name]; !ok {
 		return fmt.Errorf("expected disconnection timestamp to be set on WorkloadEntry %s/%s: %#v", we.Namespace, we.Name, cfg)
 	}
 	return nil
