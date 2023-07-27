@@ -263,6 +263,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 
 	gw := d.gateways.Get(req.Name, req.Namespace)
 	if gw == nil {
+		log.Debugf("gateway no longer exists")
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
@@ -288,12 +289,14 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	if !ok {
 		ns := d.namespaces.Get(gw.Namespace, "")
 		if ns == nil {
+			log.Debugf("gateway is not for this revision, skipping")
 			return nil
 		}
 		selectedTag = ns.Labels[label.IoIstioRev.Name]
 	}
 	myTags := d.tagWatcher.GetMyTags()
 	if !myTags.Contains(selectedTag) && !(selectedTag == "" && myTags.Contains("default")) {
+		log.Debugf("gateway is not for this revision, skipping")
 		return nil
 	}
 	// TODO: Here we could check if the tag is set and matches no known tags, and handle that if we are default.
