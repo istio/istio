@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: external
+  labels:
+    app: external
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 18080
+  - name: grpc
+    port: 7070
+    targetPort: 17070
+  - name: http2
+    port: 85
+    targetPort: 18085
+  - name: tcp
+    port: 9090
+    targetPort: 19090
+  - name: https
+    port: 443
+    targetPort: 18443
+  - name: tcp-server
+    port: 9091
+    targetPort: 16060
+  - name: auto-tcp
+    port: 9092
+    targetPort: 19091
+  - name: auto-tcp-server
+    port: 9093
+    targetPort: 16061
+  - name: auto-http
+    port: 81
+    targetPort: 18081
+  - name: auto-grpc
+    port: 7071
+    targetPort: 17071
+  - name: auto-https
+    port: 9443
+    targetPort: 19443
+  - name: http-instance
+    port: 82
+    targetPort: 18082
+  - name: http-localhost
+    port: 84
+    targetPort: 18084
+  - name: tcp-for-http
+    port: 86
+    targetPort: 18086
+  selector:
+    app: external

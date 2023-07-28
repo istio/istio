@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: originate-tls-for-server-sds-tls-credential
+spec:
+  host: "external.external-4-11206.svc.cluster.local"
+  trafficPolicy:
+    portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: SIMPLE
+          credentialName: tls-credential
+          sni: external.external-4-11206.svc.cluster.local

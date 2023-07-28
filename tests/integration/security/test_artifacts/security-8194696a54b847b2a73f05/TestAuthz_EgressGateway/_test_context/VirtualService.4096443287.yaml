@@ -1,0 +1,75 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: route-via-egressgateway
+  namespace: echo1-3-36199
+spec:
+  hosts:
+    - "www.company.com"
+  gateways:
+    - test-egress
+    - mesh
+  http:
+    - match:
+        - gateways:
+            - mesh
+          port: 80
+      route:
+        - destination:
+            host: "aks-istio-egressgateway.aks-istio-egress.svc.cluster.local"
+            port:
+              number: 80
+          weight: 100
+    - match:
+        - gateways:
+            - test-egress
+          port: 80
+      route:
+        - destination:
+            host: "b.echo1-3-36199.svc.cluster.local"
+            port:
+              number: 80
+          weight: 100
+      headers:
+        request:
+          add:
+            x-egress-test: "handled-by-egress-gateway"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: route-via-egressgateway-2
+  namespace: echo1-3-36199
+spec:
+  hosts:
+    - "a-echo1-3-36199-only.com"
+    - "jwt-only.com"
+    - "jwt-and-a-echo1-3-36199-only.com"
+  gateways:
+    - test-egress
+    - mesh
+  http:
+    - match:
+        - gateways:
+            - mesh
+          port: 80
+      route:
+        - destination:
+            host: "aks-istio-egressgateway.aks-istio-egress.svc.cluster.local"
+            port:
+              number: 443
+          weight: 100
+    - match:
+        - gateways:
+            - test-egress
+          port: 443
+      route:
+        - destination:
+            host: "b.echo1-3-36199.svc.cluster.local"
+            port:
+              number: 80
+          weight: 100
+      headers:
+        request:
+          add:
+            x-egress-test: "handled-by-egress-gateway"

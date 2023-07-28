@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: client
+        version: v1
+        test.istio.io/class: standard
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15014"
+        sidecar.istio.io/userVolume: "{\"custom-certs\":{\"configMap\":{\"name\":\"server-certs\"}}}"
+        sidecar.istio.io/userVolumeMount: "{\"custom-certs\":{\"mountPath\":\"/etc/certs/custom\"}}"
+    spec:
+      containers:
+      - name: istio-proxy
+        image: auto
+        imagePullPolicy: Always
+        securityContext: # to allow core dumps
+          readOnlyRootFilesystem: false
+      - name: app
+        image: mcr.microsoft.com/oss/istio/app:1.18.0
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 1338
+          runAsGroup: 1338
+        args:
+          - --metrics=15014
+          - --cluster=cluster-0
+          - --grpc=7070
+          - --port=8080
+          - --port=3333
+          - --version=v1
+          - --istio-version=
+          - --crt=/cert.crt
+          - --key=/cert.key
+        ports:
+        - containerPort: 7070
+        - containerPort: 8080
+        - containerPort: 3333
+          name: tcp-health-port
+        env:
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          failureThreshold: 10
+        livenessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
+          periodSeconds: 1
+          failureThreshold: 10

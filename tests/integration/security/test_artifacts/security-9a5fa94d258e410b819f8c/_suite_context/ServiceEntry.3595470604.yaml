@@ -1,0 +1,29 @@
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: ext-authz-http-echo1-local
+spec:
+  hosts:
+  - "ext-authz-http.echo1.local"
+  endpoints:
+  - address: "127.0.0.1"
+  ports:
+  - name: http
+    number: 8000
+    protocol: HTTP
+  resolution: STATIC
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: ext-authz-grpc-echo1-local
+spec:
+  hosts:
+  - "ext-authz-grpc.echo1.local"
+  endpoints:
+  - address: "127.0.0.1"
+  ports:
+  - name: grpc
+    number: 9000
+    protocol: GRPC
+  resolution: STATIC

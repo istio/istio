@@ -1,0 +1,5 @@
+suite/security_filebased_tls_origination:
+  echo-calls: 222
+  istio-deploy: 0.000197487
+  suite-runtime: 275.950868889
+  yaml-apply: 24

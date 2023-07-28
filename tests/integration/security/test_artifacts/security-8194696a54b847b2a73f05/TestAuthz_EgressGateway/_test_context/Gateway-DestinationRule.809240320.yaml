@@ -1,0 +1,39 @@
+# The following policy redirects the request through egress gateway.
+
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: test-egress
+  namespace: echo2-2-13227
+spec:
+  selector:
+    istio: aks-istio-egressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "www.company.com"
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: ISTIO_MUTUAL
+      hosts:
+        - "*"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: test-egress
+  namespace: echo2-2-13227
+spec:
+  host: "aks-istio-egressgateway.aks-istio-egress.svc.cluster.local"
+  trafficPolicy:
+    portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: ISTIO_MUTUAL

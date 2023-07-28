@@ -1,0 +1,17 @@
+
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    egressGateways:
+    - enabled: true
+      name: istio-egressgateway
+  hub: mcr.microsoft.com/oss/istio
+  tag: 1.18.0
+  values:
+    gateways:
+      istio-egressgateway:
+        secretVolumes:
+        - mountPath: /etc/certs/custom
+          name: client-custom-certs
+          secretName: egress-gw-cacerts

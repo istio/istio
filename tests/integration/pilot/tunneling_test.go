@@ -120,15 +120,37 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 			externalForwardProxyIP := getPodIP(ctx, externalNs, "external-forward-proxy")
 
 			for _, proxyConfig := range forwardProxyConfigurations {
+				var egressNs string
+				var egressSvc string
+				var egressLabel string
+
+				if i.Settings().EgressGatewayServiceNamespace != "" {
+					egressNs = i.Settings().EgressGatewayServiceNamespace
+				} else {
+					egressNs = "istio-system"
+				}
+
+				if i.Settings().EgressGatewayServiceName != "" {
+					egressSvc = i.Settings().EgressGatewayServiceName
+				} else {
+					egressSvc = "istio-egressgateway"
+				}
+
+				if i.Settings().EgressGatewayIstioLabel != "" {
+					egressLabel = i.Settings().EgressGatewayIstioLabel
+				} else {
+					egressLabel = "istio-egressgateway"
+				}
+
 				templateParams := map[string]any{
 					"externalNamespace":             externalNs,
 					"forwardProxyPort":              proxyConfig.Port,
 					"tlsEnabled":                    proxyConfig.TLSEnabled,
 					"externalSvcTcpPort":            ports.TCPForHTTP.ServicePort,
 					"externalSvcTlsPort":            ports.HTTPS.ServicePort,
-					"EgressGatewayIstioLabel":       i.Settings().EgressGatewayIstioLabel,
-					"EgressGatewayServiceName":      i.Settings().EgressGatewayServiceName,
-					"EgressGatewayServiceNamespace": i.Settings().EgressGatewayServiceNamespace,
+					"EgressGatewayIstioLabel":       egressLabel,
+					"EgressGatewayServiceName":      egressSvc,
+					"EgressGatewayServiceNamespace": egressNs,
 				}
 				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).ApplyOrFail(ctx)
 
@@ -163,7 +185,8 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 					// Make sure that configuration changes were pushed to istio-proxies.
 					// Otherwise, test results could be false-positive,
 					// because subsequent test cases could work thanks to previous configurations.
-					waitUntilTunnelingConfigurationIsRemovedOrFail(ctx, meshNs)
+
+					waitUntilTunnelingConfigurationIsRemovedOrFail(ctx, meshNs, egressNs, egressLabel)
 				}
 
 				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).DeleteOrFail(ctx)
@@ -305,7 +328,7 @@ func waitForPodsReadyOrFail(ctx framework.TestContext, ns, appSelector string) {
 	}, retry.Timeout(1*time.Minute), retry.Delay(500*time.Millisecond))
 }
 
-func waitUntilTunnelingConfigurationIsRemovedOrFail(ctx framework.TestContext, meshNs string) {
+func waitUntilTunnelingConfigurationIsRemovedOrFail(ctx framework.TestContext, meshNs string, egressNs string, egressLabel string) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -315,7 +338,7 @@ func waitUntilTunnelingConfigurationIsRemovedOrFail(ctx framework.TestContext, m
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		waitForTunnelingRemovedOrFail(ctx, "istio-system", "istio-egressgateway")
+		waitForTunnelingRemovedOrFail(ctx, egressNs, egressLabel)
 	}()
 	wg.Wait()
 }

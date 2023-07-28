@@ -1,0 +1,69 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-egressgateway-filebased
+spec:
+  selector:
+    istio: aks-istio-egressgateway
+  servers:
+    - port:
+        number: 443
+        name: https-filebased
+        protocol: HTTPS
+      hosts:
+        - external-service.serverns-2-64913.svc.cluster.local
+      tls:
+        mode: ISTIO_MUTUAL
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: egressgateway-for-server-filebased
+spec:
+  host: aks-istio-egressgateway.aks-istio-egress.svc.cluster.local
+  subsets:
+  - name: server
+    trafficPolicy:
+      portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: ISTIO_MUTUAL
+          sni: external-service.serverns-2-64913.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route-via-egressgateway-filebased
+spec:
+  hosts:
+    - external-service.serverns-2-64913.svc.cluster.local
+  gateways:
+    - istio-egressgateway-filebased
+    - mesh
+  http:
+    - match:
+        - gateways:
+            - mesh # from sidecars, route to egress gateway service
+          port: 80
+      route:
+        - destination:
+            host: aks-istio-egressgateway.aks-istio-egress.svc.cluster.local
+            subset: server
+            port:
+              number: 443
+          weight: 100
+    - match:
+        - gateways:
+            - istio-egressgateway-filebased
+          port: 443
+      route:
+        - destination:
+            host: external-service.serverns-2-64913.svc.cluster.local
+            port:
+              number: 443
+          weight: 100
+      headers:
+        request:
+          add:
+            handled-by-egress-gateway: "true"

@@ -360,7 +360,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("IngressGatewayServiceNamespace: %v\n", c.IngressGatewayServiceNamespace)
 	result += fmt.Sprintf("IngressGatewayIstioLabel:       %v\n", c.IngressGatewayIstioLabel)
 	result += fmt.Sprintf("EgressGatewayServiceName:       %v\n", c.EgressGatewayServiceName)
-	result += fmt.Sprintf("EressGatewayServiceNamespace:   %v\n", c.EgressGatewayServiceNamespace)
+	result += fmt.Sprintf("EgressGatewayServiceNamespace:  %v\n", c.EgressGatewayServiceNamespace)
 	result += fmt.Sprintf("EgressGatewayIstioLabel:        %v\n", c.EgressGatewayIstioLabel)
 	result += fmt.Sprintf("SharedMeshConfigName:           %v\n", c.SharedMeshConfigName)
 
