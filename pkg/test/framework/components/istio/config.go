@@ -69,6 +69,12 @@ const (
 
 	// imagePullPolicyValuesKey values key for the Docker image pull policy.
 	imagePullPolicyValuesKey = "global.imagePullPolicy"
+
+	// // DefaultEgressGatewayLabel is the default Istio label for the egress gateway.
+	// DefaultEgressGatewayIstioLabel = "istio-egressgateway"
+
+	// // DefaultEgressGatewayServiceName is the default service name for the egress gateway.
+	// DefaultEgressServiceName = "istio-egressgateway"
 )
 
 var (

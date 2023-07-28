@@ -115,13 +115,13 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			if i.Settings().EgressGatewayServiceName != "" {
 				egressSvc = i.Settings().EgressGatewayServiceName
 			} else {
-				egressSvc = "istio-egressgateway"
+				egressSvc = "egressgateway"
 			}
 
 			if i.Settings().EgressGatewayIstioLabel != "" {
 				egressLabel = i.Settings().EgressGatewayIstioLabel
 			} else {
-				egressLabel = "istio-egressgateway"
+				egressLabel = "egressgateway"
 			}
 
 			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All, egressNs, egressSvc, egressLabel)
@@ -306,7 +306,8 @@ func TestMutualTlsOrigination(t *testing.T) {
 // We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first
 // routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
-func newTLSGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, to echo.Instances, egressNs string, egressSvc string, egressLabel string) {
+func newTLSGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance,
+	to echo.Instances, egressNs string, egressSvc string, egressLabel string) {
 	args := map[string]any{"to": to, "EgressNamespace": egressNs, "EgressService": egressSvc, "EgressLabel": egressLabel}
 
 	gateway := `

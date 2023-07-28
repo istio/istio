@@ -60,13 +60,13 @@ func TestEgressGatewayTls(t *testing.T) {
 			if inst.Settings().EgressGatewayServiceName != "" {
 				egressSvc = inst.Settings().EgressGatewayServiceName
 			} else {
-				egressSvc = "istio-egressgateway"
+				egressSvc = "egressgateway"
 			}
 
 			if inst.Settings().EgressGatewayIstioLabel != "" {
 				egressLabel = inst.Settings().EgressGatewayIstioLabel
 			} else {
-				egressLabel = "istio-egressgateway"
+				egressLabel = "egressgateway"
 			}
 
 			createGateway(t, t, appNS, serviceNS, egressNs, egressSvc, egressLabel)
@@ -321,10 +321,13 @@ spec:
 `
 )
 
-func createGateway(t test.Failer, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance, egressNs string, egressSvc string, egressLabel string) {
+func createGateway(t test.Failer, ctx resource.Context, appsNamespace namespace.Instance,
+	serviceNamespace namespace.Instance, egressNs string, egressSvc string, egressLabel string) {
 	ctx.ConfigIstio().
-		Eval(appsNamespace.Name(), map[string]string{"ServerNamespace": serviceNamespace.Name(), "EgressNamespace": egressNs, "EgressLabel": egressLabel, "EgressService": egressSvc}, Gateway).
-		Eval(appsNamespace.Name(), map[string]string{"ServerNamespace": serviceNamespace.Name(), "EgressNamespace": egressNs, "EgressService": egressSvc}, VirtualService).
+		Eval(appsNamespace.Name(), map[string]string{"ServerNamespace": serviceNamespace.Name(),
+			"EgressNamespace": egressNs, "EgressLabel": egressLabel, "EgressService": egressSvc}, Gateway).
+		Eval(appsNamespace.Name(), map[string]string{"ServerNamespace": serviceNamespace.Name(),
+			"EgressNamespace": egressNs, "EgressService": egressSvc}, VirtualService).
 		ApplyOrFail(t)
 }
 
