@@ -132,6 +132,10 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(webhookConfigName string
 
 	found := false
 	updated := false
+	if !w.CABundleWatcher.HasBundle() {
+		// If there is no bundle, skip the patch for this time.
+		return nil
+	}
 	caCertPem, err := util.LoadCABundle(w.CABundleWatcher)
 	if err != nil {
 		log.Errorf("Failed to load CA bundle: %v", err)

@@ -114,3 +114,8 @@ func (w *Watcher) GetKeyCertBundle() KeyCertBundle {
 	defer w.mutex.RUnlock()
 	return w.bundle
 }
+
+// HasBundle returns true if CABundle has a value.
+func (w *Watcher) HasBundle() bool {
+	return w.bundle.CABundle != nil
+}

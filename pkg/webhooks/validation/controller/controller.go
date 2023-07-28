@@ -145,7 +145,10 @@ func (c *Controller) Reconcile(key types.NamespacedName) error {
 
 	scope.Debugf("Reconcile(enter)")
 	defer func() { scope.Debugf("Reconcile(exit)") }()
-
+	if !c.o.CABundleWatcher.HasBundle() {
+		// If there is no bundle, skip the patch for this time.
+		return nil
+	}
 	caBundle, err := util.LoadCABundle(c.o.CABundleWatcher)
 	if err != nil {
 		scope.Errorf("Failed to load CA bundle: %v", err)
