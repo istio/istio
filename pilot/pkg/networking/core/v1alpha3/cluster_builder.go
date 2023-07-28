@@ -442,14 +442,14 @@ type ServiceTarget struct {
 	Port    ServiceInstancePort
 }
 
-// buildInboundClusterForPortOrUDS constructs a single inbound cluster. The cluster will be bound to
+// buildInboundCluster constructs a single inbound cluster. The cluster will be bound to
 // `inbound|clusterPort||`, and send traffic to <bind>:<instance.Endpoint.EndpointPort>. A workload
 // will have a single inbound cluster per port. In general this works properly, with the exception of
 // the Service-oriented DestinationRule, and upstream protocol selection. Our documentation currently
 // requires a single protocol per port, and the DestinationRule issue is slated to move to Sidecar.
 // Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
 // Sidecar.Ingress allows these to be different.
-func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind string,
+func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 	proxy *model.Proxy, instance ServiceTarget, inboundServices []ServiceTarget,
 ) *clusterWrapper {
 	clusterName := model.BuildInboundSubsetKey(clusterPort)

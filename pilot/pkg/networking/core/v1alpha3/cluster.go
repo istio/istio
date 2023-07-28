@@ -531,7 +531,7 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 				},
 			}
 		})
-		localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, proxy, services[0], services)
+		localCluster := cb.buildInboundCluster(epPort, bind, proxy, services[0], services)
 		// If inbound cluster match has service, we should see if it matches with any host name across all instances.
 		hosts := make([]host.Name, 0, len(instances))
 		for _, si := range instances {
@@ -638,7 +638,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 				TargetPort:  uint32(port),
 			},
 		}
-		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, proxy, endpoint, nil)
+		localCluster := cb.buildInboundCluster(int(ingressListener.Port.Number), endpointAddress, proxy, endpoint, nil)
 		clusters = cp.conditionallyAppend(clusters, []host.Name{endpoint.Service.Hostname}, localCluster.build())
 	}
 	return clusters
