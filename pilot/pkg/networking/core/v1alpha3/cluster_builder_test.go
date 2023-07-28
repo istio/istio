@@ -607,7 +607,6 @@ func TestApplyDestinationRule(t *testing.T) {
 			// Validate that alpn_override is correctly configured on cluster given a TLS mode.
 			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.Tls != nil {
 				tlsMode := tt.destRule.TrafficPolicy.Tls.Mode
-				t.Logf("tlsMode:%s", tlsMode)
 				if tlsMode == networking.ClientTLSSettings_SIMPLE || tlsMode == networking.ClientTLSSettings_MUTUAL {
 					md := tt.cluster.Metadata
 					istio, ok := md.FilterMetadata[util.IstioMetadataKey]
@@ -615,7 +614,6 @@ func TestApplyDestinationRule(t *testing.T) {
 						t.Errorf("Istio metadata not found")
 					}
 					alpnOverride, found := istio.Fields[util.AlpnOverrideMetadataKey]
-					t.Logf("alpnOverride:%s", alpnOverride)
 
 					if found {
 						if alpnOverride.GetStringValue() != "false" {
@@ -628,10 +626,8 @@ func TestApplyDestinationRule(t *testing.T) {
 					// If TLS settings are not found, alpn_override metadata should not be written
 					md := tt.cluster.Metadata
 					istio, ok := md.FilterMetadata[util.IstioMetadataKey]
-					t.Logf("istiofound:%t", ok)
 					if ok {
 						alpnOverride, found := istio.Fields[util.AlpnOverrideMetadataKey]
-						t.Logf("alpnfound:%t", found)
 						if found {
 							// nolint: lll
 							t.Errorf("alpn_override:%s tlsMode:%s, alpn_override metadata should not be written if TLS mode is neither SIMPLE nor MUTUAL", alpnOverride.GetStringValue(), tlsMode)
