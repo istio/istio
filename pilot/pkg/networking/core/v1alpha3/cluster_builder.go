@@ -290,6 +290,11 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 
 	if destRule != nil {
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
+
+		// ALPN header rewrite starts Istio-managed mTLS. Skip if TLS mode is SIMPLE or MUTUAL
+		if trafficPolicy.GetTls() != nil {
+			mc.cluster.Metadata = configureALPNOverride(trafficPolicy.Tls.Mode, mc.cluster.Metadata)
+		}
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.GetSubsets() {
@@ -1446,4 +1451,14 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 		},
 	}
 	return c
+}
+
+// configureALPNOverride determines whether alpn_override should be added to metadata
+func configureALPNOverride(tlsMode networking.ClientTLSSettings_TLSmode, md *core.Metadata) *core.Metadata {
+	alpnOverride := (tlsMode != networking.ClientTLSSettings_SIMPLE) && (tlsMode != networking.ClientTLSSettings_MUTUAL)
+	// Only write to metadata if alpnOverride is false
+	if !alpnOverride {
+		return util.AddALPNOverrideToMetadata(md, alpnOverride)
+	}
+	return md
 }
