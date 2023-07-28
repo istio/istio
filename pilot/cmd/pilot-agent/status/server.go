@@ -706,13 +706,19 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 		return
 	}
 
-	// Forward incoming headers to the application.
-	if prober.HTTPGet.Host != "" {
-		appReq.Host = prober.HTTPGet.Host
+	appReq.Host = req.Host
+	if host, port, err := net.SplitHostPort(req.Host); err == nil {
+		port, _ := strconv.Atoi(port)
+		// the port is same as the status port, then we need to replace the port in the host with the real one
+		if port == int(s.statusPort) {
+			realPort := strconv.Itoa(prober.HTTPGet.Port.IntValue())
+			appReq.Host = net.JoinHostPort(host, realPort)
+		}
 	}
+	// Forward incoming headers to the application.
 	for name, values := range req.Header {
 		appReq.Header[name] = slices.Clone(values)
-		if len(values) > 0 && (strings.EqualFold(name, "Host") || name == ":authority") {
+		if len(values) > 0 && (name == "Host") {
 			// Probe has specific host header override; honor it
 			appReq.Host = values[0]
 		}

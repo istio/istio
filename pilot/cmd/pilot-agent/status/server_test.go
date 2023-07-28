@@ -59,7 +59,7 @@ type handler struct {
 const (
 	testHeader      = "Some-Header"
 	testHeaderValue = "some-value"
-	testHostValue   = "host"
+	testHostValue   = "test.com:9999"
 )
 
 var liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\nlistener_manager.workers_started: 1"
@@ -69,6 +69,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	segments := strings.Split(r.URL.Path[1:], "/")
 	switch segments[0] {
 	case "header":
+		// The host must have the port number appended.
 		if r.Host != testHostValue {
 			log.Errorf("Missing expected host header, got %v", r.Host)
 			w.WriteHeader(http.StatusBadRequest)
@@ -693,9 +694,9 @@ func TestAppProbe(t *testing.T) {
 					HTTPGet: &apimirror.HTTPGetAction{
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
-						Host: testHostValue,
 						HTTPHeaders: []apimirror.HTTPHeader{
 							{Name: testHeader, Value: testHeaderValue},
+							{Name: "Host", Value: testHostValue},
 						},
 					},
 				},
@@ -853,6 +854,8 @@ func TestAppProbe(t *testing.T) {
 				}
 			}
 		}
+		// This is simulating the kubelet behavior of setting the Host header to Header["Host"].
+		req.Host = req.Header.Get("Host")
 		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatal("request failed: ", err)
