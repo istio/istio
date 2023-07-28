@@ -1,5 +1,0 @@
-suite/pilot:
-  echo-calls: 127
-  istio-deploy: 0.000111683
-  suite-runtime: 102.308022415
-  yaml-apply: 89
