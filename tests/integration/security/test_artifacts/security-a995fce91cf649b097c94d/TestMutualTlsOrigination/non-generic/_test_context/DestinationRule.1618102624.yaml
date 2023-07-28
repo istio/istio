@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: originate-tls-for-server-sds-mtls-credential-not-generic
+spec:
+  host: "external.external-4-16320.svc.cluster.local"
+  trafficPolicy:
+    portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: MUTUAL
+          credentialName: mtls-credential-not-generic
+          sni: external.external-4-16320.svc.cluster.local

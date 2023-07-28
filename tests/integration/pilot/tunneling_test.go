@@ -164,7 +164,7 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 					// Otherwise, test results could be false-positive,
 					// because subsequent test cases could work thanks to previous configurations.
 
-					waitUntilTunnelingConfigurationIsRemovedOrFail(ctx, meshNs, i.Settings().EgressGatewayServiceNamespace, i.Settings().EgressGatewayIstioLabel)
+					waitUntilTunnelingConfigurationIsRemovedOrFail(ctx, meshNs, i.Settings().EgressGatewayServiceNamespace, i.Settings().EgressGatewayServiceName)
 				}
 
 				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).DeleteOrFail(ctx)

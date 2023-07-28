@@ -1,0 +1,24 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: aks-istio-egressgateway
+spec:
+  selector:
+    istio: aks-istio-egressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: TLS
+    hosts:
+    - external.external-1-11996.svc.cluster.local
+    tls:
+      mode: ISTIO_MUTUAL
+  - port:
+      number: 443
+      name: https
+      protocol: TLS
+    hosts:
+    - external.external-1-11996.svc.cluster.local
+    tls:
+      mode: ISTIO_MUTUAL

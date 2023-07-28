@@ -1,0 +1,10 @@
+suite/security:
+  echo-calls: 169
+  istio-deploy: 0.000175013
+  suite-runtime: 37.650283185
+  yaml-apply: 91
+suite/security:
+  echo-calls: 2961
+  istio-deploy: 6.3899e-05
+  suite-runtime: 534.418388952
+  yaml-apply: 84

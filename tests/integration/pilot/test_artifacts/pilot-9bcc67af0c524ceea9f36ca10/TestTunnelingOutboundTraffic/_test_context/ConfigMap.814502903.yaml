@@ -1,0 +1,343 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: external-forward-proxy-config
+data:
+  envoy.yaml: |-
+    admin:
+      address:
+        socketAddress:
+          address: 127.0.0.1
+          ipv4Compat: true
+          portValue: 9902
+    staticResources:
+      clusters:
+      - clusterType:
+          name: envoy.clusters.dynamic_forward_proxy
+          typedConfig:
+            '@type': type.googleapis.com/envoy.extensions.clusters.dynamic_forward_proxy.v3.ClusterConfig
+            dnsCacheConfig:
+              name: dynamic_forward_proxy_cache_config
+              typedDnsResolverConfig:
+                name: envoy.network.dns_resolver.cares
+                typedConfig:
+                  '@type': type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
+                  dnsResolverOptions:
+                    noDefaultSearchDomain: true
+                    useTcpForDnsLookups: true
+                  resolvers:
+                  - socketAddress:
+                      address: 8.8.8.8
+                      ipv4Compat: true
+                      portValue: 53
+                  useResolversAsFallback: true
+        lbPolicy: CLUSTER_PROVIDED
+        name: dynamic_forward_proxy_cluster
+      listeners:
+      - address:
+          socketAddress:
+            address: '::'
+            ipv4Compat: true
+            portValue: 3128
+        filterChains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              accessLog:
+              - name: envoy.access_loggers.file
+                typedConfig:
+                  '@type': type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog
+                  logFormat:
+                    textFormatSource:
+                      inlineString: |
+                        [%START_TIME%] http_forward_proxy_3128 "%PROTOCOL% %REQ(:METHOD)% %REQ(:AUTHORITY)%" %RESPONSE_CODE% %RESPONSE_FLAGS% %RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% "%UPSTREAM_TRANSPORT_FAILURE_REASON%" "%UPSTREAM_HOST%" %UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_REMOTE_ADDRESS%
+                  path: /dev/stdout
+              codecType: HTTP1
+              httpFilters:
+              - name: envoy.filters.http.dynamic_forward_proxy
+                typedConfig:
+                  '@type': type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig
+                  dnsCacheConfig:
+                    name: dynamic_forward_proxy_cache_config
+                    typedDnsResolverConfig:
+                      name: envoy.network.dns_resolver.cares
+                      typedConfig:
+                        '@type': type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
+                        dnsResolverOptions:
+                          noDefaultSearchDomain: true
+                          useTcpForDnsLookups: true
+                        resolvers:
+                        - socketAddress:
+                            address: 8.8.8.8
+                            ipv4Compat: true
+                            portValue: 53
+                        useResolversAsFallback: true
+              - name: envoy.filters.http.router
+              httpProtocolOptions: {}
+              routeConfig:
+                name: default
+                virtualHosts:
+                - domains:
+                  - '*'
+                  name: http_forward_proxy
+                  routes:
+                  - match:
+                      connectMatcher: {}
+                    route:
+                      cluster: dynamic_forward_proxy_cluster
+                      upgradeConfigs:
+                      - connectConfig: {}
+                        upgradeType: CONNECT
+              statPrefix: http_forward_proxy
+        name: http_forward_proxy_3128
+        statPrefix: http_forward_proxy_3128
+      - address:
+          socketAddress:
+            address: '::'
+            ipv4Compat: true
+            portValue: 4128
+        filterChains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              accessLog:
+              - name: envoy.access_loggers.file
+                typedConfig:
+                  '@type': type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog
+                  logFormat:
+                    textFormatSource:
+                      inlineString: |
+                        [%START_TIME%] http_forward_proxy_4128 "%PROTOCOL% %REQ(:METHOD)% %REQ(:AUTHORITY)%" %RESPONSE_CODE% %RESPONSE_FLAGS% %RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% "%UPSTREAM_TRANSPORT_FAILURE_REASON%" "%UPSTREAM_HOST%" %UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_REMOTE_ADDRESS%
+                  path: /dev/stdout
+              codecType: HTTP1
+              httpFilters:
+              - name: envoy.filters.http.dynamic_forward_proxy
+                typedConfig:
+                  '@type': type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig
+                  dnsCacheConfig:
+                    name: dynamic_forward_proxy_cache_config
+                    typedDnsResolverConfig:
+                      name: envoy.network.dns_resolver.cares
+                      typedConfig:
+                        '@type': type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
+                        dnsResolverOptions:
+                          noDefaultSearchDomain: true
+                          useTcpForDnsLookups: true
+                        resolvers:
+                        - socketAddress:
+                            address: 8.8.8.8
+                            ipv4Compat: true
+                            portValue: 53
+                        useResolversAsFallback: true
+              - name: envoy.filters.http.router
+              httpProtocolOptions: {}
+              routeConfig:
+                name: default
+                virtualHosts:
+                - domains:
+                  - '*'
+                  name: http_forward_proxy
+                  routes:
+                  - match:
+                      connectMatcher: {}
+                    route:
+                      cluster: dynamic_forward_proxy_cluster
+                      upgradeConfigs:
+                      - connectConfig: {}
+                        upgradeType: CONNECT
+              statPrefix: http_forward_proxy
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              commonTlsContext:
+                tlsCertificates:
+                - certificateChain:
+                    filename: /etc/envoy/external-forward-proxy-cert.pem
+                  privateKey:
+                    filename: /etc/envoy/external-forward-proxy-key.pem
+        name: http_forward_proxy_4128
+        statPrefix: http_forward_proxy_4128
+      - address:
+          socketAddress:
+            address: '::'
+            ipv4Compat: true
+            portValue: 5128
+        filterChains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              accessLog:
+              - name: envoy.access_loggers.file
+                typedConfig:
+                  '@type': type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog
+                  logFormat:
+                    textFormatSource:
+                      inlineString: |
+                        [%START_TIME%] http_forward_proxy_5128 "%PROTOCOL% %REQ(:METHOD)% %REQ(:AUTHORITY)%" %RESPONSE_CODE% %RESPONSE_FLAGS% %RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% "%UPSTREAM_TRANSPORT_FAILURE_REASON%" "%UPSTREAM_HOST%" %UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_REMOTE_ADDRESS%
+                  path: /dev/stdout
+              codecType: HTTP2
+              http2ProtocolOptions:
+                allowConnect: true
+              httpFilters:
+              - name: envoy.filters.http.dynamic_forward_proxy
+                typedConfig:
+                  '@type': type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig
+                  dnsCacheConfig:
+                    name: dynamic_forward_proxy_cache_config
+                    typedDnsResolverConfig:
+                      name: envoy.network.dns_resolver.cares
+                      typedConfig:
+                        '@type': type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
+                        dnsResolverOptions:
+                          noDefaultSearchDomain: true
+                          useTcpForDnsLookups: true
+                        resolvers:
+                        - socketAddress:
+                            address: 8.8.8.8
+                            ipv4Compat: true
+                            portValue: 53
+                        useResolversAsFallback: true
+              - name: envoy.filters.http.router
+              routeConfig:
+                name: default
+                virtualHosts:
+                - domains:
+                  - '*'
+                  name: http_forward_proxy
+                  routes:
+                  - match:
+                      connectMatcher: {}
+                    route:
+                      cluster: dynamic_forward_proxy_cluster
+                      upgradeConfigs:
+                      - connectConfig: {}
+                        upgradeType: CONNECT
+              statPrefix: http_forward_proxy
+        name: http_forward_proxy_5128
+        statPrefix: http_forward_proxy_5128
+      - address:
+          socketAddress:
+            address: '::'
+            ipv4Compat: true
+            portValue: 6128
+        filterChains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              accessLog:
+              - name: envoy.access_loggers.file
+                typedConfig:
+                  '@type': type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog
+                  logFormat:
+                    textFormatSource:
+                      inlineString: |
+                        [%START_TIME%] http_forward_proxy_6128 "%PROTOCOL% %REQ(:METHOD)% %REQ(:AUTHORITY)%" %RESPONSE_CODE% %RESPONSE_FLAGS% %RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% "%UPSTREAM_TRANSPORT_FAILURE_REASON%" "%UPSTREAM_HOST%" %UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_REMOTE_ADDRESS%
+                  path: /dev/stdout
+              codecType: HTTP2
+              http2ProtocolOptions:
+                allowConnect: true
+              httpFilters:
+              - name: envoy.filters.http.dynamic_forward_proxy
+                typedConfig:
+                  '@type': type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig
+                  dnsCacheConfig:
+                    name: dynamic_forward_proxy_cache_config
+                    typedDnsResolverConfig:
+                      name: envoy.network.dns_resolver.cares
+                      typedConfig:
+                        '@type': type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig
+                        dnsResolverOptions:
+                          noDefaultSearchDomain: true
+                          useTcpForDnsLookups: true
+                        resolvers:
+                        - socketAddress:
+                            address: 8.8.8.8
+                            ipv4Compat: true
+                            portValue: 53
+                        useResolversAsFallback: true
+              - name: envoy.filters.http.router
+              routeConfig:
+                name: default
+                virtualHosts:
+                - domains:
+                  - '*'
+                  name: http_forward_proxy
+                  routes:
+                  - match:
+                      connectMatcher: {}
+                    route:
+                      cluster: dynamic_forward_proxy_cluster
+                      upgradeConfigs:
+                      - connectConfig: {}
+                        upgradeType: CONNECT
+              statPrefix: http_forward_proxy
+          transportSocket:
+            name: envoy.transport_sockets.tls
+            typedConfig:
+              '@type': type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              commonTlsContext:
+                tlsCertificates:
+                - certificateChain:
+                    filename: /etc/envoy/external-forward-proxy-cert.pem
+                  privateKey:
+                    filename: /etc/envoy/external-forward-proxy-key.pem
+        name: http_forward_proxy_6128
+        statPrefix: http_forward_proxy_6128
+    
+  external-forward-proxy-key.pem: |-
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDNnf9ynZlLwWwH
+    YIVvXPx5oTetMS1jvyMcZXECOxhkMTefZMzsmh3oEZ0fAGJ0AHlJC+oQB2wMIKiR
+    s2dsVLx0zFd8k3X75SBmjJFD8MKy6IT2vhKQ6TY196BjtZHztWeV6nSSk2pR/nkq
+    haANHOSVeSK3pcAR2OMC4e99ajxSqKaXZk9GbadfAvAjvkZA90UQ7nUHtmGQNPkN
+    xRu1JFpD3WischgaflFjkFX2I2hHQT3JpnYIS2KfaSRTeKAobw09oFr5X04cxgO0
+    9picNewkMdrXGDfJRqvFReBu8KbECuqTCd+VrC36gT35F4Qtet6FDurJZrq+KnZ7
+    q70WrQgdAgMBAAECggEARnHME8OEwpyI21opPQcZhL5EKfUAPP0+FTt35TDD4Yev
+    K8/IGYOPnXNzZiymjmGfK/SGA2nXjawetJRHaaj6S/W6P3bx5BQS7q9YEXPJ8KuS
+    6koiaD1OEl09OQv67gkHbSg/OfyBX4gUkQno1LVCZydySoLh8/tfgxxPBaPA+Pwr
+    qNvbPxwIoJXh522OmORZuemP0YoV51nPQDPNLIKebg2Lq/uWYVWXe/ppT5QCvwVv
+    qmMWNFhgOanoAnDu43ZzGfd5ogjv/qzevTQcY7LbP+BMSzyaL+qA/1iDTgRZsI/C
+    b/BGVQde/cE2PYMOh8fRfmYQEMblrfWofg9MAdvEQQKBgQDnD0PY4ZdKXq9lTr6d
+    IzBLxVCMFGnVzmLsTl5wqfLx5a6rQG7OQBoDsx/OteX3DG1976Ls9QUJgsHt77IG
+    aujFpGkLSK+GjBe8X98wjVK1sc3bcoHfByLIdDp7JEU5hu254WM52bU10DpeV1Kp
+    9E6d3UNMFd6Cuadt5NZdH6ilcQKBgQDjz7JQsHApkrG2wkK2jb3Sm1VgR0ACsY2/
+    VKiiK3NSLDiYE1+3kk+uGDfTLJ08HAGtuZ/so/c/rK02ovm4tsVbt7KFf/j3Ttxk
+    s7nzxoTRyQOBBeAcNcGBLGHwENsoOdNDJSnvBS2AxCaEEaBplr3kteSPstky+tEP
+    l84WpqCHbQKBgBi4xWWbHXjTkKiiODrP3Qb+YZPbS0eZAXSPHgOn61p+XKXuCuz+
+    ZsomjCytwaEhL0XeMexwes19tAolL0MIhUdARAz1BfK7Yn7BMzwaotLV51Snd8XJ
+    Gaug4/Dw/IcfLKhKuTcjWAQd92DIrwuIHDE/z0eAv4H1Izja1yS3km/BAoGBANE/
+    xHUTK2M0SCIrmyWdWh9p6GjP6T7QIff9ZgvXR0zSK4WcPg4ayS+LNTO2RhKhUvVk
+    jD3Led612EBYQHJnBy6ws7ymCGP4vr2MzB/bV8JuFdbcM7cVtVDWGHtusC7ptmB1
+    cWgH5HzjLtGecy6pdHDwlilbyN9nvMHK2VS65radAoGAUWKdaJSwvjfmgOE0O7EB
+    ACXd+IdCz0R38kO2eBbaz//mAyINdgHq5mamlxEuShOqCTc9eXLpXk4YDi/+oMCF
+    d2JVh99/+PI3T1lqyJ+ObQzFOPiTWtbQA5LdZgrlw9HllQMv0C0bjgQhD2zCPXvs
+    GhU0jcvte9uagl6YIm1zygI=
+    -----END PRIVATE KEY-----
+    
+  external-forward-proxy-cert.pem: |-
+    -----BEGIN CERTIFICATE-----
+    MIIDaTCCAlGgAwIBAgIUGKYsWZzP5qn6+MScL572ECH9LqgwDQYJKoZIhvcNAQEL
+    BQAwRDFCMEAGA1UEAww5ZXh0ZXJuYWwtZm9yd2FyZC1wcm94eS5leHRlcm5hbC0x
+    LTExOTk2LnN2Yy5jbHVzdGVyLmxvY2FsMB4XDTIzMDcyODA1MjAyMloXDTI0MDcy
+    NzA1MjAyMlowRDFCMEAGA1UEAww5ZXh0ZXJuYWwtZm9yd2FyZC1wcm94eS5leHRl
+    cm5hbC0xLTExOTk2LnN2Yy5jbHVzdGVyLmxvY2FsMIIBIjANBgkqhkiG9w0BAQEF
+    AAOCAQ8AMIIBCgKCAQEAzZ3/cp2ZS8FsB2CFb1z8eaE3rTEtY78jHGVxAjsYZDE3
+    n2TM7Jod6BGdHwBidAB5SQvqEAdsDCCokbNnbFS8dMxXfJN1++UgZoyRQ/DCsuiE
+    9r4SkOk2NfegY7WR87Vnlep0kpNqUf55KoWgDRzklXkit6XAEdjjAuHvfWo8Uqim
+    l2ZPRm2nXwLwI75GQPdFEO51B7ZhkDT5DcUbtSRaQ91orHIYGn5RY5BV9iNoR0E9
+    yaZ2CEtin2kkU3igKG8NPaBa+V9OHMYDtPaYnDXsJDHa1xg3yUarxUXgbvCmxArq
+    kwnflawt+oE9+ReELXrehQ7qyWa6vip2e6u9Fq0IHQIDAQABo1MwUTAdBgNVHQ4E
+    FgQUTTMcuba7a98E/l6ZnfbgOBMNlkMwHwYDVR0jBBgwFoAUTTMcuba7a98E/l6Z
+    nfbgOBMNlkMwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAgw6O
+    42kcoZ/s/BLK27FSZ6loeBL0MkHrZD8NmpvhAQ3CR537KaOmbAAp66gedZyEK72x
+    8AdSbF5ts1HYs+qGcTPn6Pd8S9bJqobgeeS7wpLYW+q00CnzjYVHy2Ow9xnFmauI
+    joN6vT6uqnvS/2VtNVJEoNS/4f9Usydx8MgvCDe9D0w4r/He8TZE+QfsNDGhDIjU
+    0P4Zizt7QbJry4qH5DLzYaE+dJF9zBzkiVsiRFp+NEn5Yd+Tvl0f13WSpA2yFfdQ
+    DVjjnn0jpwuCiFgN16RQKg9gBuBdPJMuA4aiNb8i6WgCTXOFxUVM+Pd8Td4Fp3id
+    FLUKhAmsEV/JG/FKEA==
+    -----END CERTIFICATE-----
