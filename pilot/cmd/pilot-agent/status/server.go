@@ -718,7 +718,7 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	// Forward incoming headers to the application.
 	for name, values := range req.Header {
 		appReq.Header[name] = slices.Clone(values)
-		if len(values) > 0 && (strings.EqualFold(name, "Host") || name == ":authority") {
+		if len(values) > 0 && (name == "Host") {
 			// Probe has specific host header override; honor it
 			appReq.Host = values[0]
 		}
