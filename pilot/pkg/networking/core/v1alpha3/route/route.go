@@ -119,7 +119,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+			if port.Protocol.IsHTTPOrSniffed() {
 				hash, destinationRule := hashForService(push, node, svc, port)
 				if hash != nil {
 					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
@@ -236,7 +236,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+			if port.Protocol.IsHTTPOrSniffed() {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}

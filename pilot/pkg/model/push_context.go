@@ -618,25 +618,11 @@ var (
 		"Endpoint found in unready state.",
 	)
 
-	// ProxyStatusConflictOutboundListenerTCPOverHTTP metric tracks number of
-	// wildcard TCP listeners that conflicted with existing wildcard HTTP listener on same port
-	ProxyStatusConflictOutboundListenerTCPOverHTTP = monitoring.NewGauge(
-		"pilot_conflict_outbound_listener_tcp_over_current_http",
-		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
-	)
-
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
 	// TCP listeners that conflicted with existing TCP listeners on same port
 	ProxyStatusConflictOutboundListenerTCPOverTCP = monitoring.NewGauge(
 		"pilot_conflict_outbound_listener_tcp_over_current_tcp",
 		"Number of conflicting tcp listeners with current tcp listener.",
-	)
-
-	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
-	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
-	ProxyStatusConflictOutboundListenerHTTPOverTCP = monitoring.NewGauge(
-		"pilot_conflict_outbound_listener_http_over_current_tcp",
-		"Number of conflicting wildcard http listeners with current wildcard tcp listener.",
 	)
 
 	// ProxyStatusConflictInboundListener tracks cases of multiple inbound
@@ -695,9 +681,7 @@ var (
 		EndpointNoPod,
 		ProxyStatusNoService,
 		ProxyStatusEndpointNotReady,
-		ProxyStatusConflictOutboundListenerTCPOverHTTP,
 		ProxyStatusConflictOutboundListenerTCPOverTCP,
-		ProxyStatusConflictOutboundListenerHTTPOverTCP,
 		ProxyStatusConflictInboundListener,
 		DuplicatedClusters,
 		ProxyStatusClusterNoInstances,

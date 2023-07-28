@@ -204,8 +204,6 @@ func TestInboundListenerConfig(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
-	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
-
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
@@ -215,8 +213,6 @@ func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
 }
 
 func TestOutboundListenerConflict_WellKnowPorts(t *testing.T) {
-	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
-
 	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
@@ -227,10 +223,7 @@ func TestOutboundListenerConflict_WellKnowPorts(t *testing.T) {
 		buildServiceWithPort("test2.com", 9999, protocol.MySQL, tnow))
 }
 
-func TestOutboundListenerConflict_TCPWithCurrentUnknown(t *testing.T) {
-	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
-
-	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+func TestOutboundListenerConflict_TCPWithCurrentUnknown(t *testing.T) { // The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
 		buildService("test1.com", wildcardIPv4, protocol.TCP, tnow.Add(1*time.Second)),
@@ -238,10 +231,7 @@ func TestOutboundListenerConflict_TCPWithCurrentUnknown(t *testing.T) {
 		buildService("test3.com", wildcardIPv4, protocol.TCP, tnow.Add(2*time.Second)))
 }
 
-func TestOutboundListenerConflict_UnknownWithCurrentTCP(t *testing.T) {
-	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
-
-	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+func TestOutboundListenerConflict_UnknownWithCurrentTCP(t *testing.T) { // The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
 		buildService("test1.com", wildcardIPv4, "unknown", tnow.Add(1*time.Second)),
@@ -249,10 +239,7 @@ func TestOutboundListenerConflict_UnknownWithCurrentTCP(t *testing.T) {
 		buildService("test3.com", wildcardIPv4, "unknown", tnow.Add(2*time.Second)))
 }
 
-func TestOutboundListenerConflict_UnknownWithCurrentHTTP(t *testing.T) {
-	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
-
-	// The oldest service port is Auto.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+func TestOutboundListenerConflict_UnknownWithCurrentHTTP(t *testing.T) { // The oldest service port is Auto.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
 		buildService("test1.com", wildcardIPv4, "unknown", tnow.Add(1*time.Second)),
@@ -261,8 +248,6 @@ func TestOutboundListenerConflict_UnknownWithCurrentHTTP(t *testing.T) {
 }
 
 func TestOutboundListenerRoute(t *testing.T) {
-	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, true)
-
 	testOutboundListenerRoute(t,
 		buildService("test1.com", "1.2.3.4", "unknown", tnow.Add(1*time.Second)),
 		buildService("test2.com", "2.3.4.5", protocol.HTTP, tnow),
@@ -396,24 +381,6 @@ func TestOutboundListenerConflictWithStaticListener(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
-	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
-	// storing the services out of time order to test that it's being sorted properly.
-	testOutboundListenerConflictWithSniffingDisabled(t,
-		buildService("test1.com", wildcardIPv4, protocol.HTTP, tnow.Add(1*time.Second)),
-		buildService("test2.com", wildcardIPv4, protocol.TCP, tnow),
-		buildService("test3.com", wildcardIPv4, protocol.HTTP, tnow.Add(2*time.Second)))
-}
-
-func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
-	// The oldest service port is HTTP.  We should encounter conflicts when attempting to add the TCP ports. Purposely
-	// storing the services out of time order to test that it's being sorted properly.
-	testOutboundListenerConflictWithSniffingDisabled(t,
-		buildService("test1.com", wildcardIPv4, protocol.TCP, tnow.Add(1*time.Second)),
-		buildService("test2.com", wildcardIPv4, protocol.HTTP, tnow),
-		buildService("test3.com", wildcardIPv4, protocol.TCP, tnow.Add(2*time.Second)))
 }
 
 func TestOutboundListenerConflict(t *testing.T) {
@@ -861,37 +828,6 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 			})
 		}
 	}
-}
-
-func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
-	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, false)
-
-	// Add a service and verify it's config
-	services := []*model.Service{
-		buildService("test1.com", wildcardIPv4, protocol.HTTP, tnow.Add(1*time.Second)),
-		buildService("test2.com", wildcardIPv4, protocol.TCP, tnow),
-		buildService("test3.com", wildcardIPv4, protocol.HTTP, tnow.Add(2*time.Second)),
-	}
-	service4 := &model.Service{
-		CreationTime:   tnow.Add(1 * time.Second),
-		Hostname:       host.Name("test4.com"),
-		DefaultAddress: wildcardIPv4,
-		Ports: model.PortList{
-			&model.Port{
-				Name:     "default",
-				Port:     9090,
-				Protocol: protocol.HTTP,
-			},
-		},
-		Resolution: model.Passthrough,
-		Attributes: model.ServiceAttributes{
-			Namespace: "default",
-		},
-	}
-	testOutboundListenerConfigWithSidecarWithSniffingDisabled(t, services...)
-	services = append(services, service4)
-	testOutboundListenerConfigWithSidecarWithCaptureModeNone(t, services...)
-	testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t, services...)
 }
 
 func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
@@ -1378,28 +1314,6 @@ func testPrivilegedPorts(t *testing.T, buildListeners func(t *testing.T, proxy *
 				})
 			}
 		})
-	}
-}
-
-func testOutboundListenerConflictWithSniffingDisabled(t *testing.T, services ...*model.Service) {
-	t.Helper()
-
-	test.SetForTest(t, &features.EnableProtocolSniffingForOutbound, false)
-
-	oldestService := getOldestService(services...)
-
-	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		listeners := buildOutboundListeners(t, p, nil, nil, services...)
-		if len(listeners) != 1 {
-			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-		}
-
-		oldestProtocol := oldestService.Ports[0].Protocol
-		if oldestProtocol != protocol.HTTP && isHTTPListener(listeners[0]) {
-			t.Fatal("expected TCP listener, found HTTP")
-		} else if oldestProtocol == protocol.HTTP && !isHTTPListener(listeners[0]) {
-			t.Fatal("expected HTTP listener, found TCP")
-		}
 	}
 }
 
