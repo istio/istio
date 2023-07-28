@@ -13,7 +13,7 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: {{ .EgressGatewayServiceName | default "egressgateway" }}
+  name: {{ .EgressGatewayIstioLabel | default "egressgateway" }}
   namespace: {{ .EgressGatewayServiceNamespace | default .SystemNamespace.Name }}
 spec:
   selector:
