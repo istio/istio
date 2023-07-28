@@ -58,7 +58,7 @@ func init() {
 		`Specifies the name of the egressgateway service to use when running tests in a preinstalled istio installation.
 		Should only be set when istio.test.kube.deploy=false`)
 	flag.StringVar(&settingsFromCommandline.EgressGatewayServiceNamespace, "istio.test.kube.egressGatewayServiceNamespace",
-		settingsFromCommandline.IngressGatewayServiceNamespace,
+		settingsFromCommandline.EgressGatewayServiceNamespace,
 		`Specifies the namespace of the egressgateway service to use when running tests in a preinstalled istio installation.
 		Should only be set when istio.test.kube.deploy=false`)
 	flag.StringVar(&settingsFromCommandline.EgressGatewayIstioLabel, "istio.test.kube.egressGatewayIstioLabel",
