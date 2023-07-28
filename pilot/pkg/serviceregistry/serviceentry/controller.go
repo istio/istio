@@ -207,7 +207,6 @@ func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 
 	// we will merge labels from metadata with spec, with precedence to the metadata
 	labels := maps.MergeCopy(wle.Labels, cfg.Labels)
-
 	// shallow copy
 	copied := &networking.WorkloadEntry{}
 	protomarshal.ShallowCopy(copied, wle)
