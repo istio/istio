@@ -322,12 +322,17 @@ spec:
 )
 
 func createGateway(t test.Failer, ctx resource.Context, appsNamespace namespace.Instance,
-	serviceNamespace namespace.Instance, egressNs string, egressSvc string, egressLabel string) {
+	serviceNamespace namespace.Instance, egressNs string, egressSvc string, egressLabel string,
+) {
 	ctx.ConfigIstio().
-		Eval(appsNamespace.Name(), map[string]string{"ServerNamespace": serviceNamespace.Name(),
-			"EgressNamespace": egressNs, "EgressLabel": egressLabel, "EgressService": egressSvc}, Gateway).
-		Eval(appsNamespace.Name(), map[string]string{"ServerNamespace": serviceNamespace.Name(),
-			"EgressNamespace": egressNs, "EgressService": egressSvc}, VirtualService).
+		Eval(appsNamespace.Name(), map[string]string{
+			"ServerNamespace": serviceNamespace.Name(),
+			"EgressNamespace": egressNs, "EgressLabel": egressLabel, "EgressService": egressSvc,
+		}, Gateway).
+		Eval(appsNamespace.Name(), map[string]string{
+			"ServerNamespace": serviceNamespace.Name(),
+			"EgressNamespace": egressNs, "EgressService": egressSvc,
+		}, VirtualService).
 		ApplyOrFail(t)
 }
 
