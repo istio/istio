@@ -102,29 +102,8 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				},
 			}
 
-			var egressNs string
-			var egressSvc string
-			var egressLabel string
-
-			if i.Settings().EgressGatewayServiceNamespace != "" {
-				egressNs = i.Settings().EgressGatewayServiceNamespace
-			} else {
-				egressNs = "istio-system"
-			}
-
-			if i.Settings().EgressGatewayServiceName != "" {
-				egressSvc = i.Settings().EgressGatewayServiceName
-			} else {
-				egressSvc = "egressgateway"
-			}
-
-			if i.Settings().EgressGatewayIstioLabel != "" {
-				egressLabel = i.Settings().EgressGatewayIstioLabel
-			} else {
-				egressLabel = "egressgateway"
-			}
-
-			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All, egressNs, egressSvc, egressLabel)
+			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All, i.Settings().EgressGatewayServiceNamespace,
+				i.Settings().EgressGatewayServiceName, i.Settings().EgressGatewayIstioLabel)
 
 			for _, tc := range testCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
@@ -267,29 +246,8 @@ func TestMutualTlsOrigination(t *testing.T) {
 				},
 			}
 
-			var egressNs string
-			var egressSvc string
-			var egressLabel string
-
-			if i.Settings().EgressGatewayServiceNamespace != "" {
-				egressNs = i.Settings().EgressGatewayServiceNamespace
-			} else {
-				egressNs = "istio-system"
-			}
-
-			if i.Settings().EgressGatewayServiceName != "" {
-				egressSvc = i.Settings().EgressGatewayServiceName
-			} else {
-				egressSvc = "istio-egressgateway"
-			}
-
-			if i.Settings().EgressGatewayIstioLabel != "" {
-				egressLabel = i.Settings().EgressGatewayIstioLabel
-			} else {
-				egressLabel = "istio-egressgateway"
-			}
-
-			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All, egressNs, egressSvc, egressLabel)
+			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All, i.Settings().EgressGatewayServiceNamespace,
+				i.Settings().EgressGatewayServiceName, i.Settings().EgressGatewayIstioLabel)
 			for _, tc := range testCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					newTLSGatewayDestinationRule(t, apps.External.All, "MUTUAL", tc.credentialToUse)

@@ -47,29 +47,9 @@ func TestEgressGatewayTls(t *testing.T) {
 		Features("security.egress.tls.filebased").
 		Run(func(t framework.TestContext) {
 			// Apply Egress Gateway for service namespace to originate external traffic
-			var egressNs string
-			var egressSvc string
-			var egressLabel string
 
-			if inst.Settings().EgressGatewayServiceNamespace != "" {
-				egressNs = inst.Settings().EgressGatewayServiceNamespace
-			} else {
-				egressNs = "istio-system"
-			}
-
-			if inst.Settings().EgressGatewayServiceName != "" {
-				egressSvc = inst.Settings().EgressGatewayServiceName
-			} else {
-				egressSvc = "egressgateway"
-			}
-
-			if inst.Settings().EgressGatewayIstioLabel != "" {
-				egressLabel = inst.Settings().EgressGatewayIstioLabel
-			} else {
-				egressLabel = "egressgateway"
-			}
-
-			createGateway(t, t, appNS, serviceNS, egressNs, egressSvc, egressLabel)
+			createGateway(t, t, appNS, serviceNS, inst.Settings().EgressGatewayServiceNamespace,
+				inst.Settings().EgressGatewayServiceName, inst.Settings().EgressGatewayIstioLabel)
 
 			if err := WaitUntilNotCallable(internalClient[0], externalService[0]); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)

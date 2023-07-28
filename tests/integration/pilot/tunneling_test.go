@@ -120,37 +120,15 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 			externalForwardProxyIP := getPodIP(ctx, externalNs, "external-forward-proxy")
 
 			for _, proxyConfig := range forwardProxyConfigurations {
-				var egressNs string
-				var egressSvc string
-				var egressLabel string
-
-				if i.Settings().EgressGatewayServiceNamespace != "" {
-					egressNs = i.Settings().EgressGatewayServiceNamespace
-				} else {
-					egressNs = "istio-system"
-				}
-
-				if i.Settings().EgressGatewayServiceName != "" {
-					egressSvc = i.Settings().EgressGatewayServiceName
-				} else {
-					egressSvc = "istio-egressgateway"
-				}
-
-				if i.Settings().EgressGatewayIstioLabel != "" {
-					egressLabel = i.Settings().EgressGatewayIstioLabel
-				} else {
-					egressLabel = "istio-egressgateway"
-				}
-
 				templateParams := map[string]any{
 					"externalNamespace":             externalNs,
 					"forwardProxyPort":              proxyConfig.Port,
 					"tlsEnabled":                    proxyConfig.TLSEnabled,
 					"externalSvcTcpPort":            ports.TCPForHTTP.ServicePort,
 					"externalSvcTlsPort":            ports.HTTPS.ServicePort,
-					"EgressGatewayIstioLabel":       egressLabel,
-					"EgressGatewayServiceName":      egressSvc,
-					"EgressGatewayServiceNamespace": egressNs,
+					"EgressGatewayIstioLabel":       i.Settings().EgressGatewayIstioLabel,
+					"EgressGatewayServiceName":      i.Settings().EgressGatewayServiceName,
+					"EgressGatewayServiceNamespace": i.Settings().EgressGatewayServiceNamespace,
 				}
 				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).ApplyOrFail(ctx)
 
@@ -186,7 +164,7 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 					// Otherwise, test results could be false-positive,
 					// because subsequent test cases could work thanks to previous configurations.
 
-					waitUntilTunnelingConfigurationIsRemovedOrFail(ctx, meshNs, egressNs, egressLabel)
+					waitUntilTunnelingConfigurationIsRemovedOrFail(ctx, meshNs, i.Settings().EgressGatewayServiceNamespace, i.Settings().EgressGatewayIstioLabel)
 				}
 
 				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).DeleteOrFail(ctx)

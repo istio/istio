@@ -70,11 +70,11 @@ const (
 	// imagePullPolicyValuesKey values key for the Docker image pull policy.
 	imagePullPolicyValuesKey = "global.imagePullPolicy"
 
-	// // DefaultEgressGatewayLabel is the default Istio label for the egress gateway.
-	// DefaultEgressGatewayIstioLabel = "istio-egressgateway"
+	// DefaultEgressGatewayLabel is the default Istio label for the egress gateway.
+	DefaultEgressGatewayIstioLabel = "egressgateway"
 
-	// // DefaultEgressGatewayServiceName is the default service name for the egress gateway.
-	// DefaultEgressServiceName = "istio-egressgateway"
+	// DefaultEgressGatewayServiceName is the default service name for the egress gateway.
+	DefaultEgressGatewayServiceName = "istio-egressgateway"
 )
 
 var (
@@ -82,17 +82,20 @@ var (
 	operatorOptions string
 
 	settingsFromCommandline = &Config{
-		SystemNamespace:         DefaultSystemNamespace,
-		TelemetryNamespace:      DefaultSystemNamespace,
-		DeployIstio:             true,
-		PrimaryClusterIOPFile:   IntegrationTestDefaultsIOP,
-		ConfigClusterIOPFile:    IntegrationTestDefaultsIOP,
-		RemoteClusterIOPFile:    IntegrationTestRemoteDefaultsIOP,
-		BaseIOPFile:             BaseIOP,
-		DeployEastWestGW:        true,
-		DumpKubernetesManifests: false,
-		IstiodlessRemotes:       true,
-		EnableCNI:               false,
+		SystemNamespace:               DefaultSystemNamespace,
+		TelemetryNamespace:            DefaultSystemNamespace,
+		DeployIstio:                   true,
+		PrimaryClusterIOPFile:         IntegrationTestDefaultsIOP,
+		ConfigClusterIOPFile:          IntegrationTestDefaultsIOP,
+		RemoteClusterIOPFile:          IntegrationTestRemoteDefaultsIOP,
+		BaseIOPFile:                   BaseIOP,
+		DeployEastWestGW:              true,
+		DumpKubernetesManifests:       false,
+		IstiodlessRemotes:             true,
+		EnableCNI:                     false,
+		EgressGatewayServiceNamespace: DefaultSystemNamespace,
+		EgressGatewayServiceName:      DefaultEgressGatewayServiceName,
+		EgressGatewayIstioLabel:       DefaultEgressGatewayIstioLabel,
 	}
 )
 
