@@ -18,7 +18,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: {{ .EgressGatewayIstioLabel | default "istio-egressgateway" }}
+      app: {{ .EgressGatewayServiceName | default "istio-egressgateway" }}
   rules:
     - to: # only allow /allow for company.com
         - operation:
