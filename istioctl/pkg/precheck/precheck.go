@@ -61,7 +61,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	// cmd represents the upgradeCheck command
 	cmd := &cobra.Command{
 		Use:   "precheck",
-		Short: "Check whether Istio can safely be installed or upgrade",
+		Short: "Check whether Istio can safely be installed or upgraded",
 		Long:  `precheck inspects a Kubernetes cluster for Istio install and upgrade requirements.`,
 		Example: `  # Verify that Istio can be installed or upgraded
   istioctl x precheck
