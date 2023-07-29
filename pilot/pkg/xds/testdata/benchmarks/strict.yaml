@@ -5,27 +5,28 @@ metadata:
   name: proxy-service-instance
 spec:
   hosts:
-    - example.com
+  - example.com
   ports:
-    - number: 80
-      name: http
-      protocol: HTTP
-    - number: 443
-      name: https
-      protocol: HTTPS
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 7070
+    name: tcp
+    protocol: TCP
+  - number: 443
+    name: https
+    protocol: HTTPS
+  - number: 9090
+    name: auto
+    protocol: ""
   resolution: STATIC
   endpoints:
-    - address: 1.1.1.1
-      labels:
-        istio.io/benchmark: "true"
+  - address: 1.1.1.1
 ---
-  {{- range $i := until .Services }}
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
-  name: authz-{{$i}}
+  name: default
 spec:
   mtls:
     mode: STRICT
----
-  {{- end }}

@@ -8,8 +8,8 @@ spec:
   - example.com
   ports:
   - number: 7070
-    name: tls
-    protocol: TLS
+    name: tcp
+    protocol: TCP
   resolution: STATIC
   location: MESH_INTERNAL
   endpoints:
@@ -30,8 +30,8 @@ spec:
   - random-{{$i}}.host.example
   ports:
   - number: 7070
-    name: tls
-    protocol: TLS
+    name: tcp
+    protocol: TCP
   resolution: STATIC
   location: MESH_INTERNAL
   endpoints:
