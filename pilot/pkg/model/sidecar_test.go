@@ -2523,6 +2523,7 @@ func BenchmarkConvertIstioListenerToWrapper(b *testing.B) {
 }
 
 func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int, wildcard string, matchAll bool) {
+	// virtual service
 	cfgs := make([]config.Config, 0)
 	for i := 0; i < vsNum; i++ {
 		cfgs = append(cfgs, config.Config{
@@ -2537,7 +2538,17 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 		})
 	}
 	ps := NewPushContext()
-	ps.virtualServiceIndex.publicByGateway["default"] = cfgs
+	ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = cfgs
+
+	// service
+	svcList := make([]*Service, 0, vsNum)
+	for i := 0; i < vsNum; i++ {
+		svcList = append(svcList, &Service{
+			Attributes: ServiceAttributes{Namespace: "default"},
+			Hostname:   host.Name("host-" + strconv.Itoa(i) + ".com"),
+		})
+	}
+	ps.ServiceIndex.public = svcList
 
 	hosts := make([]string, 0)
 	if matchAll {
@@ -2557,6 +2568,6 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		convertIstioListenerToWrapper(ps, "this-test-not-use-ns", istioListener)
+		convertIstioListenerToWrapper(ps, "default", istioListener)
 	}
 }
