@@ -1958,6 +1958,8 @@ func TestSelectVirtualService(t *testing.T) {
 		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
 		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
 		buildHTTPService("test-headless-someother.com", visibility.Public, wildcardIP, "some-other-ns", 8888),
+		buildHTTPService("test.vs-wildcard.com", visibility.Public, wildcardIP, "default", 8888),
+		buildHTTPService("*service-wildcard.com", visibility.Public, wildcardIP, "default", 8888),
 	}
 
 	hostsByNamespace := make(map[string][]host.Name)
@@ -2093,6 +2095,44 @@ func TestSelectVirtualService(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceSpec8 := &networking.VirtualService{
+		Hosts:    []string{"*.vs-wildcard.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 64,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec9 := &networking.VirtualService{
+		Hosts:    []string{"service-wildcard.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 64,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
 	virtualService1 := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
@@ -2149,6 +2189,22 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec7,
 	}
+	virtualService8 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "vs-wildcard-v1",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceSpec8,
+	}
+	virtualService9 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "service-wildcard-v1",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceSpec9,
+	}
 
 	index := virtualServiceIndex{
 		publicByGateway: map[string][]config.Config{
@@ -2160,12 +2216,15 @@ func TestSelectVirtualService(t *testing.T) {
 				virtualService5,
 				virtualService6,
 				virtualService7,
+				virtualService8,
+				virtualService9,
 			},
 		},
 	}
 
 	configs := SelectVirtualServices(index, "some-ns", hostsByNamespace)
-	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name}
+	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name,
+		virtualService8.Name, virtualService9.Name}
 	if len(expectedVS) != len(configs) {
 		t.Fatalf("Unexpected virtualService, got %d, expected %d", len(configs), len(expectedVS))
 	}

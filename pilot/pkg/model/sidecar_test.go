@@ -2091,6 +2091,12 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		Ports:      port8000,
 		Attributes: ServiceAttributes{Namespace: "b"},
 	}
+
+	serviceBWildcard := &Service{
+		Hostname:   "*.test.wildcard.com",
+		Ports:      port8000,
+		Attributes: ServiceAttributes{Namespace: "b"},
+	}
 	allServices := []*Service{serviceA8000, serviceA9000, serviceAalt, serviceB8000, serviceB9000, serviceBalt}
 
 	tests := []struct {
@@ -2162,6 +2168,20 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 			services:      allServices,
 			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
 			namespace:     "a",
+		},
+		{
+			name:          "service is wildcard, but not listener's subset",
+			listenerHosts: map[string][]host.Name{"b": {"wildcard.com"}},
+			services:      []*Service{serviceBWildcard},
+			expected:      []*Service{},
+			namespace:     "b",
+		},
+		{
+			name:          "service is wildcard",
+			listenerHosts: map[string][]host.Name{"b": {"*.wildcard.com"}},
+			services:      []*Service{serviceBWildcard},
+			expected:      []*Service{serviceBWildcard},
+			namespace:     "b",
 		},
 	}
 
