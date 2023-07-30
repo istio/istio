@@ -2223,8 +2223,10 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 
 	configs := SelectVirtualServices(index, "some-ns", hostsByNamespace)
-	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name,
-		virtualService8.Name, virtualService9.Name}
+	expectedVS := []string{
+		virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name,
+		virtualService8.Name, virtualService9.Name,
+	}
 	if len(expectedVS) != len(configs) {
 		t.Fatalf("Unexpected virtualService, got %d, expected %d", len(configs), len(expectedVS))
 	}
