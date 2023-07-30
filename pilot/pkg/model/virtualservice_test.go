@@ -1958,8 +1958,8 @@ func TestSelectVirtualService(t *testing.T) {
 		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
 		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
 		buildHTTPService("test-headless-someother.com", visibility.Public, wildcardIP, "some-other-ns", 8888),
-		buildHTTPService("test.vs-wildcard.com", visibility.Public, wildcardIP, "default", 8888),
-		buildHTTPService("*service-wildcard.com", visibility.Public, wildcardIP, "default", 8888),
+		buildHTTPService("a.test1.wildcard.com", visibility.Public, wildcardIP, "default", 8888),
+		buildHTTPService("*.test2.wildcard.com", visibility.Public, wildcardIP, "default", 8888),
 	}
 
 	hostsByNamespace := make(map[string][]host.Name)
@@ -2096,7 +2096,7 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 	}
 	virtualServiceSpec8 := &networking.VirtualService{
-		Hosts:    []string{"*.vs-wildcard.com"},
+		Hosts:    []string{"*.test1.wildcard.com"}, // match: a.test1.wildcard.com
 		Gateways: []string{"mesh"},
 		Http: []*networking.HTTPRoute{
 			{
@@ -2115,7 +2115,7 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 	}
 	virtualServiceSpec9 := &networking.VirtualService{
-		Hosts:    []string{"service-wildcard.com"},
+		Hosts:    []string{"foo.test2.wildcard.com"}, // match: *.test2.wildcard.com
 		Gateways: []string{"mesh"},
 		Http: []*networking.HTTPRoute{
 			{
