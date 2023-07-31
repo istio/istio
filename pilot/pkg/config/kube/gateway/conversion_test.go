@@ -350,12 +350,15 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 	}
 )
 
-func TestConvertResources(t *testing.T) {
+func init() {
 	features.EnableAlphaGatewayAPI = true
 	features.EnableAmbientControllers = true
 	// Recompute with ambient enabled
 	classInfos = getClassInfos()
 	builtinClasses = getBuiltinClasses()
+}
+
+func TestConvertResources(t *testing.T) {
 	validator := crdvalidation.NewIstioValidator(t)
 	cases := []struct {
 		name string

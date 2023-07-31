@@ -88,8 +88,7 @@ func (c *ClassController) reconcileClass(class gateway.ObjectName) error {
 			Description:    &classInfo.description,
 		},
 	}
-	var err error
-	gc, err = c.classes.Create(gc)
+	_, err := c.classes.Create(gc)
 	if err != nil && !kerrors.IsConflict(err) {
 		return err
 	} else if err != nil && kerrors.IsConflict(err) {

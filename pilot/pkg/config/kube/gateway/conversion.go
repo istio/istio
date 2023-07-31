@@ -1384,7 +1384,7 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 // Response is ClassName -> Controller type
 func getGatewayClasses(r GatewayResources) map[string]k8s.GatewayController {
 	res := map[string]k8s.GatewayController{}
-	// Setup builtin ones - these can be overriden possibly
+	// Setup builtin ones - these can be overridden possibly
 	for name, controller := range builtinClasses {
 		res[string(name)] = controller
 	}
