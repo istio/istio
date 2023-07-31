@@ -1304,7 +1304,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
 			// if timeout is not disabled, set ContinueOnListenerFiltersTimeout
 			// if timeout = nil, a default 15s will be applied.
-			if !(res.ListenerFiltersTimeout.GetNanos() == 0 && res.ListenerFiltersTimeout.GetSeconds() == 0) {
+			if res.ListenerFiltersTimeout == nil || !(res.ListenerFiltersTimeout.GetNanos() == 0 && res.ListenerFiltersTimeout.GetSeconds() == 0) {
 				res.ContinueOnListenerFiltersTimeout = true
 			}
 		}

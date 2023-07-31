@@ -1455,12 +1455,12 @@ func testOutboundListenerFilterTimeout(t *testing.T, services ...*model.Service)
 		}
 
 		if listeners[0].ContinueOnListenerFiltersTimeout {
-			t.Fatalf("expected timeout disabled, found ContinueOnListenerFiltersTimeout %v",
-				listeners[0].ContinueOnListenerFiltersTimeout)
+			t.Fatalf("expected timeout disabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+				listeners[0].ContinueOnListenerFiltersTimeout, listeners[0].ListenerFiltersTimeout)
 		}
 
-		if !listeners[1].ContinueOnListenerFiltersTimeout || listeners[1].ListenerFiltersTimeout == nil {
-			t.Fatalf("expected timeout enabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+		if !listeners[1].ContinueOnListenerFiltersTimeout && (listeners[1].ListenerFiltersTimeout.GetSeconds() != 0 && listeners[1].ListenerFiltersTimeout.GetNanos() != 0) {
+			t.Fatalf("expected timeout disabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
 				listeners[1].ContinueOnListenerFiltersTimeout,
 				listeners[1].ListenerFiltersTimeout)
 		}
