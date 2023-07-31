@@ -1459,7 +1459,8 @@ func testOutboundListenerFilterTimeout(t *testing.T, services ...*model.Service)
 				listeners[0].ContinueOnListenerFiltersTimeout, listeners[0].ListenerFiltersTimeout)
 		}
 
-		if !listeners[1].ContinueOnListenerFiltersTimeout && (listeners[1].ListenerFiltersTimeout.GetSeconds() != 0 && listeners[1].ListenerFiltersTimeout.GetNanos() != 0) {
+		if !listeners[1].ContinueOnListenerFiltersTimeout &&
+			(listeners[1].ListenerFiltersTimeout.GetSeconds() != 0 && listeners[1].ListenerFiltersTimeout.GetNanos() != 0) {
 			t.Fatalf("expected timeout enabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
 				listeners[1].ContinueOnListenerFiltersTimeout,
 				listeners[1].ListenerFiltersTimeout)
