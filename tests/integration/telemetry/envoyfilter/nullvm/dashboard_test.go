@@ -313,7 +313,7 @@ func setupDashboardTest(done <-chan struct{}) {
 					},
 					Count: 10,
 					HTTP: echo.HTTP{
-						Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
+						Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
 						Headers: headers.New().WithHost("server").Build(),
 					},
 					Check: check.OK(),
