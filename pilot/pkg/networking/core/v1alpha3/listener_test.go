@@ -223,7 +223,8 @@ func TestOutboundListenerConflict_WellKnowPorts(t *testing.T) {
 		buildServiceWithPort("test2.com", 9999, protocol.MySQL, tnow))
 }
 
-func TestOutboundListenerConflict_TCPWithCurrentUnknown(t *testing.T) { // The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+func TestOutboundListenerConflict_TCPWithCurrentUnknown(t *testing.T) {
+	// The oldest service port is unknown.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
 		buildService("test1.com", wildcardIPv4, protocol.TCP, tnow.Add(1*time.Second)),
@@ -231,7 +232,8 @@ func TestOutboundListenerConflict_TCPWithCurrentUnknown(t *testing.T) { // The o
 		buildService("test3.com", wildcardIPv4, protocol.TCP, tnow.Add(2*time.Second)))
 }
 
-func TestOutboundListenerConflict_UnknownWithCurrentTCP(t *testing.T) { // The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+func TestOutboundListenerConflict_UnknownWithCurrentTCP(t *testing.T) {
+	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
 		buildService("test1.com", wildcardIPv4, "unknown", tnow.Add(1*time.Second)),
@@ -239,7 +241,8 @@ func TestOutboundListenerConflict_UnknownWithCurrentTCP(t *testing.T) { // The o
 		buildService("test3.com", wildcardIPv4, "unknown", tnow.Add(2*time.Second)))
 }
 
-func TestOutboundListenerConflict_UnknownWithCurrentHTTP(t *testing.T) { // The oldest service port is Auto.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
+func TestOutboundListenerConflict_UnknownWithCurrentHTTP(t *testing.T) {
+	// The oldest service port is Auto.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
 		buildService("test1.com", wildcardIPv4, "unknown", tnow.Add(1*time.Second)),
@@ -1833,192 +1836,6 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 
 		verifyHTTPFilterChainMatch(t, l.FilterChains[0])
 		verifyListenerFilters(t, l.ListenerFilters)
-	}
-}
-
-func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, services ...*model.Service) {
-	t.Helper()
-	sidecarConfig := &config.Config{
-		Meta: config.Meta{
-			Name:             "foo",
-			Namespace:        "not-default",
-			GroupVersionKind: gvk.Sidecar,
-		},
-		Spec: &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
-				{
-					Port: &networking.Port{
-						Number:   9000,
-						Protocol: "HTTP",
-						Name:     "uds",
-					},
-					Bind:  "1.1.1.1",
-					Hosts: []string{"*/*"},
-				},
-				{
-					Port: &networking.Port{
-						Number:   3306,
-						Protocol: string(protocol.MySQL),
-						Name:     "MySQL",
-					},
-					Bind:  "8.8.8.8",
-					Hosts: []string{"*/*"},
-				},
-				{
-					Hosts: []string{"*/*"},
-				},
-			},
-		},
-	}
-
-	// enable mysql filter that is used here
-	test.SetForTest(t, &features.EnableMysqlFilter, true)
-	for _, proxy := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		proxy.Metadata.InboundListenerExactBalance = false
-		proxy.Metadata.OutboundListenerExactBalance = false
-		listeners := buildOutboundListeners(t, proxy, sidecarConfig, nil, services...)
-		if len(listeners) != 1 {
-			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-		}
-
-		if l := findListenerByPort(listeners, 8080); isHTTPListener(l) {
-			t.Fatalf("expected TCP listener on port 8080, found HTTP: %v", l)
-		}
-	}
-}
-
-func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, services ...*model.Service) {
-	t.Helper()
-	sidecarConfig := &config.Config{
-		Meta: config.Meta{
-			Name:             "foo",
-			Namespace:        "not-default",
-			GroupVersionKind: gvk.Sidecar,
-		},
-		Spec: &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
-				{
-					Port: &networking.Port{
-						Number:   9090,
-						Protocol: "HTTP",
-						Name:     "uds",
-					},
-					Bind:  "1.1.1.1",
-					Hosts: []string{"*/*"},
-				},
-			},
-		},
-	}
-
-	// enable use remote address to true
-	test.SetForTest(t, &features.UseRemoteAddress, true)
-	for _, proxy := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		proxy.Metadata.InboundListenerExactBalance = false
-		proxy.Metadata.OutboundListenerExactBalance = false
-		listeners := buildOutboundListeners(t, proxy, sidecarConfig, nil, services...)
-
-		if l := findListenerByPort(listeners, 9090); !isHTTPListener(l) {
-			t.Fatalf("expected HTTP listener on port 9090, found TCP\n%v", l)
-		} else {
-			f := l.FilterChains[0].Filters[0]
-			cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
-			if useRemoteAddress, exists := cfg.Fields["use_remote_address"]; exists {
-				if !exists || !useRemoteAddress.GetBoolValue() {
-					t.Fatalf("expected useRemoteAddress true, found false %v", l)
-				}
-			}
-		}
-	}
-}
-
-func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, services ...*model.Service) {
-	t.Helper()
-	sidecarConfig := &config.Config{
-		Meta: config.Meta{
-			Name:             "foo",
-			Namespace:        "not-default",
-			GroupVersionKind: gvk.Sidecar,
-		},
-		Spec: &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
-				{
-					// Bind + Port
-					CaptureMode: networking.CaptureMode_NONE,
-					Port: &networking.Port{
-						Number:   9000,
-						Protocol: "HTTP",
-						Name:     "grpc",
-					},
-					Bind:  "127.1.1.2",
-					Hosts: []string{"*/*"},
-				},
-				{
-					// Bind Only
-					CaptureMode: networking.CaptureMode_NONE,
-					Bind:        "127.1.1.2",
-					Hosts:       []string{"*/*"},
-				},
-				{
-					// Port Only
-					CaptureMode: networking.CaptureMode_NONE,
-					Port: &networking.Port{
-						Number:   9000,
-						Protocol: "HTTP",
-						Name:     "grpc",
-					},
-					Hosts: []string{"*/*"},
-				},
-				{
-					// None
-					CaptureMode: networking.CaptureMode_NONE,
-					Hosts:       []string{"*/*"},
-				},
-			},
-		},
-	}
-	for _, proxy := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		proxy.Metadata.InboundListenerExactBalance = false
-		proxy.Metadata.OutboundListenerExactBalance = false
-		listeners := buildOutboundListeners(t, proxy, sidecarConfig, nil, services...)
-		if len(listeners) != 4 {
-			t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
-		}
-
-		expectedListeners := map[string]string{
-			"127.1.1.2_9090": "HTTP",
-			"127.1.1.2_8080": "TCP",
-			"127.0.0.1_9090": "HTTP",
-			"127.0.0.1_8080": "TCP",
-		}
-
-		for _, l := range listeners {
-			listenerName := l.Name
-			expectedListenerType := expectedListeners[listenerName]
-			if expectedListenerType == "" {
-				t.Fatalf("listener %s not expected", listenerName)
-			}
-			if expectedListenerType == "TCP" && isHTTPListener(l) {
-				t.Fatalf("expected TCP listener %s, but found HTTP", listenerName)
-			}
-			if expectedListenerType == "HTTP" && !isHTTPListener(l) {
-				t.Fatalf("expected HTTP listener %s, but found TCP", listenerName)
-			}
-			if l.ConnectionBalanceConfig != nil {
-				t.Fatalf("expected connection balance config to be nil, found %v", l.ConnectionBalanceConfig)
-			}
-		}
-
-		if l := findListenerByPort(listeners, 9090); !isHTTPListener(l) {
-			t.Fatalf("expected HTTP listener on port 9090, but not found\n%v", l)
-		} else {
-			f := l.FilterChains[0].Filters[0]
-			cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
-			if useRemoteAddress, exists := cfg.Fields["use_remote_address"]; exists {
-				if exists && useRemoteAddress.GetBoolValue() {
-					t.Fatalf("expected useRemoteAddress false, found true %v", l)
-				}
-			}
-		}
 	}
 }
 

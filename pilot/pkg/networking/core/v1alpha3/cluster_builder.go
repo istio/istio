@@ -423,7 +423,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		opts.meshExternal = service.MeshExternal
 	}
 
-	cb.setUpstreamProtocol(ec, port, direction)
+	cb.setUpstreamProtocol(ec, port)
 	addTelemetryMetadata(opts, service, direction, inboundServices)
 	return ec
 }
@@ -1268,7 +1268,7 @@ func (cb *ClusterBuilder) isHttp2Cluster(mc *MutableCluster) bool {
 	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil
 }
 
-func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Port, direction model.TrafficDirection) {
+func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
 		cb.setH2Options(mc)
 		return
