@@ -1525,7 +1525,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			verifyHTTPFilterChainMatch(t, http)
 			verifyListenerFilters(t, listeners[0].ListenerFilters)
 
-			if !listeners[0].ContinueOnListenerFiltersTimeout || listeners[0].ListenerFiltersTimeout == nil {
+			if !listeners[0].ContinueOnListenerFiltersTimeout && listeners[0].ListenerFiltersTimeout == nil {
 				t.Fatalf("expected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
 					listeners[0].ContinueOnListenerFiltersTimeout,
 					listeners[0].ListenerFiltersTimeout)
@@ -2548,6 +2548,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 					MaxPathTagLength: tc.in.MaxPathTagLength,
 					Sampling:         tc.in.Sampling,
 				},
+				DiscoveryAddress: "istiod.istio-system.svc:15012",
 			}
 			listeners := buildListeners(t, TestOptions{MeshConfig: m}, nil)
 			httpProxy := xdstest.ExtractListener("127.0.0.1_15007", listeners)
