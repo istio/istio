@@ -27,6 +27,7 @@ import (
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -1301,7 +1302,9 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 
 		if opts.proxy.Type != model.Router {
 			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
-			if res.ListenerFiltersTimeout != nil {
+			// if timeout is not disabled, set ContinueOnListenerFiltersTimeout
+			// if timeout = nil, a default 15s will be applied.
+			if !(res.ListenerFiltersTimeout.GetNanos() == 0 && res.ListenerFiltersTimeout.GetSeconds() == 0) {
 				res.ContinueOnListenerFiltersTimeout = true
 			}
 		}
@@ -1673,7 +1676,7 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 		}
 
 		if !hasHTTPInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
-			l.ListenerFiltersTimeout = nil
+			l.ListenerFiltersTimeout = durationpb.New(0)
 			l.ContinueOnListenerFiltersTimeout = false
 		}
 	}
