@@ -229,6 +229,7 @@ func TestIsK8VersionSupported(t *testing.T) {
 		},
 		{
 			version: version1_24,
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_24.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
 			isValid: false,
 		},
 		{
