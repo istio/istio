@@ -197,7 +197,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			secret := BuildSecret(caCertName, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
 			_, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if apierror.IsAlreadyExists(err) {
-				pkiCaLog.Debugf("Failed to write secret to CA (error: %s). Retry getting secret %s", err, caCertName)
+				pkiCaLog.Debugf("Failed to create secret %s (%v)", caCertName, err)
 				return fmt.Errorf("failed to create CA due to secret already existing")
 			}
 			if err != nil {
