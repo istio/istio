@@ -69,6 +69,12 @@ const (
 
 	// imagePullPolicyValuesKey values key for the Docker image pull policy.
 	imagePullPolicyValuesKey = "global.imagePullPolicy"
+
+	// DefaultEgressGatewayLabel is the default Istio label for the egress gateway.
+	DefaultEgressGatewayIstioLabel = "egressgateway"
+
+	// DefaultEgressGatewayServiceName is the default service name for the egress gateway.
+	DefaultEgressGatewayServiceName = "istio-egressgateway"
 )
 
 var (
@@ -76,17 +82,20 @@ var (
 	operatorOptions string
 
 	settingsFromCommandline = &Config{
-		SystemNamespace:         DefaultSystemNamespace,
-		TelemetryNamespace:      DefaultSystemNamespace,
-		DeployIstio:             true,
-		PrimaryClusterIOPFile:   IntegrationTestDefaultsIOP,
-		ConfigClusterIOPFile:    IntegrationTestDefaultsIOP,
-		RemoteClusterIOPFile:    IntegrationTestRemoteDefaultsIOP,
-		BaseIOPFile:             BaseIOP,
-		DeployEastWestGW:        true,
-		DumpKubernetesManifests: false,
-		IstiodlessRemotes:       true,
-		EnableCNI:               false,
+		SystemNamespace:               DefaultSystemNamespace,
+		TelemetryNamespace:            DefaultSystemNamespace,
+		DeployIstio:                   true,
+		PrimaryClusterIOPFile:         IntegrationTestDefaultsIOP,
+		ConfigClusterIOPFile:          IntegrationTestDefaultsIOP,
+		RemoteClusterIOPFile:          IntegrationTestRemoteDefaultsIOP,
+		BaseIOPFile:                   BaseIOP,
+		DeployEastWestGW:              true,
+		DumpKubernetesManifests:       false,
+		IstiodlessRemotes:             true,
+		EnableCNI:                     false,
+		EgressGatewayServiceNamespace: DefaultSystemNamespace,
+		EgressGatewayServiceName:      DefaultEgressGatewayServiceName,
+		EgressGatewayIstioLabel:       DefaultEgressGatewayIstioLabel,
 	}
 )
 
@@ -360,7 +369,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("IngressGatewayServiceNamespace: %v\n", c.IngressGatewayServiceNamespace)
 	result += fmt.Sprintf("IngressGatewayIstioLabel:       %v\n", c.IngressGatewayIstioLabel)
 	result += fmt.Sprintf("EgressGatewayServiceName:       %v\n", c.EgressGatewayServiceName)
-	result += fmt.Sprintf("EressGatewayServiceNamespace:   %v\n", c.EgressGatewayServiceNamespace)
+	result += fmt.Sprintf("EgressGatewayServiceNamespace:  %v\n", c.EgressGatewayServiceNamespace)
 	result += fmt.Sprintf("EgressGatewayIstioLabel:        %v\n", c.EgressGatewayIstioLabel)
 	result += fmt.Sprintf("SharedMeshConfigName:           %v\n", c.SharedMeshConfigName)
 
