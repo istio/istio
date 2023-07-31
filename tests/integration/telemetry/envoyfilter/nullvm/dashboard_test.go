@@ -316,7 +316,7 @@ func setupDashboardTest(done <-chan struct{}) {
 						Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
 						Headers: headers.New().WithHost("server").Build(),
 					},
-					Check: check.OK(),
+					Check: check.NoError(), // Do not use check.OK since we expect non-200
 					Retry: echo.Retry{
 						NoRetry: true,
 					},
