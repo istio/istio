@@ -130,15 +130,12 @@ type destinationRuleIndex struct {
 	//  exportedByNamespace contains all dest rules pertaining to a service exported by a namespace.
 	exportedByNamespace map[string]*consolidatedDestRules
 	rootNamespaceLocal  *consolidatedDestRules
-	// mesh/namespace dest rules to be inherited
-	inheritedByNamespace map[string]*ConsolidatedDestRule
 }
 
 func newDestinationRuleIndex() destinationRuleIndex {
 	return destinationRuleIndex{
 		namespaceLocal:       map[string]*consolidatedDestRules{},
 		exportedByNamespace:  map[string]*consolidatedDestRules{},
-		inheritedByNamespace: map[string]*ConsolidatedDestRule{},
 	}
 }
 
@@ -1137,18 +1134,6 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 		return out
 	}
 
-	// 5. service DestinationRules were merged in SetDestinationRules, return mesh/namespace rules if present
-	if features.EnableDestinationRuleInheritance {
-		// return namespace rule if present
-		if out := ps.destinationRuleIndex.inheritedByNamespace[proxyNameSpace]; out != nil {
-			return []*ConsolidatedDestRule{out}
-		}
-		// return mesh rule
-		if out := ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]; out != nil {
-			return []*ConsolidatedDestRule{out}
-		}
-	}
-
 	return nil
 }
 
@@ -1161,23 +1146,6 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
 			exportToMap := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]
 			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(clientNamespace)] {
-				if features.EnableDestinationRuleInheritance {
-					var parent *ConsolidatedDestRule
-					// client inherits global DR from its own namespace, not from the exported DR's owning namespace
-					// grab the client namespace DR or mesh if none exists
-					if parent = ps.destinationRuleIndex.inheritedByNamespace[clientNamespace]; parent == nil {
-						parent = ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]
-					}
-					var inheritedDrList []*ConsolidatedDestRule
-					for _, child := range drs {
-						inheritedDr := ps.inheritDestinationRule(parent, child)
-						if inheritedDr != nil {
-							inheritedDrList = append(inheritedDrList, inheritedDr)
-						}
-
-					}
-					return inheritedDrList
-				}
 				return drs
 			}
 		}
@@ -1744,20 +1712,10 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	namespaceLocalDestRules := make(map[string]*consolidatedDestRules)
 	exportedDestRulesByNamespace := make(map[string]*consolidatedDestRules)
 	rootNamespaceLocalDestRules := newConsolidatedDestRules()
-	inheritedConfigs := make(map[string]*ConsolidatedDestRule)
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
 
-		if features.EnableDestinationRuleInheritance && rule.Host == "" {
-			if t, ok := inheritedConfigs[configs[i].Namespace]; ok {
-				log.Warnf("Namespace/mesh-level DestinationRule is already defined for %q at time %v."+
-					" Ignore %q which was created at time %v",
-					configs[i].Namespace, t.rule.CreationTimestamp, configs[i].Name, configs[i].CreationTimestamp)
-				continue
-			}
-			inheritedConfigs[configs[i].Namespace] = ConvertConsolidatedDestRule(&configs[i])
-		}
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
 		exportToMap := make(map[visibility.Instance]bool)
@@ -1808,33 +1766,9 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 		}
 	}
 
-	// precompute DestinationRules with inherited fields
-	if features.EnableDestinationRuleInheritance {
-		globalRule := inheritedConfigs[ps.Mesh.RootNamespace]
-		for ns := range namespaceLocalDestRules {
-			nsRule := inheritedConfigs[ns]
-			inheritedRule := ps.inheritDestinationRule(globalRule, nsRule)
-			for hostname, cfgList := range namespaceLocalDestRules[ns].specificDestRules {
-				for i, cfg := range cfgList {
-					namespaceLocalDestRules[ns].specificDestRules[hostname][i] = ps.inheritDestinationRule(inheritedRule, cfg)
-				}
-			}
-			for hostname, cfgList := range namespaceLocalDestRules[ns].wildcardDestRules {
-				for i, cfg := range cfgList {
-					namespaceLocalDestRules[ns].wildcardDestRules[hostname][i] = ps.inheritDestinationRule(inheritedRule, cfg)
-				}
-			}
-			// update namespace rule after it has been merged with mesh rule
-			inheritedConfigs[ns] = inheritedRule
-		}
-		// can't precalculate exportedDestRulesByNamespace since we don't know all the client namespaces in advance
-		// inheritance is performed in getExportedDestinationRuleFromNamespace
-	}
-
 	ps.destinationRuleIndex.namespaceLocal = namespaceLocalDestRules
 	ps.destinationRuleIndex.exportedByNamespace = exportedDestRulesByNamespace
 	ps.destinationRuleIndex.rootNamespaceLocal = rootNamespaceLocalDestRules
-	ps.destinationRuleIndex.inheritedByNamespace = inheritedConfigs
 }
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) {
