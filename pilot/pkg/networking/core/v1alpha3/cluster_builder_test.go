@@ -3880,7 +3880,7 @@ func TestApplyTCPKeepalive(t *testing.T) {
 				cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			}
 
-			cb.applyConnectionPool(tt.mesh, mc, tt.connectionPool)
+			cb.applyConnectionPool(tt.mesh, mc, tt.connectionPool, nil)
 
 			if !reflect.DeepEqual(tt.wantConnOpts, mc.cluster.UpstreamConnectionOptions) {
 				t.Errorf("unexpected tcp keepalive settings, want %v, got %v", tt.wantConnOpts,
@@ -4002,7 +4002,7 @@ func TestApplyConnectionPool(t *testing.T) {
 				mesh:    cb.req.Push.Mesh,
 				mutable: mc,
 			}
-			cb.applyConnectionPool(opts.mesh, opts.mutable, tt.connectionPool)
+			cb.applyConnectionPool(opts.mesh, opts.mutable, tt.connectionPool, nil)
 			// assert httpProtocolOptions
 			assert.Equal(t, opts.mutable.httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout,
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.IdleTimeout)
