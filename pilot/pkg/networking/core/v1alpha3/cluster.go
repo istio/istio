@@ -718,7 +718,7 @@ const (
 
 type buildClusterOpts struct {
 	mesh             *meshconfig.MeshConfig
-	mutable          *MutableCluster
+	mutable          *clusterWrapper
 	policy           *networking.TrafficPolicy
 	port             *model.Port
 	serviceAccounts  []string

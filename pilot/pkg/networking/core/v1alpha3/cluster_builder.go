@@ -85,8 +85,8 @@ var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOp
 	},
 })
 
-// MutableCluster wraps Cluster object along with options.
-type MutableCluster struct {
+// clusterWrapper wraps Cluster object along with upstream protocol options.
+type clusterWrapper struct {
 	cluster *cluster.Cluster
 	// httpProtocolOptions stores the HttpProtocolOptions which will be marshaled when build is called.
 	httpProtocolOptions *http.HttpProtocolOptions
@@ -167,9 +167,9 @@ func (m *metadataCerts) String() string {
 	return m.tlsClientCertChain + "~" + m.tlsClientKey + "~" + m.tlsClientRootCert
 }
 
-// NewMutableCluster initializes MutableCluster with the cluster passed.
-func NewMutableCluster(cluster *cluster.Cluster) *MutableCluster {
-	return &MutableCluster{
+// newClusterWrapper initializes clusterWrapper with the cluster passed.
+func newClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
+	return &clusterWrapper{
 		cluster: cluster,
 	}
 }
@@ -250,7 +250,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
-func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
+func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode ClusterMode, service *model.Service,
 	port *model.Port, proxyView model.ProxyView, destRule *config.Config, serviceAccounts []string,
 ) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
@@ -365,13 +365,13 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
 	port *model.Port, service *model.Service, inboundServices []ServiceTarget,
-) *MutableCluster {
+) *clusterWrapper {
 	c := &cluster.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
-	ec := NewMutableCluster(c)
+	ec := newClusterWrapper(c)
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
 		if networkutil.AllIPv4(cb.proxyIPAddresses) {
@@ -451,7 +451,7 @@ type ServiceTarget struct {
 // Sidecar.Ingress allows these to be different.
 func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind string,
 	proxy *model.Proxy, instance ServiceTarget, inboundServices []ServiceTarget,
-) *MutableCluster {
+) *clusterWrapper {
 	clusterName := model.BuildInboundSubsetKey(clusterPort)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Port.TargetPort)
 	clusterType := cluster.Cluster_ORIGINAL_DST
@@ -705,26 +705,22 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
-	cb.applyConnectionPool(cb.req.Push.Mesh, NewMutableCluster(cluster), &networking.ConnectionPoolSettings{})
+	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
 	cb.applyMetadataExchange(cluster)
 	return cluster
 }
 
-// applyH2Upgrade function will upgrade outbound cluster to http2 if specified by configuration.
+// applyH2Upgrade function will upgrade cluster to http2 if specified by configuration.
 func (cb *ClusterBuilder) applyH2Upgrade(opts buildClusterOpts, connectionPool *networking.ConnectionPoolSettings) {
-	if cb.shouldH2Upgrade(opts.mutable.cluster.Name, opts.direction, opts.port, opts.mesh, connectionPool) {
+	if cb.shouldH2Upgrade(opts.mutable.cluster.Name, opts.port, opts.mesh, connectionPool) {
 		cb.setH2Options(opts.mutable)
 	}
 }
 
 // shouldH2Upgrade function returns true if the cluster should be upgraded to http2.
-func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port *model.Port, mesh *meshconfig.MeshConfig,
+func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, port *model.Port, mesh *meshconfig.MeshConfig,
 	connectionPool *networking.ConnectionPoolSettings,
 ) bool {
-	if direction != model.TrafficDirectionOutbound {
-		return false
-	}
-
 	// TODO (mjog)
 	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
 	if connectionPool != nil && connectionPool.Http != nil {
@@ -747,7 +743,7 @@ func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.Tr
 	// uses downstream protocol. Therefore if the client upgrades connection to http2,
 	// the server will send h2 stream to the application,even though the application only
 	// supports http 1.1.
-	if port != nil && !port.Protocol.IsHTTP() {
+	if !port.Protocol.IsHTTP() {
 		return false
 	}
 
@@ -755,7 +751,7 @@ func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, direction model.Tr
 }
 
 // setH2Options make the cluster an h2 cluster by setting http2ProtocolOptions.
-func (cb *ClusterBuilder) setH2Options(mc *MutableCluster) {
+func (cb *ClusterBuilder) setH2Options(mc *clusterWrapper) {
 	if mc == nil {
 		return
 	}
@@ -781,8 +777,8 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 		connectionPool = &networking.ConnectionPoolSettings{}
 	}
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool)
+	cb.applyH2Upgrade(opts, connectionPool)
 	if opts.direction != model.TrafficDirectionInbound {
-		cb.applyH2Upgrade(opts, connectionPool)
 		applyOutlierDetection(opts.mutable.cluster, outlierDetection)
 		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh)
 		if opts.clusterMode != SniDnatClusterMode {
@@ -888,7 +884,7 @@ func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
-func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *MutableCluster, settings *networking.ConnectionPoolSettings) {
+func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *clusterWrapper, settings *networking.ConnectionPoolSettings) {
 	if settings == nil {
 		return
 	}
@@ -1219,7 +1215,7 @@ func applyTLSDefaults(tlsContext *auth.UpstreamTlsContext, tlsDefaults *meshconf
 
 // Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.
 // Set auto_san_validation if VerifyCertAtClient feature flag is enabled and if there is no explicit SubjectAltNames specified  in DR.
-func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls *networking.ClientTLSSettings) {
+func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTLSSettings) {
 	if mc == nil || !features.EnableAutoSni {
 		return
 	}
@@ -1249,7 +1245,7 @@ func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *MutableCluster, tls
 	}
 }
 
-func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *MutableCluster) {
+func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *clusterWrapper) {
 	if mc.httpProtocolOptions == nil {
 		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 	}
@@ -1268,12 +1264,13 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 
 // nolint
 // revive:disable-next-line
-func (cb *ClusterBuilder) isHttp2Cluster(mc *MutableCluster) bool {
+func (cb *ClusterBuilder) isHttp2Cluster(mc *clusterWrapper) bool {
 	options := mc.httpProtocolOptions
 	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil
 }
 
-func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Port) {
+// This is called after traffic policy applied
+func (cb *ClusterBuilder) setUpstreamProtocol(mc *clusterWrapper, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
 		cb.setH2Options(mc)
 		return
@@ -1340,7 +1337,7 @@ func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([
 }
 
 // build does any final build operations needed, like marshaling etc.
-func (mc *MutableCluster) build() *cluster.Cluster {
+func (mc *clusterWrapper) build() *cluster.Cluster {
 	if mc == nil {
 		return nil
 	}

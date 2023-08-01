@@ -568,7 +568,7 @@ func TestApplyDestinationRule(t *testing.T) {
 
 			tt.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 
-			ec := NewMutableCluster(tt.cluster)
+			ec := newClusterWrapper(tt.cluster)
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname).GetRule()
 
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.proxyView, destRule, nil)
@@ -2053,7 +2053,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: push}, model.DisabledCache{})
 			opts := &buildClusterOpts{
-				mutable: NewMutableCluster(&cluster.Cluster{
+				mutable: newClusterWrapper(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
 				}),
 				mesh: push.Mesh,
@@ -2115,7 +2115,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode disabled",
 			opts: &buildClusterOpts{
-				mutable: NewMutableCluster(&cluster.Cluster{
+				mutable: newClusterWrapper(&cluster.Cluster{
 					Name: "test-cluster",
 				}),
 			},
@@ -3228,24 +3228,24 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 }
 
-func newTestCluster() *MutableCluster {
-	return NewMutableCluster(&cluster.Cluster{
+func newTestCluster() *clusterWrapper {
+	return newClusterWrapper(&cluster.Cluster{
 		Name: "test-cluster",
 	})
 }
 
-func newH2TestCluster() *MutableCluster {
+func newH2TestCluster() *clusterWrapper {
 	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
-	mc := NewMutableCluster(&cluster.Cluster{
+	mc := newClusterWrapper(&cluster.Cluster{
 		Name: "test-cluster",
 	})
 	cb.setH2Options(mc)
 	return mc
 }
 
-func newDownstreamTestCluster() *MutableCluster {
+func newDownstreamTestCluster() *clusterWrapper {
 	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
-	mc := NewMutableCluster(&cluster.Cluster{
+	mc := newClusterWrapper(&cluster.Cluster{
 		Name: "test-cluster",
 	})
 	cb.setUseDownstreamProtocol(mc)
@@ -3351,7 +3351,7 @@ func TestShouldH2Upgrade(t *testing.T) {
 			upgrade: false,
 		},
 		{
-			name:        "inbound ignore",
+			name:        "inbound upgrade",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionInbound,
 			port:        &model.Port{Protocol: protocol.HTTP},
@@ -3361,7 +3361,7 @@ func TestShouldH2Upgrade(t *testing.T) {
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT,
 				},
 			},
-			upgrade: false,
+			upgrade: true,
 		},
 		{
 			name:        "non-http",
@@ -3382,7 +3382,7 @@ func TestShouldH2Upgrade(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			upgrade := cb.shouldH2Upgrade(test.clusterName, test.direction, test.port, test.mesh, test.connectionPool)
+			upgrade := cb.shouldH2Upgrade(test.clusterName, test.port, test.mesh, test.connectionPool)
 
 			if upgrade != test.upgrade {
 				t.Fatalf("got: %t, want: %t (%v, %v)", upgrade, test.upgrade, test.mesh.H2UpgradePolicy, test.connectionPool.Http.H2UpgradePolicy)
@@ -3395,7 +3395,7 @@ func TestShouldH2Upgrade(t *testing.T) {
 func TestIsHttp2Cluster(t *testing.T) {
 	tests := []struct {
 		name           string
-		cluster        *MutableCluster
+		cluster        *clusterWrapper
 		isHttp2Cluster bool // revive:disable-line
 	}{
 		{
@@ -3803,7 +3803,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 
 			tt.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 
-			ec := NewMutableCluster(tt.cluster)
+			ec := newClusterWrapper(tt.cluster)
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname).GetRule()
 
 			// ACT
@@ -3876,7 +3876,7 @@ func TestApplyTCPKeepalive(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
-			mc := &MutableCluster{
+			mc := &clusterWrapper{
 				cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			}
 
@@ -3993,7 +3993,7 @@ func TestApplyConnectionPool(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
-			mc := &MutableCluster{
+			mc := &clusterWrapper{
 				cluster:             tt.cluster,
 				httpProtocolOptions: tt.httpProtocolOptions,
 			}
@@ -4738,7 +4738,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 			cg.MemRegistry.WantGetProxyServiceInstances = instances
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
-			ec := NewMutableCluster(tc.cluster)
+			ec := newClusterWrapper(tc.cluster)
 			tc.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tc.service.Hostname).GetRule()
 			_ = cb.applyDestinationRule(ec, tc.clusterMode, tc.service, tc.port, tc.proxyView, destRule, tc.serviceAcct)
