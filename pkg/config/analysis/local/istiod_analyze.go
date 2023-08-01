@@ -285,11 +285,16 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
 		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
 
-	namespaceSelectors := make([]fields.Selector, 0, len(inject.IgnoredNamespaces))
-	for _, ns := range inject.IgnoredNamespaces.UnsortedList() {
-		namespaceSelectors = append(namespaceSelectors, fields.OneTermNotEqualSelector("metadata.name", ns))
+	ignoredNamespacesSelectorForField := func(field string) string {
+		selectors := make([]fields.Selector, 0, len(inject.IgnoredNamespaces))
+		for _, ns := range inject.IgnoredNamespaces.UnsortedList() {
+			selectors = append(selectors, fields.OneTermNotEqualSelector(field, ns))
+		}
+		return fields.AndSelectors(selectors...).String()
 	}
-	namespaceFieldSelector := fields.AndSelectors(namespaceSelectors...).String()
+
+	namespaceFieldSelector := ignoredNamespacesSelectorForField("metadata.name")
+	generalSelectors := ignoredNamespacesSelectorForField("metadata.namespace")
 
 	// TODO: are either of these string constants intended to vary?
 	// This gets us only istio/ ones
@@ -303,6 +308,15 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 			},
 			gvk.Namespace: {
 				FieldSelector: namespaceFieldSelector,
+			},
+			gvk.Service: {
+				FieldSelector: generalSelectors,
+			},
+			gvk.Pod: {
+				FieldSelector: generalSelectors,
+			},
+			gvk.Deployment: {
+				FieldSelector: generalSelectors,
 			},
 		},
 	}, sa.kubeResources)
