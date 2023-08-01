@@ -111,14 +111,15 @@ func (s Schemas) Union(otherSchemas Schemas) Schemas {
 
 func (s Schemas) Intersect(otherSchemas Schemas) Schemas {
 	resultBuilder := NewSchemasBuilder()
-	schemaLookup := make(map[string]struct{})
+
+	schemaLookup := sets.String{}
 	for _, myschema := range s.All() {
-		schemaLookup[myschema.String()] = struct{}{}
+		schemaLookup.Insert(myschema.String())
 	}
 
 	// Only add schemas that are in both sets
 	for _, myschema := range otherSchemas.All() {
-		if _, exists := schemaLookup[myschema.String()]; exists {
+		if schemaLookup.Contains(myschema.String()) {
 			_ = resultBuilder.Add(myschema)
 		}
 	}
