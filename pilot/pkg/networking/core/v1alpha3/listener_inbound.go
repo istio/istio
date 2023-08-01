@@ -172,7 +172,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	inboundChainConfigs := lb.buildInboundChainConfigs()
 	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
-		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
+		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
 		// Internal chain has no mTLS
 		mtls := authn.MTLSSettings{Port: cc.port.TargetPort, Mode: model.MTLSDisable}
 		opts := getFilterChainMatchOptions(mtls, lp)
@@ -212,12 +212,12 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 			// Since we are terminating TLS, we need to treat the protocol as if its terminated.
 			// Example: user specifies protocol=HTTPS and user TLS, we will use HTTP
 			cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
-			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
+			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
 			opts = getTLSFilterChainMatchOptions(lp)
 			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, lb.push.Mesh, istionetworking.TransportProtocolTCP, false)
 			mtls.HTTP = mtls.TCP
 		} else {
-			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
+			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
 			opts = getFilterChainMatchOptions(mtls, lp)
 		}
 		// Build the actual chain
@@ -536,7 +536,7 @@ func populateListenerFilters(node *model.Proxy, vi *listener.Listener, bindToPor
 	// Note: the HTTP inspector should be after TLS inspector.
 	// If TLS inspector sets transport protocol to tls, the http inspector
 	// won't inspect the packet.
-	if features.EnableProtocolSniffingForInbound && needsHTTP(inspectors) {
+	if needsHTTP(inspectors) {
 		lf = append(lf, buildHTTPInspector(inspectors))
 	}
 

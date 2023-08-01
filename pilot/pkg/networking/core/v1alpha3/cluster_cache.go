@@ -176,7 +176,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		proxyView:       cb.proxyView,
 		hbone:           cb.hbone,
 		http2:           port.Protocol.IsHTTP2(),
-		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
+		downstreamAuto:  cb.sidecarProxy() && port.Protocol.IsUnsupported(),
 		supportsIPv4:    cb.supportsIPv4,
 		service:         service,
 		destinationRule: proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname),

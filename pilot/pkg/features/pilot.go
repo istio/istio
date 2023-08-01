@@ -173,18 +173,6 @@ var (
 		false,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy").Get()
 
-	EnableProtocolSniffingForOutbound = env.Register(
-		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
-		true,
-		"If enabled, protocol sniffing will be used for outbound listeners whose port protocol is not specified or unsupported",
-	).Get()
-
-	EnableProtocolSniffingForInbound = env.Register(
-		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
-		true,
-		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
-	).Get()
-
 	ScopeGatewayToNamespace = env.Register(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,

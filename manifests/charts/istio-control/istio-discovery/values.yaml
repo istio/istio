@@ -41,11 +41,6 @@ pilot:
   # Additional volumes to the istiod pod
   volumes: []
 
-  # if protocol sniffing is enabled for outbound
-  enableProtocolSniffingForOutbound: true
-  # if protocol sniffing is enabled for inbound
-  enableProtocolSniffingForInbound: true
-
   nodeSelector: {}
   podAnnotations: {}
   serviceAnnotations: {}

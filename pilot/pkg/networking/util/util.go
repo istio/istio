@@ -239,18 +239,6 @@ func IsIstioVersionGE117(version *model.IstioVersion) bool {
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 17, Patch: -1}) >= 0
 }
 
-func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForInbound && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
-}
-
 // ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *core.Locality {
 	if locality == "" {
