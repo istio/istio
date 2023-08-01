@@ -227,6 +227,10 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	}
 	c.kube = fake.NewSimpleClientset(objects...)
 
+	c.config = &rest.Config{
+		Host: "server",
+	}
+
 	c.informerFactory = informerfactory.NewSharedInformerFactory()
 	s := FakeIstioScheme
 
