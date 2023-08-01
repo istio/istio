@@ -1674,7 +1674,6 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 
 		if !hasHTTPInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
 			l.ListenerFiltersTimeout = durationpb.New(0)
-
 		}
 	}
 }
