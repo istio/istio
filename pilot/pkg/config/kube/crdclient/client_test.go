@@ -353,7 +353,9 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 		{"istio.io/rev": "canary"},
 		{"istio.io/rev": "prod"},
 	}
-	var expectedCfgs []config.Config
+	var expectedNoRevision []config.Config
+	var expectedCanary []config.Config
+	var expectedProd []config.Config
 	for i := 0; i < 9; i++ {
 		selectedLabels := labels[i%len(labels)]
 		obj := &clientnetworkingv1alpha3.ServiceEntry{
@@ -366,40 +368,54 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 		}
 
 		clienttest.NewWriter[*clientnetworkingv1alpha3.ServiceEntry](t, fake).Create(obj)
-		// Only SEs from the default revision should generate events.
-		if selectedLabels == nil {
-			expectedCfgs = append(expectedCfgs, TranslateObject(obj, gvk.ServiceEntry, ""))
+		// canary revision should receive only global objects and objects with the canary revision
+		if selectedLabels == nil || reflect.DeepEqual(selectedLabels, labels[1]) {
+			expectedCanary = append(expectedCanary, TranslateObject(obj, gvk.ServiceEntry, ""))
 		}
+		// prod revision should receive only global objects and objects with the prod revision
+		if selectedLabels == nil || reflect.DeepEqual(selectedLabels, labels[2]) {
+			expectedProd = append(expectedProd, TranslateObject(obj, gvk.ServiceEntry, ""))
+		}
+		// no revision should receive all objects
+		expectedNoRevision = append(expectedNoRevision, TranslateObject(obj, gvk.ServiceEntry, ""))
 	}
 
-	// Create a config store with a handler that records add events
-	store := New(fake, Option{})
-
-	var cfgsAdded []config.Config
-	store.RegisterEventHandler(
-		gvk.ServiceEntry,
-		func(old config.Config, curr config.Config, event model.Event) {
-			if event != model.EventAdd {
-				t.Fatalf("unexpected event: %v", event)
-			}
-			cfgsAdded = append(cfgsAdded, curr)
-		},
-	)
-
-	stop := test.NewStop(t)
-	fake.RunAndWait(stop)
-	go store.Run(stop)
-
-	kube.WaitForCacheSync("test", stop, store.HasSynced)
-
-	// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
-	sortFunc := func(a, b config.Config) bool {
-		return a.Key() < b.Key()
+	storeCases := map[string][]config.Config{
+		"":       expectedNoRevision, // No revision specified, should receive all events.
+		"canary": expectedCanary,     // Only SEs from the canary revision should be received.
+		"prod":   expectedProd,       // Only SEs from the prod revision should be received.
 	}
-	slices.SortFunc(cfgsAdded, sortFunc)
-	slices.SortFunc(expectedCfgs, sortFunc)
+	for rev, expected := range storeCases {
+		store := New(fake, Option{
+			Revision: rev,
+		})
 
-	assert.Equal(t, expectedCfgs, cfgsAdded)
+		var cfgsAdded []config.Config
+		store.RegisterEventHandler(
+			gvk.ServiceEntry,
+			func(old config.Config, curr config.Config, event model.Event) {
+				if event != model.EventAdd {
+					t.Fatalf("unexpected event: %v", event)
+				}
+				cfgsAdded = append(cfgsAdded, curr)
+			},
+		)
+
+		stop := test.NewStop(t)
+		fake.RunAndWait(stop)
+		go store.Run(stop)
+
+		kube.WaitForCacheSync("test", stop, store.HasSynced)
+
+		// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
+		sortFunc := func(a, b config.Config) bool {
+			return a.Key() < b.Key()
+		}
+		slices.SortFunc(cfgsAdded, sortFunc)
+		slices.SortFunc(expected, sortFunc)
+
+		assert.Equal(t, expected, cfgsAdded)
+	}
 }
 
 func TestClientSync(t *testing.T) {
