@@ -173,6 +173,10 @@ spec:
             valueFrom:
               resourceFieldRef:
                 resource: limits.memory
+          - name: GOMAXPROCS
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.cpu
           - name: PLATFORM
             value: "{{ .Values.global.platform }}"
           resources:
