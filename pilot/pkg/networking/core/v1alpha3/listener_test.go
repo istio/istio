@@ -1454,14 +1454,15 @@ func testOutboundListenerFilterTimeout(t *testing.T, services ...*model.Service)
 			t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
 		}
 
-		if listeners[0].ContinueOnListenerFiltersTimeout {
+		if listeners[0].ListenerFiltersTimeout == nil ||
+			(listeners[0].ListenerFiltersTimeout.GetSeconds() != 0 && listeners[0].ListenerFiltersTimeout.GetNanos() != 0) {
 			t.Fatalf("expected timeout disabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
-				listeners[0].ContinueOnListenerFiltersTimeout, listeners[0].ListenerFiltersTimeout)
+				listeners[0].ContinueOnListenerFiltersTimeout,
+				listeners[0].ListenerFiltersTimeout)
 		}
-
-		if !listeners[1].ContinueOnListenerFiltersTimeout &&
-			(listeners[1].ListenerFiltersTimeout.GetSeconds() != 0 && listeners[1].ListenerFiltersTimeout.GetNanos() != 0) {
-			t.Fatalf("expected timeout enabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+		if listeners[1].ListenerFiltersTimeout == nil ||
+			(listeners[0].ListenerFiltersTimeout.GetSeconds() != 0 && listeners[0].ListenerFiltersTimeout.GetNanos() != 0) {
+			t.Fatalf("expected timeout disabled , found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
 				listeners[1].ContinueOnListenerFiltersTimeout,
 				listeners[1].ListenerFiltersTimeout)
 		}
@@ -1499,9 +1500,8 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
 			verifyListenerFilters(t, listeners[0].ListenerFilters)
 
-			if listeners[0].ContinueOnListenerFiltersTimeout {
-				t.Fatalf("expected timeout disabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
-					listeners[0].ContinueOnListenerFiltersTimeout,
+			if listeners[0].ListenerFiltersTimeout.GetSeconds() != 5 {
+				t.Fatalf("expected timeout 5s, found  ListenerFiltersTimeout %v",
 					listeners[0].ListenerFiltersTimeout)
 			}
 
@@ -1526,7 +1526,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			verifyHTTPFilterChainMatch(t, http)
 			verifyListenerFilters(t, listeners[0].ListenerFilters)
 
-			if !listeners[0].ContinueOnListenerFiltersTimeout && listeners[0].ListenerFiltersTimeout == nil {
+			if listeners[0].ListenerFiltersTimeout == nil {
 				t.Fatalf("expected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
 					listeners[0].ContinueOnListenerFiltersTimeout,
 					listeners[0].ListenerFiltersTimeout)
@@ -2736,9 +2736,12 @@ func buildOutboundListeners(t *testing.T, proxy *model.Proxy, sidecarConfig *con
 	virtualService *config.Config, services ...*model.Service,
 ) []*listener.Listener {
 	t.Helper()
+	m := mesh.DefaultMeshConfig()
+	m.ProtocolDetectionTimeout = durationpb.New(5 * time.Second)
 	cg := NewConfigGenTest(t, TestOptions{
 		Services:       services,
 		ConfigPointers: []*config.Config{sidecarConfig, virtualService},
+		MeshConfig:     m,
 	})
 	listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext())
 	xdstest.ValidateListeners(t, listeners)

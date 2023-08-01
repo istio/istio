@@ -164,9 +164,10 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	// Now we have top level listener... but we must have an internal listener for each standard filter chain
 	// 1 listener per port; that listener will do protocol detection.
 	l := &listener.Listener{
-		Name:              MainInternalName,
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		TrafficDirection:  core.TrafficDirection_INBOUND,
+		Name:                             MainInternalName,
+		ListenerSpecifier:                &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		TrafficDirection:                 core.TrafficDirection_INBOUND,
+		ContinueOnListenerFiltersTimeout: true,
 	}
 
 	inboundChainConfigs := lb.buildInboundChainConfigs()
@@ -271,9 +272,10 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	}
 	address := util.BuildAddress(addresses[0], tPort)
 	l := &listener.Listener{
-		Name:             name,
-		Address:          address,
-		TrafficDirection: core.TrafficDirection_INBOUND,
+		Name:                             name,
+		Address:                          address,
+		TrafficDirection:                 core.TrafficDirection_INBOUND,
+		ContinueOnListenerFiltersTimeout: true,
 	}
 	if features.EnableDualStack && len(addresses) > 1 {
 		// add extra addresses for the listener
@@ -294,7 +296,6 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	l.FilterChains = chains
 	l.ListenerFilters = populateListenerFilters(lb.node, l, bindToPort)
 	l.ListenerFiltersTimeout = lb.push.Mesh.GetProtocolDetectionTimeout()
-	l.ContinueOnListenerFiltersTimeout = true
 	return l
 }
 

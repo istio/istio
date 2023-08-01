@@ -1287,13 +1287,14 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
-			Name:                    getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
-			Address:                 util.BuildAddress(opts.bind, uint32(opts.port.Port)),
-			TrafficDirection:        trafficDirection,
-			ListenerFilters:         listenerFilters,
-			FilterChains:            filterChains,
-			BindToPort:              bindToPort,
-			ConnectionBalanceConfig: connectionBalance,
+			Name:                             getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
+			Address:                          util.BuildAddress(opts.bind, uint32(opts.port.Port)),
+			TrafficDirection:                 trafficDirection,
+			ListenerFilters:                  listenerFilters,
+			FilterChains:                     filterChains,
+			BindToPort:                       bindToPort,
+			ConnectionBalanceConfig:          connectionBalance,
+			ContinueOnListenerFiltersTimeout: true,
 		}
 		// add extra addresses for the listener
 		if features.EnableDualStack && len(opts.extraBind) > 0 {
@@ -1302,11 +1303,6 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 
 		if opts.proxy.Type != model.Router {
 			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
-			// if timeout is not disabled, set ContinueOnListenerFiltersTimeout
-			// if timeout = nil, a default 15s will be applied.
-			if res.ListenerFiltersTimeout == nil || !(res.ListenerFiltersTimeout.GetNanos() == 0 && res.ListenerFiltersTimeout.GetSeconds() == 0) {
-				res.ContinueOnListenerFiltersTimeout = true
-			}
 		}
 	case istionetworking.TransportProtocolQUIC:
 		// TODO: switch on TransportProtocolQUIC is in too many places now. Once this is a bit
@@ -1326,6 +1322,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				QuicOptions:            &listener.QuicProtocolOptions{},
 				DownstreamSocketConfig: &core.UdpSocketConfig{},
 			},
+			ContinueOnListenerFiltersTimeout: true,
 		}
 		// add extra addresses for the listener
 		if features.EnableDualStack && len(opts.extraBind) > 0 {
@@ -1677,7 +1674,7 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 
 		if !hasHTTPInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
 			l.ListenerFiltersTimeout = durationpb.New(0)
-			l.ContinueOnListenerFiltersTimeout = false
+
 		}
 	}
 }
