@@ -302,7 +302,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 				FieldSelector: secretFieldSelector,
 			},
 		},
-	}, kuberesource.DefaultExcludedSchemas())
+	}, sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas()))
 	sa.stores = append(sa.stores, store)
 
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.

@@ -109,6 +109,22 @@ func (s Schemas) Union(otherSchemas Schemas) Schemas {
 	return resultBuilder.Build()
 }
 
+func (s Schemas) Intersect(otherSchemas Schemas) Schemas {
+	resultBuilder := NewSchemasBuilder()
+	schemaLookup := make(map[string]struct{})
+	for _, myschema := range s.All() {
+		schemaLookup[myschema.String()] = struct{}{}
+	}
+
+	// Only add schemas that are in both sets
+	for _, myschema := range otherSchemas.All() {
+		if _, exists := schemaLookup[myschema.String()]; exists {
+			_ = resultBuilder.Add(myschema)
+		}
+	}
+	return resultBuilder.Build()
+}
+
 // FindByGroupVersionKind searches and returns the first schema with the given GVK
 func (s Schemas) FindByGroupVersionKind(gvk config.GroupVersionKind) (resource.Schema, bool) {
 	for _, rs := range s.byAddOrder {
