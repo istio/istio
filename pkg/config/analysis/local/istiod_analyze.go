@@ -23,6 +23,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/ryanuber/go-glob"
+	"istio.io/istio/pkg/kube/inject"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -284,6 +285,12 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
 		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
 
+	namespaceSelectors := make([]fields.Selector, 0, len(inject.IgnoredNamespaces))
+	for _, ns := range inject.IgnoredNamespaces.UnsortedList() {
+		namespaceSelectors = append(namespaceSelectors, fields.OneTermNotEqualSelector("metadata.name", ns))
+	}
+	namespaceFieldSelector := fields.AndSelectors(namespaceSelectors...).String()
+
 	// TODO: are either of these string constants intended to vary?
 	// This gets us only istio/ ones
 	store := crdclient.NewForSchemas(c, crdclient.Option{
@@ -293,6 +300,9 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
 			gvk.Secret: {
 				FieldSelector: secretFieldSelector,
+			},
+			gvk.Namespace: {
+				FieldSelector: namespaceFieldSelector,
 			},
 		},
 	}, sa.kubeResources)
