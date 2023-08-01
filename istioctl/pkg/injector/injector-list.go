@@ -126,7 +126,7 @@ func injectorListCommand(ctx cli.Context) *cobra.Command {
 func filterSystemNamespaces(nss []corev1.Namespace, istioNamespace string) []corev1.Namespace {
 	filtered := make([]corev1.Namespace, 0)
 	for _, ns := range nss {
-		if analyzer_util.IsSystemNamespace(resource.Namespace(ns.Name)) || ns.Name == istioNamespace {
+		if inject.IgnoredNamespaces.Contains(ns.Name) || ns.Name == istioNamespace {
 			continue
 		}
 		filtered = append(filtered, ns)

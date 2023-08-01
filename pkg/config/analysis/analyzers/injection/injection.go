@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -69,7 +70,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		ns := r.Metadata.FullName.String()
-		if util.IsSystemNamespace(resource.Namespace(ns)) {
+		if inject.IgnoredNamespaces.Contains(ns) {
 			return true
 		}
 

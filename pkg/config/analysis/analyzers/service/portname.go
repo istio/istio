@@ -27,6 +27,7 @@ import (
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/inject"
 )
 
 // PortNameAnalyzer checks the port name of the service
@@ -51,7 +52,7 @@ func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 		svcNs := r.Metadata.FullName.Namespace
 
 		// Skip system namespaces entirely
-		if util.IsSystemNamespace(svcNs) {
+		if inject.IgnoredNamespaces.Contains(svcNs.String()) {
 			return true
 		}
 
