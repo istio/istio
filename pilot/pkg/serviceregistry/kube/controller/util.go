@@ -45,6 +45,17 @@ func getLabelValue(metadata metav1.ObjectMeta, label string, fallBackLabel strin
 	return metaLabels[fallBackLabel]
 }
 
+func FindPortName(pod *v1.Pod, name string) (int32, bool) {
+	for _, container := range pod.Spec.Containers {
+		for _, port := range container.Ports {
+			if port.Name == name && port.Protocol == v1.ProtocolTCP {
+				return port.ContainerPort, true
+			}
+		}
+	}
+	return 0, false
+}
+
 // Forked from Kubernetes k8s.io/kubernetes/pkg/api/v1/pod
 // FindPort locates the container port for the given pod and portName.  If the
 // targetPort is a number, use that.  If the targetPort is a string, look that

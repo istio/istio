@@ -78,6 +78,15 @@ func (t TestWriter[T]) CreateOrUpdate(object T) T {
 	return res
 }
 
+func (t TestWriter[T]) CreateOrUpdateStatus(object T) T {
+	t.t.Helper()
+	_, err := kclient.CreateOrUpdate(t.c, object)
+	if err != nil {
+		t.t.Fatalf("createOrUpdate %v/%v: %v", object.GetNamespace(), object.GetName(), err)
+	}
+	return t.UpdateStatus(object)
+}
+
 func (t TestWriter[T]) Delete(name, namespace string) {
 	t.t.Helper()
 	err := t.c.Delete(name, namespace)

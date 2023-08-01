@@ -16,6 +16,8 @@
 package slices
 
 import (
+	"strings"
+
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 )
@@ -162,4 +164,27 @@ func Dereference[E any](s []*E) []E {
 		}
 	}
 	return res
+}
+
+// Group groups a slice by a key.
+func Group[T any, K comparable](data []T, f func(T) K) map[K][]T {
+	res := make(map[K][]T, len(data))
+	for _, e := range data {
+		k := f(e)
+		res[k] = append(res[k], e)
+	}
+	return res
+}
+
+// GroupUnique groups a slice by a key. Each key must be unique or data will be lost. To allow multiple use Group.
+func GroupUnique[T any, K comparable](data []T, f func(T) K) map[K]T {
+	res := make(map[K]T, len(data))
+	for _, e := range data {
+		res[f(e)] = e
+	}
+	return res
+}
+
+func Join(sep string, fields ...string) string {
+	return strings.Join(fields, sep)
 }

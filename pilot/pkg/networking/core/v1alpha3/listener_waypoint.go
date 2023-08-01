@@ -164,7 +164,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 	return lb.buildConnectTerminateListener(routes)
 }
 
-func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs map[host.Name]*model.Service) *listener.Listener {
+func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs map[host.Name]*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
 	chains := []*listener.FilterChain{}
 	pre, post := lb.buildWaypointHTTPFilters()

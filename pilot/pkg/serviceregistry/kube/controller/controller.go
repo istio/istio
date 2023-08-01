@@ -222,7 +222,7 @@ type Controller struct {
 
 	podsClient kclient.Client[*v1.Pod]
 
-	ambientIndex     AmbientIndex
+	ambientIndex     *AmbientIndexImpl
 	configController model.ConfigStoreController
 	configCluster    bool
 }
@@ -307,7 +307,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	if features.EnableAmbientControllers {
 		c.configController = options.ConfigController
-		c.ambientIndex = c.setupIndex()
+		c.ambientIndex = c.setupIndex(options)
 	}
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)

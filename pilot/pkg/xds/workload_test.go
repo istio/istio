@@ -25,12 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/api/security/v1beta1"
+	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -104,8 +103,10 @@ func TestWorkload(t *testing.T) {
 	t.Run("ondemand", func(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
-		s := NewFakeDiscoveryServer(t, FakeOptions{})
-		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		s := NewFakeDiscoveryServer(t, FakeOptions{
+			DebounceTime: time.Millisecond * 100,
+		})
+		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe:   []string{"*"},
@@ -122,6 +123,8 @@ func TestWorkload(t *testing.T) {
 			ResourceNamesSubscribe: []string{"/127.0.0.1"},
 		})
 		expect(resp, "Kubernetes//Pod/default/pod")
+		// Hacky, this is because debounce is so long we get the create now..
+		expect(ads.ExpectResponse(), "Kubernetes//v1/pod/default/pod")
 
 		// Subscribe to unknown pod
 		ads.Request(&discovery.DeltaDiscoveryRequest{
@@ -172,13 +175,15 @@ func TestWorkload(t *testing.T) {
 
 		// And if the service changes to no longer select them, we should see them *removed* (not updated)
 		createService(s, "svc1", "default", map[string]string{"app": "nothing"})
-		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod4", "default/svc1.default.svc.cluster.local")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod4")
 	})
 	t.Run("wildcard", func(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
-		s := NewFakeDiscoveryServer(t, FakeOptions{})
-		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		s := NewFakeDiscoveryServer(t, FakeOptions{
+			DebounceTime: time.Millisecond * 100,
+		})
+		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe: []string{"*"},
@@ -206,7 +211,7 @@ func TestWorkload(t *testing.T) {
 
 		// Make service not select workload should also update things
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
-		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2", "default/svc1.default.svc.cluster.local")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
 	})
 }
 
@@ -218,17 +223,17 @@ func deletePod(s *FakeDiscoveryServer, name string) {
 }
 
 func createRBAC(s *FakeDiscoveryServer, name string, ns string) {
-	_, err := s.Env().Create(config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.AuthorizationPolicy,
-			Name:             name,
-			Namespace:        ns,
+	clienttest.NewWriter[*securityclient.AuthorizationPolicy](s.t, s.kubeClient).Create(&securityclient.AuthorizationPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
 		},
-		Spec: &v1beta1.AuthorizationPolicy{},
+		Spec: v1beta1.AuthorizationPolicy{},
 	})
-	if err != nil {
-		s.t.Fatal(err)
-	}
+}
+
+func deleteRBAC(s *FakeDiscoveryServer, name string, ns string) {
+	clienttest.NewWriter[*securityclient.AuthorizationPolicy](s.t, s.kubeClient).Delete(name, ns)
 }
 
 func mkPod(name string, sa string, ip string, node string) *corev1.Pod {
@@ -316,7 +321,7 @@ func TestWorkloadRBAC(t *testing.T) {
 	createRBAC(s, "policy2", "ns")
 	expect(ads.ExpectResponse(), "ns/policy2")
 
-	s.Env().Delete(gvk.AuthorizationPolicy, "policy2", "ns", nil)
+	deleteRBAC(s, "policy2", "ns")
 	expectRemoved(ads.ExpectResponse(), "ns/policy2")
 
 	// Irrelevant update shouldn't push

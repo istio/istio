@@ -29,7 +29,8 @@ import (
 // NewFakeXDS creates a XdsUpdater reporting events via a channel.
 func NewFakeXDS() *Updater {
 	return &Updater{
-		Events: make(chan Event, 100),
+		SplitEvents: false,
+		Events:      make(chan Event, 100),
 	}
 }
 
@@ -46,6 +47,9 @@ type Updater struct {
 	// Events tracks notifications received by the updater
 	Events   chan Event
 	Delegate model.XDSUpdater
+	// If SplitEvents is true, updates changing multiple objects will be split into multiple events with 1 item each
+	// otherwise they are joined as a CSV
+	SplitEvents bool
 }
 
 var _ model.XDSUpdater = &Updater{}
@@ -58,14 +62,27 @@ func (fx *Updater) ConfigUpdate(req *model.PushRequest) {
 		}
 	}
 	sort.Strings(names)
-	id := strings.Join(names, ",")
-	event := "xds"
-	if req.Full {
-		event += " full"
-	}
-	select {
-	case fx.Events <- Event{Type: event, ID: id}:
-	default:
+	if fx.SplitEvents {
+		for _, n := range names {
+			event := "xds"
+			if req.Full {
+				event += " full"
+			}
+			select {
+			case fx.Events <- Event{Type: event, ID: n}:
+			default:
+			}
+		}
+	} else {
+		id := strings.Join(names, ",")
+		event := "xds"
+		if req.Full {
+			event += " full"
+		}
+		select {
+		case fx.Events <- Event{Type: event, ID: id}:
+		default:
+		}
 	}
 	if fx.Delegate != nil {
 		fx.Delegate.ConfigUpdate(req)

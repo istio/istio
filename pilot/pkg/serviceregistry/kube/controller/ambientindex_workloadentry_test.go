@@ -44,7 +44,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
 	s.assertWorkloads(t, s.addrXdsName("127.0.0.1"), workloadapi.WorkloadStatus_HEALTHY, "name1")
 	s.assertWorkloads(t, s.addrXdsName("127.0.0.2"), workloadapi.WorkloadStatus_HEALTHY, "name2")
-	assert.Equal(t, s.lookup(s.addrXdsName("127.0.0.3")), []*model.AddressInfo{{
+	assert.Equal(t, s.lookup(s.addrXdsName("127.0.0.3")), []model.AddressInfo{{
 		Address: &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
 				Workload: &workloadapi.Workload{
@@ -107,8 +107,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	)
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
 	s.assertWorkloads(t, s.addrXdsName("10.0.0.1"), workloadapi.WorkloadStatus_HEALTHY, "name2")
-	s.assertEvent(t, s.wleXdsName("name1"), s.wleXdsName("name2"), s.svcXdsName("svc1"))
-	// assertEvent("127.0.0.2") TODO: This should be the event, but we are not efficient here.
+	s.assertEvent(t, s.wleXdsName("name1"), s.svcXdsName("svc1"))
 
 	// Update an existing WE into the service
 	s.addWorkloadEntries(t, "127.0.0.3", "name3", "sa3", map[string]string{"app": "a", "other": "label"})
@@ -127,7 +126,6 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3")
 	s.assertWorkloads(t, s.addrXdsName("10.0.0.1"), workloadapi.WorkloadStatus_HEALTHY)
 	s.assertEvent(t, s.wleXdsName("name2"), s.svcXdsName("svc1"))
-	assert.Equal(t, len(s.controller.ambientIndex.(*AmbientIndexImpl).byService), 0)
 
 	// Add a waypoint proxy pod for namespace
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
@@ -254,7 +252,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),
 		[]string{"ns1/selector"})
 
-	_ = s.cfg.Delete(gvk.AuthorizationPolicy, "selector", "ns1", nil)
+	s.authz.Delete("selector", "ns1")
 	s.assertEvent(t, s.wleXdsName("name1"), s.wleXdsName("name2"))
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),

@@ -41,21 +41,21 @@ func TestFindWorkloadServices(t *testing.T) {
 		Hostname: "foo.com",
 	}
 
-	a := &model.WorkloadInfo{
+	a := model.WorkloadInfo{
 		Workload: &workloadapi.Workload{
 			Namespace: namespace,
 			Name:      "a",
 		},
 		Labels: map[string]string{"app": "a"},
 	}
-	b := &model.WorkloadInfo{
+	b := model.WorkloadInfo{
 		Workload: &workloadapi.Workload{
 			Namespace: namespace,
 			Name:      "b",
 		},
 		Labels: map[string]string{"app": "b"},
 	}
-	foo := &model.WorkloadInfo{
+	foo := model.WorkloadInfo{
 		Workload: &workloadapi.Workload{
 			Namespace: namespace,
 			Name:      "foo",
@@ -64,22 +64,22 @@ func TestFindWorkloadServices(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		workloads []*model.WorkloadInfo
+		workloads []model.WorkloadInfo
 		want      map[host.Name]*model.Service
 	}{
 		{
 			name:      "no workloads",
-			workloads: []*model.WorkloadInfo{},
+			workloads: []model.WorkloadInfo{},
 			want:      map[host.Name]*model.Service{},
 		},
 		{
 			name:      "not matched",
-			workloads: []*model.WorkloadInfo{b, foo},
+			workloads: []model.WorkloadInfo{b, foo},
 			want:      map[host.Name]*model.Service{},
 		},
 		{
 			name:      "matched",
-			workloads: []*model.WorkloadInfo{a, b, foo},
+			workloads: []model.WorkloadInfo{a, b, foo},
 			want:      map[host.Name]*model.Service{svcA.Hostname: svcA},
 		},
 	}

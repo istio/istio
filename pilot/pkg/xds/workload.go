@@ -173,11 +173,11 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 
 	removed := expected
 	for _, p := range policies {
-		n := p.Namespace + "/" + p.Name
+		n := p.ResourceName()
 		removed.Delete(n) // We found it, so it isn't a removal
 		resources = append(resources, &discovery.Resource{
 			Name:     n,
-			Resource: protoconv.MessageToAny(p),
+			Resource: protoconv.MessageToAny(p.Authorization),
 		})
 	}
 

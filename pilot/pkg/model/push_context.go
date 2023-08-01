@@ -2172,6 +2172,6 @@ func (ps *PushContext) WaypointsFor(scope WaypointScope) []netip.Addr {
 }
 
 // WorkloadsForWaypoint returns all workloads associated with a given WaypointScope
-func (ps *PushContext) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
+func (ps *PushContext) WorkloadsForWaypoint(scope WaypointScope) []WorkloadInfo {
 	return ps.ambientIndex.WorkloadsForWaypoint(scope)
 }
