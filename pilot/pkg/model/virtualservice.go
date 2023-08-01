@@ -322,6 +322,9 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	if delegate.CorsPolicy == nil {
 		delegate.CorsPolicy = root.CorsPolicy
 	}
+	if delegate.Mirrors == nil {
+		delegate.Mirrors = root.Mirrors
+	}
 	if delegate.Headers == nil {
 		delegate.Headers = root.Headers
 	}

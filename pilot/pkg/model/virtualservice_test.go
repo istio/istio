@@ -1809,6 +1809,7 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 			r.Route = nil
 			r.Redirect = nil
 			r.Delegate = nil
+			r.Mirrors = []*networking.HTTPMirrorPolicy{{}}
 		},
 		func(r *networking.HTTPMatchRequest, c fuzz.Continue) {
 			*r = networking.HTTPMatchRequest{}
@@ -1853,6 +1854,9 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 		},
 		func(r *networking.Headers, c fuzz.Continue) {
 			*r = networking.Headers{}
+		},
+		func(r *networking.HTTPMirrorPolicy, c fuzz.Continue) {
+			*r = networking.HTTPMirrorPolicy{}
 		})
 
 	root := &networking.HTTPRoute{}
