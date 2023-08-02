@@ -30,7 +30,7 @@ app.kubernetes.io/name: {{ include "gateway.name" . }}
 
 {{- define "gateway.podLabels" -}}
 {{ include "gateway.selectorLabels" . }}
-{{- range $key, $val := .Values.labels }}
+{{- range $key, $val := merge .Values.podLabels .Values.labels }}
 {{- if not (or (eq $key "app") (eq $key "istio")) }}
 {{ $key | quote }}: {{ $val | quote }}
 {{- end }}

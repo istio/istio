@@ -74,6 +74,9 @@
         }
       }
     },
+    "podLabels": {
+      "type": "object"
+    },
     "replicaCount": {
       "type": [ "integer", "null" ]
     },
