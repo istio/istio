@@ -113,7 +113,7 @@ var (
 		TypedConfig: protoconv.MessageToAny(&reqwithoutquery.ReqWithoutQuery{}),
 	}
 
-	// metadataFormatter configures additional formatters needed for some of the format strings like "METATDATA"
+	// metadataFormatter configures additional formatters needed for some of the format strings like "METADATA"
 	// for more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/formatter/metadata/v3/metadata.proto
 	metadataFormatter = &core.TypedExtensionConfig{
 		Name:        "envoy.formatter.metadata",

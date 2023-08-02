@@ -713,6 +713,9 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 	// Send to Istiod
 	connection.sendRequest(req)
 
+	delay := time.NewTimer(timeout)
+	defer delay.Stop()
+
 	// Wait for expected response or timeout
 	for {
 		select {
@@ -720,7 +723,7 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 			if res.TypeUrl == req.TypeUrl {
 				return res, nil
 			}
-		case <-time.After(timeout):
+		case <-delay.C:
 			return nil, nil
 		}
 	}

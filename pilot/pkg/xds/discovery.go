@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -137,7 +138,7 @@ type DiscoveryServer struct {
 	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
 	ListRemoteClusters func() []cluster.DebugInfo
 
-	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// ClusterAliases are alias names for cluster. When a proxy connects with a cluster ID
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[cluster.ID]cluster.ID
 
@@ -595,7 +596,23 @@ func (s *DiscoveryServer) Clients() []*Connection {
 	return clients
 }
 
-// AllClients returns all connected clients, per Clients, but additionally includes unintialized connections
+// SortedClients returns all currently connected clients in an ordered manner.
+// Sorting order priority is as follows: ClusterID, Namespace, ID.
+func (s *DiscoveryServer) SortedClients() []*Connection {
+	clients := s.Clients()
+	sort.Slice(clients, func(i, j int) bool {
+		if clients[i].proxy.GetClusterID().String() < clients[j].proxy.GetClusterID().String() {
+			return true
+		}
+		if clients[i].proxy.GetNamespace() < clients[j].proxy.GetNamespace() {
+			return true
+		}
+		return clients[i].proxy.GetID() < clients[j].proxy.GetID()
+	})
+	return clients
+}
+
+// AllClients returns all connected clients, per Clients, but additionally includes uninitialized connections
 // Warning: callers must take care not to rely on the con.proxy field being set
 func (s *DiscoveryServer) AllClients() []*Connection {
 	s.adsClientsMutex.RLock()

@@ -112,6 +112,11 @@ func LabelsInRevision(lbls map[string]string, rev string) bool {
 		// This is a global object, and always included
 		return true
 	}
+	// If the revision is empty, this means we don't specify a revision, and
+	// we should always include it
+	if rev == "" {
+		return true
+	}
 	// Otherwise, only return true if revisions equal
 	return configEnv == rev
 }

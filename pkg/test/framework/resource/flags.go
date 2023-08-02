@@ -57,7 +57,7 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "tproxy")
 	}
 	if s.SkipDelta {
-		// TODO we may also want to trigger this if we have an old verion
+		// TODO we may also want to trigger this if we have an old version
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "delta")
 	}
 	// Allow passing a single CSV flag as well

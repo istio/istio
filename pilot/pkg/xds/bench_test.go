@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/sprig/v3"
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
@@ -66,7 +65,11 @@ type ConfigInput struct {
 	Services int
 	// Number of instances to make
 	Instances int
-	// ResourceType of proxy to generate configs for
+	// If set, only run for this config type
+	OnlyRunType string
+	// If set, skip runs for this config type
+	SkipType string
+	// ResourceType of proxy to generate configs for. If not set, sidecar is used
 	ProxyType model.NodeType
 }
 
@@ -86,18 +89,44 @@ var testCases = []ConfigInput{
 		ProxyType: model.Router,
 	},
 	{
-		Name:      "empty",
+		// Knative Gateway simulates a full Knative routing setup. There have been a variety of performance issues and optimizations
+		// around Knative's somewhat abnormal usage, so its good to keep track and measure
+		Name:      "knative-gateway",
 		Services:  100,
-		ProxyType: model.SidecarProxy,
+		ProxyType: model.Router,
+	},
+
+	// Testing different port types
+	{
+		Name:     "http",
+		Services: 100,
+	},
+	{
+		Name:     "tcp",
+		Services: 100,
+		SkipType: v3.RouteType, // no routes for tcp
 	},
 	{
 		Name:     "tls",
 		Services: 100,
+		SkipType: v3.RouteType, // no routes for tls
 	},
 	{
-		Name:     "telemetry",
+		Name:     "auto",
 		Services: 100,
 	},
+
+	// Test different TLS modes. This only impacts listeners
+	{
+		Name:        "strict",
+		OnlyRunType: v3.ListenerType,
+	},
+	{
+		Name:        "disabled",
+		OnlyRunType: v3.ListenerType,
+	},
+
+	// Test usage of various APIs
 	{
 		Name:     "telemetry-api",
 		Services: 100,
@@ -107,35 +136,16 @@ var testCases = []ConfigInput{
 		Services: 100,
 	},
 	{
-		Name:     "authorizationpolicy",
-		Services: 100,
-	},
-	{
-		Name:     "peerauthentication",
-		Services: 100,
-	},
-	{
-		Name:      "knative-gateway",
-		Services:  100,
-		ProxyType: model.Router,
+		Name:        "authorizationpolicy",
+		Services:    100,
+		OnlyRunType: v3.ListenerType,
 	},
 	{
 		Name:      "serviceentry-workloadentry",
 		Services:  100,
 		Instances: 1000,
-		ProxyType: model.SidecarProxy,
 	},
 }
-
-var sidecarTestCases = func() (res []ConfigInput) {
-	for _, c := range testCases {
-		if c.ProxyType == model.Router {
-			continue
-		}
-		res = append(res, c)
-	}
-	return res
-}()
 
 func configureBenchmark(t test.Failer) {
 	for _, s := range istiolog.Scopes() {
@@ -159,28 +169,6 @@ func BenchmarkInitPushContext(b *testing.B) {
 			}
 		})
 	}
-}
-
-// Do a quick sanity tests to make sure telemetry v2 filters are applying. This ensures as they
-// update our benchmark doesn't become useless.
-func TestValidateTelemetry(t *testing.T) {
-	s, proxy := setupAndInitializeTest(t, ConfigInput{Name: "telemetry", Services: 1})
-	c, _, _ := s.Discovery.Generators[v3.ClusterType].Generate(proxy, nil, &model.PushRequest{Full: true, Push: s.PushContext()})
-	if len(c) == 0 {
-		t.Fatal("Got no clusters!")
-	}
-	for _, r := range c {
-		cls := &cluster.Cluster{}
-		if err := r.GetResource().UnmarshalTo(cls); err != nil {
-			t.Fatal(err)
-		}
-		for _, ff := range cls.Filters {
-			if ff.Name == "istio.metadata_exchange" {
-				return
-			}
-		}
-	}
-	t.Fatalf("telemetry v2 filters not found")
 }
 
 func BenchmarkRouteGeneration(b *testing.B) {
@@ -207,12 +195,20 @@ func TestListenerGeneration(t *testing.T) {
 	testBenchmark(t, v3.ListenerType, testCases)
 }
 
+// NDS isn't really impacted by anything beyond number of services, so just run these separately
+var ndsCases = []ConfigInput{
+	{
+		Name:     "tcp",
+		Services: 1000,
+	},
+}
+
 func BenchmarkNameTableGeneration(b *testing.B) {
-	runBenchmark(b, v3.NameTableType, sidecarTestCases)
+	runBenchmark(b, v3.NameTableType, ndsCases)
 }
 
 func TestNameTableGeneration(t *testing.T) {
-	testBenchmark(t, v3.NameTableType, sidecarTestCases)
+	testBenchmark(t, v3.NameTableType, ndsCases)
 }
 
 var secretCases = []ConfigInput{
@@ -300,6 +296,13 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 func runBenchmark(b *testing.B, tpe string, testCases []ConfigInput) {
 	configureBenchmark(b)
 	for _, tt := range testCases {
+		if tt.OnlyRunType != "" && tt.OnlyRunType != tpe {
+			// Not applicable for this type
+			continue
+		}
+		if tt.SkipType != "" && tt.SkipType == tpe {
+			continue
+		}
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
 			wr := getWatchedResources(tpe, tt, s, proxy)
@@ -318,6 +321,13 @@ func runBenchmark(b *testing.B, tpe string, testCases []ConfigInput) {
 
 func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 	for _, tt := range testCases {
+		if tt.OnlyRunType != "" && tt.OnlyRunType != tpe {
+			// Not applicable for this type
+			continue
+		}
+		if tt.SkipType != "" && tt.SkipType == tpe {
+			continue
+		}
 		t.Run(tt.Name, func(t *testing.T) {
 			// No need for large test here
 			tt.Services = 1

@@ -1083,7 +1083,7 @@ func TestEndpointsDeduping(t *testing.T) {
 // TestEndpointSlicingServiceUpdate is a regression test to ensure we do not end up with duplicate endpoints when a service changes.
 func TestEndpointSlicingServiceUpdate(t *testing.T) {
 	for _, version := range []string{"latest", "20"} {
-		t.Run("kuberentes 1."+version, func(t *testing.T) {
+		t.Run("kubernetes 1."+version, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 				KubernetesVersion:    version,
 				EnableFakeXDSUpdater: true,

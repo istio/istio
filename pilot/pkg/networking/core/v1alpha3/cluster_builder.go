@@ -218,7 +218,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 
 	if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
 		subsetCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-			string(service.Hostname), subset.Name, opts.port, &service.Attributes)
+			string(service.Hostname), subset.Name, opts.port, 0, &service.Attributes)
 	}
 
 	// Apply traffic policy for subset cluster with the destination rule traffic policy.
@@ -290,6 +290,11 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 
 	if destRule != nil {
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
+
+		// ALPN header rewrite starts Istio-managed mTLS. Skip if TLS mode is SIMPLE or MUTUAL
+		if trafficPolicy.GetTls() != nil {
+			mc.cluster.Metadata = configureALPNOverride(trafficPolicy.Tls.Mode, mc.cluster.Metadata)
+		}
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.GetSubsets() {
@@ -423,7 +428,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		opts.meshExternal = service.MeshExternal
 	}
 
-	cb.setUpstreamProtocol(ec, port, direction)
+	cb.setUpstreamProtocol(ec, port)
 	addTelemetryMetadata(opts, service, direction, inboundServices)
 	return ec
 }
@@ -458,7 +463,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", instance.Port.ServicePort, &instance.Service.Attributes)
+			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort, &instance.Service.Attributes)
 	}
 
 	opts := buildClusterOpts{
@@ -1268,7 +1273,7 @@ func (cb *ClusterBuilder) isHttp2Cluster(mc *MutableCluster) bool {
 	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil
 }
 
-func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Port, direction model.TrafficDirection) {
+func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
 		cb.setH2Options(mc)
 		return
@@ -1282,8 +1287,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Po
 	// h2. Clients would then connect with h2, while the upstream may not support it. This is not a
 	// concern for plaintext, but we do not have a way to distinguish https vs http here. If users of
 	// gateway want this behavior, they can configure UseClientProtocol explicitly.
-	if cb.sidecarProxy() && ((util.IsProtocolSniffingEnabledForInboundPort(port) && direction == model.TrafficDirectionInbound) ||
-		(util.IsProtocolSniffingEnabledForOutboundPort(port) && direction == model.TrafficDirectionOutbound)) {
+	if cb.sidecarProxy() && port.Protocol.IsUnsupported() {
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
@@ -1446,4 +1450,14 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 		},
 	}
 	return c
+}
+
+// configureALPNOverride determines whether alpn_override should be added to metadata
+func configureALPNOverride(tlsMode networking.ClientTLSSettings_TLSmode, md *core.Metadata) *core.Metadata {
+	alpnOverride := (tlsMode != networking.ClientTLSSettings_SIMPLE) && (tlsMode != networking.ClientTLSSettings_MUTUAL)
+	// Only write to metadata if alpnOverride is false
+	if !alpnOverride {
+		return util.AddALPNOverrideToMetadata(md, alpnOverride)
+	}
+	return md
 }

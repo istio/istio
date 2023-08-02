@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Updated** When using a ServiceEntry with DNS resolution, DNS for multi-network gateways 
+    will be resolved at the proxy instead of in the control plane. 

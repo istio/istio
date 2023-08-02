@@ -123,8 +123,8 @@ func TestGatewayHostnames(t *testing.T) {
 				return len(env.NetworkManager.AllGateways()) == 0
 			}, retry.Timeout(2*time.Duration(ttl)*time.Second))
 			xdsUpdater.WaitOrFail(t, "xds full")
-			if !env.NetworkManager.IsMultiNetworkEnabled() {
-				t.Fatalf("multi network is not enabled")
+			if env.NetworkManager.IsMultiNetworkEnabled() {
+				t.Fatalf("multi network should not be enabled when there are no gateways")
 			}
 		})
 

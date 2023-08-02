@@ -284,3 +284,16 @@ func TestAmbientIndex_EmptyAddrWorkloadEntries(t *testing.T) {
 		len(s.lookup(s.addrXdsName(""))),
 		0) // cannot lookup these workloads by address
 }
+
+func TestAmbientIndex_UpdateExistingWorkloadEntry(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, testC, testNW)
+	s.addWorkloadEntries(t, "", "emptyaddr1", "sa1", map[string]string{"app": "a"})
+	s.assertEvent(t, s.wleXdsName("emptyaddr1"))
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "emptyaddr1")
+
+	// update service account for existing WE and expect a new xds event
+	s.addWorkloadEntries(t, "", "emptyaddr1", "sa2", map[string]string{"app": "a"})
+	s.assertEvent(t, s.wleXdsName("emptyaddr1"))
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "emptyaddr1")
+}

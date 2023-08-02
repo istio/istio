@@ -86,6 +86,10 @@ const (
 	// Envoy Stateful Session Filter
 	// TODO: Move to well known.
 	StatefulSessionFilter = "envoy.filters.http.stateful_session"
+
+	// AlpnOverrideMetadataKey is the key under which metadata is added
+	// to indicate whether Istio rewrite the ALPN headers
+	AlpnOverrideMetadataKey = "alpn_override"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -185,7 +189,7 @@ func BuildAddress(bind string, port uint32) *core.Address {
 // BuildAdditionalAddresses can add extra addresses to additional addresses for a listener
 func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *model.Proxy) []*listener.AdditionalAddress {
 	var additionalAddresses []*listener.AdditionalAddress
-	if len(extrAddresses) > 0 && IsIstioVersionGE116(node.IstioVersion) {
+	if len(extrAddresses) > 0 {
 		for _, exbd := range extrAddresses {
 			if exbd == "" {
 				continue
@@ -229,28 +233,10 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE116 checks whether the given Istio version is greater than or equals 1.16.
-func IsIstioVersionGE116(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 16, Patch: -1}) >= 0
-}
-
 // IsIstioVersionGE117 checks whether the given Istio version is greater than or equals 1.17.
 func IsIstioVersionGE117(version *model.IstioVersion) bool {
 	return version == nil ||
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 17, Patch: -1}) >= 0
-}
-
-func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForInbound && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
@@ -411,6 +397,30 @@ func AddSubsetToMetadata(md *core.Metadata, subset string) {
 	}
 }
 
+// AddALPNOverrideToMetadata adds whether the the ALPN prefix should be added to the header
+// to the given core.Metadata struct, if metadata is not initialized, build a new metadata.
+func AddALPNOverrideToMetadata(metadata *core.Metadata, alpnOverride bool) *core.Metadata {
+	if metadata == nil {
+		metadata = &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{},
+		}
+	}
+
+	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
+		metadata.FilterMetadata[IstioMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
+		}
+	}
+
+	metadata.FilterMetadata[IstioMetadataKey].Fields["alpn_override"] = &structpb.Value{
+		Kind: &structpb.Value_StringValue{
+			StringValue: strconv.FormatBool(alpnOverride),
+		},
+	}
+
+	return metadata
+}
+
 // IsHTTPFilterChain returns true if the filter chain contains a HTTP connection manager filter
 func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 	for _, f := range filterChain.Filters {
@@ -470,7 +480,7 @@ func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetada
 	// Add compressed telemetry metadata. Note this is a short term solution to make server workload metadata
 	// available at client sidecar, so that telemetry filter could use for metric labels. This is useful for two cases:
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
-	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
+	// Due to performance concern, telemetry metadata is compressed into a semicolon separated string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
 	if features.EndpointTelemetryLabel {
 		// allow defaulting for non-injected cases

@@ -173,18 +173,6 @@ var (
 		false,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy").Get()
 
-	EnableProtocolSniffingForOutbound = env.Register(
-		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
-		true,
-		"If enabled, protocol sniffing will be used for outbound listeners whose port protocol is not specified or unsupported",
-	).Get()
-
-	EnableProtocolSniffingForInbound = env.Register(
-		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
-		true,
-		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
-	).Get()
-
 	ScopeGatewayToNamespace = env.Register(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,
@@ -673,6 +661,12 @@ var (
 
 	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
 		"If enabled, pilot will only rebuild config for resources that have changed").Get()
+
+	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
+		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
+
+	JwksResolverInsecureSkipVerify = env.Register("JWKS_RESOLVER_INSECURE_SKIP_VERIFY", false,
+		"If enabled, istiod will skip verifying the certificate of the JWKS server.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

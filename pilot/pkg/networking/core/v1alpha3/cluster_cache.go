@@ -41,6 +41,7 @@ type clusterCache struct {
 	locality       *core.Locality // identifies the locality the cluster is generated for
 	proxyClusterID string         // identifies the kubernetes cluster a proxy is in
 	proxySidecar   bool           // identifies if this proxy is a Sidecar
+	hbone          bool
 	proxyView      model.ProxyView
 	metadataCerts  *metadataCerts // metadata certificates of proxy
 
@@ -80,6 +81,8 @@ func (t *clusterCache) Key() any {
 	h.Write([]byte(strconv.FormatBool(t.downstreamAuto)))
 	h.Write(Separator)
 	h.Write([]byte(strconv.FormatBool(t.supportsIPv4)))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(t.hbone)))
 	h.Write(Separator)
 
 	if t.proxyView != nil {
@@ -171,8 +174,9 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		proxyClusterID:  cb.clusterID,
 		proxySidecar:    cb.sidecarProxy(),
 		proxyView:       cb.proxyView,
+		hbone:           cb.hbone,
 		http2:           port.Protocol.IsHTTP2(),
-		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
+		downstreamAuto:  cb.sidecarProxy() && port.Protocol.IsUnsupported(),
 		supportsIPv4:    cb.supportsIPv4,
 		service:         service,
 		destinationRule: proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname),

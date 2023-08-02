@@ -107,7 +107,7 @@ func TestDependentConfigs(t *testing.T) {
 			},
 		},
 		{
-			name: "singe parent",
+			name: "single parent",
 			r: Cache{
 				VirtualServices: []config.Config{
 					{

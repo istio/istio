@@ -1,6 +1,6 @@
 # External Services
 
-By default Istio-enabled services are unable to access services and URLs outside of the cluster. Pods use <i>iptables</i> to transparently redirect all outbound traffic to the sidecar proxy, which only handles intra-cluster destinations.
+By default, Istio-enabled services are unable to access services and URLs outside the cluster. Pods use <i>iptables</i> to transparently redirect all outbound traffic to the sidecar proxy, which only handles intra-cluster destinations.
 
 See [the Egress Task](https://istio.io/docs/tasks/traffic-management/egress/) for
 information on configuring Istio to contact external services.

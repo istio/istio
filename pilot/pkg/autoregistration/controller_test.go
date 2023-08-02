@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -286,8 +287,8 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 			Namespace:        proxy.Metadata.Namespace,
 			Labels:           wantLabels,
 			Annotations: map[string]string{
-				AutoRegistrationGroupAnnotation: group.Name,
-				"foo":                           "bar",
+				annotation.IoIstioAutoRegistrationGroup.Name: group.Name,
+				"foo": "bar",
 			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion: group.GroupVersionKind.GroupVersion(),
@@ -411,11 +412,11 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldBeTreatedAsCon
 			if wle == nil {
 				t.Fatalf("WorkloadEntry %s/%s must exist", we.Namespace, we.Name)
 			}
-			if diff := cmp.Diff("pilot-x", wle.Annotations[WorkloadControllerAnnotation]); diff != "" {
-				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", WorkloadControllerAnnotation, diff)
+			if diff := cmp.Diff("pilot-x", wle.Annotations[annotation.IoIstioWorkloadController.Name]); diff != "" {
+				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", annotation.IoIstioWorkloadController.Name, diff)
 			}
-			if diff := cmp.Diff(now.Format(time.RFC3339Nano), wle.Annotations[ConnectedAtAnnotation]); diff != "" {
-				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", ConnectedAtAnnotation, diff)
+			if diff := cmp.Diff(now.Format(time.RFC3339Nano), wle.Annotations[annotation.IoIstioConnectedAt.Name]); diff != "" {
+				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", annotation.IoIstioConnectedAt.Name, diff)
 			}
 		})
 	}
@@ -627,13 +628,13 @@ func checkEntry(
 
 	// check controller annotations
 	if connectedTo != "" {
-		if v := cfg.Annotations[WorkloadControllerAnnotation]; v != connectedTo {
+		if v := cfg.Annotations[annotation.IoIstioWorkloadController.Name]; v != connectedTo {
 			err = multierror.Append(err, fmt.Errorf("expected WorkloadEntry to be updated by %s; got %s", connectedTo, v))
 		}
-		if _, ok := cfg.Annotations[ConnectedAtAnnotation]; !ok {
+		if _, ok := cfg.Annotations[annotation.IoIstioConnectedAt.Name]; !ok {
 			err = multierror.Append(err, fmt.Errorf("expected connection timestamp to be set"))
 		}
-	} else if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
+	} else if _, ok := cfg.Annotations[annotation.IoIstioDisconnectedAt.Name]; !ok {
 		err = multierror.Append(err, fmt.Errorf("expected disconnection timestamp to be set"))
 	}
 
@@ -745,7 +746,7 @@ func checkEntryDisconnected(store model.ConfigStoreController, we config.Config)
 	if cfg == nil {
 		return fmt.Errorf("expected WorkloadEntry %s/%s to exist", we.Namespace, we.Name)
 	}
-	if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
+	if _, ok := cfg.Annotations[annotation.IoIstioDisconnectedAt.Name]; !ok {
 		return fmt.Errorf("expected disconnection timestamp to be set on WorkloadEntry %s/%s: %#v", we.Namespace, we.Name, cfg)
 	}
 	return nil
@@ -761,13 +762,13 @@ func checkNonAutoRegisteredEntryOrFail(t test.Failer, store model.ConfigStoreCon
 
 	// check controller annotations
 	if connectedTo != "" {
-		if v := cfg.Annotations[WorkloadControllerAnnotation]; v != connectedTo {
+		if v := cfg.Annotations[annotation.IoIstioWorkloadController.Name]; v != connectedTo {
 			t.Fatalf("expected WorkloadEntry to be updated by %s; got %s", connectedTo, v)
 		}
-		if _, ok := cfg.Annotations[ConnectedAtAnnotation]; !ok {
+		if _, ok := cfg.Annotations[annotation.IoIstioConnectedAt.Name]; !ok {
 			t.Fatalf("expected connection timestamp to be set")
 		}
-	} else if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
+	} else if _, ok := cfg.Annotations[annotation.IoIstioDisconnectedAt.Name]; !ok {
 		t.Fatalf("expected disconnection timestamp to be set")
 	}
 }
@@ -811,7 +812,7 @@ func fakeNode(r, z, sz string) *core.Node {
 	}
 }
 
-// createOrFail wraps config creation with convience for failing tests
+// createOrFail wraps config creation with convenience for failing tests
 func createOrFail(t test.Failer, store model.ConfigStoreController, cfg config.Config) {
 	if _, err := store.Create(cfg); err != nil {
 		t.Fatalf("failed creating %s/%s: %v", cfg.Namespace, cfg.Name, err)

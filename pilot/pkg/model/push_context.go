@@ -618,25 +618,11 @@ var (
 		"Endpoint found in unready state.",
 	)
 
-	// ProxyStatusConflictOutboundListenerTCPOverHTTP metric tracks number of
-	// wildcard TCP listeners that conflicted with existing wildcard HTTP listener on same port
-	ProxyStatusConflictOutboundListenerTCPOverHTTP = monitoring.NewGauge(
-		"pilot_conflict_outbound_listener_tcp_over_current_http",
-		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
-	)
-
 	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
 	// TCP listeners that conflicted with existing TCP listeners on same port
 	ProxyStatusConflictOutboundListenerTCPOverTCP = monitoring.NewGauge(
 		"pilot_conflict_outbound_listener_tcp_over_current_tcp",
 		"Number of conflicting tcp listeners with current tcp listener.",
-	)
-
-	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
-	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
-	ProxyStatusConflictOutboundListenerHTTPOverTCP = monitoring.NewGauge(
-		"pilot_conflict_outbound_listener_http_over_current_tcp",
-		"Number of conflicting wildcard http listeners with current wildcard tcp listener.",
 	)
 
 	// ProxyStatusConflictInboundListener tracks cases of multiple inbound
@@ -695,9 +681,7 @@ var (
 		EndpointNoPod,
 		ProxyStatusNoService,
 		ProxyStatusEndpointNotReady,
-		ProxyStatusConflictOutboundListenerTCPOverHTTP,
 		ProxyStatusConflictOutboundListenerTCPOverTCP,
-		ProxyStatusConflictOutboundListenerHTTPOverTCP,
 		ProxyStatusConflictInboundListener,
 		DuplicatedClusters,
 		ProxyStatusClusterNoInstances,
@@ -1932,8 +1916,9 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[ConfigKey], previousIndex map[string][]*EnvoyFilterWrapper) {
 	envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
-	previous := make(map[ConfigKey]*EnvoyFilterWrapper)
+	var previous map[ConfigKey]*EnvoyFilterWrapper
 	if features.OptimizedConfigRebuild {
+		previous = make(map[ConfigKey]*EnvoyFilterWrapper)
 		for namespace, nsEnvoyFilters := range previousIndex {
 			for _, envoyFilter := range nsEnvoyFilters {
 				previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
@@ -1960,16 +1945,16 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 	})
 
 	for _, envoyFilterConfig := range envoyFilterConfigs {
-		key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
 		var efw *EnvoyFilterWrapper
-		if changed.Contains(key) {
-			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
-		} else if prev, ok := previous[key]; ok && features.OptimizedConfigRebuild {
-			// reuse the previously EnvoyFilterWrapper if it exists because it hasn't changed and optimized config rebuild is enabled
-			efw = prev
-		} else {
-			// create a new one if optimized config rebuild is disabled or the EnvoyFilterWrapper doesn't exist. The latter case should probably
-			// never happen, but we need to handle it just in case.
+		if features.OptimizedConfigRebuild {
+			key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
+			if prev, ok := previous[key]; ok && !changed.Contains(key) {
+				// Reuse the previous EnvoyFilterWrapper if it exists and hasn't changed when optimized config rebuild is enabled
+				efw = prev
+			}
+		}
+		// Rebuild the envoy filter in all other cases.
+		if efw == nil {
 			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
 		}
 		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)

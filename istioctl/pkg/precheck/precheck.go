@@ -59,10 +59,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var skipControlPlane bool
 	outputThreshold := formatting.MessageThreshold{Level: diag.Warning}
+	var msgOutputFormat string
 	// cmd represents the upgradeCheck command
 	cmd := &cobra.Command{
 		Use:   "precheck",
-		Short: "Check whether Istio can safely be installed or upgrade",
+		Short: "Check whether Istio can safely be installed or upgraded",
 		Long:  `precheck inspects a Kubernetes cluster for Istio install and upgrade requirements.`,
 		Example: `  # Verify that Istio can be installed or upgraded
   istioctl x precheck
@@ -95,7 +96,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					outputMsgs = append(outputMsgs, m)
 				}
 			}
-			output, err := formatting.Print(outputMsgs, formatting.LogFormat, false)
+			output, err := formatting.Print(msgs, msgOutputFormat, false)
 			if err != nil {
 				return err
 			}
@@ -119,6 +120,8 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 	cmd.PersistentFlags().BoolVar(&skipControlPlane, "skip-controlplane", false, "skip checking the control plane")
 	cmd.PersistentFlags().Var(&outputThreshold, "output-threshold",
 		fmt.Sprintf("The severity level of precheck at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
+	cmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", formatting.LogFormat,
+		fmt.Sprintf("Output format: one of %v", formatting.MsgOutputFormatKeys))
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }

@@ -17,7 +17,28 @@ package slices
 import (
 	"reflect"
 	"testing"
+
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/tests/util/leak"
 )
+
+func TestDelete(t *testing.T) {
+	type s struct {
+		Junk string
+	}
+	var input []*s
+	var output []*s
+	t.Run("inner", func(t *testing.T) {
+		a := &s{"a"}
+		b := &s{"b"}
+		// Check that we can garbage collect elements when we delete them.
+		leak.MustGarbageCollect(t, b)
+		input = []*s{a, b}
+		output = Delete(input, 1)
+	})
+	assert.Equal(t, output, []*s{{"a"}})
+	assert.Equal(t, input, []*s{{"a"}, nil})
+}
 
 func TestFindFunc(t *testing.T) {
 	emptyElement := []string{}

@@ -27,6 +27,7 @@ import (
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -251,7 +252,7 @@ type outboundListenerEntry struct {
 }
 
 func protocolName(p protocol.Instance) string {
-	switch istionetworking.ModelProtocolToListenerProtocol(p, core.TrafficDirection_OUTBOUND) {
+	switch istionetworking.ModelProtocolToListenerProtocol(p) {
 	case istionetworking.ListenerProtocolHTTP:
 		return "HTTP"
 	case istionetworking.ListenerProtocolTCP:
@@ -633,7 +634,6 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	*listenerMapKey = listenerOpts.bind + ":" + strconv.Itoa(listenerOpts.port.Port)
 
 	var exists bool
-	sniffingEnabled := features.EnableProtocolSniffingForOutbound
 
 	// Have we already generated a listener for this Port based on user
 	// specified listener ports? if so, we should not add any more HTTP
@@ -661,26 +661,6 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 		if (*currentListenerEntry).locked {
 			return false, nil
 		}
-
-		if !sniffingEnabled {
-			if listenerOpts.service != nil {
-				if !(*currentListenerEntry).servicePort.Protocol.IsHTTP() {
-					outboundListenerConflict{
-						metric:          model.ProxyStatusConflictOutboundListenerTCPOverHTTP,
-						node:            listenerOpts.proxy,
-						listenerName:    *listenerMapKey,
-						currentServices: (*currentListenerEntry).services,
-						currentProtocol: (*currentListenerEntry).servicePort.Protocol,
-						newHostname:     listenerOpts.service.Hostname,
-						newProtocol:     listenerOpts.port.Protocol,
-					}.addMetric(listenerOpts.push)
-				}
-
-				// Skip building listener for the same http port
-				(*currentListenerEntry).services = append((*currentListenerEntry).services, listenerOpts.service)
-			}
-			return false, nil
-		}
 	}
 
 	// No conflicts. Add a http filter chain option to the listenerOpts
@@ -688,8 +668,7 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	if listenerOpts.port.Port == 0 {
 		rdsName = listenerOpts.bind // use the UDS as a rds name
 	} else {
-		if listenerProtocol == istionetworking.ListenerProtocolAuto &&
-			sniffingEnabled && listenerOpts.bind != actualWildcard && listenerOpts.service != nil {
+		if listenerProtocol == istionetworking.ListenerProtocolAuto && listenerOpts.bind != actualWildcard && listenerOpts.service != nil {
 			rdsName = string(listenerOpts.service.Hostname) + ":" + strconv.Itoa(listenerOpts.port.Port)
 		} else {
 			rdsName = strconv.Itoa(listenerOpts.port.Port)
@@ -787,46 +766,6 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 		if (*currentListenerEntry).locked {
 			return false, nil
 		}
-
-		if !features.EnableProtocolSniffingForOutbound {
-			// Check for port collisions between TCP/TLS and HTTP (or unknown). If
-			// configured correctly, TCP/TLS ports may not collide. We'll
-			// need to do additional work to find out if there is a
-			// collision within TCP/TLS.
-			// If the service port was defined as unknown. It will conflict with all other
-			// protocols.
-			if !(*currentListenerEntry).servicePort.Protocol.IsTCP() {
-				// NOTE: While pluginParams.Service can be nil,
-				// this code cannot be reached if Service is nil because a pluginParams.Service can be nil only
-				// for user defined Egress listeners with ports. And these should occur in the API before
-				// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
-				// User is also not allowed to add duplicate ports in the egress listener
-				var newHostname host.Name
-				if listenerOpts.service != nil {
-					newHostname = listenerOpts.service.Hostname
-				} else {
-					// user defined outbound listener via sidecar API
-					newHostname = "sidecar-config-egress-http-listener"
-				}
-
-				// We have a collision with another TCP port. This can happen
-				// for headless services, or non-k8s services that do not have
-				// a VIP, or when we have two binds on a unix domain socket or
-				// on same IP.  Unfortunately we won't know if this is a real
-				// conflict or not until we process the VirtualServices, etc.
-				// The conflict resolution is done later in this code
-				outboundListenerConflict{
-					metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
-					node:            listenerOpts.proxy,
-					listenerName:    *listenerMapKey,
-					currentServices: (*currentListenerEntry).services,
-					currentProtocol: (*currentListenerEntry).servicePort.Protocol,
-					newHostname:     newHostname,
-					newProtocol:     listenerOpts.port.Protocol,
-				}.addMetric(listenerOpts.push)
-				return false, nil
-			}
-		}
 	}
 
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
@@ -853,9 +792,8 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 
 	conflictType := NoConflict
 
-	outboundSniffingEnabled := features.EnableProtocolSniffingForOutbound
 	listenerPortProtocol := listenerOpts.port.Protocol
-	listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(listenerOpts.port.Protocol, core.TrafficDirection_OUTBOUND)
+	listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(listenerOpts.port.Protocol)
 
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if listenerPortProtocol == protocol.HTTP_PROXY {
@@ -873,7 +811,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 			}
 
 			// Check if conflict happens
-			if outboundSniffingEnabled && currentListenerEntry != nil {
+			if currentListenerEntry != nil {
 				// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
 				// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
 				if currentListenerEntry.protocol.IsHTTP() {
@@ -894,25 +832,23 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 			// Since application protocol filter chain match has been added to the http filter chain, a fall through filter chain will be
 			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
 			// HTTP services, which can happen when a pod accesses a non registry service.
-			if outboundSniffingEnabled {
-				if listenerOpts.bind == actualWildcard {
-					for _, opt := range opts {
-						if opt.match == nil {
-							opt.match = &listener.FilterChainMatch{}
-						}
-
-						// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-						opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
-						opt.match.TransportProtocol = xdsfilters.RawBufferTransportProtocol
+			if listenerOpts.bind == actualWildcard {
+				for _, opt := range opts {
+					if opt.match == nil {
+						opt.match = &listener.FilterChainMatch{}
 					}
 
-					listenerOpts.needHTTPInspector = true
-
-					// if we have a tcp fallthrough filter chain, this is no longer an HTTP listener - it
-					// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
-					// inspection to route between them
-					listenerPortProtocol = protocol.Unsupported
+					// Support HTTP/1.0, HTTP/1.1 and HTTP/2
+					opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
+					opt.match.TransportProtocol = xdsfilters.RawBufferTransportProtocol
 				}
+
+				listenerOpts.needHTTPInspector = true
+
+				// if we have a tcp fallthrough filter chain, this is no longer an HTTP listener - it
+				// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
+				// inspection to route between them
+				listenerPortProtocol = protocol.Unsupported
 			}
 			listenerOpts.filterChainOpts = opts
 
@@ -923,7 +859,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 			}
 
 			// Check if conflict happens
-			if outboundSniffingEnabled && currentListenerEntry != nil {
+			if currentListenerEntry != nil {
 				// Build TCP listener. If current listener entry is using HTTP, add a new TCP filter chain
 				// If current listener is using protocol sniffing, merge the TCP filter chains.
 				if currentListenerEntry.protocol.IsHTTP() {
@@ -1286,13 +1222,14 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
-			Name:                    getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
-			Address:                 util.BuildAddress(opts.bind, uint32(opts.port.Port)),
-			TrafficDirection:        trafficDirection,
-			ListenerFilters:         listenerFilters,
-			FilterChains:            filterChains,
-			BindToPort:              bindToPort,
-			ConnectionBalanceConfig: connectionBalance,
+			Name:                             getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
+			Address:                          util.BuildAddress(opts.bind, uint32(opts.port.Port)),
+			TrafficDirection:                 trafficDirection,
+			ListenerFilters:                  listenerFilters,
+			FilterChains:                     filterChains,
+			BindToPort:                       bindToPort,
+			ConnectionBalanceConfig:          connectionBalance,
+			ContinueOnListenerFiltersTimeout: true,
 		}
 		// add extra addresses for the listener
 		if features.EnableDualStack && len(opts.extraBind) > 0 {
@@ -1301,9 +1238,6 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 
 		if opts.proxy.Type != model.Router {
 			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
-			if res.ListenerFiltersTimeout != nil {
-				res.ContinueOnListenerFiltersTimeout = true
-			}
 		}
 	case istionetworking.TransportProtocolQUIC:
 		// TODO: switch on TransportProtocolQUIC is in too many places now. Once this is a bit
@@ -1323,6 +1257,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				QuicOptions:            &listener.QuicProtocolOptions{},
 				DownstreamSocketConfig: &core.UdpSocketConfig{},
 			},
+			ContinueOnListenerFiltersTimeout: true,
 		}
 		// add extra addresses for the listener
 		if features.EnableDualStack && len(opts.extraBind) > 0 {
@@ -1673,8 +1608,7 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 		}
 
 		if !hasHTTPInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
-			l.ListenerFiltersTimeout = nil
-			l.ContinueOnListenerFiltersTimeout = false
+			l.ListenerFiltersTimeout = durationpb.New(0)
 		}
 	}
 }
