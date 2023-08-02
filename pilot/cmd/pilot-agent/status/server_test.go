@@ -72,9 +72,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	segments := strings.Split(r.URL.Path[1:], "/")
 	switch segments[0] {
 	case "header":
-		// The host must have the port number appended.
 		if r.Host != testHostValue {
-			log.Errorf("Missing expected host header, got %v", r.Host)
+			log.Errorf("Missing expected host value %s, got %v", testHostValue, r.Host)
 			w.WriteHeader(http.StatusBadRequest)
 		}
 		if r.Header.Get(testHeader) != testHeaderValue {
@@ -910,7 +909,8 @@ func TestAppProbe(t *testing.T) {
 				}
 			}
 		}
-		// This is simulating the kubelet behavior of setting the Host header to Header["Host"].
+		// This is simulating the kubelet behavior of setting the Host to Header["Host"].
+		// https://github.com/kubernetes/kubernetes/blob/d3b7391dc2f1040083ee2a8bfcb02edf7b0ded4b/pkg/probe/http/request.go#L84C1-L84C1
 		req.Host = req.Header.Get("Host")
 		resp, err := client.Do(req)
 		if err != nil {
