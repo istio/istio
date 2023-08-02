@@ -54,31 +54,31 @@ of Pilot replicas is a component setting, because it refers to a component which
 cluster. Most K8s platform settings are necessarily component settings.
 The available features and the components that comprise each feature are as follows:
 
-| Feature | Components |
-|---------|------------|
-CRDs, and other cluster wide configs | Base
-Traffic Management | Pilot
-Security | Pilot
-Configuration management | Pilot
-AutoInjection | Pilot
-Gateways | Ingress gateway
-Gateways | Egress gateway
-Policy | Policy (deprecated)
-Telemetry | Telemetry (deprecated)
+| Feature                              | Components             |
+|--------------------------------------|------------------------|
+| CRDs, and other cluster wide configs | Base                   |
+| Traffic Management                   | Pilot                  |
+| Security                             | Pilot                  |
+| Configuration management             | Pilot                  |
+| AutoInjection                        | Pilot                  |
+| Gateways                             | Ingress gateway        |
+| Gateways                             | Egress gateway         |
+| Policy                               | Policy (deprecated)    |
+| Telemetry                            | Telemetry (deprecated) |
 
 Features and components are defined in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L44) package.
 
 Note: Besides the features and the components listed in the table above, some addon features and components are as follows:
 
-| Feature | Components |
-|---------|------------|
-Telemetry | Prometheus
-Telemetry | Prometheus Operator
-Telemetry | Grafana
-Telemetry | Kiali
-Telemetry | Tracing
-ThirdParty | CNI
+| Feature    | Components          |
+|------------|---------------------|
+| Telemetry  | Prometheus          |
+| Telemetry  | Prometheus Operator |
+| Telemetry  | Grafana             |
+| Telemetry  | Kiali               |
+| Telemetry  | Tracing             |
+| ThirdParty | CNI                 |
 
 ### Namespaces
 
@@ -108,9 +108,9 @@ spec:
 
 the resulting namespaces will be:
 
-| Component | Namespace |
-| --------- | :-------- |
-ingressGateways | istio-gateways
+| Component       | Namespace      |
+|-----------------|:---------------|
+| ingressGateways | istio-gateways |
 
 These rules are expressed in code in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L246) package.
@@ -137,21 +137,21 @@ Rather than defining selective mappings from parameters to fields in K8s resourc
 contains a consistent K8s block for each Istio component. The available K8s settings are defined in
 [KubernetesResourcesSpec](https://github.com/istio/api/blob/7791470ecc4c5e123589ff2b781f47b1bcae6ddd/mesh/v1alpha1/component.proto#L103):
 
-| Field name | K8s API reference |
-| :--------- | :---------------- |
-resources | [resources](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container)
-readinessProbe | [readiness probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/)
-replicaCount | [replica count](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
-hpaSpec | [HorizontalPodAutoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
-podDisruptionBudget | [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work)
-podAnnotations | [pod annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
-env | [container environment variables](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/)
-imagePullPolicy| [ImagePullPolicy](https://kubernetes.io/docs/concepts/containers/images/)
-priorityClassName | [priority class name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)
-nodeSelector| [node selector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
-affinity | [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)
-serviceAnnotations | [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
-securityContext | [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)
+| Field name          | K8s API reference                                                                                                                                    |
+|:--------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| resources           | [resources](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) |
+| readinessProbe      | [readiness probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/)                                    |
+| replicaCount        | [replica count](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)                                                               |
+| hpaSpec             | [HorizontalPodAutoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)                                                |
+| podDisruptionBudget | [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work)                                   |
+| podAnnotations      | [pod annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)                                                    |
+| env                 | [container environment variables](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/)                   |
+| imagePullPolicy     | [ImagePullPolicy](https://kubernetes.io/docs/concepts/containers/images/)                                                                            |
+| priorityClassName   | [priority class name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)                                      |
+| nodeSelector        | [node selector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)                                                     |
+| affinity            | [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)                          |
+| serviceAnnotations  | [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)                                                |
+| securityContext     | [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)                    |
 
 These K8s setting are available for each component under the `k8s` field, for example:
 
