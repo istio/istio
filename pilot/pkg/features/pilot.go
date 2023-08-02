@@ -499,12 +499,6 @@ var (
 	WorkloadEntryCrossCluster = env.Register("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
-	EnableDestinationRuleInheritance = env.Register(
-		"PILOT_ENABLE_DESTINATION_RULE_INHERITANCE",
-		false,
-		"If set, workload specific DestinationRules will inherit configurations settings from mesh and namespace level rules",
-	).Get()
-
 	WasmRemoteLoadConversion = env.Register("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
 		"If enabled, Istio agent will intercept ECDS resource update, downloads Wasm module, "+
 			"and replaces Wasm module remote load with downloaded local module file.").Get()

@@ -665,32 +665,9 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			return nil, fmt.Errorf("cannot cast to destination rule")
 		}
 		v := Validation{}
-		if features.EnableDestinationRuleInheritance {
-			if rule.Host == "" {
-				if rule.GetWorkloadSelector() != nil {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have workloadSelector configured"))
-				}
-				if len(rule.Subsets) != 0 {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have subsets"))
-				}
-				if len(rule.ExportTo) != 0 {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have exportTo configured"))
-				}
-				if rule.TrafficPolicy != nil && len(rule.TrafficPolicy.PortLevelSettings) != 0 {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have portLevelSettings configured"))
-				}
-			} else {
-				v = appendValidation(v, ValidateWildcardDomain(rule.Host))
-			}
-		} else {
-			v = appendValidation(v, ValidateWildcardDomain(rule.Host))
-		}
-
-		v = appendValidation(v, validateTrafficPolicy(rule.TrafficPolicy))
+		v = appendValidation(v,
+			ValidateWildcardDomain(rule.Host),
+			validateTrafficPolicy(rule.TrafficPolicy))
 
 		for _, subset := range rule.Subsets {
 			if subset == nil {
