@@ -134,8 +134,8 @@ type destinationRuleIndex struct {
 
 func newDestinationRuleIndex() destinationRuleIndex {
 	return destinationRuleIndex{
-		namespaceLocal:       map[string]*consolidatedDestRules{},
-		exportedByNamespace:  map[string]*consolidatedDestRules{},
+		namespaceLocal:      map[string]*consolidatedDestRules{},
+		exportedByNamespace: map[string]*consolidatedDestRules{},
 	}
 }
 
@@ -1715,7 +1715,6 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
-
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
 		exportToMap := make(map[visibility.Instance]bool)
