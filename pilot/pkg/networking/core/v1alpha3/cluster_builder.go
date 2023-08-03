@@ -1252,13 +1252,11 @@ func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *clusterWrapper) {
 		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 	}
 	options := mc.httpProtocolOptions
-	if options.UpstreamProtocolOptions == nil {
-		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
-			UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
-				HttpProtocolOptions:  &core.Http1ProtocolOptions{},
-				Http2ProtocolOptions: http2ProtocolOptions(),
-			},
-		}
+	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+			Http2ProtocolOptions: http2ProtocolOptions(),
+		},
 	}
 }
 
