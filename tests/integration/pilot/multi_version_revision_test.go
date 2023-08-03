@@ -55,7 +55,6 @@ type revisionedNamespace struct {
 // TestMultiVersionRevision tests traffic between data planes running under differently versioned revisions
 // should test all possible revisioned namespace pairings to test traffic between all versions
 func TestMultiVersionRevision(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/pull/46213")
 	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleCluster().
@@ -65,6 +64,7 @@ func TestMultiVersionRevision(t *testing.T) {
 		// if existing CPs have different root cert
 		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
+			t.Skip("https://github.com/istio/istio/pull/46213")
 			skipIfK8sVersionUnsupported(t)
 
 			// keep track of applied configurations and clean up after the test
