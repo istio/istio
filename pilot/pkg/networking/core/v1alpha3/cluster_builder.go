@@ -705,6 +705,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
+	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
 	cb.applyMetadataExchange(cluster)
 	return cluster
 }
@@ -712,7 +713,8 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 // applyH2Upgrade function will upgrade cluster to http2 if specified by configuration.
 // applyH2Upgrade can only be called for outbound cluster
 func (cb *ClusterBuilder) applyH2Upgrade(mc *clusterWrapper, port *model.Port,
-	mesh *meshconfig.MeshConfig, connectionPool *networking.ConnectionPoolSettings) {
+	mesh *meshconfig.MeshConfig, connectionPool *networking.ConnectionPoolSettings,
+) {
 	if cb.shouldH2Upgrade(mc.cluster.Name, port, mesh, connectionPool) {
 		cb.setH2Options(mc)
 	}
@@ -887,7 +889,8 @@ func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
 func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
-	mc *clusterWrapper, settings *networking.ConnectionPoolSettings) {
+	mc *clusterWrapper, settings *networking.ConnectionPoolSettings,
+) {
 	if settings == nil {
 		return
 	}
