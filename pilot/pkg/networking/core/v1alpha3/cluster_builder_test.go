@@ -3278,7 +3278,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 	tests := []struct {
 		name           string
 		clusterName    string
-		direction      model.TrafficDirection
 		port           *model.Port
 		mesh           *meshconfig.MeshConfig
 		connectionPool *networking.ConnectionPoolSettings
@@ -3288,7 +3287,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 		{
 			name:        "mesh upgrade - dr default",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.HTTP},
 			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3301,7 +3299,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 		{
 			name:        "mesh default - dr upgrade non http port",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.Unsupported},
 			mesh:        &meshconfig.MeshConfig{},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3314,7 +3311,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 		{
 			name:        "mesh no_upgrade - dr default",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.HTTP},
 			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3327,7 +3323,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 		{
 			name:        "mesh no_upgrade - dr upgrade",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.HTTP},
 			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3340,7 +3335,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 		{
 			name:        "mesh upgrade - dr no_upgrade",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.HTTP},
 			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3351,22 +3345,8 @@ func TestShouldH2Upgrade(t *testing.T) {
 			upgrade: false,
 		},
 		{
-			name:        "inbound upgrade",
-			clusterName: "bar",
-			direction:   model.TrafficDirectionInbound,
-			port:        &model.Port{Protocol: protocol.HTTP},
-			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
-			connectionPool: &networking.ConnectionPoolSettings{
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{
-					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT,
-				},
-			},
-			upgrade: true,
-		},
-		{
 			name:        "non-http",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.Unsupported},
 			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3880,7 +3860,7 @@ func TestApplyTCPKeepalive(t *testing.T) {
 				cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			}
 
-			cb.applyConnectionPool(tt.mesh, mc, tt.connectionPool, nil)
+			cb.applyConnectionPool(tt.mesh, mc, tt.connectionPool)
 
 			if !reflect.DeepEqual(tt.wantConnOpts, mc.cluster.UpstreamConnectionOptions) {
 				t.Errorf("unexpected tcp keepalive settings, want %v, got %v", tt.wantConnOpts,
@@ -4002,7 +3982,7 @@ func TestApplyConnectionPool(t *testing.T) {
 				mesh:    cb.req.Push.Mesh,
 				mutable: mc,
 			}
-			cb.applyConnectionPool(opts.mesh, opts.mutable, tt.connectionPool, nil)
+			cb.applyConnectionPool(opts.mesh, opts.mutable, tt.connectionPool)
 			// assert httpProtocolOptions
 			assert.Equal(t, opts.mutable.httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout,
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.IdleTimeout)

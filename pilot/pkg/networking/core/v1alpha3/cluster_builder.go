@@ -705,22 +705,21 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
-	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{}, nil)
 	cb.applyMetadataExchange(cluster)
 	return cluster
 }
 
 // applyH2Upgrade function will upgrade cluster to http2 if specified by configuration.
+// applyH2Upgrade can only be called for outbound cluster
 func (cb *ClusterBuilder) applyH2Upgrade(mc *clusterWrapper, port *model.Port,
-	mesh *meshconfig.MeshConfig, connectionPool *networking.ConnectionPoolSettings) bool {
+	mesh *meshconfig.MeshConfig, connectionPool *networking.ConnectionPoolSettings) {
 	if cb.shouldH2Upgrade(mc.cluster.Name, port, mesh, connectionPool) {
 		cb.setH2Options(mc)
-		return true
 	}
-	return false
 }
 
 // shouldH2Upgrade function returns true if the cluster should be upgraded to http2.
+// shouldH2Upgrade can only be called for outbound cluster
 func (cb *ClusterBuilder) shouldH2Upgrade(clusterName string, port *model.Port, mesh *meshconfig.MeshConfig,
 	connectionPool *networking.ConnectionPoolSettings,
 ) bool {
@@ -779,8 +778,9 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 	if connectionPool == nil {
 		connectionPool = &networking.ConnectionPoolSettings{}
 	}
-	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool, opts.port)
+	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool)
 	if opts.direction != model.TrafficDirectionInbound {
+		cb.applyH2Upgrade(opts.mutable, opts.port, opts.mesh, connectionPool)
 		applyOutlierDetection(opts.mutable.cluster, outlierDetection)
 		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh)
 		if opts.clusterMode != SniDnatClusterMode {
@@ -887,7 +887,7 @@ func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
 func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
-	mc *clusterWrapper, settings *networking.ConnectionPoolSettings, port *model.Port) {
+	mc *clusterWrapper, settings *networking.ConnectionPoolSettings) {
 	if settings == nil {
 		return
 	}
@@ -954,11 +954,6 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 			commonOptions.CommonHttpProtocolOptions.MaxConnectionDuration = maxConnectionDuration
 		}
 	}
-
-	if cb.applyH2Upgrade(mc, port, mesh, settings) {
-		return
-	}
-
 	if settings.Http != nil && settings.Http.UseClientProtocol {
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
