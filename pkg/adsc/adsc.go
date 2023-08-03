@@ -483,15 +483,17 @@ func (a *ADSC) reconnect() {
 	a.mutex.RUnlock()
 
 	err := a.Run()
-	if err == nil {
-		a.cfg.BackoffPolicy.Reset()
-	} else {
+	if err != nil {
 		// TODO: fix reconnect
 		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
 	}
 }
 
 func (a *ADSC) handleRecv() {
+	// We connected, so reset the backoff
+	if a.cfg.BackoffPolicy != nil {
+		a.cfg.BackoffPolicy.Reset()
+	}
 	for {
 		var err error
 		msg, err := a.stream.Recv()

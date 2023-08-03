@@ -659,6 +659,11 @@ var (
 	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
 		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
 
+	ValidateWorkloadEntryIdentity = env.Register("ISTIO_WORKLOAD_ENTRY_VALIDATE_IDENTITY", true,
+		"If enabled, will validate the identity of a workload matches the identity of the "+
+			"WorkloadEntry it is associating with for health checks and auto registration. "+
+			"This flag is added for backwards compatibility only and will be removed in future releases").Get()
+
 	JwksResolverInsecureSkipVerify = env.Register("JWKS_RESOLVER_INSECURE_SKIP_VERIFY", false,
 		"If enabled, istiod will skip verifying the certificate of the JWKS server.").Get()
 )
