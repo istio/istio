@@ -115,21 +115,14 @@ func TestIsValidSubsetKey(t *testing.T) {
 
 func TestGetLocalityOrDefault(t *testing.T) {
 	cases := []struct {
-		name         string
-		label        string
-		defaultLabel string
-		expected     string
+		name     string
+		label    string
+		expected string
 	}{
 		{
-			name:         "with label",
-			label:        "region/zone/subzone-1",
-			defaultLabel: "region/zone/subzone-2",
-			expected:     "region/zone/subzone-1",
-		},
-		{
-			name:         "default",
-			defaultLabel: "region/zone/subzone-1",
-			expected:     "region/zone/subzone-1",
+			name:     "with label",
+			label:    "region/zone/subzone-1",
+			expected: "region/zone/subzone-1",
 		},
 		{
 			name:     "label with k8s label separator",
@@ -145,7 +138,7 @@ func TestGetLocalityOrDefault(t *testing.T) {
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			got := GetLocalityLabelOrDefault(testCase.label, testCase.defaultLabel)
+			got := GetLocalityLabel(testCase.label)
 			if got != testCase.expected {
 				t.Errorf("expected locality %s, but got %s", testCase.expected, got)
 			}

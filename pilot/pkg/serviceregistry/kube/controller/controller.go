@@ -654,7 +654,7 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	// if pod has `istio-locality` label, skip below ops
 	if len(pod.Labels[model.LocalityLabel]) > 0 {
-		return model.GetLocalityLabelOrDefault(pod.Labels[model.LocalityLabel], "")
+		return model.GetLocalityLabel(pod.Labels[model.LocalityLabel])
 	}
 
 	// NodeName is set by the scheduler after the pod is created
@@ -1134,21 +1134,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 		if len(locality) == 0 && len(nodeName) == 0 {
 			return pod.Labels
 		}
-
-		out := make(labels.Instance, len(pod.Labels)+2)
-		for k, v := range pod.Labels {
-			out[k] = v
-		}
-		if len(locality) > 0 {
-			// Add locality labels to support locality Load balancing for proxy without service instances.
-			// As this may contain node topology labels, which could not be got from aggregator controller
-			out[model.LocalityLabel] = locality
-		}
-		if len(nodeName) > 0 {
-			// set k8s node name label, for ServiceInternalTrafficPolicy
-			out[labelutil.LabelHostname] = nodeName
-		}
-		return out
+		return labelutil.AugmentLabels(pod.Labels, c.clusterID, locality, nodeName, c.network)
 	}
 	return nil
 }
