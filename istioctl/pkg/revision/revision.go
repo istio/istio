@@ -112,7 +112,6 @@ func Cmd(ctx cli.Context) *cobra.Command {
 
 	revisionCmd.AddCommand(revisionListCommand(ctx))
 	revisionCmd.AddCommand(revisionDescribeCommand(ctx))
-	revisionCmd.AddCommand(tag.TagCommand(ctx))
 	return revisionCmd
 }
 
