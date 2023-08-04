@@ -84,7 +84,7 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 func convertAppProberHTTPGet(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
 	p := probe.DeepCopy()
 	// Change the application container prober config.
-	p.HTTPGet.Port = intstr.FromInt(statusPort)
+	p.HTTPGet.Port = intstr.FromInt32(int32(statusPort))
 	p.HTTPGet.Path = newURL
 	// For HTTPS prober, we change to HTTP,
 	// and pilot agent uses https to request application prober endpoint.
@@ -100,7 +100,7 @@ func convertAppProberTCPSocket(probe *corev1.Probe, newURL string, statusPort in
 	p := probe.DeepCopy()
 	// the sidecar intercepts all tcp connections, so we change it to a HTTP probe and the sidecar will check tcp
 	p.HTTPGet = &corev1.HTTPGetAction{}
-	p.HTTPGet.Port = intstr.FromInt(statusPort)
+	p.HTTPGet.Port = intstr.FromInt32(int32(statusPort))
 	p.HTTPGet.Path = newURL
 
 	p.TCPSocket = nil
@@ -112,7 +112,7 @@ func convertAppProberGRPC(probe *corev1.Probe, newURL string, statusPort int) *c
 	p := probe.DeepCopy()
 	// the sidecar intercepts all gRPC connections, so we change it to a HTTP probe and the sidecar will check gRPC
 	p.HTTPGet = &corev1.HTTPGetAction{}
-	p.HTTPGet.Port = intstr.FromInt(statusPort)
+	p.HTTPGet.Port = intstr.FromInt32(int32(statusPort))
 	p.HTTPGet.Path = newURL
 	// For gRPC prober, we change to HTTP,
 	// and pilot agent uses gRPC to request application prober endpoint.
@@ -159,7 +159,7 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 			if !exists {
 				return nil
 			}
-			*probePort = intstr.FromInt(int(port))
+			*probePort = intstr.FromInt32(port)
 		} else if probePort.IntVal == targetPort {
 			// Already is rewritten
 			return nil

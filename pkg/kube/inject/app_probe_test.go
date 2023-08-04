@@ -222,7 +222,7 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 func TestPatchRewriteProbe(t *testing.T) {
 	svc := "foo"
 	annotations := map[string]string{}
-	statusPort := intstr.FromInt(15020)
+	statusPort := intstr.FromInt32(15020)
 	for _, tc := range []struct {
 		name        string
 		pod         *corev1.Pod
