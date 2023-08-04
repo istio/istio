@@ -177,7 +177,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 			portString := fmt.Sprintf("%d", port.Port)
 			cc := inboundChainConfig{
 				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
-				port: ServiceInstancePort{
+				port: model.ServiceInstancePort{
 					ServicePort: port,
 					TargetPort:  uint32(port.Port),
 				},
@@ -229,7 +229,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 		// Direct pod access chain.
 		cc := inboundChainConfig{
 			clusterName: EncapClusterName,
-			port: ServiceInstancePort{
+			port: model.ServiceInstancePort{
 				ServicePort: &model.Port{
 					Name:     "unknown",
 					Protocol: protocol.TCP,

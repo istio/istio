@@ -224,13 +224,13 @@ func TestGetService(t *testing.T) {
 	}
 }
 
-func TestGetProxyServiceInstances(t *testing.T) {
+func TestGetProxyServiceTargets(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
+	instances := aggregateCtl.GetProxyServiceTargets(&model.Proxy{IPAddresses: []string{mock.HelloInstanceV0}})
 	if len(instances) != 6 {
-		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
+		t.Fatalf("Returned GetProxyServiceTargets' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
 		if inst.Service.Hostname != mock.HelloService.Hostname {
@@ -239,9 +239,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances = aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
+	instances = aggregateCtl.GetProxyServiceTargets(&model.Proxy{IPAddresses: []string{mock.MakeIP(mock.WorldService, 1)}})
 	if len(instances) != 6 {
-		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
+		t.Fatalf("Returned GetProxyServiceTargets' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
 		if inst.Service.Hostname != mock.WorldService.Hostname {

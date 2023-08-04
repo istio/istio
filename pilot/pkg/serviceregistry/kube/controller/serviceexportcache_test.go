@@ -19,14 +19,12 @@ import (
 	"fmt"
 	"testing"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -138,8 +136,8 @@ func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode) 
 		if svc := ec.GetService(ec.serviceHostname()); svc == nil {
 			return false
 		}
-		inst := ec.getProxyServiceInstances()
-		return len(inst) == 1 && inst[0].Service != nil && inst[0].Endpoint != nil
+		inst := ec.getEndpoint()
+		return inst != nil
 	}, serviceExportTimeout)
 	return ec
 }
@@ -197,53 +195,39 @@ func (ec *serviceExportCacheImpl) waitForXDS(t *testing.T, exported bool) {
 		if svc == nil {
 			return fmt.Errorf("unable to find service for host %s", hostName)
 		}
-		si := &model.ServiceInstance{
-			Service:  svc,
-			Endpoint: event.Endpoints[0],
-		}
-		return ec.checkServiceInstance(exported, si)
+		return ec.checkEndpoint(exported, event.Endpoints[0])
 	}, serviceExportTimeout)
 }
 
-func (ec *serviceExportCacheImpl) getProxyServiceInstances() []*model.ServiceInstance {
-	return ec.GetProxyServiceInstances(&model.Proxy{
-		Type:            model.SidecarProxy,
-		IPAddresses:     []string{serviceExportPodIP},
-		Locality:        &core.Locality{Region: "r", Zone: "z"},
-		ConfigNamespace: serviceExportNamespace,
-		Labels: map[string]string{
-			"app":                      "prod-app",
-			label.SecurityTlsMode.Name: "mutual",
-		},
-		Metadata: &model.NodeMetadata{
-			ServiceAccount: "account",
-			ClusterID:      ec.Cluster(),
-			Labels: map[string]string{
-				"app":                      "prod-app",
-				label.SecurityTlsMode.Name: "mutual",
-			},
-		},
-	})
+func (ec *serviceExportCacheImpl) getEndpoint() *model.IstioEndpoint {
+	svcs := ec.Services()
+	for _, s := range svcs {
+		for _, p := range s.Ports {
+			inst := ec.InstancesByPort(s, p.Port)
+			if len(inst) > 0 {
+				return inst[0].Endpoint
+			}
+		}
+	}
+	return nil
 }
 
 func (ec *serviceExportCacheImpl) checkServiceInstancesOrFail(t *testing.T, exported bool) {
 	t.Helper()
-	if err := ec.checkServiceInstances(exported); err != nil {
+	if err := ec.checkEndpoints(exported); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (ec *serviceExportCacheImpl) checkServiceInstances(exported bool) error {
-	sis := ec.getProxyServiceInstances()
-	if len(sis) != 1 {
-		return fmt.Errorf("expected 1 ServiceInstance, found %d", len(sis))
+func (ec *serviceExportCacheImpl) checkEndpoints(exported bool) error {
+	ep := ec.getEndpoint()
+	if ep == nil {
+		return fmt.Errorf("expected an endpoint, found none")
 	}
-	return ec.checkServiceInstance(exported, sis[0])
+	return ec.checkEndpoint(exported, ep)
 }
 
-func (ec *serviceExportCacheImpl) checkServiceInstance(exported bool, si *model.ServiceInstance) error {
-	ep := si.Endpoint
-
+func (ec *serviceExportCacheImpl) checkEndpoint(exported bool, ep *model.IstioEndpoint) error {
 	// Should always be discoverable from the same cluster.
 	if err := ec.checkDiscoverableFromSameCluster(ep); err != nil {
 		return err

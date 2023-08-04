@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 // ServiceDiscovery is a mock discovery interface
@@ -43,11 +44,11 @@ type ServiceDiscovery struct {
 
 	// Used by GetProxyServiceInstance, used to configure inbound (list of services per IP)
 	// We generally expect a single instance - conflicting services need to be reported.
-	ip2instance                  map[string][]*model.ServiceInstance
-	WantGetProxyServiceInstances []*model.ServiceInstance
-	InstancesError               error
-	Controller                   model.Controller
-	ClusterID                    cluster.ID
+	ip2instance                map[string][]*model.ServiceInstance
+	WantGetProxyServiceTargets []model.ServiceTarget
+	InstancesError             error
+	Controller                 model.Controller
+	ClusterID                  cluster.ID
 
 	// Used by GetProxyWorkloadLabels
 	ip2workloadLabels map[string]labels.Instance
@@ -280,19 +281,19 @@ func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int) []*mod
 	return instances
 }
 
-// GetProxyServiceInstances returns service instances associated with a node, resulting in
+// GetProxyServiceTargets returns service instances associated with a node, resulting in
 // 'in' services.
-func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
+func (sd *ServiceDiscovery) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTarget {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	if sd.WantGetProxyServiceInstances != nil {
-		return sd.WantGetProxyServiceInstances
+	if sd.WantGetProxyServiceTargets != nil {
+		return sd.WantGetProxyServiceTargets
 	}
-	out := make([]*model.ServiceInstance, 0)
+	out := make([]model.ServiceTarget, 0)
 	for _, ip := range node.IPAddresses {
 		si, found := sd.ip2instance[ip]
 		if found {
-			out = append(out, si...)
+			out = append(out, slices.Map(si, model.ServiceInstanceToTarget)...)
 		}
 	}
 	return out

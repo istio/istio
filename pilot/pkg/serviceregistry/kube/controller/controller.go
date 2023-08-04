@@ -807,10 +807,10 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 	return endpoints
 }
 
-// GetProxyServiceInstances returns service instances co-located with a given proxy
+// GetProxyServiceTargets returns service instances co-located with a given proxy
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
-func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
+func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {
 	if len(proxy.IPAddresses) > 0 {
 		proxyIP := proxy.IPAddresses[0]
 		// look up for a WorkloadEntry; if there are multiple WorkloadEntry(s)
@@ -832,14 +832,14 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 			// failover to 2
 			allServices := c.services.List(pod.Namespace, klabels.Everything())
 			if services := getPodServices(allServices, pod); len(services) > 0 {
-				out := make([]*model.ServiceInstance, 0)
+				out := make([]model.ServiceTarget, 0)
 				for _, svc := range services {
-					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
+					out = append(out, c.GetProxyServiceTargetsByPod(pod, svc)...)
 				}
 				return out
 			}
 			// 2. Headless service without selector
-			return c.endpoints.GetProxyServiceInstances(proxy)
+			return c.endpoints.GetProxyServiceTargets(proxy)
 		}
 
 		// 3. The pod is not present when this is called
@@ -847,9 +847,9 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 		// metadata already. Because of this, we can still get most of the information we need.
 		// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
 		// attempt to read the real pod.
-		out, err := c.getProxyServiceInstancesFromMetadata(proxy)
+		out, err := c.GetProxyServiceTargetsFromMetadata(proxy)
 		if err != nil {
-			log.Warnf("getProxyServiceInstancesFromMetadata for %v failed: %v", proxy.ID, err)
+			log.Warnf("GetProxyServiceTargetsFromMetadata for %v failed: %v", proxy.ID, err)
 		}
 		return out
 	}
@@ -863,8 +863,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 	return nil
 }
 
-func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInstance) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInstance) []model.ServiceTarget {
+	out := make([]model.ServiceTarget, 0)
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
 	dummyPod := &v1.Pod{
@@ -895,7 +895,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInst
 
 				instance := serviceInstanceFromWorkloadInstance(service, servicePort, targetPort, si)
 				if instance != nil {
-					out = append(out, instance)
+					out = append(out, model.ServiceInstanceToTarget(instance))
 				}
 			}
 		}
@@ -975,10 +975,10 @@ func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
 	return proxy.Metadata.ClusterID == "" || proxy.Metadata.ClusterID == c.Cluster()
 }
 
-// getProxyServiceInstancesFromMetadata retrieves ServiceInstances using proxy Metadata rather than
+// GetProxyServiceTargetsFromMetadata retrieves ServiceTargets using proxy Metadata rather than
 // from the Pod. This allows retrieving Instances immediately, regardless of delays in Kubernetes.
 // If the proxy doesn't have enough metadata, an error is returned
-func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
+func (c *Controller) GetProxyServiceTargetsFromMetadata(proxy *model.Proxy) ([]model.ServiceTarget, error) {
 	if len(proxy.Labels) == 0 {
 		return nil, nil
 	}
@@ -1002,7 +1002,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("no instances found for %s", proxy.ID)
 	}
 
-	out := make([]*model.ServiceInstance, 0)
+	out := make([]model.ServiceTarget, 0)
 	for _, svc := range services {
 		hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.opts.DomainSuffix)
 		modelService := c.GetService(hostname)
@@ -1011,8 +1011,6 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		}
 
 		for _, modelService := range c.servicesForNamespacedName(config.NamespacedName(svc)) {
-			discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(modelService)
-
 			tps := make(map[model.Port]*model.Port)
 			tpsList := make([]model.Port, 0)
 			for _, port := range svc.Spec.Ports {
@@ -1046,34 +1044,27 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 				}
 			}
 
-			epBuilder := NewEndpointBuilderFromMetadata(c, proxy)
 			// Iterate over target ports in the same order as defined in service spec, in case of
 			// protocol conflict for a port causes unstable protocol selection for a port.
 			for _, tp := range tpsList {
 				svcPort := tps[tp]
-				// consider multiple IP scenarios
-				for _, ip := range proxy.IPAddresses {
-					// Construct the ServiceInstance
-					out = append(out, &model.ServiceInstance{
-						Service:     modelService,
+				out = append(out, model.ServiceTarget{
+					Service: modelService,
+					Port: model.ServiceInstancePort{
 						ServicePort: svcPort,
-						Endpoint:    epBuilder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy, model.Healthy),
-					})
-				}
+						TargetPort:  uint32(tp.Port),
+					},
+				})
 			}
 		}
 	}
 	return out, nil
 }
 
-func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
-	service *v1.Service, proxy *model.Proxy,
-) []*model.ServiceInstance {
-	var out []*model.ServiceInstance
+func (c *Controller) GetProxyServiceTargetsByPod(pod *v1.Pod, service *v1.Service) []model.ServiceTarget {
+	var out []model.ServiceTarget
 
 	for _, svc := range c.servicesForNamespacedName(config.NamespacedName(service)) {
-		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
-
 		tps := make(map[model.Port]*model.Port)
 		tpsList := make([]model.Port, 0)
 		for _, port := range service.Spec.Ports {
@@ -1099,21 +1090,17 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 				tpsList = append(tpsList, targetPort)
 			}
 		}
-
-		builder := NewEndpointBuilder(c, pod)
 		// Iterate over target ports in the same order as defined in service spec, in case of
 		// protocol conflict for a port causes unstable protocol selection for a port.
 		for _, tp := range tpsList {
 			svcPort := tps[tp]
-			// consider multiple IP scenarios
-			for _, ip := range proxy.IPAddresses {
-				istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy, model.Healthy)
-				out = append(out, &model.ServiceInstance{
-					Service:     svc,
+			out = append(out, model.ServiceTarget{
+				Service: svc,
+				Port: model.ServiceInstancePort{
 					ServicePort: svcPort,
-					Endpoint:    istioEndpoint,
-				})
-			}
+					TargetPort:  uint32(tp.Port),
+				},
+			})
 		}
 	}
 

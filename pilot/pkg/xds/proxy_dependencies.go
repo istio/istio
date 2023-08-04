@@ -96,14 +96,15 @@ func DefaultProxyNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	}
 
 	// If the proxy's service updated, need push for it.
-	if len(proxy.ServiceInstances) > 0 && req.ConfigsUpdated != nil {
-		svc := proxy.ServiceInstances[0].Service
-		if _, ok := req.ConfigsUpdated[model.ConfigKey{
-			Kind:      kind.ServiceEntry,
-			Name:      string(svc.Hostname),
-			Namespace: svc.Attributes.Namespace,
-		}]; ok {
-			return true
+	if len(proxy.ServiceTargets) > 0 && req.ConfigsUpdated != nil {
+		for _, svc := range proxy.ServiceTargets {
+			if _, ok := req.ConfigsUpdated[model.ConfigKey{
+				Kind:      kind.ServiceEntry,
+				Name:      string(svc.Service.Hostname),
+				Namespace: svc.Service.Attributes.Namespace,
+			}]; ok {
+				return true
+			}
 		}
 	}
 

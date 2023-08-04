@@ -2941,7 +2941,7 @@ func (l *localServiceDiscovery) InstancesByPort(*Service, int) []*ServiceInstanc
 	return l.serviceInstances
 }
 
-func (l *localServiceDiscovery) GetProxyServiceInstances(*Proxy) []*ServiceInstance {
+func (l *localServiceDiscovery) GetProxyServiceTargets(*Proxy) []ServiceTarget {
 	panic("implement me")
 }
 
