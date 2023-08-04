@@ -1244,7 +1244,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 }
 
 func (ps *PushContext) createNewContext(env *Environment) error {
-	ps.initServiceRegistry(env)
+	ps.initServiceRegistry(env, nil)
 
 	if err := ps.initKubernetesGateways(env); err != nil {
 		return err
@@ -1317,7 +1317,7 @@ func (ps *PushContext) updateContext(
 
 	if servicesChanged {
 		// Services have changed. initialize service registry
-		ps.initServiceRegistry(env)
+		ps.initServiceRegistry(env, pushReq.ConfigsUpdated)
 	} else {
 		// make sure we copy over things that would be generated in initServiceRegistry
 		ps.ServiceIndex = oldPushContext.ServiceIndex
@@ -1403,9 +1403,11 @@ func (ps *PushContext) updateContext(
 
 // Caches list of services in the registry, and creates a map
 // of hostname to service
-func (ps *PushContext) initServiceRegistry(env *Environment) {
+func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.Set[ConfigKey]) {
 	// Sort the services in order of creation.
 	allServices := SortServicesByCreationTime(env.Services())
+	resolveServiceAliases(allServices, configsUpdate)
+
 	for _, s := range allServices {
 		portMap := map[string]int{}
 		for _, port := range s.Ports {
@@ -1457,6 +1459,102 @@ func (ps *PushContext) initServiceRegistry(env *Environment) {
 	}
 
 	ps.initServiceAccounts(env, allServices)
+}
+
+// resolveServiceAliases sets the Aliases attributes on all services. The incoming Service's will just have AliasFor set,
+// but in our usage we often need the opposite: for a given service, what are all the aliases?
+// resolveServiceAliases walks this 'graph' of services and updates the Alias field in-place.
+func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[ConfigKey]) {
+	// rawAlias builds a map of Service -> AliasFor. So this will be ExternalName -> Service.
+	// In an edge case, we can have ExternalName -> ExternalName; we resolve that below
+	rawAlias := map[NamespacedHostname]host.Name{}
+	for _, s := range allServices {
+		if s.Resolution != Alias {
+			continue
+		}
+		nh := NamespacedHostname{
+			Hostname:  s.Hostname,
+			Namespace: s.Attributes.Namespace,
+		}
+		rawAlias[nh] = host.Name(s.Attributes.K8sAttributes.ExternalName)
+	}
+	// unnamespacedRawAlias is like rawAlias but without namespaces.
+	// This is because an `ExternalName` isn't namespaced. If there is a conflict, the behavior is undefined.
+	unnamespacedRawAlias := make(map[host.Name]host.Name, len(rawAlias))
+	for k, v := range rawAlias {
+		unnamespacedRawAlias[k.Hostname] = v
+	}
+
+	// resolvedAliases builds a map of Alias -> Concrete, fully resolving through multiple hops.
+	// Ex: Alias1 -> Alias2 -> Concrete will flatten to Alias1 -> Concrete.
+	resolvedAliases := make(map[NamespacedHostname]host.Name, len(rawAlias))
+	for alias, referencedService := range rawAlias {
+		// referencedService may be another alias or a concrete service.
+		if _, f := unnamespacedRawAlias[referencedService]; !f {
+			// Common case: alias pointing to a concrete service
+			resolvedAliases[alias] = referencedService
+			continue
+		}
+		// Otherwise, we need to traverse the alias "graph".
+		// In an obscure edge case, a user could make a loop, so we will need to handle that.
+		seen := sets.New(alias.Hostname, referencedService)
+		for {
+			n, f := unnamespacedRawAlias[referencedService]
+			if !f {
+				// The destination we are pointing to is not an alias, so this is the terminal step
+				resolvedAliases[alias] = referencedService
+				break
+			}
+			if seen.InsertContains(n) {
+				// We did a loop!
+				// Kubernetes will make these NXDomain, so we can just treat it like it doesn't exist at all
+				break
+			}
+			referencedService = n
+		}
+	}
+
+	// referencedHostnames := ConfigNameOfKind(configsUpdated, kind.ServiceEntry)
+
+	// aliasesForService builds a map of Concrete -> []Aliases
+	aliasesForService := map[host.Name][]NamespacedHostname{}
+	for alias, concrete := range resolvedAliases {
+		ak := ConfigKey{
+			Kind:      kind.ServiceEntry,
+			Name:      alias.Hostname.String(),
+			Namespace: alias.Namespace,
+		}
+		// Alias. We should mark all the concrete services as updated as well.
+		if configsUpdated.Contains(ak) {
+			// We only have the hostname, but we need the namespace...
+			for _, svc := range allServices {
+				if svc.Hostname == concrete {
+					configsUpdated.Insert(ConfigKey{
+						Kind:      kind.ServiceEntry,
+						Name:      concrete.String(),
+						Namespace: svc.Attributes.Namespace,
+					})
+				}
+			}
+		}
+		aliasesForService[concrete] = append(aliasesForService[concrete], alias)
+	}
+	for _, v := range aliasesForService {
+		slices.SortFunc(v, func(a, b NamespacedHostname) bool {
+			if a.Hostname == b.Hostname {
+				return a.Namespace < b.Namespace
+			}
+			return a.Hostname < b.Hostname
+		})
+	}
+	for i, s := range allServices {
+		if aliases, f := aliasesForService[s.Hostname]; f {
+			// This service has an alias; set it. We need to make a copy since the underlying Service is shared
+			s = s.DeepCopy()
+			s.Attributes.Aliases = aliases
+			allServices[i] = s
+		}
+	}
 }
 
 // SortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).

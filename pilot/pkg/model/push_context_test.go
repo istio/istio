@@ -2805,7 +2805,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		services: []*Service{svc1, svc2, svc3, svc4},
 	}
 	ps.initDefaultExportMaps()
-	ps.initServiceRegistry(env)
+	ps.initServiceRegistry(env, nil)
 
 	cases := []struct {
 		proxyNs   string
@@ -3011,4 +3011,99 @@ func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {
 
 func (l *localServiceDiscovery) MCSServices() []MCSServiceInfo {
 	return nil
+}
+
+func TestResolveServiceAliases(t *testing.T) {
+	type service struct {
+		Name         host.Name
+		Aliases      host.Names
+		ExternalName string
+	}
+	tests := []struct {
+		name   string
+		input  []service
+		output []service
+	}{
+		{
+			name:   "no aliases",
+			input:  []service{{Name: "test"}},
+			output: []service{{Name: "test"}},
+		},
+		{
+			name: "simple alias",
+			input: []service{
+				{Name: "concrete"},
+				{Name: "alias", ExternalName: "concrete"},
+			},
+			output: []service{
+				{Name: "concrete", Aliases: host.Names{"alias"}},
+				{Name: "alias", ExternalName: "concrete"},
+			},
+		},
+		{
+			name: "multiple alias",
+			input: []service{
+				{Name: "concrete"},
+				{Name: "alias1", ExternalName: "concrete"},
+				{Name: "alias2", ExternalName: "concrete"},
+			},
+			output: []service{
+				{Name: "concrete", Aliases: host.Names{"alias1", "alias2"}},
+				{Name: "alias1", ExternalName: "concrete"},
+				{Name: "alias2", ExternalName: "concrete"},
+			},
+		},
+		{
+			name: "chained alias",
+			input: []service{
+				{Name: "concrete"},
+				{Name: "alias1", ExternalName: "alias2"},
+				{Name: "alias2", ExternalName: "concrete"},
+			},
+			output: []service{
+				{Name: "concrete", Aliases: host.Names{"alias1", "alias2"}},
+				{Name: "alias1", ExternalName: "alias2"},
+				{Name: "alias2", ExternalName: "concrete"},
+			},
+		},
+		{
+			name: "looping alias",
+			input: []service{
+				{Name: "alias1", ExternalName: "alias2"},
+				{Name: "alias2", ExternalName: "alias1"},
+			},
+			output: []service{
+				{Name: "alias1", ExternalName: "alias2"},
+				{Name: "alias2", ExternalName: "alias1"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inps := slices.Map(tt.input, func(e service) *Service {
+				resolution := ClientSideLB
+				if e.ExternalName != "" {
+					resolution = Alias
+				}
+				return &Service{
+					Resolution: resolution,
+					Attributes: ServiceAttributes{
+						K8sAttributes: K8sAttributes{ExternalName: e.ExternalName},
+					},
+					Hostname: e.Name,
+				}
+			})
+			resolveServiceAliases(inps, nil)
+			out := slices.Map(inps, func(e *Service) service {
+				return service{
+					Name: e.Hostname,
+					Aliases: slices.Map(e.Attributes.Aliases, func(e NamespacedHostname) host.Name {
+						return e.Hostname
+					}),
+					ExternalName: e.Attributes.K8sAttributes.ExternalName,
+				}
+			})
+			assert.Equal(t, tt.output, out)
+		})
+	}
 }

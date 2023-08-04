@@ -205,6 +205,11 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 
 		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
 			sniHosts = []string{string(service.Hostname)}
+			for _, a := range service.Attributes.Aliases {
+				alt := GenerateAltVirtualHosts(a.Hostname.String(), 0, node.DNSDomain)
+				sniHosts = append(sniHosts, a.Hostname.String())
+				sniHosts = append(sniHosts, alt...)
+			}
 		}
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(
 			model.TrafficDirectionOutbound, node, service.Hostname).GetRule())

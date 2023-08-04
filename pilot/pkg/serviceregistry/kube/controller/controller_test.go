@@ -1669,25 +1669,53 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 }
 
 func TestExternalNameServiceInstances(t *testing.T) {
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
-	createExternalNameService(controller, "svc5", "nsA",
-		[]int32{1, 2, 3}, "foo.co", t, fx)
+	t.Run("alias", func(t *testing.T) {
+		controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+		createExternalNameService(controller, "svc5", "nsA",
+			[]int32{1, 2, 3}, "foo.co", t, fx)
 
-	converted := controller.Services()
-	if len(converted) != 1 {
-		t.Fatalf("failed to get services (%v)s", converted)
-	}
-	eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
-	assert.Equal(t, len(eps), 1)
-	assert.Equal(t, eps[0], &model.IstioEndpoint{
-		Address:               "foo.co",
-		ServicePortName:       "tcp-port-1",
-		EndpointPort:          1,
-		DiscoverabilityPolicy: model.AlwaysDiscoverable,
+		converted := controller.Services()
+		assert.Equal(t, len(converted), 1)
+
+		eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
+		assert.Equal(t, len(eps), 0)
+		assert.Equal(t, converted[0].Attributes, model.ServiceAttributes{
+			ServiceRegistry:          "Kubernetes",
+			Name:                     "svc5",
+			Namespace:                "nsA",
+			Labels:                   nil,
+			ExportTo:                 nil,
+			LabelSelectors:           nil,
+			Aliases:                  nil,
+			ClusterExternalAddresses: nil,
+			ClusterExternalPorts:     nil,
+			K8sAttributes: model.K8sAttributes{
+				Type:         string(corev1.ServiceTypeExternalName),
+				ExternalName: "foo.co",
+			},
+		})
+	})
+	t.Run("no alias", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableExternalNameAlias, false)
+		controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+		createExternalNameService(controller, "svc5", "nsA",
+			[]int32{1, 2, 3}, "foo.co", t, fx)
+
+		converted := controller.Services()
+		assert.Equal(t, len(converted), 1)
+		eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
+		assert.Equal(t, len(eps), 1)
+		assert.Equal(t, eps[0], &model.IstioEndpoint{
+			Address:               "foo.co",
+			ServicePortName:       "tcp-port-1",
+			EndpointPort:          1,
+			DiscoverabilityPolicy: model.AlwaysDiscoverable,
+		})
 	})
 }
 
 func TestController_ExternalNameService(t *testing.T) {
+	test.SetForTest(t, &features.EnableExternalNameAlias, false)
 	deleteWg := sync.WaitGroup{}
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ServiceHandler: func(_, _ *model.Service, e model.Event) {
@@ -2057,7 +2085,11 @@ func createExternalNameService(controller *FakeController, name, namespace strin
 	}
 
 	clienttest.Wrap(t, controller.services).Create(service)
-	xdsEvents.MatchOrFail(t, xdsfake.Event{Type: "service"}, xdsfake.Event{Type: "eds cache"})
+	if features.EnableExternalNameAlias {
+		xdsEvents.MatchOrFail(t, xdsfake.Event{Type: "service"})
+	} else {
+		xdsEvents.MatchOrFail(t, xdsfake.Event{Type: "service"}, xdsfake.Event{Type: "eds cache"})
+	}
 	return service
 }
 

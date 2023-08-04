@@ -278,6 +278,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 	RunSkipAmbient("tls-origination", tlsOriginationCases, "not workload agnostic")
 	RunSkipAmbient("instanceip", instanceIPTests, "not supported")
 	RunCase("services", serviceCases)
+	RunCase("externalname", externalNameCases)
 	RunSkipAmbient("host", hostCases, "Relies on X-Forwarded-Client-Cert in checker")
 	RunSkipAmbient("envoyfilter", envoyFilterCases, "not supported")
 	RunSkipAmbient("consistent-hash", consistentHashCases, "likey the same issue as https://github.com/istio/istio/issues/43161")
