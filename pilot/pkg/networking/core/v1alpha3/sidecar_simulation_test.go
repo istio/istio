@@ -1131,6 +1131,168 @@ ports:
 	)
 }
 
+func TestExternalNameServices(t *testing.T) {
+	ports := `
+  - name: http
+    port: 80
+  - name: auto
+    port: 81
+  - name: tcp
+    port: 82
+  - name: tls
+    port: 83
+  - name: https
+    port: 84`
+
+	calls := []simulation.Expect{}
+	for _, call := range []simulation.Call{
+		{Address: "1.2.3.4", Port: 80, Protocol: simulation.HTTP, HostHeader: "alias.default.svc.cluster.local"},
+
+		// Auto port should support any protocol
+		{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, HostHeader: "alias.default.svc.cluster.local"},
+		{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "alias.default.svc.cluster.local"},
+		{Address: "1.2.3.4", Port: 81, Protocol: simulation.TCP},
+
+		{Address: "1.2.3.4", Port: 82, Protocol: simulation.TCP},
+
+		// Use short host name
+		{Address: "1.2.3.4", Port: 83, Protocol: simulation.TCP, TLS: simulation.TLS, HostHeader: "alias.default"},
+		{Address: "1.2.3.4", Port: 84, Protocol: simulation.HTTP, TLS: simulation.TLS, HostHeader: "alias.default"},
+	} {
+		calls = append(calls, simulation.Expect{
+			Name: fmt.Sprintf("%s-%d", call.Protocol, call.Port),
+			Call: call,
+			Result: simulation.Result{
+				ClusterMatched: fmt.Sprintf("outbound|%d||concrete.default.svc.cluster.local", call.Port),
+			},
+		})
+	}
+	service := `apiVersion: v1
+kind: Service
+metadata:
+  name: alias
+  namespace: default
+spec:
+  type: ExternalName
+  externalName: concrete.default.svc.cluster.local
+` + `---
+apiVersion: v1
+kind: Service
+metadata:
+  name: concrete
+  namespace: default
+spec:
+  clusterIP: 1.2.3.4
+  ports:` + ports
+	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		kubeConfig: service,
+		calls:      calls,
+	})
+
+	// HTTP Routes
+	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		config: `apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: alias
+spec:
+  hosts:
+  - alias.default.svc.cluster.local
+  http:
+  - name: "route1"
+    match:
+    - uri:
+        prefix: "/one"
+    route:
+    - destination:
+        host: concrete.default.svc.cluster.local`,
+		kubeConfig: service,
+		calls: []simulation.Expect{
+			{
+				// This work, Host is just an opaque hostname match
+				Name: "HTTP virtual service applies to alias fqdn",
+				Call: simulation.Call{Address: "1.2.3.4", Port: 80, Protocol: simulation.HTTP, HostHeader: "alias.default.svc.cluster.local", Path: "/one"},
+				Result: simulation.Result{
+					RouteMatched:   "route1",
+					ClusterMatched: "outbound|80||concrete.default.svc.cluster.local",
+				},
+			},
+			{
+				// Host is opaque, so no expansion
+				Name: "HTTP virtual service does not apply to alias without exact match",
+				Call: simulation.Call{Address: "1.2.3.4", Port: 80, Protocol: simulation.HTTP, HostHeader: "alias.default", Path: "/one"},
+				Result: simulation.Result{
+					RouteMatched:   "default",
+					ClusterMatched: "outbound|80||concrete.default.svc.cluster.local",
+				},
+			},
+			{
+				Name: "HTTP virtual service of alias does not apply to concrete",
+				Call: simulation.Call{Address: "1.2.3.4", Port: 80, Protocol: simulation.HTTP, HostHeader: "concrete.default.svc.cluster.local", Path: "/one"},
+				Result: simulation.Result{
+					RouteMatched:   "default",
+					ClusterMatched: "outbound|80||concrete.default.svc.cluster.local",
+				},
+			},
+			// Auto
+			{
+				// No opaque host match for auto
+				Name: "Auto virtual service applies to alias fqdn",
+				Call: simulation.Call{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, HostHeader: "alias.default.svc.cluster.local", Path: "/one"},
+				Result: simulation.Result{
+					RouteMatched:   "default",
+					ClusterMatched: "outbound|81||concrete.default.svc.cluster.local",
+				},
+			},
+			{
+				// Host is opaque, so no expansion
+				Name: "Auto virtual service does not apply to alias without exact match",
+				Call: simulation.Call{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, HostHeader: "alias.default", Path: "/one"},
+				Result: simulation.Result{
+					RouteMatched:   "default",
+					ClusterMatched: "outbound|81||concrete.default.svc.cluster.local",
+				},
+			},
+			{
+				Name: "Auto virtual service of alias does not apply to concrete",
+				Call: simulation.Call{Address: "1.2.3.4", Port: 81, Protocol: simulation.HTTP, HostHeader: "concrete.default.svc.cluster.local", Path: "/one"},
+				Result: simulation.Result{
+					RouteMatched:   "default",
+					ClusterMatched: "outbound|81||concrete.default.svc.cluster.local",
+				},
+			},
+		},
+	})
+
+	// TCP Routes
+	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		config: `apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: alias
+spec:
+  hosts:
+  - alias.default.svc.cluster.local
+  tcp:
+  - name: "route1"
+    route:
+    - destination:
+        host: concrete.default.svc.cluster.local
+        port:
+          number: 80`,
+		kubeConfig: service,
+		calls: []simulation.Expect{
+			{
+				Name: "TCP virtual services do not apply",
+				Call: simulation.Call{Address: "1.2.3.4", Port: 82, Protocol: simulation.TCP, Path: "/one"},
+				Result: simulation.Result{
+					ClusterMatched: "outbound|82||concrete.default.svc.cluster.local",
+				},
+			},
+		},
+	})
+}
+
 func TestPassthroughTraffic(t *testing.T) {
 	calls := map[string]simulation.Call{}
 	for port := 80; port < 87; port++ {

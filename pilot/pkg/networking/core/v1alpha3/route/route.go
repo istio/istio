@@ -293,6 +293,12 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		// only happens when the gateway-api BackendRef is invalid
 		return "UnknownService"
 	}
+	h := host.Name(destination.Host)
+	// If this is an Alias, point to the concrete service
+	// TODO: this will not work if we have Alias -> Alias -> Concrete service.
+	if service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
+		h = host.Name(service.Attributes.K8sAttributes.ExternalName)
+	}
 	port := listenerPort
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
@@ -306,7 +312,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, h, port)
 }
 
 type RouteOptions struct {
