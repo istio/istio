@@ -133,6 +133,8 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   export HUB
 fi
 
+declare -a JOBS
+
 # Setup junit report and verbose logging
 export T="${T:-"-v -count=1"}"
 export CI="true"
@@ -141,36 +143,45 @@ export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 trace "init" make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  export DEFAULT_CLUSTER_YAML="./prow/config/default.yaml"
-  export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
+  function setup_cluster() {
+    export DEFAULT_CLUSTER_YAML="./prow/config/default.yaml"
+    export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
-  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
-    trace "setup kind cluster" setup_kind_cluster_retry "istio-testing" "${NODE_IMAGE}" "${KIND_CONFIG}"
-  else
-    trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
-    trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
+    if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
+      trace "setup kind cluster" setup_kind_cluster_retry "istio-testing" "${NODE_IMAGE}" "${KIND_CONFIG}"
+    else
+      trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
+      trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
 
-    TOPOLOGY_JSON=$(cat "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
-    for i in $(seq 0 $((${#CLUSTER_NAMES[@]} - 1))); do
-      CLUSTER="${CLUSTER_NAMES[i]}"
-      KCONFIG="${KUBECONFIGS[i]}"
-      TOPOLOGY_JSON=$(set_topology_value "${TOPOLOGY_JSON}" "${CLUSTER}" "meta.kubeconfig" "${KCONFIG}")
-    done
-    RUNTIME_TOPOLOGY_CONFIG_FILE="${ARTIFACTS}/topology-config.json"
-    echo "${TOPOLOGY_JSON}" > "${RUNTIME_TOPOLOGY_CONFIG_FILE}"
+      TOPOLOGY_JSON=$(cat "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
+      for i in $(seq 0 $((${#CLUSTER_NAMES[@]} - 1))); do
+        CLUSTER="${CLUSTER_NAMES[i]}"
+        KCONFIG="${KUBECONFIGS[i]}"
+        TOPOLOGY_JSON=$(set_topology_value "${TOPOLOGY_JSON}" "${CLUSTER}" "meta.kubeconfig" "${KCONFIG}")
+      done
+      RUNTIME_TOPOLOGY_CONFIG_FILE="${ARTIFACTS}/topology-config.json"
+      echo "${TOPOLOGY_JSON}" > "${RUNTIME_TOPOLOGY_CONFIG_FILE}"
 
-    export INTEGRATION_TEST_TOPOLOGY_FILE
-    INTEGRATION_TEST_TOPOLOGY_FILE="${RUNTIME_TOPOLOGY_CONFIG_FILE}"
+      export INTEGRATION_TEST_TOPOLOGY_FILE
+      INTEGRATION_TEST_TOPOLOGY_FILE="${RUNTIME_TOPOLOGY_CONFIG_FILE}"
 
-    export INTEGRATION_TEST_KUBECONFIG
-    INTEGRATION_TEST_KUBECONFIG=NONE
-  fi
+      export INTEGRATION_TEST_KUBECONFIG
+      INTEGRATION_TEST_KUBECONFIG=NONE
+    fi
+  }
+  # Setup cluster in the background. It takes 1-2 minutes and can easily run in aprallel
+  setup_cluster & JOBS+=("${!}")
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
   trace "setup kind registry" setup_kind_registry
   trace "build images" build_images "${PARAMS[*]}"
 fi
+
+# Wait for cluster creation to complete
+for pid in "${JOBS[@]}"; do
+  wait "${pid}" || exit 1
+done
 
 # If a variant is defined, update the tag accordingly
 if [[ -n "${VARIANT:-}" ]]; then
