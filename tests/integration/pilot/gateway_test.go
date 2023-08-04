@@ -248,8 +248,8 @@ spec:
 func UnmanagedGatewayTest(t framework.TestContext) {
 	ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
 		false, t.Clusters().Configs()...)
-	ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
-		false, t.Clusters().Configs()...)
+	ingressutil.CreateIngressKubeSecretInNamespace(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
+		false, apps.Namespace.Name(), t.Clusters().Configs()...)
 
 	t.ConfigIstio().
 		YAML("", fmt.Sprintf(`
@@ -360,7 +360,49 @@ spec:
     backendRefs:
     - name: b
       port: 80
-`).
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: tls-same
+spec:
+  parentRefs:
+  - name: gateway
+    sectionName: tls-same
+    namespace: istio-system
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: tls-cross
+spec:
+  parentRefs:
+  - name: gateway
+    sectionName: tls-cross
+    namespace: istio-system
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+`).YAML(apps.Namespace.Name(), fmt.Sprintf(`
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-gateways-to-ref-secrets
+  namespace: "%s"
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: istio-system
+  to:
+  - group: ""
+    kind: Secret
+`, apps.Namespace.Name())).
 		ApplyOrFail(t)
 	for _, ingr := range istio.IngressesOrFail(t, t) {
 		t.NewSubTest(ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
@@ -417,6 +459,32 @@ spec:
 						return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
 					}
 					return nil
+				})
+			})
+			t.NewSubTest("tls-same").Run(func(t framework.TestContext) {
+				_ = ingr.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTPS,
+						ServicePort: 443,
+					},
+					HTTP: echo.HTTP{
+						Path:    "/",
+						Headers: headers.New().WithHost("same-namespace.domain.example").Build(),
+					},
+					Check: check.OK(),
+				})
+			})
+			t.NewSubTest("tls-cross").Run(func(t framework.TestContext) {
+				_ = ingr.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTPS,
+						ServicePort: 443,
+					},
+					HTTP: echo.HTTP{
+						Path:    "/",
+						Headers: headers.New().WithHost("cross-namespace.domain.example").Build(),
+					},
+					Check: check.OK(),
 				})
 			})
 		})
