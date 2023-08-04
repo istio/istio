@@ -33,11 +33,15 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/backoff"
+	meshcfg "istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
@@ -58,14 +62,25 @@ type sdsservice struct {
 // Assert we implement the generator interface
 var _ model.XdsResourceGenerator = &sdsservice{}
 
+// NewXdsServer builds a minimal DiscoveryServer for istio-agent SDS only.
+// The DiscoveryServer was originally designed for Istiod, so a lot of this is plugging in fake empty information.
 func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.DiscoveryServer {
-	s := xds.NewXDS(stop)
+	// Setup a mostly empty NewEnvironment
+	env := model.NewEnvironment()
+	env.ServiceDiscovery = aggregate.NewController(aggregate.Options{})
+	env.ConfigStore = memory.Make(collection.NewSchemasBuilder().Build())
+	env.Watcher = meshcfg.NewFixedWatcher(meshcfg.DefaultMeshConfig())
+	env.PushContext().Mesh = env.Watcher.Mesh()
+	env.Init()
+
+	s := xds.NewDiscoveryServer(env, "istiod", "", map[string]string{})
+
 	// No ratelimit for SDS calls in agent.
-	s.DiscoveryServer.RequestRateLimit = rate.NewLimiter(0, 1)
-	s.DiscoveryServer.Generators = map[string]model.XdsResourceGenerator{
+	s.RequestRateLimit = rate.NewLimiter(0, 1)
+	s.Generators = map[string]model.XdsResourceGenerator{
 		v3.SecretType: gen,
 	}
-	s.DiscoveryServer.ProxyNeedsPush = func(proxy *model.Proxy, req *model.PushRequest) bool {
+	s.ProxyNeedsPush = func(proxy *model.Proxy, req *model.PushRequest) bool {
 		// Empty changes means "all"
 		if len(req.ConfigsUpdated) == 0 {
 			return true
@@ -91,8 +106,9 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 		}
 		return found
 	}
-	s.DiscoveryServer.Start(stop)
-	return s.DiscoveryServer
+	s.CachesSynced()
+	s.Start(stop)
+	return s
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
