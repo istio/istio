@@ -360,6 +360,34 @@ spec:
     backendRefs:
     - name: b
       port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: tls-same
+spec:
+  parentRefs:
+  - name: gateway
+    sectionName: tls-same
+    namespace: istio-system
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: tls-cross
+spec:
+  parentRefs:
+  - name: gateway
+    sectionName: tls-cross
+    namespace: istio-system
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
 `).
 		ApplyOrFail(t)
 	for _, ingr := range istio.IngressesOrFail(t, t) {
@@ -417,6 +445,19 @@ spec:
 						return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
 					}
 					return nil
+				})
+			})
+			t.NewSubTest("tls-same").Run(func(t framework.TestContext) {
+				_ = ingr.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTPS,
+						ServicePort: 443,
+					},
+					HTTP: echo.HTTP{
+						Path:    "/",
+						Headers: headers.New().WithHost("same-namespace.domain.example").Build(),
+					},
+					Check: check.OK(),
 				})
 			})
 		})
