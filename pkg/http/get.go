@@ -24,12 +24,20 @@ import (
 
 const requestTimeout = time.Second * 1 // Default timeout.
 
-func DoHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, error) {
+func DoHTTPGETWithHeaders(requestURL string, t time.Duration, headers map[string]string) (*bytes.Buffer, error) {
 	httpClient := &http.Client{
 		Timeout: t,
 	}
 
-	response, err := httpClient.Get(requestURL)
+	req, err := http.NewRequest("GET", requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	response, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +52,10 @@ func DoHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, er
 		return nil, err
 	}
 	return &b, nil
+}
+
+func DoHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, error) {
+	return DoHTTPGETWithHeaders(requestURL, t, nil)
 }
 
 func DoHTTPGet(requestURL string) (*bytes.Buffer, error) {
