@@ -177,7 +177,7 @@ func TestSAUpdate(t *testing.T) {
 		Ports:    ports,
 		Hostname: host.Name("test1"),
 	}
-	s.MemRegistry.AddServiceNotify(svc)
+	s.MemRegistry.AddService(svc)
 	if _, err := ads.Wait(time.Second*10, watchAll...); err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestSAUpdate(t *testing.T) {
 			HealthStatus:   model.UnHealthy,
 		},
 	}
-	s.MemRegistry.AddInstanceNotify("test1", i)
+	s.MemRegistry.AddInstance(i)
 	if _, err := ads.Wait(time.Second*10, v3.EndpointType); err != nil {
 		t.Fatal(err)
 	}
@@ -205,21 +205,20 @@ func TestSAUpdate(t *testing.T) {
 func TestEds(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml"),
-		DiscoveryServerModifier: func(s *xds.DiscoveryServer, m *memory.ServiceDiscovery) {
-			addUdsEndpoint(s, m)
-
-			// enable locality load balancing and add relevant endpoints in order to test
-			addLocalityEndpoints(m, "locality.cluster.local")
-			addLocalityEndpoints(m, "locality-no-outlier-detection.cluster.local")
-
-			// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
-			addTestClientEndpoints(m)
-
-			m.AddHTTPService(edsIncSvc, edsIncVip, 8080)
-			m.SetEndpoints(edsIncSvc, "", newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
-		},
 	})
-	reconcileServiceShards(s, s.MemServiceRegistry)
+
+	m := s.MemRegistry
+	addUdsEndpoint(s.Discovery, m)
+
+	// enable locality load balancing and add relevant endpoints in order to test
+	addLocalityEndpoints(m, "locality.cluster.local")
+	addLocalityEndpoints(m, "locality-no-outlier-detection.cluster.local")
+
+	// Add the test ads clients to list of service instances in order to test the context dependent locality coloring.
+	addTestClientEndpoints(m)
+
+	m.AddHTTPService(edsIncSvc, edsIncVip, 8080)
+	m.SetEndpoints(edsIncSvc, "", newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 
 	adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}}, nil, watchAll)
 	adscConn2 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}}, nil, watchAll)
@@ -568,7 +567,6 @@ func TestEndpointFlipFlops(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 			addEdsCluster(s, "flipflop.com", "http", "10.0.0.53", 8080)
-			reconcileServiceShards(s, s.MemServiceRegistry)
 			adscConn := s.Connect(nil, nil, watchAll)
 
 			// Validate that endpoints are pushed correctly.
@@ -635,7 +633,6 @@ func TestEndpointFlipFlops(t *testing.T) {
 func TestDeleteService(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addEdsCluster(s, "removeservice.com", "http", "10.0.0.53", 8080)
-	reconcileServiceShards(s, s.MemServiceRegistry)
 	adscConn := s.Connect(nil, nil, watchEds)
 
 	// Validate that endpoints are pushed correctly.
@@ -739,7 +736,7 @@ func fullPush(s *xds.FakeDiscoveryServer) {
 }
 
 func addTestClientEndpoints(m *memory.ServiceDiscovery) {
-	m.AddService(&model.Service{
+	svc := &model.Service{
 		Hostname: "test-1.default",
 		Ports: model.PortList{
 			{
@@ -748,8 +745,10 @@ func addTestClientEndpoints(m *memory.ServiceDiscovery) {
 				Protocol: protocol.HTTP,
 			},
 		},
-	})
-	m.AddInstance("test-1.default", &model.ServiceInstance{
+	}
+	m.AddService(svc)
+	m.AddInstance(&model.ServiceInstance{
+		Service: svc,
 		Endpoint: &model.IstioEndpoint{
 			Address:         "10.10.10.10",
 			ServicePortName: "http",
@@ -762,7 +761,8 @@ func addTestClientEndpoints(m *memory.ServiceDiscovery) {
 			Protocol: protocol.HTTP,
 		},
 	})
-	m.AddInstance("test-1.default", &model.ServiceInstance{
+	m.AddInstance(&model.ServiceInstance{
+		Service: svc,
 		Endpoint: &model.IstioEndpoint{
 			Address:         "10.10.10.11",
 			ServicePortName: "http",
@@ -1126,7 +1126,7 @@ func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 const udsPath = "/var/run/test/socket"
 
 func addUdsEndpoint(s *xds.DiscoveryServer, m *memory.ServiceDiscovery) {
-	m.AddService(&model.Service{
+	svc := &model.Service{
 		Hostname: "localuds.cluster.local",
 		Ports: model.PortList{
 			{
@@ -1137,8 +1137,21 @@ func addUdsEndpoint(s *xds.DiscoveryServer, m *memory.ServiceDiscovery) {
 		},
 		MeshExternal: true,
 		Resolution:   model.ClientSideLB,
-	})
-	m.AddInstance("localuds.cluster.local", &model.ServiceInstance{
+	}
+	m.AddService(svc)
+	m.AddInstance(&model.ServiceInstance{
+		Service: &model.Service{
+			Hostname: "localuds.cluster.local",
+			Ports: model.PortList{
+				{
+					Name:     "grpc",
+					Port:     0,
+					Protocol: protocol.GRPC,
+				},
+			},
+			MeshExternal: true,
+			Resolution:   model.ClientSideLB,
+		},
 		Endpoint: &model.IstioEndpoint{
 			Address:         udsPath,
 			EndpointPort:    0,
@@ -1161,7 +1174,7 @@ func addUdsEndpoint(s *xds.DiscoveryServer, m *memory.ServiceDiscovery) {
 }
 
 func addLocalityEndpoints(m *memory.ServiceDiscovery, hostname host.Name) {
-	m.AddService(&model.Service{
+	svc := &model.Service{
 		Hostname: hostname,
 		Ports: model.PortList{
 			{
@@ -1170,7 +1183,8 @@ func addLocalityEndpoints(m *memory.ServiceDiscovery, hostname host.Name) {
 				Protocol: protocol.HTTP,
 			},
 		},
-	})
+	}
+	m.AddService(svc)
 	localities := []string{
 		"region1/zone1/subzone1",
 		"region1/zone1/subzone2",
@@ -1182,7 +1196,8 @@ func addLocalityEndpoints(m *memory.ServiceDiscovery, hostname host.Name) {
 	}
 	for i, locality := range localities {
 		_, _ = i, locality
-		m.AddInstance(hostname, &model.ServiceInstance{
+		m.AddInstance(&model.ServiceInstance{
+			Service: svc,
 			Endpoint: &model.IstioEndpoint{
 				Address:         fmt.Sprintf("10.0.0.%v", i),
 				EndpointPort:    80,
@@ -1200,7 +1215,7 @@ func addLocalityEndpoints(m *memory.ServiceDiscovery, hostname host.Name) {
 
 // nolint: unparam
 func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string, address string, port int) {
-	s.MemRegistry.AddService(&model.Service{
+	svc := &model.Service{
 		Hostname: host.Name(hostName),
 		Ports: model.PortList{
 			{
@@ -1209,9 +1224,11 @@ func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string,
 				Protocol: protocol.HTTP,
 			},
 		},
-	})
+	}
+	s.MemRegistry.AddService(svc)
 
-	s.MemRegistry.AddInstance(host.Name(hostName), &model.ServiceInstance{
+	s.MemRegistry.AddInstance(&model.ServiceInstance{
+		Service: svc,
 		Endpoint: &model.IstioEndpoint{
 			Address:         address,
 			EndpointPort:    uint32(port),
@@ -1224,12 +1241,11 @@ func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string,
 			Protocol: protocol.HTTP,
 		},
 	})
-	reconcileServiceShards(s, s.MemServiceRegistry)
 	fullPush(s)
 }
 
 func updateServiceResolution(s *xds.FakeDiscoveryServer, resolution model.Resolution) {
-	s.MemRegistry.AddService(&model.Service{
+	svc := &model.Service{
 		Hostname: "edsdns.svc.cluster.local",
 		Ports: model.PortList{
 			{
@@ -1239,9 +1255,11 @@ func updateServiceResolution(s *xds.FakeDiscoveryServer, resolution model.Resolu
 			},
 		},
 		Resolution: resolution,
-	})
+	}
+	s.MemRegistry.AddService(svc)
 
-	s.MemRegistry.AddInstance("edsdns.svc.cluster.local", &model.ServiceInstance{
+	s.MemRegistry.AddInstance(&model.ServiceInstance{
+		Service: svc,
 		Endpoint: &model.IstioEndpoint{
 			Address:         "somevip.com",
 			EndpointPort:    8080,
@@ -1258,7 +1276,7 @@ func updateServiceResolution(s *xds.FakeDiscoveryServer, resolution model.Resolu
 }
 
 func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
-	s.MemRegistry.AddService(&model.Service{
+	svc := &model.Service{
 		Hostname: "overlapping.cluster.local",
 		Ports: model.PortList{
 			{
@@ -1272,8 +1290,10 @@ func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
 				Protocol: protocol.TCP,
 			},
 		},
-	})
-	s.MemRegistry.AddInstance("overlapping.cluster.local", &model.ServiceInstance{
+	}
+	s.MemRegistry.AddService(svc)
+	s.MemRegistry.AddInstance(&model.ServiceInstance{
+		Service: svc,
 		Endpoint: &model.IstioEndpoint{
 			Address:         "10.0.0.53",
 			EndpointPort:    53,
@@ -1285,12 +1305,11 @@ func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
 			Protocol: protocol.TCP,
 		},
 	})
-	reconcileServiceShards(s, s.MemServiceRegistry)
 	fullPush(s)
 }
 
 func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
-	s.MemRegistry.AddService(&model.Service{
+	svc := &model.Service{
 		Hostname: "unhealthy.svc.cluster.local",
 		Ports: model.PortList{
 			{
@@ -1299,8 +1318,10 @@ func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
 				Protocol: protocol.TCP,
 			},
 		},
-	})
-	s.MemRegistry.AddInstance("unhealthy.svc.cluster.local", &model.ServiceInstance{
+	}
+	s.MemRegistry.AddService(svc)
+	s.MemRegistry.AddInstance(&model.ServiceInstance{
+		Service: svc,
 		Endpoint: &model.IstioEndpoint{
 			Address:         "10.0.0.53",
 			EndpointPort:    53,
@@ -1313,7 +1334,6 @@ func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
 			Protocol: protocol.TCP,
 		},
 	})
-	reconcileServiceShards(s, s.MemServiceRegistry)
 	fullPush(s)
 }
 
