@@ -92,8 +92,6 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 		forwardToUpstreamParallel: forwardToUpstreamParallel,
 	}
 
-	registerStats()
-
 	// proxyDomain could contain the namespace making it redundant.
 	// we just need the .svc.cluster.local piece
 	parts := strings.Split(proxyDomain, ".")

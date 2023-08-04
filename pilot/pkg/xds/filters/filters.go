@@ -29,6 +29,7 @@ import (
 	httpinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/http_inspector/v3"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
+	proxy_proto "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/proxy_protocol/v3"
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
@@ -135,6 +136,12 @@ var (
 			}),
 		},
 	}
+	ProxyProtocol = &listener.ListenerFilter{
+		Name: wellknown.ProxyProtocol,
+		ConfigType: &listener.ListenerFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&proxy_proto.ProxyProtocol{}),
+		},
+	}
 	EmptySessionFilter = &hcm.HttpFilter{
 		Name: util.StatefulSessionFilter,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -196,7 +203,29 @@ var (
 	ConnectBaggageFilter = &hcm.HttpFilter{
 		Name: "connect_baggage",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.http.connect_baggage.Config"),
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"downstream_discovery": []any{
+						map[string]any{
+							"baggage": map[string]any{},
+						},
+					},
+					"shared_with_upstream": true,
+				}),
+		},
+	}
+
+	WaypointUpstreamMetadataFilter = &hcm.HttpFilter{
+		Name: "waypoint_upstream_peer_metadata",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+				}),
 		},
 	}
 

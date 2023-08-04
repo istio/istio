@@ -18,8 +18,12 @@ import (
 	"testing"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	model "istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
 )
 
 func TestGetMinTLSVersion(t *testing.T) {
@@ -54,6 +58,44 @@ func TestGetMinTLSVersion(t *testing.T) {
 			if minVersion != tt.expectedMinTLSVer {
 				t.Errorf("unexpected result: expected min ver %v got %v",
 					tt.expectedMinTLSVer, minVersion)
+			}
+		})
+	}
+}
+
+func TestGetMTLSCipherSuites(t *testing.T) {
+	tests := []struct {
+		name                     string
+		mesh                     meshconfig.MeshConfig
+		expectedMTLSCipherSuites []string
+	}{
+		{
+			name:                     "Default MTLS supported Ciphers",
+			expectedMTLSCipherSuites: SupportedCiphers,
+		},
+		{
+			name: "Configure 1 MTLS cipher suite",
+			mesh: meshconfig.MeshConfig{
+				MeshMTLS: &meshconfig.MeshConfig_TLSConfig{
+					CipherSuites: []string{"ECDHE-RSA-AES256-GCM-SHA384"},
+				},
+			},
+			expectedMTLSCipherSuites: []string{"ECDHE-RSA-AES256-GCM-SHA384"},
+		},
+	}
+	for i := range tests {
+		tt := &tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			testNode := &model.Proxy{
+				Labels: map[string]string{
+					"app": "foo",
+				},
+				Metadata: &model.NodeMetadata{},
+			}
+
+			got := BuildInboundTLS(model.MTLSStrict, testNode, networking.ListenerProtocolTCP, []string{}, tls.TlsParameters_TLSv1_2, &tt.mesh)
+			if diff := cmp.Diff(tt.expectedMTLSCipherSuites, got.CommonTlsContext.TlsParams.CipherSuites, protocmp.Transform()); diff != "" {
+				t.Errorf("unexpected cipher suites: %v", diff)
 			}
 		})
 	}

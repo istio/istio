@@ -372,6 +372,9 @@ func TestConvertResources(t *testing.T) {
 		{"reference-policy-service"},
 		{"serviceentry"},
 		{"eastwest"},
+		{"eastwest-tlsoption"},
+		{"eastwest-labelport"},
+		{"eastwest-remote"},
 		{"alias"},
 		{"mcs"},
 		{"route-precedence"},
@@ -851,7 +854,7 @@ func TestExtractGatewayServices(t *testing.T) {
 			gatewayServices: []string{"foo-istio.default.svc.cluster.local"},
 		},
 		{
-			name: "managed gateway with name overrided",
+			name: "managed gateway with name overridden",
 			r:    GatewayResources{Domain: "cluster.local"},
 			kgw: &k8s.GatewaySpec{
 				GatewayClassName: "istio",

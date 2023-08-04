@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 45758
+
+releaseNotes:
+- |
+  **Added** ambient support for workload entries without an address. Fixes (#45758)[https://github.com/istio/istio/issues/45758).

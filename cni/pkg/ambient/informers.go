@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -99,13 +100,25 @@ func (s *Server) enqueueNamespace(o controllers.Object) sets.Set[string] {
 
 func (s *Server) Reconcile(input any) error {
 	event := input.(controllers.Event)
-	log := log.WithLabels("type", event.Event)
 	pod := event.Latest().(*corev1.Pod)
+	log := log.WithLabels("type", event.Event, "pod", config.NamespacedName(pod))
 	if ztunnelPod(pod) {
+		log.Debugf("reconciling ztunnel")
 		return s.UpdateActiveNodeProxy()
 	}
+	log.Debugf("reconciling pod")
 	switch event.Event {
 	case controllers.EventAdd:
+		ns := s.namespaces.Get(pod.Namespace, "")
+		if ns == nil {
+			return fmt.Errorf("failed to find namespace %v", ns)
+		}
+		// Typically, a pod Add is handled by the CNI plugin.
+		// But if CNI restarts, we clear the rules, so this can happen due to CNI restart as well
+		if PodRedirectionEnabled(ns, pod) && !IsPodInIpset(pod) {
+			log.Debugf("Pod added not in ipset, adding")
+			s.AddPodToMesh(pod)
+		}
 	case controllers.EventUpdate:
 		// For update, we just need to handle opt outs
 		newPod := event.New.(*corev1.Pod)
@@ -117,12 +130,17 @@ func (s *Server) Reconcile(input any) error {
 		wasEnabled := oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 		nowEnabled := PodRedirectionEnabled(ns, newPod)
 		if wasEnabled && !nowEnabled {
-			log.Debugf("Pod %s no longer matches, removing from mesh", newPod.Name)
+			log.Debugf("Pod no longer matches, removing from mesh")
 			s.DelPodFromMesh(newPod, event)
-		}
-
-		if !wasEnabled && nowEnabled {
-			log.Debugf("Pod %s now matches, adding to mesh", newPod.Name)
+		} else if !wasEnabled && nowEnabled {
+			log.Debugf("Pod now matches, adding to mesh")
+			s.AddPodToMesh(pod)
+		} else if nowEnabled && !IsPodInIpset(pod) {
+			// This can happen if a node cleanup happens as part of a ztunnel recycle,
+			// cleaning up the node-level ipset with all the pod IPs
+			// If this happens we re-queue everything for reconciliation, and need to
+			// make sure existing pods get re-added to the ipset if they aren't already there.
+			log.Debugf("Pod is enabled but not in ipset, (re)adding to mesh")
 			s.AddPodToMesh(pod)
 		}
 	case controllers.EventDelete:

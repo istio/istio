@@ -74,13 +74,12 @@ const (
 var log = istiolog.RegisterScope("kube", "kubernetes service registry controller")
 
 var (
-	typeTag  = monitoring.MustCreateLabel("type")
-	eventTag = monitoring.MustCreateLabel("event")
+	typeTag  = monitoring.CreateLabel("type")
+	eventTag = monitoring.CreateLabel("event")
 
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
 		"Events from k8s registry.",
-		monitoring.WithLabels(typeTag, eventTag),
 	)
 
 	// nolint: gocritic
@@ -95,12 +94,6 @@ var (
 		"Number of endpoints that do not currently have any corresponding pods.",
 	)
 )
-
-func init() {
-	monitoring.MustRegister(k8sEvents)
-	monitoring.MustRegister(endpointsWithNoPods)
-	monitoring.MustRegister(endpointsPendingPodUpdate)
-}
 
 func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
@@ -118,7 +111,7 @@ type Options struct {
 	// ClusterID identifies the cluster which the controller communicate with.
 	ClusterID cluster.ID
 
-	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// ClusterAliases are alias names for cluster. When a proxy connects with a cluster ID
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[string]string
 
@@ -229,7 +222,7 @@ type Controller struct {
 
 	podsClient kclient.Client[*v1.Pod]
 
-	ambientIndex     *AmbientIndex
+	ambientIndex     AmbientIndex
 	configController model.ConfigStoreController
 	configCluster    bool
 }
@@ -424,7 +417,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 		c.NotifyGatewayHandlers()
 		// TODO trigger push via handler
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
@@ -466,7 +459,7 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	// as that full push is only triggered for the specific service.
 	if needsFullPush {
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
@@ -528,7 +521,7 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 	if updatedNeeded && c.updateServiceNodePortAddresses() {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.ServiceUpdate},
+			Reason: model.NewReasonStats(model.ServiceUpdate),
 		})
 	}
 	return nil
@@ -586,16 +579,14 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) informersSynced() bool {
-	if !c.namespaces.HasSynced() ||
-		!c.services.HasSynced() ||
-		!c.endpoints.slices.HasSynced() ||
-		!c.pods.pods.HasSynced() ||
-		!c.nodes.HasSynced() ||
-		!c.imports.HasSynced() ||
-		!c.exports.HasSynced() {
-		return false
-	}
-	return true
+	return c.namespaces.HasSynced() &&
+		c.services.HasSynced() &&
+		c.endpoints.slices.HasSynced() &&
+		c.pods.pods.HasSynced() &&
+		c.nodes.HasSynced() &&
+		c.imports.HasSynced() &&
+		c.exports.HasSynced() &&
+		c.networkManager.HasSynced()
 }
 
 func (c *Controller) syncPods() error {
@@ -622,6 +613,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
+
+	c.networkManager.watchGatewayResources(c, stop)
 
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))

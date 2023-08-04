@@ -134,6 +134,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", "", map[string]string{})
+	s.discoveryStartTime = time.Now()
 	s.InitGenerators(s.Env, "istio-system", nil)
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
@@ -144,7 +145,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
-			Reason:         []model.TriggerReason{model.ServiceUpdate},
+			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		}
 		s.ConfigUpdate(pushReq)
 	}
@@ -160,7 +161,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		opts.NetworksWatcher.AddNetworksHandler(func() {
 			s.ConfigUpdate(&model.PushRequest{
 				Full:   true,
-				Reason: []model.TriggerReason{model.NetworksTrigger},
+				Reason: model.NewReasonStats(model.NetworksTrigger),
 			})
 		})
 	}
@@ -206,9 +207,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			client.RunAndWait(stop)
 		}
 		registries = append(registries, k8s)
-		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop); err != nil {
-			t.Fatal(err)
-		}
+		creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop)
 	}
 
 	stop := test.NewStop(t)
@@ -259,7 +258,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
-			Reason:         []model.TriggerReason{model.ConfigUpdate},
+			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		}
 		s.ConfigUpdate(pushReq)
 	}
@@ -329,8 +328,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Send an update. This ensures that even if there are no configs provided, the push context is
 	// initialized.
 	s.ConfigUpdate(&model.PushRequest{Full: true})
-
-	processStartTime = time.Now()
 
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()
@@ -476,9 +473,10 @@ func (f *FakeDiscoveryServer) EnsureSynced(t test.Failer) {
 // out of sync fields typically are bugs.
 func (f *FakeDiscoveryServer) AssertEndpointConsistency() error {
 	f.t.Helper()
+	cache := model.DisabledCache{}
 	mock := &DiscoveryServer{
-		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex()},
-		Cache: model.DisabledCache{},
+		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex(cache)},
+		Cache: cache,
 	}
 	ag := f.Discovery.Env.ServiceDiscovery.(*aggregate.Controller)
 

@@ -138,7 +138,7 @@ var (
 
 	// TODO: Likely to be removed and added to mesh config
 	k8sSigner = env.Register("K8S_SIGNER", "",
-		"Kubernates CA Signer type. Valid from Kubernates 1.18").Get()
+		"Kubernetes CA Signer type. Valid from Kubernetes 1.18").Get()
 )
 
 // RunCA will start the cert signing GRPC service on an existing server.

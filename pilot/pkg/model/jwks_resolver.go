@@ -152,10 +152,6 @@ type JwksResolver struct {
 	jwksUribackgroundChannel bool
 }
 
-func init() {
-	monitoring.MustRegister(networkFetchSuccessCounter, networkFetchFailCounter)
-}
-
 // NewJwksResolver creates new instance of JwksResolver.
 func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration) *JwksResolver {
 	return newJwksResolverWithCABundlePaths(
@@ -212,8 +208,10 @@ func newJwksResolverWithCABundlePaths(
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
 				TLSClientConfig: &tls.Config{
-					RootCAs:    caCertPool,
-					MinVersion: tls.VersionTLS12,
+					// nolint: gosec // user explicitly opted into insecure
+					InsecureSkipVerify: features.JwksResolverInsecureSkipVerify,
+					RootCAs:            caCertPool,
+					MinVersion:         tls.VersionTLS12,
 				},
 			},
 		}

@@ -78,7 +78,6 @@ func setupTest(t *testing.T) (
 		},
 	)
 	configController := memory.NewController(memory.Make(collections.Pilot))
-	configController.RegisterEventHandler(gvk.WorkloadEntry, kc.WorkloadEntryHandler)
 
 	stop := istiotest.NewStop(t)
 	go configController.Run(stop)
@@ -978,7 +977,7 @@ func expectAmbient(strings []string, ambient bool) []string {
 	if !ambient {
 		return strings
 	}
-	var out []string
+	out := make([]string, 0, len(strings))
 	for _, s := range strings {
 		out = append(out, "connect_originate;"+s)
 	}
@@ -1084,7 +1083,7 @@ func TestEndpointsDeduping(t *testing.T) {
 // TestEndpointSlicingServiceUpdate is a regression test to ensure we do not end up with duplicate endpoints when a service changes.
 func TestEndpointSlicingServiceUpdate(t *testing.T) {
 	for _, version := range []string{"latest", "20"} {
-		t.Run("kuberentes 1."+version, func(t *testing.T) {
+		t.Run("kubernetes 1."+version, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 				KubernetesVersion:    version,
 				EnableFakeXDSUpdater: true,

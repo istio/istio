@@ -50,17 +50,29 @@ func RouteExists(rte []string) bool {
 	return output == "1"
 }
 
-func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) {
-	addPodToMeshWithIptables(pod, ip)
+// AddPodToMesh will actually add a pod IP to the mesh - and will be called once for each IP.
+// In the normal case ( CNI chain ) the IPs are based on the IPAM allocations of CNI plugins before Istio.
+// Normally Istio should be the last in the chain - but not clear we can guarantee this. The Pod may add
+// additional interfaces and IPs outside of the CNI framework - those will not be handled.
+//
+// When called from the controller ( which has various startup corner cases and should mainly be used for
+// unsafe migrations since it'll break existing connections and cause traffic loss) the ip is empty and the
+// pod IP from status is used. And only one IP is added to the mesh in current implementation.
+//
+// In practice this method is adding a pod IP to the host networking capture.
+func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) error {
+	return addPodToMeshWithIptables(pod, ip)
 }
 
-func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
+func addPodToMeshWithIptables(pod *corev1.Pod, ip string) error {
 	if ip == "" {
 		ip = pod.Status.PodIP
 	}
+	// TODO: bug, pod may have multiple IPs in PodIPs
 	if ip == "" {
 		log.Debugf("skip adding pod %s/%s, IP not yet allocated", pod.Name, pod.Namespace)
-		return
+		// TODO: is this an error ? Only a case for the post-start controller.
+		return nil
 	}
 
 	if !IsPodInIpset(pod) {
@@ -68,6 +80,7 @@ func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
 		err := Ipset.AddIP(net.ParseIP(ip).To4(), string(pod.UID))
 		if err != nil {
 			log.Errorf("Failed to add pod %s to ipset list: %v", pod.Name, err)
+			return err
 		}
 	} else {
 		log.Infof("Pod '%s/%s' (%s) is in ipset", pod.Name, pod.Namespace, string(pod.UID))
@@ -76,6 +89,7 @@ func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
 	rte, err := buildRouteForPod(ip)
 	if err != nil {
 		log.Errorf("Failed to build route for pod %s: %v", pod.Name, err)
+		return err
 	}
 
 	if !RouteExists(rte) {
@@ -88,6 +102,7 @@ func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
 		err = execute("ip", append([]string{"route", "add"}, rte...)...)
 		if err != nil {
 			log.Warnf("Failed to add route (%s) for pod %s: %v", rte, pod.Name, err)
+			return err
 		}
 	} else {
 		log.Infof("Route already exists for %s/%s: %+v", pod.Name, pod.Namespace, rte)
@@ -96,13 +111,16 @@ func addPodToMeshWithIptables(pod *corev1.Pod, ip string) {
 	dev, err := getDeviceWithDestinationOf(ip)
 	if err != nil {
 		log.Warnf("Failed to get device for destination %s", ip)
-		return
+		return err
 	}
 
 	err = disableRPFiltersForLink(dev)
 	if err != nil {
 		log.Warnf("failed to disable procfs rp_filter for device %s: %v", dev, err)
+		// I believe this is not a fatal error ?
 	}
+
+	return nil
 }
 
 func delPodFromMeshWithIptables(pod *corev1.Pod) {
@@ -220,10 +238,16 @@ func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
 func (s *Server) AddPodToMesh(pod *corev1.Pod) {
 	switch s.redirectMode {
 	case IptablesMode:
-		AddPodToMesh(s.kubeClient.Kube(), pod, "")
+		// This is used for pods already running - we can't block, but we
+		// should not annotate.
+		err := AddPodToMesh(s.kubeClient.Kube(), pod, "")
+		if err != nil {
+			return
+		}
 	case EbpfMode:
 		if err := s.updatePodEbpfOnNode(pod); err != nil {
 			log.Errorf("failed to update POD ebpf: %v", err)
+			return
 		}
 	}
 	if err := AnnotateEnrolledPod(s.kubeClient.Kube(), pod); err != nil {

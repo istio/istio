@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -169,7 +170,8 @@ func (a *Agent) terminate() {
 }
 
 func (a *Agent) activeProxyConnections() (int, error) {
-	activeConnectionsURL := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=downstream_cx_active$", a.localhost, a.adminPort)
+	adminHost := net.JoinHostPort(a.localhost, strconv.Itoa(a.adminPort))
+	activeConnectionsURL := fmt.Sprintf("http://%s/stats?usedonly&filter=downstream_cx_active$", adminHost)
 	stats, err := http.DoHTTPGet(activeConnectionsURL)
 	if err != nil {
 		return -1, fmt.Errorf("unable to get listener stats from Envoy : %v", err)

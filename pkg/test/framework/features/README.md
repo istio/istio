@@ -6,7 +6,7 @@ The features package defines values that are used to track feature coverage at e
 
 ## Labeling a Test
 
-Labeling a test with a feature and scenario allow release managers and others to understand what value this test case is adding.  To label a test, call the Feature() function on the Test Object, with a string identifying the feature and scenario you are testing.  These parameters should be formatted like featurepath.scenariopath, where both feature path and scenario path are dot delimited heirarchies, and the featurepath is a leaf node in features.yaml.  If you are testing a feature whose path does not yet exist in features,yaml, see the next section for how to define one.
+Labeling a test with a feature and scenario allow release managers and others to understand what value this test case is adding.  To label a test, call the Feature() function on the Test Object, with a string identifying the feature and scenario you are testing.  These parameters should be formatted like featurepath.scenariopath, where both feature path and scenario path are dot delimited hierarchies, and the featurepath is a leaf node in features.yaml.  If you are testing a feature whose path does not yet exist in features,yaml, see the next section for how to define one.
 
 ## Adding New Feature Constants
 
@@ -29,7 +29,7 @@ will allow you to label a test with:
 
 where "usability.observability.status" is the feature, and "exist-by-default" is the scenario in the first case, and the second case has no scenario.
 
-The heirarchical nature of feature labels allows us to aggregate data about related feature sets.  To provide for consistent reporting and aggregation, we have defined the top two layers of hierarchy, and ask that you place your feature under these headings.  For more detail on the purpose of each heading, see Top-Level Feature Headings below.  If you feel that none of the existing headings fit your feature, please check with the Test and Release Working Group before adding a new heading.
+The hierarchical nature of feature labels allows us to aggregate data about related feature sets.  To provide for consistent reporting and aggregation, we have defined the top two layers of hierarchy, and ask that you place your feature under these headings.  For more detail on the purpose of each heading, see Top-Level Feature Headings below.  If you feel that none of the existing headings fit your feature, please check with the Test and Release Working Group before adding a new heading.
 
 ## Writing a Test Stub
 

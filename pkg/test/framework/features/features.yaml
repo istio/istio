@@ -101,6 +101,7 @@ features:
           invalid-secret:
           K8sca:
           valid-secret:
+          optional-mtls:
       quic:
         sds:
           tls:
@@ -149,7 +150,7 @@ features:
     wasm:
       remote-load:
       image-pull-policy:
-  # features releated to the lifecycle of istio installations
+  # features related to the lifecycle of istio installations
   installation:
     operator:
       uninstall_revision:

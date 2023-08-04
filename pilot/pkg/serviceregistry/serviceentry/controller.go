@@ -185,6 +185,19 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, options
 	return s
 }
 
+// ConvertServiceEntry convert se from Config.Spec.
+func ConvertServiceEntry(cfg config.Config) *networking.ServiceEntry {
+	se := cfg.Spec.(*networking.ServiceEntry)
+	if se == nil {
+		return nil
+	}
+
+	// shallow copy
+	copied := &networking.ServiceEntry{}
+	protomarshal.ShallowCopy(copied, se)
+	return copied
+}
+
 // ConvertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
 func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 	wle := cfg.Spec.(*networking.WorkloadEntry)
@@ -192,14 +205,8 @@ func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 		return nil
 	}
 
-	labels := make(map[string]string, len(wle.Labels)+len(cfg.Labels))
-	for k, v := range wle.Labels {
-		labels[k] = v
-	}
 	// we will merge labels from metadata with spec, with precedence to the metadata
-	for k, v := range cfg.Labels {
-		labels[k] = v
-	}
+	labels := maps.MergeCopy(wle.Labels, cfg.Labels)
 	// shallow copy
 	copied := &networking.WorkloadEntry{}
 	protomarshal.ShallowCopy(copied, wle)
@@ -231,9 +238,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	wi := s.convertWorkloadEntryToWorkloadInstance(curr, s.Cluster())
 	if wi != nil && !wi.DNSServiceEntryOnly {
 		// fire off the k8s handlers
-		for _, h := range s.workloadHandlers {
-			h(wi, event)
-		}
+		s.NotifyWorkloadInstanceHandlers(wi, event)
 	}
 
 	// includes instances new updated or unchanged, in other word it is the current state.
@@ -327,10 +332,16 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	pushReq := &model.PushRequest{
 		Full:           true,
 		ConfigsUpdated: configsUpdated,
-		Reason:         []model.TriggerReason{model.EndpointUpdate},
+		Reason:         model.NewReasonStats(model.EndpointUpdate),
 	}
 	// trigger a full push
 	s.XdsUpdater.ConfigUpdate(pushReq)
+}
+
+func (s *Controller) NotifyWorkloadInstanceHandlers(wi *model.WorkloadInstance, event model.Event) {
+	for _, h := range s.workloadHandlers {
+		h(wi, event)
+	}
 }
 
 // getUpdatedConfigs returns related service entries when full push
@@ -456,7 +467,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	pushReq := &model.PushRequest{
 		Full:           true,
 		ConfigsUpdated: configsUpdated,
-		Reason:         []model.TriggerReason{model.ServiceUpdate},
+		Reason:         model.NewReasonStats(model.ServiceUpdate),
 	}
 	s.XdsUpdater.ConfigUpdate(pushReq)
 }
@@ -536,7 +547,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		services := s.services.getServices(seNamespacedName)
 		currInstance := convertWorkloadInstanceToServiceInstance(wi, services, se)
 
-		// We chech if the wi is still a subset of se. This would cover Case 1 and Case 2 from above.
+		// We check if the wi is still a subset of se. This would cover Case 1 and Case 2 from above.
 		if labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels) {
 			// If the workload instance still matches. We take care of the possible events.
 			instances = append(instances, currInstance...)
@@ -598,7 +609,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: configsUpdated,
-			Reason:         []model.TriggerReason{model.EndpointUpdate},
+			Reason:         model.NewReasonStats(model.EndpointUpdate),
 		}
 		s.XdsUpdater.ConfigUpdate(pushReq)
 	}
@@ -691,6 +702,10 @@ func (s *Controller) ResyncEDS() {
 	allInstances := s.serviceInstances.getAll()
 	s.mutex.RUnlock()
 	s.edsUpdate(allInstances)
+	// HACK to workaround Service syncing after WorkloadEntry: https://github.com/istio/istio/issues/45114
+	s.workloadInstances.ForEach(func(wi *model.WorkloadInstance) {
+		s.NotifyWorkloadInstanceHandlers(wi, model.EventAdd)
+	})
 }
 
 // edsUpdate triggers an EDS push serially such that we can prevent all instances
@@ -705,7 +720,7 @@ func (s *Controller) edsUpdate(instances []*model.ServiceInstance) {
 	s.queueEdsEvent(keys, s.doEdsUpdate)
 }
 
-// edsCacheUpdate upates eds cache serially such that we can prevent allinstances
+// edsCacheUpdate updates eds cache serially such that we can prevent allinstances
 // got at t1 can accidentally override that got at t2 if multiple threads are
 // running this function. Queueing ensures latest updated wins.
 func (s *Controller) edsCacheUpdate(instances []*model.ServiceInstance) {

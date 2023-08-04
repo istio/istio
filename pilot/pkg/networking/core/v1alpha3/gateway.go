@@ -109,19 +109,24 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				continue
 			}
 
+			needPROXYProtocol := transport != istionetworking.TransportProtocolQUIC &&
+				proxyConfig.GatewayTopology != nil &&
+				proxyConfig.GatewayTopology.ProxyProtocol != nil
+
 			// on a given port, we can either have plain text HTTP servers or
 			// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 			// We can also have QUIC on a given port along with HTTPS/TLS on a given port. It does not
 			// cause port-conflict as they use different transport protocols
 			opts := &buildListenerOpts{
-				push:       builder.push,
-				proxy:      builder.node,
-				bind:       bind,
-				extraBind:  extraBind,
-				port:       &model.Port{Port: int(port.Number)},
-				bindToPort: true,
-				class:      istionetworking.ListenerClassGateway,
-				transport:  transport,
+				push:              builder.push,
+				proxy:             builder.node,
+				bind:              bind,
+				extraBind:         extraBind,
+				port:              &model.Port{Port: int(port.Number)},
+				bindToPort:        true,
+				class:             istionetworking.ListenerClassGateway,
+				transport:         transport,
+				needPROXYProtocol: needPROXYProtocol,
 			}
 			lname := getListenerName(bind, int(port.Number), transport)
 			p := protocol.Parse(port.Protocol)
@@ -749,6 +754,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 				},
 			}
 		}
+		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
 	} else if !gateway.IsPassThroughServer(server) {
 		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 		// and forward to backend
@@ -763,6 +769,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 				},
 			}
 		}
+		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
 	} else {
 		// Passthrough server.
 		return buildGatewayNetworkFiltersFromTLSRoutes(node, push, server, listenerPort, gatewayName, tlsHostsByPort)
@@ -918,7 +925,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			statPrefix := clusterName
 			if len(push.Mesh.OutboundClusterStatName) != 0 {
-				statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, &service.Attributes)
+				statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, 0, &service.Attributes)
 			}
 			destinationRule := CastDestinationRule(proxy.SidecarScope.DestinationRule(
 				model.TrafficDirectionOutbound, proxy, service.Hostname).GetRule())
@@ -943,7 +950,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 				subsetStatPrefix := subsetClusterName
 				// If stat name is configured, build the stat prefix from configured pattern.
 				if len(push.Mesh.OutboundClusterStatName) != 0 {
-					subsetStatPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, &service.Attributes)
+					subsetStatPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, 0, &service.Attributes)
 				}
 				filterChains = append(filterChains, &filterChainOpts{
 					sniHosts:   []string{subsetClusterName},

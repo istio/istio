@@ -20,7 +20,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -39,9 +38,7 @@ const (
 )
 
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(p protocol.Instance,
-	trafficDirection core.TrafficDirection,
-) ListenerProtocol {
+func ModelProtocolToListenerProtocol(p protocol.Instance) ListenerProtocol {
 	switch p {
 	case protocol.HTTP, protocol.HTTP2, protocol.HTTP_PROXY, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP
@@ -51,19 +48,6 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 	case protocol.UDP:
 		return ListenerProtocolUnknown
 	case protocol.Unsupported:
-		// If protocol sniffing is not enabled, the default value is TCP
-		switch trafficDirection {
-		case core.TrafficDirection_INBOUND:
-			if !features.EnableProtocolSniffingForInbound {
-				return ListenerProtocolTCP
-			}
-		case core.TrafficDirection_OUTBOUND:
-			if !features.EnableProtocolSniffingForOutbound {
-				return ListenerProtocolTCP
-			}
-		default:
-			// Should not reach here.
-		}
 		return ListenerProtocolAuto
 	default:
 		// Should not reach here.

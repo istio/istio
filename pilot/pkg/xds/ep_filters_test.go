@@ -27,6 +27,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -445,6 +446,7 @@ var mtlsCases = map[string]map[string]struct {
 }
 
 func TestEndpointsByNetworkFilter(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	env := environment(t)
 	env.Env().InitNetworksManager(env.Discovery)
 	// The tests below are calling the endpoints filter from each one of the
@@ -453,6 +455,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 }
 
 func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	noCrossNetwork := []networkFilterCase{
 		{
 			name: "from_network1_cluster1a",
@@ -571,6 +574,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 }
 
 func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	//  - 1 IP gateway for network1
 	//  - 1 DNS gateway for network2
 	//  - 1 IP gateway for network3

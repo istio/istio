@@ -379,6 +379,17 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 	}
 }
 
+func (b *EndpointBuilder) IsDNSCluster() bool {
+	return b.service != nil && (b.service.Resolution == model.DNSLB || b.service.Resolution == model.DNSRoundRobinLB)
+}
+
+func (b *EndpointBuilder) gateways() *model.NetworkGateways {
+	if b.IsDNSCluster() {
+		return b.push.NetworkManager().Unresolved
+	}
+	return b.push.NetworkManager().NetworkGateways
+}
+
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnabled bool) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)

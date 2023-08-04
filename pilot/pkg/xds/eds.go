@@ -73,7 +73,7 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 		s.ConfigUpdate(&model.PushRequest{
 			Full:           pushType == FullPush,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: serviceName, Namespace: namespace}),
-			Reason:         []model.TriggerReason{model.EndpointUpdate},
+			Reason:         model.NewReasonStats(model.EndpointUpdate),
 		})
 	}
 }

@@ -69,6 +69,12 @@ const (
 
 	// imagePullPolicyValuesKey values key for the Docker image pull policy.
 	imagePullPolicyValuesKey = "global.imagePullPolicy"
+
+	// DefaultEgressGatewayLabel is the default Istio label for the egress gateway.
+	DefaultEgressGatewayIstioLabel = "egressgateway"
+
+	// DefaultEgressGatewayServiceName is the default service name for the egress gateway.
+	DefaultEgressGatewayServiceName = "istio-egressgateway"
 )
 
 var (
@@ -76,17 +82,20 @@ var (
 	operatorOptions string
 
 	settingsFromCommandline = &Config{
-		SystemNamespace:         DefaultSystemNamespace,
-		TelemetryNamespace:      DefaultSystemNamespace,
-		DeployIstio:             true,
-		PrimaryClusterIOPFile:   IntegrationTestDefaultsIOP,
-		ConfigClusterIOPFile:    IntegrationTestDefaultsIOP,
-		RemoteClusterIOPFile:    IntegrationTestRemoteDefaultsIOP,
-		BaseIOPFile:             BaseIOP,
-		DeployEastWestGW:        true,
-		DumpKubernetesManifests: false,
-		IstiodlessRemotes:       true,
-		EnableCNI:               false,
+		SystemNamespace:               DefaultSystemNamespace,
+		TelemetryNamespace:            DefaultSystemNamespace,
+		DeployIstio:                   true,
+		PrimaryClusterIOPFile:         IntegrationTestDefaultsIOP,
+		ConfigClusterIOPFile:          IntegrationTestDefaultsIOP,
+		RemoteClusterIOPFile:          IntegrationTestRemoteDefaultsIOP,
+		BaseIOPFile:                   BaseIOP,
+		DeployEastWestGW:              true,
+		DumpKubernetesManifests:       false,
+		IstiodlessRemotes:             true,
+		EnableCNI:                     false,
+		EgressGatewayServiceNamespace: DefaultSystemNamespace,
+		EgressGatewayServiceName:      DefaultEgressGatewayServiceName,
+		EgressGatewayIstioLabel:       DefaultEgressGatewayIstioLabel,
 	}
 )
 
@@ -171,6 +180,23 @@ type Config struct {
 	// IngressGatewayIstioLabel allows overriding the selector of the ingressgateway service (defaults to istio=ingressgateway)
 	// This field should only be set when DeployIstio is false
 	IngressGatewayIstioLabel string
+
+	// EgressGatewayServiceName is the service name to use to reference the egressgateway
+	// This field should only be set when DeployIstio is false
+	EgressGatewayServiceName string
+
+	// EgressGatewayServiceNamespace allows overriding the namespace of the egressgateway service (defaults to SystemNamespace)
+	// This field should only be set when DeployIstio is false
+	EgressGatewayServiceNamespace string
+
+	// EgressGatewayIstioLabel allows overriding the selector of the egressgateway service (defaults to istio=egressgateway)
+	// This field should only be set when DeployIstio is false
+	EgressGatewayIstioLabel string
+
+	// SharedMeshConfigName is the name of the user's local ConfigMap to be patched, which the user sets as the SHARED_MESH_CONFIG pilot env variable
+	// upon installing Istio.
+	// This field should only be set when DeployIstio is false.
+	SharedMeshConfigName string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {
@@ -341,7 +367,11 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("EnableCNI:                      %v\n", c.EnableCNI)
 	result += fmt.Sprintf("IngressGatewayServiceName:      %v\n", c.IngressGatewayServiceName)
 	result += fmt.Sprintf("IngressGatewayServiceNamespace: %v\n", c.IngressGatewayServiceNamespace)
-	result += fmt.Sprintf("IngressGatewayIstioLabel:     	 %v\n", c.IngressGatewayIstioLabel)
+	result += fmt.Sprintf("IngressGatewayIstioLabel:       %v\n", c.IngressGatewayIstioLabel)
+	result += fmt.Sprintf("EgressGatewayServiceName:       %v\n", c.EgressGatewayServiceName)
+	result += fmt.Sprintf("EgressGatewayServiceNamespace:  %v\n", c.EgressGatewayServiceNamespace)
+	result += fmt.Sprintf("EgressGatewayIstioLabel:        %v\n", c.EgressGatewayIstioLabel)
+	result += fmt.Sprintf("SharedMeshConfigName:           %v\n", c.SharedMeshConfigName)
 
 	return result
 }

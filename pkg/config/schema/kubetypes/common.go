@@ -27,7 +27,7 @@ func GetGVR[T runtime.Object]() schema.GroupVersionResource {
 	gk := GetGVK[T]()
 	gr, ok := gvk.ToGVR(gk)
 	if !ok {
-		panic(fmt.Sprintf("unknow GVR for GVK %v", gk))
+		panic(fmt.Sprintf("unknown GVR for GVK %v", gk))
 	}
 	return gr
 }

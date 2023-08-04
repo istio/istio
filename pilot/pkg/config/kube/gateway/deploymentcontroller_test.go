@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,9 +58,17 @@ func TestConfigureIstioGateway(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	// Recompute with ambient enabled
 	classInfos = getClassInfos()
-	defaultIstio := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default-istio", Namespace: "default"}}
-	customSA := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "custom-sa", Namespace: "default"}}
-	defaultObjects := []runtime.Object{defaultIstio, customSA}
+	builtinClasses = getBuiltinClasses()
+	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
+	customClass := &v1beta1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "custom",
+		},
+		Spec: v1beta1.GatewayClassSpec{
+			ControllerName: constants.ManagedGatewayController,
+		},
+	}
+	defaultObjects := []runtime.Object{defaultNamespace}
 	store := model.NewFakeStore()
 	if _, err := store.Create(config.Config{
 		Meta: config.Meta{
@@ -208,37 +215,46 @@ func TestConfigureIstioGateway(t *testing.T) {
 			objects: defaultObjects,
 			pcs:     proxyConfig,
 		},
+		{
+			name: "custom-class",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: v1beta1.GatewaySpec{
+					GatewayClassName: v1beta1.ObjectName(customClass.Name),
+				},
+			},
+			objects: defaultObjects,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
 			client := kube.NewFakeClient(tt.objects...)
-			deployments := kclient.New[*appsv1.Deployment](client)
+			kclient.NewWriteClient[*v1beta1.GatewayClass](client).Create(customClass)
+			kclient.NewWriteClient[*v1beta1.Gateway](client).Create(&tt.gw)
 			stop := test.NewStop(t)
-			client.RunAndWait(stop)
-			kube.WaitForCacheSync("test", stop, deployments.HasSynced)
 			env := model.NewEnvironment()
 			env.PushContext().ProxyConfigs = tt.pcs
-			d := &DeploymentController{
-				client:       client,
-				env:          env,
-				deployments:  deployments,
-				clusterID:    cluster.ID(features.ClusterName),
-				injectConfig: testInjectionConfig(t),
-				patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
-					b, err := yaml.JSONToYAML(data)
-					if err != nil {
-						return err
-					}
-					buf.Write(b)
-					buf.Write([]byte("---\n"))
-					return nil
-				},
+			tw := revisions.NewTagWatcher(client, "")
+			go tw.Run(stop)
+			d := NewDeploymentController(
+				client, cluster.ID(features.ClusterName), env, testInjectionConfig(t), func(fn func()) {
+				}, tw, "")
+			d.patcher = func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+				b, err := yaml.JSONToYAML(data)
+				if err != nil {
+					return err
+				}
+				buf.Write(b)
+				buf.Write([]byte("---\n"))
+				return nil
 			}
-			err := d.configureIstioGateway(istiolog.FindScope(istiolog.DefaultScopeName), tt.gw)
-			if err != nil {
-				t.Fatal(err)
-			}
+			client.RunAndWait(stop)
+			go d.Run(stop)
+			kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 
 			resp := timestampRegex.ReplaceAll(buf.Bytes(), []byte("lastTransitionTime: fake"))
 			util.CompareContent(t, resp, filepath.Join("testdata", "deployment", tt.name+".yaml"))

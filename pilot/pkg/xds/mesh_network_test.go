@@ -27,12 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -41,10 +42,12 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestNetworkGatewayUpdates(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	pod := &workload{
 		kind: Pod,
 		name: "app", namespace: "pod",
@@ -153,6 +156,7 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 }
 
 func TestMeshNetworking(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	ingressServiceScenarios := map[corev1.ServiceType]map[cluster.ID][]runtime.Object{
 		corev1.ServiceTypeLoadBalancer: {
 			// cluster/network 1's ingress can be found up by registry service name in meshNetworks (no label)
@@ -194,7 +198,7 @@ func TestMeshNetworking(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "istio-ingressgateway",
 						Namespace:   "istio-system",
-						Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
+						Annotations: map[string]string{annotation.TrafficNodeSelector.Name: "{}"},
 					},
 					Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort, Ports: []corev1.ServicePort{{Port: 15443, NodePort: 25443}}},
 				},
@@ -205,7 +209,7 @@ func TestMeshNetworking(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "istio-ingressgateway",
 						Namespace:   "istio-system",
-						Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
+						Annotations: map[string]string{annotation.TrafficNodeSelector.Name: "{}"},
 						Labels: map[string]string{
 							label.TopologyNetwork.Name: "network-2",
 							// set the label here to test it = expectation doesn't change since we map back to that via NodePort
@@ -369,6 +373,7 @@ func TestMeshNetworking(t *testing.T) {
 }
 
 func TestEmptyAddressWorkloadEntry(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	type entry struct{ address, sa, network, version string }
 	const name, port = "remote-we-svc", 80
 	serviceCases := []struct {

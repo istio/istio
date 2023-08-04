@@ -29,6 +29,15 @@ func Equal[E comparable](s1, s2 []E) bool {
 	return slices.Equal(s1, s2)
 }
 
+// EqualFunc reports whether two slices are equal using a comparison
+// function on each pair of elements. If the lengths are different,
+// EqualFunc returns false. Otherwise, the elements are compared in
+// increasing index order, and the comparison stops at the first index
+// for which eq returns false.
+func EqualFunc[E1, E2 comparable](s1 []E1, s2 []E2, eq func(E1, E2) bool) bool {
+	return slices.EqualFunc(s1, s2, eq)
+}
+
 // SortFunc sorts the slice x in ascending order as determined by the less function.
 // This sort is not guaranteed to be stable.
 // The slice is modified in place but returned.
@@ -58,6 +67,10 @@ func Clone[S ~[]E, E any](s S) S {
 
 // Delete removes the element i from s, returning the modified slice.
 func Delete[S ~[]E, E any](s S, i int) S {
+	// "If those elements contain pointers you might consider zeroing those elements
+	// so that objects they reference can be garbage collected."
+	var empty E
+	s[i] = empty
 	return slices.Delete(s, i, i+1)
 }
 
@@ -73,6 +86,14 @@ func FindFunc[E any](s []E, f func(E) bool) *E {
 		return nil
 	}
 	return &s[idx]
+}
+
+// Reverse returns its argument array reversed
+func Reverse[E any](r []E) []E {
+	for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {
+		r[i], r[j] = r[j], r[i]
+	}
+	return r
 }
 
 // FilterInPlace retains all elements in []E that f(E) returns true for.

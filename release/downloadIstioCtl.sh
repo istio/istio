@@ -24,7 +24,7 @@
 #
 
 # Determines the operating system.
-OS="$(uname)"
+OS="${TARGET_OS:-$(uname)}"
 if [ "${OS}" = "Darwin" ] ; then
   OSEXT="osx"
 else

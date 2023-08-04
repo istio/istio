@@ -26,6 +26,7 @@ import (
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestCheckInstall(t *testing.T) {
@@ -172,7 +173,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			}
 
 			t.Log("Expecting an invalid configuration log:")
-			if err := in.sleepCheckInstall(ctx); err != nil {
+			if err := in.sleepCheckInstall(ctx, sets.Set[string]{}); err != nil {
 				t.Fatalf("error should be nil due to invalid config, got: %v", err)
 			}
 			assert.Equal(t, isReady.Load(), false)
@@ -209,7 +210,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			// Should detect a valid configuration and wait indefinitely for a file modification
 			errChan := make(chan error)
 			go func(ctx context.Context) {
-				errChan <- in.sleepCheckInstall(ctx)
+				errChan <- in.sleepCheckInstall(ctx, sets.Set[string]{})
 			}(ctx)
 
 			select {
@@ -249,7 +250,7 @@ func TestSleepCheckInstall(t *testing.T) {
 
 				// Run sleepCheckInstall
 				go func(ctx context.Context, in *Installer) {
-					errChan <- in.sleepCheckInstall(ctx)
+					errChan <- in.sleepCheckInstall(ctx, sets.Set[string]{})
 				}(ctx, in)
 			}
 

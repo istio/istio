@@ -3,7 +3,9 @@ name: ""
 # revision declares which revision this gateway is a part of
 revision: ""
 
-replicaCount: 1
+# Controls the spec.replicas setting for the Gateway deployment if set.
+# Otherwise defaults to Kubernetes Deployment default (1).
+replicaCount:
 
 kind: Deployment
 
@@ -125,3 +127,5 @@ imagePullSecrets: []
 # podDisruptionBudget: {}
 #
 podDisruptionBudget: {}
+
+terminationGracePeriodSeconds: 30

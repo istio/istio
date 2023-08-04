@@ -116,23 +116,15 @@ type EndpointIndex struct {
 	cache XdsCache
 }
 
-func NewEndpointIndex() *EndpointIndex {
+func NewEndpointIndex(cache XdsCache) *EndpointIndex {
 	return &EndpointIndex{
 		shardsBySvc: make(map[string]map[string]*EndpointShards),
+		cache:       cache,
 	}
-}
-
-func (e *EndpointIndex) SetCache(cache XdsCache) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.cache = cache
 }
 
 // must be called with lock
 func (e *EndpointIndex) clearCacheForService(svc, ns string) {
-	if e.cache == nil {
-		return
-	}
 	e.cache.Clear(sets.Set[ConfigKey]{{
 		Kind:      kind.ServiceEntry,
 		Name:      svc,
@@ -203,6 +195,9 @@ func (e *EndpointIndex) DeleteShard(shardKey ShardKey) {
 		for ns := range shardsByNamespace {
 			e.deleteServiceInner(shardKey, svc, ns, false)
 		}
+	}
+	if e.cache == nil {
+		return
 	}
 	e.cache.ClearAll()
 }
