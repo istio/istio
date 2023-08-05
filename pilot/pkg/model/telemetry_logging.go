@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"istio.io/istio/pilot/pkg/features"
 	"strings"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -452,6 +453,7 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
+		DisableBuiltinLabels: !features.EnableOTELBuiltinResourceLables,
 	}
 
 	if format != "" {
