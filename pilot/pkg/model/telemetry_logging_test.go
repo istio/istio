@@ -1158,6 +1158,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
+		DisableBuiltinLabels: true,
 		Body: &otlpcommon.AnyValue{
 			Value: &otlpcommon.AnyValue_StringValue{
 				StringValue: EnvoyTextLogFormat,

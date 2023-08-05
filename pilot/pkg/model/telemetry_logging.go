@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"istio.io/istio/pilot/pkg/features"
 	"strings"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -31,6 +30,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/maps"
