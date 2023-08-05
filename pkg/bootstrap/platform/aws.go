@@ -148,7 +148,8 @@ func getToken(ipv6 bool) string {
 	}
 
 	resp, err := http.PUT(url, time.Millisecond*100, map[string]string{
-		"X-aws-ec2-metadata-token-ttl-seconds": "60", // more details can be found at https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
+		// more details can be found at https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
+		"X-aws-ec2-metadata-token-ttl-seconds": "60",
 	})
 	if err != nil {
 		log.Debugf("error in getting aws token : %v", err)
