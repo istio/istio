@@ -116,7 +116,7 @@ func getAWSInfo(path string, ipv6 bool, headers map[string]string) (string, erro
 		url = awsMetadataIPv6URL + "/" + path
 	}
 
-	resp, err := http.DoHTTPGETWithHeaders(url, time.Millisecond*100, headers)
+	resp, err := http.GET(url, time.Millisecond*100, headers)
 	if err != nil {
 		log.Debugf("error in getting aws info for %s : %v", path, err)
 		return "", err
@@ -147,7 +147,9 @@ func getToken(ipv6 bool) string {
 		url = awsMetadataTokenIPv6URL
 	}
 
-	resp, err := http.DoHTTPGetWithTimeout(url, time.Millisecond*100)
+	resp, err := http.PUT(url, time.Millisecond*100, map[string]string{
+		"X-aws-ec2-metadata-token-ttl-seconds": "60", // more details can be found at https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
+	})
 	if err != nil {
 		log.Debugf("error in getting aws token : %v", err)
 		return ""

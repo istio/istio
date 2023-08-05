@@ -24,12 +24,28 @@ import (
 
 const requestTimeout = time.Second * 1 // Default timeout.
 
-func DoHTTPGETWithHeaders(requestURL string, t time.Duration, headers map[string]string) (*bytes.Buffer, error) {
+func DoHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, error) {
+	return request("GET", requestURL, t, nil)
+}
+
+func DoHTTPGet(requestURL string) (*bytes.Buffer, error) {
+	return DoHTTPGetWithTimeout(requestURL, requestTimeout)
+}
+
+func GET(requestURL string, t time.Duration, headers map[string]string) (*bytes.Buffer, error) {
+	return request("GET", requestURL, t, headers)
+}
+
+func PUT(requestURL string, t time.Duration, headers map[string]string) (*bytes.Buffer, error) {
+	return request("PUT", requestURL, t, headers)
+}
+
+func request(method, requestURL string, t time.Duration, headers map[string]string) (*bytes.Buffer, error) {
 	httpClient := &http.Client{
 		Timeout: t,
 	}
 
-	req, err := http.NewRequest("GET", requestURL, nil)
+	req, err := http.NewRequest(method, requestURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -52,12 +68,4 @@ func DoHTTPGETWithHeaders(requestURL string, t time.Duration, headers map[string
 		return nil, err
 	}
 	return &b, nil
-}
-
-func DoHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, error) {
-	return DoHTTPGETWithHeaders(requestURL, t, nil)
-}
-
-func DoHTTPGet(requestURL string) (*bytes.Buffer, error) {
-	return DoHTTPGetWithTimeout(requestURL, requestTimeout)
 }
