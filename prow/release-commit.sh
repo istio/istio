@@ -64,18 +64,15 @@ ${DEPENDENCIES:-$(cat <<EOD
   proxy:
     git: https://github.com/istio/proxy
     auto: deps
-  pkg:
-    git: https://github.com/istio/pkg
-    branch: master
   client-go:
     git: https://github.com/istio/client-go
-    branch: master
+    branch: release-1.19
   test-infra:
     git: https://github.com/istio/test-infra
     branch: master
   tools:
     git: https://github.com/istio/tools
-    branch: master
+    branch: release-1.19
   release-builder:
     git: https://github.com/istio/release-builder
     sha: ${BUILDER_SHA}
