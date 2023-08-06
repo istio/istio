@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	fuzz "github.com/google/gofuzz"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -2319,6 +2321,257 @@ func TestVirtualServiceDependencies(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := VirtualServiceDependencies(tt.vs); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("VirtualServiceDependencies got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMergeHTTPHeaders(t *testing.T) {
+	tests := []struct {
+		name     string
+		root     *networking.Headers
+		delegate *networking.Headers
+		want     *networking.Headers
+	}{
+		{
+			name: "request/response headers set in root and not in delegate",
+			root: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+						"b1": "b2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+					},
+					Remove: []string{"d1"},
+				},
+				Response: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+					},
+					Remove: []string{"d1"},
+				},
+			},
+			delegate: nil,
+			want: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+						"b1": "b2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+					},
+					Remove: []string{"d1"},
+				},
+				Response: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+					},
+					Remove: []string{"d1"},
+				},
+			},
+		},
+		{
+			name: "request/response headers set in delegate and not in root",
+			root: nil,
+			delegate: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+						"b1": "b2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+					},
+					Remove: []string{"d1"},
+				},
+				Response: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+					},
+					Remove: []string{"d1"},
+				},
+			},
+			want: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+						"b1": "b2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+					},
+					Remove: []string{"d1"},
+				},
+				Response: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+					},
+					Remove: []string{"d1"},
+				},
+			},
+		},
+		{
+			name: "request/response headers set both in delegate and root VS",
+			root: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+						"b1": "b2",
+						"f1": "f2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+						"e1": "e2",
+					},
+					Remove: []string{"d1"},
+				},
+				Response: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+					},
+					Remove: []string{"d1"},
+				},
+			},
+			delegate: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+						"b1": "b4",
+					},
+					Add: map[string]string{
+						"c1": "c4",
+						"e1": "e2",
+					},
+					Remove: []string{"d1", "d2"},
+				},
+				Response: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+						"d1": "d2",
+					},
+					Remove: []string{"d3"},
+				},
+			},
+			want: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+						"b1": "b4",
+						"f1": "f2",
+					},
+					Add: map[string]string{
+						"c1": "c2,c4",
+						"e1": "e2",
+					},
+					Remove: []string{"d1", "d2"},
+				},
+				Response: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+					},
+					Add: map[string]string{
+						"c1": "c2",
+						"d1": "d2",
+					},
+					Remove: []string{"d1", "d3"},
+				},
+			},
+		},
+		{
+			name: "combination of Add/remove/set operations in request/response headers in delegate and root VS",
+			root: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Add: map[string]string{
+						"c1": "c2",
+						"e1": "e2",
+					},
+				},
+				Response: nil,
+			},
+			delegate: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Remove: []string{"d1"},
+				},
+				Response: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+					},
+					Remove: []string{"d3"},
+				},
+			},
+			want: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Add: map[string]string{
+						"c1": "c2",
+						"e1": "e2",
+					},
+					Remove: []string{"d1"},
+				},
+				Response: &networking.Headers_HeaderOperations{
+					Set: map[string]string{
+						"a1": "a2",
+					},
+					Remove: []string{"d3"},
+				},
+			},
+		},
+		{
+			name: "response headers set in root vs, request headers set in delegate",
+			root: &networking.Headers{
+				Response: &networking.Headers_HeaderOperations{
+					Add: map[string]string{
+						"c1": "c2",
+						"e1": "e2",
+					},
+				},
+			},
+			delegate: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Remove: []string{"d1"},
+				},
+			},
+			want: &networking.Headers{
+				Request: &networking.Headers_HeaderOperations{
+					Remove: []string{"d1"},
+				},
+				Response: &networking.Headers_HeaderOperations{
+					Add: map[string]string{
+						"c1": "c2",
+						"e1": "e2",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := mergeHTTPHeaders(tt.root, tt.delegate); !cmp.Equal(got, tt.want,
+				cmpopts.IgnoreUnexported(networking.Headers_HeaderOperations{}),
+				cmpopts.IgnoreUnexported(networking.Headers{}), cmpopts.SortSlices(func(a, b string) bool {
+					return a < b
+				})) {
+				t.Errorf("mergeHTTPHeaders() = %v, want %v", got, tt.want)
 			}
 		})
 	}

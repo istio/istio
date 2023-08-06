@@ -330,9 +330,8 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	if delegate.Mirrors == nil {
 		delegate.Mirrors = root.Mirrors
 	}
-	if delegate.Headers == nil {
-		delegate.Headers = root.Headers
-	}
+
+	delegate.Headers = mergeHTTPHeaders(root.Headers, delegate.Headers)
 	return delegate
 }
 
@@ -416,6 +415,109 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.StatPrefix = root.StatPrefix
 	}
 	return out
+}
+
+func mergeAddHeaders(root map[string]string, delegate map[string]string) (out map[string]string) {
+	if root == nil {
+		return delegate
+	}
+	if delegate == nil {
+		return root
+	}
+	out = delegate
+	for rootHeader, rootVal := range root {
+		// if headers are equal and values are different, join values by comma
+		if delegateVal, ok := out[rootHeader]; ok && delegateVal != rootVal {
+			out[rootHeader] = rootVal + "," + delegateVal
+		}
+	}
+	return
+}
+
+func mergeSetHeaders(root map[string]string, delegate map[string]string) (out map[string]string) {
+	if root == nil {
+		return delegate
+	}
+	if delegate == nil {
+		return root
+	}
+
+	out = maps.MergeCopy(root, delegate)
+	return
+}
+
+func mergeRemoveHeaders(root []string, delegate []string) (out []string) {
+	if root == nil {
+		return delegate
+	}
+
+	if delegate == nil {
+		return root
+	}
+
+	out = make([]string, 0, len(root)+len(delegate))
+	headersToRemove := make(map[string]struct{})
+	for _, header := range root {
+		headersToRemove[header] = struct{}{}
+	}
+	for _, header := range delegate {
+		headersToRemove[header] = struct{}{}
+	}
+	for header := range headersToRemove {
+		out = append(out, header)
+	}
+
+	return
+}
+
+// return merged headers
+func mergeHTTPHeaders(root, delegate *networking.Headers) (out *networking.Headers) {
+	if root == nil {
+		return delegate
+	}
+	if delegate == nil {
+		return root
+	}
+	out = &networking.Headers{
+		Request:  &networking.Headers_HeaderOperations{},
+		Response: &networking.Headers_HeaderOperations{},
+	}
+	// request header operations
+	if root.Request == nil {
+		out.Request = delegate.Request
+	}
+	if delegate.Request == nil {
+		out.Request = root.Request
+	}
+	if root.Request != nil && delegate.Request != nil {
+		// Set - merge the map if not intersected, otherwise delegates value will
+		// override root's for the same key
+		out.Request.Set = mergeSetHeaders(root.Request.Set, delegate.Request.Set)
+		// Add - for the intersected key, the value will be joined by a comma, which
+		// is envoy behavior
+		out.Request.Add = mergeAddHeaders(root.Request.Add, delegate.Request.Add)
+		// Remove - Union of slices.
+		out.Request.Remove = mergeRemoveHeaders(root.Request.Remove, delegate.Request.Remove)
+	}
+
+	// response header operations
+	if root.Response == nil {
+		out.Response = delegate.Response
+	}
+	if delegate.Response == nil {
+		out.Response = root.Response
+	}
+	if root.Response != nil && delegate.Response != nil {
+		// Set - merge the map if not intersected, otherwise delegates value will
+		// override root's for the same key
+		out.Response.Set = mergeSetHeaders(root.Response.Set, delegate.Response.Set)
+		// Add - for the intersected key, the value will be joined by a comma, which
+		// is envoy behavior
+		out.Response.Add = mergeAddHeaders(root.Response.Add, delegate.Response.Add)
+		// Remove - Union of slices.
+		out.Response.Remove = mergeRemoveHeaders(root.Response.Remove, delegate.Response.Remove)
+	}
+	return
 }
 
 func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
