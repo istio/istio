@@ -580,7 +580,7 @@
       "nanos": 0
     },
     "proxy_metadata": {
-      "ISTIO_VERSION": "1.19-dev"
+      "ISTIO_VERSION": "1.20-dev"
     },
     "num_worker_threads": 2,
     "enable_original_source": null,
