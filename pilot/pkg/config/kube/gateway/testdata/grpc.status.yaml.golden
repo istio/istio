@@ -31,8 +31,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
-      and istio-ingressgateway.istio-system.svc.domain.suffix:80
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
     status: "True"
     type: Programmed
@@ -59,69 +58,18 @@ status:
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: http
+    name: default
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
-  - attachedRoutes: 1
-    conditions:
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
-      type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
-      type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    name: tcp
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: TCPRoute
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: HTTPRoute
-metadata:
-  creationTimestamp: null
-  name: http
-  namespace: default
-spec: null
-status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      name: gateway
-      namespace: istio-system
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TCPRoute
+kind: GRPCRoute
 metadata:
   creationTimestamp: null
-  name: tcp
+  name: grpc
   namespace: default
 spec: null
 status:
