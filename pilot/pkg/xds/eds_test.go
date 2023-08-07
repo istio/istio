@@ -523,6 +523,7 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 			addEdsCluster(s, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
 			addEdsCluster(s, "other.local", "http", "1.1.1.1", 8080)
+			s.EnsureSynced(t) // Wait for debounce
 
 			adscConn := s.Connect(nil, nil, watchAll)
 
@@ -567,6 +568,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 			addEdsCluster(s, "flipflop.com", "http", "10.0.0.53", 8080)
+			s.EnsureSynced(t) // Wait for debounce
 			adscConn := s.Connect(nil, nil, watchAll)
 
 			// Validate that endpoints are pushed correctly.
