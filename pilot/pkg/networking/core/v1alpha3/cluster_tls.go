@@ -20,14 +20,13 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
-	"github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -124,7 +123,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 	}
 }
 
-func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *v1alpha3.ClientTLSSettings) (*tlsv3.UpstreamTlsContext, error) {
+func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) (*tlsv3.UpstreamTlsContext, error) {
 	if tls == nil {
 		return nil, nil
 	}
@@ -134,7 +133,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	// that would result in the CredentialName being supplied to all the sidecars which the DestinationRule is scoped to,
 	// resulting in delayed startup of sidecars who do not have access to the credentials.
 	if tls.CredentialName != "" && cb.sidecarProxy() && !opts.isDrWithSelector {
-		if tls.Mode == v1alpha3.ClientTLSSettings_SIMPLE || tls.Mode == v1alpha3.ClientTLSSettings_MUTUAL {
+		if tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL {
 			return nil, nil
 		}
 	}
@@ -143,9 +142,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	var tlsContext *tlsv3.UpstreamTlsContext
 
 	switch tls.Mode {
-	case v1alpha3.ClientTLSSettings_DISABLE:
+	case networking.ClientTLSSettings_DISABLE:
 		tlsContext = nil
-	case v1alpha3.ClientTLSSettings_ISTIO_MUTUAL:
+	case networking.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext = &tlsv3.UpstreamTlsContext{
 			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
@@ -182,7 +181,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 			}
 		}
-	case v1alpha3.ClientTLSSettings_SIMPLE:
+	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext = &tlsv3.UpstreamTlsContext{
 			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
@@ -225,7 +224,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 
-	case v1alpha3.ClientTLSSettings_MUTUAL:
+	case networking.ClientTLSSettings_MUTUAL:
 		tlsContext = &tlsv3.UpstreamTlsContext{
 			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
@@ -299,7 +298,7 @@ func applyTLSDefaults(tlsContext *tlsv3.UpstreamTlsContext, tlsDefaults *v1alpha
 
 // Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.
 // Set auto_san_validation if VerifyCertAtClient feature flag is enabled and if there is no explicit SubjectAltNames specified  in DR.
-func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *v1alpha3.ClientTLSSettings) {
+func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTLSSettings) {
 	if mc == nil || !features.EnableAutoSni {
 		return
 	}

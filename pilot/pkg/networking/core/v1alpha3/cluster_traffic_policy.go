@@ -28,7 +28,6 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -52,7 +51,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
-			tls, mtlsCtxType := cb.buildUpstreamTlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
+			tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
 				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 		}
@@ -64,8 +63,8 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 }
 
 // selectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
-func selectTrafficPolicyComponents(policy *v1alpha3.TrafficPolicy) (
-	*v1alpha3.ConnectionPoolSettings, *v1alpha3.OutlierDetection, *v1alpha3.LoadBalancerSettings, *v1alpha3.ClientTLSSettings,
+func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
+	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.ClientTLSSettings,
 ) {
 	if policy == nil {
 		return nil, nil, nil, nil
@@ -85,7 +84,7 @@ func selectTrafficPolicyComponents(policy *v1alpha3.TrafficPolicy) (
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
 func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
-	mc *clusterWrapper, settings *v1alpha3.ConnectionPoolSettings,
+	mc *clusterWrapper, settings *networking.ConnectionPoolSettings,
 ) {
 	if settings == nil {
 		return
@@ -164,7 +163,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 // applyH2Upgrade function will upgrade cluster to http2 if specified by configuration.
 // applyH2Upgrade can only be called for outbound cluster
 func (cb *ClusterBuilder) applyH2Upgrade(mc *clusterWrapper, port *model.Port,
-	mesh *meshconfig.MeshConfig, connectionPool *v1alpha3.ConnectionPoolSettings,
+	mesh *meshconfig.MeshConfig, connectionPool *networking.ConnectionPoolSettings,
 ) {
 	if shouldH2Upgrade(mc.cluster.Name, port, mesh, connectionPool) {
 		setH2Options(mc)
@@ -174,7 +173,7 @@ func (cb *ClusterBuilder) applyH2Upgrade(mc *clusterWrapper, port *model.Port,
 // shouldH2Upgrade function returns true if the cluster should be upgraded to http2.
 // shouldH2Upgrade can only be called for outbound cluster
 func shouldH2Upgrade(clusterName string, port *model.Port, mesh *meshconfig.MeshConfig,
-	connectionPool *v1alpha3.ConnectionPoolSettings,
+	connectionPool *networking.ConnectionPoolSettings,
 ) bool {
 	// TODO (mjog)
 	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
@@ -183,11 +182,11 @@ func shouldH2Upgrade(clusterName string, port *model.Port, mesh *meshconfig.Mesh
 		// If user wants an upgrade at destination rule/port level that means he is sure that
 		// it is a Http port - upgrade in such case. This is useful incase protocol sniffing is
 		// enabled and user wants to upgrade/preserve http protocol from client.
-		if override == v1alpha3.ConnectionPoolSettings_HTTPSettings_UPGRADE {
+		if override == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE {
 			log.Debugf("Upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
 			return true
 		}
-		if override == v1alpha3.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE {
+		if override == networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE {
 			log.Debugf("Not upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
 			return false
 		}
@@ -209,7 +208,7 @@ func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
 	cluster.ConnectTimeout = proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration)
 }
 
-func applyLoadBalancer(c *cluster.Cluster, lb *v1alpha3.LoadBalancerSettings, port *model.Port,
+func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
 	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig,
 ) {
 	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
@@ -240,13 +239,13 @@ func applyLoadBalancer(c *cluster.Cluster, lb *v1alpha3.LoadBalancerSettings, po
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 	switch lb.GetSimple() {
 	// nolint: staticcheck
-	case v1alpha3.LoadBalancerSettings_LEAST_CONN, v1alpha3.LoadBalancerSettings_LEAST_REQUEST:
+	case networking.LoadBalancerSettings_LEAST_CONN, networking.LoadBalancerSettings_LEAST_REQUEST:
 		applyLeastRequestLoadBalancer(c, lb)
-	case v1alpha3.LoadBalancerSettings_RANDOM:
+	case networking.LoadBalancerSettings_RANDOM:
 		c.LbPolicy = cluster.Cluster_RANDOM
-	case v1alpha3.LoadBalancerSettings_ROUND_ROBIN:
+	case networking.LoadBalancerSettings_ROUND_ROBIN:
 		applyRoundRobinLoadBalancer(c, lb)
-	case v1alpha3.LoadBalancerSettings_PASSTHROUGH:
+	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
 		// Wipe out any LoadAssignment, if set. This can occur when we have a STATIC Service but PASSTHROUGH traffic policy
@@ -259,7 +258,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *v1alpha3.LoadBalancerSettings, po
 }
 
 func applyLocalityLBSetting(locality *core.Locality, proxyLabels map[string]string, cluster *cluster.Cluster,
-	localityLB *v1alpha3.LocalityLoadBalancerSetting,
+	localityLB *networking.LocalityLoadBalancerSetting,
 ) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
 	enabledFailover := cluster.OutlierDetection != nil
@@ -334,7 +333,7 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
-func applyOutlierDetection(c *cluster.Cluster, outlier *v1alpha3.OutlierDetection) {
+func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetection) {
 	if outlier == nil {
 		return
 	}
@@ -404,7 +403,7 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *v1alpha3.OutlierDetectio
 }
 
 // ApplyRingHashLoadBalancer will set the LbPolicy and create an LbConfig for RING_HASH if  used in LoadBalancerSettings
-func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *v1alpha3.LoadBalancerSettings) {
+func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings) {
 	consistentHash := lb.GetConsistentHash()
 	if consistentHash == nil {
 		return
@@ -449,19 +448,19 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *v1alpha3.LoadBalancerSett
 	}
 }
 
-// buildUpstreamTlsSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
+// buildUpstreamTLSSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
 // If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
 // creates and populates the config as if they are set as ISTIO_MUTUAL.
-func (cb *ClusterBuilder) buildUpstreamTlsSettings(
-	tls *v1alpha3.ClientTLSSettings,
+func (cb *ClusterBuilder) buildUpstreamTLSSettings(
+	tls *networking.ClientTLSSettings,
 	serviceAccounts []string,
 	sni string,
 	autoMTLSEnabled bool,
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode,
-) (*v1alpha3.ClientTLSSettings, mtlsContextType) {
+) (*networking.ClientTLSSettings, mtlsContextType) {
 	if tls != nil {
-		if tls.Mode == v1alpha3.ClientTLSSettings_DISABLE || tls.Mode == v1alpha3.ClientTLSSettings_SIMPLE {
+		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_SIMPLE {
 			return tls, userSupplied
 		}
 		// For backward compatibility, use metadata certs if provided.
@@ -471,7 +470,7 @@ func (cb *ClusterBuilder) buildUpstreamTlsSettings(
 			// ISTIO_MUTUAL.
 			return cb.buildMutualTLS(tls.SubjectAltNames, tls.Sni), userSupplied
 		}
-		if tls.Mode != v1alpha3.ClientTLSSettings_ISTIO_MUTUAL {
+		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
 			return tls, userSupplied
 		}
 		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,

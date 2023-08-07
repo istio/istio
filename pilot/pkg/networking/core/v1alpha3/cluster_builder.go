@@ -889,8 +889,9 @@ func configureALPNOverride(tlsMode networking.ClientTLSSettings_TLSmode, md *cor
 }
 
 func addTelemetryMetadata(cluster *cluster.Cluster,
-	port *model.Port,
-	service *model.Service, direction model.TrafficDirection, inboundServices []ServiceTarget) {
+	port *model.Port, service *model.Service,
+	direction model.TrafficDirection, inboundServices []ServiceTarget,
+) {
 	if !features.EnableTelemetryLabel {
 		return
 	}
