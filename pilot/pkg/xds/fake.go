@@ -238,7 +238,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Services:  opts.Services,
 		Gateways:  opts.Gateways,
 	})
-	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
+	cg.Registry.AppendServiceHandler(serviceHandler)
 	s.Env = cg.Env()
 	s.Env.GatewayAPIController = gwc
 	if err := s.Env.InitNetworksManager(s); err != nil {

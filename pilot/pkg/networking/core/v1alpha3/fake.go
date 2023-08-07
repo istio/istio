@@ -144,10 +144,9 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	msd.AddGateways(opts.Gateways...)
 	msd.ClusterID = cluster2.ID(provider.Mock)
 	memserviceRegistry := serviceregistry.Simple{
-		ClusterID:        cluster2.ID(provider.Mock),
-		ProviderID:       provider.Mock,
-		ServiceDiscovery: msd,
-		Controller:       msd.Controller,
+		ClusterID:           cluster2.ID(provider.Mock),
+		ProviderID:          provider.Mock,
+		DiscoveryController: msd,
 	}
 	serviceDiscovery.AddRegistry(memserviceRegistry)
 	for _, reg := range opts.ServiceRegistries {

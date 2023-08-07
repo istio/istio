@@ -262,10 +262,9 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 	memRegistry.ClusterID = clusterID
 
 	reg := serviceregistry.Simple{
-		ClusterID:        clusterID,
-		ProviderID:       provider.Mock,
-		ServiceDiscovery: memRegistry,
-		Controller:       &memory.ServiceController{},
+		ClusterID:           clusterID,
+		ProviderID:          provider.Mock,
+		DiscoveryController: memRegistry,
 	}
 	server.Env().ServiceDiscovery.(*aggregate.Controller).AddRegistry(reg)
 

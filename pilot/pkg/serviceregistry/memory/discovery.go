@@ -24,40 +24,15 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util/sets"
 )
-
-// ServiceController is a mock service controller
-type ServiceController struct {
-	svcHandlers []model.ServiceHandler
-
-	sync.RWMutex
-}
-
-var _ model.Controller = &ServiceController{}
-
-// Memory does not support workload handlers; everything is done in terms of instances
-func (c *ServiceController) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
-
-// AppendServiceHandler appends a service handler to the controller
-func (c *ServiceController) AppendServiceHandler(f model.ServiceHandler) {
-	c.Lock()
-	c.svcHandlers = append(c.svcHandlers, f)
-	c.Unlock()
-}
-
-// Run will run the controller
-func (c *ServiceController) Run(<-chan struct{}) {}
-
-// HasSynced always returns true
-func (c *ServiceController) HasSynced() bool { return true }
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
 	model.NoopAmbientIndexes
 	services map[host.Name]*model.Service
+
+	handlers model.ControllerHandlers
 
 	networkGateways []model.NetworkGateway
 	model.NetworkGatewaysHandler
@@ -84,7 +59,10 @@ type ServiceDiscovery struct {
 	mutex sync.Mutex
 }
 
-var _ model.ServiceDiscovery = &ServiceDiscovery{}
+var (
+	_ model.Controller       = &ServiceDiscovery{}
+	_ model.ServiceDiscovery = &ServiceDiscovery{}
+)
 
 // NewServiceDiscovery builds an in-memory ServiceDiscovery
 func NewServiceDiscovery(services ...*model.Service) *ServiceDiscovery {
@@ -94,7 +72,6 @@ func NewServiceDiscovery(services ...*model.Service) *ServiceDiscovery {
 	}
 	return &ServiceDiscovery{
 		services:            svcs,
-		Controller:          &ServiceController{},
 		instancesByPortNum:  map[string][]*model.ServiceInstance{},
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
@@ -130,26 +107,26 @@ func (sd *ServiceDiscovery) AddHTTPService(name, vip string, port int) {
 func (sd *ServiceDiscovery) AddService(svc *model.Service) {
 	sd.mutex.Lock()
 	svc.Attributes.ServiceRegistry = provider.Mock
+	var old *model.Service
+	event := model.EventAdd
+	if o, f := sd.services[svc.Hostname]; f {
+		old = o
+		event = model.EventUpdate
+	}
 	sd.services[svc.Hostname] = svc
 	sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
-	pushReq := &model.PushRequest{
-		Full:           true,
-		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace}),
-
-		Reason: model.NewReasonStats(model.ServiceUpdate),
-	}
-	sd.XdsUpdater.ConfigUpdate(pushReq)
+	sd.handlers.NotifyServiceHandlers(old, svc, event)
 	sd.mutex.Unlock()
 }
 
 // RemoveService removes an in-memory service.
 func (sd *ServiceDiscovery) RemoveService(name host.Name) {
 	sd.mutex.Lock()
+	svc := sd.services[name]
 	delete(sd.services, name)
+	sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
+	sd.handlers.NotifyServiceHandlers(nil, svc, model.EventDelete)
 	sd.mutex.Unlock()
-	if sd.XdsUpdater != nil {
-		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(name), "", model.EventDelete)
-	}
 }
 
 // AddInstance adds an in-memory instance and notifies the XDS updater
@@ -339,3 +316,17 @@ func (sd *ServiceDiscovery) NetworkGateways() []model.NetworkGateway {
 func (sd *ServiceDiscovery) MCSServices() []model.MCSServiceInfo {
 	return nil
 }
+
+// Memory does not support workload handlers; everything is done in terms of instances
+func (c *ServiceDiscovery) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
+
+// AppendServiceHandler appends a service handler to the controller
+func (c *ServiceDiscovery) AppendServiceHandler(f model.ServiceHandler) {
+	c.handlers.AppendServiceHandler(f)
+}
+
+// Run will run the controller
+func (c *ServiceDiscovery) Run(<-chan struct{}) {}
+
+// HasSynced always returns true
+func (c *ServiceDiscovery) HasSynced() bool { return true }
