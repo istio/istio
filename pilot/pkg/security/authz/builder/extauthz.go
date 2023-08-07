@@ -197,7 +197,7 @@ func buildExtAuthzGRPC(push *model.PushContext,
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	_, cluster, err := model.LookupCluster(push, config.Service, port)
+	hostname, cluster, err := model.LookupCluster(push, config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
@@ -209,7 +209,7 @@ func buildExtAuthzGRPC(push *model.PushContext,
 		return nil, errs
 	}
 
-	return generateGRPCConfig(cluster, config, status), nil
+	return generateGRPCConfig(cluster, hostname, config, status), nil
 }
 
 func parsePort(port uint32) (int, error) {
@@ -296,18 +296,17 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 	return &builtExtAuthz{http: http}
 }
 
-func generateGRPCConfig(cluster string, config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider,
+func generateGRPCConfig(
+	cluster string,
+	hostname string,
+	config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider,
 	status *envoytypev3.HttpStatus,
 ) *builtExtAuthz {
-	// The cluster includes the character `|` that is invalid in gRPC authority header and will cause the connection
-	// rejected in the server side, replace it with a valid character and set in authority otherwise ext_authz will
-	// use the cluster name as default authority.
-	authority := strings.ReplaceAll(cluster, "|", "_.")
 	grpc := &core.GrpcService{
 		TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 			EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
 				ClusterName: cluster,
-				Authority:   authority,
+				Authority:   hostname,
 			},
 		},
 		Timeout: timeoutOrDefault(config.Timeout),
