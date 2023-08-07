@@ -35,6 +35,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -221,8 +222,8 @@ func TestEds(t *testing.T) {
 	})
 	reconcileServiceShards(s, s.MemServiceRegistry)
 
-	adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}}, nil, watchAll)
-	adscConn2 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}}, nil, watchAll)
+	adscConn := s.Connect(&model.Proxy{Locality: util.ConvertLocality(asdcLocality), IPAddresses: []string{"10.10.10.10"}}, nil, watchAll)
+	adscConn2 := s.Connect(&model.Proxy{Locality: util.ConvertLocality(asdc2Locality), IPAddresses: []string{"10.10.10.11"}}, nil, watchAll)
 
 	t.Run("TCPEndpoints", func(t *testing.T) {
 		testTCPEndpoints("127.0.0.1", adscConn, t)
