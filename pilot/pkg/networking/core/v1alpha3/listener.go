@@ -517,9 +517,10 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 }
 
 func finalizeOutboundListeners(lb *ListenerBuilder, listenerMap map[string]*outboundListenerEntry) []*listener.Listener {
-	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(lb.push, lb.node)
 	listeners := make([]*listener.Listener, 0, len(listenerMap))
 	for _, le := range listenerMap {
+		// TODO: this could be outside the loop, but we would get object sharing in EnvoyFilter patches.
+		fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(lb.push, lb.node)
 		l := buildListenerFromEntry(lb, le, fallthroughNetworkFilters)
 		listeners = append(listeners, l)
 	}
