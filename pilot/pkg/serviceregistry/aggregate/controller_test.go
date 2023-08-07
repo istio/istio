@@ -49,8 +49,8 @@ func buildMockController() *Controller {
 		mock.ExtHTTPService.DeepCopy(),
 	)
 	for _, port := range mock.HelloService.Ports {
-		discovery1.AddInstance(mock.HelloService.Hostname, mock.MakeServiceInstance(mock.HelloService, port, 0, model.Locality{}))
-		discovery1.AddInstance(mock.HelloService.Hostname, mock.MakeServiceInstance(mock.HelloService, port, 1, model.Locality{}))
+		discovery1.AddInstance(mock.MakeServiceInstance(mock.HelloService, port, 0, model.Locality{}))
+		discovery1.AddInstance(mock.MakeServiceInstance(mock.HelloService, port, 1, model.Locality{}))
 	}
 
 	discovery2 := memory.NewServiceDiscovery(mock.ReplicatedFooServiceV2.DeepCopy(),
@@ -58,8 +58,8 @@ func buildMockController() *Controller {
 		mock.ExtHTTPSService.DeepCopy(),
 	)
 	for _, port := range mock.WorldService.Ports {
-		discovery2.AddInstance(mock.WorldService.Hostname, mock.MakeServiceInstance(mock.WorldService, port, 0, model.Locality{}))
-		discovery2.AddInstance(mock.WorldService.Hostname, mock.MakeServiceInstance(mock.WorldService, port, 1, model.Locality{}))
+		discovery2.AddInstance(mock.MakeServiceInstance(mock.WorldService, port, 0, model.Locality{}))
+		discovery2.AddInstance(mock.MakeServiceInstance(mock.WorldService, port, 1, model.Locality{}))
 	}
 	registry1 := serviceregistry.Simple{
 		ProviderID:       provider.ID("mockAdapter1"),

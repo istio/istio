@@ -139,7 +139,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	serviceDiscovery.AddRegistry(se)
 	msd := memregistry.NewServiceDiscovery(opts.Services...)
 	for _, instance := range opts.Instances {
-		msd.AddInstance(instance.Service.Hostname, instance)
+		msd.AddInstance(instance)
 	}
 	msd.AddGateways(opts.Gateways...)
 	msd.ClusterID = cluster2.ID(provider.Mock)

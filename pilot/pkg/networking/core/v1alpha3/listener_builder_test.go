@@ -77,7 +77,7 @@ func buildListeners(t *testing.T, o TestOptions, p *model.Proxy) []*listener.Lis
 			},
 			ServicePort: s.Ports[0],
 		}
-		cg.MemRegistry.AddInstance(s.Hostname, i)
+		cg.MemRegistry.AddInstance(i)
 	}
 	l := cg.Listeners(cg.SetupProxy(p))
 	xdstest.ValidateListeners(t, l)

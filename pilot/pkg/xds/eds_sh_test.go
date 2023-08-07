@@ -251,29 +251,6 @@ func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, networ
 	}
 }
 
-// reconcileServiceShards makes up for the fact that mem registry doesn't properly populate EDS shards
-// TODO: make mem registry handle this properly.
-func reconcileServiceShards(s *xds.FakeDiscoveryServer, registry serviceregistry.Instance) {
-	// Each registry acts as a shard - we don't want to combine them because some
-	// may individually update their endpoints incrementally
-	shard := model.ShardKeyFromRegistry(registry)
-	for _, svc := range registry.Services() {
-		endpoints := make([]*model.IstioEndpoint, 0)
-		for _, port := range svc.Ports {
-			if port.Protocol == protocol.UDP {
-				continue
-			}
-
-			// This loses track of grouping (shards)
-			for _, inst := range registry.InstancesByPort(svc, port.Port) {
-				endpoints = append(endpoints, inst.Endpoint)
-			}
-		}
-
-		s.Discovery.EDSCacheUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, endpoints)
-	}
-}
-
 // initRegistry creates and initializes a memory registry that holds a single
 // service with the provided amount of endpoints. It also creates a service for
 // the ingress with the provided external IP
@@ -282,6 +259,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 	networkID := network.ID(fmt.Sprintf("network%d", networkNum))
 	memRegistry := memory.NewServiceDiscovery()
 	memRegistry.XdsUpdater = server.Discovery
+	memRegistry.ClusterID = clusterID
 
 	reg := serviceregistry.Simple{
 		ClusterID:        clusterID,
@@ -326,6 +304,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 				Protocol: protocol.HTTP,
 			},
 		},
+		Attributes: model.ServiceAttributes{Namespace: "default"},
 	})
 	istioEndpoints := make([]*model.IstioEndpoint, numOfEndpoints)
 	for i := 0; i < numOfEndpoints; i++ {
@@ -344,7 +323,6 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 		}
 	}
 	memRegistry.SetEndpoints("service5.default.svc.cluster.local", "default", istioEndpoints)
-	reconcileServiceShards(server, reg)
 }
 
 func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshconfig.Network) {
