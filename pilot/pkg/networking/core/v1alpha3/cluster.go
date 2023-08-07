@@ -454,7 +454,7 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 	}
 }
 
-func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.Proxy,
+func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.Proxy,
 	instances []*model.ServiceInstance, cp clusterPatcher,
 	enableSidecarServiceInboundListenerMerge bool,
 ) []*cluster.Cluster {
@@ -521,8 +521,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 	// clusters, because there would be no corresponding inbound listeners
 	sidecarScope := proxy.SidecarScope
 	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
-
-	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners
 	if !sidecarScope.HasIngressListener() {
 		// We should not create inbound listeners in NONE mode based on the service instances
@@ -531,14 +529,24 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 		if noneMode {
 			return nil
 		}
-		clusters = configgen.buildClustersFromServiceInstances(cb, proxy, instances, cp, false)
+		clusters = buildInboundClustersFromServiceInstances(cb, proxy, instances, cp, false)
 		return clusters
 	}
 
 	if features.EnableSidecarServiceInboundListenerMerge {
 		// only allow to merge inbound listeners if sidecar has ingress listener and pilot has env EnableSidecarServiceInboundListenerMerge set
-		clusters = configgen.buildClustersFromServiceInstances(cb, proxy, instances, cp, true)
+		clusters = buildInboundClustersFromServiceInstances(cb, proxy, instances, cp, true)
 	}
+	clusters = append(clusters, buildInboundClustersFromSidecar(cb, proxy, instances, cp)...)
+	return clusters
+}
+
+func buildInboundClustersFromSidecar(cb *ClusterBuilder, proxy *model.Proxy,
+	instances []*model.ServiceInstance, cp clusterPatcher,
+) []*cluster.Cluster {
+	clusters := make([]*cluster.Cluster, 0)
+	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
+	sidecarScope := proxy.SidecarScope
 	for _, ingressListener := range sidecarScope.Sidecar.Ingress {
 		// LDS would have setup the inbound clusters
 		// as inbound|portNumber|portName|Hostname[or]SidecarScopeID
