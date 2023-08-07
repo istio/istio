@@ -76,8 +76,18 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		injectionLabel := r.Metadata.Labels[util.InjectionLabelName]
 		nsRevision, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
 
+		istioLabels := make([]string, 0)
+		for _, l := range []string{util.InjectionLabelName, RevisionInjectionLabelName, constants.DataplaneMode} {
+			if _, ok := r.Metadata.Labels[l]; ok {
+				istioLabels = append(istioLabels, fmt.Sprintf("%s=%s", l, r.Metadata.Labels[l]))
+			}
+		}
+		if len(istioLabels) > 1 {
+			m := msg.NewNamespaceMultipleInjectionLabels(r, istioLabels)
+			c.Report(gvk.Namespace, m)
+		}
+
 		if r.Metadata.Labels[constants.DataplaneMode] == constants.DataplaneModeAmbient {
-			// TODO (GregHanson): warn if namespace is labeled for injection and ambient?
 			return true
 		}
 
@@ -111,19 +121,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		if okNewInjectionLabel {
-			if injectionLabel != "" {
-
-				m := msg.NewNamespaceMultipleInjectionLabels(r, ns, ns)
-
-				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
-					m.Line = line
-				}
-
-				c.Report(gvk.Namespace, m)
-				return true
-			}
-		} else if injectionLabel != util.InjectionLabelEnableValue {
+		if injectionLabel != util.InjectionLabelEnableValue {
 			// If legacy label has any value other than the enablement value, they are deliberately not injecting it, so ignore
 			return true
 		}
