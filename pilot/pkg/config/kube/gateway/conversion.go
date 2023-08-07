@@ -1752,30 +1752,26 @@ func createGRPCURIMatch(match k8s.GRPCRouteMatch) (*istio.StringMatch, *ConfigEr
 // Response is ClassName -> Controller type
 func getGatewayClasses(r GatewayResources) map[string]k8s.GatewayController {
 	res := map[string]k8s.GatewayController{}
-	allFound := sets.New[string]()
+	// Setup builtin ones - these can be overridden possibly
+	for name, controller := range builtinClasses {
+		res[string(name)] = controller
+	}
 	for _, obj := range r.GatewayClass {
 		gwc := obj.Spec.(*k8s.GatewayClassSpec)
-		allFound.Insert(obj.Name)
-		if gwc.ControllerName == constants.ManagedGatewayController ||
-			features.EnableAmbientControllers && gwc.ControllerName == constants.ManagedGatewayMeshController {
-			res[obj.Name] = gwc.ControllerName
-
-			// Set status. If we created it, it may already be there. If not, set it again
-			obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-				gcs := s.(*k8s.GatewayClassStatus)
-				*gcs = GetClassStatus(gcs, obj.Generation)
-				return gcs
-			})
+		_, known := classInfos[gwc.ControllerName]
+		if !known {
+			continue
 		}
+		res[obj.Name] = gwc.ControllerName
+
+		// Set status. If we created it, it may already be there. If not, set it again
+		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+			gcs := s.(*k8s.GatewayClassStatus)
+			*gcs = GetClassStatus(gcs, obj.Generation)
+			return gcs
+		})
 	}
-	if !allFound.Contains(defaultClassName) {
-		// Allow `istio` class without explicit GatewayClass. However, if it already exists then do not
-		// add it here, in case it points to a different controller.
-		res[defaultClassName] = constants.ManagedGatewayController
-	}
-	if features.EnableAmbientControllers && !allFound.Contains(constants.WaypointGatewayClassName) {
-		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
-	}
+
 	return res
 }
 
@@ -1892,11 +1888,24 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 			// No gateway class found, this may be meant for another controller; should be skipped.
 			continue
 		}
+		classInfo, f := classInfos[controllerName]
+		if !f {
+			continue
+		}
+		if classInfo.disableRouteGeneration {
+			// We found it, but don't want to handle this class
+			continue
+		}
 
 		servers := []*istio.Server{}
 
 		// Extract the addresses. A gateway will bind to a specific Service
-		gatewayServices, skippedAddresses := extractGatewayServices(r.GatewayResources, kgw, obj)
+		gatewayServices, err := extractGatewayServices(r.GatewayResources, kgw, obj)
+		if len(gatewayServices) == 0 && err != nil {
+			// Short circuit if its a hard failure
+			reportGatewayStatus(r, obj, gatewayServices, servers, err)
+			continue
+		}
 		for i, l := range kgw.Listeners {
 			i := i
 			namespaceLabelReferences.InsertAll(getNamespaceLabelReferences(l.AllowedRoutes)...)
@@ -1969,7 +1978,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 			gwMap[ref] = gwMap[alias]
 		}
 
-		reportGatewayStatus(r, obj, gatewayServices, servers, skippedAddresses)
+		reportGatewayStatus(r, obj, gatewayServices, servers, err)
 	}
 	// Insert a parent for Mesh references.
 	gwMap[meshParentKey] = []*parentInfo{
@@ -2014,14 +2023,10 @@ func reportGatewayStatus(
 	obj config.Config,
 	gatewayServices []string,
 	servers []*istio.Server,
-	skippedAddresses []string,
+	gatewayErr *ConfigError,
 ) {
 	// TODO: we lose address if servers is empty due to an error
 	internal, external, pending, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
-
-	if len(skippedAddresses) > 0 {
-		warnings = append(warnings, fmt.Sprintf("Only Hostname is supported, ignoring %v", skippedAddresses))
-	}
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
@@ -2038,12 +2043,22 @@ func reportGatewayStatus(
 			message: "Resource programmed",
 		},
 	}
+
+	if gatewayErr != nil {
+		gatewayConditions[string(k8sbeta.GatewayConditionAccepted)].error = gatewayErr
+	}
+
 	if len(internal) > 0 {
 		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
 		gatewayConditions[string(k8sbeta.GatewayReasonProgrammed)].message = msg
 	}
 
-	if len(warnings) > 0 {
+	if len(gatewayServices) == 0 {
+		gatewayConditions[string(k8sbeta.GatewayReasonProgrammed)].error = &ConfigError{
+			Reason:  InvalidAddress,
+			Message: "Failed to assign to any requested addresses",
+		}
+	} else if len(warnings) > 0 {
 		var msg string
 		if len(internal) != 0 {
 			msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
@@ -2077,8 +2092,8 @@ func reportGatewayStatus(
 		gs.Addresses = make([]k8sbeta.GatewayStatusAddress, 0, len(addressesToReport))
 		for _, addr := range addressesToReport {
 			gs.Addresses = append(gs.Addresses, k8sbeta.GatewayStatusAddress{
-				Type:  &addrType,
 				Value: addr,
+				Type:  &addrType,
 			})
 		}
 		// Prune listeners that have been removed
@@ -2128,7 +2143,7 @@ func IsManaged(gw *k8s.GatewaySpec) bool {
 	return false
 }
 
-func extractGatewayServices(r GatewayResources, kgw *k8s.GatewaySpec, obj config.Config) ([]string, []string) {
+func extractGatewayServices(r GatewayResources, kgw *k8s.GatewaySpec, obj config.Config) ([]string, *ConfigError) {
 	if IsManaged(kgw) {
 		name := model.GetOrDefault(obj.Annotations[gatewayNameOverride], getDefaultName(obj.Name, kgw))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, obj.Namespace, r.Domain)}, nil
@@ -2151,7 +2166,22 @@ func extractGatewayServices(r GatewayResources, kgw *k8s.GatewaySpec, obj config
 		}
 		gatewayServices = append(gatewayServices, fqdn)
 	}
-	return gatewayServices, skippedAddresses
+	if len(skippedAddresses) > 0 {
+		// Give error but return services, this is a soft failure
+		return gatewayServices, &ConfigError{
+			Reason:  InvalidAddress,
+			Message: fmt.Sprintf("only Hostname is supported, ignoring %v", skippedAddresses),
+		}
+	}
+	if _, f := obj.Annotations[serviceTypeOverride]; f {
+		// Give error but return services, this is a soft failure
+		// Remove entirely in 1.20
+		return gatewayServices, &ConfigError{
+			Reason:  DeprecateFieldUsage,
+			Message: fmt.Sprintf("annotation %v is deprecated, use Spec.Infrastructure.Routeability", serviceTypeOverride),
+		}
+	}
+	return gatewayServices, nil
 }
 
 // getNamespaceLabelReferences fetches all label keys used in namespace selectors. Return order may not be stable.

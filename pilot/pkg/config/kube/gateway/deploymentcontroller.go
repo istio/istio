@@ -104,8 +104,12 @@ type classInfo struct {
 	description string
 	// The key in the templates to use for this class
 	templates string
-	// reportGatewayClassStatus, if enabled, will update the status when it is first created.
-	reportGatewayClassStatus bool
+
+	// defaultServiceType sets the default service type if one is not explicit set
+	defaultServiceType corev1.ServiceType
+
+	// disableRouteGeneration, if set, will make it so the controller ignores this class.
+	disableRouteGeneration bool
 }
 
 var classInfos = getClassInfos()
@@ -126,23 +130,25 @@ func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 func getClassInfos() map[gateway.GatewayController]classInfo {
 	m := map[gateway.GatewayController]classInfo{
 		constants.ManagedGatewayController: {
-			controller:  constants.ManagedGatewayController,
-			description: "The default Istio GatewayClass",
-			templates:   "kube-gateway",
+			controller:         constants.ManagedGatewayController,
+			description:        "The default Istio GatewayClass",
+			templates:          "kube-gateway",
+			defaultServiceType: corev1.ServiceTypeLoadBalancer,
 		},
 		constants.UnmanagedGatewayController: {
 			// This represents a gateway that our control plane cannot discover directly via the API server.
 			// We shouldn't generate Istio resources for it. We aren't programming this gateway.
-			controller:  constants.UnmanagedGatewayController,
-			description: "Remote to this cluster. Does not deploy or affect configuration.",
+			controller:             constants.UnmanagedGatewayController,
+			description:            "Remote to this cluster. Does not deploy or affect configuration.",
+			disableRouteGeneration: true,
 		},
 	}
 	if features.EnableAmbientControllers {
 		m[constants.ManagedGatewayMeshController] = classInfo{
-			controller:               constants.ManagedGatewayMeshController,
-			description:              "The default Istio waypoint GatewayClass",
-			templates:                "waypoint",
-			reportGatewayClassStatus: true,
+			controller:         constants.ManagedGatewayMeshController,
+			description:        "The default Istio waypoint GatewayClass",
+			templates:          "waypoint",
+			defaultServiceType: corev1.ServiceTypeClusterIP,
 		}
 	}
 	return m
@@ -248,6 +254,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 
 	gw := d.gateways.Get(req.Name, req.Namespace)
 	if gw == nil {
+		log.Debugf("gateway no longer exists")
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
@@ -273,12 +280,14 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	if !ok {
 		ns := d.namespaces.Get(gw.Namespace, "")
 		if ns == nil {
+			log.Debugf("gateway is not for this revision, skipping")
 			return nil
 		}
 		selectedTag = ns.Labels[label.IoIstioRev.Name]
 	}
 	myTags := d.tagWatcher.GetMyTags()
 	if !myTags.Contains(selectedTag) && !(selectedTag == "" && myTags.Contains("default")) {
+		log.Debugf("gateway is not for this revision, skipping")
 		return nil
 	}
 	// TODO: Here we could check if the tag is set and matches no known tags, and handle that if we are default.
@@ -306,6 +315,12 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	log.Info("reconciling")
 
 	defaultName := getDefaultName(gw.Name, &gw.Spec)
+
+	serviceType := gi.defaultServiceType
+	if o, f := gw.Annotations[serviceTypeOverride]; f {
+		serviceType = corev1.ServiceType(o)
+	}
+
 	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
@@ -314,6 +329,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		ClusterID:      d.clusterID.String(),
 		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
 		Revision:       d.revision,
+		ServiceType:    serviceType,
 	}
 
 	if overwriteControllerVersion {
@@ -504,6 +520,7 @@ type TemplateInput struct {
 	DeploymentName string
 	ServiceAccount string
 	Ports          []corev1.ServicePort
+	ServiceType    corev1.ServiceType
 	ClusterID      string
 	KubeVersion122 bool
 	Revision       string
