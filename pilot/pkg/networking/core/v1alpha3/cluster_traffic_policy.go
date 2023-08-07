@@ -42,6 +42,9 @@ import (
 func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
 	// Connection pool settings are applicable for both inbound and outbound clusters.
+	if connectionPool == nil {
+		connectionPool = &networking.ConnectionPoolSettings{}
+	}
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool)
 	if opts.direction != model.TrafficDirectionInbound {
 		cb.applyH2Upgrade(opts.mutable, opts.port, opts.mesh, connectionPool)
@@ -82,7 +85,8 @@ func selectTrafficPolicyComponents(policy *v1alpha3.TrafficPolicy) (
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
 func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
-	mc *clusterWrapper, settings *v1alpha3.ConnectionPoolSettings) {
+	mc *clusterWrapper, settings *v1alpha3.ConnectionPoolSettings,
+) {
 	if settings == nil {
 		return
 	}
@@ -160,7 +164,8 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 // applyH2Upgrade function will upgrade cluster to http2 if specified by configuration.
 // applyH2Upgrade can only be called for outbound cluster
 func (cb *ClusterBuilder) applyH2Upgrade(mc *clusterWrapper, port *model.Port,
-	mesh *meshconfig.MeshConfig, connectionPool *v1alpha3.ConnectionPoolSettings) {
+	mesh *meshconfig.MeshConfig, connectionPool *v1alpha3.ConnectionPoolSettings,
+) {
 	if shouldH2Upgrade(mc.cluster.Name, port, mesh, connectionPool) {
 		setH2Options(mc)
 	}
