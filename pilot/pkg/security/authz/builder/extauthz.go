@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/maps"
 )
 
 const (
@@ -255,10 +256,7 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		allowedHeaders = generateHeaders(config.IncludeHeadersInCheck)
 	}
 	var headersToAdd []*core.HeaderValue
-	var additionalHeaders []string
-	for k := range config.IncludeAdditionalHeadersInCheck {
-		additionalHeaders = append(additionalHeaders, k)
-	}
+	additionalHeaders := maps.Keys(config.IncludeAdditionalHeadersInCheck)
 	sort.Strings(additionalHeaders)
 	for _, k := range additionalHeaders {
 		headersToAdd = append(headersToAdd, &core.HeaderValue{
