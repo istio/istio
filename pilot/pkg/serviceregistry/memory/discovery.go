@@ -114,7 +114,10 @@ func (sd *ServiceDiscovery) AddService(svc *model.Service) {
 		event = model.EventUpdate
 	}
 	sd.services[svc.Hostname] = svc
-	sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
+
+	if sd.XdsUpdater != nil {
+		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
+	}
 	sd.handlers.NotifyServiceHandlers(old, svc, event)
 	sd.mutex.Unlock()
 }
@@ -124,7 +127,10 @@ func (sd *ServiceDiscovery) RemoveService(name host.Name) {
 	sd.mutex.Lock()
 	svc := sd.services[name]
 	delete(sd.services, name)
-	sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
+
+	if sd.XdsUpdater != nil {
+		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
+	}
 	sd.handlers.NotifyServiceHandlers(nil, svc, model.EventDelete)
 	sd.mutex.Unlock()
 }
@@ -318,15 +324,15 @@ func (sd *ServiceDiscovery) MCSServices() []model.MCSServiceInfo {
 }
 
 // Memory does not support workload handlers; everything is done in terms of instances
-func (c *ServiceDiscovery) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
+func (sd *ServiceDiscovery) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
 
 // AppendServiceHandler appends a service handler to the controller
-func (c *ServiceDiscovery) AppendServiceHandler(f model.ServiceHandler) {
-	c.handlers.AppendServiceHandler(f)
+func (sd *ServiceDiscovery) AppendServiceHandler(f model.ServiceHandler) {
+	sd.handlers.AppendServiceHandler(f)
 }
 
 // Run will run the controller
-func (c *ServiceDiscovery) Run(<-chan struct{}) {}
+func (sd *ServiceDiscovery) Run(<-chan struct{}) {}
 
 // HasSynced always returns true
-func (c *ServiceDiscovery) HasSynced() bool { return true }
+func (sd *ServiceDiscovery) HasSynced() bool { return true }
