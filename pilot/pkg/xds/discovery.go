@@ -125,10 +125,6 @@ type DiscoveryServer struct {
 
 	debounceOptions debounceOptions
 
-	instanceID string
-
-	clusterID cluster.ID
-
 	// Cache for XDS resources
 	Cache model.XdsCache
 
@@ -150,7 +146,7 @@ type DiscoveryServer struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID cluster.ID, clusterAliases map[string]string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                 env,
 		Generators:          map[string]model.XdsResourceGenerator{},
@@ -169,8 +165,6 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
 		Cache:              env.Cache,
-		instanceID:         instanceID,
-		clusterID:          clusterID,
 		discoveryStartTime: processStartTime,
 	}
 
@@ -533,7 +527,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 }
 
 // InitGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string, internalDebugMux *http.ServeMux) {
+func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string, clusterID cluster.ID, internalDebugMux *http.ServeMux) {
 	edsGen := &EdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
@@ -542,7 +536,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.EndpointType] = edsGen
 	ecdsGen := &EcdsGenerator{Server: s}
 	if env.CredentialsController != nil {
-		s.Generators[v3.SecretType] = NewSecretGen(env.CredentialsController, s.Cache, s.clusterID, env.Mesh())
+		s.Generators[v3.SecretType] = NewSecretGen(env.CredentialsController, s.Cache, clusterID, env.Mesh())
 		ecdsGen.SetCredController(env.CredentialsController)
 	}
 	s.Generators[v3.ExtensionConfigurationType] = ecdsGen

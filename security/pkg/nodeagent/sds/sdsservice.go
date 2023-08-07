@@ -73,7 +73,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 	env.PushContext().Mesh = env.Watcher.Mesh()
 	env.Init()
 
-	s := xds.NewDiscoveryServer(env, "istiod", "", map[string]string{})
+	s := xds.NewDiscoveryServer(env, map[string]string{})
 
 	// No ratelimit for SDS calls in agent.
 	s.RequestRateLimit = rate.NewLimiter(0, 1)
