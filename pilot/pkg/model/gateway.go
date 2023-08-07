@@ -175,6 +175,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
 					}
 				} else if ps.ReferenceAllowed(gvk.Secret, rn, proxy.VerifiedIdentity.Namespace) {
+					log.Errorf("howardjohn: reference allowed to %v %v", proxy.ID, rn)
 					// Explicitly allowed by some policy
 					verifiedCertificateReferences.Insert(rn)
 				}
@@ -333,6 +334,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		}
 	}
 
+	log.Errorf("howardjohn: allowed references %v", verifiedCertificateReferences.UnsortedList())
 	return &MergedGateway{
 		MergedServers:                   mergedServers,
 		MergedQUICTransportServers:      mergedQUICServers,

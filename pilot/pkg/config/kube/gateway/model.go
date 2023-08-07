@@ -72,6 +72,7 @@ func (refs AllowedReferences) SecretAllowed(resourceName string, namespace strin
 	if allow == nil {
 		return false
 	}
+	log.Errorf("howardjohn: allow: %v, %v", allow.AllowAll, allow.AllowedNames.UnsortedList())
 	return allow.AllowAll || allow.AllowedNames.Contains(p.Name)
 }
 
