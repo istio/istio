@@ -2574,7 +2574,7 @@ func TestTelemetryMetadata(t *testing.T) {
 				mutable: newClusterWrapper(tt.cluster),
 				port:    &model.Port{Port: 80},
 			}
-			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
+			addTelemetryMetadata(tt.cluster, opt.port, tt.service, tt.direction, tt.svcInsts)
 			if opt.mutable.cluster != nil && !reflect.DeepEqual(opt.mutable.cluster.Metadata, tt.want) {
 				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.mutable.cluster.Metadata)
 			}
