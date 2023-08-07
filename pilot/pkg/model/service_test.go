@@ -113,7 +113,7 @@ func TestIsValidSubsetKey(t *testing.T) {
 	}
 }
 
-func TestGetLocalityOrDefault(t *testing.T) {
+func TestGetLocalityLabel(t *testing.T) {
 	cases := []struct {
 		name     string
 		label    string
