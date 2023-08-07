@@ -618,7 +618,13 @@ func setTopologyLabels(proxy *model.Proxy) {
 		}
 	}
 	// add topology labels to proxy labels
-	proxy.Labels = labelutil.AugmentLabels(proxy.Labels, proxy.Metadata.ClusterID, util.LocalityToString(proxy.Locality), proxy.GetNodeName(), proxy.Metadata.Network)
+	proxy.Labels = labelutil.AugmentLabels(
+		proxy.Labels,
+		proxy.Metadata.ClusterID,
+		util.LocalityToString(proxy.Locality),
+		proxy.GetNodeName(),
+		proxy.Metadata.Network,
+	)
 }
 
 func localityFromProxyLabels(proxy *model.Proxy) *core.Locality {
