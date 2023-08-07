@@ -327,6 +327,12 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 			addService(host.Name(httpRoute.GetMirror().GetHost()))
 		}
 
+		for _, mirror := range httpRoute.GetMirrors() {
+			if mirror.GetDestination() != nil {
+				addService(host.Name(mirror.GetDestination().GetHost()))
+			}
+		}
+
 		for _, route := range httpRoute.GetRoute() {
 			if route.GetDestination() != nil {
 				addService(host.Name(route.GetDestination().GetHost()))

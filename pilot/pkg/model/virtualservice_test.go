@@ -708,6 +708,34 @@ func TestMergeVirtualServices(t *testing.T) {
 }
 
 func TestMergeHttpRoutes(t *testing.T) {
+	dstV1 := &networking.Destination{
+		Host: "productpage.org",
+		Port: &networking.PortSelector{
+			Number: 80,
+		},
+		Subset: "v1",
+	}
+	dstV2 := &networking.Destination{
+		Host: "productpage.org",
+		Port: &networking.PortSelector{
+			Number: 80,
+		},
+		Subset: "v2",
+	}
+	dstV3 := &networking.Destination{
+		Host: "productpage.org",
+		Port: &networking.PortSelector{
+			Number: 80,
+		},
+		Subset: "v3",
+	}
+	dstMirrorV1 := dstV1.DeepCopy()
+	dstMirrorV1.Host = "productpage-mirror.org"
+	dstMirrorV2 := dstV2.DeepCopy()
+	dstMirrorV2.Host = "productpage-mirror.org"
+	dstMirrorV3 := dstV3.DeepCopy()
+	dstMirrorV3.Host = "productpage-mirror.org"
+
 	cases := []struct {
 		name     string
 		root     *networking.HTTPRoute
@@ -746,17 +774,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v1",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV1}},
 				},
 				{
 					Match: []*networking.HTTPMatchRequest{
@@ -783,17 +801,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v2",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV2}},
 				},
 			},
 			expected: []*networking.HTTPRoute{
@@ -810,17 +818,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v1",
-							},
-						},
-					},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV1}},
 					Timeout: &durationpb.Duration{Seconds: 10},
 					Headers: &networking.Headers{
 						Request: &networking.Headers_HeaderOperations{
@@ -856,17 +854,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v2",
-							},
-						},
-					},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV2}},
 					Timeout: &durationpb.Duration{Seconds: 10},
 					Headers: &networking.Headers{
 						Request: &networking.Headers_HeaderOperations{
@@ -909,17 +897,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v1",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV1}},
 				},
 				{
 					Match: []*networking.HTTPMatchRequest{
@@ -946,31 +924,11 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v2",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV2}},
 				},
 				{
 					// default route to v3
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v3",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV3}},
 				},
 			},
 			expected: []*networking.HTTPRoute{
@@ -988,17 +946,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							Port: 8080,
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v1",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV1}},
 				},
 				{
 					Match: []*networking.HTTPMatchRequest{
@@ -1030,17 +978,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							Port: 8080,
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v2",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV2}},
 				},
 				{
 					Match: []*networking.HTTPMatchRequest{
@@ -1052,17 +990,75 @@ func TestMergeHttpRoutes(t *testing.T) {
 						},
 					},
 					// default route to v3
-					Route: []*networking.HTTPRouteDestination{
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV3}},
+				},
+			},
+		},
+		{
+			name: "delegate with mirrors",
+			root: &networking.HTTPRoute{
+				Match:   nil,
+				Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV3}},
+				Delegate: &networking.Delegate{
+					Name:      "delegate",
+					Namespace: "default",
+				},
+			},
+			delegate: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
 						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v3",
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v1"},
 							},
 						},
 					},
+					Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV1}},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV1}},
+				},
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v2"},
+							},
+						},
+					},
+					Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV2}},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV2}},
+				},
+				{
+					// default route to v3 with no specified mirrors
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV3}},
+				},
+			},
+			expected: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v1"},
+							},
+						},
+					},
+					Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV1}},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV1}},
+				},
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v2"},
+							},
+						},
+					},
+					Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV2}},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV2}},
+				},
+				{
+					// default route to v3
+					Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV3}},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV3}},
 				},
 			},
 		},
