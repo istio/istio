@@ -151,7 +151,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
       trace "setup kind cluster" setup_kind_cluster_retry "istio-testing" "${NODE_IMAGE}" "${KIND_CONFIG}"
     else
       trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
-      trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
+      trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}" "false"
 
       TOPOLOGY_JSON=$(cat "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
       for i in $(seq 0 $((${#CLUSTER_NAMES[@]} - 1))); do
@@ -171,6 +171,8 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   }
   # Setup cluster in the background. It takes 1-2 minutes and can easily run in aprallel
   setup_cluster & JOBS+=("${!}")
+  # Handle cleanup ourselves, as we will spawn setup_kind_clusters in its own subprocess
+  trap cleanup_kind_clusters EXIT
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then

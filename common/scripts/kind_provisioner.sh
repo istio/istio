@@ -252,11 +252,14 @@ function setup_kind_clusters() {
   IMAGE="${1:-"${DEFAULT_KIND_IMAGE}"}"
   KUBECONFIG_DIR="${ARTIFACTS:-$(mktemp -d)}/kubeconfig"
   IP_FAMILY="${2:-ipv4}"
+  CLEANUP="${3:-true}"
 
   check_default_cluster_yaml
 
   # Trap replaces any previous trap's, so we need to explicitly cleanup clusters here
-  trap cleanup_kind_clusters EXIT
+  if [[ "${CLEANUP}" == "true" ]]; then
+     trap cleanup_kind_clusters EXIT
+  fi
 
   function deploy_kind() {
     IDX="${1}"
