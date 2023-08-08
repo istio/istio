@@ -609,6 +609,10 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 		for k, v := range components {
 			finalVals[k] = v
 		}
+		// this seems hacky to me but if we want to have even basic support for revisions
+		//    I think we need to do something to pass the value down to components which use
+		//    FlattenValues
+		finalVals["revision"] = mergedVals["revision"]
 		mergedVals = finalVals
 	}
 

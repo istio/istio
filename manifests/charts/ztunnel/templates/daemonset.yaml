@@ -75,6 +75,14 @@ spec:
         - proxy
         - ztunnel
         env:
+        - name: CA_ADDRESS
+        {{- if .Values.caAddress }}
+          value: {{ .Values.caAddress }}
+        {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
+        {{- end }}
+        - name: XDS_ADDRESS
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
         - name: CLUSTER_ID
           value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         - name: POD_NAME
