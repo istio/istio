@@ -73,12 +73,15 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		injectionLabel := r.Metadata.Labels[util.InjectionLabelName]
+		injectionLabel, okInjectionLabel := r.Metadata.Labels[util.InjectionLabelName]
 		nsRevision, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
 
 		istioLabels := make([]string, 0)
-		for _, l := range []string{util.InjectionLabelName, RevisionInjectionLabelName, constants.DataplaneMode} {
-			if _, ok := r.Metadata.Labels[l]; ok {
+		if okInjectionLabel {
+			istioLabels = append(istioLabels, fmt.Sprintf("%s=%s", util.InjectionLabelName, injectionLabel))
+		}
+		for _, l := range []string{RevisionInjectionLabelName, constants.DataplaneMode} {
+			if _, ok := r.Metadata.Labels[l]; ok && (!okInjectionLabel || injectionLabel == "enabled") {
 				istioLabels = append(istioLabels, fmt.Sprintf("%s=%s", l, r.Metadata.Labels[l]))
 			}
 		}
