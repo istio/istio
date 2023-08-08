@@ -43,7 +43,7 @@ type ZtunnelService struct {
 }
 
 type ZtunnelDump struct {
-	Workloads    map[string]*ZtunnelWorkload `json:"by_uid"`
+	Workloads    map[string]*ZtunnelWorkload `json:"by_addr"`
 	Services     map[string]*ZtunnelService  `json:"by_vip"`
 	Certificates []*CertsDump                `json:"certificates"`
 }
