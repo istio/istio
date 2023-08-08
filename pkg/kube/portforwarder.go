@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -53,12 +54,13 @@ type forwarder struct {
 	localAddress string
 	localPort    int
 	podPort      int
-	address      string
 }
 
 func (f *forwarder) Start() error {
 	errCh := make(chan error, 1)
 	readyCh := make(chan struct{}, 1)
+
+	var fw *portforward.PortForwarder
 	go func() {
 		for {
 			select {
@@ -66,8 +68,9 @@ func (f *forwarder) Start() error {
 				return
 			default:
 			}
+			var err error
 			// Build a new port forwarder.
-			fw, err := f.buildK8sPortForwarder(readyCh)
+			fw, err = f.buildK8sPortForwarder(readyCh)
 			if err != nil {
 				errCh <- err
 				return
@@ -87,13 +90,22 @@ func (f *forwarder) Start() error {
 	case err := <-errCh:
 		return fmt.Errorf("failure running port forward process: %v", err)
 	case <-readyCh:
+		p, err := fw.GetPorts()
+		if err != nil {
+			return fmt.Errorf("failed to get ports: %v", err)
+		}
+		if len(p) == 0 {
+			return fmt.Errorf("got no ports")
+		}
+		// Set local port now, as it may have been 0 as input
+		f.localPort = int(p[0].Local)
 		// The forwarder is now ready.
 		return nil
 	}
 }
 
 func (f *forwarder) Address() string {
-	return f.address
+	return net.JoinHostPort(f.localAddress, strconv.Itoa(f.localPort))
 }
 
 func (f *forwarder) Close() {
@@ -119,17 +131,7 @@ func newPortForwarder(c *client, podName, ns, localAddress string, localPort, po
 		localPort:    localPort,
 		podPort:      podPort,
 	}
-	if f.localPort == 0 {
-		var err error
-		reserved, err := c.portManager()
-		if err != nil {
-			return nil, fmt.Errorf("failure allocating port: %v", err)
-		}
-		f.localPort = int(reserved)
-	}
 
-	sLocalPort := fmt.Sprintf("%d", f.localPort)
-	f.address = net.JoinHostPort(localAddress, sLocalPort)
 	return f, nil
 }
 
