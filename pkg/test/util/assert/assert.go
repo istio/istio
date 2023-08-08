@@ -45,6 +45,13 @@ var compareErrors = cmp.Comparer(func(x, y error) bool {
 
 var cmpOpts = []cmp.Option{protocmp.Transform(), cmpopts.EquateEmpty(), compareErrors}
 
+func Compare[T any](a, b T) error {
+	if !cmp.Equal(a, b, cmpOpts...) {
+		return fmt.Errorf("found diff: %v\nLeft: %v\nRight: %v", cmp.Diff(a, b, cmpOpts...), a, b)
+	}
+	return nil
+}
+
 // Equal
 func Equal[T any](t test.Failer, a, b T, context ...string) {
 	t.Helper()

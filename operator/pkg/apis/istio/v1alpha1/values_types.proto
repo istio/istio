@@ -713,9 +713,9 @@ message PilotConfig {
   repeated google.protobuf.Struct tolerations = 26 [deprecated=true];
 
   // if protocol sniffing is enabled for outbound
-  google.protobuf.BoolValue enableProtocolSniffingForOutbound = 28;
+  google.protobuf.BoolValue enableProtocolSniffingForOutbound = 28 [deprecated=true];
   // if protocol sniffing is enabled for inbound
-  google.protobuf.BoolValue enableProtocolSniffingForInbound = 29;
+  google.protobuf.BoolValue enableProtocolSniffingForInbound = 29 [deprecated=true];
 
   // K8s annotations for pods.
   //

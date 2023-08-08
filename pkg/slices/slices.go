@@ -67,6 +67,10 @@ func Clone[S ~[]E, E any](s S) S {
 
 // Delete removes the element i from s, returning the modified slice.
 func Delete[S ~[]E, E any](s S, i int) S {
+	// "If those elements contain pointers you might consider zeroing those elements
+	// so that objects they reference can be garbage collected."
+	var empty E
+	s[i] = empty
 	return slices.Delete(s, i, i+1)
 }
 

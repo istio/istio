@@ -36,10 +36,8 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	api "istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -2433,248 +2431,6 @@ func TestValidateHTTPDirectResponse(t *testing.T) {
 	}
 }
 
-func TestValidateDestinationWithInheritance(t *testing.T) {
-	test.SetForTest(t, &features.EnableDestinationRuleInheritance, true)
-	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
-	}{
-		{name: "simple destination rule", in: &networking.DestinationRule{
-			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
-			},
-		}, valid: true},
-		{name: "simple global destination rule", in: &networking.DestinationRule{
-			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings without protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with POST protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "POST",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings without protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "reviews-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "reviews-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "CONNECT",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings with POST protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "example-com-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "POST",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with IPv4 target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "192.168.1.2",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with IPv6 target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "2001:db8:1234::",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "masque",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "subset tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "example-com-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "masque",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: false},
-		{name: "global rule with subsets", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
-			},
-		}, valid: false},
-		{name: "global rule with exportTo", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			ExportTo: []string{"ns1", "ns2"},
-		}, valid: false},
-		{name: "empty host with workloadSelector", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			WorkloadSelector: &api.WorkloadSelector{
-				MatchLabels: map[string]string{"app": "app1"},
-			},
-		}, valid: false},
-		{name: "global rule with portLevelSettings", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
-					{
-						Port: &networking.PortSelector{Number: 8000},
-						OutlierDetection: &networking.OutlierDetection{
-							MinHealthPercent: 20,
-						},
-					},
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings for wildcard target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "*.example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings for with invalid port", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-					TargetPort: 0,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings without required target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings without required target port", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-				},
-			},
-		}, valid: false},
-	}
-	for _, c := range cases {
-		if _, got := ValidateDestinationRule(config.Config{
-			Meta: config.Meta{
-				Name:      someName,
-				Namespace: someNamespace,
-			},
-			Spec: c.in,
-		}); (got == nil) != c.valid {
-			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
 func TestValidateDestination(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -3027,6 +2783,59 @@ func TestValidateHTTPRoute(t *testing.T) {
 				Destination: &networking.Destination{Host: "foo.bar"},
 			}},
 			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "mirrors without destination", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: nil,
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "mirrors invalid mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 101},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "mirrors valid mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 1},
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 50},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: true},
+		{name: "mirrors negative mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: -1},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "conflicting mirror and mirrors", route: &networking.HTTPRoute{
+			Mirror: &networking.Destination{Host: "foo.baz"},
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
 		}, valid: false},
 	}
 

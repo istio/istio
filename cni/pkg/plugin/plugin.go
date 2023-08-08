@@ -284,7 +284,7 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 	}
 
 	if pi.ProxyType != "" && pi.ProxyType != "sidecar" {
-		log.Infof("excluded because it has proxy type %v", podNamespace, podName, pi.ProxyType)
+		log.Infof("excluded %s/%s pod because it has proxy type %s", podNamespace, podName, pi.ProxyType)
 		return nil
 	}
 

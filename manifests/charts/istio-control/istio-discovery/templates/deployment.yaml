@@ -163,10 +163,6 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.pilot.traceSampling }}"
 {{- end }}
-          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
-            value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
-          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-            value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
           - name: ISTIOD_ADDR
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
@@ -177,6 +173,10 @@ spec:
             valueFrom:
               resourceFieldRef:
                 resource: limits.memory
+          - name: GOMAXPROCS
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.cpu
           - name: PLATFORM
             value: "{{ .Values.global.platform }}"
           resources:

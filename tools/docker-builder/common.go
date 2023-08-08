@@ -53,6 +53,7 @@ func createArgs(args Args, target string, variant string, architecture string) m
 		"BASE_DISTRIBUTION": baseDist,
 		// Additional metadata injected into some images
 		"proxy_version":    args.ProxyVersion,
+		"ztunnel_version":  args.ZtunnelVersion,
 		"istio_version":    args.IstioVersion,
 		"VM_IMAGE_NAME":    vmImageName(target),
 		"VM_IMAGE_VERSION": vmImageVersion(target),

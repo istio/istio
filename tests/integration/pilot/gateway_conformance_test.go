@@ -84,6 +84,7 @@ func TestGatewayConformance(t *testing.T) {
 
 			opts := suite.Options{
 				Client:               c,
+				Clientset:            gatewayConformanceInputs.Client.Kube(),
 				RestConfig:           gatewayConformanceInputs.Client.RESTConfig(),
 				RESTClient:           rc,
 				GatewayClassName:     "istio",

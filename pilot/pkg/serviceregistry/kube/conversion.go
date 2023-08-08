@@ -35,18 +35,6 @@ import (
 	"istio.io/istio/pkg/spiffe"
 )
 
-const (
-	// IngressClassAnnotation is the annotation on ingress resources for the class of controllers
-	// responsible for it
-	IngressClassAnnotation = "kubernetes.io/ingress.class"
-
-	// NodeSelectorAnnotation is the value for this annotation is a set of key value pairs (node labels)
-	// that can be used to select a subset of nodes from the pool of k8s nodes
-	// It is used for multi-cluster scenario, and with nodePort type gateway service.
-	// TODO: move to API
-	NodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
-)
-
 func convertPort(port corev1.ServicePort) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
@@ -127,7 +115,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 
 	switch svc.Spec.Type {
 	case corev1.ServiceTypeNodePort:
-		if _, ok := svc.Annotations[NodeSelectorAnnotation]; !ok {
+		if _, ok := svc.Annotations[annotation.TrafficNodeSelector.Name]; !ok {
 			// only do this for istio ingress-gateway services
 			break
 		}

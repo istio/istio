@@ -27,13 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -198,7 +198,7 @@ func TestMeshNetworking(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "istio-ingressgateway",
 						Namespace:   "istio-system",
-						Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
+						Annotations: map[string]string{annotation.TrafficNodeSelector.Name: "{}"},
 					},
 					Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort, Ports: []corev1.ServicePort{{Port: 15443, NodePort: 25443}}},
 				},
@@ -209,7 +209,7 @@ func TestMeshNetworking(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "istio-ingressgateway",
 						Namespace:   "istio-system",
-						Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
+						Annotations: map[string]string{annotation.TrafficNodeSelector.Name: "{}"},
 						Labels: map[string]string{
 							label.TopologyNetwork.Name: "network-2",
 							// set the label here to test it = expectation doesn't change since we map back to that via NodePort

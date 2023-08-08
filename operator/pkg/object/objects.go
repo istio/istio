@@ -19,14 +19,15 @@ or YAML representations.
 package object
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
@@ -260,63 +261,60 @@ func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 // ParseK8sObjectsFromYAMLManifestFailOption returns a K8sObjects representation of manifest. Continues parsing when a bad object
 // is found if failOnError is set to false.
 func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool) (K8sObjects, error) {
-	var b bytes.Buffer
-
-	var yamls []string
-	scanner := bufio.NewScanner(strings.NewReader(manifest))
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "---") {
-			// yaml separator
-			yamls = append(yamls, b.String())
-			b.Reset()
-		} else {
-			if _, err := b.WriteString(line); err != nil {
-				return nil, err
-			}
-			if _, err := b.WriteString("\n"); err != nil {
-				return nil, err
-			}
-		}
-	}
-	yamls = append(yamls, b.String())
-
+	jsonDecoder := k8syaml.NewYAMLToJSONDecoder(bytes.NewReader([]byte(manifest)))
 	var objects K8sObjects
 
-	for _, yaml := range yamls {
-		yaml = removeNonYAMLLines(yaml)
-		if yaml == "" {
-			continue
-		}
-		o, err := ParseYAMLToK8sObject([]byte(yaml))
-		if err != nil {
-			e := fmt.Errorf("failed to parse YAML to a k8s object: %s", err)
+	wrapErr := func(err error) error {
+		return fmt.Errorf("failed to parse YAML to a k8s object: %v", err)
+	}
+
+	s := json.NewSerializerWithOptions(json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
+		Yaml:   true,
+		Pretty: true,
+		Strict: true,
+	})
+	for {
+		var obj unstructured.Unstructured
+		if err := jsonDecoder.Decode(&obj); err != nil {
+			if err == io.EOF {
+				break
+			}
+			err = wrapErr(err)
 			if failOnError {
-				return nil, e
+				return nil, err
 			}
 			log.Error(err.Error())
 			continue
 		}
-		if o.Valid() {
-			objects = append(objects, o)
-		}
-	}
-
-	return objects, nil
-}
-
-func removeNonYAMLLines(yms string) string {
-	var b strings.Builder
-	for _, s := range strings.Split(yms, "\n") {
-		if strings.HasPrefix(s, "#") {
+		if obj.Object == nil {
 			continue
 		}
-		b.WriteString(s)
-		b.WriteString("\n")
-	}
 
-	// helm charts sometimes emits blank objects with just a "disabled" comment.
-	return strings.TrimSpace(b.String())
+		if !isValidKubernetesObject(obj) {
+			if failOnError {
+				err := wrapErr(fmt.Errorf("failed to parse YAML to a k8s object: object is an invalid k8s object: %v", obj))
+				return nil, err
+			}
+		}
+
+		// Convert the unstructured object back into YAML, without comments
+		var buf bytes.Buffer
+		if err := s.Encode(&obj, &buf); err != nil {
+			err = wrapErr(err)
+			if failOnError {
+				return nil, err
+			}
+			log.Error(err.Error())
+			continue
+		}
+		cleanedYaml := buf.String()
+
+		k8sObj := NewK8sObject(&obj, nil, []byte(cleanedYaml))
+		if k8sObj.Valid() {
+			objects = append(objects, k8sObj)
+		}
+	}
+	return objects, nil
 }
 
 // YAMLManifest returns a YAML representation of K8sObjects os.
@@ -549,13 +547,13 @@ func resolvePDBConflict(o *K8sObject) *K8sObject {
 		var ii intstr.IntOrString
 		switch item := item.(type) {
 		case int:
-			ii = intstr.FromInt(item)
+			ii = intstr.FromInt32(int32(item))
 		case int64:
-			ii = intstr.FromInt(int(item))
+			ii = intstr.FromInt32(int32(item))
 		case string:
 			ii = intstr.FromString(item)
 		default:
-			ii = intstr.FromInt(0)
+			ii = intstr.FromInt32(0)
 		}
 		intVal, err := intstr.GetScaledValueFromIntOrPercent(&ii, 100, false)
 		if err != nil || intVal == 0 {
@@ -580,4 +578,14 @@ func resolvePDBConflict(o *K8sObject) *K8sObject {
 		}
 	}
 	return o
+}
+
+func isValidKubernetesObject(obj unstructured.Unstructured) bool {
+	if _, ok := obj.Object["apiVersion"]; !ok {
+		return false
+	}
+	if _, ok := obj.Object["kind"]; !ok {
+		return false
+	}
+	return true
 }

@@ -24,39 +24,15 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/log"
 )
-
-// ServiceController is a mock service controller
-type ServiceController struct {
-	svcHandlers []model.ServiceHandler
-
-	sync.RWMutex
-}
-
-var _ model.Controller = &ServiceController{}
-
-// Memory does not support workload handlers; everything is done in terms of instances
-func (c *ServiceController) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
-
-// AppendServiceHandler appends a service handler to the controller
-func (c *ServiceController) AppendServiceHandler(f model.ServiceHandler) {
-	c.Lock()
-	c.svcHandlers = append(c.svcHandlers, f)
-	c.Unlock()
-}
-
-// Run will run the controller
-func (c *ServiceController) Run(<-chan struct{}) {}
-
-// HasSynced always returns true
-func (c *ServiceController) HasSynced() bool { return true }
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
 	model.NoopAmbientIndexes
 	services map[host.Name]*model.Service
+
+	handlers model.ControllerHandlers
 
 	networkGateways []model.NetworkGateway
 	model.NetworkGatewaysHandler
@@ -83,7 +59,10 @@ type ServiceDiscovery struct {
 	mutex sync.Mutex
 }
 
-var _ model.ServiceDiscovery = &ServiceDiscovery{}
+var (
+	_ model.Controller       = &ServiceDiscovery{}
+	_ model.ServiceDiscovery = &ServiceDiscovery{}
+)
 
 // NewServiceDiscovery builds an in-memory ServiceDiscovery
 func NewServiceDiscovery(services ...*model.Service) *ServiceDiscovery {
@@ -93,7 +72,6 @@ func NewServiceDiscovery(services ...*model.Service) *ServiceDiscovery {
 	}
 	return &ServiceDiscovery{
 		services:            svcs,
-		Controller:          &ServiceController{},
 		instancesByPortNum:  map[string][]*model.ServiceInstance{},
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
@@ -125,62 +103,43 @@ func (sd *ServiceDiscovery) AddHTTPService(name, vip string, port int) {
 	})
 }
 
-// AddService adds an in-memory service.
+// AddService adds an in-memory service and notifies
 func (sd *ServiceDiscovery) AddService(svc *model.Service) {
 	sd.mutex.Lock()
 	svc.Attributes.ServiceRegistry = provider.Mock
-	sd.services[svc.Hostname] = svc
-	sd.mutex.Unlock()
-}
-
-// AddServiceNotify adds an in-memory service and notifies
-func (sd *ServiceDiscovery) AddServiceNotify(svc *model.Service) {
-	sd.AddService(svc)
-	sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
-	pushReq := &model.PushRequest{
-		Full:           true,
-		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace}),
-
-		Reason: model.NewReasonStats(model.ServiceUpdate),
+	var old *model.Service
+	event := model.EventAdd
+	if o, f := sd.services[svc.Hostname]; f {
+		old = o
+		event = model.EventUpdate
 	}
-	sd.XdsUpdater.ConfigUpdate(pushReq)
+	sd.services[svc.Hostname] = svc
+
+	if sd.XdsUpdater != nil {
+		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
+	}
+	sd.handlers.NotifyServiceHandlers(old, svc, event)
+	sd.mutex.Unlock()
 }
 
 // RemoveService removes an in-memory service.
 func (sd *ServiceDiscovery) RemoveService(name host.Name) {
 	sd.mutex.Lock()
+	svc := sd.services[name]
 	delete(sd.services, name)
-	sd.mutex.Unlock()
+
 	if sd.XdsUpdater != nil {
-		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(name), "", model.EventDelete)
+		sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
 	}
+	sd.handlers.NotifyServiceHandlers(nil, svc, model.EventDelete)
+	sd.mutex.Unlock()
 }
 
-// AddInstance adds an in-memory instance.
-func (sd *ServiceDiscovery) AddInstance(service host.Name, instance *model.ServiceInstance) {
-	// WIP: add enough code to allow tests and load tests to work
+// AddInstance adds an in-memory instance and notifies the XDS updater
+func (sd *ServiceDiscovery) AddInstance(instance *model.ServiceInstance) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	svc := sd.services[service]
-	if svc == nil {
-		return
-	}
-	instance.Service = svc
-	sd.ip2instance[instance.Endpoint.Address] = append(sd.ip2instance[instance.Endpoint.Address], instance)
-
-	key := fmt.Sprintf("%s:%d", service, instance.ServicePort.Port)
-	instanceList := sd.instancesByPortNum[key]
-	sd.instancesByPortNum[key] = append(instanceList, instance)
-
-	key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
-	instanceList = sd.instancesByPortName[key]
-	sd.instancesByPortName[key] = append(instanceList, instance)
-}
-
-// AddInstanceNotify adds an in-memory instance and notifies the XDS updater
-func (sd *ServiceDiscovery) AddInstanceNotify(service host.Name, instance *model.ServiceInstance) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
+	service := instance.Service.Hostname
 	svc := sd.services[service]
 	if svc == nil {
 		return
@@ -207,6 +166,7 @@ func (sd *ServiceDiscovery) AddInstanceNotify(service host.Name, instance *model
 // AddEndpoint adds an endpoint to a service.
 func (sd *ServiceDiscovery) AddEndpoint(service host.Name, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
 	instance := &model.ServiceInstance{
+		Service: &model.Service{Hostname: service},
 		Endpoint: &model.IstioEndpoint{
 			Address:         address,
 			ServicePortName: servicePortName,
@@ -218,7 +178,7 @@ func (sd *ServiceDiscovery) AddEndpoint(service host.Name, servicePortName strin
 			Protocol: protocol.HTTP,
 		},
 	}
-	sd.AddInstance(service, instance)
+	sd.AddInstance(instance)
 	return instance
 }
 
@@ -231,6 +191,9 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 	if svc == nil {
 		sd.mutex.Unlock()
 		return
+	}
+	if svc.Attributes.Namespace != namespace {
+		log.Errorf("Service namespace %q != namespace %q", svc.Attributes.Namespace, namespace)
 	}
 
 	// remove old entries
@@ -275,10 +238,10 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 		sd.instancesByPortName[key] = append(instanceList, instance)
 
 	}
-	sd.mutex.Unlock()
 	if sd.XdsUpdater != nil {
 		sd.XdsUpdater.EDSUpdate(sd.shardKey(), service, namespace, endpoints)
 	}
+	sd.mutex.Unlock()
 }
 
 // Services implements discovery interface
@@ -359,3 +322,17 @@ func (sd *ServiceDiscovery) NetworkGateways() []model.NetworkGateway {
 func (sd *ServiceDiscovery) MCSServices() []model.MCSServiceInfo {
 	return nil
 }
+
+// Memory does not support workload handlers; everything is done in terms of instances
+func (sd *ServiceDiscovery) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
+
+// AppendServiceHandler appends a service handler to the controller
+func (sd *ServiceDiscovery) AppendServiceHandler(f model.ServiceHandler) {
+	sd.handlers.AppendServiceHandler(f)
+}
+
+// Run will run the controller
+func (sd *ServiceDiscovery) Run(<-chan struct{}) {}
+
+// HasSynced always returns true
+func (sd *ServiceDiscovery) HasSynced() bool { return true }

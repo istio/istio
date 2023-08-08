@@ -665,32 +665,9 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			return nil, fmt.Errorf("cannot cast to destination rule")
 		}
 		v := Validation{}
-		if features.EnableDestinationRuleInheritance {
-			if rule.Host == "" {
-				if rule.GetWorkloadSelector() != nil {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have workloadSelector configured"))
-				}
-				if len(rule.Subsets) != 0 {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have subsets"))
-				}
-				if len(rule.ExportTo) != 0 {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have exportTo configured"))
-				}
-				if rule.TrafficPolicy != nil && len(rule.TrafficPolicy.PortLevelSettings) != 0 {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have portLevelSettings configured"))
-				}
-			} else {
-				v = appendValidation(v, ValidateWildcardDomain(rule.Host))
-			}
-		} else {
-			v = appendValidation(v, ValidateWildcardDomain(rule.Host))
-		}
-
-		v = appendValidation(v, validateTrafficPolicy(rule.TrafficPolicy))
+		v = appendValidation(v,
+			ValidateWildcardDomain(rule.Host),
+			validateTrafficPolicy(rule.TrafficPolicy))
 
 		for _, subset := range rule.Subsets {
 			if subset == nil {
@@ -3188,6 +3165,28 @@ func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) (
 
 	errs = appendValidation(errs, WrapError(validateHTTPStatus(int32(directResponse.Status))))
 	return
+}
+
+func validateHTTPMirrors(mirrors []*networking.HTTPMirrorPolicy) error {
+	errs := Validation{}
+	for _, mirror := range mirrors {
+		if mirror.Destination == nil {
+			errs = appendValidation(errs, errors.New("destination is required for mirrors"))
+			continue
+		}
+		errs = appendValidation(errs, validateDestination(mirror.Destination))
+
+		if mirror.Percentage != nil {
+			value := mirror.Percentage.GetValue()
+			if value > 100 {
+				errs = appendValidation(errs, fmt.Errorf("mirror percentage must have a max value of 100 (it has %f)", value))
+			}
+			if value < 0 {
+				errs = appendValidation(errs, fmt.Errorf("mirror percentage must have a min value of 0 (it has %f)", value))
+			}
+		}
+	}
+	return errs
 }
 
 func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {

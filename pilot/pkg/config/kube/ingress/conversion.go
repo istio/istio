@@ -25,9 +25,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -299,7 +299,7 @@ func resolveNamedPort(backend *knetworking.IngressBackend, namespace string, ser
 // kubernetes (v1.18+), based on the Ingress's specified IngressClass
 // See https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class
 func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *knetworking.Ingress, ingressClass *knetworking.IngressClass) bool {
-	if class, exists := ingress.Annotations[kube.IngressClassAnnotation]; exists {
+	if class, exists := ingress.Annotations[annotation.IoKubernetesIngressClass.Name]; exists {
 		switch mesh.IngressControllerMode {
 		case meshconfig.MeshConfig_OFF:
 			return false

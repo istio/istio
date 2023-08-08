@@ -372,10 +372,9 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	return true
 }
 
-// GetLocalityLabelOrDefault returns the locality from the supplied label, or falls back to
-// the supplied default locality if the supplied label is empty. Because Kubernetes
+// GetLocalityLabel returns the locality from the supplied label. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
-func GetLocalityLabelOrDefault(label, defaultLabel string) string {
+func GetLocalityLabel(label string) string {
 	if len(label) > 0 {
 		// if there are /'s present we don't need to replace
 		if strings.Contains(label, "/") {
@@ -384,7 +383,7 @@ func GetLocalityLabelOrDefault(label, defaultLabel string) string {
 		// replace "." with "/"
 		return strings.Replace(label, k8sSeparator, "/", -1)
 	}
-	return defaultLabel
+	return ""
 }
 
 // Locality information for an IstioEndpoint

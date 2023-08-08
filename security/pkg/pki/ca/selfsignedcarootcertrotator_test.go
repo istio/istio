@@ -62,10 +62,10 @@ func TestRootCertRotatorWithoutRootCertSecret(t *testing.T) {
 	// Verifies that in self-signed CA mode, root cert rotator does not create CA secret.
 	rotator0 := getRootCertRotator(getDefaultSelfSignedIstioCAOptions(nil))
 	client0 := rotator0.config.client
-	client0.Secrets(rotator0.config.caStorageNamespace).Delete(context.TODO(), CASecret, metav1.DeleteOptions{})
+	client0.Secrets(rotator0.config.caStorageNamespace).Delete(context.TODO(), rotator0.config.secretName, metav1.DeleteOptions{})
 
 	rotator0.checkAndRotateRootCert()
-	caSecret, err := client0.Secrets(rotator0.config.caStorageNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
+	caSecret, err := client0.Secrets(rotator0.config.caStorageNamespace).Get(context.TODO(), rotator0.config.secretName, metav1.GetOptions{})
 	if !errors.IsNotFound(err) || caSecret != nil {
 		t.Errorf("CA secret should not exist, but get %v: %v", caSecret, err)
 	}
@@ -96,7 +96,7 @@ func verifyRootCertAndPrivateKey(t *testing.T, shouldMatch bool, itemA, itemB ro
 
 func loadCert(rotator *SelfSignedCARootCertRotator) rootCertItem {
 	client := rotator.config.client
-	caSecret, _ := client.Secrets(rotator.config.caStorageNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
+	caSecret, _ := client.Secrets(rotator.config.caStorageNamespace).Get(context.TODO(), rotator.config.secretName, metav1.GetOptions{})
 	rootCert := rotator.ca.keyCertBundle.GetRootCertPem()
 	return rootCertItem{caSecret: caSecret, rootCertInKeyCertBundle: rootCert}
 }

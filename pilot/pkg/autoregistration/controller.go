@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/autoregistration/internal/health"
 	"istio.io/istio/pilot/pkg/autoregistration/internal/state"
@@ -72,17 +73,6 @@ var (
 )
 
 const (
-	// TODO use status or another proper API instead of annotations
-
-	// AutoRegistrationGroupAnnotation on a WorkloadEntry stores the associated WorkloadGroup.
-	AutoRegistrationGroupAnnotation = "istio.io/autoRegistrationGroup"
-	// WorkloadControllerAnnotation on a WorkloadEntry should store the current/last pilot instance connected to the workload for XDS.
-	WorkloadControllerAnnotation = "istio.io/workloadController"
-	// ConnectedAtAnnotation on a WorkloadEntry stores the time in nanoseconds when the associated workload connected to a Pilot instance.
-	ConnectedAtAnnotation = "istio.io/connectedAt"
-	// DisconnectedAtAnnotation on a WorkloadEntry stores the time in nanoseconds when the associated workload disconnected from a Pilot instance.
-	DisconnectedAtAnnotation = "istio.io/disconnectedAt"
-
 	timeFormat = time.RFC3339Nano
 	// maxRetries is the number of times a service will be retried before it is dropped out of the queue.
 	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the
@@ -101,7 +91,7 @@ type Controller struct {
 	// do not support writing. We only use it here for reading WorkloadEntry/WorkloadGroup.
 	store model.ConfigStoreController
 
-	// Note: unregister is to update the workload entry status: like setting `DisconnectedAtAnnotation`
+	// Note: unregister is to update the workload entry status: like setting `istio.io/disconnectedAt`
 	// and make the workload entry enqueue `cleanupQueue`
 	// cleanup is to delete the workload entry
 
@@ -182,9 +172,9 @@ func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
 	if c.Annotations == nil {
 		c.Annotations = map[string]string{}
 	}
-	c.Annotations[WorkloadControllerAnnotation] = controller
-	c.Annotations[ConnectedAtAnnotation] = conTime.Format(timeFormat)
-	delete(c.Annotations, DisconnectedAtAnnotation)
+	c.Annotations[annotation.IoIstioWorkloadController.Name] = controller
+	c.Annotations[annotation.IoIstioConnectedAt.Name] = conTime.Format(timeFormat)
+	delete(c.Annotations, annotation.IoIstioDisconnectedAt.Name)
 }
 
 // RegisterWorkload determines whether a connecting proxy represents a non-Kubernetes
@@ -216,6 +206,9 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 				"however WorkloadEntry %s/%s is not found", proxy.Metadata.Namespace, proxy.Metadata.WorkloadEntry)
 		}
 		if health.IsEligibleForHealthStatusUpdates(wle) {
+			if err := ensureProxyCanControlEntry(proxy, wle); err != nil {
+				return err
+			}
 			entryName = wle.Name
 		}
 	}
@@ -234,6 +227,25 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 		log.Error(err)
 	}
 	return err
+}
+
+// ensureProxyCanControlEntry ensures the connected proxy's identity matches that of the WorkloadEntry it is associating with.
+func ensureProxyCanControlEntry(proxy *model.Proxy, wle *config.Config) error {
+	if !features.ValidateWorkloadEntryIdentity {
+		// Validation disabled, skip
+		return nil
+	}
+	if proxy.VerifiedIdentity == nil {
+		return fmt.Errorf("registration of WorkloadEntry requires a verified identity")
+	}
+	if proxy.VerifiedIdentity.Namespace != wle.Namespace {
+		return fmt.Errorf("registration of WorkloadEntry namespace mismatch: %q vs %q", proxy.VerifiedIdentity.Namespace, wle.Namespace)
+	}
+	spec := wle.Spec.(*v1alpha3.WorkloadEntry)
+	if spec.ServiceAccount != "" && proxy.VerifiedIdentity.ServiceAccount != spec.ServiceAccount {
+		return fmt.Errorf("registration of WorkloadEntry service account mismatch: %q vs %q", proxy.VerifiedIdentity.ServiceAccount, spec.ServiceAccount)
+	}
+	return nil
 }
 
 // onWorkloadConnect creates/updates WorkloadEntry of the connecting workload.
@@ -267,6 +279,9 @@ func (c *Controller) becomeControllerOf(entryName string, proxy *model.Proxy, co
 func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conTime time.Time) error {
 	wle := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if wle != nil {
+		if err := ensureProxyCanControlEntry(proxy, wle); err != nil {
+			return err
+		}
 		changed, err := c.changeWorkloadEntryStateToConnected(entryName, proxy, conTime)
 		if err != nil {
 			autoRegistrationErrors.Increment()
@@ -288,6 +303,9 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
 	}
 	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
+	if err := ensureProxyCanControlEntry(proxy, entry); err != nil {
+		return err
+	}
 	setConnectMeta(entry, c.instanceID, conTime)
 	_, err := c.store.Create(*entry)
 	if err != nil {
@@ -310,7 +328,7 @@ func (c *Controller) changeWorkloadEntryStateToConnected(entryName string, proxy
 	if wle == nil {
 		return false, fmt.Errorf("failed updating WorkloadEntry %s/%s: WorkloadEntry not found", proxy.Metadata.Namespace, entryName)
 	}
-	lastConTime, _ := time.Parse(timeFormat, wle.Annotations[ConnectedAtAnnotation])
+	lastConTime, _ := time.Parse(timeFormat, wle.Annotations[annotation.IoIstioConnectedAt.Name])
 	// the proxy has reconnected to another pilot, not belong to this one.
 	if conTime.Before(lastConTime) {
 		return false, nil
@@ -339,18 +357,18 @@ func (c *Controller) changeWorkloadEntryStateToDisconnected(entryName string, pr
 	}
 
 	// only queue a delete if this disconnect event is associated with the last connect event written to the workload entry
-	if mostRecentConn, err := time.Parse(timeFormat, cfg.Annotations[ConnectedAtAnnotation]); err == nil {
+	if mostRecentConn, err := time.Parse(timeFormat, cfg.Annotations[annotation.IoIstioConnectedAt.Name]); err == nil {
 		if mostRecentConn.After(origConnTime) {
 			// this disconnect event wasn't processed until after we successfully reconnected
 			return false, nil
 		}
 	}
 	// The wle has reconnected to another istiod and controlled by it.
-	if cfg.Annotations[WorkloadControllerAnnotation] != c.instanceID {
+	if cfg.Annotations[annotation.IoIstioWorkloadController.Name] != c.instanceID {
 		return false, nil
 	}
 
-	conTime, _ := time.Parse(timeFormat, cfg.Annotations[ConnectedAtAnnotation])
+	conTime, _ := time.Parse(timeFormat, cfg.Annotations[annotation.IoIstioConnectedAt.Name])
 	// The wle has reconnected to this istiod,
 	// this may happen when the unregister fails retry
 	if disconTime.Before(conTime) {
@@ -358,8 +376,8 @@ func (c *Controller) changeWorkloadEntryStateToDisconnected(entryName string, pr
 	}
 
 	wle := cfg.DeepCopy()
-	delete(wle.Annotations, ConnectedAtAnnotation)
-	wle.Annotations[DisconnectedAtAnnotation] = disconTime.Format(timeFormat)
+	delete(wle.Annotations, annotation.IoIstioConnectedAt.Name)
+	wle.Annotations[annotation.IoIstioDisconnectedAt.Name] = disconTime.Format(timeFormat)
 	// use update instead of patch to prevent race condition
 	_, err := c.store.Update(wle)
 	if err != nil {
@@ -493,12 +511,12 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 		return false
 	}
 
-	// If there is ConnectedAtAnnotation set, don't cleanup this workload entry.
+	// If there is `istio.io/connectedAt` set, don't cleanup this workload entry.
 	// This may happen when the workload fast reconnects to the same istiod.
 	// 1. disconnect: the workload entry has been updated
 	// 2. connect: but the patch is based on the old workloadentry because of the propagation latency.
-	// So in this case the `DisconnectedAtAnnotation` is still there and the cleanup procedure will go on.
-	connTime := wle.Annotations[ConnectedAtAnnotation]
+	// So in this case the `istio.io/disconnectedAt` is still there and the cleanup procedure will go on.
+	connTime := wle.Annotations[annotation.IoIstioConnectedAt.Name]
 	if connTime != "" {
 		// handle workload leak when both workload/pilot down at the same time before pilot has a chance to set disconnTime
 		connAt, err := time.Parse(timeFormat, connTime)
@@ -508,7 +526,7 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 		return false
 	}
 
-	disconnTime := wle.Annotations[DisconnectedAtAnnotation]
+	disconnTime := wle.Annotations[annotation.IoIstioDisconnectedAt.Name]
 	if disconnTime == "" {
 		return false
 	}
@@ -567,7 +585,7 @@ func (c *Controller) IsControllerOf(wle *config.Config) bool {
 	if wle == nil {
 		return false
 	}
-	return wle.Annotations[WorkloadControllerAnnotation] == c.instanceID
+	return wle.Annotations[annotation.IoIstioWorkloadController.Name] == c.instanceID
 }
 
 func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
@@ -635,7 +653,7 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 		delete(entry.Labels, model.LocalityLabel)
 	}
 
-	annotations := map[string]string{AutoRegistrationGroupAnnotation: groupCfg.Name}
+	annotations := map[string]string{annotation.IoIstioAutoRegistrationGroup.Name: groupCfg.Name}
 	if group.Metadata != nil && group.Metadata.Annotations != nil {
 		annotations = mergeLabels(annotations, group.Metadata.Annotations)
 	}
@@ -681,9 +699,9 @@ func makeProxyKey(proxy *model.Proxy) string {
 }
 
 func isAutoRegisteredWorkloadEntry(wle *config.Config) bool {
-	return wle != nil && wle.Annotations[AutoRegistrationGroupAnnotation] != ""
+	return wle != nil && wle.Annotations[annotation.IoIstioAutoRegistrationGroup.Name] != ""
 }
 
 func isHealthCheckedWorkloadEntry(wle *config.Config) bool {
-	return wle != nil && wle.Annotations[WorkloadControllerAnnotation] != "" && !isAutoRegisteredWorkloadEntry(wle)
+	return wle != nil && wle.Annotations[annotation.IoIstioWorkloadController.Name] != "" && !isAutoRegisteredWorkloadEntry(wle)
 }

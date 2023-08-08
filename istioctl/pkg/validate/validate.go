@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/url"
 )
 
@@ -61,6 +62,8 @@ Example resource specifications include:
 	}
 
 	serviceProtocolUDP = "UDP"
+
+	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
 
 type validator struct{}
@@ -263,6 +266,11 @@ func (v *validator) validateFile(istioNamespace *string, defaultNamespace string
 	}
 }
 
+func isFileFormatValid(file string) bool {
+	ext := filepath.Ext(file)
+	return slices.Contains(fileExtensions, ext)
+}
+
 func validateFiles(istioNamespace *string, defaultNamespace string, filenames []string, writer io.Writer) error {
 	if len(filenames) == 0 {
 		return errMissingFilename
@@ -300,9 +308,15 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 			if err != nil {
 				return err
 			}
-			if !info.IsDir() && filepath.Ext(path) == ".yaml" {
+
+			if info.IsDir() {
+				return nil
+			}
+
+			if isFileFormatValid(path) {
 				processFile(path)
 			}
+
 			return nil
 		})
 		return err
@@ -408,7 +422,7 @@ func NewValidateCommand(ctx cli.Context) *cobra.Command {
 	flags := c.PersistentFlags()
 	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Inputs of files to validate")
 	flags.BoolVarP(&referential, "referential", "x", true, "Enable structural validation for policy and telemetry")
-
+	_ = flags.MarkHidden("referential")
 	return c
 }
 
