@@ -144,7 +144,7 @@ func waypointName(wl *ztunnelDump.ZtunnelWorkload, services map[string]*ztunnelD
 		return "None"
 	}
 
-	if svc, ok := services[wl.Waypoint.Destination.Content]; ok {
+	if svc, ok := services[wl.Waypoint.Destination]; ok {
 		return svc.Name
 	}
 
