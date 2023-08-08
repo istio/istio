@@ -455,7 +455,7 @@ func (f *fakeAckCache) Cleanup() {}
 type fakeNackCache struct{}
 
 func (f *fakeNackCache) Get(string, wasmcache.GetOptions) (string, error) {
-	return "", errors.New("errror")
+	return "", errors.New("error")
 }
 func (f *fakeNackCache) Cleanup() {}
 

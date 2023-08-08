@@ -389,7 +389,7 @@ func ValidateHTTPHeaderValue(value string) error {
 		return fmt.Errorf("header value configuration: %w", err)
 	}
 
-	// TODO: find a better way to validate fileds supported in custom header, e.g %ENVIRONMENT(X):Z%
+	// TODO: find a better way to validate fields supported in custom header, e.g %ENVIRONMENT(X):Z%
 
 	return nil
 }
@@ -2254,11 +2254,11 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
 			}
 			if len(virtualService.Tls) != 0 {
-				// meaningless to specify tls in delegate, we donot support tls delegate
+				// meaningless to specify tls in delegate, we do not support tls delegate
 				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no tls route specified"))
 			}
 			if len(virtualService.Tcp) != 0 {
-				// meaningless to specify tls in delegate, we donot support tcp delegate
+				// meaningless to specify tls in delegate, we do not support tcp delegate
 				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
 			}
 		}

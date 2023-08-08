@@ -180,7 +180,7 @@ func addressConverter(addr string) convertFunc {
 			// Replace host with HOST_IP env var if it is "$(HOST_IP)".
 			// This is to support some tracer setting (Datadog, Zipkin), where "$(HOST_IP)"" is used for address.
 			// Tracer address used to be specified within proxy container params, and thus could be interpreted with pod HOST_IP env var.
-			// Now tracer config is passed in with mesh config volumn at gateway, k8s env var interpretation does not work.
+			// Now tracer config is passed in with mesh config volume at gateway, k8s env var interpretation does not work.
 			// This is to achieve the same interpretation as k8s.
 			hostIPEnv := os.Getenv("HOST_IP")
 			if hostIPEnv != "" {
