@@ -555,7 +555,7 @@ func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 	if a.localDNSServer != nil && a.localDNSServer.NameTable() != nil {
 		nt := a.localDNSServer.NameTable()
 		nt = proto.Clone(nt).(*dnsProto.NameTable)
-		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, _ []string) {
+		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, _ []string, _ uint32) {
 			for host := range althosts {
 				if _, exists := nt.Table[host]; !exists {
 					addresses := make([]string, 0, len(ipv4)+len(ipv6))
