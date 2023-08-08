@@ -137,7 +137,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	}
 
 	// Check the signing cert stored in K8s secret.
-	caSecret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CASecret, metav1.GetOptions{})
+	caSecret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get secret (error: %s)", err)
 	}
@@ -233,7 +233,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	}
 
 	// Using existing CASecret.
-	secret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CASecret, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Got unexpected error %v", err)
 	}
@@ -313,7 +313,7 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	caSecret, err := client.CoreV1().Secrets(caNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
+	caSecret, err := client.CoreV1().Secrets(caNamespace).Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("failed getting ca secret %v", err)
 	}
@@ -730,6 +730,9 @@ func TestBuildSecret(t *testing.T) {
 	if caSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", caSecret)
 	}
+	if _, ok := caSecret.Data[IstioGenerated]; !ok {
+		t.Fatal("IstioGenerated key should exist")
+	}
 	if caSecret.Data[CertChainFile] != nil {
 		t.Fatalf("Cert chain should be nil but got %v", caSecret.Data[CertChainFile])
 	}
@@ -745,6 +748,9 @@ func TestBuildSecret(t *testing.T) {
 	serverSecret := BuildSecret(CASecret, namespace, CertPem, KeyPem, nil, nil, nil, v1.SecretType(secretType))
 	if serverSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", serverSecret)
+	}
+	if _, ok := serverSecret.Data[IstioGenerated]; !ok {
+		t.Fatal("IstioGenerated key should not exist")
 	}
 	if serverSecret.Data[CACertFile] != nil {
 		t.Fatalf("CA Cert should be nil but got %v", serverSecret.Data[CACertFile])
