@@ -127,8 +127,6 @@ var (
 	AllComponentNames = append(AllCoreComponentNames, IngressComponentName, EgressComponentName,
 		IstioOperatorComponentName, IstioOperatorCustomResourceName)
 
-	allCoreComponentNamesMap = map[ComponentName]bool{}
-
 	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
 	// paths in IstioOperator.
 	ValuesEnablementPathMap = map[string]string{
@@ -159,12 +157,6 @@ type Manifest struct {
 
 // ManifestMap is a map of ComponentName to its manifest string.
 type ManifestMap map[ComponentName][]string
-
-func init() {
-	for _, c := range AllCoreComponentNames {
-		allCoreComponentNamesMap[c] = true
-	}
-}
 
 // Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
 // manifest.

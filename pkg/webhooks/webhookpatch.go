@@ -99,7 +99,6 @@ func (w *WebhookCertPatcher) HasSynced() bool {
 
 // webhookPatchTask takes the result of patchMutatingWebhookConfig and modifies the result for use in task queue
 func (w *WebhookCertPatcher) webhookPatchTask(o types.NamespacedName) error {
-	reportWebhookPatchAttempts(o.Name)
 	err := w.patchMutatingWebhookConfig(o.Name)
 
 	// do not want to retry the task if these errors occur, they indicate that
@@ -125,7 +124,11 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(webhookConfigName string
 	}
 	// prevents a race condition between multiple istiods when the revision is changed or modified
 	v, ok := config.Labels[label.IoIstioRev.Name]
-	if v != w.revision || !ok {
+	if !ok {
+		log.Debugf("webhook config %q does not have revision label. It is not a Istio webhook. Skipping patching", webhookConfigName)
+		return nil
+	}
+	if v != w.revision {
 		reportWebhookPatchFailure(webhookConfigName, reasonWrongRevision)
 		return errWrongRevision
 	}
@@ -153,6 +156,7 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(webhookConfigName string
 	}
 
 	if updated {
+		reportWebhookPatchAttempts(w.webhookName)
 		_, err := w.webhooks.Update(config)
 		if err != nil {
 			reportWebhookPatchFailure(webhookConfigName, reasonWebhookUpdateFailure)

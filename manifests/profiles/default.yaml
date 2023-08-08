@@ -124,8 +124,6 @@ spec:
         targetAverageUtilization: 80
       nodeSelector: {}
       keepaliveMaxServerConnectionAge: 30m
-      enableProtocolSniffingForOutbound: true
-      enableProtocolSniffingForInbound: true
       deploymentLabels:
       podLabels: {}
       configMap: true

@@ -45,7 +45,7 @@ func Keys[M ~map[K]V, K comparable, V any](m M) []K {
 // the value in base will be overwritten by the value associated
 // with the key in override.
 func MergeCopy[M1 ~map[K]V, M2 ~map[K]V, K comparable, V any](base M1, override M2) M1 {
-	dst := make(M1)
+	dst := make(M1, len(base)+len(override))
 	maps.Copy(dst, base)
 	maps.Copy(dst, override)
 	return dst

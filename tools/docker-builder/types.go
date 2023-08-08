@@ -69,6 +69,7 @@ type Args struct {
 	BaseVersion       string
 	BaseImageRegistry string
 	ProxyVersion      string
+	ZtunnelVersion    string
 	IstioVersion      string
 	Tags              []string
 	Hubs              []string
@@ -96,6 +97,7 @@ func (a Args) String() string {
 	b.WriteString("BaseVersion:       " + fmt.Sprint(a.BaseVersion) + "\n")
 	b.WriteString("BaseImageRegistry: " + fmt.Sprint(a.BaseImageRegistry) + "\n")
 	b.WriteString("ProxyVersion:      " + fmt.Sprint(a.ProxyVersion) + "\n")
+	b.WriteString("ZtunnelVersion:    " + fmt.Sprint(a.ZtunnelVersion) + "\n")
 	b.WriteString("IstioVersion:      " + fmt.Sprint(a.IstioVersion) + "\n")
 	b.WriteString("Tags:              " + fmt.Sprint(a.Tags) + "\n")
 	b.WriteString("Hubs:              " + fmt.Sprint(a.Hubs) + "\n")
@@ -184,10 +186,15 @@ func DefaultArgs() Args {
 			targets = append(targets, strings.TrimPrefix(v, "docker."))
 		}
 	}
-	pv, err := testenv.ReadProxySHA()
+	pv, err := testenv.ReadDepsSHA("PROXY_REPO_SHA")
 	if err != nil {
 		log.Warnf("failed to read proxy sha")
 		pv = "unknown"
+	}
+	zv, err := testenv.ReadDepsSHA("ZTUNNEL_REPO_SHA")
+	if err != nil {
+		log.Warnf("failed to read ztunnel sha")
+		zv = "unknown"
 	}
 	variants := []string{DefaultVariant}
 	if legacy, f := os.LookupEnv("DOCKER_BUILD_VARIANTS"); f {
@@ -240,6 +247,7 @@ func DefaultArgs() Args {
 		BaseImageRegistry: fetchIstioBaseReg(),
 		IstioVersion:      fetchIstioVersion(),
 		ProxyVersion:      pv,
+		ZtunnelVersion:    zv,
 		Architectures:     arch,
 		Targets:           targets,
 		Variants:          variants,

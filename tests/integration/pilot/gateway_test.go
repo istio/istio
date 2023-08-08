@@ -248,18 +248,10 @@ spec:
 func UnmanagedGatewayTest(t framework.TestContext) {
 	ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
 		false, t.Clusters().Configs()...)
-	ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
-		false, t.Clusters().Configs()...)
+	ingressutil.CreateIngressKubeSecretInNamespace(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
+		false, apps.Namespace.Name(), t.Clusters().Configs()...)
 
 	t.ConfigIstio().
-		YAML("", `
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: GatewayClass
-metadata:
-  name: istio
-spec:
-  controllerName: istio.io/gateway-controller
-`).
 		YAML("", fmt.Sprintf(`
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -368,7 +360,73 @@ spec:
     backendRefs:
     - name: b
       port: 80
-`).
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: GRPCRoute
+metadata:
+  name: grpc
+spec:
+  parentRefs:
+  - kind: Service
+    name: c
+  - name: gateway
+    namespace: istio-system
+  rules:
+  - matches:
+    - method:
+        method: Echo
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: my-added-header
+          value: added-grpc-value
+    backendRefs:
+    - name: c
+      port: 7070
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: tls-same
+spec:
+  parentRefs:
+  - name: gateway
+    sectionName: tls-same
+    namespace: istio-system
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: tls-cross
+spec:
+  parentRefs:
+  - name: gateway
+    sectionName: tls-cross
+    namespace: istio-system
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+`).YAML(apps.Namespace.Name(), fmt.Sprintf(`
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-gateways-to-ref-secrets
+  namespace: "%s"
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: istio-system
+  to:
+  - group: ""
+    kind: Secret
+`, apps.Namespace.Name())).
 		ApplyOrFail(t)
 	for _, ingr := range istio.IngressesOrFail(t, t) {
 		t.NewSubTest(ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
@@ -415,6 +473,18 @@ spec:
 						check.RequestHeader("My-Added-Header", "added-value")),
 				})
 			})
+			t.NewSubTest("mesh-grpc").Run(func(t framework.TestContext) {
+				_ = apps.A[0].CallOrFail(t, echo.CallOptions{
+					To:    apps.C,
+					Count: 1,
+					Port: echo.Port{
+						Name: "grpc",
+					},
+					Check: check.And(
+						check.OK(),
+						check.RequestHeader("My-Added-Header", "added-grpc-value")),
+				})
+			})
 			t.NewSubTest("status").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
 					gwc, err := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
@@ -425,6 +495,32 @@ spec:
 						return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
 					}
 					return nil
+				})
+			})
+			t.NewSubTest("tls-same").Run(func(t framework.TestContext) {
+				_ = ingr.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTPS,
+						ServicePort: 443,
+					},
+					HTTP: echo.HTTP{
+						Path:    "/",
+						Headers: headers.New().WithHost("same-namespace.domain.example").Build(),
+					},
+					Check: check.OK(),
+				})
+			})
+			t.NewSubTest("tls-cross").Run(func(t framework.TestContext) {
+				_ = ingr.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTPS,
+						ServicePort: 443,
+					},
+					HTTP: echo.HTTP{
+						Path:    "/",
+						Headers: headers.New().WithHost("cross-namespace.domain.example").Build(),
+					},
+					Check: check.OK(),
 				})
 			})
 		})

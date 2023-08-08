@@ -30,6 +30,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/maps"
@@ -113,7 +114,7 @@ var (
 		TypedConfig: protoconv.MessageToAny(&reqwithoutquery.ReqWithoutQuery{}),
 	}
 
-	// metadataFormatter configures additional formatters needed for some of the format strings like "METATDATA"
+	// metadataFormatter configures additional formatters needed for some of the format strings like "METADATA"
 	// for more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/formatter/metadata/v3/metadata.proto
 	metadataFormatter = &core.TypedExtensionConfig{
 		Name:        "envoy.formatter.metadata",
@@ -452,6 +453,7 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
+		DisableBuiltinLabels: !features.EnableOTELBuiltinResourceLables,
 	}
 
 	if format != "" {

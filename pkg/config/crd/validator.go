@@ -15,6 +15,7 @@
 package crd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -25,13 +26,14 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/cel"
 	structuraldefaulting "k8s.io/apiextensions-apiserver/pkg/apiserver/schema/defaulting"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/kube-openapi/pkg/validation/validate"
+	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test"
@@ -42,8 +44,9 @@ import (
 // Validator returns a new validator for custom resources
 // Warning: this is meant for usage in tests only
 type Validator struct {
-	byGvk      map[schema.GroupVersionKind]*validate.SchemaValidator
+	byGvk      map[schema.GroupVersionKind]validation.SchemaCreateValidator
 	structural map[schema.GroupVersionKind]*structuralschema.Structural
+	cel        map[schema.GroupVersionKind]*cel.Validator
 	// If enabled, resources without a validator will be ignored. Otherwise, they will fail.
 	SkipMissing bool
 }
@@ -75,9 +78,14 @@ func (v *Validator) ValidateCustomResource(o runtime.Object) error {
 		return fmt.Errorf("failed to validate type %v: no validator found", un.GroupVersionKind())
 	}
 	// Fill in defaults
-	structuraldefaulting.Default(un.Object, v.structural[un.GroupVersionKind()])
+	structural := v.structural[un.GroupVersionKind()]
+	structuraldefaulting.Default(un.Object, structural)
 	if err := validation.ValidateCustomResource(nil, un.Object, vd).ToAggregate(); err != nil {
 		return fmt.Errorf("%v/%v/%v: %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), err)
+	}
+	errs, _ := v.cel[un.GroupVersionKind()].Validate(context.Background(), nil, structural, un.Object, nil, celconfig.RuntimeCELCostBudget)
+	if errs.ToAggregate() != nil {
+		return fmt.Errorf("%v/%v/%v: %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), errs.ToAggregate().Error())
 	}
 	return nil
 }
@@ -146,8 +154,9 @@ func NewValidatorFromFiles(files ...string) (*Validator, error) {
 
 func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Validator, error) {
 	v := &Validator{
-		byGvk:      map[schema.GroupVersionKind]*validate.SchemaValidator{},
+		byGvk:      map[schema.GroupVersionKind]validation.SchemaCreateValidator{},
 		structural: map[schema.GroupVersionKind]*structuralschema.Structural{},
+		cel:        map[schema.GroupVersionKind]*cel.Validator{},
 	}
 	for _, crd := range crds {
 		versions := crd.Spec.Versions
@@ -168,7 +177,7 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 				return nil, fmt.Errorf("crd did not have validation defined")
 			}
 
-			schemaValidator, _, err := validation.NewSchemaValidator(crdSchema)
+			schemaValidator, _, err := validation.NewSchemaValidator(crdSchema.OpenAPIV3Schema)
 			if err != nil {
 				return nil, err
 			}
@@ -179,6 +188,11 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 
 			v.byGvk[gvk] = schemaValidator
 			v.structural[gvk] = structural
+			// CEL programs are compiled and cached here
+			if celv := cel.NewValidator(structural, true, celconfig.PerCallLimit); celv != nil {
+				v.cel[gvk] = celv
+			}
+
 		}
 	}
 

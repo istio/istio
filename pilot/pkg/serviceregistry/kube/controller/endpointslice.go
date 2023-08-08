@@ -88,12 +88,12 @@ func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model
 	return nil
 }
 
-// GetProxyServiceInstances returns service instances co-located with a given proxy
+// GetProxyServiceTargets returns service instances co-located with a given proxy
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
-func (esc *endpointSliceController) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
+func (esc *endpointSliceController) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {
 	eps := esc.slices.List(proxy.Metadata.Namespace, endpointSliceSelector)
-	var out []*model.ServiceInstance
+	var out []model.ServiceTarget
 	for _, ep := range eps {
 		instances := esc.sliceServiceInstances(ep, proxy)
 		out = append(out, instances...)
@@ -106,8 +106,8 @@ func serviceNameForEndpointSlice(labels map[string]string) string {
 	return labels[v1beta1.LabelServiceName]
 }
 
-func (esc *endpointSliceController) sliceServiceInstances(ep *v1.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
-	var out []*model.ServiceInstance
+func (esc *endpointSliceController) sliceServiceInstances(ep *v1.EndpointSlice, proxy *model.Proxy) []model.ServiceTarget {
+	var out []model.ServiceTarget
 	esc.endpointCache.mu.RLock()
 	defer esc.endpointCache.mu.RUnlock()
 	for _, svc := range esc.c.servicesForNamespacedName(getServiceNamespacedName(ep)) {
@@ -117,14 +117,16 @@ func (esc *endpointSliceController) sliceServiceInstances(ep *v1.EndpointSlice, 
 				log.Warnf("unexpected state, svc %v missing port %v", svc.Hostname, instance.ServicePortName)
 				continue
 			}
-			si := &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: port,
-				Endpoint:    instance,
-			}
 			// If the endpoint isn't ready, report this
 			if instance.HealthStatus == model.UnHealthy && esc.c.opts.Metrics != nil {
 				esc.c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
+			}
+			si := model.ServiceTarget{
+				Service: svc,
+				Port: model.ServiceInstancePort{
+					ServicePort: port,
+					TargetPort:  instance.EndpointPort,
+				},
 			}
 			out = append(out, si)
 		}
@@ -299,7 +301,7 @@ func (e *endpointSliceCache) update(hostname host.Name, slice string, endpoints 
 	// from one slice to another See
 	// https://github.com/kubernetes/website/blob/master/content/en/docs/concepts/services-networking/endpoint-slices.md#duplicate-endpoints
 	// In this case, we can always assume and update is fresh, although older slices
-	// we have not gotten updates may be stale; therefor we always take the new
+	// we have not gotten updates may be stale; therefore we always take the new
 	// update.
 	e.endpointsByServiceAndSlice[hostname][slice] = endpoints
 }

@@ -2343,16 +2343,16 @@ func TestBuildGatewayListeners(t *testing.T) {
 		{
 			"targetPort overrides service port",
 			&pilot_model.Proxy{
-				ServiceInstances: []*pilot_model.ServiceInstance{
+				ServiceTargets: []pilot_model.ServiceTarget{
 					{
 						Service: &pilot_model.Service{
 							Hostname: "test",
 						},
-						ServicePort: &pilot_model.Port{
-							Port: 80,
-						},
-						Endpoint: &pilot_model.IstioEndpoint{
-							EndpointPort: 8080,
+						Port: pilot_model.ServiceInstancePort{
+							ServicePort: &pilot_model.Port{
+								Port: 80,
+							},
+							TargetPort: 8080,
 						},
 					},
 				},
@@ -2983,7 +2983,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
 				Configs: Configs,
 			})
-			cg.MemRegistry.WantGetProxyServiceInstances = tt.node.ServiceInstances
+			cg.MemRegistry.WantGetProxyServiceTargets = tt.node.ServiceTargets
 			proxy := cg.SetupProxy(&proxyGateway)
 			if tt.node.Metadata != nil {
 				proxy.Metadata = tt.node.Metadata

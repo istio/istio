@@ -132,7 +132,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 
 	sa.analyzer.Analyze(ctx)
 
-	// TODO(hzxuzhonghu): we donot need set here
+	// TODO(hzxuzhonghu): we do not need set here
 	namespaces := sets.New[resource.Namespace]()
 	if sa.namespace != "" {
 		namespaces.Insert(sa.namespace)
@@ -285,9 +285,16 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
 
 	// TODO: are either of these string constants intended to vary?
-	// This gets us only istio/ ones
+	// We gets Istio CRD resources with a specific revision.
 	store := crdclient.NewForSchemas(c, crdclient.Option{
 		Revision:     revision,
+		DomainSuffix: "cluster.local",
+		Identifier:   "analysis-controller",
+	}, sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...))
+	sa.stores = append(sa.stores, store)
+
+	// We gets service discovery resources without a specific revision.
+	store = crdclient.NewForSchemas(c, crdclient.Option{
 		DomainSuffix: "cluster.local",
 		Identifier:   "analysis-controller",
 		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
@@ -295,10 +302,10 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 				FieldSelector: secretFieldSelector,
 			},
 		},
-	}, sa.kubeResources)
-	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
+	}, sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas()))
 	sa.stores = append(sa.stores, store)
 
+	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
 	sa.clientsToRun = append(sa.clientsToRun, c)
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.

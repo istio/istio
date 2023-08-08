@@ -58,10 +58,12 @@ import (
 func Cmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var skipControlPlane bool
+	outputThreshold := formatting.MessageThreshold{Level: diag.Warning}
+	var msgOutputFormat string
 	// cmd represents the upgradeCheck command
 	cmd := &cobra.Command{
 		Use:   "precheck",
-		Short: "Check whether Istio can safely be installed or upgrade",
+		Short: "Check whether Istio can safely be installed or upgraded",
 		Long:  `precheck inspects a Kubernetes cluster for Istio install and upgrade requirements.`,
 		Example: `  # Verify that Istio can be installed or upgraded
   istioctl x precheck
@@ -88,11 +90,18 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			msgs.Add(nsmsgs...)
 			// Print all the messages to stdout in the specified format
 			msgs = msgs.SortedDedupedCopy()
-			output, err := formatting.Print(msgs, formatting.LogFormat, false)
+			outputMsgs := diag.Messages{}
+			for _, m := range msgs {
+				if m.Type.Level().IsWorseThanOrEqualTo(outputThreshold.Level) {
+					outputMsgs = append(outputMsgs, m)
+				}
+			}
+			output, err := formatting.Print(msgs, msgOutputFormat, false)
 			if err != nil {
 				return err
 			}
-			if len(msgs) == 0 {
+
+			if len(outputMsgs) == 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), color.New(color.FgGreen).Sprint("✔")+" No issues found when checking the cluster. Istio is safe to install or upgrade!\n"+
 					"  To get started, check out https://istio.io/latest/docs/setup/getting-started/\n")
 			} else {
@@ -109,6 +118,10 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 		},
 	}
 	cmd.PersistentFlags().BoolVar(&skipControlPlane, "skip-controlplane", false, "skip checking the control plane")
+	cmd.PersistentFlags().Var(&outputThreshold, "output-threshold",
+		fmt.Sprintf("The severity level of precheck at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
+	cmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", formatting.LogFormat,
+		fmt.Sprintf("Output format: one of %v", formatting.MsgOutputFormatKeys))
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }

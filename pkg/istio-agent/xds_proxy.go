@@ -289,7 +289,7 @@ type adsStream interface {
 	Context() context.Context
 }
 
-// StreamAggregatedResources is an implementation of XDS API API used for proxying between Istiod and Envoy.
+// StreamAggregatedResources is an implementation of XDS API used for proxying between Istiod and Envoy.
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
@@ -713,6 +713,9 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 	// Send to Istiod
 	connection.sendRequest(req)
 
+	delay := time.NewTimer(timeout)
+	defer delay.Stop()
+
 	// Wait for expected response or timeout
 	for {
 		select {
@@ -720,7 +723,7 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 			if res.TypeUrl == req.TypeUrl {
 				return res, nil
 			}
-		case <-time.After(timeout):
+		case <-delay.C:
 			return nil, nil
 		}
 	}

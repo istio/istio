@@ -75,13 +75,16 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Instance, ga
 }
 
 // Select the config pertaining to the service being processed.
-func getConfigsForHost(hostname host.Name, configs []config.Config) []config.Config {
+func getConfigsForHost(filterNamespace string, hostname host.Name, configs []config.Config) []config.Config {
 	svcConfigs := make([]config.Config, 0)
-	for index := range configs {
-		virtualService := configs[index].Spec.(*v1alpha3.VirtualService)
+	for _, cfg := range configs {
+		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
+			if filterNamespace != "" && filterNamespace != cfg.Namespace {
+				continue
+			}
 			if host.Name(vsHost).Matches(hostname) {
-				svcConfigs = append(svcConfigs, configs[index])
+				svcConfigs = append(svcConfigs, cfg)
 				break
 			}
 		}
@@ -179,7 +182,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		statPrefix := clusterName
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
-			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, &service.Attributes)
+			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, 0, &service.Attributes)
 		}
 		// Use the hostname as the SNI value if and only:
 		// 1) if the destination is a CIDR;
@@ -314,7 +317,7 @@ TcpLoop:
 			model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
-			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, &service.Attributes)
+			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, 0, &service.Attributes)
 		}
 		var destinationCIDRs []string
 		if destinationCIDR != "" {
@@ -327,28 +330,5 @@ TcpLoop:
 		})
 	}
 
-	return out
-}
-
-// This function can be called for namespaces with the auto generated sidecar, i.e. once per service and per port.
-// OR, it could be called in the context of an egress listener with specific TCP port on a sidecar config.
-// In the latter case, there is no service associated with this listen port. So we have to account for this
-// missing service throughout this file
-func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushContext,
-	configs []config.Config, destinationCIDR string, service *model.Service, bind string, listenPort *model.Port,
-	gateways map[string]bool,
-) []*filterChainOpts {
-	out := make([]*filterChainOpts, 0)
-	var svcConfigs []config.Config
-	if service != nil {
-		svcConfigs = getConfigsForHost(service.Hostname, configs)
-	} else {
-		svcConfigs = configs
-	}
-
-	out = append(out, buildSidecarOutboundTLSFilterChainOpts(node, push, destinationCIDR, service,
-		bind, listenPort, gateways, svcConfigs)...)
-	out = append(out, buildSidecarOutboundTCPFilterChainOpts(node, push, destinationCIDR, service,
-		listenPort, gateways, svcConfigs)...)
 	return out
 }

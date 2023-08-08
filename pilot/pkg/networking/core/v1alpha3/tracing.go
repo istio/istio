@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -179,13 +178,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 				model.IncLookupClusterFailures("lightstep")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
-			// TODO: read raw metadata and retrieve lightstep extensions (instead of relying on version)
-			// Envoy dropped support for Lightstep in v1.24+ (~istio 1.16+). So, we generate old-style configuration
-			// for lightstep for everything before 1.16, but OTel-based configuration for all other cases
-			if util.IsIstioVersionGE116(model.ParseIstioVersion(proxy.Metadata.IstioVersion)) {
-				return otelLightStepConfig(clusterName, hostname, provider.Lightstep.GetAccessToken())
-			}
-			return legacyLightStepConfig(clusterName, provider.Lightstep.GetAccessToken())
+			return otelLightStepConfig(clusterName, hostname, provider.Lightstep.GetAccessToken())
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
 		maxTagLength = provider.Opencensus.GetMaxTagLength()
@@ -399,15 +392,6 @@ func otelLightStepConfig(clusterName, hostname, accessToken string) (*anypb.Any,
 	return anypb.New(dc)
 }
 
-func legacyLightStepConfig(clusterName, accessToken string) (*anypb.Any, error) {
-	//nolint: staticcheck  // Lightstep deprecated
-	lc := &tracingcfg.LightstepConfig{
-		CollectorCluster: clusterName,
-		AccessTokenFile:  accessToken,
-	}
-	return protoconv.MessageToAnyWithError(lc)
-}
-
 func buildHCMTracing(provider string, maxTagLen uint32, anyFn typedConfigGenFn) (*hcm.HttpConnectionManager_Tracing, error) {
 	config := &hcm.HttpConnectionManager_Tracing{}
 	cfg, err := anyFn()
@@ -480,13 +464,11 @@ func dryRunPolicyTraceTag(name, key string) *tracing.CustomTag {
 	}
 }
 
-func buildOptionalPolicyTags() []*tracing.CustomTag {
-	return []*tracing.CustomTag{
-		dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.name", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEffectivePolicyID),
-		dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.result", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEngineResult),
-		dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.name", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEffectivePolicyID),
-		dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.result", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEngineResult),
-	}
+var optionalPolicyTags = []*tracing.CustomTag{
+	dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.name", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEffectivePolicyID),
+	dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.result", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEngineResult),
+	dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.name", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEffectivePolicyID),
+	dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.result", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEngineResult),
 }
 
 func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []*tracing.CustomTag {
@@ -574,8 +556,7 @@ func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 func configureCustomTags(hcmTracing *hcm.HttpConnectionManager_Tracing,
 	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, node *model.Proxy,
 ) {
-	tags := buildOptionalPolicyTags()
-	tags = append(tags, buildServiceTags(node.Metadata, node.Labels)...)
+	tags := append(buildServiceTags(node.Metadata, node.Labels), optionalPolicyTags...)
 
 	if len(providerTags) == 0 {
 		tags = append(tags, buildCustomTagsFromProxyConfig(proxyCfg.GetTracing().GetCustomTags())...)

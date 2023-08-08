@@ -205,16 +205,13 @@ func (ic *serviceImportCacheImpl) createKubeService(t *testing.T, c *FakeControl
 			}
 		}
 
-		instances := ic.getProxyServiceInstances()
+		instances := ic.getProxyServiceTargets()
 		if len(instances) != len(expectedHosts) {
 			return fmt.Errorf("expected 1 service instance, found %d", len(instances))
 		}
 		for _, si := range instances {
 			if si.Service == nil {
 				return fmt.Errorf("proxy ServiceInstance has nil service")
-			}
-			if si.Endpoint == nil {
-				return fmt.Errorf("proxy ServiceInstance has nil endpoint")
 			}
 			if _, found := expectedHosts[si.Service.Hostname]; !found {
 				return fmt.Errorf("found proxy ServiceInstance for unexpected host: %s", si.Service.Hostname)
@@ -287,7 +284,7 @@ func (ic *serviceImportCacheImpl) deleteKubeService(t *testing.T, anotherCluster
 			return fmt.Errorf("found deleted service for host %s", serviceImportClusterSetHost)
 		}
 
-		instances := ic.getProxyServiceInstances()
+		instances := ic.getProxyServiceTargets()
 		if len(instances) != 0 {
 			return fmt.Errorf("expected 0 service instance, found %d", len(instances))
 		}
@@ -296,8 +293,8 @@ func (ic *serviceImportCacheImpl) deleteKubeService(t *testing.T, anotherCluster
 	}, serviceImportTimeout)
 }
 
-func (ic *serviceImportCacheImpl) getProxyServiceInstances() []*model.ServiceInstance {
-	return ic.GetProxyServiceInstances(&model.Proxy{
+func (ic *serviceImportCacheImpl) getProxyServiceTargets() []model.ServiceTarget {
+	return ic.GetProxyServiceTargets(&model.Proxy{
 		Type:            model.SidecarProxy,
 		IPAddresses:     []string{serviceImportPodIP},
 		Locality:        &core.Locality{Region: "r", Zone: "z"},
@@ -349,7 +346,7 @@ func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 		expectMCSService = true
 	}
 
-	instances := ic.getProxyServiceInstances()
+	instances := ic.getProxyServiceTargets()
 	assert.Equal(t, len(instances), expectedServiceCount)
 
 	for _, inst := range instances {

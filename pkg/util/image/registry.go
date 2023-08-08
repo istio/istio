@@ -24,7 +24,7 @@ import (
 )
 
 // Exists returns true if the image in the argument exists in a container registry.
-// The argument must be a complete image name, e.g. "gcr.io/istio-release/pilot:1.19.0".
+// The argument must be a complete image name, e.g. "gcr.io/istio-release/pilot:1.20.0".
 // If the image does not exist, it returns false and an optional error message, for debug purposes.
 func Exists(image string) (bool, error) {
 	ref, err := name.ParseReference(image)

@@ -205,14 +205,8 @@ func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 		return nil
 	}
 
-	labels := make(map[string]string, len(wle.Labels)+len(cfg.Labels))
-	for k, v := range wle.Labels {
-		labels[k] = v
-	}
 	// we will merge labels from metadata with spec, with precedence to the metadata
-	for k, v := range cfg.Labels {
-		labels[k] = v
-	}
+	labels := maps.MergeCopy(wle.Labels, cfg.Labels)
 	// shallow copy
 	copied := &networking.WorkloadEntry{}
 	protomarshal.ShallowCopy(copied, wle)
@@ -553,7 +547,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		services := s.services.getServices(seNamespacedName)
 		currInstance := convertWorkloadInstanceToServiceInstance(wi, services, se)
 
-		// We chech if the wi is still a subset of se. This would cover Case 1 and Case 2 from above.
+		// We check if the wi is still a subset of se. This would cover Case 1 and Case 2 from above.
 		if labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels) {
 			// If the workload instance still matches. We take care of the possible events.
 			instances = append(instances, currInstance...)
@@ -726,7 +720,7 @@ func (s *Controller) edsUpdate(instances []*model.ServiceInstance) {
 	s.queueEdsEvent(keys, s.doEdsUpdate)
 }
 
-// edsCacheUpdate upates eds cache serially such that we can prevent allinstances
+// edsCacheUpdate updates eds cache serially such that we can prevent allinstances
 // got at t1 can accidentally override that got at t2 if multiple threads are
 // running this function. Queueing ensures latest updated wins.
 func (s *Controller) edsCacheUpdate(instances []*model.ServiceInstance) {
@@ -817,10 +811,10 @@ func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 	return port == 0 || port == instance.ServicePort.Port
 }
 
-// GetProxyServiceInstances lists service instances co-located with a given proxy
+// GetProxyServiceTargets lists service instances co-located with a given proxy
 // NOTE: The service objects in these instances do not have the auto allocated IP set.
-func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+func (s *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTarget {
+	out := make([]model.ServiceTarget, 0)
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, ip := range node.IPAddresses {
@@ -831,7 +825,7 @@ func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 			// possibility of other namespaces inserting service instances into namespaces they do not
 			// control.
 			if node.Metadata.Namespace == "" || i.Service.Attributes.Namespace == node.Metadata.Namespace {
-				out = append(out, i)
+				out = append(out, model.ServiceInstanceToTarget(i))
 			}
 		}
 	}

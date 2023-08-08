@@ -271,6 +271,35 @@ type ServiceInstance struct {
 	Endpoint    *IstioEndpoint `json:"endpoint,omitempty"`
 }
 
+// ServiceTarget includes a Service object, along with a specific service port
+// and target port. This is basically a smaller version of ServiceInstance,
+// intended to avoid the need to have the full object when only port information
+// is needed.
+type ServiceTarget struct {
+	Service *Service
+	Port    ServiceInstancePort
+}
+
+type (
+	ServicePort = *Port
+	// ServiceInstancePort defines a port that has both a port and targetPort (which distinguishes it from model.Port)
+	// Note: ServiceInstancePort only makes sense in the context of a specific ServiceInstance, because TargetPort depends on a specific instance.
+	ServiceInstancePort struct {
+		ServicePort
+		TargetPort uint32
+	}
+)
+
+func ServiceInstanceToTarget(e *ServiceInstance) ServiceTarget {
+	return ServiceTarget{
+		Service: e.Service,
+		Port: ServiceInstancePort{
+			ServicePort: e.ServicePort,
+			TargetPort:  e.Endpoint.EndpointPort,
+		},
+	}
+}
+
 // DeepCopy creates a copy of ServiceInstance.
 func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	return &ServiceInstance{
@@ -372,10 +401,9 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	return true
 }
 
-// GetLocalityLabelOrDefault returns the locality from the supplied label, or falls back to
-// the supplied default locality if the supplied label is empty. Because Kubernetes
+// GetLocalityLabel returns the locality from the supplied label. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
-func GetLocalityLabelOrDefault(label, defaultLabel string) string {
+func GetLocalityLabel(label string) string {
 	if len(label) > 0 {
 		// if there are /'s present we don't need to replace
 		if strings.Contains(label, "/") {
@@ -384,7 +412,7 @@ func GetLocalityLabelOrDefault(label, defaultLabel string) string {
 		// replace "." with "/"
 		return strings.Replace(label, k8sSeparator, "/", -1)
 	}
-	return defaultLabel
+	return ""
 }
 
 // Locality information for an IstioEndpoint
@@ -777,7 +805,7 @@ type ServiceDiscovery interface {
 	// Consult istio-dev before using this for anything else (except debugging/tools)
 	InstancesByPort(svc *Service, servicePort int) []*ServiceInstance
 
-	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
+	// GetProxyServiceTargets returns the service instances that co-located with a given Proxy
 	//
 	// Co-located generally means running in the same network namespace and security context.
 	//
@@ -794,7 +822,7 @@ type ServiceDiscovery interface {
 	// though with a different ServicePort and IstioEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
 	// determine the intended destination of a connection without a Host header on the request.
-	GetProxyServiceInstances(*Proxy) []*ServiceInstance
+	GetProxyServiceTargets(*Proxy) []ServiceTarget
 	GetProxyWorkloadLabels(*Proxy) labels.Instance
 
 	// MCSServices returns information about the services that have been exported/imported via the

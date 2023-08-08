@@ -67,6 +67,10 @@ func Clone[S ~[]E, E any](s S) S {
 
 // Delete removes the element i from s, returning the modified slice.
 func Delete[S ~[]E, E any](s S, i int) S {
+	// "If those elements contain pointers you might consider zeroing those elements
+	// so that objects they reference can be garbage collected."
+	var empty E
+	s[i] = empty
 	return slices.Delete(s, i, i+1)
 }
 
@@ -149,7 +153,7 @@ func Reference[E any](s []E) []*E {
 	return res
 }
 
-// Dereference returns all non-nil references, derefernced
+// Dereference returns all non-nil references, dereferenced
 func Dereference[E any](s []*E) []E {
 	res := make([]E, 0, len(s))
 	for _, v := range s {

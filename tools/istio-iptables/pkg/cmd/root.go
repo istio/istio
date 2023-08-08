@@ -419,72 +419,72 @@ func init() {
 }
 
 func bindCmdlineFlags(rootCmd *cobra.Command) {
-	rootCmd.Flags().StringP(constants.EnvoyPort, "p", "", "Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)")
+	rootCmd.Flags().StringP(constants.EnvoyPort, "p", "", "Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001).")
 
 	rootCmd.Flags().StringP(constants.InboundCapturePort, "z", "",
-		"Port to which all inbound TCP traffic to the pod/VM should be redirected to (default $INBOUND_CAPTURE_PORT = 15006)")
+		"Port to which all inbound TCP traffic to the pod/VM should be redirected to (default $INBOUND_CAPTURE_PORT = 15006).")
 
 	rootCmd.Flags().StringP(constants.InboundTunnelPort, "e", "",
-		"Specify the istio tunnel port for inbound tcp traffic (default $INBOUND_TUNNEL_PORT = 15008)")
+		"Specify the istio tunnel port for inbound tcp traffic (default $INBOUND_TUNNEL_PORT = 15008).")
 
 	rootCmd.Flags().StringP(constants.ProxyUID, "u", "",
-		"Specify the UID of the user for which the redirection is not applied. Typically, this is the UID of the proxy container")
+		"Specify the UID of the user for which the redirection is not applied. Typically, this is the UID of the proxy container.")
 
 	rootCmd.Flags().StringP(constants.ProxyGID, "g", "",
-		"Specify the GID of the user for which the redirection is not applied. (same default value as -u param)")
+		"Specify the GID of the user for which the redirection is not applied (same default value as -u param).")
 
 	rootCmd.Flags().StringP(constants.InboundInterceptionMode, "m", "",
-		"The mode used to redirect inbound connections to Envoy, either \"REDIRECT\" or \"TPROXY\"")
+		"The mode used to redirect inbound connections to Envoy, either \"REDIRECT\" or \"TPROXY\".")
 
 	rootCmd.Flags().StringP(constants.InboundPorts, "b", "",
 		"Comma separated list of inbound ports for which traffic is to be redirected to Envoy (optional). "+
-			"The wildcard character \"*\" can be used to configure redirection for all ports. An empty list will disable")
+			"The wildcard character \"*\" can be used to configure redirection for all ports. An empty list will disable.")
 
 	rootCmd.Flags().StringP(constants.LocalExcludePorts, "d", "",
 		"Comma separated list of inbound ports to be excluded from redirection to Envoy (optional). "+
-			"Only applies when all inbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_LOCAL_EXCLUDE_PORTS)")
+			"Only applies when all inbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_LOCAL_EXCLUDE_PORTS).")
 
 	rootCmd.Flags().StringP(constants.ExcludeInterfaces, "c", "",
-		"Comma separated list of NIC (optional). Neither inbound nor outbound traffic will be captured")
+		"Comma separated list of NIC (optional). Neither inbound nor outbound traffic will be captured.")
 
 	rootCmd.Flags().StringP(constants.ServiceCidr, "i", "",
 		"Comma separated list of IP ranges in CIDR form to redirect to envoy (optional). "+
-			"The wildcard character \"*\" can be used to redirect all outbound traffic. An empty list will disable all outbound")
+			"The wildcard character \"*\" can be used to redirect all outbound traffic. An empty list will disable all outbound.")
 
 	rootCmd.Flags().StringP(constants.ServiceExcludeCidr, "x", "",
 		"Comma separated list of IP ranges in CIDR form to be excluded from redirection. "+
-			"Only applies when all  outbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR)")
+			"Only applies when all  outbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR).")
 
 	rootCmd.Flags().StringP(constants.OutboundPorts, "q", "",
-		"Comma separated list of outbound ports to be explicitly included for redirection to Envoy")
+		"Comma separated list of outbound ports to be explicitly included for redirection to Envoy.")
 
 	rootCmd.Flags().StringP(constants.LocalOutboundPortsExclude, "o", "",
-		"Comma separated list of outbound ports to be excluded from redirection to Envoy")
+		"Comma separated list of outbound ports to be excluded from redirection to Envoy.")
 
 	rootCmd.Flags().StringP(constants.KubeVirtInterfaces, "k", "",
-		"Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound")
+		"Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound.")
 
 	rootCmd.Flags().StringP(constants.InboundTProxyMark, "t", "", "")
 
 	rootCmd.Flags().StringP(constants.InboundTProxyRouteTable, "r", "", "")
 
-	rootCmd.Flags().BoolP(constants.DryRun, "n", false, "Do not call any external dependencies like iptables")
+	rootCmd.Flags().BoolP(constants.DryRun, "n", false, "Do not call any external dependencies like iptables.")
 
 	rootCmd.Flags().Bool(constants.TraceLogging, false, "Insert tracing logs for each iptables rules, using the LOG chain.")
 
-	rootCmd.Flags().BoolP(constants.RestoreFormat, "f", true, "Print iptables rules in iptables-restore interpretable format")
+	rootCmd.Flags().BoolP(constants.RestoreFormat, "f", true, "Print iptables rules in iptables-restore interpretable format.")
 
-	rootCmd.Flags().String(constants.IptablesProbePort, constants.DefaultIptablesProbePort, "set listen port for failure detection")
+	rootCmd.Flags().String(constants.IptablesProbePort, constants.DefaultIptablesProbePort, "Set listen port for failure detection.")
 
-	rootCmd.Flags().Duration(constants.ProbeTimeout, constants.DefaultProbeTimeout, "failure detection timeout")
+	rootCmd.Flags().Duration(constants.ProbeTimeout, constants.DefaultProbeTimeout, "Failure detection timeout.")
 
-	rootCmd.Flags().Bool(constants.SkipRuleApply, false, "Skip iptables apply")
+	rootCmd.Flags().Bool(constants.SkipRuleApply, false, "Skip iptables apply.")
 
-	rootCmd.Flags().Bool(constants.RunValidation, false, "Validate iptables")
+	rootCmd.Flags().Bool(constants.RunValidation, false, "Validate iptables.")
 
-	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "Enable capture of dns traffic by istio-agent")
+	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "Enable capture of dns traffic by istio-agent.")
 
-	rootCmd.Flags().Bool(constants.DropInvalid, InvalidDropByIptables.Get(), "Enable invalid drop in the iptables rules")
+	rootCmd.Flags().Bool(constants.DropInvalid, InvalidDropByIptables.Get(), "Enable invalid drop in the iptables rules.")
 
 	rootCmd.Flags().Bool(constants.CaptureAllDNS, false,
 		"Instead of only capturing DNS traffic to DNS server IP, capture all DNS traffic at port 53. This setting is only effective when redirect dns is enabled.")

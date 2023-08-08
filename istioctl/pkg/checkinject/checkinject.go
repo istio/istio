@@ -181,7 +181,11 @@ func analyzeWebhooksMatchStatus(whs []admitv1.MutatingWebhook, podLabels, nsLabe
 			if nsLabel != "" && podLabel != "" {
 				return fmt.Sprintf("Namespace label %s matches, and pod label %s matches", nsLabel, podLabel), true
 			} else if nsLabel != "" {
-				return fmt.Sprintf("Namespace label %s matches", nsLabel), true
+				outMsg := fmt.Sprintf("Namespace label %s matches", nsLabel)
+				if strings.Contains(nsLabel, "kubernetes.io/metadata.name") {
+					outMsg += " (Automatic injection is enabled in all namespaces)."
+				}
+				return outMsg, true
 			} else if podLabel != "" {
 				return fmt.Sprintf("Pod label %s matches", podLabel), true
 			}

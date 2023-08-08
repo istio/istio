@@ -1147,7 +1147,7 @@ func parseInjectEnvs(path string) map[string]string {
 		if len(parts) == 3 { // If length is less than 3, then the path is simply "/inject".
 			if strings.HasPrefix(parts[2], ":ENV:") {
 				// Deprecated, not recommended.
-				//    Note that this systax fails validation when used to set injectionPath (i.e., service.path in mwh).
+				//    Note that this syntax fails validation when used to set injectionPath (i.e., service.path in mwh).
 				//    It doesn't fail validation when used to set injectionURL, however. K8s bug maybe?
 				pairs := strings.Split(parts[2], ":ENV:")
 				for i := 1; i < len(pairs); i++ { // skip the first part, it is a nil

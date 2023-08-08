@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -268,11 +269,11 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedInstance, 0, instances)
-		proxyInstances := []*model.ServiceInstance{
-			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
-			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText),
+		proxyInstances := []model.ServiceTarget{
+			makeTarget(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+			makeTarget(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText),
 		}
-		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
+		expectProxyTargets(t, sd, proxyInstances, "6.6.6.6")
 		// TODO 45 is wrong
 		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 
@@ -282,10 +283,10 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
-		proxyInstances = []*model.ServiceInstance{
-			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+		proxyInstances = []model.ServiceTarget{
+			makeTarget(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 		}
-		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
+		expectProxyTargets(t, sd, proxyInstances, "6.6.6.6")
 		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 	})
 
@@ -1327,11 +1328,16 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 
 func expectProxyInstances(t testing.TB, sd *Controller, expected []*model.ServiceInstance, ip string) {
 	t.Helper()
+	expectProxyTargets(t, sd, slices.Map(expected, model.ServiceInstanceToTarget), ip)
+}
+
+func expectProxyTargets(t testing.TB, sd *Controller, expected []model.ServiceTarget, ip string) {
+	t.Helper()
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
-		instances := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{ip}, Metadata: &model.NodeMetadata{}})
-		sortServiceInstances(instances)
-		sortServiceInstances(expected)
+		instances := sd.GetProxyServiceTargets(&model.Proxy{IPAddresses: []string{ip}, Metadata: &model.NodeMetadata{}})
+		sortServiceTargets(instances)
+		sortServiceTargets(expected)
 		if err := compare(t, instances, expected); err != nil {
 			return err
 		}
@@ -1364,7 +1370,7 @@ func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, po
 	}, retry.Converge(2), retry.Timeout(time.Second*1))
 }
 
-func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
+func TestServiceDiscoveryGetProxyServiceTargets(t *testing.T) {
 	store, sd, _ := initServiceDiscovery(t)
 
 	createConfigs([]*config.Config{httpStatic, tcpStatic}, store, t)
@@ -1607,6 +1613,17 @@ func sortServices(services []*model.Service) {
 	for _, service := range services {
 		sortPorts(service.Ports)
 	}
+}
+
+func sortServiceTargets(instances []model.ServiceTarget) {
+	sort.Slice(instances, func(i, j int) bool {
+		if instances[i].Service.Hostname == instances[j].Service.Hostname {
+			if instances[i].Port.TargetPort == instances[j].Port.TargetPort {
+				return instances[i].Port.TargetPort < instances[j].Port.TargetPort
+			}
+		}
+		return instances[i].Service.Hostname < instances[j].Service.Hostname
+	})
 }
 
 func sortServiceInstances(instances []*model.ServiceInstance) {

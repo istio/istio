@@ -307,7 +307,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	_ = w.WriteMsg(response)
 }
 
-// IsReady returns true if DNS lookup table is updated atleast once.
+// IsReady returns true if DNS lookup table is updated at least once.
 func (h *LocalDNSServer) IsReady() bool {
 	return h.lookupTable.Load() != nil
 }

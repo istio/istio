@@ -109,9 +109,9 @@ func TestDeltaEDS(t *testing.T) {
 		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
 	}
 
+	t.Logf("update svc")
 	// update svc, only send the eds for this service
 	s.MemRegistry.AddHTTPService(edsIncSvc, "10.10.1.3", 8080)
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: edsIncSvc, Namespace: ""})})
 
 	resp = ads.ExpectResponse()
 	if len(resp.Resources) != 1 || resp.Resources[0].Name != "outbound|8080||"+edsIncSvc {
@@ -121,9 +121,8 @@ func TestDeltaEDS(t *testing.T) {
 		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
 	}
 
-	// delete svc, only send eds fot this service
+	// delete svc, only send eds for this service
 	s.MemRegistry.RemoveService(edsIncSvc)
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: edsIncSvc, Namespace: ""})})
 
 	resp = ads.ExpectResponse()
 	if len(resp.RemovedResources) != 1 || resp.RemovedResources[0] != "outbound|8080||"+edsIncSvc {

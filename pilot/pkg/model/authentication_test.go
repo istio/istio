@@ -322,7 +322,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			wantNamespaceMutualTLS: MTLSPermissive,
 		},
 		{
-			name:              "Paritial match workload labels in foo",
+			name:              "Partial match workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Instance{"app": "httpbin"},
 			wantRequestAuthn: []*config.Config{
@@ -496,7 +496,7 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 			wantNamespaceMutualTLS: MTLSUnknown,
 		},
 		{
-			name:              "Paritial match workload labels in foo",
+			name:              "Partial match workload labels in foo",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Instance{"app": "httpbin"},
 			wantPeerAuthn: []*config.Config{
@@ -610,7 +610,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 			},
 		},
 		{
-			name:              "tripple hit",
+			name:              "triple hit",
 			workloadNamespace: "foo",
 			workloadLabels:    labels.Instance{"app": "httpbin", "version": "v1"},
 			wantRequestAuthn: []*config.Config{

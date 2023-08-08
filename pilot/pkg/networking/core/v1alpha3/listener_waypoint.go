@@ -177,7 +177,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 			portString := fmt.Sprintf("%d", port.Port)
 			cc := inboundChainConfig{
 				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
-				port: ServiceInstancePort{
+				port: model.ServiceInstancePort{
 					ServicePort: port,
 					TargetPort:  uint32(port.Port),
 				},
@@ -229,7 +229,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 		// Direct pod access chain.
 		cc := inboundChainConfig{
 			clusterName: EncapClusterName,
-			port: ServiceInstancePort{
+			port: model.ServiceInstancePort{
 				ServicePort: &model.Port{
 					Name:     "unknown",
 					Protocol: protocol.TCP,
@@ -410,7 +410,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	if svc == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
-	vss := getConfigsForHost(svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+	vss := getConfigsForHost(lb.node.ConfigNamespace, svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 	if len(vss) == 0 {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
@@ -568,11 +568,14 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 
 	if in.Mirror != nil {
 		if mp := istio_route.MirrorPercent(in); mp != nil {
-			action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
-				Cluster:         lb.GetDestinationCluster(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort),
-				RuntimeFraction: mp,
-				TraceSampled:    &wrappers.BoolValue{Value: false},
-			}}
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				istio_route.TranslateRequestMirrorPolicy(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort, mp))
+		}
+	}
+	for _, mirror := range in.Mirrors {
+		if mp := istio_route.MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				istio_route.TranslateRequestMirrorPolicy(mirror.Destination, lb.serviceForHostname(host.Name(mirror.Destination.Host)), listenerPort, mp))
 		}
 	}
 

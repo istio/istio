@@ -480,6 +480,51 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
+		{
+			name:        "destination rule with tls mode SIMPLE",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
+			name:        "destination rule with tls mode MUTUAL",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_MUTUAL},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
+			name:        "destination rule with tls mode ISTIO_MUTUAL",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
 	}
 
 	for _, tt := range cases {
@@ -517,13 +562,12 @@ func TestApplyDestinationRule(t *testing.T) {
 				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
-			cg.MemRegistry.WantGetProxyServiceInstances = instances
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			tt.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 
-			ec := NewMutableCluster(tt.cluster)
+			ec := newClusterWrapper(tt.cluster)
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname).GetRule()
 
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.proxyView, destRule, nil)
@@ -556,6 +600,39 @@ func TestApplyDestinationRule(t *testing.T) {
 				if ec.httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue() !=
 					uint32(tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().MaxRequestsPerConnection) {
 					t.Errorf("Unexpected max_requests_per_connection found")
+				}
+			}
+
+			// Validate that alpn_override is correctly configured on cluster given a TLS mode.
+			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.Tls != nil {
+				tlsMode := tt.destRule.TrafficPolicy.Tls.Mode
+				if tlsMode == networking.ClientTLSSettings_SIMPLE || tlsMode == networking.ClientTLSSettings_MUTUAL {
+					md := tt.cluster.Metadata
+					istio, ok := md.FilterMetadata[util.IstioMetadataKey]
+					if !ok {
+						t.Errorf("Istio metadata not found")
+					}
+					alpnOverride, found := istio.Fields[util.AlpnOverrideMetadataKey]
+
+					if found {
+						if alpnOverride.GetStringValue() != "false" {
+							t.Errorf("alpn_override:%s tlsMode:%s, should be false for either TLS mode SIMPLE or MUTUAL", alpnOverride, tlsMode)
+						}
+					} else {
+						t.Errorf("alpn_override metadata should be written for either TLS mode SIMPLE or MUTUAL")
+					}
+				} else {
+					// If TLS settings are not found, alpn_override metadata should not be written
+					md := tt.cluster.Metadata
+					istio, ok := md.FilterMetadata[util.IstioMetadataKey]
+					if ok {
+						alpnOverride, found := istio.Fields[util.AlpnOverrideMetadataKey]
+						if found {
+							// nolint: lll
+							t.Errorf("alpn_override:%s tlsMode:%s, alpn_override metadata should not be written if TLS mode is neither SIMPLE nor MUTUAL", alpnOverride.GetStringValue(), tlsMode)
+						}
+
+					}
 				}
 
 			}
@@ -1074,7 +1151,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				MeshExternal: false,
 				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
 			}
-			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
+			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
 			if defaultCluster != nil {
 				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.proxyView, nil, nil)
 			}
@@ -1975,13 +2052,13 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: push}, model.DisabledCache{})
 			opts := &buildClusterOpts{
-				mutable: NewMutableCluster(&cluster.Cluster{
+				mutable: newClusterWrapper(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
 				}),
 				mesh: push.Mesh,
 			}
 			if test.h2 {
-				cb.setH2Options(opts.mutable)
+				setH2Options(opts.mutable)
 			}
 			cb.applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
 
@@ -2037,7 +2114,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		{
 			name: "tls mode disabled",
 			opts: &buildClusterOpts{
-				mutable: NewMutableCluster(&cluster.Cluster{
+				mutable: newClusterWrapper(&cluster.Cluster{
 					Name: "test-cluster",
 				}),
 			},
@@ -3130,7 +3207,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			}
 			cb := NewClusterBuilder(proxy, nil, model.DisabledCache{})
 			if tc.h2 {
-				cb.setH2Options(tc.opts.mutable)
+				setH2Options(tc.opts.mutable)
 			}
 			ret, err := cb.buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
@@ -3150,24 +3227,23 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 }
 
-func newTestCluster() *MutableCluster {
-	return NewMutableCluster(&cluster.Cluster{
+func newTestCluster() *clusterWrapper {
+	return newClusterWrapper(&cluster.Cluster{
 		Name: "test-cluster",
 	})
 }
 
-func newH2TestCluster() *MutableCluster {
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
-	mc := NewMutableCluster(&cluster.Cluster{
+func newH2TestCluster() *clusterWrapper {
+	mc := newClusterWrapper(&cluster.Cluster{
 		Name: "test-cluster",
 	})
-	cb.setH2Options(mc)
+	setH2Options(mc)
 	return mc
 }
 
-func newDownstreamTestCluster() *MutableCluster {
+func newDownstreamTestCluster() *clusterWrapper {
 	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
-	mc := NewMutableCluster(&cluster.Cluster{
+	mc := newClusterWrapper(&cluster.Cluster{
 		Name: "test-cluster",
 	})
 	cb.setUseDownstreamProtocol(mc)
@@ -3200,7 +3276,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 	tests := []struct {
 		name           string
 		clusterName    string
-		direction      model.TrafficDirection
 		port           *model.Port
 		mesh           *meshconfig.MeshConfig
 		connectionPool *networking.ConnectionPoolSettings
@@ -3210,7 +3285,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 		{
 			name:        "mesh upgrade - dr default",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.HTTP},
 			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3223,7 +3297,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 		{
 			name:        "mesh default - dr upgrade non http port",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.Unsupported},
 			mesh:        &meshconfig.MeshConfig{},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3236,7 +3309,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 		{
 			name:        "mesh no_upgrade - dr default",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.HTTP},
 			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3249,7 +3321,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 		{
 			name:        "mesh no_upgrade - dr upgrade",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.HTTP},
 			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3262,7 +3333,6 @@ func TestShouldH2Upgrade(t *testing.T) {
 		{
 			name:        "mesh upgrade - dr no_upgrade",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.HTTP},
 			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3273,22 +3343,8 @@ func TestShouldH2Upgrade(t *testing.T) {
 			upgrade: false,
 		},
 		{
-			name:        "inbound ignore",
-			clusterName: "bar",
-			direction:   model.TrafficDirectionInbound,
-			port:        &model.Port{Protocol: protocol.HTTP},
-			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
-			connectionPool: &networking.ConnectionPoolSettings{
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{
-					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT,
-				},
-			},
-			upgrade: false,
-		},
-		{
 			name:        "non-http",
 			clusterName: "bar",
-			direction:   model.TrafficDirectionOutbound,
 			port:        &model.Port{Protocol: protocol.Unsupported},
 			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
 			connectionPool: &networking.ConnectionPoolSettings{
@@ -3300,11 +3356,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			upgrade := cb.shouldH2Upgrade(test.clusterName, test.direction, test.port, test.mesh, test.connectionPool)
+			upgrade := shouldH2Upgrade(test.clusterName, test.port, test.mesh, test.connectionPool)
 
 			if upgrade != test.upgrade {
 				t.Fatalf("got: %t, want: %t (%v, %v)", upgrade, test.upgrade, test.mesh.H2UpgradePolicy, test.connectionPool.Http.H2UpgradePolicy)
@@ -3317,7 +3371,7 @@ func TestShouldH2Upgrade(t *testing.T) {
 func TestIsHttp2Cluster(t *testing.T) {
 	tests := []struct {
 		name           string
-		cluster        *MutableCluster
+		cluster        *clusterWrapper
 		isHttp2Cluster bool // revive:disable-line
 	}{
 		{
@@ -3516,7 +3570,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cb := NewClusterBuilder(tt.proxy, nil, nil)
-			gotTLS, gotCtxType := cb.buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
+			gotTLS, gotCtxType := cb.buildUpstreamTLSSettings(tt.tls, tt.sans, tt.sni, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
 			}
@@ -3688,21 +3742,6 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetForTest(t, &features.VerifyCertAtClient, tt.enableVerifyCertAtClient)
-			instances := []*model.ServiceInstance{
-				{
-					Service:     tt.service,
-					ServicePort: tt.port,
-					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.1",
-						EndpointPort: 10001,
-						Locality: model.Locality{
-							ClusterID: "",
-							Label:     "region1/zone1/subzone1",
-						},
-						TLSMode: model.IstioMutualTLSModeLabel,
-					},
-				},
-			}
 
 			var cfg *config.Config
 			if tt.destRule != nil {
@@ -3719,13 +3758,12 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
-			cg.MemRegistry.WantGetProxyServiceInstances = instances
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			tt.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 
-			ec := NewMutableCluster(tt.cluster)
+			ec := newClusterWrapper(tt.cluster)
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname).GetRule()
 
 			// ACT
@@ -3798,7 +3836,7 @@ func TestApplyTCPKeepalive(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
-			mc := &MutableCluster{
+			mc := &clusterWrapper{
 				cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			}
 
@@ -3915,7 +3953,7 @@ func TestApplyConnectionPool(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
-			mc := &MutableCluster{
+			mc := &clusterWrapper{
 				cluster:             tt.cluster,
 				httpProtocolOptions: tt.httpProtocolOptions,
 			}
@@ -4624,18 +4662,12 @@ func TestInsecureSkipVerify(t *testing.T) {
 			test.SetForTest(t, &features.EnableAutoSni, tc.enableAutoSni)
 			test.SetForTest(t, &features.VerifyCertAtClient, tc.enableVerifyCertAtClient)
 
-			instances := []*model.ServiceInstance{
+			targets := []model.ServiceTarget{
 				{
-					Service:     tc.service,
-					ServicePort: tc.port,
-					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.1",
-						EndpointPort: 10001,
-						Locality: model.Locality{
-							ClusterID: "",
-							Label:     "region1/zone1/subzone1",
-						},
-						TLSMode: model.IstioMutualTLSModeLabel,
+					Service: tc.service,
+					Port: model.ServiceInstancePort{
+						ServicePort: tc.port,
+						TargetPort:  10001,
 					},
 				},
 			}
@@ -4657,10 +4689,10 @@ func TestInsecureSkipVerify(t *testing.T) {
 				Services:       []*model.Service{tc.service},
 			})
 
-			cg.MemRegistry.WantGetProxyServiceInstances = instances
+			cg.MemRegistry.WantGetProxyServiceTargets = targets
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
-			ec := NewMutableCluster(tc.cluster)
+			ec := newClusterWrapper(tc.cluster)
 			tc.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tc.service.Hostname).GetRule()
 			_ = cb.applyDestinationRule(ec, tc.clusterMode, tc.service, tc.port, tc.proxyView, destRule, tc.serviceAcct)
@@ -4680,6 +4712,113 @@ func TestInsecureSkipVerify(t *testing.T) {
 				} else if tc.enableVerifyCertAtClient && len(tc.destRule.GetTrafficPolicy().GetTls().SubjectAltNames) == 0 {
 					assert.Equal(t, ec.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, true)
 				}
+			}
+		})
+	}
+}
+
+func TestConfigureALPNOverride(t *testing.T) {
+	cases := []struct {
+		name     string
+		tlsMode  networking.ClientTLSSettings_TLSmode
+		metadata *core.Metadata
+		want     *core.Metadata
+	}{
+		{
+			name:     "tlsMode SIMPLE, metadata nil",
+			tlsMode:  networking.ClientTLSSettings_SIMPLE,
+			metadata: nil,
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							util.AlpnOverrideMetadataKey: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "false",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "tlsMode MUTUAL, metadata not nil",
+			tlsMode: networking.ClientTLSSettings_MUTUAL,
+			metadata: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+							util.AlpnOverrideMetadataKey: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "false",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:     "tlsMode ISTIO_MUTUAL, metadata nil",
+			tlsMode:  networking.ClientTLSSettings_ISTIO_MUTUAL,
+			metadata: nil,
+			want:     nil,
+		},
+		{
+			name:    "tlsMode ISTIO_MUTUAL, metadata not nil",
+			tlsMode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+			metadata: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					util.IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			newMetadata := configureALPNOverride(tt.tlsMode, tt.metadata)
+			if diff := cmp.Diff(newMetadata, tt.want, protocmp.Transform()); diff != "" {
+				t.Errorf("configureALPNOverride(%s, %v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", tt.tlsMode, tt.metadata, newMetadata, tt.want, diff)
 			}
 		})
 	}

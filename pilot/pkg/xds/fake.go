@@ -94,8 +94,6 @@ type FakeOptions struct {
 	MeshConfig      *meshconfig.MeshConfig
 	NetworksWatcher mesh.NetworksWatcher
 
-	// Callback to modify the server before it is started
-	DiscoveryServerModifier func(s *DiscoveryServer, m *memregistry.ServiceDiscovery)
 	// Callback to modify the kube client before it is started
 	KubeClientModifier func(c kubelib.Client)
 
@@ -133,9 +131,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", "", map[string]string{})
+	s := NewDiscoveryServer(model.NewEnvironment(), map[string]string{})
 	s.discoveryStartTime = time.Now()
-	s.InitGenerators(s.Env, "istio-system", nil)
+	s.InitGenerators(s.Env, "istio-system", "", nil)
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
 		s.pushQueue.ShutDown()
@@ -223,6 +221,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigTemplateInput: opts.ConfigTemplateInput,
 		ConfigController:    configController,
 		MeshConfig:          m,
+		XDSUpdater:          s,
 		NetworksWatcher:     opts.NetworksWatcher,
 		ServiceRegistries:   registries,
 		ConfigStoreCaches:   []model.ConfigStoreController{ingr},
@@ -240,7 +239,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Services:  opts.Services,
 		Gateways:  opts.Gateways,
 	})
-	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
+	cg.Registry.AppendServiceHandler(serviceHandler)
 	s.Env = cg.Env()
 	s.Env.GatewayAPIController = gwc
 	if err := s.Env.InitNetworksManager(s); err != nil {
@@ -287,10 +286,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler)
 	}
 	s.WorkloadEntryController = autoregistration.NewController(cg.Store(), "test", keepalive.Infinity)
-
-	if opts.DiscoveryServerModifier != nil {
-		opts.DiscoveryServerModifier(s, memRegistry)
-	}
 
 	var listener net.Listener
 	if opts.ListenerBuilder != nil {

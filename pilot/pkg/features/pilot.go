@@ -173,18 +173,6 @@ var (
 		false,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy").Get()
 
-	EnableProtocolSniffingForOutbound = env.Register(
-		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
-		true,
-		"If enabled, protocol sniffing will be used for outbound listeners whose port protocol is not specified or unsupported",
-	).Get()
-
-	EnableProtocolSniffingForInbound = env.Register(
-		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
-		true,
-		"If enabled, protocol sniffing will be used for inbound listeners whose port protocol is not specified or unsupported",
-	).Get()
-
 	ScopeGatewayToNamespace = env.Register(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,
@@ -511,12 +499,6 @@ var (
 	WorkloadEntryCrossCluster = env.Register("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
-	EnableDestinationRuleInheritance = env.Register(
-		"PILOT_ENABLE_DESTINATION_RULE_INHERITANCE",
-		false,
-		"If set, workload specific DestinationRules will inherit configurations settings from mesh and namespace level rules",
-	).Get()
-
 	WasmRemoteLoadConversion = env.Register("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
 		"If enabled, Istio agent will intercept ECDS resource update, downloads Wasm module, "+
 			"and replaces Wasm module remote load with downloaded local module file.").Get()
@@ -651,7 +633,7 @@ var (
 		"If true, Istio will enable the Dual Stack feature.").Get()
 
 	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
-		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
+		"If enabled, Istiod will not push changes on arbitrary annotation change.").Get()
 
 	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
 		"If set, limit Kubernetes watches to a single namespace. "+
@@ -673,6 +655,21 @@ var (
 
 	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
 		"If enabled, pilot will only rebuild config for resources that have changed").Get()
+
+	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
+		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
+
+	ValidateWorkloadEntryIdentity = env.Register("ISTIO_WORKLOAD_ENTRY_VALIDATE_IDENTITY", true,
+		"If enabled, will validate the identity of a workload matches the identity of the "+
+			"WorkloadEntry it is associating with for health checks and auto registration. "+
+			"This flag is added for backwards compatibility only and will be removed in future releases").Get()
+
+	JwksResolverInsecureSkipVerify = env.Register("JWKS_RESOLVER_INSECURE_SKIP_VERIFY", false,
+		"If enabled, istiod will skip verifying the certificate of the JWKS server.").Get()
+
+	// User should not rely on builtin resource labels, this flag will be removed in future releases(1.20).
+	EnableOTELBuiltinResourceLables = env.Register("ENABLE_OTEL_BUILTIN_RESOURCE_LABELS", false,
+		"If enabled, envoy will send builtin lables(e.g. node_name) via OTel sink.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

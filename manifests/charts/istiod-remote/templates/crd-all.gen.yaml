@@ -4736,6 +4736,34 @@ spec:
                           format: double
                           type: number
                       type: object
+                    mirrors:
+                      items:
+                        properties:
+                          destination:
+                            properties:
+                              host:
+                                description: The name of a service from the service
+                                  registry.
+                                type: string
+                              port:
+                                description: Specifies the port on the host that is
+                                  being addressed.
+                                properties:
+                                  number:
+                                    type: integer
+                                type: object
+                              subset:
+                                description: The name of a subset within the service.
+                                type: string
+                            type: object
+                          percentage:
+                            properties:
+                              value:
+                                format: double
+                                type: number
+                            type: object
+                        type: object
+                      type: array
                     name:
                       description: The name assigned to the route for debugging purposes.
                       type: string
@@ -5531,6 +5559,34 @@ spec:
                           format: double
                           type: number
                       type: object
+                    mirrors:
+                      items:
+                        properties:
+                          destination:
+                            properties:
+                              host:
+                                description: The name of a service from the service
+                                  registry.
+                                type: string
+                              port:
+                                description: Specifies the port on the host that is
+                                  being addressed.
+                                properties:
+                                  number:
+                                    type: integer
+                                type: object
+                              subset:
+                                description: The name of a subset within the service.
+                                type: string
+                            type: object
+                          percentage:
+                            properties:
+                              value:
+                                format: double
+                                type: number
+                            type: object
+                        type: object
+                      type: array
                     name:
                       description: The name assigned to the route for debugging purposes.
                       type: string
