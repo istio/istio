@@ -221,6 +221,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigTemplateInput: opts.ConfigTemplateInput,
 		ConfigController:    configController,
 		MeshConfig:          m,
+		XDSUpdater:          s,
 		NetworksWatcher:     opts.NetworksWatcher,
 		ServiceRegistries:   registries,
 		ConfigStoreCaches:   []model.ConfigStoreController{ingr},

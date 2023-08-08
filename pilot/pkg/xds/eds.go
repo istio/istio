@@ -33,18 +33,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// PushType is an enumeration that decides what type push we should do when we get EDS update.
-type PushType int
-
-const (
-	// NoPush does not push any thing.
-	NoPush PushType = iota
-	// IncrementalPush just pushes endpoints.
-	IncrementalPush
-	// FullPush triggers full push - typically used for new services.
-	FullPush
-)
-
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {
 	// When a service deleted, we should cleanup the endpoint shards and also remove keys from EndpointIndex to
@@ -67,11 +55,11 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 ) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
-	pushType := s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
-	if pushType == IncrementalPush || pushType == FullPush {
+	pushType := s.Env.EndpointIndex.UpdateServiceEndpoints(shard, serviceName, namespace, istioEndpoints, s.Cache.Clear)
+	if pushType == model.IncrementalPush || pushType == model.FullPush {
 		// Trigger a push
 		s.ConfigUpdate(&model.PushRequest{
-			Full:           pushType == FullPush,
+			Full:           pushType == model.FullPush,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: serviceName, Namespace: namespace}),
 			Reason:         model.NewReasonStats(model.EndpointUpdate),
 		})
@@ -90,136 +78,11 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 ) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
-	s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
-}
-
-// edsCacheUpdate updates EndpointShards data by clusterID, hostname, IstioEndpoints.
-// It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
-// it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
-func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string,
-	istioEndpoints []*model.IstioEndpoint,
-) PushType {
-	if len(istioEndpoints) == 0 {
-		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
-		// but we should not delete the keys from EndpointIndex map - that will trigger
-		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
-		// flip flopping between 1 and 0.
-		s.Env.EndpointIndex.DeleteServiceShard(shard, hostname, namespace, true)
-		log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
-		return IncrementalPush
-	}
-
-	pushType := IncrementalPush
-	// Find endpoint shard for this service, if it is available - otherwise create a new one.
-	ep, created := s.Env.EndpointIndex.GetOrCreateEndpointShard(hostname, namespace)
-	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
-	if created {
-		log.Infof("Full push, new service %s/%s", namespace, hostname)
-		pushType = FullPush
-	}
-
-	ep.Lock()
-	defer ep.Unlock()
-	newIstioEndpoints := istioEndpoints
-	if features.SendUnhealthyEndpoints.Load() {
-		oldIstioEndpoints := ep.Shards[shard]
-		newIstioEndpoints = make([]*model.IstioEndpoint, 0, len(istioEndpoints))
-
-		// Check if new Endpoints are ready to be pushed. This check
-		// will ensure that if a new pod comes with a non ready endpoint,
-		// we do not unnecessarily push that config to Envoy.
-		// Please note that address is not a unique key. So this may not accurately
-		// identify based on health status and push too many times - which is ok since its an optimization.
-		emap := make(map[string]*model.IstioEndpoint, len(oldIstioEndpoints))
-		nmap := make(map[string]*model.IstioEndpoint, len(newIstioEndpoints))
-		// Add new endpoints only if they are ever ready once to shards
-		// so that full push does not send them from shards.
-		for _, oie := range oldIstioEndpoints {
-			emap[oie.Address] = oie
-		}
-		for _, nie := range istioEndpoints {
-			nmap[nie.Address] = nie
-		}
-		needPush := false
-		for _, nie := range istioEndpoints {
-			if oie, exists := emap[nie.Address]; exists {
-				// If endpoint exists already, we should push if it's health status changes.
-				if oie.HealthStatus != nie.HealthStatus {
-					needPush = true
-				}
-				newIstioEndpoints = append(newIstioEndpoints, nie)
-			} else if nie.HealthStatus == model.Healthy {
-				// If the endpoint does not exist in shards that means it is a
-				// new endpoint. Only send if it is healthy to avoid pushing endpoints
-				// that are not ready to start with.
-				needPush = true
-				newIstioEndpoints = append(newIstioEndpoints, nie)
-			}
-		}
-		// Next, check for endpoints that were in old but no longer exist. If there are any, there is a
-		// removal so we need to push an update.
-		for _, oie := range oldIstioEndpoints {
-			if _, f := nmap[oie.Address]; !f {
-				needPush = true
-			}
-		}
-
-		if pushType != FullPush && !needPush {
-			log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
-			pushType = NoPush
-		}
-
-	}
-
-	ep.Shards[shard] = newIstioEndpoints
-
-	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
-	saUpdated := s.UpdateServiceAccount(ep, hostname)
-
-	// For existing endpoints, we need to do full push if service accounts change.
-	if saUpdated && pushType != FullPush {
-		// Avoid extra logging if already a full push
-		log.Infof("Full push, service accounts changed, %v", hostname)
-		pushType = FullPush
-	}
-
-	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
-	// condition is introduced where an XDS response may be generated before the update, but not
-	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
-	// v0 -> invalidate -> v1. Reverting a change we pushed violates our contract of monotonically
-	// moving forward in version. In practice, this is pretty rare and self corrects nearly
-	// immediately. However, clearing the cache here has almost no impact on cache performance as we
-	// would clear it shortly after anyways.
-	s.Cache.Clear(sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: namespace}))
-
-	return pushType
+	s.Env.EndpointIndex.UpdateServiceEndpoints(shard, serviceName, namespace, istioEndpoints, s.Cache.Clear)
 }
 
 func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
 	s.Env.EndpointIndex.DeleteShard(shardKey)
-}
-
-// UpdateServiceAccount updates the service endpoints' sa when service/endpoint event happens.
-// Note: it is not concurrent safe.
-func (s *DiscoveryServer) UpdateServiceAccount(shards *model.EndpointShards, serviceName string) bool {
-	oldServiceAccount := shards.ServiceAccounts
-	serviceAccounts := sets.String{}
-	for _, epShards := range shards.Shards {
-		for _, ep := range epShards {
-			if ep.ServiceAccount != "" {
-				serviceAccounts.Insert(ep.ServiceAccount)
-			}
-		}
-	}
-
-	if !oldServiceAccount.Equals(serviceAccounts) {
-		shards.ServiceAccounts = serviceAccounts
-		log.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
-			serviceName, oldServiceAccount, serviceAccounts)
-		return true
-	}
-
-	return false
 }
 
 // localityEndpointsForCluster returns the endpoints for a cluster

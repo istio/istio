@@ -83,6 +83,9 @@ type TestOptions struct {
 
 	// Used to set the serviceentry registry's cluster id
 	ClusterID cluster2.ID
+
+	// XDSUpdater to use. Otherwise, our own will be used
+	XDSUpdater model.XDSUpdater
 }
 
 func (to TestOptions) FuzzValidate() bool {
@@ -131,13 +134,22 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		m = mesh.DefaultMeshConfig()
 	}
 
+	env := model.NewEnvironment()
+
+	xdsUpdater := opts.XDSUpdater
+	if xdsUpdater == nil {
+		xdsUpdater = &FakeXdsUpdater{ei: env.EndpointIndex}
+	}
+
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
 	se := serviceentry.NewController(
 		configController,
-		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
+		xdsUpdater,
+		serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
 	msd := memregistry.NewServiceDiscovery(opts.Services...)
+	msd.XdsUpdater = xdsUpdater
 	for _, instance := range opts.Instances {
 		msd.AddInstance(instance)
 	}
@@ -152,8 +164,6 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	for _, reg := range opts.ServiceRegistries {
 		serviceDiscovery.AddRegistry(reg)
 	}
-
-	env := model.NewEnvironment()
 	env.Watcher = mesh.NewFixedWatcher(m)
 	if opts.NetworksWatcher == nil {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
@@ -353,16 +363,28 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 	return cfgs
 }
 
-type FakeXdsUpdater struct{}
+type FakeXdsUpdater struct {
+	ei *model.EndpointIndex
+}
 
 func (f *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {}
 
-func (f *FakeXdsUpdater) EDSUpdate(_ model.ShardKey, _, _ string, _ []*model.IstioEndpoint) {}
+func (f *FakeXdsUpdater) EDSUpdate(shard model.ShardKey, serviceName string, namespace string, eps []*model.IstioEndpoint) {
+	f.ei.UpdateServiceEndpoints(shard, serviceName, namespace, eps, nil)
+}
 
-func (f *FakeXdsUpdater) EDSCacheUpdate(_ model.ShardKey, _, _ string, _ []*model.IstioEndpoint) {}
+func (f *FakeXdsUpdater) EDSCacheUpdate(shard model.ShardKey, serviceName string, namespace string, eps []*model.IstioEndpoint) {
+	f.ei.UpdateServiceEndpoints(shard, serviceName, namespace, eps, nil)
+}
 
-func (f *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, _, _ string, _ model.Event) {}
+func (f *FakeXdsUpdater) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {
+	if event == model.EventDelete {
+		f.ei.DeleteServiceShard(shard, hostname, namespace, false)
+	}
+}
 
 func (f *FakeXdsUpdater) ProxyUpdate(_ cluster2.ID, _ string) {}
 
-func (f *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {}
+func (f *FakeXdsUpdater) RemoveShard(shardKey model.ShardKey) {
+	f.ei.DeleteShard(shardKey)
+}
