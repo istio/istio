@@ -39,7 +39,7 @@ func TestConfigWriter_Prime(t *testing.T) {
 		{
 			name:        "loads valid ztunnel config_dump",
 			inputFile:   "testdata/dump.json",
-			wantConfigs: 9,
+			wantConfigs: 27,
 			wantErr:     false,
 		},
 	}
