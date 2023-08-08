@@ -171,3 +171,19 @@ metadata:
     istio.io/rev: test
     istio.io/dataplane-mode: ambient
   name: multi-ns-3
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: disabled # should not generate warning since it's disabled
+    istio.io/dataplane-mode: ambient
+  name: not-conflict-ns-1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: disabled # should not generate warning since it's disabled
+    istio.io/rev: test
+  name: not-conflict-ns-2
