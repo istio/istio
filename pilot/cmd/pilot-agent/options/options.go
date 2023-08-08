@@ -102,6 +102,9 @@ var (
 	DNSForwardParallel = env.Register("DNS_FORWARD_PARALLEL", false,
 		"If set to true, agent will send parallel DNS queries to all upstream nameservers")
 
+	DNSTTLInSeconds = env.Register("DNS_TTL_IN_SECONDS", 30,
+		"Controls how long each record is valid, If not set, the default is 30 seconds")
+
 	// Ability of istio-agent to retrieve proxyConfig via XDS for dynamic configuration updates
 	enableProxyConfigXdsEnv = env.Register("PROXY_CONFIG_XDS_AGENT", false,
 		"If set to true, agent retrieves dynamic proxy-config updates via xds channel").Get()

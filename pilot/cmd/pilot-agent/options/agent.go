@@ -62,11 +62,13 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		DNSCapture:                  DNSCaptureByAgent.Get(),
 		DNSForwardParallel:          DNSForwardParallel.Get(),
 		DNSAddr:                     DNSCaptureAddr.Get(),
-		ProxyNamespace:              PodNamespaceVar.Get(),
-		ProxyDomain:                 proxy.DNSDomain,
-		IstiodSAN:                   istiodSAN.Get(),
-		DualStack:                   features.EnableDualStack,
-		UseExternalWorkloadSDS:      useExternalWorkloadSDSEnv,
+		// TODO: should set DNSTTLInSeconds in proxyConfig?
+		DNSTTLInSeconds:        uint32(DNSTTLInSeconds.Get()),
+		ProxyNamespace:         PodNamespaceVar.Get(),
+		ProxyDomain:            proxy.DNSDomain,
+		IstiodSAN:              istiodSAN.Get(),
+		DualStack:              features.EnableDualStack,
+		UseExternalWorkloadSDS: useExternalWorkloadSDSEnv,
 	}
 	extractXDSHeadersFromEnv(o)
 	return o

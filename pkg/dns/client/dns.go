@@ -58,6 +58,8 @@ type LocalDNSServer struct {
 
 	respondBeforeSync         bool
 	forwardToUpstreamParallel bool
+
+	ttlInSeconds uint32
 }
 
 // LookupTable is borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
@@ -79,17 +81,11 @@ type LookupTable struct {
 	cname map[string][]dns.RR
 }
 
-const (
-	// In case the client decides to honor the TTL, keep it low so that we can always serve
-	// the latest IP for a host.
-	// TODO: make it configurable
-	defaultTTLInSeconds = 30
-)
-
-func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool) (*LocalDNSServer, error) {
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool, ttlInSeconds uint32) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
 		proxyNamespace:            proxyNamespace,
 		forwardToUpstreamParallel: forwardToUpstreamParallel,
+		ttlInSeconds:              ttlInSeconds,
 	}
 
 	// proxyDomain could contain the namespace making it redundant.
@@ -200,7 +196,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 // BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and
 // calls the passed in function with the built alternate hosts.
 func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
-	apply func(map[string]struct{}, []netip.Addr, []netip.Addr, []string),
+	apply func(map[string]struct{}, []netip.Addr, []netip.Addr, []string, uint32),
 ) {
 	for hostname, ni := range nt.Table {
 		// Given a host
@@ -221,7 +217,7 @@ func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
 			// malformed ips
 			continue
 		}
-		apply(altHosts, ipv4, ipv6, h.searchNamespaces)
+		apply(altHosts, ipv4, ipv6, h.searchNamespaces, h.ttlInSeconds)
 	}
 }
 
@@ -590,15 +586,15 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 // in the lookup table with a CNAME record as the DNS response. This technique eliminates the need
 // to do string parsing, memory allocations, etc. at query time at the cost of Nx number of entries (i.e. memory) to store
 // the lookup table, where N is number of search namespaces.
-func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, searchNamespaces []string) {
+func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, searchNamespaces []string, ttlInSeconds uint32) {
 	for h := range altHosts {
 		h = strings.ToLower(h)
 		table.allHosts.Insert(h)
 		if len(ipv4) > 0 {
-			table.name4[h] = a(h, ipv4)
+			table.name4[h] = a(h, ipv4, ttlInSeconds)
 		}
 		if len(ipv6) > 0 {
-			table.name6[h] = aaaa(h, ipv6)
+			table.name6[h] = aaaa(h, ipv6, ttlInSeconds)
 		}
 		if len(searchNamespaces) > 0 {
 			// NOTE: Right now, rather than storing one expanded host for each one of the search namespace
@@ -616,7 +612,7 @@ func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []n
 			// then the expanded host productpage.ns1.svc.cluster.local is a valid hostname
 			// that is likely to be already present in the altHosts
 			if _, exists := altHosts[expandedHost]; !exists {
-				table.cname[expandedHost] = cname(expandedHost, h)
+				table.cname[expandedHost] = cname(expandedHost, h, ttlInSeconds)
 				table.allHosts.Insert(expandedHost)
 			}
 		}
@@ -625,11 +621,11 @@ func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []n
 
 // Borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hosts.go
 // a takes a slice of ip string and returns a slice of A RRs.
-func a(host string, ips []netip.Addr) []dns.RR {
+func a(host string, ips []netip.Addr, ttlInSeconds uint32) []dns.RR {
 	answers := make([]dns.RR, len(ips))
 	for i, ip := range ips {
 		r := new(dns.A)
-		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: defaultTTLInSeconds}
+		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttlInSeconds}
 		r.A = ip.AsSlice()
 		answers[i] = r
 	}
@@ -637,24 +633,24 @@ func a(host string, ips []netip.Addr) []dns.RR {
 }
 
 // aaaa takes a slice of ip string and returns a slice of AAAA RRs.
-func aaaa(host string, ips []netip.Addr) []dns.RR {
+func aaaa(host string, ips []netip.Addr, ttlInSeconds uint32) []dns.RR {
 	answers := make([]dns.RR, len(ips))
 	for i, ip := range ips {
 		r := new(dns.AAAA)
-		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: defaultTTLInSeconds}
+		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttlInSeconds}
 		r.AAAA = ip.AsSlice()
 		answers[i] = r
 	}
 	return answers
 }
 
-func cname(host string, targetHost string) []dns.RR {
+func cname(host string, targetHost string, ttlInSeconds uint32) []dns.RR {
 	answer := new(dns.CNAME)
 	answer.Hdr = dns.RR_Header{
 		Name:   host,
 		Rrtype: dns.TypeCNAME,
 		Class:  dns.ClassINET,
-		Ttl:    defaultTTLInSeconds,
+		Ttl:    ttlInSeconds,
 	}
 	answer.Target = targetHost
 	return []dns.RR{answer}
