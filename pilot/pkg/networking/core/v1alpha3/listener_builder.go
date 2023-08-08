@@ -107,7 +107,6 @@ func (lb *ListenerBuilder) buildHTTPProxyListener() *ListenerBuilder {
 	if httpProxy == nil {
 		return lb
 	}
-	removeListenerFilterTimeout([]*listener.Listener{httpProxy})
 	lb.httpProxyListener = httpProxy
 	return lb
 }
@@ -137,7 +136,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 	}
 	// add extra addresses for the listener
 	if features.EnableDualStack && len(actualWildcards) > 1 {
-		ipTablesListener.AdditionalAddresses = util.BuildAdditionalAddresses(actualWildcards[1:], uint32(lb.push.Mesh.ProxyListenPort), lb.node)
+		ipTablesListener.AdditionalAddresses = util.BuildAdditionalAddresses(actualWildcards[1:], uint32(lb.push.Mesh.ProxyListenPort))
 	}
 
 	class := model.OutboundListenerClass(lb.node.Type)
@@ -235,11 +234,9 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       egressCluster,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
+		IdleTimeout:      parseDuration(node.Metadata.IdleTimeout),
 	}
-	idleTimeoutDuration, err := time.ParseDuration(node.Metadata.IdleTimeout)
-	if err == nil {
-		tcpProxy.IdleTimeout = durationpb.New(idleTimeoutDuration)
-	}
+
 	filterStack := buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound)
 	accessLogBuilder.setTCPAccessLog(push, node, tcpProxy, istionetworking.ListenerClassSidecarOutbound)
 	filterStack = append(filterStack, &listener.Filter{
@@ -248,6 +245,17 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 	})
 
 	return filterStack
+}
+
+func parseDuration(s string) *durationpb.Duration {
+	if s == "" {
+		return nil
+	}
+	t, err := time.ParseDuration(s)
+	if err != nil {
+		return nil
+	}
+	return durationpb.New(t)
 }
 
 // TODO: This code is still insufficient. Ideally we should be parsing all the virtual services
@@ -327,15 +335,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	websocketUpgrade := &hcm.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 	connectionManager.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
 
-	idleTimeout, err := time.ParseDuration(lb.node.Metadata.IdleTimeout)
-	if err == nil {
+	if idleTimeout := parseDuration(lb.node.Metadata.IdleTimeout); idleTimeout != nil {
 		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
-			IdleTimeout: durationpb.New(idleTimeout),
+			IdleTimeout: idleTimeout,
 		}
 	}
 
-	notimeout := durationpb.New(0 * time.Second)
-	connectionManager.StreamIdleTimeout = notimeout
+	connectionManager.StreamIdleTimeout = durationpb.New(0 * time.Second)
 
 	if httpOpts.rds != "" {
 		rds := &hcm.HttpConnectionManager_Rds{
@@ -391,6 +397,8 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	}
 
 	if httpOpts.protocol == protocol.GRPCWeb {
+		// TODO: because we share an HCM between many services, this check is broken; it will only work if the first
+		// GRPCWeb is probably only used for Gateways though, which don't have this concern.
 		filters = append(filters, xdsfilters.GrpcWeb)
 	}
 

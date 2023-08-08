@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
@@ -43,7 +42,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/listenertest"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
@@ -1436,17 +1434,18 @@ func testOutboundListenerFilterTimeout(t *testing.T, services ...*model.Service)
 			t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
 		}
 
-		if listeners[0].ListenerFiltersTimeout == nil ||
-			(listeners[0].ListenerFiltersTimeout.GetSeconds() != 0 && listeners[0].ListenerFiltersTimeout.GetNanos() != 0) {
+		explicit := xdstest.ExtractListener("0.0.0.0_8080", listeners)
+		if explicit.ListenerFiltersTimeout == nil {
 			t.Fatalf("expected timeout disabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
-				listeners[0].ContinueOnListenerFiltersTimeout,
-				listeners[0].ListenerFiltersTimeout)
+				explicit.ContinueOnListenerFiltersTimeout,
+				explicit.ListenerFiltersTimeout)
 		}
-		if listeners[1].ListenerFiltersTimeout == nil ||
-			(listeners[0].ListenerFiltersTimeout.GetSeconds() != 0 && listeners[0].ListenerFiltersTimeout.GetNanos() != 0) {
-			t.Fatalf("expected timeout disabled , found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
-				listeners[1].ContinueOnListenerFiltersTimeout,
-				listeners[1].ListenerFiltersTimeout)
+
+		auto := xdstest.ExtractListener("0.0.0.0_9090", listeners)
+		if !auto.ContinueOnListenerFiltersTimeout || auto.ListenerFiltersTimeout == nil {
+			t.Fatalf("expected timeout enabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+				auto.ContinueOnListenerFiltersTimeout,
+				auto.ListenerFiltersTimeout)
 		}
 	}
 }
@@ -2010,6 +2009,7 @@ func TestHttpProxyListener(t *testing.T) {
 	m.ProxyHttpPort = 15007
 	listeners := buildListeners(t, TestOptions{MeshConfig: m}, nil)
 	httpProxy := xdstest.ExtractListener("127.0.0.1_15007", listeners)
+	t.Logf(xdstest.Dump(t, httpProxy))
 	f := httpProxy.FilterChains[0].Filters[0]
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 
@@ -2356,7 +2356,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 }
 
 func customTracingTags() []*tracing.CustomTag {
-	return append(buildOptionalPolicyTags(),
+	return append(slices.Clone(optionalPolicyTags),
 		&tracing.CustomTag{
 			Tag: "istio.canonical_revision",
 			Type: &tracing.CustomTag_Literal_{
@@ -2640,343 +2640,6 @@ func buildServiceInstance(service *model.Service, instanceIP string) *model.Serv
 		},
 		ServicePort: service.Ports[0],
 		Service:     service,
-	}
-}
-
-func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
-	tests := []struct {
-		name        string
-		node        *model.Proxy
-		hostname    string
-		idleTimeout *durationpb.Duration
-	}{
-		{
-			name: "Registry_Only",
-			node: &model.Proxy{
-				ID:       "foo.bar",
-				Metadata: &model.NodeMetadata{},
-				SidecarScope: &model.SidecarScope{
-					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
-						Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
-					},
-				},
-			},
-			hostname: util.BlackHoleCluster,
-		},
-		{
-			name: "Allow_Any",
-			node: &model.Proxy{
-				ID:       "foo.bar",
-				Metadata: &model.NodeMetadata{},
-				SidecarScope: &model.SidecarScope{
-					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
-						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
-					},
-				},
-			},
-			hostname: util.PassthroughCluster,
-		},
-		{
-			name: "idle_timeout",
-			node: &model.Proxy{
-				ID: "foo.bar",
-				Metadata: &model.NodeMetadata{
-					IdleTimeout: "15s",
-				},
-				SidecarScope: &model.SidecarScope{
-					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
-						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
-					},
-				},
-			},
-			hostname:    util.PassthroughCluster,
-			idleTimeout: durationpb.New(15 * time.Second),
-		},
-		{
-			name: "invalid_idle_timeout",
-			node: &model.Proxy{
-				ID: "foo.bar",
-				Metadata: &model.NodeMetadata{
-					IdleTimeout: "s15s",
-				},
-				SidecarScope: &model.SidecarScope{
-					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
-						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
-					},
-				},
-			},
-			hostname: util.PassthroughCluster,
-			// idleTimeout shouldn't be set, will use default value in envoy
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{})
-			l := &listener.Listener{}
-			appendListenerFallthroughRouteForCompleteListener(l, tt.node, cg.PushContext())
-			if len(l.FilterChains) != 0 {
-				t.Errorf("Expected exactly 0 filter chain")
-			}
-			if len(l.DefaultFilterChain.Filters) != 1 {
-				t.Errorf("Expected exactly 1 network filter in the chain")
-			}
-			filter := l.DefaultFilterChain.Filters[0]
-			var tcpProxy tcp.TcpProxy
-			cfg := filter.GetTypedConfig()
-			_ = cfg.UnmarshalTo(&tcpProxy)
-			if tcpProxy.StatPrefix != tt.hostname {
-				t.Errorf("Expected stat prefix %s but got %s\n", tt.hostname, tcpProxy.StatPrefix)
-			}
-			if tcpProxy.GetCluster() != tt.hostname {
-				t.Errorf("Expected cluster %s but got %s\n", tt.hostname, tcpProxy.GetCluster())
-			}
-			if tt.idleTimeout != nil && !reflect.DeepEqual(tcpProxy.IdleTimeout, tt.idleTimeout) {
-				t.Errorf("Expected IdleTimeout %s but got %s\n", tt.idleTimeout, tcpProxy.IdleTimeout)
-			}
-			if tt.idleTimeout == nil && tcpProxy.IdleTimeout != nil {
-				t.Errorf("Expected no IdleTimeout set, but got %s\n", tcpProxy.IdleTimeout.AsDuration())
-			}
-		})
-	}
-}
-
-func TestMergeTCPFilterChains(t *testing.T) {
-	cg := NewConfigGenTest(t, TestOptions{})
-
-	node := &model.Proxy{
-		ID:       "foo.bar",
-		Metadata: &model.NodeMetadata{},
-		SidecarScope: &model.SidecarScope{
-			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
-			},
-		},
-	}
-
-	tcpProxy := &tcp.TcpProxy{
-		StatPrefix:       "outbound|443||foo.com",
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "outbound|443||foo.com"},
-	}
-
-	tcpProxyFilter := &listener.Filter{
-		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpProxy)},
-	}
-
-	tcpProxy = &tcp.TcpProxy{
-		StatPrefix:       "outbound|443||bar.com",
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: "outbound|443||bar.com"},
-	}
-
-	tcpProxyFilter2 := &listener.Filter{
-		Name:       wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(tcpProxy)},
-	}
-
-	svcPort := &model.Port{
-		Name:     "https",
-		Port:     443,
-		Protocol: protocol.HTTPS,
-	}
-	var l listener.Listener
-	filterChains := []*listener.FilterChain{
-		{
-			FilterChainMatch: &listener.FilterChainMatch{
-				PrefixRanges: []*core.CidrRange{
-					{
-						AddressPrefix: "10.244.0.18",
-						PrefixLen:     &wrappers.UInt32Value{Value: 32},
-					},
-					{
-						AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
-						PrefixLen:     &wrappers.UInt32Value{Value: 128},
-					},
-				},
-			},
-			Filters: nil, // This is not a valid config, just for test
-		},
-		{
-			FilterChainMatch: &listener.FilterChainMatch{
-				ServerNames: []string{"foo.com"},
-			},
-			// This is not a valid config, just for test
-			Filters: []*listener.Filter{tcpProxyFilter},
-		},
-		{
-			FilterChainMatch: &listener.FilterChainMatch{},
-			// This is not a valid config, just for test
-			Filters: buildOutboundCatchAllNetworkFiltersOnly(cg.PushContext(), node),
-		},
-	}
-	l.FilterChains = filterChains
-	listenerMap := map[string]*outboundListenerEntry{
-		"0.0.0.0_443": {
-			servicePort: svcPort,
-			services: []*model.Service{{
-				CreationTime:   tnow,
-				Hostname:       host.Name("foo.com"),
-				DefaultAddress: "192.168.1.1",
-				Ports:          []*model.Port{svcPort},
-				Resolution:     model.DNSLB,
-			}},
-			listener: &l,
-		},
-	}
-
-	incomingFilterChains := []*listener.FilterChain{
-		{
-			FilterChainMatch: &listener.FilterChainMatch{
-				ServerNames: []string{"bar.com"},
-			}, // This is not a valid config, just for test
-			Filters: []*listener.Filter{tcpProxyFilter2},
-		},
-	}
-
-	svc := model.Service{
-		Hostname: "bar.com",
-	}
-
-	opts := buildListenerOpts{
-		proxy:   node,
-		push:    cg.PushContext(),
-		service: &svc,
-	}
-
-	out := mergeTCPFilterChains(incomingFilterChains, opts, "0.0.0.0_443", listenerMap)
-
-	if len(out) != 4 {
-		t.Errorf("Got %d filter chains, expected 3", len(out))
-	}
-	if !isMatchAllFilterChain(out[2]) {
-		t.Errorf("The last filter chain  %#v is not wildcard matching", out[2])
-	}
-
-	if !reflect.DeepEqual(out[3].Filters, incomingFilterChains[0].Filters) {
-		t.Errorf("got %v\nwant %v\ndiff %v", out[2].Filters, incomingFilterChains[0].Filters, cmp.Diff(out[2].Filters, incomingFilterChains[0].Filters))
-	}
-}
-
-func TestFilterChainMatchEqual(t *testing.T) {
-	cases := []struct {
-		name   string
-		first  *listener.FilterChainMatch
-		second *listener.FilterChainMatch
-		want   bool
-	}{
-		{
-			name:   "both nil",
-			first:  nil,
-			second: nil,
-			want:   true,
-		},
-		{
-			name:   "one of them nil",
-			first:  nil,
-			second: &listener.FilterChainMatch{},
-			want:   false,
-		},
-		{
-			name:   "both empty",
-			first:  &listener.FilterChainMatch{},
-			second: &listener.FilterChainMatch{},
-			want:   true,
-		},
-		{
-			name: "with equal values",
-			first: &listener.FilterChainMatch{
-				TransportProtocol:    "TCP",
-				ApplicationProtocols: mtlsHTTPALPNs,
-			},
-			second: &listener.FilterChainMatch{
-				TransportProtocol:    "TCP",
-				ApplicationProtocols: mtlsHTTPALPNs,
-			},
-			want: true,
-		},
-		{
-			name: "with not equal values",
-			first: &listener.FilterChainMatch{
-				TransportProtocol:    "TCP",
-				ApplicationProtocols: mtlsHTTPALPNs,
-			},
-			second: &listener.FilterChainMatch{
-				TransportProtocol:    "TCP",
-				ApplicationProtocols: plaintextHTTPALPNs,
-			},
-			want: false,
-		},
-		{
-			name: "equal with all values",
-			first: &listener.FilterChainMatch{
-				TransportProtocol:    "TCP",
-				ApplicationProtocols: mtlsHTTPALPNs,
-				DestinationPort:      &wrappers.UInt32Value{Value: 1999},
-				AddressSuffix:        "suffix",
-				SourceType:           listener.FilterChainMatch_ANY,
-				SuffixLen:            &wrappers.UInt32Value{Value: 3},
-				PrefixRanges: []*core.CidrRange{
-					{
-						AddressPrefix: "10.244.0.18",
-						PrefixLen:     &wrappers.UInt32Value{Value: 32},
-					},
-					{
-						AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
-						PrefixLen:     &wrappers.UInt32Value{Value: 128},
-					},
-				},
-				SourcePrefixRanges: []*core.CidrRange{
-					{
-						AddressPrefix: "10.244.0.18",
-						PrefixLen:     &wrappers.UInt32Value{Value: 32},
-					},
-					{
-						AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
-						PrefixLen:     &wrappers.UInt32Value{Value: 128},
-					},
-				},
-				SourcePorts: []uint32{2000},
-				ServerNames: []string{"foo"},
-			},
-			second: &listener.FilterChainMatch{
-				TransportProtocol:    "TCP",
-				ApplicationProtocols: plaintextHTTPALPNs,
-				DestinationPort:      &wrappers.UInt32Value{Value: 1999},
-				AddressSuffix:        "suffix",
-				SourceType:           listener.FilterChainMatch_ANY,
-				SuffixLen:            &wrappers.UInt32Value{Value: 3},
-				PrefixRanges: []*core.CidrRange{
-					{
-						AddressPrefix: "10.244.0.18",
-						PrefixLen:     &wrappers.UInt32Value{Value: 32},
-					},
-					{
-						AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
-						PrefixLen:     &wrappers.UInt32Value{Value: 128},
-					},
-				},
-				SourcePrefixRanges: []*core.CidrRange{
-					{
-						AddressPrefix: "10.244.0.18",
-						PrefixLen:     &wrappers.UInt32Value{Value: 32},
-					},
-					{
-						AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
-						PrefixLen:     &wrappers.UInt32Value{Value: 128},
-					},
-				},
-				SourcePorts: []uint32{2000},
-				ServerNames: []string{"foo"},
-			},
-			want: false,
-		},
-	}
-
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := filterChainMatchEqual(tt.first, tt.second); got != tt.want {
-				t.Fatalf("Expected filter chain match to return %v, but got %v", tt.want, got)
-			}
-		})
 	}
 }
 

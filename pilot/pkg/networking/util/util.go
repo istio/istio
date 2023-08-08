@@ -134,38 +134,36 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	return cidr
 }
 
+// AddrStrToCidrRange converts from string to CIDR prefix
+func AddrStrToPrefix(addr string) (netip.Prefix, error) {
+	if len(addr) == 0 {
+		return netip.Prefix{}, fmt.Errorf("empty address")
+	}
+
+	// Already a CIDR, just parse it.
+	if strings.Contains(addr, "/") {
+		return netip.ParsePrefix(addr)
+	}
+
+	// Otherwise it is a raw IP. Make it a /32 or /128 depending on family
+	ipa, err := netip.ParseAddr(addr)
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+
+	return netip.PrefixFrom(ipa, ipa.BitLen()), nil
+}
+
 // AddrStrToCidrRange converts from string to CIDR proto
 func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
-	if len(addr) == 0 {
-		return nil, fmt.Errorf("empty address")
+	prefix, err := AddrStrToPrefix(addr)
+	if err != nil {
+		return nil, err
 	}
-
-	var (
-		ipAddr        netip.Addr
-		maxCidrPrefix int
-	)
-
-	if strings.Contains(addr, "/") {
-		ipp, err := netip.ParsePrefix(addr)
-		if err != nil {
-			return nil, err
-		}
-		ipAddr = ipp.Addr()
-		maxCidrPrefix = ipp.Bits()
-	} else {
-		ipa, err := netip.ParseAddr(addr)
-		if err != nil {
-			return nil, err
-		}
-
-		ipAddr = ipa
-		maxCidrPrefix = ipAddr.BitLen()
-	}
-
 	return &core.CidrRange{
-		AddressPrefix: ipAddr.String(),
+		AddressPrefix: prefix.Addr().String(),
 		PrefixLen: &wrapperspb.UInt32Value{
-			Value: uint32(maxCidrPrefix),
+			Value: uint32(prefix.Bits()),
 		},
 	}, nil
 }
@@ -187,7 +185,7 @@ func BuildAddress(bind string, port uint32) *core.Address {
 }
 
 // BuildAdditionalAddresses can add extra addresses to additional addresses for a listener
-func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *model.Proxy) []*listener.AdditionalAddress {
+func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32) []*listener.AdditionalAddress {
 	var additionalAddresses []*listener.AdditionalAddress
 	if len(extrAddresses) > 0 {
 		for _, exbd := range extrAddresses {

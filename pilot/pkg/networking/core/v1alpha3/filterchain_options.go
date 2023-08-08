@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -172,8 +171,6 @@ var (
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 	}
-
-	emptyFilterChainMatch = &listener.FilterChainMatch{}
 )
 
 // getTLSFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
