@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
-	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
@@ -47,7 +46,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
@@ -57,18 +55,15 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/tests/util"
 )
 
 type FakeOptions struct {
@@ -221,7 +216,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigTemplateInput: opts.ConfigTemplateInput,
 		ConfigController:    configController,
 		MeshConfig:          m,
-		XDSUpdater:          s,
+		XDSUpdater:          xdsUpdater,
 		NetworksWatcher:     opts.NetworksWatcher,
 		ServiceRegistries:   registries,
 		ConfigStoreCaches:   []model.ConfigStoreController{ingr},
@@ -461,74 +456,6 @@ func (f *FakeDiscoveryServer) EnsureSynced(t test.Failer) {
 	retry.UntilOrFail(t, func() bool {
 		return f.Discovery.CommittedUpdates.Load() >= c
 	}, retry.Delay(time.Millisecond))
-}
-
-// AssertEndpointConsistency compares endpointShards - which are incrementally updated - with
-// InstancesByPort, which rebuilds the same state from the ground up. This ensures the two are kept in sync;
-// out of sync fields typically are bugs.
-func (f *FakeDiscoveryServer) AssertEndpointConsistency() error {
-	f.t.Helper()
-	cache := model.DisabledCache{}
-	mock := &DiscoveryServer{
-		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex(cache)},
-		Cache: cache,
-	}
-	ag := f.Discovery.Env.ServiceDiscovery.(*aggregate.Controller)
-
-	for _, svc := range f.Discovery.Env.Services() {
-		for _, reg := range ag.GetRegistries() {
-			endpoints := make([]*model.IstioEndpoint, 0)
-			for _, port := range svc.Ports {
-				if port.Protocol == protocol.UDP {
-					continue
-				}
-
-				// This loses track of grouping (shards)
-				for _, inst := range reg.InstancesByPort(svc, port.Port) {
-					endpoints = append(endpoints, inst.Endpoint)
-				}
-			}
-
-			mock.EDSCacheUpdate(model.ShardKeyFromRegistry(reg), string(svc.Hostname), svc.Attributes.Namespace, endpoints)
-		}
-	}
-
-	// Normalize result for compare
-	sort := func(a, b *model.IstioEndpoint) bool {
-		if a.Address == b.Address {
-			return a.EndpointPort > b.EndpointPort
-		}
-		return a.Address > b.Address
-	}
-	haveShardz := f.Discovery.Env.EndpointIndex.Shardz()
-	for svc, ns := range haveShardz {
-		for _, shard := range ns {
-			// As an optimization, we will keep empty services around to avoid 0->1->0 scaling
-			if len(shard.Shards) == 0 {
-				delete(haveShardz, svc)
-			}
-			for _, s := range shard.Shards {
-				slices.SortFunc(s, sort)
-			}
-		}
-	}
-	wantShardz := mock.Env.EndpointIndex.Shardz()
-	for _, ns := range wantShardz {
-		for _, shard := range ns {
-			for _, s := range shard.Shards {
-				slices.SortFunc(s, sort)
-			}
-		}
-	}
-	have, _ := yaml.Marshal(haveShardz)
-	want, _ := yaml.Marshal(wantShardz)
-	if err := util.Compare(have, want); err != nil {
-		f.t.Logf("Endpoint Shards: %v", string(have))
-		f.t.Logf("Instances By Port: %v", string(want))
-		return err
-	}
-
-	return nil
 }
 
 func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runtime.Object {

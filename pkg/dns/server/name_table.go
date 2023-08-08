@@ -61,25 +61,25 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 			// The IP will be unspecified here if its headless service or if the auto
 			// IP allocation logic for service entry was unable to allocate an IP.
 			if svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
-				for _, instance := range cfg.Push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
+				for _, instance := range cfg.Push.ServiceEndpointsByPort(svc, svc.Ports[0].Port, nil) {
 					// empty addresses are possible here
-					if !netutil.IsValidIPAddress(instance.Endpoint.Address) {
+					if !netutil.IsValidIPAddress(instance.Address) {
 						continue
 					}
 					// TODO(stevenctl): headless across-networks https://github.com/istio/istio/issues/38327
-					sameNetwork := cfg.Node.InNetwork(instance.Endpoint.Network)
-					sameCluster := cfg.Node.InCluster(instance.Endpoint.Locality.ClusterID)
+					sameNetwork := cfg.Node.InNetwork(instance.Network)
+					sameCluster := cfg.Node.InCluster(instance.Locality.ClusterID)
 					// For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
 					// And for each individual pod, populate the dns table with the endpoint IP with a manufactured host name.
-					if instance.Endpoint.SubDomain != "" && sameNetwork {
+					if instance.SubDomain != "" && sameNetwork {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
 						// i.e. "mysql-0.mysql.default.svc.cluster.local".
 						parts := strings.SplitN(hostName.String(), ".", 2)
 						if len(parts) != 2 {
 							continue
 						}
-						address := []string{instance.Endpoint.Address}
-						shortName := instance.Endpoint.HostName + "." + instance.Endpoint.SubDomain
+						address := []string{instance.Address}
+						shortName := instance.HostName + "." + instance.SubDomain
 						host := shortName + "." + parts[1] // Add cluster domain.
 						nameInfo := &dnsProto.NameTable_NameInfo{
 							Ips:       address,
@@ -108,7 +108,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 						continue
 					}
 					// TODO: should we skip the node's own IP like we do in listener?
-					addressList = append(addressList, instance.Endpoint.Address)
+					addressList = append(addressList, instance.Address)
 				}
 			}
 			if len(addressList) == 0 {

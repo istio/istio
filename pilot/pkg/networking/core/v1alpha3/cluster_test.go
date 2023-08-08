@@ -296,8 +296,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10001,
+				Address:         "6.6.6.6",
+				ServicePortName: servicePort[0].Name,
+				EndpointPort:    10001,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region1/zone1/subzone1",
@@ -310,8 +311,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10001,
+				Address:         "6.6.6.6",
+				ServicePortName: servicePort[0].Name,
+				EndpointPort:    10001,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region1/zone1/subzone2",
@@ -324,8 +326,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10001,
+				Address:         "6.6.6.6",
+				ServicePortName: servicePort[0].Name,
+				EndpointPort:    10001,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region2/zone1/subzone1",
@@ -338,8 +341,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[1],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10002,
+				ServicePortName: servicePort[1].Name,
+				Address:         "6.6.6.6",
+				EndpointPort:    10002,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region1/zone1/subzone1",

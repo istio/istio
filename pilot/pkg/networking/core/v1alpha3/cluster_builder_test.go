@@ -666,8 +666,9 @@ func TestApplyDestinationRule(t *testing.T) {
 					Service:     tt.service,
 					ServicePort: tt.port,
 					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.1",
-						EndpointPort: 10001,
+						ServicePortName: tt.port.Name,
+						Address:         "192.168.1.1",
+						EndpointPort:    10001,
 						Locality: model.Locality{
 							ClusterID: "",
 							Label:     "region1/zone1/subzone1",

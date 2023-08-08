@@ -97,7 +97,7 @@ func TestServices(t *testing.T) {
 		},
 	})
 
-	ctl, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{NetworksWatcher: networksWatcher})
+	ctl, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{NetworksWatcher: networksWatcher})
 	t.Parallel()
 	ns := "ns-test"
 
@@ -106,7 +106,6 @@ func TestServices(t *testing.T) {
 	var sds model.ServiceDiscovery = ctl
 	// "test", ports: http-example on 80
 	makeService(testService, ns, ctl, t)
-	<-fx.Events
 
 	eventually(t, func() bool {
 		out := sds.Services()
@@ -134,23 +133,22 @@ func TestServices(t *testing.T) {
 	if svc.Hostname != hostname {
 		t.Fatalf("GetService(%q) => %q", hostname, svc.Hostname)
 	}
+	assert.EventuallyEqual(t, func() int {
+		ep := GetEndpointsForPort(svc, ctl.Endpoints, 80)
+		return len(ep)
+	}, 2)
 
-	eventually(t, func() bool {
-		ep := sds.InstancesByPort(svc, 80)
-		return len(ep) == 2
-	})
-
-	ep := sds.InstancesByPort(svc, 80)
+	ep := GetEndpointsForPort(svc, ctl.Endpoints, 80)
 	if len(ep) != 2 {
-		t.Fatalf("Invalid response for GetInstancesByPort %v", ep)
+		t.Fatalf("Invalid response for GetEndpoints %v", ep)
 	}
 
-	if ep[0].Endpoint.Address == "10.10.1.1" && ep[0].Endpoint.Network != "network1" {
-		t.Fatalf("Endpoint with IP 10.10.1.1 is expected to be in network1 but get: %s", ep[0].Endpoint.Network)
+	if ep[0].Address == "10.10.1.1" && ep[0].Network != "network1" {
+		t.Fatalf("Endpoint with IP 10.10.1.1 is expected to be in network1 but get: %s", ep[0].Network)
 	}
 
-	if ep[1].Endpoint.Address == "10.11.1.2" && ep[1].Endpoint.Network != "network2" {
-		t.Fatalf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Endpoint.Network)
+	if ep[1].Address == "10.11.1.2" && ep[1].Network != "network2" {
+		t.Fatalf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Network)
 	}
 
 	missing := kube.ServiceHostname("does-not-exist", ns, defaultFakeDomainSuffix)
@@ -174,6 +172,7 @@ func makeService(n, ns string, cl *FakeController, t *testing.T) {
 		},
 	})
 	log.Infof("Created service %s", n)
+	cl.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "service")
 }
 
 func TestController_GetPodLocality(t *testing.T) {
@@ -791,7 +790,6 @@ func TestGetProxyServiceTargetsWithMultiIPsAndTargetPorts(t *testing.T) {
 				},
 				c.ports, map[string]string{"app": "test-app"}, t)
 
-			fx.WaitOrFail(t, "service")
 			serviceInstances := controller.GetProxyServiceTargets(&model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: c.ips})
 
 			for i, svc := range serviceInstances {
@@ -910,7 +908,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 					Hostname: "reviews.bookinfo-reviews.svc.company.com",
 				},
 				Port: model.ServiceInstancePort{
-					ServicePort: nil, // howardjohn: ??
+					ServicePort: nil,
 					TargetPort:  7070,
 				},
 			}},
@@ -923,7 +921,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 					Hostname: "details.bookinfo-details.svc.company.com",
 				},
 				Port: model.ServiceInstancePort{
-					ServicePort: nil, // howardjohn: ??
+					ServicePort: nil,
 					TargetPort:  9090,
 				},
 			}},
@@ -939,7 +937,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 					Hostname: "details.bookinfo-details.svc.company.com",
 				},
 				Port: model.ServiceInstancePort{
-					ServicePort: nil, // howardjohn: ??
+					ServicePort: nil,
 					TargetPort:  9090,
 				},
 			}},
@@ -955,7 +953,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 					Hostname: "details.bookinfo-details.svc.company.com",
 				},
 				Port: model.ServiceInstancePort{
-					ServicePort: nil, // howardjohn: ??
+					ServicePort: nil,
 					TargetPort:  9090,
 				},
 			}},
@@ -971,7 +969,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 					Hostname: "ratings.bookinfo-ratings.svc.company.com",
 				},
 				Port: model.ServiceInstancePort{
-					ServicePort: nil, // howardjohn: ??
+					ServicePort: nil,
 					TargetPort:  8080,
 				},
 			}},
@@ -987,7 +985,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 					Hostname: "ratings.bookinfo-ratings.svc.company.com",
 				},
 				Port: model.ServiceInstancePort{
-					ServicePort: nil, // howardjohn: ??
+					ServicePort: nil,
 					TargetPort:  8080,
 				},
 			}},
@@ -1593,8 +1591,8 @@ func TestControllerEnableResourceScoping(t *testing.T) {
 	fx.WaitOrFail(t, "xds full")
 }
 
-func TestInstancesByPort_WorkloadInstances(t *testing.T) {
-	ctl, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+func TestEndpoints_WorkloadInstances(t *testing.T) {
+	ctl, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 
 	createServiceWithTargetPorts(ctl, "ratings", "bookinfo-ratings",
 		map[string]string{
@@ -1610,7 +1608,6 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 			},
 		},
 		map[string]string{"app": "ratings"}, t)
-	fx.WaitOrFail(t, "service")
 
 	wiRatings1 := &model.WorkloadInstance{
 		Name:      "ratings-1",
@@ -1651,27 +1648,22 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 	}
 
 	// get service object
-
 	svcs := ctl.Services()
 	if len(svcs) != 1 {
 		t.Fatalf("failed to get services (%v)", svcs)
 	}
 
-	// get service instances
-
-	instances := ctl.InstancesByPort(svcs[0], 8080)
+	endpoints := GetEndpoints(svcs[0], ctl.Endpoints)
 
 	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
 
-	got := make([]string, 0, len(instances))
-	for _, instance := range instances {
-		got = append(got, net.JoinHostPort(instance.Endpoint.Address, strconv.Itoa(int(instance.Endpoint.EndpointPort))))
+	got := make([]string, 0, len(endpoints))
+	for _, instance := range endpoints {
+		got = append(got, net.JoinHostPort(instance.Address, strconv.Itoa(int(instance.EndpointPort))))
 	}
 	sort.Strings(got)
 
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Fatalf("InstancesByPort() returned unexpected list of endpoints (--want/++got): %v", diff)
-	}
+	assert.Equal(t, want, got)
 }
 
 func TestExternalNameServiceInstances(t *testing.T) {
@@ -1683,13 +1675,14 @@ func TestExternalNameServiceInstances(t *testing.T) {
 	if len(converted) != 1 {
 		t.Fatalf("failed to get services (%v)s", converted)
 	}
-	instances := controller.InstancesByPort(converted[0], 1)
-	if len(instances) != 1 {
-		t.Fatalf("expected 1 instance, got %v", instances)
-	}
-	if instances[0].ServicePort.Port != 1 {
-		t.Fatalf("expected port 1, got %v", instances[0].ServicePort.Port)
-	}
+	eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
+	assert.Equal(t, len(eps), 1)
+	assert.Equal(t, eps[0], &model.IstioEndpoint{
+		Address:               "foo.co",
+		ServicePortName:       "tcp-port-1",
+		EndpointPort:          1,
+		DiscoverabilityPolicy: model.AlwaysDiscoverable,
+	})
 }
 
 func TestController_ExternalNameService(t *testing.T) {
@@ -1718,7 +1711,7 @@ func TestController_ExternalNameService(t *testing.T) {
 			Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 			Ports: model.PortList{
 				&model.Port{
-					Name:     "tcp-port",
+					Name:     "tcp-port-8080",
 					Port:     8080,
 					Protocol: protocol.TCP,
 				},
@@ -1730,7 +1723,7 @@ func TestController_ExternalNameService(t *testing.T) {
 			Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
 			Ports: model.PortList{
 				&model.Port{
-					Name:     "tcp-port",
+					Name:     "tcp-port-8081",
 					Port:     8081,
 					Protocol: protocol.TCP,
 				},
@@ -1742,7 +1735,7 @@ func TestController_ExternalNameService(t *testing.T) {
 			Hostname: kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
 			Ports: model.PortList{
 				&model.Port{
-					Name:     "tcp-port",
+					Name:     "tcp-port-8082",
 					Port:     8082,
 					Protocol: protocol.TCP,
 				},
@@ -1754,7 +1747,7 @@ func TestController_ExternalNameService(t *testing.T) {
 			Hostname: kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
 			Ports: model.PortList{
 				&model.Port{
-					Name:     "tcp-port",
+					Name:     "tcp-port-8083",
 					Port:     8083,
 					Protocol: protocol.TCP,
 				},
@@ -1781,13 +1774,9 @@ func TestController_ExternalNameService(t *testing.T) {
 		if svcList[i].Resolution != exp.Resolution {
 			t.Fatalf("i=%v, Resolution=='%v', should be '%v'", i+1, svcList[i].Resolution, exp.Resolution)
 		}
-		instances := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port)
-		if len(instances) != 1 {
-			t.Fatalf("should be exactly 1 instance: len(instances) = %v", len(instances))
-		}
-		if instances[0].Endpoint.Address != k8sSvcs[i].Spec.ExternalName {
-			t.Fatalf("wrong instance endpoint address: '%s' != '%s'", instances[0].Endpoint.Address, k8sSvcs[i].Spec.ExternalName)
-		}
+		endpoints := GetEndpoints(svcList[i], controller.Endpoints)
+		assert.Equal(t, len(endpoints), 1)
+		assert.Equal(t, endpoints[0].Address, k8sSvcs[i].Spec.ExternalName)
 	}
 
 	deleteWg.Add(len(k8sSvcs))
@@ -1801,10 +1790,8 @@ func TestController_ExternalNameService(t *testing.T) {
 		t.Fatalf("Should have 0 services at this point")
 	}
 	for _, exp := range expectedSvcList {
-		instances := controller.InstancesByPort(exp, exp.Ports[0].Port)
-		if len(instances) != 0 {
-			t.Fatalf("should be exactly 0 instance: len(instances) = %v", len(instances))
-		}
+		endpoints := GetEndpoints(exp, controller.Endpoints)
+		assert.Equal(t, len(endpoints), 0)
 	}
 }
 
@@ -1939,6 +1926,7 @@ func createServiceWithTargetPorts(controller *FakeController, name, namespace st
 	}
 
 	clienttest.Wrap(t, controller.services).Create(service)
+	controller.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "service")
 }
 
 func createServiceWait(controller *FakeController, name, namespace string, labels, annotations map[string]string,
@@ -2049,7 +2037,7 @@ func createExternalNameService(controller *FakeController, name, namespace strin
 	svcPorts := make([]corev1.ServicePort, 0)
 	for _, p := range ports {
 		svcPorts = append(svcPorts, corev1.ServicePort{
-			Name:     "tcp-port",
+			Name:     fmt.Sprintf("tcp-port-%d", p),
 			Port:     p,
 			Protocol: "http",
 		})
@@ -2067,7 +2055,7 @@ func createExternalNameService(controller *FakeController, name, namespace strin
 	}
 
 	clienttest.Wrap(t, controller.services).Create(service)
-	xdsEvents.WaitOrFail(t, "service")
+	xdsEvents.MatchOrFail(t, xdsfake.Event{Type: "service"}, xdsfake.Event{Type: "eds cache"})
 	return service
 }
 
@@ -2417,10 +2405,10 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	if len(converted) != 1 {
 		t.Fatalf("failed to get services (%v), converted", converted)
 	}
-	instances := controller.InstancesByPort(converted[0], 8080)
+	endpoints := GetEndpoints(converted[0], controller.Endpoints)
 	gotEndpointIPs = []string{}
-	for _, instance := range instances {
-		gotEndpointIPs = append(gotEndpointIPs, instance.Endpoint.Address)
+	for _, instance := range endpoints {
+		gotEndpointIPs = append(gotEndpointIPs, instance.Address)
 	}
 	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
 		t.Fatalf("InstancesByPort after adding workload entry did not match expected list. got %v, want %v",
@@ -2577,7 +2565,7 @@ func TestDiscoverySelector(t *testing.T) {
 			},
 		},
 	})
-	ctl, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{NetworksWatcher: networksWatcher})
+	ctl, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{NetworksWatcher: networksWatcher})
 	t.Parallel()
 	ns := "ns-test"
 
@@ -2586,7 +2574,6 @@ func TestDiscoverySelector(t *testing.T) {
 	var sds model.ServiceDiscovery = ctl
 	// "test", ports: http-example on 80
 	makeService(testService, ns, ctl, t)
-	<-fx.Events
 
 	eventually(t, func() bool {
 		out := sds.Services()
@@ -2604,33 +2591,12 @@ func TestDiscoverySelector(t *testing.T) {
 		return false
 	})
 
-	// 2 ports 1001, 2 IPs
-	createEndpoints(t, ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, nil, nil)
-
 	svc := sds.GetService(hostname)
 	if svc == nil {
 		t.Fatalf("GetService(%q) => should exists", hostname)
 	}
 	if svc.Hostname != hostname {
 		t.Fatalf("GetService(%q) => %q", hostname, svc.Hostname)
-	}
-
-	eventually(t, func() bool {
-		ep := sds.InstancesByPort(svc, 80)
-		return len(ep) == 2
-	})
-
-	ep := sds.InstancesByPort(svc, 80)
-	if len(ep) != 2 {
-		t.Fatalf("Invalid response for GetInstancesByPort %v", ep)
-	}
-
-	if ep[0].Endpoint.Address == "10.10.1.1" && ep[0].Endpoint.Network != "network1" {
-		t.Fatalf("Endpoint with IP 10.10.1.1 is expected to be in network1 but get: %s", ep[0].Endpoint.Network)
-	}
-
-	if ep[1].Endpoint.Address == "10.11.1.2" && ep[1].Endpoint.Network != "network2" {
-		t.Fatalf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Endpoint.Network)
 	}
 
 	missing := kube.ServiceHostname("does-not-exist", ns, defaultFakeDomainSuffix)

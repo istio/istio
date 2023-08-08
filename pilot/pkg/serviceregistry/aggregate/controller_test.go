@@ -261,38 +261,6 @@ func TestGetProxyWorkloadLabels(t *testing.T) {
 	}
 }
 
-func TestInstances(t *testing.T) {
-	aggregateCtl := buildMockController()
-
-	// Get Instances from mockAdapter1
-	instances := aggregateCtl.InstancesByPort(mock.HelloService, 80)
-	if len(instances) != 2 {
-		t.Fatal("Returned wrong number of instances from controller")
-	}
-	for _, instance := range instances {
-		if instance.Service.Hostname != mock.HelloService.Hostname {
-			t.Fatal("Returned instance's hostname does not match desired value")
-		}
-		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
-			t.Fatal("Returned instance does not contain desired port")
-		}
-	}
-
-	// Get Instances from mockAdapter2
-	instances = aggregateCtl.InstancesByPort(mock.WorldService, 80)
-	if len(instances) != 2 {
-		t.Fatal("Returned wrong number of instances from controller")
-	}
-	for _, instance := range instances {
-		if instance.Service.Hostname != mock.WorldService.Hostname {
-			t.Fatal("Returned instance's hostname does not match desired value")
-		}
-		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
-			t.Fatal("Returned instance does not contain desired port")
-		}
-	}
-}
-
 func TestAddRegistry(t *testing.T) {
 	registries := []serviceregistry.Simple{
 		{

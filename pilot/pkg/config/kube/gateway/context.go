@@ -78,7 +78,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 		}
 		svcKey := svc.Key()
 		for port := range ports {
-			instances := gc.ps.ServiceInstancesByPort(svc, port, nil)
+			instances := gc.ps.ServiceEndpointsByPort(svc, port, nil)
 			if len(instances) > 0 {
 				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
 				if svc.Attributes.ClusterExternalAddresses.Len() > 0 {
@@ -93,15 +93,15 @@ func (gc GatewayContext) ResolveGatewayInstances(
 					}
 				}
 			} else {
-				instancesByPort := gc.ps.ServiceInstances(svcKey)
+				instancesByPort := gc.ps.ServiceEndpoints(svcKey)
 				if instancesEmpty(instancesByPort) {
 					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
 				} else {
 					hintPort := sets.New[string]()
-					for _, instances := range instancesByPort {
+					for servicePort, instances := range instancesByPort {
 						for _, i := range instances {
-							if i.Endpoint.EndpointPort == uint32(port) {
-								hintPort.Insert(strconv.Itoa(i.ServicePort.Port))
+							if i.EndpointPort == uint32(port) {
+								hintPort.Insert(strconv.Itoa(servicePort))
 							}
 						}
 					}
@@ -124,7 +124,7 @@ func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {
 	return gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(hostname)][namespace]
 }
 
-func instancesEmpty(m map[int][]*model.ServiceInstance) bool {
+func instancesEmpty(m map[int][]*model.IstioEndpoint) bool {
 	for _, instances := range m {
 		if len(instances) > 0 {
 			return false

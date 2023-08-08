@@ -483,7 +483,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 		return nil
 	}
 
-	instances := cb.req.Push.ServiceInstancesByPort(service, port, labels)
+	instances := cb.req.Push.ServiceEndpointsByPort(service, port, labels)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
@@ -493,28 +493,28 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 	for _, instance := range instances {
 		// Only send endpoints from the networks in the network view requested by the proxy.
 		// The default network view assigned to the Proxy is nil, in that case match any network.
-		if !proxyView.IsVisible(instance.Endpoint) {
+		if !proxyView.IsVisible(instance) {
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 			continue
 		}
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (cb.clusterID != string(instance.Endpoint.Locality.ClusterID)) {
+		if isClusterLocal && (cb.clusterID != string(instance.Locality.ClusterID)) {
 			continue
 		}
 		// TODO(nmittler): Consider merging discoverability policy with cluster-local
 		// TODO(ramaraochavali): Find a better way here so that we do not have build proxy.
 		// Currently it works because we only determine discoverability only by cluster.
-		if !instance.Endpoint.IsDiscoverableFromProxy(&model.Proxy{Metadata: &model.NodeMetadata{ClusterID: istio_cluster.ID(cb.clusterID)}}) {
+		if !instance.IsDiscoverableFromProxy(&model.Proxy{Metadata: &model.NodeMetadata{ClusterID: istio_cluster.ID(cb.clusterID)}}) {
 			continue
 		}
 
 		// TODO(stevenctl) share code with EDS to filter this and do multi-network mapping
-		if instance.Endpoint.Address == "" {
+		if instance.Address == "" {
 			continue
 		}
 
-		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
+		addr := util.BuildAddress(instance.Address, instance.EndpointPort)
 		ep := &endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 				Endpoint: &endpoint.Endpoint{
@@ -522,7 +522,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 				},
 			},
 			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: instance.Endpoint.GetLoadBalancingWeight(),
+				Value: instance.GetLoadBalancingWeight(),
 			},
 			Metadata: &core.Metadata{},
 		}
@@ -531,23 +531,23 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 		if features.CanonicalServiceForMeshExternalServiceEntry && service.MeshExternal {
 			svcLabels := service.Attributes.Labels
 			if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
-				metadata = instance.Endpoint.MetadataClone()
+				metadata = instance.MetadataClone()
 				if metadata.Labels == nil {
 					metadata.Labels = make(map[string]string)
 				}
 				metadata.Labels[model.IstioCanonicalServiceLabelName] = svcLabels[model.IstioCanonicalServiceLabelName]
 				metadata.Labels[model.IstioCanonicalServiceRevisionLabelName] = svcLabels[model.IstioCanonicalServiceRevisionLabelName]
 			} else {
-				metadata = instance.Endpoint.Metadata()
+				metadata = instance.Metadata()
 			}
 			metadata.Namespace = service.Attributes.Namespace
 		} else {
-			metadata = instance.Endpoint.Metadata()
+			metadata = instance.Metadata()
 		}
 
 		util.AppendLbEndpointMetadata(metadata, ep.Metadata)
 
-		locality := instance.Endpoint.Locality.Label
+		locality := instance.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
 

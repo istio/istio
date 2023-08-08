@@ -2711,7 +2711,8 @@ func TestInitVirtualService(t *testing.T) {
 
 func TestServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
+	env := NewEnvironment()
+	env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
 	ps.Mesh = env.Mesh()
 
 	svc1 := &Service{
@@ -2935,10 +2936,6 @@ func (l *localServiceDiscovery) Services() []*Service {
 
 func (l *localServiceDiscovery) GetService(host.Name) *Service {
 	panic("implement me")
-}
-
-func (l *localServiceDiscovery) InstancesByPort(*Service, int) []*ServiceInstance {
-	return l.serviceInstances
 }
 
 func (l *localServiceDiscovery) GetProxyServiceTargets(*Proxy) []ServiceTarget {

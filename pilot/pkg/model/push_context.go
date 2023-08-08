@@ -71,7 +71,7 @@ type serviceIndex struct {
 	// instancesByPort contains a map of service key and instances by port. It is stored here
 	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
 	// Call InstancesByPort directly when instances need to be filtered by actual labels.
-	instancesByPort map[string]map[int][]*ServiceInstance
+	instancesByPort map[string]map[int][]*IstioEndpoint
 }
 
 func newServiceIndex() serviceIndex {
@@ -80,7 +80,7 @@ func newServiceIndex() serviceIndex {
 		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
-		instancesByPort:      map[string]map[int][]*ServiceInstance{},
+		instancesByPort:      map[string]map[int][]*IstioEndpoint{},
 	}
 }
 
@@ -707,11 +707,11 @@ func (ps *PushContext) AddPublicServices(services []*Service) {
 }
 
 // AddServiceInstances adds instances to the context service instances - mainly used in tests.
-func (ps *PushContext) AddServiceInstances(service *Service, instances map[int][]*ServiceInstance) {
+func (ps *PushContext) AddServiceInstances(service *Service, instances map[int][]*IstioEndpoint) {
 	svcKey := service.Key()
 	for port, inst := range instances {
 		if _, exists := ps.ServiceIndex.instancesByPort[svcKey]; !exists {
-			ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
+			ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*IstioEndpoint)
 		}
 		ps.ServiceIndex.instancesByPort[svcKey][port] = append(ps.ServiceIndex.instancesByPort[svcKey][port], inst...)
 	}
@@ -1370,17 +1370,19 @@ func (ps *PushContext) initServiceRegistry(env *Environment) {
 	// Sort the services in order of creation.
 	allServices := SortServicesByCreationTime(env.Services())
 	for _, s := range allServices {
-		svcKey := s.Key()
-		// Precache instances
+		portMap := map[string]int{}
 		for _, port := range s.Ports {
-			if _, ok := ps.ServiceIndex.instancesByPort[svcKey]; !ok {
-				ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
-			}
-			instances := make([]*ServiceInstance, 0)
-			instances = append(instances, env.InstancesByPort(s, port.Port)...)
-			ps.ServiceIndex.instancesByPort[svcKey][port.Port] = instances
+			portMap[port.Name] = port.Port
 		}
 
+		svcKey := s.Key()
+		if _, ok := ps.ServiceIndex.instancesByPort[svcKey]; !ok {
+			ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*IstioEndpoint)
+		}
+		shards, ok := env.EndpointIndex.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
+		if ok {
+			ps.ServiceIndex.instancesByPort[svcKey] = shards.CopyEndpoints(portMap)
+		}
 		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
 		}
@@ -2068,13 +2070,13 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 	// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
 	// A service with passthrough resolution is always passthrough, regardless of the TrafficPolicy.
 	if service.Resolution == Passthrough || tp.GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH {
-		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
+		instances := ps.ServiceEndpointsByPort(service, port.Port, nil)
 		if len(instances) == 0 {
 			return MTLSDisable
 		}
 		for _, i := range instances {
 			// Infer mTls disabled if any of the endpoint is with tls disabled
-			if i.Endpoint.TLSMode == DisabledTLSModeLabel {
+			if i.TLSMode == DisabledTLSModeLabel {
 				return MTLSDisable
 			}
 		}
@@ -2090,9 +2092,9 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 	return MTLSPermissive
 }
 
-// ServiceInstancesByPort returns the cached instances by port if it exists.
-func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Instance) []*ServiceInstance {
-	out := []*ServiceInstance{}
+// ServiceEndpointsByPort returns the cached instances by port if it exists.
+func (ps *PushContext) ServiceEndpointsByPort(svc *Service, port int, labels labels.Instance) []*IstioEndpoint {
+	out := []*IstioEndpoint{}
 	if instances, exists := ps.ServiceIndex.instancesByPort[svc.Key()][port]; exists {
 		// Use cached version of instances by port when labels are empty.
 		if len(labels) == 0 {
@@ -2101,7 +2103,7 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 		// If there are labels,	we will filter instances by pod labels.
 		for _, instance := range instances {
 			// check that one of the input labels is a subset of the labels
-			if labels.SubsetOf(instance.Endpoint.Labels) {
+			if labels.SubsetOf(instance.Labels) {
 				out = append(out, instance)
 			}
 		}
@@ -2110,8 +2112,8 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 	return out
 }
 
-// ServiceInstances returns the cached instances by svc if exists.
-func (ps *PushContext) ServiceInstances(svcKey string) map[int][]*ServiceInstance {
+// ServiceEndpoints returns the cached instances by svc if exists.
+func (ps *PushContext) ServiceEndpoints(svcKey string) map[int][]*IstioEndpoint {
 	if instances, exists := ps.ServiceIndex.instancesByPort[svcKey]; exists {
 		return instances
 	}
