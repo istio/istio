@@ -600,7 +600,7 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 }
 
 // setTopologyLabels sets locality, cluster, network label
-// must be called after `SetWorkloadLabels` and `SetServiceInstances`.
+// must be called after `SetWorkloadLabels` and `SetServiceTargets`.
 func setTopologyLabels(proxy *model.Proxy) {
 	// This is a bit un-intuitive, but pull the locality from Labels first. The service registries have the best access to
 	// locality information, as they can read from various sources (Node on Kubernetes, for example). They will take this
@@ -670,7 +670,7 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 }
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
-	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
+	proxy.SetServiceTargets(s.Env.ServiceDiscovery)
 	// only recompute workload labels when
 	// 1. stream established and proxy first time initialization
 	// 2. proxy update

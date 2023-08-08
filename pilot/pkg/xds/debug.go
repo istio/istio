@@ -1075,11 +1075,11 @@ func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 }
 
 func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
-	instances := map[string][]*model.ServiceInstance{}
+	instances := map[string][]model.ServiceTarget{}
 	for _, con := range s.Clients() {
 		con.proxy.RLock()
 		if con.proxy != nil {
-			instances[con.proxy.ID] = con.proxy.ServiceInstances
+			instances[con.proxy.ID] = con.proxy.ServiceTargets
 		}
 		con.proxy.RUnlock()
 	}

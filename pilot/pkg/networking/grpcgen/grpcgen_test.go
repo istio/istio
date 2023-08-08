@@ -366,7 +366,7 @@ func initPersistent(sd *memory.ServiceDiscovery) {
 func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname string, port int, mtls bool) {
 	ns := "test"
 	hn := svcname + "." + ns + ".svc.cluster.local"
-	// The 'memory' store GetProxyServiceInstances uses the IP address of the node and endpoints to
+	// The 'memory' store GetProxyServiceTargets uses the IP address of the node and endpoints to
 	// identify the service. In k8s store, labels are matched instead.
 	// For server configs to work, the server XDS bootstrap must match the IP.
 	sd.AddService(&model.Service{

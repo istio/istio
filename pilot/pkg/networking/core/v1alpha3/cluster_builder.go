@@ -84,22 +84,22 @@ type metadataCerts struct {
 // ClusterBuilder interface provides an abstraction for building Envoy Clusters.
 type ClusterBuilder struct {
 	// Proxy related information used to build clusters.
-	serviceInstances   []*model.ServiceInstance // Service instances of Proxy.
-	metadataCerts      *metadataCerts           // Client certificates specified in metadata.
-	clusterID          string                   // Cluster in which proxy is running.
-	proxyID            string                   // Identifier that uniquely identifies a proxy.
-	proxyVersion       string                   // Version of Proxy.
-	proxyType          model.NodeType           // Indicates whether the proxy is sidecar or gateway.
-	sidecarScope       *model.SidecarScope      // Computed sidecar for the proxy.
-	passThroughBindIPs []string                 // Passthrough IPs to be used while building clusters.
-	supportsIPv4       bool                     // Whether Proxy IPs has IPv4 address.
-	supportsIPv6       bool                     // Whether Proxy IPs has IPv6 address.
-	hbone              bool                     // Does the proxy support HBONE
-	locality           *core.Locality           // Locality information of proxy.
-	proxyLabels        map[string]string        // Proxy labels.
-	proxyView          model.ProxyView          // Proxy view of endpoints.
-	proxyIPAddresses   []string                 // IP addresses on which proxy is listening on.
-	configNamespace    string                   // Proxy config namespace.
+	serviceTargets     []model.ServiceTarget // Service targets of Proxy.
+	metadataCerts      *metadataCerts        // Client certificates specified in metadata.
+	clusterID          string                // Cluster in which proxy is running.
+	proxyID            string                // Identifier that uniquely identifies a proxy.
+	proxyVersion       string                // Version of Proxy.
+	proxyType          model.NodeType        // Indicates whether the proxy is sidecar or gateway.
+	sidecarScope       *model.SidecarScope   // Computed sidecar for the proxy.
+	passThroughBindIPs []string              // Passthrough IPs to be used while building clusters.
+	supportsIPv4       bool                  // Whether Proxy IPs has IPv4 address.
+	supportsIPv6       bool                  // Whether Proxy IPs has IPv6 address.
+	hbone              bool                  // Does the proxy support HBONE
+	locality           *core.Locality        // Locality information of proxy.
+	proxyLabels        map[string]string     // Proxy labels.
+	proxyView          model.ProxyView       // Proxy view of endpoints.
+	proxyIPAddresses   []string              // IP addresses on which proxy is listening on.
+	configNamespace    string                // Proxy config namespace.
 	// PushRequest to look for updates.
 	req                   *model.PushRequest
 	cache                 model.XdsCache
@@ -109,7 +109,7 @@ type ClusterBuilder struct {
 // NewClusterBuilder builds an instance of ClusterBuilder.
 func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
 	cb := &ClusterBuilder{
-		serviceInstances:   proxy.ServiceInstances,
+		serviceTargets:     proxy.ServiceTargets,
 		proxyID:            proxy.ID,
 		proxyType:          proxy.Type,
 		proxyVersion:       proxy.Metadata.IstioVersion,
@@ -230,13 +230,13 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
-		mesh:             cb.req.Push.Mesh,
-		serviceInstances: cb.serviceInstances,
-		mutable:          mc,
-		policy:           trafficPolicy,
-		port:             port,
-		clusterMode:      clusterMode,
-		direction:        model.TrafficDirectionOutbound,
+		mesh:           cb.req.Push.Mesh,
+		serviceTargets: cb.serviceTargets,
+		mutable:        mc,
+		policy:         trafficPolicy,
+		port:           port,
+		clusterMode:    clusterMode,
+		direction:      model.TrafficDirectionOutbound,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -336,7 +336,7 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 // It is used for building both inbound and outbound cluster.
 func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
-	port *model.Port, service *model.Service, inboundServices []ServiceTarget,
+	port *model.Port, service *model.Service, inboundServices []model.ServiceTarget,
 ) *clusterWrapper {
 	c := &cluster.Cluster{
 		Name:                 name,
@@ -390,15 +390,6 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	return ec
 }
 
-// ServiceTarget includes a Service object, along with a specific service port
-// and target port. This is basically a smaller version of model.ServiceInstance,
-// intended to avoid the need to have the full object when only port information
-// is needed.
-type ServiceTarget struct {
-	Service *model.Service
-	Port    ServiceInstancePort
-}
-
 // buildInboundCluster constructs a single inbound cluster. The cluster will be bound to
 // `inbound|clusterPort||`, and send traffic to <bind>:<instance.Endpoint.EndpointPort>. A workload
 // will have a single inbound cluster per port. In general this works properly, with the exception of
@@ -407,7 +398,7 @@ type ServiceTarget struct {
 // Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
 // Sidecar.Ingress allows these to be different.
 func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
-	proxy *model.Proxy, instance ServiceTarget, inboundServices []ServiceTarget,
+	proxy *model.Proxy, instance model.ServiceTarget, inboundServices []model.ServiceTarget,
 ) *clusterWrapper {
 	clusterName := model.BuildInboundSubsetKey(clusterPort)
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Port.TargetPort)
@@ -424,15 +415,15 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 	}
 
 	opts := buildClusterOpts{
-		mesh:             cb.req.Push.Mesh,
-		mutable:          localCluster,
-		policy:           nil,
-		port:             instance.Port.ServicePort,
-		serviceAccounts:  nil,
-		serviceInstances: cb.serviceInstances,
-		istioMtlsSni:     "",
-		clusterMode:      DefaultClusterMode,
-		direction:        model.TrafficDirectionInbound,
+		mesh:            cb.req.Push.Mesh,
+		mutable:         localCluster,
+		policy:          nil,
+		port:            instance.Port.ServicePort,
+		serviceAccounts: nil,
+		serviceTargets:  cb.serviceTargets,
+		istioMtlsSni:    "",
+		clusterMode:     DefaultClusterMode,
+		direction:       model.TrafficDirectionInbound,
 	}
 	// When users specify circuit breakers, they need to be set on the receiver end
 	// (server side) as well as client side, so that the server has enough capacity
@@ -890,7 +881,7 @@ func configureALPNOverride(tlsMode networking.ClientTLSSettings_TLSmode, md *cor
 
 func addTelemetryMetadata(cluster *cluster.Cluster,
 	port *model.Port, service *model.Service,
-	direction model.TrafficDirection, inboundServices []ServiceTarget,
+	direction model.TrafficDirection, inboundServices []model.ServiceTarget,
 ) {
 	if !features.EnableTelemetryLabel {
 		return

@@ -202,7 +202,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	resources := model.Resources{}
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
 	cb := NewClusterBuilder(proxy, req, configgen.Cache)
-	instances := proxy.ServiceInstances
+	instances := proxy.ServiceTargets
 	cacheStats := cacheStats{}
 	switch proxy.Type {
 	case model.SidecarProxy:
@@ -455,12 +455,12 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 }
 
 func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.Proxy,
-	instances []*model.ServiceInstance, cp clusterPatcher,
+	instances []model.ServiceTarget, cp clusterPatcher,
 	enableSidecarServiceInboundListenerMerge bool,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
-	clustersToBuild := make(map[int][]*model.ServiceInstance)
+	clustersToBuild := make(map[int][]model.ServiceTarget)
 
 	ingressPortListSet := sets.New[int]()
 	sidecarScope := proxy.SidecarScope
@@ -472,7 +472,7 @@ func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.P
 		// we still need to capture all the instances on this port, as its required to populate telemetry metadata
 		// The first instance will be used as the "primary" instance; this means if we have an conflicts between
 		// Services the first one wins
-		port := int(instance.Endpoint.EndpointPort)
+		port := int(instance.Port.TargetPort)
 		clustersToBuild[port] = append(clustersToBuild[port], instance)
 	}
 
@@ -482,23 +482,14 @@ func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.P
 	}
 	// For each workload port, we will construct a cluster
 	for epPort, instances := range clustersToBuild {
-		if ingressPortListSet.Contains(int(instances[0].Endpoint.EndpointPort)) {
+		if ingressPortListSet.Contains(int(instances[0].Port.TargetPort)) {
 			// here if port is declared in service and sidecar ingress both, we continue to take the one on sidecar + other service ports
 			// e.g. 1,2, 3 in service and 3,4 in sidecar ingress,
 			// this will still generate listeners for 1,2,3,4 where 3 is picked from sidecar ingress
 			// port present in sidecarIngress listener so let sidecar take precedence
 			continue
 		}
-		services := slices.Map(instances, func(e *model.ServiceInstance) ServiceTarget {
-			return ServiceTarget{
-				Service: e.Service,
-				Port: ServiceInstancePort{
-					ServicePort: e.ServicePort,
-					TargetPort:  e.Endpoint.EndpointPort,
-				},
-			}
-		})
-		localCluster := cb.buildInboundCluster(epPort, bind, proxy, services[0], services)
+		localCluster := cb.buildInboundCluster(epPort, bind, proxy, instances[0], instances)
 		// If inbound cluster match has service, we should see if it matches with any host name across all instances.
 		hosts := make([]host.Name, 0, len(instances))
 		for _, si := range instances {
@@ -509,7 +500,7 @@ func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.P
 	return clusters
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance,
+func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []model.ServiceTarget,
 	cp clusterPatcher,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
@@ -542,7 +533,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 }
 
 func buildInboundClustersFromSidecar(cb *ClusterBuilder, proxy *model.Proxy,
-	instances []*model.ServiceInstance, cp clusterPatcher,
+	instances []model.ServiceTarget, cp clusterPatcher,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
@@ -606,9 +597,9 @@ func buildInboundClustersFromSidecar(cb *ClusterBuilder, proxy *model.Proxy,
 		// for a service instance that matches this ingress port as this will allow us
 		// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
 		svc := findOrCreateService(instances, ingressListener, sidecarScope.Name, sidecarScope.Namespace)
-		endpoint := ServiceTarget{
+		endpoint := model.ServiceTarget{
 			Service: svc,
-			Port: ServiceInstancePort{
+			Port: model.ServiceInstancePort{
 				ServicePort: listenPort,
 				TargetPort:  uint32(port),
 			},
@@ -619,11 +610,11 @@ func buildInboundClustersFromSidecar(cb *ClusterBuilder, proxy *model.Proxy,
 	return clusters
 }
 
-func findOrCreateService(instances []*model.ServiceInstance,
+func findOrCreateService(instances []model.ServiceTarget,
 	ingressListener *networking.IstioIngressListener, sidecar string, sidecarns string,
 ) *model.Service {
 	for _, realInstance := range instances {
-		if realInstance.Endpoint.EndpointPort == ingressListener.Port.Number {
+		if realInstance.Port.TargetPort == ingressListener.Port.Number {
 			return realInstance.Service
 		}
 	}
@@ -672,12 +663,12 @@ const (
 )
 
 type buildClusterOpts struct {
-	mesh             *meshconfig.MeshConfig
-	mutable          *clusterWrapper
-	policy           *networking.TrafficPolicy
-	port             *model.Port
-	serviceAccounts  []string
-	serviceInstances []*model.ServiceInstance
+	mesh            *meshconfig.MeshConfig
+	mutable         *clusterWrapper
+	policy          *networking.TrafficPolicy
+	port            *model.Port
+	serviceAccounts []string
+	serviceTargets  []model.ServiceTarget
 	// Used for traffic across multiple network clusters
 	// the east-west gateway in a remote cluster will use this value to route
 	// traffic to the appropriate service

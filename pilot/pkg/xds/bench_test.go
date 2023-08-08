@@ -487,7 +487,7 @@ func initPushContext(env *model.Environment, proxy *model.Proxy) {
 	pushContext.InitContext(env, nil, nil)
 	proxy.SetSidecarScope(pushContext)
 	proxy.SetGatewaysForProxy(pushContext)
-	proxy.SetServiceInstances(env.ServiceDiscovery)
+	proxy.SetServiceTargets(env.ServiceDiscovery)
 }
 
 var debugGeneration = env.Register("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")

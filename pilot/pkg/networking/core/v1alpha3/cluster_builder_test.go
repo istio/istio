@@ -562,7 +562,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
-			cg.MemRegistry.WantGetProxyServiceInstances = instances
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
@@ -3743,21 +3742,6 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetForTest(t, &features.VerifyCertAtClient, tt.enableVerifyCertAtClient)
-			instances := []*model.ServiceInstance{
-				{
-					Service:     tt.service,
-					ServicePort: tt.port,
-					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.1",
-						EndpointPort: 10001,
-						Locality: model.Locality{
-							ClusterID: "",
-							Label:     "region1/zone1/subzone1",
-						},
-						TLSMode: model.IstioMutualTLSModeLabel,
-					},
-				},
-			}
 
 			var cfg *config.Config
 			if tt.destRule != nil {
@@ -3774,7 +3758,6 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
-			cg.MemRegistry.WantGetProxyServiceInstances = instances
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
@@ -4679,18 +4662,12 @@ func TestInsecureSkipVerify(t *testing.T) {
 			test.SetForTest(t, &features.EnableAutoSni, tc.enableAutoSni)
 			test.SetForTest(t, &features.VerifyCertAtClient, tc.enableVerifyCertAtClient)
 
-			instances := []*model.ServiceInstance{
+			targets := []model.ServiceTarget{
 				{
-					Service:     tc.service,
-					ServicePort: tc.port,
-					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.1",
-						EndpointPort: 10001,
-						Locality: model.Locality{
-							ClusterID: "",
-							Label:     "region1/zone1/subzone1",
-						},
-						TLSMode: model.IstioMutualTLSModeLabel,
+					Service: tc.service,
+					Port: model.ServiceInstancePort{
+						ServicePort: tc.port,
+						TargetPort:  10001,
 					},
 				},
 			}
@@ -4712,7 +4689,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 				Services:       []*model.Service{tc.service},
 			})
 
-			cg.MemRegistry.WantGetProxyServiceInstances = instances
+			cg.MemRegistry.WantGetProxyServiceTargets = targets
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 			ec := newClusterWrapper(tc.cluster)

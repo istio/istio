@@ -1403,18 +1403,12 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 		Resolution: model.ClientSideLB,
 	}
 
-	instances := []*model.ServiceInstance{
+	instances := []model.ServiceTarget{
 		{
-			Service:     service,
-			ServicePort: servicePort,
-			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.1",
-				EndpointPort: 7443,
-				Locality: model.Locality{
-					ClusterID: "",
-					Label:     "region1/zone1/subzone1",
-				},
-				LbWeight: 30,
+			Service: service,
+			Port: model.ServiceInstancePort{
+				ServicePort: servicePort,
+				TargetPort:  7443,
 			},
 		},
 	}
@@ -2100,7 +2094,7 @@ func TestTelemetryMetadata(t *testing.T) {
 		name      string
 		direction model.TrafficDirection
 		cluster   *cluster.Cluster
-		svcInsts  []ServiceTarget
+		svcInsts  []model.ServiceTarget
 		service   *model.Service
 		want      *core.Metadata
 	}{
@@ -2108,7 +2102,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "no cluster",
 			direction: model.TrafficDirectionInbound,
 			cluster:   nil,
-			svcInsts: []ServiceTarget{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2125,7 +2119,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound no service",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts:  []ServiceTarget{},
+			svcInsts:  []model.ServiceTarget{},
 			want:      nil,
 		},
 		{
@@ -2142,7 +2136,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []ServiceTarget{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2151,7 +2145,7 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					Port: ServiceInstancePort{
+					Port: model.ServiceInstancePort{
 						ServicePort: &model.Port{
 							Port: 80,
 						},
@@ -2217,7 +2211,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []ServiceTarget{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2226,7 +2220,7 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					Port: ServiceInstancePort{
+					Port: model.ServiceInstancePort{
 						ServicePort: &model.Port{
 							Port: 80,
 						},
@@ -2278,7 +2272,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound multiple services",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts: []ServiceTarget{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2287,7 +2281,7 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					Port: ServiceInstancePort{
+					Port: model.ServiceInstancePort{
 						ServicePort: &model.Port{
 							Port: 80,
 						},
@@ -2301,7 +2295,7 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "b.default",
 					},
-					Port: ServiceInstancePort{
+					Port: model.ServiceInstancePort{
 						ServicePort: &model.Port{
 							Port: 80,
 						},
@@ -2385,7 +2379,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []ServiceTarget{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2394,7 +2388,7 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					Port: ServiceInstancePort{
+					Port: model.ServiceInstancePort{
 						ServicePort: &model.Port{
 							Port: 80,
 						},
@@ -2496,7 +2490,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound duplicated metadata",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts: []ServiceTarget{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2505,7 +2499,7 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					Port: ServiceInstancePort{
+					Port: model.ServiceInstancePort{
 						ServicePort: &model.Port{
 							Port: 80,
 						},
@@ -2519,7 +2513,7 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					Port: ServiceInstancePort{
+					Port: model.ServiceInstancePort{
 						ServicePort: &model.Port{
 							Port: 80,
 						},

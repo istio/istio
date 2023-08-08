@@ -253,7 +253,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	// Initialize data structures
 	pc := f.PushContext()
 	p.SetSidecarScope(pc)
-	p.SetServiceInstances(f.env.ServiceDiscovery)
+	p.SetServiceTargets(f.env.ServiceDiscovery)
 	p.SetGatewaysForProxy(pc)
 	p.DiscoverIPMode()
 	return p

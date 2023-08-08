@@ -811,10 +811,10 @@ func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 	return port == 0 || port == instance.ServicePort.Port
 }
 
-// GetProxyServiceInstances lists service instances co-located with a given proxy
+// GetProxyServiceTargets lists service instances co-located with a given proxy
 // NOTE: The service objects in these instances do not have the auto allocated IP set.
-func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+func (s *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTarget {
+	out := make([]model.ServiceTarget, 0)
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, ip := range node.IPAddresses {
@@ -825,7 +825,7 @@ func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 			// possibility of other namespaces inserting service instances into namespaces they do not
 			// control.
 			if node.Metadata.Namespace == "" || i.Service.Attributes.Namespace == node.Metadata.Namespace {
-				out = append(out, i)
+				out = append(out, model.ServiceInstanceToTarget(i))
 			}
 		}
 	}

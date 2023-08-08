@@ -562,6 +562,37 @@ func makeInstanceWithServiceAccount(cfg *config.Config, address string, port int
 }
 
 // nolint: unparam
+func makeTarget(cfg *config.Config, address string, port int,
+	svcPort *networking.ServicePort, svcLabels map[string]string, mtlsMode MTLSMode,
+) model.ServiceTarget {
+	services := convertServices(*cfg)
+	svc := services[0] // default
+	for _, s := range services {
+		if string(s.Hostname) == address {
+			svc = s
+			break
+		}
+	}
+	if mtlsMode == MTLS {
+		if svcLabels == nil {
+			svcLabels = map[string]string{}
+		}
+		svcLabels[label.SecurityTlsMode.Name] = model.IstioMutualTLSModeLabel
+	}
+	return model.ServiceTarget{
+		Service: svc,
+		Port: model.ServiceInstancePort{
+			ServicePort: &model.Port{
+				Name:     svcPort.Name,
+				Port:     int(svcPort.Number),
+				Protocol: protocol.Parse(svcPort.Protocol),
+			},
+			TargetPort: uint32(port),
+		},
+	}
+}
+
+// nolint: unparam
 func makeInstance(cfg *config.Config, address string, port int,
 	svcPort *networking.ServicePort, svcLabels map[string]string, mtlsMode MTLSMode,
 ) *model.ServiceInstance {
