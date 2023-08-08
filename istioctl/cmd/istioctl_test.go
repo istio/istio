@@ -33,7 +33,7 @@ func TestBadParse(t *testing.T) {
 	}
 
 	// we should propagate to subcommands
-	rootCmd = GetRootCmd([]string{"x", "analyze", "--unknown-flag"})
+	rootCmd = GetRootCmd([]string{"analyze", "--unknown-flag"})
 	fErr = rootCmd.Execute()
 
 	switch fErr.(type) {
@@ -44,7 +44,7 @@ func TestBadParse(t *testing.T) {
 	}
 
 	// all of the subcommands
-	rootCmd = GetRootCmd([]string{"authz", "tls-check", "--unknown-flag"})
+	rootCmd = GetRootCmd([]string{"x", "authz", "check", "--unknown-flag"})
 	fErr = rootCmd.Execute()
 
 	switch fErr.(type) {
