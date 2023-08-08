@@ -1152,7 +1152,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				MeshExternal: false,
 				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
 			}
-			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
+			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
 			if defaultCluster != nil {
 				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.proxyView, nil, nil)
 			}
@@ -2059,7 +2059,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				mesh: push.Mesh,
 			}
 			if test.h2 {
-				cb.setH2Options(opts.mutable)
+				setH2Options(opts.mutable)
 			}
 			cb.applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
 
@@ -3208,7 +3208,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			}
 			cb := NewClusterBuilder(proxy, nil, model.DisabledCache{})
 			if tc.h2 {
-				cb.setH2Options(tc.opts.mutable)
+				setH2Options(tc.opts.mutable)
 			}
 			ret, err := cb.buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
@@ -3235,11 +3235,10 @@ func newTestCluster() *clusterWrapper {
 }
 
 func newH2TestCluster() *clusterWrapper {
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
 	mc := newClusterWrapper(&cluster.Cluster{
 		Name: "test-cluster",
 	})
-	cb.setH2Options(mc)
+	setH2Options(mc)
 	return mc
 }
 
@@ -3358,11 +3357,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			upgrade := cb.shouldH2Upgrade(test.clusterName, test.port, test.mesh, test.connectionPool)
+			upgrade := shouldH2Upgrade(test.clusterName, test.port, test.mesh, test.connectionPool)
 
 			if upgrade != test.upgrade {
 				t.Fatalf("got: %t, want: %t (%v, %v)", upgrade, test.upgrade, test.mesh.H2UpgradePolicy, test.connectionPool.Http.H2UpgradePolicy)
@@ -3574,7 +3571,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cb := NewClusterBuilder(tt.proxy, nil, nil)
-			gotTLS, gotCtxType := cb.buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
+			gotTLS, gotCtxType := cb.buildUpstreamTLSSettings(tt.tls, tt.sans, tt.sni, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
 			}

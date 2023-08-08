@@ -129,6 +129,11 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 		if d.Mirror != nil {
 			d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, meta))
 		}
+		for _, m := range d.Mirrors {
+			if m.Destination != nil {
+				m.Destination.Host = string(ResolveShortnameToFQDN(m.Destination.Host, meta))
+			}
+		}
 	}
 	// resolve host in tcp route.destination
 	for _, d := range rule.Tcp {

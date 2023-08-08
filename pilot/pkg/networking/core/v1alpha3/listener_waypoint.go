@@ -568,11 +568,14 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 
 	if in.Mirror != nil {
 		if mp := istio_route.MirrorPercent(in); mp != nil {
-			action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
-				Cluster:         lb.GetDestinationCluster(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort),
-				RuntimeFraction: mp,
-				TraceSampled:    &wrappers.BoolValue{Value: false},
-			}}
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				istio_route.TranslateRequestMirrorPolicy(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort, mp))
+		}
+	}
+	for _, mirror := range in.Mirrors {
+		if mp := istio_route.MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				istio_route.TranslateRequestMirrorPolicy(mirror.Destination, lb.serviceForHostname(host.Name(mirror.Destination.Host)), listenerPort, mp))
 		}
 	}
 

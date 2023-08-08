@@ -165,10 +165,9 @@ func (c cacheStats) merge(other cacheStats) cacheStats {
 	}
 }
 
-func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) *clusterCache {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-	clusterKey := &clusterCache{
-		clusterName:     clusterName,
+func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) clusterCache {
+	return clusterCache{
+		clusterName:     model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port),
 		proxyVersion:    cb.proxyVersion,
 		locality:        cb.locality,
 		proxyClusterID:  cb.clusterID,
@@ -185,5 +184,4 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
 		serviceAccounts: cb.req.Push.ServiceAccounts(service.Hostname, service.Attributes.Namespace, port.Port),
 	}
-	return clusterKey
 }

@@ -35,6 +35,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -220,8 +221,8 @@ func TestEds(t *testing.T) {
 	m.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 	m.SetEndpoints(edsIncSvc, "", newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 
-	adscConn := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.10"}}, nil, watchAll)
-	adscConn2 := s.Connect(&model.Proxy{IPAddresses: []string{"10.10.10.11"}}, nil, watchAll)
+	adscConn := s.Connect(&model.Proxy{Locality: util.ConvertLocality(asdcLocality), IPAddresses: []string{"10.10.10.10"}}, nil, watchAll)
+	adscConn2 := s.Connect(&model.Proxy{Locality: util.ConvertLocality(asdc2Locality), IPAddresses: []string{"10.10.10.11"}}, nil, watchAll)
 
 	t.Run("TCPEndpoints", func(t *testing.T) {
 		testTCPEndpoints("127.0.0.1", adscConn, t)
@@ -523,6 +524,7 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 			addEdsCluster(s, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
 			addEdsCluster(s, "other.local", "http", "1.1.1.1", 8080)
+			s.EnsureSynced(t) // Wait for debounce
 
 			adscConn := s.Connect(nil, nil, watchAll)
 
@@ -567,6 +569,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 			addEdsCluster(s, "flipflop.com", "http", "10.0.0.53", 8080)
+			s.EnsureSynced(t) // Wait for debounce
 			adscConn := s.Connect(nil, nil, watchAll)
 
 			// Validate that endpoints are pushed correctly.

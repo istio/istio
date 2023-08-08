@@ -144,10 +144,9 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	msd.AddGateways(opts.Gateways...)
 	msd.ClusterID = cluster2.ID(provider.Mock)
 	memserviceRegistry := serviceregistry.Simple{
-		ClusterID:        cluster2.ID(provider.Mock),
-		ProviderID:       provider.Mock,
-		ServiceDiscovery: msd,
-		Controller:       msd.Controller,
+		ClusterID:           cluster2.ID(provider.Mock),
+		ProviderID:          provider.Mock,
+		DiscoveryController: msd,
 	}
 	serviceDiscovery.AddRegistry(memserviceRegistry)
 	for _, reg := range opts.ServiceRegistries {
@@ -217,7 +216,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.19.0"
+		p.Metadata.IstioVersion = "1.20.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)

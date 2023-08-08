@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue: []
+
+releaseNotes:
+  - |
+    **Added** an flag to disable OTel builtin resource labels.

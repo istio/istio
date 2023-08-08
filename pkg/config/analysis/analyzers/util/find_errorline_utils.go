@@ -34,6 +34,10 @@ const (
 	// Required parameters: http index.
 	MirrorHost = "{.spec.http[%d].mirror.host}"
 
+	// Path for mirrors host in VirtualService.
+	// Required parameters: http index, mirror index.
+	MirrorsHost = "{.spec.http[%d].mirrors[%d].host}"
+
 	// Path for VirtualService gateway.
 	// Required parameters: gateway index.
 	VSGateway = "{.spec.gateways[%d]}"

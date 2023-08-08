@@ -87,11 +87,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
-	}
-
-	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
-	if err == nil {
-		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
+		IdleTimeout:      parseDuration(node.Metadata.IdleTimeout),
 	}
 	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
 	if maxConnectionDuration != nil {
@@ -124,12 +120,10 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: clusterSpecifier,
+
+		IdleTimeout: parseDuration(node.Metadata.IdleTimeout),
 	}
 
-	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
-	if err == nil {
-		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
-	}
 	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
 	if maxConnectionDuration != nil {
 		tcpProxy.MaxDownstreamConnectionDuration = maxConnectionDuration
