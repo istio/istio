@@ -672,6 +672,10 @@ var (
 
 	JwksResolverInsecureSkipVerify = env.Register("JWKS_RESOLVER_INSECURE_SKIP_VERIFY", false,
 		"If enabled, istiod will skip verifying the certificate of the JWKS server.").Get()
+
+	// User should not rely on builtin resource labels, this flag will be removed in future releases(1.20).
+	EnableOTELBuiltinResourceLables = env.Register("ENABLE_OTEL_BUILTIN_RESOURCE_LABELS", false,
+		"If enabled, envoy will send builtin lables(e.g. node_name) via OTel sink.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
