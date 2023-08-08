@@ -25,3 +25,8 @@ sidecarInjectorWebhook:
   # This enables injection of sidecar in all namespaces,
   enableNamespacesByDefault: false
 
+excludedNamespaces:
+  - "kube-system"
+  - "kube-public"
+  - "kube-node-lease"
+  - "local-path-storage"
