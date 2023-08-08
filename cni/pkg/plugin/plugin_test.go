@@ -405,7 +405,7 @@ func TestCmdAddWithKubevirtInterfaces(t *testing.T) {
 	}
 
 	if value != testAnnotations[kubevirtInterfacesKey] {
-		t.Fatalf(fmt.Sprintf("expected kubevirtInterfaces annotation to equals %s", testAnnotations[kubevirtInterfacesKey]))
+		t.Fatalf("expected kubevirtInterfaces annotation to equals %s", testAnnotations[kubevirtInterfacesKey])
 	}
 }
 
@@ -423,7 +423,7 @@ func TestCmdAddWithExcludeInterfaces(t *testing.T) {
 	}
 
 	if value != testAnnotations[excludeInterfacesKey] {
-		t.Fatalf(fmt.Sprintf("expected excludeInterfaces annotation to equals %s", testAnnotations[excludeInterfacesKey]))
+		t.Fatalf("expected excludeInterfaces annotation to equals %s", testAnnotations[excludeInterfacesKey])
 	}
 }
 
