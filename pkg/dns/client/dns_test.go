@@ -53,13 +53,13 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 		{
 			name:     "success: non k8s host in local cache",
 			host:     "www.google.com.",
-			expected: a("www.google.com.", []netip.Addr{netip.MustParseAddr("1.1.1.1")}),
+			expected: a("www.google.com.", []netip.Addr{netip.MustParseAddr("1.1.1.1")}, 30),
 		},
 		{
 			name: "success: non k8s host with search namespace yields cname+A record",
 			host: "www.google.com.ns1.svc.cluster.local.",
-			expected: append(cname("www.google.com.ns1.svc.cluster.local.", "www.google.com."),
-				a("www.google.com.", []netip.Addr{netip.MustParseAddr("1.1.1.1")})...),
+			expected: append(cname("www.google.com.ns1.svc.cluster.local.", "www.google.com.", 30),
+				a("www.google.com.", []netip.Addr{netip.MustParseAddr("1.1.1.1")}, 30)...),
 		},
 		{
 			name:                     "success: non k8s host not in local cache",
@@ -69,23 +69,23 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 		{
 			name:     "success: k8s host - fqdn",
 			host:     "productpage.ns1.svc.cluster.local.",
-			expected: a("productpage.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}),
+			expected: a("productpage.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}, 30),
 		},
 		{
 			name:     "success: k8s host - name.namespace",
 			host:     "productpage.ns1.",
-			expected: a("productpage.ns1.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}),
+			expected: a("productpage.ns1.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}, 30),
 		},
 		{
 			name:     "success: k8s host - shortname",
 			host:     "productpage.",
-			expected: a("productpage.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}),
+			expected: a("productpage.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}, 30),
 		},
 		{
 			name: "success: k8s host (name.namespace) with search namespace yields cname+A record",
 			host: "productpage.ns1.ns1.svc.cluster.local.",
-			expected: append(cname("productpage.ns1.ns1.svc.cluster.local.", "productpage.ns1."),
-				a("productpage.ns1.", []netip.Addr{netip.MustParseAddr("9.9.9.9")})...),
+			expected: append(cname("productpage.ns1.ns1.svc.cluster.local.", "productpage.ns1.", 30),
+				a("productpage.ns1.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}, 30)...),
 		},
 		{
 			name:      "success: AAAA query for IPv4 k8s host (name.namespace) with search namespace",
@@ -95,17 +95,17 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 		{
 			name:     "success: k8s host - non local namespace - name.namespace",
 			host:     "example.ns2.",
-			expected: a("example.ns2.", []netip.Addr{netip.MustParseAddr("10.10.10.10")}),
+			expected: a("example.ns2.", []netip.Addr{netip.MustParseAddr("10.10.10.10")}, 30),
 		},
 		{
 			name:     "success: k8s host - non local namespace - fqdn",
 			host:     "example.ns2.svc.cluster.local.",
-			expected: a("example.ns2.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("10.10.10.10")}),
+			expected: a("example.ns2.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("10.10.10.10")}, 30),
 		},
 		{
 			name:     "success: k8s host - non local namespace - name.namespace.svc",
 			host:     "example.ns2.svc.",
-			expected: a("example.ns2.svc.", []netip.Addr{netip.MustParseAddr("10.10.10.10")}),
+			expected: a("example.ns2.svc.", []netip.Addr{netip.MustParseAddr("10.10.10.10")}, 30),
 		},
 		{
 			name:                    "failure: k8s host - non local namespace - shortname",
@@ -115,27 +115,27 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 		{
 			name:     "success: alt host - name",
 			host:     "svc-with-alt.",
-			expected: a("svc-with-alt.", []netip.Addr{netip.MustParseAddr("15.15.15.15")}),
+			expected: a("svc-with-alt.", []netip.Addr{netip.MustParseAddr("15.15.15.15")}, 30),
 		},
 		{
 			name:     "success: alt host - name.namespace",
 			host:     "svc-with-alt.ns1.",
-			expected: a("svc-with-alt.ns1.", []netip.Addr{netip.MustParseAddr("15.15.15.15")}),
+			expected: a("svc-with-alt.ns1.", []netip.Addr{netip.MustParseAddr("15.15.15.15")}, 30),
 		},
 		{
 			name:     "success: alt host - name.namespace.svc",
 			host:     "svc-with-alt.ns1.svc.",
-			expected: a("svc-with-alt.ns1.svc.", []netip.Addr{netip.MustParseAddr("15.15.15.15")}),
+			expected: a("svc-with-alt.ns1.svc.", []netip.Addr{netip.MustParseAddr("15.15.15.15")}, 30),
 		},
 		{
 			name:     "success: alt host - name.namespace.svc.cluster.local",
 			host:     "svc-with-alt.ns1.svc.cluster.local.",
-			expected: a("svc-with-alt.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("15.15.15.15")}),
+			expected: a("svc-with-alt.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("15.15.15.15")}, 30),
 		},
 		{
 			name:     "success: alt host - name.namespace.svc.clusterset.local",
 			host:     "svc-with-alt.ns1.svc.clusterset.local.",
-			expected: a("svc-with-alt.ns1.svc.clusterset.local.", []netip.Addr{netip.MustParseAddr("15.15.15.15")}),
+			expected: a("svc-with-alt.ns1.svc.clusterset.local.", []netip.Addr{netip.MustParseAddr("15.15.15.15")}, 30),
 		},
 		{
 			name: "success: remote cluster k8s svc - same ns and different domain - fqdn",
@@ -147,7 +147,7 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 					netip.MustParseAddr("14.14.14.14"),
 					netip.MustParseAddr("12.12.12.12"),
 					netip.MustParseAddr("11.11.11.11"),
-				}),
+				}, 30),
 		},
 		{
 			name: "success: remote cluster k8s svc round robin",
@@ -159,7 +159,7 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 					netip.MustParseAddr("14.14.14.14"),
 					netip.MustParseAddr("11.11.11.11"),
 					netip.MustParseAddr("12.12.12.12"),
-				}),
+				}, 30),
 		},
 		{
 			name:                    "failure: remote cluster k8s svc - same ns and different domain - name.namespace",
@@ -169,39 +169,39 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 		{
 			name:     "success: TypeA query returns A records only",
 			host:     "dual.localhost.",
-			expected: a("dual.localhost.", []netip.Addr{netip.MustParseAddr("2.2.2.2")}),
+			expected: a("dual.localhost.", []netip.Addr{netip.MustParseAddr("2.2.2.2")}, 30),
 		},
 		{
 			name:     "success: wild card returns A record correctly",
 			host:     "foo.wildcard.",
-			expected: a("foo.wildcard.", []netip.Addr{netip.MustParseAddr("10.10.10.10")}),
+			expected: a("foo.wildcard.", []netip.Addr{netip.MustParseAddr("10.10.10.10")}, 30),
 		},
 		{
 			name:     "success: specific wild card returns A record correctly",
 			host:     "a.b.wildcard.",
-			expected: a("a.b.wildcard.", []netip.Addr{netip.MustParseAddr("11.11.11.11")}),
+			expected: a("a.b.wildcard.", []netip.Addr{netip.MustParseAddr("11.11.11.11")}, 30),
 		},
 		{
 			name:     "success: wild card with domain returns A record correctly",
 			host:     "foo.svc.mesh.company.net.",
-			expected: a("foo.svc.mesh.company.net.", []netip.Addr{netip.MustParseAddr("10.1.2.3")}),
+			expected: a("foo.svc.mesh.company.net.", []netip.Addr{netip.MustParseAddr("10.1.2.3")}, 30),
 		},
 		{
 			name:     "success: wild card with namespace with domain returns A record correctly",
 			host:     "foo.foons.svc.mesh.company.net.",
-			expected: a("foo.foons.svc.mesh.company.net.", []netip.Addr{netip.MustParseAddr("10.1.2.3")}),
+			expected: a("foo.foons.svc.mesh.company.net.", []netip.Addr{netip.MustParseAddr("10.1.2.3")}, 30),
 		},
 		{
 			name: "success: wild card with search domain returns A record correctly",
 			host: "foo.svc.mesh.company.net.ns1.svc.cluster.local.",
-			expected: append(cname("*.svc.mesh.company.net.ns1.svc.cluster.local.", "*.svc.mesh.company.net."),
-				a("foo.svc.mesh.company.net.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("10.1.2.3")})...),
+			expected: append(cname("*.svc.mesh.company.net.ns1.svc.cluster.local.", "*.svc.mesh.company.net.", 30),
+				a("foo.svc.mesh.company.net.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("10.1.2.3")}, 30)...),
 		},
 		{
 			name:      "success: TypeAAAA query returns AAAA records only",
 			host:      "dual.localhost.",
 			queryAAAA: true,
-			expected:  aaaa("dual.localhost.", []netip.Addr{netip.MustParseAddr("2001:db8:0:0:0:ff00:42:8329")}),
+			expected:  aaaa("dual.localhost.", []netip.Addr{netip.MustParseAddr("2001:db8:0:0:0:ff00:42:8329")}, 30),
 		},
 		{
 			// This is not a NXDOMAIN, but empty response
@@ -243,7 +243,7 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 		{
 			name:     "success: hostname with a period",
 			host:     "example.localhost.",
-			expected: a("example.localhost.", []netip.Addr{netip.MustParseAddr("3.3.3.3")}),
+			expected: a("example.localhost.", []netip.Addr{netip.MustParseAddr("3.3.3.3")}, 30),
 		},
 	}
 
@@ -396,7 +396,7 @@ var giantResponse = func() []dns.RR {
 	for i := 0; i < 64; i++ {
 		ips = append(ips, netip.MustParseAddr(fmt.Sprintf("240.0.0.%d", i)))
 	}
-	return a("aaaaaaaaaaaa.aaaaaa.", ips)
+	return a("aaaaaaaaaaaa.aaaaaa.", ips, 30)
 }()
 
 func makeUpstream(t test.Failer, responses map[string]string) string {
@@ -412,7 +412,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 	for hn, desiredResp := range responses {
 		mux.HandleFunc(hn, func(resp dns.ResponseWriter, msg *dns.Msg) {
 			answer := dns.Msg{
-				Answer: a(hn, []netip.Addr{netip.MustParseAddr(desiredResp)}),
+				Answer: a(hn, []netip.Addr{netip.MustParseAddr(desiredResp)}, 30),
 			}
 			answer.SetReply(msg)
 			answer.Rcode = dns.RcodeSuccess
@@ -497,7 +497,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 
 func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 	srv := makeUpstream(t, map[string]string{"www.bing.com.": "1.1.1.1"})
-	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", forwardToUpstreamParallel)
+	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", forwardToUpstreamParallel, 30)
 	if err != nil {
 		t.Fatal(err)
 	}
