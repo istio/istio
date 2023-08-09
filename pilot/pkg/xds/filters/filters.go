@@ -236,7 +236,7 @@ var (
 				map[string]any{
 					"downstream_discovery": []any{
 						map[string]any{
-							"istio_headers": map[string]any{},
+							"workload_discovery": map[string]any{},
 						},
 					},
 					"downstream_propagation": []any{
@@ -255,7 +255,7 @@ var (
 				map[string]any{
 					"upstream_discovery": []any{
 						map[string]any{
-							"istio_headers": map[string]any{},
+							"workload_discovery": map[string]any{},
 						},
 					},
 					"upstream_propagation": []any{
