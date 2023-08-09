@@ -15,7 +15,7 @@
 package configdump
 
 type ZtunnelWorkload struct {
-	WorkloadIP        string    `json:"workloadIp"`
+	WorkloadIPs       []string  `json:"workloadIps"`
 	Waypoint          *Waypoint `json:"waypoint"`
 	GatewayIP         []byte    `json:"gatewayIp"`
 	Protocol          string    `json:"protocol"`
