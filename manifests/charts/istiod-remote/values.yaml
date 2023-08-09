@@ -112,14 +112,12 @@ sidecarInjectorWebhook:
   #
   # defaultTemplates: ["sidecar", "hello"]
   defaultTemplates: []
-
   # defaultExcludedNamespace specifies a set of namespaces that sidecar injection will be skipped.
   defaultExcludedNamespace:
     - "kube-system"
     - "kube-public"
     - "kube-node-lease"
     - "local-path-storage"
-
 istiodRemote:
   # Sidecar injector mutating webhook configuration clientConfig.url value.
   # For example: https://$remotePilotAddress:15017/inject

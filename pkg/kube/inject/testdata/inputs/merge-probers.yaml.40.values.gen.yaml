@@ -103,6 +103,12 @@
   "revision": "",
   "sidecarInjectorWebhook": {
     "alwaysInjectSelector": [],
+    "defaultExcludedNamespace": [
+      "kube-system",
+      "kube-public",
+      "kube-node-lease",
+      "local-path-storage"
+    ],
     "defaultTemplates": [],
     "enableNamespacesByDefault": false,
     "injectedAnnotations": {},
