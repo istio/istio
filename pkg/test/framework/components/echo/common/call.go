@@ -65,7 +65,9 @@ func callInternal(srcName string, from echo.Caller, opts echo.CallOptions, send 
 	if opts.Retry.NoRetry {
 		// Retry is disabled, just send once.
 		t0 := time.Now()
-		defer scopes.Framework.Debugf("echo call complete with duration %v", time.Since(t0))
+		defer func() {
+			scopes.Framework.Debugf("echo call complete with duration %v", time.Since(t0))
+		}()
 		return sendAndValidate()
 	}
 
