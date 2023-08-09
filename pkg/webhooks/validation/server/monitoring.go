@@ -48,15 +48,15 @@ var (
 
 var (
 	metricValidationPassed = monitoring.NewSum(
-		"galley/validation/passed",
+		"galley_validation_passed",
 		"Resource is valid",
 	)
 	metricValidationFailed = monitoring.NewSum(
-		"galley/validation/failed",
+		"galley_validation_failed",
 		"Resource validation failed",
 	)
 	metricValidationHTTPError = monitoring.NewSum(
-		"galley/validation/http_error",
+		"galley_validation_http_error",
 		"Resource validation http serve errors",
 	)
 )
