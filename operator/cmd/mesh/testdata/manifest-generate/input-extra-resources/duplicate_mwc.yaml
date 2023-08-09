@@ -20,6 +20,9 @@ webhooks:
   name: rev.namespace.sidecar-injector.istio.io
   namespaceSelector:
     matchExpressions:
+    - key: "kubernetes.io/metadata.name"
+      operator: NotIn
+      values: ["kube-system","kube-public","kube-node-lease","local-path-storage"]
     - key: istio.io/rev
       operator: In
       values:
@@ -59,6 +62,9 @@ webhooks:
   name: rev.object.sidecar-injector.istio.io
   namespaceSelector:
     matchExpressions:
+    - key: "kubernetes.io/metadata.name"
+      operator: NotIn
+      values: [ "kube-system","kube-public","kube-node-lease","local-path-storage" ]
     - key: istio.io/rev
       operator: DoesNotExist
     - key: istio-injection
@@ -100,6 +106,9 @@ webhooks:
   name: namespace.sidecar-injector.istio.io
   namespaceSelector:
     matchExpressions:
+    - key: "kubernetes.io/metadata.name"
+      operator: NotIn
+      values: [ "kube-system","kube-public","kube-node-lease","local-path-storage" ]
     - key: istio-injection
       operator: In
       values:
@@ -137,6 +146,9 @@ webhooks:
   name: object.sidecar-injector.istio.io
   namespaceSelector:
     matchExpressions:
+    - key: "kubernetes.io/metadata.name"
+      operator: NotIn
+      values: [ "kube-system","kube-public","kube-node-lease","local-path-storage" ]
     - key: istio-injection
       operator: DoesNotExist
     - key: istio.io/rev
@@ -176,13 +188,13 @@ webhooks:
   name: auto.sidecar-injector.istio.io
   namespaceSelector:
     matchExpressions:
+    - key: "kubernetes.io/metadata.name"
+      operator: NotIn
+      values: [ "kube-system","kube-public","kube-node-lease","local-path-storage" ]
     - key: istio-injection
       operator: DoesNotExist
     - key: istio.io/rev
       operator: DoesNotExist
-    - key: "kubernetes.io/metadata.name"
-      operator: "NotIn"
-      values: ["kube-system","kube-public","kube-node-lease","local-path-storage"]
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject

@@ -50,6 +50,9 @@ webhooks:
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.namespace.") ) }}
   namespaceSelector:
     matchExpressions:
+    - key: "kubernetes.io/metadata.name"
+      operator: NotIn
+      values: {{ .Values.sidecarInjectorWebhook.defaultExcludedNamespace | toYaml | nindent 6 }}
     - key: istio.io/rev
       operator: In
       values:
@@ -65,6 +68,9 @@ webhooks:
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.object.") ) }}
   namespaceSelector:
     matchExpressions:
+    - key: "kubernetes.io/metadata.name"
+      operator: NotIn
+      values: {{ .Values.sidecarInjectorWebhook.defaultExcludedNamespace | toYaml | nindent 6 }}
     - key: istio.io/rev
       operator: DoesNotExist
     - key: istio-injection
@@ -88,6 +94,9 @@ webhooks:
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "namespace.") ) }}
   namespaceSelector:
     matchExpressions:
+    - key: "kubernetes.io/metadata.name"
+      operator: NotIn
+      values: {{ .Values.sidecarInjectorWebhook.defaultExcludedNamespace | toYaml | nindent 6 }}
     - key: istio-injection
       operator: In
       values:
@@ -103,6 +112,9 @@ webhooks:
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "object.") ) }}
   namespaceSelector:
     matchExpressions:
+    - key: "kubernetes.io/metadata.name"
+      operator: NotIn
+      values: {{ .Values.sidecarInjectorWebhook.defaultExcludedNamespace | toYaml | nindent 6 }}
     - key: istio-injection
       operator: DoesNotExist
     - key: istio.io/rev
@@ -121,13 +133,13 @@ webhooks:
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "auto.") ) }}
   namespaceSelector:
     matchExpressions:
+    - key: "kubernetes.io/metadata.name"
+      operator: NotIn
+      values: {{ .Values.sidecarInjectorWebhook.defaultExcludedNamespace | toYaml | nindent 6 }}
     - key: istio-injection
       operator: DoesNotExist
     - key: istio.io/rev
       operator: DoesNotExist
-    - key: "kubernetes.io/metadata.name"
-      operator: "NotIn"
-      values: ["kube-system","kube-public","kube-node-lease","local-path-storage"]
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject

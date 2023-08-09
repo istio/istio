@@ -184,7 +184,7 @@ func UnmarshalConfig(yml []byte) (Config, error) {
 	return injectConfig, nil
 }
 
-func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata metav1.ObjectMeta) bool { // nolint: lll
+func injectRequired(config *Config, podSpec *corev1.PodSpec, metadata metav1.ObjectMeta) bool { // nolint: lll
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptables changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
@@ -193,13 +193,6 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	// additional pod failures.
 	if podSpec.HostNetwork {
 		return false
-	}
-
-	// skip special kubernetes system namespaces
-	for _, namespace := range ignored {
-		if metadata.Namespace == namespace {
-			return false
-		}
 	}
 
 	annos := metadata.GetAnnotations()
@@ -744,7 +737,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	}
 
 	if patchBytes == nil {
-		if !injectRequired(IgnoredNamespaces.UnsortedList(), &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
+		if !injectRequired(&Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
 			warningStr := fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", fullName)
 			if kind != "" {
 				warningStr = fmt.Sprintf("===> Skipping injection because %s %q has sidecar injection disabled\n",
