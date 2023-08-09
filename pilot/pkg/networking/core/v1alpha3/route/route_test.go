@@ -15,6 +15,7 @@
 package route_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -150,10 +151,24 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithCatchAllPort,
 			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
 		xdstest.ValidateRoutes(t, routes)
-
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(len(routes)).To(gomega.Equal(3))
 		g.Expect(routes[0].Name).To(gomega.Equal("route 1.catch-all for 8080"))
+		g.Expect(routes[1].Name).To(gomega.Equal("route 2.header match"))
+		g.Expect(routes[2].Name).To(gomega.Equal("route 3"))
+	})
+
+	t.Run("for virtual service with catch all route in the first", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithCatchAllPrefixInTheFirst,
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(2))
+		fmt.Printf("%v", routes)
+		g.Expect(routes[0].Name).To(gomega.Equal("route 1.route cache all for 8080"))
+		g.Expect(routes[1].Name).To(gomega.Equal("route 2.route abc for 8080"))
 	})
 
 	t.Run("for internally generated virtual service with ingress semantics", func(t *testing.T) {
@@ -1396,6 +1411,77 @@ var virtualServiceWithCatchAllPort = config.Config{
 							Host: "example1.default.svc.cluster.local",
 							Port: &networking.PortSelector{
 								Number: 8484,
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithCatchAllPrefixInTheFirst = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "route 1",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "route cache all for 8080",
+						Port: 8080,
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example1.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+						Headers: &networking.Headers{
+							Response: &networking.Headers_HeaderOperations{
+								Set: map[string]string{"x-route-req-set": "v1", ":authority": "internal.foo.extsvc.com"},
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "route 2",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "route abc for 8080",
+						Port: 8080,
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/abc",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example1.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Headers: &networking.Headers{
+							Response: &networking.Headers_HeaderOperations{
+								Set: map[string]string{"x-route-req-set": "v1", ":authority": "internal.foo.extsvc.com"},
 							},
 						},
 					},
